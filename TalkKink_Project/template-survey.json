@@ -1,0 +1,58 @@
+{
+  "Bondage": {
+    "Giving": [
+      {
+        "name": "Rope Bondage",
+        "rating": null
+      },
+      {
+        "name": "Cuffs",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Rope Bondage",
+        "rating": null
+      },
+      {
+        "name": "Cuffs",
+        "rating": null
+      }
+    ],
+    "Neutral": [
+      {
+        "name": "Visual Bondage",
+        "rating": null
+      }
+    ]
+  },
+  "Impact": {
+    "Giving": [
+      {
+        "name": "Spanking",
+        "rating": null
+      },
+      {
+        "name": "Paddles",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Spanking",
+        "rating": null
+      },
+      {
+        "name": "Paddles",
+        "rating": null
+      }
+    ],
+    "Neutral": [
+      {
+        "name": "Watching Impact Play",
+        "rating": null
+      }
+    ]
+  }
+}
