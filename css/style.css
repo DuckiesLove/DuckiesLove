@@ -137,7 +137,7 @@ body.theme-rainbow .tab.active {
   border: 1px solid #603636;
 }
 
-/* Buttons and Controls */
+/* Buttons */
 button {
   margin: 10px auto;
   display: block;
@@ -153,18 +153,18 @@ button:hover {
   background-color: #666;
 }
 
-/* Spacer below tabs */
+/* Spacer */
 #downloadBtn {
   margin-top: 30px;
 }
 
-/* Input Fields */
+/* Inputs */
 input[type="file"] {
   display: block;
   margin: 10px 0 20px 0;
 }
 
-/* Category and Kink List */
+/* Category Buttons */
 #categoryContainer button {
   margin: 5px;
   padding: 6px 14px;
@@ -176,7 +176,7 @@ input[type="file"] {
   color: #fff;
 }
 
-/* Result Section */
+/* Result */
 #comparisonResult {
   margin-top: 30px;
   padding: 15px;

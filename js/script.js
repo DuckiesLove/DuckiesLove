@@ -1,4 +1,4 @@
-// ========== Theme Switching Logic ==========
+// ========== Theme Switching ==========
 const themeSelector = document.getElementById('themeSelector');
 const savedTheme = localStorage.getItem('selectedTheme');
 const outerWildsBanner = document.getElementById('outerWildsBanner');
@@ -18,16 +18,15 @@ themeSelector.addEventListener('change', () => {
 });
 
 function updateBannerVisibility(theme) {
-  if (outerWildsBanner) {
-    outerWildsBanner.style.display = theme === 'theme-outer-wilds' ? 'block' : 'none';
-  }
-  if (monsterPromBanner) {
-    monsterPromBanner.style.display = theme === 'theme-monster-prom' ? 'block' : 'none';
-  }
+  outerWildsBanner.style.display = theme === 'theme-outer-wilds' ? 'block' : 'none';
+  monsterPromBanner.style.display = theme === 'theme-monster-prom' ? 'block' : 'none';
 }
 
-// ========== Tab Switching Logic ==========
+// ========== Tabs ==========
 let currentAction = 'Giving';
+let currentCategory = null;
+const categoryContainer = document.getElementById('categoryContainer');
+const kinkList = document.getElementById('kinkList');
 
 function switchTab(action) {
   currentAction = action;
@@ -38,21 +37,17 @@ function switchTab(action) {
   if (currentCategory) showKinks(currentCategory);
 }
 
-document.getElementById('givingTab')?.addEventListener('click', () => switchTab('Giving'));
-document.getElementById('receivingTab')?.addEventListener('click', () => switchTab('Receiving'));
-document.getElementById('neutralTab')?.addEventListener('click', () => switchTab('Neutral'));
+document.getElementById('givingTab').onclick = () => switchTab('Giving');
+document.getElementById('receivingTab').onclick = () => switchTab('Receiving');
+document.getElementById('neutralTab').onclick = () => switchTab('Neutral');
 
-// ========== Survey Data Handling ==========
-const categoryContainer = document.getElementById('categoryContainer');
-const kinkList = document.getElementById('kinkList');
-
+// ========== Survey Handling ==========
 let surveyA = null;
 let surveyB = null;
-let currentCategory = null;
 
-document.getElementById('fileA').addEventListener('change', (e) => {
+document.getElementById('fileA').addEventListener('change', e => {
   const reader = new FileReader();
-  reader.onload = (ev) => {
+  reader.onload = ev => {
     try {
       surveyA = JSON.parse(ev.target.result);
       showCategories();
@@ -63,9 +58,9 @@ document.getElementById('fileA').addEventListener('change', (e) => {
   reader.readAsText(e.target.files[0]);
 });
 
-document.getElementById('fileB').addEventListener('change', (e) => {
+document.getElementById('fileB').addEventListener('change', e => {
   const reader = new FileReader();
-  reader.onload = (ev) => {
+  reader.onload = ev => {
     try {
       surveyB = JSON.parse(ev.target.result);
     } catch {
@@ -76,7 +71,7 @@ document.getElementById('fileB').addEventListener('change', (e) => {
 });
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
-  fetch('template-survey.json?v=61')
+  fetch('template-survey.json')
     .then(res => res.json())
     .then(data => {
       surveyA = data;
@@ -85,7 +80,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     .catch(err => alert('Failed to load template: ' + err.message));
 });
 
-// ========== Displaying Categories & Kinks ==========
+// ========== Categories and Kinks ==========
 function showCategories() {
   categoryContainer.innerHTML = '';
   if (!surveyA) return;
@@ -145,12 +140,9 @@ function showKinks(category) {
   });
 }
 
-// ========== Download Survey ==========
+// ========== Download ==========
 document.getElementById('downloadBtn').addEventListener('click', () => {
-  if (!surveyA) {
-    alert('No survey loaded.');
-    return;
-  }
+  if (!surveyA) return alert('No survey loaded.');
   const blob = new Blob([JSON.stringify(surveyA, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -160,7 +152,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-// ========== Compare Surveys ==========
+// ========== Compare ==========
 document.getElementById('compareBtn').addEventListener('click', () => {
   const resultDiv = document.getElementById('comparisonResult');
   resultDiv.innerHTML = '';
@@ -173,23 +165,19 @@ document.getElementById('compareBtn').addEventListener('click', () => {
   const categories = Object.keys(surveyA);
   let totalScore = 0;
   let count = 0;
-  let redFlags = [];
-  let yellowFlags = [];
+  let redFlags = [], yellowFlags = [];
 
-  categories.forEach(category => {
-    if (!surveyB[category]) return;
-
+  categories.forEach(cat => {
+    if (!surveyB[cat]) return;
     ['Giving', 'Receiving', 'Neutral'].forEach(action => {
-      const listA = surveyA[category][action] || [];
-      const listB = surveyB[category][
+      const listA = surveyA[cat][action] || [];
+      const listB = surveyB[cat][
         action === 'Giving' ? 'Receiving' :
         action === 'Receiving' ? 'Giving' : 'Neutral'
       ] || [];
 
       listA.forEach(itemA => {
-        const match = listB.find(itemB =>
-          itemB.name.trim().toLowerCase() === itemA.name.trim().toLowerCase()
-        );
+        const match = listB.find(itemB => itemB.name.trim().toLowerCase() === itemA.name.trim().toLowerCase());
         if (match) {
           const ratingA = parseInt(itemA.rating);
           const ratingB = parseInt(match.rating);
@@ -198,7 +186,6 @@ document.getElementById('compareBtn').addEventListener('click', () => {
             const score = Math.max(0, 100 - diff * 20);
             totalScore += score;
             count++;
-
             if ((ratingA === 6 && ratingB === 1) || (ratingA === 1 && ratingB === 6)) {
               redFlags.push(itemA.name);
             } else if (
@@ -213,57 +200,11 @@ document.getElementById('compareBtn').addEventListener('click', () => {
     });
   });
 
-  let output = '';
-  if (count === 0 || isNaN(totalScore)) {
-    output += `<h3>Compatibility Score: 0%</h3><p>No shared rated items to compare.</p>`;
-  } else {
-    const avgScore = Math.round(totalScore / count);
-    output += `<h3>Compatibility Score: ${avgScore}%</h3>`;
-  }
-
-  // Similarity score in same roles
-  let similarityScore = 0;
-  let similarityCount = 0;
-  categories.forEach(category => {
-    if (!surveyB[category]) return;
-    ['Giving', 'Receiving', 'Neutral'].forEach(action => {
-      const listA = surveyA[category][action] || [];
-      const listB = surveyB[category][action] || [];
-
-      listA.forEach(itemA => {
-        const match = listB.find(itemB =>
-          itemB.name.trim().toLowerCase() === itemA.name.trim().toLowerCase()
-        );
-        if (match) {
-          const ratingA = parseInt(itemA.rating);
-          const ratingB = parseInt(match.rating);
-          if (Number.isInteger(ratingA) && Number.isInteger(ratingB)) {
-            const diff = Math.abs(ratingA - ratingB);
-            const score = Math.max(0, 100 - diff * 20);
-            similarityScore += score;
-            similarityCount++;
-          }
-        }
-      });
-    });
-  });
-
-  if (similarityCount > 0 && !isNaN(similarityScore)) {
-    const avgSim = Math.round(similarityScore / similarityCount);
-    output += `<h4>Similarity Score: ${avgSim}%</h4>`;
-  } else {
-    output += `<h4>Similarity Score: 0%</h4><p>No overlapping ratings in matching roles.</p>`;
-  }
-
-  if (redFlags.length) {
-    output += `<p>🚩 Red flags: ${[...new Set(redFlags)].join(', ')}</p>`;
-  }
-  if (yellowFlags.length) {
-    output += `<p>⚠️ Yellow flags: ${[...new Set(yellowFlags)].join(', ')}</p>`;
-  }
-
-  resultDiv.innerHTML = output;
+  const avgScore = count > 0 ? Math.round(totalScore / count) : 0;
+  resultDiv.innerHTML = `<h3>Compatibility Score: ${avgScore}%</h3>`;
+  if (redFlags.length) resultDiv.innerHTML += `<p>🚩 Red flags: ${[...new Set(redFlags)].join(', ')}</p>`;
+  if (yellowFlags.length) resultDiv.innerHTML += `<p>⚠️ Yellow flags: ${[...new Set(yellowFlags)].join(', ')}</p>`;
 });
 
-// ========== Init Default Tab ==========
+// Initialize default tab
 switchTab('Giving');
