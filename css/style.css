@@ -1,187 +1,61 @@
-/* Base Page Layout */
+/* Base styling */
 body {
   margin: 0;
   padding: 20px;
-  font-family: 'Playpen Sans Hebrew', cursive;
-  background-color: #000;
-  color: #fff;
-  font-size: 16px;
-  font-weight: 400;
+  font-family: 'Playpen Sans', cursive;
+  background-color: #ffffff;
+  color: #000000;
+  transition: background-color 0.3s, color 0.3s;
 }
 
-/* Theme Styling */
+h1 {
+  font-size: 2em;
+  margin-bottom: 1em;
+}
+
+/* Theme dropdown styling */
+#themeSelector {
+  margin-bottom: 20px;
+}
+
+#themeDropdown {
+  padding: 6px 10px;
+  font-family: 'Playpen Sans', cursive;
+  font-size: 1em;
+}
+
+/* Light Theme */
+body.light-mode {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* Dark Theme */
 body.dark-mode {
   background-color: #121212;
   color: #e0e0e0;
 }
-body.light-mode {
-  background-color: #ffffff;
-  color: #000;
-}
+
+/* Blue Theme */
 body.theme-blue {
   background-color: #001933;
-  color: #fff;
+  color: #ffffff;
 }
+
+/* Outer Wilds Theme */
 body.theme-outer-wilds {
   background-color: #1e1e2e;
   color: #ffde8d;
 }
+
+/* Monster Prom Theme */
 body.theme-monster-prom {
   background-color: #400040;
   color: #ff69b4;
 }
+
+/* Rainbow Theme */
 body.theme-rainbow {
   background: linear-gradient(135deg, #ff9a9e, #fad0c4, #fbc2eb, #a18cd1);
-  color: #000;
-}
-
-/* Theme Banners */
-.theme-banner {
-  width: 100%;
-  max-height: 250px;
-  object-fit: cover;
-  display: none;
-  margin-bottom: 20px;
-  border-radius: 6px;
-}
-
-/* Header */
-h1 {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-/* Theme Selector */
-#themeControl {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-/* Tab Container */
-.tab-container {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-/* Tab Buttons */
-.tab {
-  padding: 10px 25px;
-  border-radius: 6px;
-  background-color: #ccc;
-  color: #000;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  font-weight: 500;
-}
-.tab.active {
-  background-color: #007acc;
-  color: #fff;
-  font-weight: bold;
-}
-
-/* Tab Colors by Theme */
-body.light-mode .tab {
-  background-color: #e0e0e0;
-  color: #000;
-}
-body.light-mode .tab.active {
-  background-color: #007acc;
-  border: 1px solid #005fa3;
-}
-
-body.dark-mode .tab {
-  background-color: #222;
-  color: #f5f5f5;
-}
-body.dark-mode .tab.active {
-  background-color: #00bfff;
-  color: #000;
-  border: 1px solid #0099cc;
-}
-
-body.theme-blue .tab {
-  background-color: #003366;
-  color: #fff;
-}
-body.theme-blue .tab.active {
-  background-color: #0055aa;
-  border: 1px solid #003377;
-}
-
-body.theme-outer-wilds .tab {
-  background-color: #2b2b3d;
-  color: #ffde8d;
-}
-body.theme-outer-wilds .tab.active {
-  background-color: #3b3a5a;
-  border: 1px solid #ffde8d;
-}
-
-body.theme-monster-prom .tab {
-  background-color: #663366;
-  color: #ff69b4;
-}
-body.theme-monster-prom .tab.active {
-  background-color: #ff69b4;
-  color: #400040;
-  border: 1px solid #800080;
-}
-
-body.theme-rainbow .tab {
-  background-color: rgba(255, 255, 255, 0.5);
-  color: #000;
-}
-body.theme-rainbow .tab.active {
-  background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid #603636;
-}
-
-/* Buttons and Controls */
-button {
-  margin: 10px auto;
-  display: block;
-  padding: 10px 20px;
-  font-weight: bold;
-  border: none;
-  border-radius: 5px;
-  background-color: #444;
-  color: white;
-  transition: background-color 0.3s;
-}
-button:hover {
-  background-color: #666;
-}
-
-/* Spacer below tabs */
-#downloadBtn {
-  margin-top: 30px;
-}
-
-/* Input Fields */
-input[type="file"] {
-  display: block;
-  margin: 10px 0 20px 0;
-}
-
-/* Category and Kink List */
-#categoryContainer button {
-  margin: 5px;
-  padding: 6px 14px;
-  border-radius: 4px;
-  border: 1px solid #aaa;
-}
-#categoryContainer button.active {
-  background-color: #444;
-  color: #fff;
-}
-
-/* Result Section */
-#comparisonResult {
-  margin-top: 30px;
-  padding: 15px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background-color: #f9f9f9;
+  color: #000000;
 }
