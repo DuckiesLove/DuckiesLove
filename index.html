@@ -4,20 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Talk</title>
-
-  <!-- Google Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew&display=swap" rel="stylesheet" />
-
-  <!-- External CSS -->
   <link rel="stylesheet" href="styles.css" />
+  <script src="script.js" defer></script>
 </head>
 <body>
-  <h1>Kink Talk Survey</h1>
+  <h1>Kink Talk</h1>
 
-  <!-- Theme Selector -->
-  <div id="themeControl">
-    <label for="themeSelect">Choose Theme:</label>
-    <select id="themeSelect">
+  <div id="themeSelector">
+    <label for="themeDropdown">Choose Theme:</label>
+    <select id="themeDropdown">
       <option value="light-mode">Light</option>
       <option value="dark-mode">Dark</option>
       <option value="theme-blue">Blue</option>
@@ -27,30 +22,7 @@
     </select>
   </div>
 
-  <!-- Action Buttons -->
-  <div>
-    <button id="givingBtn">Giving</button>
-    <button id="receivingBtn">Receiving</button>
-    <button id="neutralBtn">Neutral</button>
-    <button id="downloadBtn">Download Updated Survey</button>
-    <button id="newSurveyBtn">Start New Survey</button>
-  </div>
+  <!-- Your content here -->
 
-  <!-- Dynamic Content Areas -->
-  <div id="categoryContainer"></div>
-  <div id="kinkList"></div>
-
-  <!-- Upload Sections -->
-  <h3>Upload Your Survey</h3>
-  <input type="file" id="fileA" />
-
-  <h3>Upload Partner's Survey</h3>
-  <input type="file" id="fileB" />
-
-  <button id="compareBtn">Compare Compatibility</button>
-  <div id="comparisonResult"></div>
-
-  <!-- External JS -->
-  <script src="script.js"></script>
 </body>
 </html>

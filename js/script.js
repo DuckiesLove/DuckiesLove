@@ -1,17 +1,15 @@
-// Load saved theme from localStorage if available
 document.addEventListener('DOMContentLoaded', () => {
-  const savedTheme = localStorage.getItem('selectedTheme');
   const dropdown = document.getElementById('themeDropdown');
+  const savedTheme = localStorage.getItem('selectedTheme');
 
-  if (savedTheme) {
-    document.body.className = savedTheme;
-    if (dropdown) dropdown.value = savedTheme;
-  }
+  // Set default to dark-mode if nothing is stored
+  const initialTheme = savedTheme || 'dark-mode';
+  document.body.className = initialTheme;
+  dropdown.value = initialTheme;
 
-  // Change theme on dropdown selection
-  dropdown.addEventListener('change', function () {
-    const selectedTheme = this.value;
-    document.body.className = selectedTheme;
-    localStorage.setItem('selectedTheme', selectedTheme);
+  dropdown.addEventListener('change', () => {
+    const selected = dropdown.value;
+    document.body.className = selected;
+    localStorage.setItem('selectedTheme', selected);
   });
 });

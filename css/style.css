@@ -1,27 +1,7 @@
-/* Base styling */
 body {
-  margin: 0;
-  padding: 20px;
-  font-family: 'Playpen Sans', cursive;
-  background-color: #ffffff;
-  color: #000000;
   transition: background-color 0.3s, color 0.3s;
-}
-
-h1 {
-  font-size: 2em;
-  margin-bottom: 1em;
-}
-
-/* Theme dropdown styling */
-#themeSelector {
-  margin-bottom: 20px;
-}
-
-#themeDropdown {
-  padding: 6px 10px;
-  font-family: 'Playpen Sans', cursive;
-  font-size: 1em;
+  font-family: sans-serif;
+  padding: 20px;
 }
 
 /* Light Theme */
