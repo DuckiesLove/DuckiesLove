@@ -1,3 +1,4 @@
+
 const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
 
