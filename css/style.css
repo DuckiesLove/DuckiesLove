@@ -1,3 +1,4 @@
+/* Base Theme */
 body {
   font-family: 'Playpen Sans Hebrew', sans-serif;
   margin: 0;
@@ -6,34 +7,44 @@ body {
   color: #eee;
 }
 
-/* Banner styling */
-.theme-banner {
+.banner {
   width: 100%;
-  max-height: 270px;
-  object-fit: cover;
-  display: none; /* Hidden by default, JS will show the right one */
+  overflow: hidden;
 }
 
-/* Title */
+.theme-banner {
+  display: none;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+/* Always show the current theme's banner */
+body.theme-monster-prom #monsterPromBanner {
+  display: block;
+}
+body.theme-outer-wilds #outerWildsBanner {
+  display: block;
+}
+
 .title {
   text-align: center;
   font-size: 2.5rem;
   margin: 1rem 0;
 }
 
-/* Layout containers */
 .theme-selector,
 .tab-container,
 .survey-buttons {
   display: flex;
   justify-content: center;
-  flex-wrap: wrap;
   gap: 1rem;
   margin: 1rem 0;
+  flex-wrap: wrap;
 }
 
-/* Buttons and Select */
-button, select {
+button,
+select {
   padding: 0.5rem 1rem;
   font-size: 1rem;
   border: none;
@@ -43,50 +54,11 @@ button, select {
   cursor: pointer;
 }
 
-button:hover, select:hover {
+button:hover,
+select:hover {
   background-color: #555;
-}
-
-/* Tabs */
-.tab {
-  padding: 0.5rem 1.5rem;
-  border-radius: 4px;
-  background-color: #222;
 }
 
 .tab.active {
-  background-color: #555;
-  font-weight: bold;
-}
-
-/* Theme Variants */
-body.light-mode {
-  background-color: #fff;
-  color: #111;
-}
-
-body.light-mode button,
-body.light-mode select {
-  background-color: #eee;
-  color: #111;
-}
-
-body.theme-blue {
-  background-color: #001f3f;
-  color: #cceeff;
-}
-
-body.theme-rainbow {
-  background: linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet);
-  color: #fff;
-}
-
-body.theme-outer-wilds {
-  background-color: #050505;
-  color: #caa;
-}
-
-body.theme-monster-prom {
-  background-color: #300030;
-  color: #f7a;
+  background-color: #666;
 }
