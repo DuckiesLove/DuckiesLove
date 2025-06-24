@@ -1,13 +1,12 @@
-/* Base Page Layout */
 body {
   margin: 0;
   padding: 20px;
-  font-family: Arial, sans-serif;
+  font-family: 'Playpen Sans Hebrew', sans-serif;
   background-color: #fff;
   color: #000;
 }
 
-/* Theme Styling */
+/* Themes */
 body.dark-mode {
   background-color: #121212;
   color: #e0e0e0;
@@ -33,7 +32,7 @@ body.light-mode {
   color: #000;
 }
 
-/* Theme Banners */
+/* Banners */
 .theme-banner {
   width: 100%;
   max-height: 250px;
@@ -63,7 +62,7 @@ h1 {
   margin-bottom: 30px;
 }
 
-/* Tab Buttons */
+/* Tabs */
 .tab {
   padding: 10px 25px;
   border-radius: 6px;
@@ -79,7 +78,7 @@ h1 {
   font-weight: bold;
 }
 
-/* Tab Colors by Theme */
+/* Tab Themes */
 body.light-mode .tab {
   background-color: #e0e0e0;
   color: #000;
@@ -136,7 +135,7 @@ body.theme-rainbow .tab.active {
   border: 1px solid #603636;
 }
 
-/* Buttons and Controls */
+/* Buttons */
 button {
   margin: 10px auto;
   display: block;
@@ -152,18 +151,17 @@ button:hover {
   background-color: #666;
 }
 
-/* Spacer below tabs */
 #downloadBtn {
   margin-top: 30px;
 }
 
-/* Input Fields */
+/* Input fields */
 input[type="file"] {
   display: block;
   margin: 10px 0 20px 0;
 }
 
-/* Category and Kink List */
+/* Category Buttons */
 #categoryContainer button {
   margin: 5px;
   padding: 6px 14px;
@@ -175,7 +173,7 @@ input[type="file"] {
   color: #fff;
 }
 
-/* Result Section */
+/* Comparison Output */
 #comparisonResult {
   margin-top: 30px;
   padding: 15px;
@@ -183,4 +181,3 @@ input[type="file"] {
   border-radius: 6px;
   background-color: #f9f9f9;
 }
-
