@@ -5,53 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Talk</title>
 
-  <!-- Fonts (optional aesthetic) -->
-  <link href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew&display=swap" rel="stylesheet" />
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew&display=swap" rel="stylesheet">
 
   <!-- CSS -->
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="css/style.css" />
 
   <!-- JavaScript -->
-  <script src="script.js" defer></script>
+  <script src="js/script.js" defer></script>
 </head>
-<body class="theme-monster-prom">
+<body class="dark-mode">
+  <!-- Theme Banners -->
+  <img id="outerWildsBanner" src="https://static.displate.com/380x270/displate/2023-10-13/48fa0ba6447050543f77cc734d746bd6_e644163f144c50f83cbef9fe6e223464.jpg" alt="Outer Wilds Banner" class="theme-banner" />
+  <img id="monsterPromBanner" src="https://freeimghost.net/images/2025/06/20/yourethemaindish_banner.png" alt="Monster Prom Banner" class="theme-banner" />
 
-  <!-- Banners -->
-  <div class="banner">
-    <img id="monsterPromBanner" class="theme-banner" src="yourethemaindish_banner.png" alt="Monster Prom Banner" />
-    <img id="outerWildsBanner" class="theme-banner" src="outerwilds_banner.png" alt="Outer Wilds Banner" />
-  </div>
-
-  <!-- Title -->
-  <h1 class="title">Kink Talk</h1>
+  <h1>Kink Talk</h1>
 
   <!-- Theme Switcher -->
-  <div class="theme-selector">
-    <label for="themeSelector">🎭 Select Theme:</label>
+  <div id="themeControl">
+    <label for="themeSelector">🎨 Select Theme:</label>
     <select id="themeSelector">
-      <option value="theme-monster-prom" selected>Monster Prom</option>
+      <option value="dark-mode" selected>Dark</option>
+      <option value="light-mode">Light</option>
+      <option value="theme-blue">Blue</option>
       <option value="theme-outer-wilds">Outer Wilds</option>
+      <option value="theme-monster-prom">Monster Prom 4</option>
+      <option value="theme-rainbow">Rainbow</option>
     </select>
   </div>
 
-  <!-- Action Tabs -->
+  <!-- Tab Controls -->
   <div class="tab-container">
-    <button id="givingTab" class="tab">Giving</button>
-    <button id="receivingTab" class="tab">Receiving</button>
-    <button id="neutralTab" class="tab">Neutral</button>
+    <div class="tab active" id="givingTab">Giving</div>
+    <div class="tab" id="receivingTab">Receiving</div>
+    <div class="tab" id="neutralTab">Neutral</div>
   </div>
 
-  <!-- Survey Buttons -->
-  <div class="survey-buttons">
-    <button id="downloadSurvey">Download Updated Survey</button>
-    <button id="startNewSurvey">Start New Survey</button>
+  <div>
+    <button id="downloadBtn">Download Updated Survey</button>
+    <button id="newSurveyBtn">Start New Survey</button>
   </div>
 
-  <!-- Survey Output Placeholder -->
+  <!-- Survey Interface -->
   <div id="categoryContainer"></div>
   <div id="kinkList"></div>
 
-  <!-- File Uploads -->
+  <!-- Upload Inputs -->
   <h3>Upload Your Survey</h3>
   <input type="file" id="fileA" />
 
@@ -60,6 +59,5 @@
 
   <button id="compareBtn">Compare</button>
   <div id="comparisonResult"></div>
-
 </body>
 </html>
