@@ -2,15 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Talk</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="dark-mode">
+  <!-- Banners -->
   <img id="outerWildsBanner" src="https://static.displate.com/380x270/displate/2023-10-13/48fa0ba6447050543f77cc734d746bd6_e644163f144c50f83cbef9fe6e223464.jpg" alt="Outer Wilds Banner" class="theme-banner" />
   <img id="monsterPromBanner" src="https://freeimghost.net/images/2025/06/20/yourethemaindish_banner.png" alt="Monster Prom Banner" class="theme-banner" />
 
+  <!-- Title -->
   <h1>Kink Talk</h1>
 
+  <!-- Theme Selector -->
   <div id="themeControl">
     <label for="themeSelector">🎨 Select Theme:</label>
     <select id="themeSelector">
@@ -23,18 +27,22 @@
     </select>
   </div>
 
+  <!-- Tabs -->
   <div class="tab-container">
     <div class="tab active" id="givingTab">Giving</div>
     <div class="tab" id="receivingTab">Receiving</div>
     <div class="tab" id="neutralTab">Neutral</div>
   </div>
 
+  <!-- Buttons -->
   <button id="downloadBtn">Download Updated Survey</button>
   <button id="newSurveyBtn">Start New Survey</button>
 
+  <!-- Dynamic Content -->
   <div id="categoryContainer"></div>
   <div id="kinkList"></div>
 
+  <!-- Upload Section -->
   <h3>Upload Your Survey</h3>
   <input type="file" id="fileA" />
 
@@ -44,6 +52,7 @@
   <button id="compareBtn">Compare</button>
   <div id="comparisonResult"></div>
 
+  <!-- JavaScript -->
   <script src="script.js"></script>
 </body>
 </html>
