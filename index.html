@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Talk</title>
   <link rel="stylesheet" href="css/style.css" />
-...
-<script src="js/script.js"></script>
-
 </head>
 <body class="dark-mode">
   <!-- Banners -->
@@ -55,7 +52,47 @@
   <button id="compareBtn">Compare</button>
   <div id="comparisonResult"></div>
 
-  <!-- JavaScript -->
+  <!-- JavaScript (placed at the bottom for proper loading) -->
+  <script>
+    // Ensure only the correct banner shows on load
+    const savedTheme = localStorage.getItem('selectedTheme');
+    const outerWildsBanner = document.getElementById('outerWildsBanner');
+    const monsterPromBanner = document.getElementById('monsterPromBanner');
+
+    function updateBannerVisibility(theme) {
+      outerWildsBanner.style.display = theme === 'theme-outer-wilds' ? 'block' : 'none';
+      monsterPromBanner.style.display = theme === 'theme-monster-prom' ? 'block' : 'none';
+    }
+
+    if (savedTheme) {
+      document.body.className = savedTheme;
+      const themeSelector = document.getElementById('themeSelector');
+      if (themeSelector) themeSelector.value = savedTheme;
+      updateBannerVisibility(savedTheme);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('themeSelector').addEventListener('change', (e) => {
+        const selectedTheme = e.target.value;
+        document.body.className = selectedTheme;
+        localStorage.setItem('selectedTheme', selectedTheme);
+        updateBannerVisibility(selectedTheme);
+      });
+
+      document.getElementById('newSurveyBtn').addEventListener('click', () => {
+        fetch('template-survey.json')
+          .then(res => res.json())
+          .then(data => {
+            // Use survey data here
+            console.log("Template loaded:", data);
+            // Example: assign to a global variable if needed
+            window.surveyA = data;
+            // Trigger any rendering logic here
+          })
+          .catch(err => alert('Failed to load template: ' + err.message));
+      });
+    });
+  </script>
   <script src="js/script.js"></script>
 </body>
 </html>
