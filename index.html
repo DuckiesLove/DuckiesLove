@@ -8,30 +8,41 @@
   <!-- Google Font -->
   <link href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew&display=swap" rel="stylesheet">
 
-  <!-- External Stylesheet -->
-  <link rel="stylesheet" href="styles.css">
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/styles.css" />
 
-  <!-- External Script -->
+  <!-- JavaScript -->
   <script src="script.js" defer></script>
 </head>
-<body>
+<body class="dark-mode">
+  <!-- Optional banners -->
+  <img id="outerWildsBanner" src="https://static.displate.com/380x270/displate/2023-10-13/48fa0ba6447050543f77cc734d746bd6_e644163f144c50f83cbef9fe6e223464.jpg" alt="Outer Wilds Banner" class="theme-banner" />
+  <img id="monsterPromBanner" src="https://freeimghost.net/images/2025/06/20/yourethemaindish_banner.png" alt="Monster Prom Banner" class="theme-banner" />
+
   <h1>Kink Talk</h1>
 
   <!-- Theme Switcher -->
-  <label for="themeSelect">Theme:</label>
-  <select id="themeSelect">
-    <option value="dark" selected>Dark</option>
-    <option value="light">Light</option>
-    <option value="sunset">Sunset</option>
-    <option value="neon">Neon</option>
-  </select>
+  <div id="themeControl">
+    <label for="themeSelector">🎨 Select Theme:</label>
+    <select id="themeSelector">
+      <option value="dark-mode" selected>Dark</option>
+      <option value="light-mode">Light</option>
+      <option value="theme-blue">Blue</option>
+      <option value="theme-outer-wilds">Outer Wilds</option>
+      <option value="theme-monster-prom">Monster Prom 4</option>
+      <option value="theme-rainbow">Rainbow</option>
+    </select>
+  </div>
 
-  <!-- Action Buttons -->
+  <!-- Tab Controls -->
+  <div class="tab-container">
+    <div class="tab active" id="givingTab">Giving</div>
+    <div class="tab" id="receivingTab">Receiving</div>
+    <div class="tab" id="neutralTab">Neutral</div>
+  </div>
+
   <div>
-    <button id="givingBtn">Giving</button>
-    <button id="receivingBtn">Receiving</button>
-    <button id="neutralBtn">Neutral</button>
-    <button id="downloadBtn">Download Updated Template</button>
+    <button id="downloadBtn">Download Updated Survey</button>
     <button id="newSurveyBtn">Start New Survey</button>
   </div>
 
@@ -46,14 +57,8 @@
   <h3>Upload Partner's Survey</h3>
   <input type="file" id="fileB" />
 
-  <button id="compareBtn">Compare Compatibility</button>
+  <button id="compareBtn">Compare</button>
 
-  <!-- Progress Indicator -->
-  <div id="progressContainer" style="display: none;">
-    <div id="progressBar"></div>
-  </div>
-
-  <!-- Results -->
   <div id="comparisonResult"></div>
 </body>
 </html>
