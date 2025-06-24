@@ -1,210 +1,41 @@
-// ========== Theme Switching ==========
-const themeSelector = document.getElementById('themeSelector');
-const savedTheme = localStorage.getItem('selectedTheme');
-const outerWildsBanner = document.getElementById('outerWildsBanner');
-const monsterPromBanner = document.getElementById('monsterPromBanner');
+window.addEventListener('DOMContentLoaded', () => {
+  const themeSelector = document.getElementById('themeSelector');
+  const savedTheme = localStorage.getItem('selectedTheme') || 'dark-mode';
+  const outerWildsBanner = document.getElementById('outerWildsBanner');
+  const monsterPromBanner = document.getElementById('monsterPromBanner');
 
-if (savedTheme) {
   document.body.className = savedTheme;
   themeSelector.value = savedTheme;
   updateBannerVisibility(savedTheme);
-}
 
-themeSelector.addEventListener('change', () => {
-  const selectedTheme = themeSelector.value;
-  document.body.className = selectedTheme;
-  localStorage.setItem('selectedTheme', selectedTheme);
-  updateBannerVisibility(selectedTheme);
-});
-
-function updateBannerVisibility(theme) {
-  outerWildsBanner.style.display = theme === 'theme-outer-wilds' ? 'block' : 'none';
-  monsterPromBanner.style.display = theme === 'theme-monster-prom' ? 'block' : 'none';
-}
-
-// ========== Tabs ==========
-let currentAction = 'Giving';
-let currentCategory = null;
-const categoryContainer = document.getElementById('categoryContainer');
-const kinkList = document.getElementById('kinkList');
-
-function switchTab(action) {
-  currentAction = action;
-  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-  const activeTab = document.getElementById(`${action.toLowerCase()}Tab`);
-  if (activeTab) activeTab.classList.add('active');
-  showCategories();
-  if (currentCategory) showKinks(currentCategory);
-}
-
-document.getElementById('givingTab').onclick = () => switchTab('Giving');
-document.getElementById('receivingTab').onclick = () => switchTab('Receiving');
-document.getElementById('neutralTab').onclick = () => switchTab('Neutral');
-
-// ========== Survey Handling ==========
-let surveyA = null;
-let surveyB = null;
-
-document.getElementById('fileA').addEventListener('change', e => {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      surveyA = JSON.parse(ev.target.result);
-      showCategories();
-    } catch {
-      alert('Invalid JSON file for Survey A.');
-    }
-  };
-  reader.readAsText(e.target.files[0]);
-});
-
-document.getElementById('fileB').addEventListener('change', e => {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      surveyB = JSON.parse(ev.target.result);
-    } catch {
-      alert('Invalid JSON file for Survey B.');
-    }
-  };
-  reader.readAsText(e.target.files[0]);
-});
-
-document.getElementById('newSurveyBtn').addEventListener('click', () => {
-  fetch('template-survey.json')
-    .then(res => res.json())
-    .then(data => {
-      surveyA = data;
-      showCategories();
-    })
-    .catch(err => alert('Failed to load template: ' + err.message));
-});
-
-// ========== Categories and Kinks ==========
-function showCategories() {
-  categoryContainer.innerHTML = '';
-  if (!surveyA) return;
-
-  const categories = Object.keys(surveyA);
-  categories.forEach(cat => {
-    const btn = document.createElement('button');
-    btn.textContent = cat;
-    if (currentCategory === cat) btn.classList.add('active');
-    btn.onclick = () => {
-      if (currentCategory === cat) return;
-      currentCategory = cat;
-      showCategories();
-      showKinks(cat);
-    };
-    categoryContainer.appendChild(btn);
+  themeSelector.addEventListener('change', () => {
+    const selectedTheme = themeSelector.value;
+    document.body.className = selectedTheme;
+    localStorage.setItem('selectedTheme', selectedTheme);
+    updateBannerVisibility(selectedTheme);
   });
-}
 
-function showKinks(category) {
-  currentCategory = category;
-  kinkList.innerHTML = '';
-  const kinks = surveyA[category]?.[currentAction];
-  if (!kinks || kinks.length === 0) {
-    kinkList.textContent = 'No items here.';
-    return;
+  function updateBannerVisibility(theme) {
+    outerWildsBanner.style.display = theme === 'theme-outer-wilds' ? 'block' : 'none';
+    monsterPromBanner.style.display = theme === 'theme-monster-prom' ? 'block' : 'none';
   }
 
-  kinks.forEach(kink => {
-    const container = document.createElement('div');
-    container.style.marginBottom = '10px';
+  const tabs = {
+    Giving: document.getElementById('givingTab'),
+    Receiving: document.getElementById('receivingTab'),
+    Neutral: document.getElementById('neutralTab'),
+  };
 
-    const label = document.createElement('span');
-    label.textContent = kink.name + ': ';
-    container.appendChild(label);
+  let currentAction = 'Giving';
 
-    const select = document.createElement('select');
-    const emptyOption = document.createElement('option');
-    emptyOption.value = '';
-    emptyOption.textContent = '—';
-    select.appendChild(emptyOption);
-
-    for (let i = 1; i <= 6; i++) {
-      const option = document.createElement('option');
-      option.value = i;
-      option.textContent = i;
-      if (kink.rating == i) option.selected = true;
-      select.appendChild(option);
-    }
-
-    select.addEventListener('change', () => {
-      kink.rating = select.value === '' ? null : Number(select.value);
-    });
-
-    container.appendChild(select);
-    kinkList.appendChild(container);
-  });
-}
-
-// ========== Download ==========
-document.getElementById('downloadBtn').addEventListener('click', () => {
-  if (!surveyA) return alert('No survey loaded.');
-  const blob = new Blob([JSON.stringify(surveyA, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'kink-survey.json';
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-// ========== Compare ==========
-document.getElementById('compareBtn').addEventListener('click', () => {
-  const resultDiv = document.getElementById('comparisonResult');
-  resultDiv.innerHTML = '';
-
-  if (!surveyA || !surveyB) {
-    resultDiv.textContent = 'Please upload both surveys to compare.';
-    return;
-  }
-
-  const categories = Object.keys(surveyA);
-  let totalScore = 0;
-  let count = 0;
-  let redFlags = [], yellowFlags = [];
-
-  categories.forEach(cat => {
-    if (!surveyB[cat]) return;
-    ['Giving', 'Receiving', 'Neutral'].forEach(action => {
-      const listA = surveyA[cat][action] || [];
-      const listB = surveyB[cat][
-        action === 'Giving' ? 'Receiving' :
-        action === 'Receiving' ? 'Giving' : 'Neutral'
-      ] || [];
-
-      listA.forEach(itemA => {
-        const match = listB.find(itemB => itemB.name.trim().toLowerCase() === itemA.name.trim().toLowerCase());
-        if (match) {
-          const ratingA = parseInt(itemA.rating);
-          const ratingB = parseInt(match.rating);
-          if (Number.isInteger(ratingA) && Number.isInteger(ratingB)) {
-            const diff = Math.abs(ratingA - ratingB);
-            const score = Math.max(0, 100 - diff * 20);
-            totalScore += score;
-            count++;
-            if ((ratingA === 6 && ratingB === 1) || (ratingA === 1 && ratingB === 6)) {
-              redFlags.push(itemA.name);
-            } else if (
-              (ratingA === 6 && ratingB === 2) || (ratingA === 2 && ratingB === 6) ||
-              (ratingA === 5 && ratingB === 1) || (ratingA === 1 && ratingB === 5)
-            ) {
-              yellowFlags.push(itemA.name);
-            }
-          }
-        }
-      });
+  Object.entries(tabs).forEach(([action, tab]) => {
+    tab.addEventListener('click', () => {
+      currentAction = action;
+      Object.values(tabs).forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
     });
   });
 
-  const avgScore = count > 0 ? Math.round(totalScore / count) : 0;
-  resultDiv.innerHTML = `<h3>Compatibility Score: ${avgScore}%</h3>`;
-  if (redFlags.length) resultDiv.innerHTML += `<p>🚩 Red flags: ${[...new Set(redFlags)].join(', ')}</p>`;
-  if (yellowFlags.length) resultDiv.innerHTML += `<p>⚠️ Yellow flags: ${[...new Set(yellowFlags)].join(', ')}</p>`;
+  // Set default tab
+  tabs['Giving'].classList.add('active');
 });
-
-// Initialize default tab
-switchTab('Giving');
