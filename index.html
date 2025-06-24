@@ -1,22 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Talk</title>
-  <link rel="stylesheet" href="style.css">
+
+  <!-- Fonts (optional aesthetic) -->
+  <link href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew&display=swap" rel="stylesheet" />
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- JavaScript -->
+  <script src="script.js" defer></script>
 </head>
 <body class="theme-monster-prom">
 
-  <!-- Banner -->
+  <!-- Banners -->
   <div class="banner">
-    <img id="monsterPromBanner" src="yourethemaindish_banner.png" alt="Monster Prom Banner">
+    <img id="monsterPromBanner" class="theme-banner" src="yourethemaindish_banner.png" alt="Monster Prom Banner" />
+    <img id="outerWildsBanner" class="theme-banner" src="outerwilds_banner.png" alt="Outer Wilds Banner" />
   </div>
 
   <!-- Title -->
   <h1 class="title">Kink Talk</h1>
 
-  <!-- Theme Selector -->
+  <!-- Theme Switcher -->
   <div class="theme-selector">
     <label for="themeSelector">🎭 Select Theme:</label>
     <select id="themeSelector">
@@ -38,7 +47,19 @@
     <button id="startNewSurvey">Start New Survey</button>
   </div>
 
-  <!-- JavaScript -->
-  <script src="script.js"></script>
+  <!-- Survey Output Placeholder -->
+  <div id="categoryContainer"></div>
+  <div id="kinkList"></div>
+
+  <!-- File Uploads -->
+  <h3>Upload Your Survey</h3>
+  <input type="file" id="fileA" />
+
+  <h3>Upload Partner's Survey</h3>
+  <input type="file" id="fileB" />
+
+  <button id="compareBtn">Compare</button>
+  <div id="comparisonResult"></div>
+
 </body>
 </html>
