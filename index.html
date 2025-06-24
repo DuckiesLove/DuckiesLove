@@ -2,62 +2,49 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Kink Talk</title>
 
   <!-- Google Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playpen+Sans&display=swap" rel="stylesheet"/>
 
   <!-- CSS -->
-  <link rel="stylesheet" href="css/style.css" />
-
-  <!-- JavaScript -->
-  <script src="js/script.js" defer></script>
+  <link rel="stylesheet" href="style.css"/>
 </head>
-<body class="dark-mode">
-  <!-- Theme Banners -->
-  <img id="outerWildsBanner" src="https://static.displate.com/380x270/displate/2023-10-13/48fa0ba6447050543f77cc734d746bd6_e644163f144c50f83cbef9fe6e223464.jpg" alt="Outer Wilds Banner" class="theme-banner" />
-  <img id="monsterPromBanner" src="https://freeimghost.net/images/2025/06/20/yourethemaindish_banner.png" alt="Monster Prom Banner" class="theme-banner" />
+<body class="theme-monster-prom">
 
-  <h1>Kink Talk</h1>
+  <!-- Banners -->
+  <div class="banner">
+    <img id="monsterPromBanner" class="theme-banner" src="yourethemaindish_banner.png" alt="Monster Prom Banner"/>
+    <img id="outerWildsBanner" class="theme-banner" src="outerwilds_banner.png" alt="Outer Wilds Banner"/>
+  </div>
 
-  <!-- Theme Switcher -->
-  <div id="themeControl">
-    <label for="themeSelector">🎨 Select Theme:</label>
+  <!-- Title -->
+  <h1 class="title">Kink Talk</h1>
+
+  <!-- Theme Selector -->
+  <div class="theme-selector">
+    <label for="themeSelector">🎭 Select Theme:</label>
     <select id="themeSelector">
-      <option value="dark-mode" selected>Dark</option>
-      <option value="light-mode">Light</option>
-      <option value="theme-blue">Blue</option>
+      <option value="theme-monster-prom" selected>Monster Prom</option>
       <option value="theme-outer-wilds">Outer Wilds</option>
-      <option value="theme-monster-prom">Monster Prom 4</option>
-      <option value="theme-rainbow">Rainbow</option>
     </select>
   </div>
 
-  <!-- Tab Controls -->
+  <!-- Tabs -->
   <div class="tab-container">
-    <div class="tab active" id="givingTab">Giving</div>
-    <div class="tab" id="receivingTab">Receiving</div>
-    <div class="tab" id="neutralTab">Neutral</div>
+    <button id="givingTab" class="tab">Giving</button>
+    <button id="receivingTab" class="tab">Receiving</button>
+    <button id="neutralTab" class="tab">Neutral</button>
   </div>
 
-  <div>
-    <button id="downloadBtn">Download Updated Survey</button>
-    <button id="newSurveyBtn">Start New Survey</button>
+  <!-- Survey Buttons -->
+  <div class="survey-buttons">
+    <button id="downloadSurvey">Download Updated Survey</button>
+    <button id="startNewSurvey">Start New Survey</button>
   </div>
 
-  <!-- Survey Interface -->
-  <div id="categoryContainer"></div>
-  <div id="kinkList"></div>
-
-  <!-- Upload Inputs -->
-  <h3>Upload Your Survey</h3>
-  <input type="file" id="fileA" />
-
-  <h3>Upload Partner's Survey</h3>
-  <input type="file" id="fileB" />
-
-  <button id="compareBtn">Compare</button>
-  <div id="comparisonResult"></div>
+  <!-- JavaScript -->
+  <script src="script.js"></script>
 </body>
 </html>
