@@ -181,3 +181,22 @@ input[type="file"] {
   border-radius: 6px;
   background-color: #f9f9f9;
 }
+/* Banner visibility per theme */
+body.theme-monster-prom #monsterPromBanner {
+  display: block;
+}
+body.theme-outer-wilds #outerWildsBanner {
+  display: block;
+}
+body.theme-blue #blueBanner {
+  display: block;
+}
+body.theme-rainbow #rainbowBanner {
+  display: block;
+}
+body.dark-mode #darkBanner {
+  display: block;
+}
+body.light-mode #lightBanner {
+  display: block;
+}
