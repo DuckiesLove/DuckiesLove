@@ -14,11 +14,12 @@ h1 {
 /* Banner styling */
 .theme-banner {
   width: 100%;
-  height: auto;
+  height: 250px;
   display: none;
   object-fit: cover;
-  max-height: 300px;
+  object-position: center top;
 }
+
 
 .banner-container {
   width: 100%;
