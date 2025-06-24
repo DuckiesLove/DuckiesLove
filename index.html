@@ -2,27 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Talk</title>
+
+  <!-- Load custom font -->
+  <link href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew&display=swap" rel="stylesheet" />
+
+  <!-- Link external CSS -->
   <link rel="stylesheet" href="styles.css" />
-  <script src="script.js" defer></script>
 </head>
+
 <body>
   <h1>Kink Talk</h1>
 
-  <div id="themeSelector">
-    <label for="themeDropdown">Choose Theme:</label>
-    <select id="themeDropdown">
-      <option value="light-mode">Light</option>
-      <option value="dark-mode">Dark</option>
-      <option value="theme-blue">Blue</option>
-      <option value="theme-outer-wilds">Outer Wilds</option>
-      <option value="theme-monster-prom">Monster Prom</option>
-      <option value="theme-rainbow">Rainbow</option>
-    </select>
+  <div>
+    <button id="givingBtn">Giving</button>
+    <button id="receivingBtn">Receiving</button>
+    <button id="neutralBtn">Neutral</button>
+    <button id="downloadBtn">Download Updated Template</button>
+    <button id="newSurveyBtn">Start New Survey</button>
   </div>
 
-  <!-- Your content here -->
+  <div id="categoryContainer"></div>
+  <div id="kinkList"></div>
 
+  <h3>Upload Your Survey</h3>
+  <input type="file" id="fileA" />
+
+  <h3>Upload Partner's Survey</h3>
+  <input type="file" id="fileB" />
+
+  <button id="compareBtn">Compare Compatibility</button>
+
+  <div id="progressContainer" style="display: none;">
+    <div id="progressBar"></div>
+  </div>
+
+  <div id="comparisonResult"></div>
+
+  <!-- Link external JavaScript -->
+  <script src="script.js"></script>
 </body>
 </html>
