@@ -1,223 +1,186 @@
-/* Base styles for all themes */
+
+/* Base Page Layout */
 body {
-  font-family: sans-serif;
-  margin: 20px;
-  transition: background-color 0.3s, color 0.3s;
-}
-
-button,
-select,
-input[type="file"] {
-  margin: 5px;
-  padding: 8px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  transition: background-color 0.3s, color 0.3s;
-  cursor: pointer;
-}
-
-#themeControl {
-  margin-bottom: 20px;
-}
-
-/* Shared banner styling (hidden by default) */
-.theme-banner {
-  display: none;
-  width: 100%;
-  height: 250px;
-  object-fit: cover;
-  object-position: center;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
-/* Light Theme */
-body.light-mode {
-  background-color: #ffffff;
-  color: #000000;
-}
-
-body.light-mode button,
-body.light-mode select,
-body.light-mode input[type="file"] {
-  background-color: #e0e0e0;
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: #fff;
   color: #000;
 }
 
-body.light-mode #categoryContainer button.active {
-  background-color: #007acc;
-  color: white;
-  font-weight: bold;
-  border: 1px solid #005fa3;
-  cursor: default;
-}
-
-/* Dark Theme - Blue buttons */
+/* Theme Styling */
 body.dark-mode {
   background-color: #121212;
-  color: #f5f5f5;
+  color: #e0e0e0;
 }
-
-body.dark-mode button,
-body.dark-mode select,
-body.dark-mode input[type="file"] {
-  background-color: #00bfff;
-  color: #000;
-}
-
-body.dark-mode #categoryContainer button.active {
-  background-color: #00bfff;
-  color: #000;
-  font-weight: bold;
-  border: 1px solid #0099cc;
-  cursor: default;
-}
-
-/* Blue Theme */
 body.theme-blue {
-  background-color: #000000;
-  color: #00bfff;
-}
-
-body.theme-blue button,
-body.theme-blue select,
-body.theme-blue input[type="file"] {
-  background-color: #0055aa;
+  background-color: #001933;
   color: #fff;
 }
-
-body.theme-blue #categoryContainer button.active {
-  background-color: #0055aa;
-  color: #fff;
-  font-weight: bold;
-  border: 1px solid #003377;
-  cursor: default;
-}
-
-/* Outer Wilds Theme */
 body.theme-outer-wilds {
   background-color: #1e1e2e;
   color: #ffde8d;
 }
-
-body.theme-outer-wilds button,
-body.theme-outer-wilds select,
-body.theme-outer-wilds input[type="file"] {
-  background-color: #3b3a5a;
-  color: #ffde8d;
-}
-
-body.theme-outer-wilds #categoryContainer button.active {
-  background-color: #3b3a5a;
-  color: #ffde8d;
-  font-weight: bold;
-  border: 1px solid #ffde8d;
-  cursor: default;
-}
-
-body.theme-outer-wilds #outerWildsBanner {
-  display: block;
-}
-
-/* Monster Prom Theme */
 body.theme-monster-prom {
   background-color: #400040;
   color: #ff69b4;
 }
-
-body.theme-monster-prom button,
-body.theme-monster-prom select,
-body.theme-monster-prom input[type="file"] {
-  background-color: #ff69b4;
-  color: #400040;
-}
-
-body.theme-monster-prom #categoryContainer button.active {
-  background-color: #ff69b4;
-  color: #400040;
-  font-weight: bold;
-  border: 1px solid #800080;
-  cursor: default;
-}
-
-body.theme-monster-prom #monsterPromBanner {
-  display: block;
-}
-
-/* Rainbow Theme */
 body.theme-rainbow {
-  background: linear-gradient(
-    270deg,
-    rgb(246, 150, 150),
-    rgb(243, 215, 163),
-    rgb(237, 237, 143),
-    rgb(146, 233, 146),
-    rgb(155, 155, 236),
-    rgb(211, 166, 243),
-    rgb(242, 146, 242)
-  );
-  background-size: 1400% 1400%;
-  animation: rainbowFlow 30s ease infinite;
-  color: rgb(102, 54, 85);
+  background: linear-gradient(135deg, #ff9a9e, #fad0c4, #fad0c4, #fbc2eb, #a18cd1);
+  color: #000;
 }
-
-body.theme-rainbow button,
-body.theme-rainbow select,
-body.theme-rainbow input[type="file"] {
-  background-color: rgba(255, 255, 255, 0.7);
+body.light-mode {
+  background-color: #ffffff;
   color: #000;
 }
 
-body.theme-rainbow h1,
-body.theme-rainbow h3,
-body.theme-rainbow label {
-  text-shadow: 1px 1px 2px #000;
+/* Theme Banners */
+.theme-banner {
+  width: 100%;
+  max-height: 250px;
+  object-fit: cover;
+  display: none;
+  margin-bottom: 20px;
+  border-radius: 6px;
 }
 
-body.theme-rainbow #categoryContainer button.active {
-  background-color: rgba(255, 255, 255, 0.9);
-  color: #000;
-  font-weight: bold;
-  border: 1px solid #603636;
-  cursor: default;
+/* Header */
+h1 {
+  text-align: center;
+  margin-bottom: 30px;
 }
 
-@keyframes rainbowFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+/* Theme Selector */
+#themeControl {
+  text-align: center;
+  margin-bottom: 20px;
 }
 
-/* Compatibility result box */
-#comparisonResult {
-  margin-top: 20px;
-  padding: 10px;
-  border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.1);
+/* Tab Container */
+.tab-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 30px;
 }
 
-/* Tab styling */
+/* Tab Buttons */
 .tab {
-  display: inline-block;
-  padding: 10px 20px;
-  margin: 0 5px;
-  border-radius: 4px;
+  padding: 10px 25px;
+  border-radius: 6px;
   background-color: #ccc;
   color: #000;
   cursor: pointer;
   transition: background-color 0.3s;
+  font-weight: 500;
 }
-
 .tab.active {
   background-color: #007acc;
   color: #fff;
   font-weight: bold;
+}
+
+/* Tab Colors by Theme */
+body.light-mode .tab {
+  background-color: #e0e0e0;
+  color: #000;
+}
+body.light-mode .tab.active {
+  background-color: #007acc;
+  border: 1px solid #005fa3;
+}
+
+body.dark-mode .tab {
+  background-color: #222;
+  color: #f5f5f5;
+}
+body.dark-mode .tab.active {
+  background-color: #00bfff;
+  color: #000;
+  border: 1px solid #0099cc;
+}
+
+body.theme-blue .tab {
+  background-color: #003366;
+  color: #fff;
+}
+body.theme-blue .tab.active {
+  background-color: #0055aa;
+  border: 1px solid #003377;
+}
+
+body.theme-outer-wilds .tab {
+  background-color: #2b2b3d;
+  color: #ffde8d;
+}
+body.theme-outer-wilds .tab.active {
+  background-color: #3b3a5a;
+  border: 1px solid #ffde8d;
+}
+
+body.theme-monster-prom .tab {
+  background-color: #663366;
+  color: #ff69b4;
+}
+body.theme-monster-prom .tab.active {
+  background-color: #ff69b4;
+  color: #400040;
+  border: 1px solid #800080;
+}
+
+body.theme-rainbow .tab {
+  background-color: rgba(255, 255, 255, 0.5);
+  color: #000;
+}
+body.theme-rainbow .tab.active {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #603636;
+}
+
+/* Buttons and Controls */
+button {
+  margin: 10px auto;
+  display: block;
+  padding: 10px 20px;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  background-color: #444;
+  color: white;
+  transition: background-color 0.3s;
+}
+button:hover {
+  background-color: #666;
+}
+
+/* Spacer below tabs */
+#downloadBtn {
+  margin-top: 30px;
+}
+
+/* Input Fields */
+input[type="file"] {
+  display: block;
+  margin: 10px 0 20px 0;
+}
+
+/* Category and Kink List */
+#categoryContainer button {
+  margin: 5px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid #aaa;
+}
+#categoryContainer button.active {
+  background-color: #444;
+  color: #fff;
+}
+
+/* Result Section */
+#comparisonResult {
+  margin-top: 30px;
+  padding: 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background-color: #f9f9f9;
 }
