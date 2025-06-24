@@ -6,27 +6,9 @@ body {
   color: #eee;
 }
 
-.banner {
-  width: 100%;
-  height: 270px;
-  overflow: hidden;
-  position: relative;
-}
-
 .banner img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: none; /* All hidden by default */
-}
-
-/* Theme colors can be added here */
-.theme-monster-prom {
-  background-color: #1a001a;
-}
-
-.theme-outer-wilds {
-  background-color: #0e1b29;
+  height: auto;
 }
 
 .title {
