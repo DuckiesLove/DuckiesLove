@@ -1,38 +1,321 @@
 {
-  "Breath Play": {
+  "Bodily Fluids and Functions": {
     "Giving": [
       {
-        "name": "Asphyxiation",
+        "name": "Watersports",
         "rating": null
       },
       {
-        "name": "Breath control",
-        "rating": null
-      },
-      {
-        "name": "Choking",
-        "rating": null
-      },
-      {
-        "name": "Drowning",
+        "name": "Spit",
         "rating": null
       }
     ],
     "Receiving": [
       {
-        "name": "Asphyxiation",
+        "name": "Watersports",
         "rating": null
       },
       {
-        "name": "Breath control",
+        "name": "Spit",
+        "rating": null
+      }
+    ],
+    "Neutral": [
+      {
+        "name": "Cum",
+        "rating": null
+      }
+    ]
+  },
+  "Body Part Torture": {
+    "Giving": [
+      {
+        "name": "Nipple clips",
         "rating": null
       },
       {
-        "name": "Choking",
+        "name": "Nipple weights",
         "rating": null
       },
       {
-        "name": "Drowning",
+        "name": "Nipple suction cups",
+        "rating": null
+      },
+      {
+        "name": "Cock, Ball Torture (CBT)",
+        "rating": null
+      },
+      {
+        "name": "Clit clips/weights/suction",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Nipple clips",
+        "rating": null
+      },
+      {
+        "name": "Nipple weights",
+        "rating": null
+      },
+      {
+        "name": "Nipple suction cups",
+        "rating": null
+      },
+      {
+        "name": "Cock, Ball Torture (CBT)",
+        "rating": null
+      },
+      {
+        "name": "Clit clips/weights/suction",
+        "rating": null
+      }
+    ],
+    "Neutral": []
+  },
+  "Bondage and Suspension": {
+    "Giving": [
+      {
+        "name": "Blindfolds",
+        "rating": null
+      },
+      {
+        "name": "Bondage (heavy)",
+        "rating": null
+      },
+      {
+        "name": "Bondage (light)",
+        "rating": null
+      },
+      {
+        "name": "Immobilisation",
+        "rating": null
+      },
+      {
+        "name": "Bondage (multi-day)",
+        "rating": null
+      },
+      {
+        "name": "Bondage (public, under clothing)",
+        "rating": null
+      },
+      {
+        "name": "Leather restraints",
+        "rating": null
+      },
+      {
+        "name": "Chains",
+        "rating": null
+      },
+      {
+        "name": "Ropes",
+        "rating": null
+      },
+      {
+        "name": "Intricate (Japanese) rope bondage",
+        "rating": null
+      },
+      {
+        "name": "Rope body harness",
+        "rating": null
+      },
+      {
+        "name": "Arm & leg sleeves (armbinders)",
+        "rating": null
+      },
+      {
+        "name": "Harnesses (leather)",
+        "rating": null
+      },
+      {
+        "name": "Harnesses (rope)",
+        "rating": null
+      },
+      {
+        "name": "Cuffs (leather)",
+        "rating": null
+      },
+      {
+        "name": "Cuffs (metal)",
+        "rating": null
+      },
+      {
+        "name": "Manacles & Irons",
+        "rating": null
+      },
+      {
+        "name": "Gags (cloth)",
+        "rating": null
+      },
+      {
+        "name": "Gags (rubber)",
+        "rating": null
+      },
+      {
+        "name": "Gags (tape)",
+        "rating": null
+      },
+      {
+        "name": "Gags (phallic)",
+        "rating": null
+      },
+      {
+        "name": "Gags (ring)",
+        "rating": null
+      },
+      {
+        "name": "Gags (ball)",
+        "rating": null
+      },
+      {
+        "name": "Mouth bits",
+        "rating": null
+      },
+      {
+        "name": "Full head hoods",
+        "rating": null
+      },
+      {
+        "name": "Mummification/saran wrapping",
+        "rating": null
+      },
+      {
+        "name": "Straight jackets",
+        "rating": null
+      },
+      {
+        "name": "Suspension (upright)",
+        "rating": null
+      },
+      {
+        "name": "Suspension (horizontal)",
+        "rating": null
+      },
+      {
+        "name": "Suspension (inverted)",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Blindfolds",
+        "rating": null
+      },
+      {
+        "name": "Bondage (heavy)",
+        "rating": null
+      },
+      {
+        "name": "Bondage (light)",
+        "rating": null
+      },
+      {
+        "name": "Immobilisation",
+        "rating": null
+      },
+      {
+        "name": "Bondage (multi-day)",
+        "rating": null
+      },
+      {
+        "name": "Bondage (public, under clothing)",
+        "rating": null
+      },
+      {
+        "name": "Leather restraints",
+        "rating": null
+      },
+      {
+        "name": "Chains",
+        "rating": null
+      },
+      {
+        "name": "Ropes",
+        "rating": null
+      },
+      {
+        "name": "Intricate (Japanese) rope bondage",
+        "rating": null
+      },
+      {
+        "name": "Rope body harness",
+        "rating": null
+      },
+      {
+        "name": "Arm & leg sleeves (armbinders)",
+        "rating": null
+      },
+      {
+        "name": "Harnesses (leather)",
+        "rating": null
+      },
+      {
+        "name": "Harnesses (rope)",
+        "rating": null
+      },
+      {
+        "name": "Cuffs (leather)",
+        "rating": null
+      },
+      {
+        "name": "Cuffs (metal)",
+        "rating": null
+      },
+      {
+        "name": "Manacles & Irons",
+        "rating": null
+      },
+      {
+        "name": "Gags (cloth)",
+        "rating": null
+      },
+      {
+        "name": "Gags (rubber)",
+        "rating": null
+      },
+      {
+        "name": "Gags (tape)",
+        "rating": null
+      },
+      {
+        "name": "Gags (phallic)",
+        "rating": null
+      },
+      {
+        "name": "Gags (ring)",
+        "rating": null
+      },
+      {
+        "name": "Gags (ball)",
+        "rating": null
+      },
+      {
+        "name": "Mouth bits",
+        "rating": null
+      },
+      {
+        "name": "Full head hoods",
+        "rating": null
+      },
+      {
+        "name": "Mummification/saran wrapping",
+        "rating": null
+      },
+      {
+        "name": "Straight jackets",
+        "rating": null
+      },
+      {
+        "name": "Suspension (upright)",
+        "rating": null
+      },
+      {
+        "name": "Suspension (horizontal)",
+        "rating": null
+      },
+      {
+        "name": "Suspension (inverted)",
         "rating": null
       }
     ],
@@ -101,152 +384,88 @@
     ],
     "Neutral": []
   },
-  "Sexual Activity": {
+  "Sensation Play": {
     "Giving": [
       {
-        "name": "Fellatio/Cunnilingus",
+        "name": "Abrasion",
         "rating": null
       },
       {
-        "name": "Swallowing semen(or getting it swallowed)",
+        "name": "Scratching",
         "rating": null
       },
       {
-        "name": "Cumming on Partner",
+        "name": "Biting",
         "rating": null
       },
       {
-        "name": "Hand jobs",
+        "name": "Tickling",
         "rating": null
       },
       {
-        "name": "Anal sex",
+        "name": "Kissing",
         "rating": null
       },
       {
-        "name": "Anal plugs (small)",
+        "name": "Zapping (e.g. electric fly swatter)",
         "rating": null
       },
       {
-        "name": "Anal plugs (large)",
+        "name": "Ice cubes",
         "rating": null
       },
       {
-        "name": "Anal plug (public, under clothes)",
+        "name": "Wax Play",
         "rating": null
       },
       {
-        "name": "Anal beads",
+        "name": "Fire",
         "rating": null
       },
       {
-        "name": "Vibrator on genitals",
-        "rating": null
-      },
-      {
-        "name": "Fisting",
-        "rating": null
-      },
-      {
-        "name": "Oral/anal play (rimming)",
-        "rating": null
-      },
-      {
-        "name": "Double penetration (oral and vaginal)",
-        "rating": null
-      },
-      {
-        "name": "Double penetration (oral and anal)",
-        "rating": null
-      },
-      {
-        "name": "Double penetration (anal and vaginal)",
-        "rating": null
-      },
-      {
-        "name": "Triple (oral and anal)",
-        "rating": null
-      },
-      {
-        "name": "Forced masturbation",
-        "rating": null
-      },
-      {
-        "name": "Orgasm control",
+        "name": "Clothespins",
         "rating": null
       }
     ],
     "Receiving": [
       {
-        "name": "Fellatio/Cunnilingus",
+        "name": "Abrasion",
         "rating": null
       },
       {
-        "name": "Swallowing semen(or getting it swallowed)",
+        "name": "Scratching",
         "rating": null
       },
       {
-        "name": "Cumming on Partner",
+        "name": "Biting",
         "rating": null
       },
       {
-        "name": "Hand jobs",
+        "name": "Tickling",
         "rating": null
       },
       {
-        "name": "Anal sex",
+        "name": "Kissing",
         "rating": null
       },
       {
-        "name": "Anal plugs (small)",
+        "name": "Zapping (e.g. electric fly swatter)",
         "rating": null
       },
       {
-        "name": "Anal plugs (large)",
+        "name": "Ice cubes",
         "rating": null
       },
       {
-        "name": "Anal plug (public, under clothes)",
+        "name": "Wax Play",
         "rating": null
       },
       {
-        "name": "Anal beads",
+        "name": "Fire",
         "rating": null
       },
       {
-        "name": "Vibrator on genitals",
-        "rating": null
-      },
-      {
-        "name": "Fisting",
-        "rating": null
-      },
-      {
-        "name": "Oral/anal play (rimming)",
-        "rating": null
-      },
-      {
-        "name": "Double penetration (oral and vaginal)",
-        "rating": null
-      },
-      {
-        "name": "Double penetration (oral and anal)",
-        "rating": null
-      },
-      {
-        "name": "Double penetration (anal and vaginal)",
-        "rating": null
-      },
-      {
-        "name": "Triple (oral and anal)",
-        "rating": null
-      },
-      {
-        "name": "Forced masturbation",
-        "rating": null
-      },
-      {
-        "name": "Orgasm control",
+        "name": "Clothespins",
         "rating": null
       }
     ],
