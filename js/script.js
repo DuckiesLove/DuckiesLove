@@ -41,12 +41,14 @@ let currentCategory = null;
 
 const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
+const categoryPanel = document.getElementById('categoryPanel');
 
 document.getElementById('fileA').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
       surveyA = JSON.parse(ev.target.result);
+      categoryPanel.style.display = 'block';
       showCategories();
     } catch {
       alert('Invalid JSON for Survey A.');
@@ -72,6 +74,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     .then(res => res.json())
     .then(data => {
       surveyA = data;
+      categoryPanel.style.display = 'block'; // Show sidebar
       showCategories();
     })
     .catch(err => alert('Failed to load template: ' + err.message));
@@ -204,6 +207,7 @@ document.getElementById('compareBtn').addEventListener('click', () => {
   const avg = count ? Math.round(totalScore / count) : 0;
   let output = `<h3>Compatibility Score: ${avg}%</h3>`;
 
+  // Similarity Score (same role)
   let simScore = 0;
   let simCount = 0;
   categories.forEach(category => {
