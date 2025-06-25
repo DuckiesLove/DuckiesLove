@@ -1,3 +1,5 @@
+document.addEventListener('DOMContentLoaded', () => {
+
 // ================== Theme Setup ==================
 const themeSelector = document.getElementById('themeSelector');
 const outerWildsBanner = document.getElementById('outerWildsBanner');
@@ -19,6 +21,7 @@ themeSelector.addEventListener('change', () => {
   localStorage.setItem('selectedTheme', selectedTheme);
   updateBannerVisibility(selectedTheme);
 });
+
 // ================== Load Survey Template on Page Load ==================
 fetch('template-survey.json')
   .then(res => res.json())
@@ -77,7 +80,6 @@ document.getElementById('fileB').addEventListener('change', (e) => {
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
   fetch('template-survey.json') 
-
     .then(res => res.json())
     .then(data => {
       surveyA = data;
@@ -253,3 +255,5 @@ document.getElementById('compareBtn').addEventListener('click', () => {
 
 // ================== Start ==================
 switchTab('Giving');
+
+}); // End DOMContentLoaded
