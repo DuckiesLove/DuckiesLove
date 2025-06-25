@@ -6,6 +6,42 @@ body {
   background-color: #121212;
   color: #e0e0e0;
 }
+.category-panel {
+  position: fixed;
+  left: 0;
+  top: 100px;
+  width: 220px;
+  background-color: #1e1e2f;
+  border-right: 2px solid #444;
+  padding: 15px;
+  height: calc(100% - 100px);
+  overflow-y: auto;
+  z-index: 100;
+}
+
+#categoryContainer button {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  padding: 10px;
+  font-weight: bold;
+  background-color: #333;
+  color: #f8f8f8;
+  border: 1px solid #555;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+#categoryContainer button:hover {
+  background-color: #444;
+}
+
+#categoryContainer button.active {
+  background-color: #666;
+  color: white;
+}
 
 /* Theme Styling */
 body.dark-mode {
