@@ -42,6 +42,7 @@ let currentCategory = null;
 const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
 const categoryPanel = document.getElementById('categoryPanel');
+ categoryPanel.style.display = 'none'; // Hide by default
 
 document.getElementById('fileA').addEventListener('change', (e) => {
   const reader = new FileReader();

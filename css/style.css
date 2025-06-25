@@ -9,14 +9,16 @@ body {
 .category-panel {
   position: fixed;
   left: 0;
-  top: 100px;
+  top: 270px; /* assumes both banners + margin = ~250px + some spacing */
   width: 220px;
   background-color: #1e1e2f;
   border-right: 2px solid #444;
   padding: 15px;
-  height: calc(100% - 100px);
+  height: calc(100% - 270px);
   overflow-y: auto;
   z-index: 100;
+  display: none; /* keep hidden until "Start New Survey" is clicked */
+
 }
 
 #categoryContainer button {
