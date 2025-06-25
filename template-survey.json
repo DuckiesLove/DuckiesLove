@@ -611,5 +611,645 @@
         "rating": null
       }
     ]
+  },
+  "Breath Play": {
+    "Giving": [
+      {
+        "name": "Asphyxiation",
+        "rating": null
+      },
+      {
+        "name": "Breath control",
+        "rating": null
+      },
+      {
+        "name": "Choking",
+        "rating": null
+      },
+      {
+        "name": "Drowning",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Asphyxiation",
+        "rating": null
+      },
+      {
+        "name": "Breath control",
+        "rating": null
+      },
+      {
+        "name": "Choking",
+        "rating": null
+      },
+      {
+        "name": "Drowning",
+        "rating": null
+      }
+    ],
+    "Neutral": []
+  },
+  "Psychological": {
+    "Giving": [
+      {
+        "name": "Primal/Prey",
+        "rating": null
+      },
+      {
+        "name": "Conditioning",
+        "rating": null
+      },
+      {
+        "name": "COC",
+        "rating": null
+      },
+      {
+        "name": "Psycholagny (hands free, mentally stimulated orgasm)",
+        "rating": null
+      },
+      {
+        "name": "Hypno Play",
+        "rating": null
+      },
+      {
+        "name": "Praise",
+        "rating": null
+      },
+      {
+        "name": "Degradation",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Primal/Prey",
+        "rating": null
+      },
+      {
+        "name": "Conditioning",
+        "rating": null
+      },
+      {
+        "name": "COC",
+        "rating": null
+      },
+      {
+        "name": "Psycholagny (hands free, mentally stimulated orgasm)",
+        "rating": null
+      },
+      {
+        "name": "Hypno Play",
+        "rating": null
+      },
+      {
+        "name": "Praise",
+        "rating": null
+      },
+      {
+        "name": "Degradation",
+        "rating": null
+      }
+    ],
+    "Neutral": []
+  },
+  "Sexual Activity": {
+    "Giving": [
+      {
+        "name": "Fellatio/Cunnilingus",
+        "rating": null
+      },
+      {
+        "name": "Swallowing semen",
+        "rating": null
+      },
+      {
+        "name": "Cumming on Partner",
+        "rating": null
+      },
+      {
+        "name": "Hand jobs",
+        "rating": null
+      },
+      {
+        "name": "Anal sex",
+        "rating": null
+      },
+      {
+        "name": "Anal plugs (small)",
+        "rating": null
+      },
+      {
+        "name": "Anal plugs (large)",
+        "rating": null
+      },
+      {
+        "name": "Anal plug (public, under clothes)",
+        "rating": null
+      },
+      {
+        "name": "Anal beads",
+        "rating": null
+      },
+      {
+        "name": "Vibrator on genitals",
+        "rating": null
+      },
+      {
+        "name": "Fisting",
+        "rating": null
+      },
+      {
+        "name": "Oral/anal play (rimming)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (oral and vaginal)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (oral and anal)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (anal and vaginal)",
+        "rating": null
+      },
+      {
+        "name": "Triple (oral and anal)",
+        "rating": null
+      },
+      {
+        "name": "Forced masturbation",
+        "rating": null
+      },
+      {
+        "name": "Orgasm control",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Fellatio/Cunnilingus",
+        "rating": null
+      },
+      {
+        "name": "Swallowing semen",
+        "rating": null
+      },
+      {
+        "name": "Cumming on Partner",
+        "rating": null
+      },
+      {
+        "name": "Hand jobs",
+        "rating": null
+      },
+      {
+        "name": "Anal sex",
+        "rating": null
+      },
+      {
+        "name": "Anal plugs (small)",
+        "rating": null
+      },
+      {
+        "name": "Anal plugs (large)",
+        "rating": null
+      },
+      {
+        "name": "Anal plug (public, under clothes)",
+        "rating": null
+      },
+      {
+        "name": "Anal beads",
+        "rating": null
+      },
+      {
+        "name": "Vibrator on genitals",
+        "rating": null
+      },
+      {
+        "name": "Fisting",
+        "rating": null
+      },
+      {
+        "name": "Oral/anal play (rimming)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (oral and vaginal)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (oral and anal)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (anal and vaginal)",
+        "rating": null
+      },
+      {
+        "name": "Triple (oral and anal)",
+        "rating": null
+      },
+      {
+        "name": "Forced masturbation",
+        "rating": null
+      },
+      {
+        "name": "Orgasm control",
+        "rating": null
+      }
+    ],
+    "Neutral": []
+  },
+  "Sensation Play": {
+    "Giving": [
+      {
+        "name": "Abrasion",
+        "rating": null
+      },
+      {
+        "name": "Scratching",
+        "rating": null
+      },
+      {
+        "name": "Biting",
+        "rating": null
+      },
+      {
+        "name": "Tickling",
+        "rating": null
+      },
+      {
+        "name": "Kissing",
+        "rating": null
+      },
+      {
+        "name": "Zapping (e.g. electric fly swatter)",
+        "rating": null
+      },
+      {
+        "name": "Ice cubes",
+        "rating": null
+      },
+      {
+        "name": "Wax Play",
+        "rating": null
+      },
+      {
+        "name": "Fire",
+        "rating": null
+      },
+      {
+        "name": "Clothespins",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Abrasion",
+        "rating": null
+      },
+      {
+        "name": "Scratching",
+        "rating": null
+      },
+      {
+        "name": "Biting",
+        "rating": null
+      },
+      {
+        "name": "Tickling",
+        "rating": null
+      },
+      {
+        "name": "Kissing",
+        "rating": null
+      },
+      {
+        "name": "Zapping (e.g. electric fly swatter)",
+        "rating": null
+      },
+      {
+        "name": "Ice cubes",
+        "rating": null
+      },
+      {
+        "name": "Wax Play",
+        "rating": null
+      },
+      {
+        "name": "Fire",
+        "rating": null
+      },
+      {
+        "name": "Clothespins",
+        "rating": null
+      }
+    ],
+    "Neutral": []
+  },
+  "Other": {
+    "Giving": [
+      {
+        "name": "Feet",
+        "rating": null
+      },
+      {
+        "name": "Boots",
+        "rating": null
+      },
+      {
+        "name": "Underwear",
+        "rating": null
+      },
+      {
+        "name": "Chastity devices",
+        "rating": null
+      },
+      {
+        "name": "Masks",
+        "rating": null
+      },
+      {
+        "name": "Breeding",
+        "rating": null
+      },
+      {
+        "name": "Leather clothing",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Feet",
+        "rating": null
+      },
+      {
+        "name": "Boots",
+        "rating": null
+      },
+      {
+        "name": "Underwear",
+        "rating": null
+      },
+      {
+        "name": "Chastity devices",
+        "rating": null
+      },
+      {
+        "name": "Masks",
+        "rating": null
+      },
+      {
+        "name": "Breeding",
+        "rating": null
+      },
+      {
+        "name": "Leather clothing",
+        "rating": null
+      }
+    ],
+    "Neutral": []
+  },
+  "Roleplaying": {
+    "Giving": [
+      {
+        "name": "Fear play",
+        "rating": null
+      },
+      {
+        "name": "Fantasy abandonment",
+        "rating": null
+      },
+      {
+        "name": "Kidnapping",
+        "rating": null
+      },
+      {
+        "name": "Interrogation",
+        "rating": null
+      },
+      {
+        "name": "Sleep deprivation",
+        "rating": null
+      },
+      {
+        "name": "CNC",
+        "rating": null
+      },
+      {
+        "name": "Gang bang",
+        "rating": null
+      },
+      {
+        "name": "Initiation rites",
+        "rating": null
+      },
+      {
+        "name": "Religious scenes",
+        "rating": null
+      },
+      {
+        "name": "Medical scenes",
+        "rating": null
+      },
+      {
+        "name": "Prison scenes",
+        "rating": null
+      },
+      {
+        "name": "Primal/Prey",
+        "rating": null
+      },
+      {
+        "name": "Schoolroom scenes",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Fear play",
+        "rating": null
+      },
+      {
+        "name": "Fantasy abandonment",
+        "rating": null
+      },
+      {
+        "name": "Kidnapping",
+        "rating": null
+      },
+      {
+        "name": "Interrogation",
+        "rating": null
+      },
+      {
+        "name": "Sleep deprivation",
+        "rating": null
+      },
+      {
+        "name": "CNC",
+        "rating": null
+      },
+      {
+        "name": "Gang bang",
+        "rating": null
+      },
+      {
+        "name": "Initiation rites",
+        "rating": null
+      },
+      {
+        "name": "Religious scenes",
+        "rating": null
+      },
+      {
+        "name": "Medical scenes",
+        "rating": null
+      },
+      {
+        "name": "Prison scenes",
+        "rating": null
+      },
+      {
+        "name": "Primal/Prey",
+        "rating": null
+      },
+      {
+        "name": "Schoolroom scenes",
+        "rating": null
+      }
+    ],
+    "Neutral": []
+  },
+  "Service and Restrictive Behaviour": {
+    "Giving": [
+      {
+        "name": "(Following) orders",
+        "rating": null
+      },
+      {
+        "name": "Forced servitude",
+        "rating": null
+      },
+      {
+        "name": "Restrictive rules on behaviour",
+        "rating": null
+      },
+      {
+        "name": "Eye contact restrictions",
+        "rating": null
+      },
+      {
+        "name": "Speech restrictions (when, what, to whom)",
+        "rating": null
+      },
+      {
+        "name": "Washroom restrictions",
+        "rating": null
+      },
+      {
+        "name": "Punishments",
+        "rating": null
+      },
+      {
+        "name": "Tasks",
+        "rating": null
+      },
+      {
+        "name": "Massage",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "(Following) orders",
+        "rating": null
+      },
+      {
+        "name": "Forced servitude",
+        "rating": null
+      },
+      {
+        "name": "Restrictive rules on behaviour",
+        "rating": null
+      },
+      {
+        "name": "Eye contact restrictions",
+        "rating": null
+      },
+      {
+        "name": "Speech restrictions (when, what, to whom)",
+        "rating": null
+      },
+      {
+        "name": "Washroom restrictions",
+        "rating": null
+      },
+      {
+        "name": "Punishments",
+        "rating": null
+      },
+      {
+        "name": "Tasks",
+        "rating": null
+      },
+      {
+        "name": "Massage",
+        "rating": null
+      }
+    ],
+    "Neutral": []
+  },
+  "Voyeurism/Exhibitionism": {
+    "Giving": [
+      {
+        "name": "Forced nudity (private)",
+        "rating": null
+      },
+      {
+        "name": "Forced nudity (around others)",
+        "rating": null
+      },
+      {
+        "name": "Exhibitionism (friends)",
+        "rating": null
+      },
+      {
+        "name": "Exhibitionism (strangers)",
+        "rating": null
+      },
+      {
+        "name": "Modelling for erotic photos",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Forced nudity (private)",
+        "rating": null
+      },
+      {
+        "name": "Forced nudity (around others)",
+        "rating": null
+      },
+      {
+        "name": "Exhibitionism (friends)",
+        "rating": null
+      },
+      {
+        "name": "Exhibitionism (strangers)",
+        "rating": null
+      },
+      {
+        "name": "Modelling for erotic photos",
+        "rating": null
+      }
+    ],
+    "Neutral": []
   }
 }
