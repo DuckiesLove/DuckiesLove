@@ -1,5 +1,3 @@
-document.addEventListener('DOMContentLoaded', () => {
-
 // ================== Theme Setup ==================
 const themeSelector = document.getElementById('themeSelector');
 const outerWildsBanner = document.getElementById('outerWildsBanner');
@@ -21,15 +19,6 @@ themeSelector.addEventListener('change', () => {
   localStorage.setItem('selectedTheme', selectedTheme);
   updateBannerVisibility(selectedTheme);
 });
-
-// ================== Load Survey Template on Page Load ==================
-fetch('template-survey.json')
-  .then(res => res.json())
-  .then(data => {
-    surveyA = data;
-    showCategories();
-  })
-  .catch(err => console.error('Failed to load default survey:', err));
 
 // ================== Tab Switching ==================
 let currentAction = 'Giving';
@@ -79,7 +68,7 @@ document.getElementById('fileB').addEventListener('change', (e) => {
 });
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
-  fetch('template-survey.json') 
+  fetch('template-survey.json')
     .then(res => res.json())
     .then(data => {
       surveyA = data;
@@ -215,7 +204,6 @@ document.getElementById('compareBtn').addEventListener('click', () => {
   const avg = count ? Math.round(totalScore / count) : 0;
   let output = `<h3>Compatibility Score: ${avg}%</h3>`;
 
-  // Similarity Score (same role)
   let simScore = 0;
   let simCount = 0;
   categories.forEach(category => {
@@ -255,5 +243,3 @@ document.getElementById('compareBtn').addEventListener('click', () => {
 
 // ================== Start ==================
 switchTab('Giving');
-
-}); // End DOMContentLoaded

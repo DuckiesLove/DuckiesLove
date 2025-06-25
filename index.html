@@ -1,28 +1,16 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Talk</title>
   <link rel="stylesheet" href="css/style.css" />
-  <style>
-    .main-container {
-      display: flex;
-    }
-
-    .content-panel {
-      margin-left: 240px;
-      padding: 20px;
-      flex: 1;
-    }
-  </style>
 </head>
 <body class="dark-mode">
   <!-- Banners -->
   <img id="outerWildsBanner" src="https://static.displate.com/380x270/displate/2023-10-13/48fa0ba6447050543f77cc734d746bd6_e644163f144c50f83cbef9fe6e223464.jpg" alt="Outer Wilds Banner" class="theme-banner" />
   <img id="monsterPromBanner" src="https://freeimghost.net/images/2025/06/20/yourethemaindish_banner.png" alt="Monster Prom Banner" class="theme-banner" />
 
-  <!-- Title -->
   <h1>Kink Talk</h1>
 
   <!-- Theme Selector -->
@@ -38,13 +26,14 @@
     </select>
   </div>
 
-  <!-- Tabs + Main Content -->
+  <!-- Tabs -->
   <div class="tab-container">
     <div id="givingTab" class="tab active">Giving</div>
     <div id="receivingTab" class="tab">Receiving</div>
     <div id="neutralTab" class="tab">Neutral</div>
   </div>
 
+  <!-- Layout -->
   <div class="main-container">
     <div class="category-panel">
       <div id="categoryContainer"></div>
@@ -58,7 +47,7 @@
   <button id="downloadBtn">Download Updated Survey</button>
   <button id="newSurveyBtn">Start New Survey</button>
 
-  <!-- Upload Section -->
+  <!-- Upload -->
   <h3>Upload Your Survey</h3>
   <input type="file" id="fileA" />
 
@@ -68,41 +57,7 @@
   <button id="compareBtn">Compare</button>
   <div id="comparisonResult"></div>
 
-  <!-- JavaScript -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const themeSelector = document.getElementById('themeSelector');
-      const outerWildsBanner = document.getElementById('outerWildsBanner');
-      const monsterPromBanner = document.getElementById('monsterPromBanner');
-
-      function updateBannerVisibility(theme) {
-        outerWildsBanner.style.display = theme === 'theme-outer-wilds' ? 'block' : 'none';
-        monsterPromBanner.style.display = theme === 'theme-monster-prom' ? 'block' : 'none';
-      }
-
-      const savedTheme = localStorage.getItem('selectedTheme') || 'dark-mode';
-      document.body.className = savedTheme;
-      themeSelector.value = savedTheme;
-      updateBannerVisibility(savedTheme);
-
-      themeSelector.addEventListener('change', () => {
-        const selectedTheme = themeSelector.value;
-        document.body.className = selectedTheme;
-        localStorage.setItem('selectedTheme', selectedTheme);
-        updateBannerVisibility(selectedTheme);
-      });
-
-      document.getElementById('newSurveyBtn').addEventListener('click', () => {
-        fetch('template-survey.json')
-          .then(res => res.json())
-          .then(data => {
-            window.surveyA = data;
-            if (typeof showCategories === 'function') showCategories();
-          })
-          .catch(err => alert('Failed to load template: ' + err.message));
-      });
-    });
-  </script>
+  <!-- Script -->
   <script src="js/script.js"></script>
 </body>
 </html>
