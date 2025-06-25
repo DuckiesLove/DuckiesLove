@@ -1,10 +1,21 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Talk</title>
   <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .main-container {
+      display: flex;
+    }
+
+    .content-panel {
+      margin-left: 240px;
+      padding: 20px;
+      flex: 1;
+    }
+  </style>
 </head>
 <body class="dark-mode">
   <!-- Banners -->
@@ -27,27 +38,25 @@
     </select>
   </div>
 
-  <!-- Tabs -->
-  <div class="main-container">
-  <div class="category-panel">
-    <div id="categoryContainer"></div>
+  <!-- Tabs + Main Content -->
+  <div class="tab-container">
+    <div id="givingTab" class="tab active">Giving</div>
+    <div id="receivingTab" class="tab">Receiving</div>
+    <div id="neutralTab" class="tab">Neutral</div>
   </div>
-  <div class="content-panel">
-    <div id="kinkList"></div>
-  </div>
-</div>
 
+  <div class="main-container">
+    <div class="category-panel">
+      <div id="categoryContainer"></div>
+    </div>
+    <div class="content-panel">
+      <div id="kinkList"></div>
+    </div>
+  </div>
 
   <!-- Buttons -->
   <button id="downloadBtn">Download Updated Survey</button>
   <button id="newSurveyBtn">Start New Survey</button>
-
-  <!-- Dynamic Content -->
-  <div class="category-panel">
-  <div id="categoryContainer"></div>
-</div>
-
-  <div id="kinkList"></div>
 
   <!-- Upload Section -->
   <h3>Upload Your Survey</h3>
@@ -59,7 +68,7 @@
   <button id="compareBtn">Compare</button>
   <div id="comparisonResult"></div>
 
-  <!-- JavaScript (Ensure DOM is ready before accessing elements) -->
+  <!-- JavaScript -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const themeSelector = document.getElementById('themeSelector');
@@ -71,13 +80,11 @@
         monsterPromBanner.style.display = theme === 'theme-monster-prom' ? 'block' : 'none';
       }
 
-      // Load saved theme
       const savedTheme = localStorage.getItem('selectedTheme') || 'dark-mode';
       document.body.className = savedTheme;
       themeSelector.value = savedTheme;
       updateBannerVisibility(savedTheme);
 
-      // Handle theme change
       themeSelector.addEventListener('change', () => {
         const selectedTheme = themeSelector.value;
         document.body.className = selectedTheme;
@@ -85,13 +92,11 @@
         updateBannerVisibility(selectedTheme);
       });
 
-      // Optional: preload template
       document.getElementById('newSurveyBtn').addEventListener('click', () => {
         fetch('template-survey.json')
           .then(res => res.json())
           .then(data => {
             window.surveyA = data;
-            // If showCategories exists:
             if (typeof showCategories === 'function') showCategories();
           })
           .catch(err => alert('Failed to load template: ' + err.message));
