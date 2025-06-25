@@ -68,7 +68,8 @@ document.getElementById('fileB').addEventListener('change', (e) => {
 });
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
-  fetch('template-survey.json')
+  fetch('template-survey.json') 
+
     .then(res => res.json())
     .then(data => {
       surveyA = data;
