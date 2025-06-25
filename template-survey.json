@@ -2,30 +2,41 @@
   "Bodily Fluids and Functions": {
     "Giving": [
       {
-        "name": "Watersports",
+        "name": "Watersports/golden showers",
         "rating": null
       },
       {
-        "name": "Spit",
+        "name": "Cum",
+        "rating": null
+      },
+      {
+        "name": "Blood",
+        "rating": null
+      },
+      {
+        "name": "Scat",
         "rating": null
       }
     ],
     "Receiving": [
       {
-        "name": "Watersports",
+        "name": "Watersports/golden showers",
         "rating": null
       },
       {
-        "name": "Spit",
+        "name": "Cum",
+        "rating": null
+      },
+      {
+        "name": "Blood",
+        "rating": null
+      },
+      {
+        "name": "Scat",
         "rating": null
       }
     ],
-    "Neutral": [
-      {
-        "name": "Cum",
-        "rating": null
-      }
-    ]
+    "Neutral": []
   },
   "Body Part Torture": {
     "Giving": [
@@ -321,6 +332,45 @@
     ],
     "Neutral": []
   },
+  "Breath Play": {
+    "Giving": [
+      {
+        "name": "Asphyxiation",
+        "rating": null
+      },
+      {
+        "name": "Breath control",
+        "rating": null
+      },
+      {
+        "name": "Choking",
+        "rating": null
+      },
+      {
+        "name": "Drowning",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Asphyxiation",
+        "rating": null
+      },
+      {
+        "name": "Breath control",
+        "rating": null
+      },
+      {
+        "name": "Choking",
+        "rating": null
+      },
+      {
+        "name": "Drowning",
+        "rating": null
+      }
+    ],
+    "Neutral": []
+  },
   "Psychological": {
     "Giving": [
       {
@@ -384,88 +434,152 @@
     ],
     "Neutral": []
   },
-  "Sensation Play": {
+  "Sexual Activity": {
     "Giving": [
       {
-        "name": "Abrasion",
+        "name": "Fellatio/Cunnilingus",
         "rating": null
       },
       {
-        "name": "Scratching",
+        "name": "Swallowing semen",
         "rating": null
       },
       {
-        "name": "Biting",
+        "name": "Cumming on Partner",
         "rating": null
       },
       {
-        "name": "Tickling",
+        "name": "Hand jobs",
         "rating": null
       },
       {
-        "name": "Kissing",
+        "name": "Anal sex",
         "rating": null
       },
       {
-        "name": "Zapping (e.g. electric fly swatter)",
+        "name": "Anal plugs (small)",
         "rating": null
       },
       {
-        "name": "Ice cubes",
+        "name": "Anal plugs (large)",
         "rating": null
       },
       {
-        "name": "Wax Play",
+        "name": "Anal plug (public, under clothes)",
         "rating": null
       },
       {
-        "name": "Fire",
+        "name": "Anal beads",
         "rating": null
       },
       {
-        "name": "Clothespins",
+        "name": "Vibrator on genitals",
+        "rating": null
+      },
+      {
+        "name": "Fisting",
+        "rating": null
+      },
+      {
+        "name": "Oral/anal play (rimming)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (oral and vaginal)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (oral and anal)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (anal and vaginal)",
+        "rating": null
+      },
+      {
+        "name": "Triple (oral and anal)",
+        "rating": null
+      },
+      {
+        "name": "Forced masturbation",
+        "rating": null
+      },
+      {
+        "name": "Orgasm control",
         "rating": null
       }
     ],
     "Receiving": [
       {
-        "name": "Abrasion",
+        "name": "Fellatio/Cunnilingus",
         "rating": null
       },
       {
-        "name": "Scratching",
+        "name": "Swallowing semen",
         "rating": null
       },
       {
-        "name": "Biting",
+        "name": "Cumming on Partner",
         "rating": null
       },
       {
-        "name": "Tickling",
+        "name": "Hand jobs",
         "rating": null
       },
       {
-        "name": "Kissing",
+        "name": "Anal sex",
         "rating": null
       },
       {
-        "name": "Zapping (e.g. electric fly swatter)",
+        "name": "Anal plugs (small)",
         "rating": null
       },
       {
-        "name": "Ice cubes",
+        "name": "Anal plugs (large)",
         "rating": null
       },
       {
-        "name": "Wax Play",
+        "name": "Anal plug (public, under clothes)",
         "rating": null
       },
       {
-        "name": "Fire",
+        "name": "Anal beads",
         "rating": null
       },
       {
-        "name": "Clothespins",
+        "name": "Vibrator on genitals",
+        "rating": null
+      },
+      {
+        "name": "Fisting",
+        "rating": null
+      },
+      {
+        "name": "Oral/anal play (rimming)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (oral and vaginal)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (oral and anal)",
+        "rating": null
+      },
+      {
+        "name": "Double penetration (anal and vaginal)",
+        "rating": null
+      },
+      {
+        "name": "Triple (oral and anal)",
+        "rating": null
+      },
+      {
+        "name": "Forced masturbation",
+        "rating": null
+      },
+      {
+        "name": "Orgasm control",
         "rating": null
       }
     ],
