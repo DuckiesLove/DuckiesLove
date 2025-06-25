@@ -19,6 +19,14 @@ themeSelector.addEventListener('change', () => {
   localStorage.setItem('selectedTheme', selectedTheme);
   updateBannerVisibility(selectedTheme);
 });
+// ================== Load Survey Template on Page Load ==================
+fetch('template-survey.json')
+  .then(res => res.json())
+  .then(data => {
+    surveyA = data;
+    showCategories();
+  })
+  .catch(err => console.error('Failed to load default survey:', err));
 
 // ================== Tab Switching ==================
 let currentAction = 'Giving';
