@@ -93,18 +93,30 @@ function markUnsaved() {
 const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
 const categoryPanel = document.getElementById('categoryPanel');
+const subCategoryWrapper = document.getElementById('subCategoryWrapper');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+const closeSubSidebarBtn = document.getElementById('closeSubSidebarBtn');
 
 categoryPanel.style.display = 'none'; // Hide by default
+subCategoryWrapper.style.display = 'none';
 toggleSidebarBtn.style.display = 'none';
 
 toggleSidebarBtn.addEventListener('click', () => {
   categoryPanel.classList.toggle('visible');
+  categoryPanel.classList.remove('extended');
+  subCategoryWrapper.style.display = 'none';
 });
 
 closeSidebarBtn.addEventListener('click', () => {
   categoryPanel.classList.remove('visible');
+  categoryPanel.classList.remove('extended');
+  subCategoryWrapper.style.display = 'none';
+});
+
+closeSubSidebarBtn.addEventListener('click', () => {
+  categoryPanel.classList.remove('extended');
+  subCategoryWrapper.style.display = 'none';
 });
 
 document.getElementById('fileA').addEventListener('change', (e) => {
@@ -116,6 +128,8 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       const parsed = JSON.parse(ev.target.result);
       surveyA = parsed.survey || parsed;
       categoryPanel.style.display = 'block';
+      subCategoryWrapper.style.display = 'none';
+      categoryPanel.classList.remove('extended');
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
       saveProgress();
@@ -147,6 +161,8 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     .then(data => {
       surveyA = data;
       categoryPanel.style.display = 'block'; // Show sidebar
+      subCategoryWrapper.style.display = 'none';
+      categoryPanel.classList.remove('extended');
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
       saveProgress();
@@ -181,6 +197,8 @@ function showKinks(category) {
   currentCategory = category;
   kinkList.innerHTML = '';
   const kinks = surveyA[category]?.[currentAction];
+  subCategoryWrapper.style.display = 'block';
+  categoryPanel.classList.add('extended');
   if (!kinks || kinks.length === 0) {
     kinkList.textContent = 'No items here.';
     return;
@@ -338,6 +356,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (confirm('Resume unfinished survey?')) {
       surveyA = JSON.parse(saved);
       categoryPanel.style.display = 'block';
+      subCategoryWrapper.style.display = 'none';
+      categoryPanel.classList.remove('extended');
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
     } else {
