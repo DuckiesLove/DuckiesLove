@@ -38,6 +38,33 @@ document.getElementById('neutralTab').onclick = () => switchTab('Neutral');
 let surveyA = null;
 let surveyB = null;
 let currentCategory = null;
+let unsavedTimer = null;
+const saveStatusEl = document.getElementById('saveStatus');
+
+function updateSaveStatus() {
+  const ts = localStorage.getItem('lastSaved');
+  if (ts) {
+    const d = new Date(ts);
+    saveStatusEl.textContent = `Last Saved: ${d.toLocaleString()}`;
+    saveStatusEl.classList.remove('unsaved');
+  } else {
+    saveStatusEl.textContent = '';
+  }
+}
+
+function saveProgress() {
+  if (!surveyA) return;
+  localStorage.setItem('savedSurvey', JSON.stringify(surveyA));
+  localStorage.setItem('lastSaved', new Date().toISOString());
+  updateSaveStatus();
+}
+
+function markUnsaved() {
+  saveStatusEl.textContent = 'Unsaved changes...';
+  saveStatusEl.classList.add('unsaved');
+  clearTimeout(unsavedTimer);
+  unsavedTimer = setTimeout(saveProgress, 1000);
+}
 
 const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
@@ -57,6 +84,8 @@ closeSidebarBtn.addEventListener('click', () => {
 });
 
 document.getElementById('fileA').addEventListener('change', (e) => {
+  localStorage.removeItem('savedSurvey');
+  localStorage.removeItem('lastSaved');
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
@@ -64,6 +93,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       categoryPanel.style.display = 'block';
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
+      saveProgress();
     } catch {
       alert('Invalid JSON for Survey A.');
     }
@@ -84,6 +114,8 @@ document.getElementById('fileB').addEventListener('change', (e) => {
 });
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
+  localStorage.removeItem('savedSurvey');
+  localStorage.removeItem('lastSaved');
   fetch('template-survey.json')
     .then(res => res.json())
     .then(data => {
@@ -91,6 +123,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
       categoryPanel.style.display = 'block'; // Show sidebar
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
+      saveProgress();
     })
     .catch(err => alert('Failed to load template: ' + err.message));
 });
@@ -149,6 +182,7 @@ function showKinks(category) {
 
     select.onchange = () => {
       kink.rating = select.value === '' ? null : Number(select.value);
+      markUnsaved();
     };
 
     container.appendChild(select);
@@ -265,3 +299,20 @@ document.getElementById('compareBtn').addEventListener('click', () => {
 
 // ================== Start ==================
 switchTab('Giving');
+
+// Resume previous session if available
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('savedSurvey');
+  if (saved && !surveyA) {
+    if (confirm('Resume unfinished survey?')) {
+      surveyA = JSON.parse(saved);
+      categoryPanel.style.display = 'block';
+      toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+      showCategories();
+    } else {
+      localStorage.removeItem('savedSurvey');
+      localStorage.removeItem('lastSaved');
+    }
+  }
+  updateSaveStatus();
+});
