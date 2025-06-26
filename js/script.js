@@ -190,7 +190,7 @@ function showKinks(category) {
   });
 }
 
-// ================== Download Survey ==================
+// ================== Export My List ==================
 document.getElementById('downloadBtn').addEventListener('click', () => {
   if (!surveyA) {
     alert('No survey loaded.');
@@ -205,7 +205,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-// ================== Compare Surveys ==================
+// ================== See Our Compatibility ==================
 document.getElementById('compareBtn').addEventListener('click', () => {
   const resultDiv = document.getElementById('comparisonResult');
   resultDiv.innerHTML = '';
