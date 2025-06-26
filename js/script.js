@@ -95,6 +95,7 @@ const kinkList = document.getElementById('kinkList');
 const categoryPanel = document.getElementById('categoryPanel');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+const consentStatementEl = document.getElementById('consentStatement');
 
 categoryPanel.style.display = 'none'; // Hide by default
 toggleSidebarBtn.style.display = 'none';
@@ -113,7 +114,8 @@ document.getElementById('fileA').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
-      surveyA = JSON.parse(ev.target.result);
+      const parsed = JSON.parse(ev.target.result);
+      surveyA = parsed.survey || parsed;
       categoryPanel.style.display = 'block';
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
@@ -129,7 +131,8 @@ document.getElementById('fileB').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
-      surveyB = JSON.parse(ev.target.result);
+      const parsed = JSON.parse(ev.target.result);
+      surveyB = parsed.survey || parsed;
     } catch {
       alert('Invalid JSON for Survey B.');
     }
@@ -223,7 +226,10 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     alert('No survey loaded.');
     return;
   }
-  const blob = new Blob([JSON.stringify(surveyA, null, 2)], { type: 'application/json' });
+  const exportObj = { survey: surveyA };
+  const stmt = consentStatementEl.value.trim();
+  if (stmt) exportObj.consentStatement = stmt;
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -234,6 +240,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
 
 // ================== See Our Compatibility ==================
 document.getElementById('compareBtn').addEventListener('click', () => {
+  if (!confirm('Have you reviewed consent with your partner?')) return;
   const resultDiv = document.getElementById('comparisonResult');
   resultDiv.innerHTML = '';
 
@@ -285,6 +292,11 @@ document.getElementById('compareBtn').addEventListener('click', () => {
 
   const avg = count ? Math.round(totalScore / count) : 0;
   let output = `<h3>Compatibility Score: ${avg}%</h3>`;
+  const stmt = consentStatementEl.value.trim();
+  if (stmt) {
+    const esc = stmt.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    output += `<p>${esc}</p>`;
+  }
 
   // Similarity Score (same role)
   let simScore = 0;
