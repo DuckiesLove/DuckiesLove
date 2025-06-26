@@ -136,11 +136,11 @@ body.theme-blue {
   background-color: #001933;
   color: #fff;
 }
-body.theme-outer-wilds {
+body.theme-cosmic-dusk {
   background-color: #1e1e2e;
   color: #ffde8d;
 }
-body.theme-monster-prom {
+body.theme-pink-midnight {
   background-color: #400040;
   color: #ff69b4;
 }
@@ -170,22 +170,22 @@ body.theme-blue .subcategory-wrapper {
   color: #fff;
   border-left-color: #003366;
 }
-body.theme-outer-wilds .category-panel {
+body.theme-cosmic-dusk .category-panel {
   background-color: #2a2a3a;
   color: #ffde8d;
   border-right-color: #ffde8d;
 }
-body.theme-outer-wilds .subcategory-wrapper {
+body.theme-cosmic-dusk .subcategory-wrapper {
   background-color: #2a2a3a;
   color: #ffde8d;
   border-left-color: #ffde8d;
 }
-body.theme-monster-prom .category-panel {
+body.theme-pink-midnight .category-panel {
   background-color: #550055;
   color: #ff69b4;
   border-right-color: #800080;
 }
-body.theme-monster-prom .subcategory-wrapper {
+body.theme-pink-midnight .subcategory-wrapper {
   background-color: #550055;
   color: #ff69b4;
   border-left-color: #800080;
@@ -199,17 +199,6 @@ body.theme-rainbow .subcategory-wrapper {
   background-color: rgba(255,255,255,0.8);
   color: #000;
   border-left-color: #603636;
-}
-
-/* Theme Banners */
-.theme-banner {
-  display: none;
-  width: 100%;
-  height: auto;
-  max-height: 250px;
-  object-fit: cover;
-  margin-bottom: 20px;
-  border-radius: 6px;
 }
 
 /* Header */
@@ -285,19 +274,19 @@ body.theme-blue .tab.active {
   background-color: #0055aa;
   border: 1px solid #003377;
 }
-body.theme-outer-wilds .tab {
+body.theme-cosmic-dusk .tab {
   background-color: #2b2b3d;
   color: #ffde8d;
 }
-body.theme-outer-wilds .tab.active {
+body.theme-cosmic-dusk .tab.active {
   background-color: #3b3a5a;
   border: 1px solid #ffde8d;
 }
-body.theme-monster-prom .tab {
+body.theme-pink-midnight .tab {
   background-color: #663366;
   color: #ff69b4;
 }
-body.theme-monster-prom .tab.active {
+body.theme-pink-midnight .tab.active {
   background-color: #ff69b4;
   color: #400040;
   border: 1px solid #800080;
@@ -381,11 +370,11 @@ body.theme-blue #comparisonResult {
   background-color: #002244;
   color: #fff;
 }
-body.theme-outer-wilds #comparisonResult {
+body.theme-cosmic-dusk #comparisonResult {
   background-color: #2a2a3a;
   color: #ffde8d;
 }
-body.theme-monster-prom #comparisonResult {
+body.theme-pink-midnight #comparisonResult {
   background-color: #550055;
   color: #ff69b4;
 }
