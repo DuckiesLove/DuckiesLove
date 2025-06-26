@@ -93,18 +93,30 @@ function markUnsaved() {
 const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
 const categoryPanel = document.getElementById('categoryPanel');
+const subCategoryPanel = document.getElementById('subCategoryPanel');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+const closeSubSidebarBtn = document.getElementById('closeSubSidebarBtn');
 
 categoryPanel.style.display = 'none'; // Hide by default
+subCategoryPanel.style.display = 'none';
 toggleSidebarBtn.style.display = 'none';
 
 toggleSidebarBtn.addEventListener('click', () => {
   categoryPanel.classList.toggle('visible');
+  subCategoryPanel.classList.remove('visible');
+  subCategoryPanel.style.display = 'none';
 });
 
 closeSidebarBtn.addEventListener('click', () => {
   categoryPanel.classList.remove('visible');
+  subCategoryPanel.classList.remove('visible');
+  subCategoryPanel.style.display = 'none';
+});
+
+closeSubSidebarBtn.addEventListener('click', () => {
+  subCategoryPanel.classList.remove('visible');
+  subCategoryPanel.style.display = 'none';
 });
 
 document.getElementById('fileA').addEventListener('change', (e) => {
@@ -115,6 +127,8 @@ document.getElementById('fileA').addEventListener('change', (e) => {
     try {
       surveyA = JSON.parse(ev.target.result);
       categoryPanel.style.display = 'block';
+      subCategoryPanel.style.display = 'none';
+      subCategoryPanel.classList.remove('visible');
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
       saveProgress();
@@ -145,6 +159,8 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     .then(data => {
       surveyA = data;
       categoryPanel.style.display = 'block'; // Show sidebar
+      subCategoryPanel.style.display = 'none';
+      subCategoryPanel.classList.remove('visible');
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
       saveProgress();
@@ -179,6 +195,8 @@ function showKinks(category) {
   currentCategory = category;
   kinkList.innerHTML = '';
   const kinks = surveyA[category]?.[currentAction];
+  subCategoryPanel.style.display = 'block';
+  subCategoryPanel.classList.add('visible');
   if (!kinks || kinks.length === 0) {
     kinkList.textContent = 'No items here.';
     return;
@@ -334,6 +352,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (confirm('Resume unfinished survey?')) {
       surveyA = JSON.parse(saved);
       categoryPanel.style.display = 'block';
+      subCategoryPanel.style.display = 'none';
+      subCategoryPanel.classList.remove('visible');
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
     } else {
