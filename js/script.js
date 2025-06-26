@@ -95,7 +95,6 @@ const kinkList = document.getElementById('kinkList');
 const categoryPanel = document.getElementById('categoryPanel');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
-const consentStatementEl = document.getElementById('consentStatement');
 
 categoryPanel.style.display = 'none'; // Hide by default
 toggleSidebarBtn.style.display = 'none';
@@ -227,8 +226,6 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     return;
   }
   const exportObj = { survey: surveyA };
-  const stmt = consentStatementEl.value.trim();
-  if (stmt) exportObj.consentStatement = stmt;
   const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -292,11 +289,6 @@ document.getElementById('compareBtn').addEventListener('click', () => {
 
   const avg = count ? Math.round(totalScore / count) : 0;
   let output = `<h3>Compatibility Score: ${avg}%</h3>`;
-  const stmt = consentStatementEl.value.trim();
-  if (stmt) {
-    const esc = stmt.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    output += `<p>${esc}</p>`;
-  }
 
   // Similarity Score (same role)
   let simScore = 0;
