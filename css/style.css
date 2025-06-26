@@ -21,6 +21,21 @@ body {
   transition: left 0.3s ease;
 }
 
+.subcategory-panel {
+  position: fixed;
+  left: 240px;
+  top: 240px;
+  width: 260px;
+  background-color: #1e1e2f;
+  border-left: 2px solid #444;
+  padding: 15px;
+  height: calc(100% - 240px);
+  overflow-y: auto;
+  z-index: 199;
+  display: none;
+  transition: left 0.3s ease;
+}
+
 #closeSidebarBtn {
   text-align: right;
   background: none;
@@ -29,6 +44,15 @@ body {
   font-size: 18px;
   width: 100%;
   display: none;
+}
+
+#closeSubSidebarBtn {
+  text-align: right;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 18px;
+  width: 100%;
 }
 
 #toggleSidebarBtn {
@@ -59,7 +83,18 @@ body {
     left: 10px;
   }
 
+  #subCategoryPanel {
+    left: -230px;
+  }
+
+  #subCategoryPanel.visible {
+    left: 240px;
+  }
+
   #closeSidebarBtn {
+    display: block;
+  }
+  #closeSubSidebarBtn {
     display: block;
   }
 }
