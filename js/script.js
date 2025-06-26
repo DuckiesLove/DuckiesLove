@@ -22,12 +22,36 @@ themeSelector.addEventListener('change', () => {
 
 // ================== Tab Switching ==================
 let currentAction = 'Giving';
+function applyAnimation(el, cls) {
+  el.classList.add(cls);
+  el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+}
+
+function createRipple(e) {
+  const button = e.currentTarget;
+  const circle = document.createElement('span');
+  const diameter = Math.max(button.clientWidth, button.clientHeight);
+  const radius = diameter / 2;
+  circle.style.width = circle.style.height = `${diameter}px`;
+  circle.style.left = `${e.clientX - button.getBoundingClientRect().left - radius}px`;
+  circle.style.top = `${e.clientY - button.getBoundingClientRect().top - radius}px`;
+  circle.classList.add('ripple');
+  const ripple = button.querySelector('.ripple');
+  if (ripple) ripple.remove();
+  button.appendChild(circle);
+}
+
+function attachRipple(btn) {
+  btn.addEventListener('click', createRipple);
+}
+
 function switchTab(action) {
   currentAction = action;
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
   document.getElementById(`${action.toLowerCase()}Tab`).classList.add('active');
   showCategories();
   if (currentCategory) showKinks(currentCategory);
+  applyAnimation(kinkList, 'bounce-in');
 }
 
 document.getElementById('givingTab').onclick = () => switchTab('Giving');
@@ -145,8 +169,10 @@ function showCategories() {
         categoryPanel.classList.remove('visible');
       }
     };
+    attachRipple(btn);
     categoryContainer.appendChild(btn);
   });
+  applyAnimation(categoryContainer, 'fade-in');
 }
 
 function showKinks(category) {
@@ -188,6 +214,7 @@ function showKinks(category) {
     container.appendChild(select);
     kinkList.appendChild(container);
   });
+  applyAnimation(kinkList, 'fade-in');
 }
 
 // ================== Export My List ==================
@@ -315,4 +342,5 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
   updateSaveStatus();
+  document.querySelectorAll('button').forEach(attachRipple);
 });
