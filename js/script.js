@@ -42,7 +42,19 @@ let currentCategory = null;
 const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
 const categoryPanel = document.getElementById('categoryPanel');
- categoryPanel.style.display = 'none'; // Hide by default
+const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+
+categoryPanel.style.display = 'none'; // Hide by default
+toggleSidebarBtn.style.display = 'none';
+
+toggleSidebarBtn.addEventListener('click', () => {
+  categoryPanel.classList.toggle('visible');
+});
+
+closeSidebarBtn.addEventListener('click', () => {
+  categoryPanel.classList.remove('visible');
+});
 
 document.getElementById('fileA').addEventListener('change', (e) => {
   const reader = new FileReader();
@@ -50,6 +62,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
     try {
       surveyA = JSON.parse(ev.target.result);
       categoryPanel.style.display = 'block';
+      toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
     } catch {
       alert('Invalid JSON for Survey A.');
@@ -76,6 +89,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     .then(data => {
       surveyA = data;
       categoryPanel.style.display = 'block'; // Show sidebar
+      toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       showCategories();
     })
     .catch(err => alert('Failed to load template: ' + err.message));
@@ -94,6 +108,9 @@ function showCategories() {
       currentCategory = cat;
       showCategories();
       showKinks(cat);
+      if (window.innerWidth <= 768) {
+        categoryPanel.classList.remove('visible');
+      }
     };
     categoryContainer.appendChild(btn);
   });
