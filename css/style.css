@@ -18,7 +18,29 @@ body {
   overflow-y: auto;
   z-index: 200;
   display: none; /* hidden until a survey loads */
-  transition: left 0.3s ease;
+  transition: left 0.3s ease, width 0.3s ease;
+}
+
+.category-panel.extended {
+  width: 480px;
+}
+
+.subcategory-wrapper {
+  position: absolute;
+  left: 220px;
+  top: 0;
+  width: 260px;
+  background-color: #1e1e2f;
+  border-left: 2px solid #444;
+  padding: 15px;
+  height: 100%;
+  overflow-y: auto;
+  z-index: 199;
+  display: none;
+}
+
+.category-panel.extended .subcategory-wrapper {
+  display: block;
 }
 
 #closeSidebarBtn {
@@ -29,6 +51,15 @@ body {
   font-size: 18px;
   width: 100%;
   display: none;
+}
+
+#closeSubSidebarBtn {
+  text-align: right;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 18px;
+  width: 100%;
 }
 
 #toggleSidebarBtn {
@@ -59,7 +90,11 @@ body {
     left: 10px;
   }
 
+
   #closeSidebarBtn {
+    display: block;
+  }
+  #closeSubSidebarBtn {
     display: block;
   }
 }
@@ -112,6 +147,58 @@ body.theme-monster-prom {
 body.theme-rainbow {
   background: linear-gradient(135deg, #ff9a9e, #fad0c4, #fbc2eb, #a18cd1);
   color: #000;
+}
+
+/* Theme-specific panel colors */
+body.light-mode .category-panel {
+  background-color: #f9f9f9;
+  color: #000;
+  border-right-color: #ccc;
+}
+body.light-mode .subcategory-wrapper {
+  background-color: #f9f9f9;
+  color: #000;
+  border-left-color: #ccc;
+}
+body.theme-blue .category-panel {
+  background-color: #002244;
+  color: #fff;
+  border-right-color: #003366;
+}
+body.theme-blue .subcategory-wrapper {
+  background-color: #002244;
+  color: #fff;
+  border-left-color: #003366;
+}
+body.theme-outer-wilds .category-panel {
+  background-color: #2a2a3a;
+  color: #ffde8d;
+  border-right-color: #ffde8d;
+}
+body.theme-outer-wilds .subcategory-wrapper {
+  background-color: #2a2a3a;
+  color: #ffde8d;
+  border-left-color: #ffde8d;
+}
+body.theme-monster-prom .category-panel {
+  background-color: #550055;
+  color: #ff69b4;
+  border-right-color: #800080;
+}
+body.theme-monster-prom .subcategory-wrapper {
+  background-color: #550055;
+  color: #ff69b4;
+  border-left-color: #800080;
+}
+body.theme-rainbow .category-panel {
+  background-color: rgba(255,255,255,0.8);
+  color: #000;
+  border-right-color: #603636;
+}
+body.theme-rainbow .subcategory-wrapper {
+  background-color: rgba(255,255,255,0.8);
+  color: #000;
+  border-left-color: #603636;
 }
 
 /* Theme Banners */
