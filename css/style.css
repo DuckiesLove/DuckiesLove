@@ -8,17 +8,60 @@ body {
 }
 .category-panel {
   position: fixed;
-  left: 0;
-  top: 270px; /* assumes both banners + margin = ~250px + some spacing */
+  left: 10px;
+  top: 240px;
   width: 220px;
   background-color: #1e1e2f;
   border-right: 2px solid #444;
   padding: 15px;
-  height: calc(100% - 270px);
+  height: calc(100% - 240px);
   overflow-y: auto;
-  z-index: 100;
-  display: none; /* keep hidden until "Start New Survey" is clicked */
+  z-index: 200;
+  display: none; /* hidden until a survey loads */
+  transition: left 0.3s ease;
+}
 
+#closeSidebarBtn {
+  text-align: right;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 18px;
+  width: 100%;
+  display: none;
+}
+
+#toggleSidebarBtn {
+  display: none;
+  padding: 8px 12px;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 5px;
+  cursor: pointer;
+  position: fixed;
+  top: 200px;
+  left: 10px;
+  z-index: 201;
+}
+
+@media (max-width: 768px) {
+  #toggleSidebarBtn {
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  #categoryPanel {
+    left: -230px;
+  }
+
+  #categoryPanel.visible {
+    left: 10px;
+  }
+
+  #closeSidebarBtn {
+    display: block;
+  }
 }
 
 #categoryContainer button {
@@ -248,6 +291,12 @@ body.theme-rainbow #comparisonResult {
   margin-left: 220px; /* Make room for fixed sidebar */
   padding: 20px;
   box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .main-container {
+    margin-left: 0;
+  }
 }
 
 /* Content Area Next to Sidebar */
