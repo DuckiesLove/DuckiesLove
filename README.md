@@ -35,3 +35,33 @@ The website is built from the following files in this repository:
 - `css/style.css`
 - `js/script.js`
 - `template-survey.json`
+
+## Local Development
+
+Serve the static files locally to preview changes before pushing them to GitHub.
+
+### Using Python
+
+If you have Python 3 installed, run:
+
+```bash
+python3 -m http.server
+```
+
+Then open <http://localhost:8000> in your browser.
+
+### Using Node
+
+First install the `serve` package globally if you haven’t already:
+
+```bash
+npm install -g serve
+```
+
+Start the server from the repository root:
+
+```bash
+serve .
+```
+
+This will default to <http://localhost:3000>.
