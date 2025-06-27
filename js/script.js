@@ -55,8 +55,15 @@ function switchTab(action) {
   currentAction = action;
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
   document.getElementById(`${action.toLowerCase()}Tab`).classList.add('active');
-  showCategories();
-  if (currentCategory) showKinks(currentCategory);
+  const cats = showCategories();
+  if (!cats.includes(currentCategory)) {
+    currentCategory = null;
+  }
+  if (currentCategory) {
+    showKinks(currentCategory);
+  } else if (cats.length > 0) {
+    showKinks(cats[0]);
+  }
   applyAnimation(kinkList, 'bounce-in');
 }
 
@@ -195,8 +202,14 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
 // ================== Category + Kink Display ==================
 function showCategories() {
   categoryContainer.innerHTML = '';
-  if (!surveyA) return;
-  Object.keys(surveyA).forEach(cat => {
+  if (!surveyA) return [];
+
+  const available = Object.keys(surveyA).filter(cat => {
+    const items = surveyA[cat][currentAction];
+    return Array.isArray(items) && items.length > 0;
+  });
+
+  available.forEach(cat => {
     const btn = document.createElement('button');
     btn.textContent = cat;
     if (cat === currentCategory) btn.classList.add('active');
@@ -213,6 +226,7 @@ function showCategories() {
     categoryContainer.appendChild(btn);
   });
   applyAnimation(categoryContainer, 'fade-in');
+  return available;
 }
 
 function showKinks(category) {
