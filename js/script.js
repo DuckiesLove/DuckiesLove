@@ -292,6 +292,10 @@ document.getElementById('fileA').addEventListener('change', (e) => {
 });
 
 document.getElementById('fileB').addEventListener('change', (e) => {
+  if (!confirm('Have you reviewed consent with your partner?')) {
+    e.target.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
@@ -512,7 +516,6 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
 
 // ================== See Our Compatibility ==================
 document.getElementById('compareBtn').addEventListener('click', () => {
-  if (!confirm('Have you reviewed consent with your partner?')) return;
   const resultDiv = document.getElementById('comparisonResult');
   resultDiv.innerHTML = '';
 
