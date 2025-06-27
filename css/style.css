@@ -141,7 +141,7 @@ body.dark-mode {
   color: #e0e0e0;
 }
 body.light-mode {
-  background-color: #f7f7f7;
+  background-color: #f0f0f0; /* softer background */
   color: #222;
 }
 body.theme-blue {
@@ -165,12 +165,12 @@ body.theme-rainbow {
 
 /* Theme-specific panel colors */
 body.light-mode .category-panel {
-  background-color: #ffffff;
+  background-color: #f7f7f7; /* toned down white */
   color: #222;
   border-right-color: #dcdcdc;
 }
 body.light-mode .subcategory-wrapper {
-  background-color: #ffffff;
+  background-color: #f7f7f7; /* toned down white */
   color: #222;
   border-left-color: #dcdcdc;
 }
@@ -398,7 +398,7 @@ body.dark-mode #comparisonResult {
   border-color: #444;
 }
 body.light-mode #comparisonResult {
-  background-color: #ffffff;
+  background-color: #f6f6f6; /* reduced brightness */
   color: #222;
   border-color: #dcdcdc;
 }
