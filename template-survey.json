@@ -673,67 +673,37 @@
     "Neutral": []
   },
   "Other": {
-    "Giving": [
-      {
-        "name": "Feet",
-        "rating": null
-      },
-      {
-        "name": "Boots",
-        "rating": null
-      },
-      {
-        "name": "Underwear",
-        "rating": null
-      },
-      {
-        "name": "Chastity devices",
-        "rating": null
-      },
-      {
-        "name": "Masks",
-        "rating": null
-      },
-      {
-        "name": "Breeding",
-        "rating": null
-      },
-      {
-        "name": "Leather clothing",
-        "rating": null
-      }
-    ],
-    "Receiving": [
-      {
-        "name": "Feet",
-        "rating": null
-      },
-      {
-        "name": "Boots",
-        "rating": null
-      },
-      {
-        "name": "Underwear",
-        "rating": null
-      },
-      {
-        "name": "Chastity devices",
-        "rating": null
-      },
-      {
-        "name": "Masks",
-        "rating": null
-      },
-      {
-        "name": "Breeding",
-        "rating": null
-      },
-      {
-        "name": "Leather clothing",
-        "rating": null
-      }
-    ],
+    "Giving": [],
+    "Receiving": [],
     "Neutral": [
+      {
+        "name": "Feet",
+        "rating": null
+      },
+      {
+        "name": "Boots",
+        "rating": null
+      },
+      {
+        "name": "Underwear",
+        "rating": null
+      },
+      {
+        "name": "Chastity devices",
+        "rating": null
+      },
+      {
+        "name": "Masks",
+        "rating": null
+      },
+      {
+        "name": "Breeding",
+        "rating": null
+      },
+      {
+        "name": "Leather clothing",
+        "rating": null
+      },
       {
         "name": "Romance / affection",
         "rating": null
