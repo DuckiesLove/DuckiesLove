@@ -36,19 +36,24 @@ function attachRipple(btn) {
   btn.addEventListener('click', createRipple);
 }
 
-function updateTabsForCategory(categoryData) {
+function updateTabsForCategory() {
   const generalTab = document.getElementById('neutralTab');
-  generalTab.style.display = 'block';
-  if (categoryData.Neutral && categoryData.Neutral.length > 0) {
+  if (!surveyA) {
+    generalTab.style.display = 'none';
+    return;
+  }
+
+  const hasGeneral = Object.values(surveyA).some(
+    cat => Array.isArray(cat.Neutral) && cat.Neutral.length > 0
+  );
+
+  if (hasGeneral) {
+    generalTab.style.display = 'block';
     generalTab.classList.remove('disabled');
     generalTab.title = '';
   } else {
-    generalTab.classList.add('disabled');
-    generalTab.title = 'No general options';
-    // fallback to Giving tab if General isn't available
-    if (currentAction === 'Neutral') {
-      switchTab('Giving');
-    }
+    generalTab.style.display = 'none';
+    if (currentAction === 'Neutral') switchTab('Giving');
   }
 }
 
@@ -171,6 +176,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       const parsed = JSON.parse(ev.target.result);
       surveyA = parsed.survey || parsed;
       filterGeneralOptions(surveyA);
+      updateTabsForCategory();
       categoryPanel.style.display = 'block';
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
@@ -207,6 +213,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     .then(data => {
       surveyA = data;
       filterGeneralOptions(surveyA);
+      updateTabsForCategory();
       categoryPanel.style.display = 'block'; // Show sidebar
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
@@ -262,7 +269,7 @@ function showKinks(category) {
   currentCategory = category;
   kinkList.innerHTML = '';
   const categoryData = surveyA[category];
-  updateTabsForCategory(categoryData);
+  updateTabsForCategory();
   const kinks = categoryData?.[currentAction];
   subCategoryWrapper.style.display = 'block';
   categoryPanel.classList.add('extended');
@@ -423,6 +430,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (confirm('Resume unfinished survey?')) {
       surveyA = JSON.parse(saved);
       filterGeneralOptions(surveyA);
+      updateTabsForCategory();
       categoryPanel.style.display = 'block';
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
