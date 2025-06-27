@@ -318,9 +318,6 @@ function showCategories() {
           subCategoryWrapper.style.display = 'none';
           categoryPanel.classList.remove('extended');
         }
-        if (window.innerWidth <= 768) {
-          categoryPanel.classList.remove('visible');
-        }
         if (categoryListEl) categoryListEl.classList.remove('show');
       };
       attachRipple(btn);
