@@ -223,23 +223,30 @@ function showCategories() {
   categoryContainer.innerHTML = '';
   if (!surveyA) return [];
 
-  const available = Object.keys(surveyA).filter(cat => {
-    if (cat === 'Other' && currentAction !== 'Neutral') {
-      return false;
-    }
-    const items = surveyA[cat][currentAction];
-    return Array.isArray(items) && items.length > 0;
-  });
+  const categories = Object.keys(surveyA);
+  const available = [];
 
-  available.forEach(cat => {
+  categories.forEach(cat => {
+    const items = surveyA[cat][currentAction];
+    const hasItems = Array.isArray(items) && items.length > 0;
+    if (hasItems) available.push(cat);
+
     const btn = document.createElement('button');
     btn.textContent = cat;
     if (cat === currentCategory) btn.classList.add('active');
+    if (!hasItems) {
+      btn.classList.add('disabled');
+    }
     btn.onclick = () => {
       if (currentCategory === cat) return;
       currentCategory = cat;
       showCategories();
-      showKinks(cat);
+      if (hasItems) {
+        showKinks(cat);
+      } else {
+        subCategoryWrapper.style.display = 'none';
+        categoryPanel.classList.remove('extended');
+      }
       if (window.innerWidth <= 768) {
         categoryPanel.classList.remove('visible');
       }
