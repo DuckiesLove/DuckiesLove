@@ -208,21 +208,30 @@ document.getElementById('fileB').addEventListener('change', (e) => {
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
   localStorage.removeItem('savedSurvey');
   localStorage.removeItem('lastSaved');
+
+  const initialize = data => {
+    surveyA = data;
+    filterGeneralOptions(surveyA);
+    updateTabsForCategory();
+    categoryPanel.style.display = 'block'; // Show sidebar
+    subCategoryWrapper.style.display = 'none';
+    categoryPanel.classList.remove('extended');
+    toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+    renderMainCategories();
+    showCategories();
+    saveProgress();
+  };
+
   fetch('template-survey.json')
     .then(res => res.json())
-    .then(data => {
-      surveyA = data;
-      filterGeneralOptions(surveyA);
-      updateTabsForCategory();
-      categoryPanel.style.display = 'block'; // Show sidebar
-      subCategoryWrapper.style.display = 'none';
-      categoryPanel.classList.remove('extended');
-      toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
-      renderMainCategories();
-      showCategories();
-      saveProgress();
-    })
-    .catch(err => alert('Failed to load template: ' + err.message));
+    .then(initialize)
+    .catch(err => {
+      if (window.templateSurvey) {
+        initialize(window.templateSurvey);
+      } else {
+        alert('Failed to load template: ' + err.message);
+      }
+    });
 });
 
 // ================== Category + Kink Display ==================
