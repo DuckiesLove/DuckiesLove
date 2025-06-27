@@ -10,7 +10,6 @@
 
   <h1>Talk Kink</h1>
 
-
   <!-- Theme Selector -->
   <div id="themeControl">
     <label for="themeSelector">🎨 Select Theme:</label>
@@ -24,6 +23,7 @@
     </select>
   </div>
 
+  <!-- Role Selector -->
   <div id="roleControl">
     <label for="roleSelector">Select Roles:</label>
     <select id="roleSelector" multiple>
@@ -43,10 +43,17 @@
     </select>
   </div>
 
+  <!-- Save Status & Rating Legend -->
   <div id="saveStatus"></div>
   <div id="ratingLegend">
-    0 = Hard limit / dislike | 1 = Disinterested | 2 = Neutral | 3 = Like it<br />
-    4 = Really like it | 5 = Core turn-on
+    <ul>
+      <li>0 = Hard limit / dislike</li>
+      <li>1 = Disinterested</li>
+      <li>2 = Neutral</li>
+      <li>3 = Like it</li>
+      <li>4 = Really like it</li>
+      <li>5 = Core turn-on</li>
+    </ul>
   </div>
 
   <!-- Tabs and Categories -->
@@ -78,7 +85,6 @@
   <button id="downloadBtn">Export My List</button>
   <button id="newSurveyBtn">Start New Survey</button>
 
-
   <!-- Upload -->
   <h3>Upload Your Survey</h3>
   <input type="file" id="fileA" />
@@ -90,7 +96,4 @@
   <div id="comparisonResult"></div>
 
   <!-- Script -->
-  <script src="js/template-survey.js"></script>
-  <script src="js/script.js"></script>
-</body>
-</html>
+  <scri
