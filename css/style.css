@@ -201,16 +201,6 @@ body.theme-rainbow .subcategory-wrapper {
   border-left-color: #603636;
 }
 
-/* Theme Banners */
-.theme-banner {
-  display: none;
-  width: 100%;
-  height: auto;
-  max-height: 250px;
-  object-fit: cover;
-  margin-bottom: 20px;
-  border-radius: 6px;
-}
 
 /* Header */
 h1 {
