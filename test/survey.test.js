@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const test = require('node:test');
 
 test('opposite ratings trigger red flag and zero score', () => {
-  const surveyA = { Cat: { Giving: [{ name: 'A', rating: 7 }], Receiving: [], General: [] } };
+  const surveyA = { Cat: { Giving: [{ name: 'A', rating: 5 }], Receiving: [], General: [] } };
   const surveyB = { Cat: { Giving: [], Receiving: [{ name: 'A', rating: 0 }], General: [] } };
   const result = calculateCompatibility(surveyA, surveyB);
   assert.strictEqual(result.compatibilityScore, 0);
