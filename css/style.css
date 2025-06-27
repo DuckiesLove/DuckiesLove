@@ -92,6 +92,14 @@ body.light-mode #closeSubSidebarBtn {
   #closeSubSidebarBtn {
     display: block;
   }
+  #categoryPanel.extended {
+    width: 100%;
+  }
+
+  .subcategory-wrapper {
+    left: 0;
+    width: 100%;
+  }
 }
 
 #categoryContainer button {
