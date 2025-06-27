@@ -13,6 +13,11 @@ themeSelector.addEventListener('change', () => {
 
 // ================== Tab Switching ==================
 let currentAction = 'Giving';
+const ACTION_LABELS = {
+  Giving: 'Giving',
+  Receiving: 'Receiving',
+  General: 'Neutral'
+};
 function applyAnimation(el, cls) {
   el.classList.add(cls);
   el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
@@ -80,7 +85,7 @@ function renderMainCategories() {
   mainCategoryList.innerHTML = '';
   ['Giving', 'Receiving', 'General'].forEach(action => {
     const btn = document.createElement('button');
-    btn.textContent = action;
+    btn.textContent = ACTION_LABELS[action] || action;
     if (action === currentAction) btn.classList.add('active');
     btn.onclick = () => switchTab(action);
     attachRipple(btn);
