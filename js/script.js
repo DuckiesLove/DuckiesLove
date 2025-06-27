@@ -205,6 +205,7 @@ const categoryButton = document.getElementById('categoryButton');
 const categoryListEl = document.getElementById('categoryList');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
 const closeSubSidebarBtn = document.getElementById('closeSubSidebarBtn');
+const openSidebarBtn = document.getElementById('openSidebarBtn');
 const ratingLegend = document.getElementById('ratingLegend');
 const categoryOverlay = document.getElementById('categoryOverlay');
 
@@ -242,6 +243,15 @@ function hideOverlay() {
 categoryPanel.style.display = 'none'; // Hide by default
 subCategoryWrapper.style.display = 'none';
 categoryButton.style.display = 'none';
+openSidebarBtn.style.display = 'none';
+
+openSidebarBtn.addEventListener('click', () => {
+  categoryPanel.classList.add('visible');
+  categoryPanel.classList.remove('extended');
+  subCategoryWrapper.style.display = 'none';
+  showOverlay();
+  openSidebarBtn.style.display = 'none';
+});
 
 categoryButton.addEventListener('click', () => {
   toggleCategories();
@@ -251,8 +261,10 @@ categoryButton.addEventListener('click', () => {
     subCategoryWrapper.style.display = 'none';
     if (categoryPanel.classList.contains('visible')) {
       showOverlay();
+      openSidebarBtn.style.display = 'none';
     } else {
       hideOverlay();
+      openSidebarBtn.style.display = 'block';
     }
   }
 });
@@ -262,6 +274,7 @@ closeSidebarBtn.addEventListener('click', () => {
   categoryPanel.classList.remove('extended');
   subCategoryWrapper.style.display = 'none';
   hideOverlay();
+  if (window.innerWidth <= 768) openSidebarBtn.style.display = 'block';
 });
 
 closeSubSidebarBtn.addEventListener('click', () => {
@@ -274,6 +287,7 @@ categoryOverlay.addEventListener('click', () => {
   categoryPanel.classList.remove('extended');
   subCategoryWrapper.style.display = 'none';
   hideOverlay();
+  if (window.innerWidth <= 768) openSidebarBtn.style.display = 'block';
 });
 
 document.getElementById('fileA').addEventListener('change', (e) => {
@@ -292,6 +306,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
       categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+      openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       renderMainCategories();
       showCategories();
       saveProgress();
@@ -331,6 +346,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     subCategoryWrapper.style.display = 'none';
     categoryPanel.classList.remove('extended');
     categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+    openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
     renderMainCategories();
     showCategories();
     saveProgress();
@@ -632,6 +648,7 @@ window.addEventListener('DOMContentLoaded', () => {
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
       categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+      openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       renderMainCategories();
       showCategories();
     } else {
@@ -647,6 +664,9 @@ window.addEventListener('resize', () => {
   if (window.innerWidth > 768) {
     hideOverlay();
     categoryPanel.classList.remove('visible');
+    openSidebarBtn.style.display = 'none';
+  } else if (!categoryPanel.classList.contains('visible')) {
+    openSidebarBtn.style.display = 'block';
   }
 });
 

@@ -71,10 +71,25 @@ body.light-mode #closeSubSidebarBtn {
   margin-top: 12px;
 }
 
+/* Mobile open sidebar button */
+#openSidebarBtn {
+  display: none;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 210;
+  padding: 6px 10px;
+  font-size: 18px;
+}
+
 @media (max-width: 768px) {
   #categoryButton {
     display: block;
     margin-bottom: 10px;
+  }
+
+  #openSidebarBtn {
+    display: block;
   }
 
   #categoryPanel {
