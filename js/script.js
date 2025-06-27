@@ -206,6 +206,7 @@ const categoryListEl = document.getElementById('categoryList');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
 const closeSubSidebarBtn = document.getElementById('closeSubSidebarBtn');
 const ratingLegend = document.getElementById('ratingLegend');
+const categoryOverlay = document.getElementById('categoryOverlay');
 
 function showRatingLegend(target) {
   const rect = target.getBoundingClientRect();
@@ -228,6 +229,16 @@ function toggleCategories() {
   }
 }
 
+function showOverlay() {
+  if (window.innerWidth <= 768) {
+    categoryOverlay.style.display = 'block';
+  }
+}
+
+function hideOverlay() {
+  categoryOverlay.style.display = 'none';
+}
+
 categoryPanel.style.display = 'none'; // Hide by default
 subCategoryWrapper.style.display = 'none';
 categoryButton.style.display = 'none';
@@ -238,6 +249,11 @@ categoryButton.addEventListener('click', () => {
     categoryPanel.classList.toggle('visible');
     categoryPanel.classList.remove('extended');
     subCategoryWrapper.style.display = 'none';
+    if (categoryPanel.classList.contains('visible')) {
+      showOverlay();
+    } else {
+      hideOverlay();
+    }
   }
 });
 
@@ -245,11 +261,19 @@ closeSidebarBtn.addEventListener('click', () => {
   categoryPanel.classList.remove('visible');
   categoryPanel.classList.remove('extended');
   subCategoryWrapper.style.display = 'none';
+  hideOverlay();
 });
 
 closeSubSidebarBtn.addEventListener('click', () => {
   categoryPanel.classList.remove('extended');
   subCategoryWrapper.style.display = 'none';
+});
+
+categoryOverlay.addEventListener('click', () => {
+  categoryPanel.classList.remove('visible');
+  categoryPanel.classList.remove('extended');
+  subCategoryWrapper.style.display = 'none';
+  hideOverlay();
 });
 
 document.getElementById('fileA').addEventListener('change', (e) => {
@@ -617,6 +641,13 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   updateSaveStatus();
   document.querySelectorAll('button').forEach(attachRipple);
+});
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) {
+    hideOverlay();
+    categoryPanel.classList.remove('visible');
+  }
 });
 
 window.toggleCategories = toggleCategories;
