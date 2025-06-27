@@ -135,6 +135,29 @@ function filterGeneralOptions(survey) {
   });
 }
 
+// Ensure a survey object includes all categories and items from the template
+function mergeSurveyWithTemplate(survey, template) {
+  if (!template || typeof template !== 'object') return;
+  Object.entries(template).forEach(([cat, tmpl]) => {
+    if (!survey[cat]) {
+      survey[cat] = JSON.parse(JSON.stringify(tmpl));
+      return;
+    }
+    ['Giving', 'Receiving', 'General'].forEach(role => {
+      const tItems = Array.isArray(tmpl[role]) ? tmpl[role] : [];
+      if (!Array.isArray(survey[cat][role])) survey[cat][role] = [];
+      const existing = new Set(
+        survey[cat][role].map(i => (i.name || '').trim().toLowerCase())
+      );
+      tItems.forEach(it => {
+        if (!existing.has(it.name.trim().toLowerCase())) {
+          survey[cat][role].push({ name: it.name, rating: null });
+        }
+      });
+    });
+  });
+}
+
 function markUnsaved() {
   saveStatusEl.textContent = 'Unsaved changes...';
   saveStatusEl.classList.add('unsaved');
@@ -192,6 +215,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
     try {
       const parsed = JSON.parse(ev.target.result);
       surveyA = parsed.survey || parsed;
+      mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       filterGeneralOptions(surveyA);
       updateTabsForCategory();
       categoryPanel.style.display = 'block';
@@ -214,6 +238,7 @@ document.getElementById('fileB').addEventListener('change', (e) => {
     try {
       const parsed = JSON.parse(ev.target.result);
       surveyB = parsed.survey || parsed;
+      mergeSurveyWithTemplate(surveyB, window.templateSurvey);
       filterGeneralOptions(surveyB);
     } catch {
       alert('Invalid JSON for Survey B.');
@@ -465,6 +490,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (saved && !surveyA) {
     if (confirm('Resume unfinished survey?')) {
       surveyA = JSON.parse(saved);
+      mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       filterGeneralOptions(surveyA);
       updateTabsForCategory();
       categoryPanel.style.display = 'block';
