@@ -65,22 +65,14 @@ body.light-mode #closeSubSidebarBtn {
   color: #2f4f2f;
 }
 
-#toggleSidebarBtn {
-  display: none;
-  padding: 8px 12px;
-  background-color: #333;
-  color: #fff;
-  border: 1px solid #555;
-  border-radius: 5px;
-  cursor: pointer;
-  position: fixed;
-  top: 200px;
-  left: 10px;
-  z-index: 201;
+#categoryButton {
+  position: relative;
+  z-index: 1;
+  margin-top: 12px;
 }
 
 @media (max-width: 768px) {
-  #toggleSidebarBtn {
+  #categoryButton {
     display: block;
     margin-bottom: 10px;
   }
@@ -290,6 +282,12 @@ h1 {
   margin-bottom: 30px;
 }
 
+.tab-toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Tab Buttons */
 .tab {
   padding: 10px 25px;
@@ -379,13 +377,13 @@ button:hover {
   background-color: #666;
 }
 body.light-mode button,
-body.light-mode #toggleSidebarBtn {
+body.light-mode #categoryButton {
   background-color: #548c5a;
   color: #fff;
   border: 1px solid #4b7f4b;
 }
 body.light-mode button:hover,
-body.light-mode #toggleSidebarBtn:hover {
+body.light-mode #categoryButton:hover {
   background-color: #538753;
 }
 
@@ -544,4 +542,14 @@ body.light-mode #ratingLegend {
   background-color: #a9b8a9;
   color: #2f4f2f;
   border-color: #9fb49f;
+}
+
+#categoryList {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+#categoryList.show {
+  max-height: 1000px;
 }
