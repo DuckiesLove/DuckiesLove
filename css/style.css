@@ -126,7 +126,7 @@ body.light-mode #closeSubSidebarBtn {
   color: white;
 }
 body.light-mode #categoryContainer button {
-  background-color: #c1d0bf;
+  background-color: #a9b8a9;
   color: #2f4f2f;
   border: 1px solid #9fb49f;
 }
@@ -141,7 +141,7 @@ body.dark-mode {
   color: #e0e0e0;
 }
 body.light-mode {
-  background-color: #d0dbd0;
+  background-color: #b8c5b8;
   color: #2f4f2f;
 }
 body.theme-blue {
@@ -165,12 +165,12 @@ body.theme-rainbow {
 
 /* Theme-specific panel colors */
 body.light-mode .category-panel {
-  background-color: #c1d0bf;
+  background-color: #a9b8a9;
   color: #2f4f2f;
   border-right-color: #9fb49f;
 }
 body.light-mode .subcategory-wrapper {
-  background-color: #c1d0bf;
+  background-color: #a9b8a9;
   color: #2f4f2f;
   border-left-color: #9fb49f;
 }
@@ -265,7 +265,7 @@ h1 {
 
 /* Tab Colors by Theme */
 body.light-mode .tab {
-  background-color: #c1d0bf;
+  background-color: #a9b8a9;
   color: #2f4f2f;
 }
 body.light-mode .tab.active {
@@ -376,7 +376,7 @@ textarea {
   color: #fff;
 }
 body.light-mode #categoryContainer button {
-  background-color: #c1d0bf;
+  background-color: #a9b8a9;
   color: #2f4f2f;
   border: 1px solid #9fb49f;
 }
@@ -398,7 +398,7 @@ body.dark-mode #comparisonResult {
   border-color: #444;
 }
 body.light-mode #comparisonResult {
-  background-color: #c1d0bf;
+  background-color: #a9b8a9;
   color: #2f4f2f;
   border-color: #9fb49f;
 }
