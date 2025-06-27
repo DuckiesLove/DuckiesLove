@@ -8,13 +8,13 @@ body {
 }
 .category-panel {
   position: fixed;
-  left: 10px;
-  top: 240px;
+  left: 0;
+  top: 0;
   width: 220px;
   background-color: #1e1e2f;
   border-right: 2px solid #444;
   padding: 15px;
-  height: calc(100% - 240px);
+  height: 100vh;
   overflow-y: auto;
   z-index: 200;
   display: none; /* hidden until a survey loads */
@@ -86,11 +86,11 @@ body.light-mode #closeSubSidebarBtn {
   }
 
   #categoryPanel {
-    left: -230px;
+    left: -220px;
   }
 
   #categoryPanel.visible {
-    left: 10px;
+    left: 0;
   }
 
 
