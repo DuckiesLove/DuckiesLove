@@ -335,14 +335,10 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
       .then(res => res.json())
       .then(initialize)
       .catch(err => {
-        if (window.templateSurvey) {
-          initialize(window.templateSurvey);
-        } else {
-          alert('Failed to load template: ' + err.message);
-        }
+        alert('Failed to load template: ' + err.message);
       });
 
-  if (window.templateSurvey && location.protocol === 'file:') {
+  if (window.templateSurvey) {
     initialize(window.templateSurvey);
   } else {
     loadFromJson();
