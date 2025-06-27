@@ -307,6 +307,9 @@ function showKinks(category) {
   kinks.forEach(kink => {
     const container = document.createElement('div');
     container.style.marginBottom = '10px';
+    container.style.display = 'flex';
+    container.style.justifyContent = 'space-between';
+    container.style.alignItems = 'center';
 
     const label = document.createElement('span');
     label.textContent = kink.name + ': ';
