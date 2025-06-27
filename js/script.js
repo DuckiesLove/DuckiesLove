@@ -291,13 +291,17 @@ document.getElementById('fileA').addEventListener('change', (e) => {
   reader.readAsText(e.target.files[0]);
 });
 
-document.getElementById('fileB').addEventListener('change', (e) => {
+document.getElementById('loadPartnerBtn').addEventListener('click', () => {
+  const fileInput = document.getElementById('fileB');
+  if (!fileInput.files.length) {
+    alert('Please select a partner survey file.');
+    return;
+  }
   if (!confirm('Have you reviewed consent with your partner?')) {
-    e.target.value = '';
     return;
   }
   const reader = new FileReader();
-  reader.onload = (ev) => {
+  reader.onload = ev => {
     try {
       const parsed = JSON.parse(ev.target.result);
       surveyB = parsed.survey || parsed;
@@ -308,7 +312,7 @@ document.getElementById('fileB').addEventListener('change', (e) => {
       alert('Invalid JSON for Survey B.');
     }
   };
-  reader.readAsText(e.target.files[0]);
+  reader.readAsText(fileInput.files[0]);
 });
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
