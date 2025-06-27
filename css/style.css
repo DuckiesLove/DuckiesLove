@@ -125,6 +125,11 @@ body.light-mode #closeSubSidebarBtn {
   background-color: #666;
   color: white;
 }
+#categoryContainer button.disabled,
+#mainCategoryList button.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
 body.light-mode #categoryContainer button {
   background-color: #a9b8a9;
   color: #2f4f2f;
