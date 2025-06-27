@@ -263,6 +263,15 @@ h1 {
   margin-bottom: 20px;
 }
 
+#roleControl {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#roleSelector {
+  min-width: 160px;
+}
+
 #saveStatus {
   text-align: center;
   margin-bottom: 10px;
