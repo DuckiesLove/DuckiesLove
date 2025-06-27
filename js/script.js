@@ -312,16 +312,23 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     saveProgress();
   };
 
-  fetch('template-survey.json')
-    .then(res => res.json())
-    .then(initialize)
-    .catch(err => {
-      if (window.templateSurvey) {
-        initialize(window.templateSurvey);
-      } else {
-        alert('Failed to load template: ' + err.message);
-      }
-    });
+  const loadFromJson = () =>
+    fetch('template-survey.json')
+      .then(res => res.json())
+      .then(initialize)
+      .catch(err => {
+        if (window.templateSurvey) {
+          initialize(window.templateSurvey);
+        } else {
+          alert('Failed to load template: ' + err.message);
+        }
+      });
+
+  if (window.templateSurvey && location.protocol === 'file:') {
+    initialize(window.templateSurvey);
+  } else {
+    loadFromJson();
+  }
 });
 
 // ================== Category + Kink Display ==================
