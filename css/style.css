@@ -135,6 +135,42 @@ body.light-mode #categoryContainer button.active {
   color: #fff;
 }
 
+
+/* Main Category List */
+#mainCategoryList {
+  margin-bottom: 10px;
+}
+#mainCategoryList button {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  padding: 10px;
+  font-weight: bold;
+  background-color: #333;
+  color: #f8f8f8;
+  border: 1px solid #555;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+#mainCategoryList button:hover {
+  background-color: #444;
+}
+#mainCategoryList button.active {
+  background-color: #666;
+  color: white;
+}
+body.light-mode #mainCategoryList button {
+  background-color: #a9b8a9;
+  color: #2f4f2f;
+  border: 1px solid #9fb49f;
+}
+body.light-mode #mainCategoryList button.active {
+  background-color: #548c5a;
+  color: #fff;
+}
+
 /* Theme Styling */
 body.dark-mode {
   background-color: #121212;
