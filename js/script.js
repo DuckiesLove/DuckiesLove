@@ -55,17 +55,32 @@ function updateTabsForCategory(categoryData) {
 function switchTab(action) {
   currentAction = action;
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-  document.getElementById(`${action.toLowerCase()}Tab`).classList.add('active');
+  const tabEl = document.getElementById(`${action.toLowerCase()}Tab`);
+  if (tabEl) tabEl.classList.add('active');
+  renderMainCategories();
   const cats = showCategories();
   if (!cats.includes(currentCategory)) {
     currentCategory = null;
   }
   if (currentCategory) {
     showKinks(currentCategory);
-  } else if (cats.length > 0) {
-    showKinks(cats[0]);
+  } else {
+    subCategoryWrapper.style.display = 'none';
+    categoryPanel.classList.remove('extended');
   }
-  applyAnimation(kinkList, 'bounce-in');
+  applyAnimation(categoryContainer, 'fade-in');
+}
+
+function renderMainCategories() {
+  mainCategoryList.innerHTML = '';
+  ['Giving', 'Receiving', 'Neutral'].forEach(action => {
+    const btn = document.createElement('button');
+    btn.textContent = action;
+    if (action === currentAction) btn.classList.add('active');
+    btn.onclick = () => switchTab(action);
+    attachRipple(btn);
+    mainCategoryList.appendChild(btn);
+  });
 }
 
 document.getElementById('givingTab').onclick = () => switchTab('Giving');
@@ -117,6 +132,7 @@ function markUnsaved() {
   unsavedTimer = setTimeout(saveProgress, 1000);
 }
 
+const mainCategoryList = document.getElementById('mainCategoryList');
 const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
 const categoryPanel = document.getElementById('categoryPanel');
@@ -159,6 +175,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+      renderMainCategories();
       showCategories();
       saveProgress();
     } catch {
@@ -194,6 +211,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+      renderMainCategories();
       showCategories();
       saveProgress();
     })
@@ -402,6 +420,7 @@ window.addEventListener('DOMContentLoaded', () => {
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
       toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+      renderMainCategories();
       showCategories();
     } else {
       localStorage.removeItem('savedSurvey');
