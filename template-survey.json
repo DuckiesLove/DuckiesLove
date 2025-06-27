@@ -990,5 +990,106 @@
       { "name": "Participating in a video call scene", "rating": null },
       { "name": "Digital aftercare (calls, texts, images)", "rating": null }
     ]
+  },
+  "Communication": {
+    "Giving": [
+      { "name": "Playful and teasing", "rating": null },
+      { "name": "Quiet and intense", "rating": null },
+      { "name": "Observant and intentional", "rating": null },
+      { "name": "Praise-heavy", "rating": null },
+      { "name": "Blunt and efficient", "rating": null },
+      { "name": "Affirming and soft", "rating": null },
+      { "name": "Psychological interrogation", "rating": null, "roles": ["sadist"] },
+      { "name": "Verbal coercion / teasing traps", "rating": null, "roles": ["sadist"] },
+      { "name": "Verbal misdirection", "rating": null, "roles": ["sadist"] },
+      { "name": "Mocking / shaming", "rating": null, "roles": ["sadist"] },
+      { "name": "Predatory pacing", "rating": null, "roles": ["sadist"] },
+      { "name": "Reluctant obedience", "rating": null, "roles": ["prey"] },
+      { "name": "Stammering submission", "rating": null, "roles": ["prey"] },
+      { "name": "Challenging until caught", "rating": null, "roles": ["prey"] },
+      { "name": "Quiet surrender", "rating": null, "roles": ["prey"] },
+      { "name": "Sarcastic teasing", "rating": null, "roles": ["brat"] },
+      { "name": "Provoking tone", "rating": null, "roles": ["brat"] },
+      { "name": "Challenge-based dialogue", "rating": null, "roles": ["brat"] },
+      { "name": "Double-meaning banter", "rating": null, "roles": ["brat"] },
+      { "name": "Soft-spoken guidance", "rating": null, "roles": ["caregiver"] },
+      { "name": "Protective but firm tone", "rating": null, "roles": ["caregiver"] },
+      { "name": "Emotional redirection", "rating": null, "roles": ["caregiver"] },
+      { "name": "Steady reassurance", "rating": null, "roles": ["caregiver"] }
+    ],
+    "Receiving": [
+      { "name": "Direct and clear", "rating": null },
+      { "name": "Playful and teasing", "rating": null },
+      { "name": "Gentle and nurturing", "rating": null },
+      { "name": "Commanding and firm", "rating": null },
+      { "name": "Quiet and observant", "rating": null },
+      { "name": "Instructive / teacher-like", "rating": null },
+      { "name": "Emotionally intense", "rating": null },
+      { "name": "Dismissive / withholding", "rating": null },
+      { "name": "Mocking / sarcastic", "rating": null },
+      { "name": "Blunt / tactless", "rating": null },
+      { "name": "Predatory / hunting tone", "rating": null, "roles": ["prey"] },
+      { "name": "Stalking or circling speech", "rating": null, "roles": ["prey"] },
+      { "name": "You’re mine / control language", "rating": null, "roles": ["prey"] },
+      { "name": "Threatening (consensual)", "rating": null, "roles": ["prey"] },
+      { "name": "Verbal cornering / coaxing", "rating": null, "roles": ["prey"] },
+      { "name": "Watching you unravel", "rating": null, "roles": ["prey"] },
+      { "name": "Cruel and cutting", "rating": null, "roles": ["sadist"] },
+      { "name": "Psychological baiting", "rating": null, "roles": ["sadist"] },
+      { "name": "Brat-breaking language", "rating": null, "roles": ["sadist"] },
+      { "name": "Mock affection", "rating": null, "roles": ["sadist"] },
+      { "name": "Shaming or emotional edge", "rating": null, "roles": ["sadist"] },
+      { "name": "Disappointed dom voice", "rating": null, "roles": ["brat"] },
+      { "name": "Mild scolding / mocking affection", "rating": null, "roles": ["brat"] },
+      { "name": "Verbal power struggle", "rating": null, "roles": ["brat"] },
+      { "name": "Challenge-response dynamics", "rating": null, "roles": ["brat"] },
+      { "name": "Warm tone with expectation", "rating": null, "roles": ["caregiver"] },
+      { "name": "Nurturing dominance", "rating": null, "roles": ["caregiver"] },
+      { "name": "Reassuring commands", "rating": null, "roles": ["caregiver"] }
+    ],
+    "General": [
+      { "name": "Phrases that work on you", "type": "text" },
+      { "name": "Phrases you use or like to give", "type": "text" },
+      { "name": "What helps you feel emotionally safe", "type": "text" },
+      {
+        "name": "How you tend to show affection",
+        "type": "multi",
+        "options": [
+          "Words of affirmation",
+          "Acts of service",
+          "Through teasing / play",
+          "Through obedience",
+          "Through caretaking",
+          "Withholding / teasing love",
+          "Physical closeness",
+          "Quality time"
+        ]
+      },
+      {
+        "name": "Emotional check-in style",
+        "type": "dropdown",
+        "options": [
+          "Daily texting",
+          "After-scene debriefs",
+          "Scheduled check-ins",
+          "Journaling together",
+          "Minimal / low contact",
+          "Other"
+        ]
+      },
+      {
+        "name": "When emotionally activated, I tend to...",
+        "type": "dropdown",
+        "options": [
+          "Shut down",
+          "Overexplain / fawn",
+          "Get sarcastic / prickly",
+          "Spiral internally",
+          "Ask for reassurance",
+          "Withdraw",
+          "Other"
+        ]
+      }
+    ]
   }
 }

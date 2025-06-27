@@ -11,6 +11,17 @@ themeSelector.addEventListener('change', () => {
   localStorage.setItem('selectedTheme', selectedTheme);
 });
 
+const roleSelector = document.getElementById('roleSelector');
+let userRoles = JSON.parse(localStorage.getItem('userRoles') || '[]');
+Array.from(roleSelector.options).forEach(opt => {
+  if (userRoles.includes(opt.value)) opt.selected = true;
+});
+roleSelector.addEventListener('change', () => {
+  userRoles = Array.from(roleSelector.selectedOptions).map(o => o.value);
+  localStorage.setItem('userRoles', JSON.stringify(userRoles));
+  if (currentCategory) showKinks(currentCategory);
+});
+
 // ================== Tab Switching ==================
 let currentAction = 'Giving';
 const ACTION_LABELS = {
@@ -18,6 +29,7 @@ const ACTION_LABELS = {
   Receiving: 'Receiving',
   General: 'Neutral'
 };
+const RATING_MAX = 5;
 function applyAnimation(el, cls) {
   el.classList.add(cls);
   el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
@@ -135,6 +147,22 @@ function filterGeneralOptions(survey) {
   });
 }
 
+// Constrain legacy ratings to the current 0–5 scale
+function normalizeRatings(survey) {
+  Object.values(survey).forEach(cat => {
+    ['Giving', 'Receiving', 'General'].forEach(role => {
+      if (Array.isArray(cat[role])) {
+        cat[role].forEach(item => {
+          if (typeof item.rating === 'number') {
+            if (item.rating > RATING_MAX) item.rating = RATING_MAX;
+            if (item.rating < 0) item.rating = 0;
+          }
+        });
+      }
+    });
+  });
+}
+
 // Ensure a survey object includes all categories and items from the template
 function mergeSurveyWithTemplate(survey, template) {
   if (!template || typeof template !== 'object') return;
@@ -151,7 +179,20 @@ function mergeSurveyWithTemplate(survey, template) {
       );
       tItems.forEach(it => {
         if (!existing.has(it.name.trim().toLowerCase())) {
-          survey[cat][role].push({ name: it.name, rating: null });
+          const obj = { name: it.name, rating: null };
+          if (it.type) obj.type = it.type;
+          if (it.options) obj.options = it.options;
+          if (it.roles) obj.roles = it.roles;
+          survey[cat][role].push(obj);
+        } else {
+          const ex = survey[cat][role].find(
+            i => i.name.trim().toLowerCase() === it.name.trim().toLowerCase()
+          );
+          if (ex) {
+            if (it.type) ex.type = it.type;
+            if (it.options) ex.options = it.options;
+            if (it.roles) ex.roles = it.roles;
+          }
         }
       });
     });
@@ -185,6 +226,13 @@ function showRatingLegend(target) {
 
 function hideRatingLegend() {
   ratingLegend.style.display = 'none';
+}
+
+function shouldDisplayItem(item) {
+  if (Array.isArray(item.roles) && item.roles.length) {
+    return item.roles.some(r => userRoles.includes(r));
+  }
+  return true;
 }
 
 function toggleCategories() {
@@ -226,6 +274,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       const parsed = JSON.parse(ev.target.result);
       surveyA = parsed.survey || parsed;
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
+      normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
       updateTabsForCategory();
       categoryPanel.style.display = 'block';
@@ -249,6 +298,7 @@ document.getElementById('fileB').addEventListener('change', (e) => {
       const parsed = JSON.parse(ev.target.result);
       surveyB = parsed.survey || parsed;
       mergeSurveyWithTemplate(surveyB, window.templateSurvey);
+      normalizeRatings(surveyB);
       filterGeneralOptions(surveyB);
     } catch {
       alert('Invalid JSON for Survey B.');
@@ -263,6 +313,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
 
   const initialize = data => {
     surveyA = data;
+    normalizeRatings(surveyA);
     filterGeneralOptions(surveyA);
     updateTabsForCategory();
     categoryPanel.style.display = 'block'; // Show sidebar
@@ -348,7 +399,9 @@ function showKinks(category) {
     return;
   }
 
-  kinks.forEach(kink => {
+  const visible = kinks.filter(shouldDisplayItem);
+
+  visible.forEach(kink => {
     const container = document.createElement('div');
     container.style.marginBottom = '10px';
     container.style.display = 'flex';
@@ -360,31 +413,77 @@ function showKinks(category) {
     label.textContent = kink.name + ': ';
     container.appendChild(label);
 
-    const select = document.createElement('select');
-    const empty = document.createElement('option');
-    empty.value = '';
-    empty.textContent = '—';
-    select.appendChild(empty);
-
-    for (let i = 0; i <= 7; i++) {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = i;
-      if (kink.rating == i) opt.selected = true;
-      select.appendChild(opt);
+    if (kink.type === 'text') {
+      const textarea = document.createElement('textarea');
+      textarea.value = kink.value || '';
+      textarea.oninput = () => {
+        kink.value = textarea.value;
+        markUnsaved();
+      };
+      container.appendChild(textarea);
+    } else if (kink.type === 'multi') {
+      kink.value = Array.isArray(kink.value) ? kink.value : [];
+      kink.options.forEach(optText => {
+        const lbl = document.createElement('label');
+        lbl.style.marginRight = '8px';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = optText;
+        cb.checked = kink.value.includes(optText);
+        cb.onchange = () => {
+          if (cb.checked) {
+            if (!kink.value.includes(optText)) kink.value.push(optText);
+          } else {
+            kink.value = kink.value.filter(v => v !== optText);
+          }
+          markUnsaved();
+        };
+        lbl.appendChild(cb);
+        lbl.append(' ' + optText);
+        container.appendChild(lbl);
+      });
+    } else if (kink.type === 'dropdown') {
+      const select = document.createElement('select');
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = '—';
+      select.appendChild(empty);
+      kink.options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o;
+        opt.textContent = o;
+        if (kink.value === o) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.onchange = () => {
+        kink.value = select.value;
+        markUnsaved();
+      };
+      container.appendChild(select);
+    } else {
+      const select = document.createElement('select');
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = '—';
+      select.appendChild(empty);
+      for (let i = 0; i <= RATING_MAX; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = i;
+        if (kink.rating == i) opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.onchange = () => {
+        kink.rating = select.value === '' ? null : Number(select.value);
+        markUnsaved();
+      };
+      select.addEventListener('focus', () => showRatingLegend(select));
+      select.addEventListener('blur', hideRatingLegend);
+      select.addEventListener('mouseenter', () => showRatingLegend(select));
+      select.addEventListener('mouseleave', hideRatingLegend);
+      container.appendChild(select);
     }
 
-    select.onchange = () => {
-      kink.rating = select.value === '' ? null : Number(select.value);
-      markUnsaved();
-    };
-
-    select.addEventListener('focus', () => showRatingLegend(select));
-    select.addEventListener('blur', hideRatingLegend);
-    select.addEventListener('mouseenter', () => showRatingLegend(select));
-    select.addEventListener('mouseleave', hideRatingLegend);
-
-    container.appendChild(select);
     kinkList.appendChild(container);
   });
   applyAnimation(kinkList, 'fade-in');
@@ -447,10 +546,10 @@ document.getElementById('compareBtn').addEventListener('click', () => {
             const diff = Math.abs(ratingA - ratingB);
             totalScore += Math.max(0, 100 - diff * 20);
             count++;
-            if ((ratingA >= 6 && ratingB <= 1) || (ratingB >= 6 && ratingA <= 1)) {
+            if ((ratingA >= 5 && ratingB <= 1) || (ratingB >= 5 && ratingA <= 1)) {
               redFlags.push(itemA.name);
             } else if (
-              (ratingA >= 5 && ratingB <= 2) || (ratingB >= 5 && ratingA <= 2)
+              (ratingA >= 4 && ratingB <= 2) || (ratingB >= 4 && ratingA <= 2)
             ) {
               yellowFlags.push(itemA.name);
             }
@@ -511,6 +610,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (confirm('Resume unfinished survey?')) {
       surveyA = JSON.parse(saved);
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
+      normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
       updateTabsForCategory();
       categoryPanel.style.display = 'block';
