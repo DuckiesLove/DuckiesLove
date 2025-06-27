@@ -149,12 +149,14 @@ body.theme-blue {
   color: #fff;
 }
 body.theme-echoes-beyond {
-  background-color: #1e1e2e;
-  color: #ffde8d;
+  /* Outer Wilds inspired colors */
+  background-color: #14213d;
+  color: #fca311;
 }
 body.theme-love-notes-lipstick {
-  background-color: #400040;
-  color: #ff69b4;
+  /* Monster Prom inspired colors */
+  background-color: #311847;
+  color: #ff6bd6;
 }
 body.theme-rainbow {
   background: linear-gradient(135deg, #ff9a9e, #fad0c4, #fbc2eb, #a18cd1);
@@ -183,24 +185,24 @@ body.theme-blue .subcategory-wrapper {
   border-left-color: #003366;
 }
 body.theme-echoes-beyond .category-panel {
-  background-color: #2a2a3a;
-  color: #ffde8d;
-  border-right-color: #ffde8d;
+  background-color: #1b263b;
+  color: #fca311;
+  border-right-color: #fca311;
 }
 body.theme-echoes-beyond .subcategory-wrapper {
-  background-color: #2a2a3a;
-  color: #ffde8d;
-  border-left-color: #ffde8d;
+  background-color: #1b263b;
+  color: #fca311;
+  border-left-color: #fca311;
 }
 body.theme-love-notes-lipstick .category-panel {
-  background-color: #550055;
-  color: #ff69b4;
-  border-right-color: #800080;
+  background-color: #3f206b;
+  color: #ff6bd6;
+  border-right-color: #20c997;
 }
 body.theme-love-notes-lipstick .subcategory-wrapper {
-  background-color: #550055;
-  color: #ff69b4;
-  border-left-color: #800080;
+  background-color: #3f206b;
+  color: #ff6bd6;
+  border-left-color: #20c997;
 }
 body.theme-rainbow .category-panel {
   background-color: rgba(255,255,255,0.8);
@@ -289,21 +291,21 @@ body.theme-blue .tab.active {
   border: 1px solid #003377;
 }
 body.theme-echoes-beyond .tab {
-  background-color: #2b2b3d;
-  color: #ffde8d;
+  background-color: #2b314c;
+  color: #fca311;
 }
 body.theme-echoes-beyond .tab.active {
-  background-color: #3b3a5a;
-  border: 1px solid #ffde8d;
+  background-color: #334863;
+  border: 1px solid #fca311;
 }
 body.theme-love-notes-lipstick .tab {
-  background-color: #663366;
-  color: #ff69b4;
+  background-color: #562b88;
+  color: #ff6bd6;
 }
 body.theme-love-notes-lipstick .tab.active {
-  background-color: #ff69b4;
-  color: #400040;
-  border: 1px solid #800080;
+  background-color: #ff6bd6;
+  color: #311847;
+  border: 1px solid #20c997;
 }
 body.theme-rainbow .tab {
   background-color: rgba(255, 255, 255, 0.5);
@@ -405,12 +407,12 @@ body.theme-blue #comparisonResult {
   color: #fff;
 }
 body.theme-echoes-beyond #comparisonResult {
-  background-color: #2a2a3a;
-  color: #ffde8d;
+  background-color: #1b263b;
+  color: #fca311;
 }
 body.theme-love-notes-lipstick #comparisonResult {
-  background-color: #550055;
-  color: #ff69b4;
+  background-color: #3f206b;
+  color: #ff6bd6;
 }
 body.theme-rainbow #comparisonResult {
   background-color: rgba(255,255,255,0.8);
