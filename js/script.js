@@ -37,14 +37,14 @@ function attachRipple(btn) {
 }
 
 function updateTabsForCategory() {
-  const generalTab = document.getElementById('neutralTab');
+  const generalTab = document.getElementById('generalTab');
   if (!surveyA) {
     generalTab.style.display = 'none';
     return;
   }
 
   const hasGeneral = Object.values(surveyA).some(
-    cat => Array.isArray(cat.Neutral) && cat.Neutral.length > 0
+    cat => Array.isArray(cat.General) && cat.General.length > 0
   );
 
   if (hasGeneral) {
@@ -53,7 +53,7 @@ function updateTabsForCategory() {
     generalTab.title = '';
   } else {
     generalTab.style.display = 'none';
-    if (currentAction === 'Neutral') switchTab('Giving');
+    if (currentAction === 'General') switchTab('Giving');
   }
 }
 
@@ -78,7 +78,7 @@ function switchTab(action) {
 
 function renderMainCategories() {
   mainCategoryList.innerHTML = '';
-  ['Giving', 'Receiving', 'Neutral'].forEach(action => {
+  ['Giving', 'Receiving', 'General'].forEach(action => {
     const btn = document.createElement('button');
     btn.textContent = action;
     if (action === currentAction) btn.classList.add('active');
@@ -90,7 +90,7 @@ function renderMainCategories() {
 
 document.getElementById('givingTab').onclick = () => switchTab('Giving');
 document.getElementById('receivingTab').onclick = () => switchTab('Receiving');
-document.getElementById('neutralTab').onclick = () => switchTab('Neutral');
+document.getElementById('generalTab').onclick = () => switchTab('General');
 
 // ================== Survey Logic ==================
 let surveyA = null;
@@ -117,11 +117,11 @@ function saveProgress() {
   updateSaveStatus();
 }
 
-// Remove any Neutral items from Giving/Receiving so tabs never mix options
+// Remove any General items from Giving/Receiving so tabs never mix options
 function filterGeneralOptions(survey) {
   Object.values(survey).forEach(cat => {
-    if (!cat.Neutral) return;
-    const neutralNames = new Set(cat.Neutral.map(k => k.name.trim().toLowerCase()));
+    if (!cat.General) return;
+    const neutralNames = new Set(cat.General.map(k => k.name.trim().toLowerCase()));
     ['Giving', 'Receiving'].forEach(role => {
       if (Array.isArray(cat[role])) {
         cat[role] = cat[role].filter(k => !neutralNames.has(k.name.trim().toLowerCase()));
@@ -292,7 +292,7 @@ function showKinks(category) {
     empty.textContent = '—';
     select.appendChild(empty);
 
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 0; i <= 7; i++) {
       const opt = document.createElement('option');
       opt.value = i;
       opt.textContent = i;
@@ -347,11 +347,11 @@ document.getElementById('compareBtn').addEventListener('click', () => {
   categories.forEach(category => {
     if (!surveyB[category]) return;
 
-    ['Giving', 'Receiving', 'Neutral'].forEach(action => {
+    ['Giving', 'Receiving', 'General'].forEach(action => {
       const listA = surveyA[category][action] || [];
       const listB = surveyB[category][
         action === 'Giving' ? 'Receiving' :
-        action === 'Receiving' ? 'Giving' : 'Neutral'
+        action === 'Receiving' ? 'Giving' : 'General'
       ] || [];
 
       listA.forEach(itemA => {
@@ -365,11 +365,10 @@ document.getElementById('compareBtn').addEventListener('click', () => {
             const diff = Math.abs(ratingA - ratingB);
             totalScore += Math.max(0, 100 - diff * 20);
             count++;
-            if ((ratingA === 6 && ratingB === 1) || (ratingA === 1 && ratingB === 6)) {
+            if ((ratingA >= 6 && ratingB <= 1) || (ratingB >= 6 && ratingA <= 1)) {
               redFlags.push(itemA.name);
             } else if (
-              (ratingA === 6 && ratingB === 2) || (ratingA === 2 && ratingB === 6) ||
-              (ratingA === 5 && ratingB === 1) || (ratingA === 1 && ratingB === 5)
+              (ratingA >= 5 && ratingB <= 2) || (ratingB >= 5 && ratingA <= 2)
             ) {
               yellowFlags.push(itemA.name);
             }
@@ -387,7 +386,7 @@ document.getElementById('compareBtn').addEventListener('click', () => {
   let simCount = 0;
   categories.forEach(category => {
     if (!surveyB[category]) return;
-    ['Giving', 'Receiving', 'Neutral'].forEach(action => {
+    ['Giving', 'Receiving', 'General'].forEach(action => {
       const listA = surveyA[category][action] || [];
       const listB = surveyB[category][action] || [];
       listA.forEach(itemA => {
