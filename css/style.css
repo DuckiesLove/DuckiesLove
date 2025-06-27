@@ -65,12 +65,6 @@ body.light-mode #closeSubSidebarBtn {
   color: #2f4f2f;
 }
 
-#categoryButton {
-  position: relative;
-  z-index: 1;
-  margin-top: 12px;
-}
-
 /* Mobile open sidebar button */
 #openSidebarBtn {
   display: none;
@@ -83,11 +77,6 @@ body.light-mode #closeSubSidebarBtn {
 }
 
 @media (max-width: 768px) {
-  #categoryButton {
-    display: block;
-    margin-bottom: 10px;
-  }
-
   #openSidebarBtn {
     display: block;
   }
@@ -403,14 +392,12 @@ button {
 button:hover {
   background-color: #666;
 }
-body.light-mode button,
-body.light-mode #categoryButton {
+body.light-mode button {
   background-color: #548c5a;
   color: #fff;
   border: 1px solid #4b7f4b;
 }
-body.light-mode button:hover,
-body.light-mode #categoryButton:hover {
+body.light-mode button:hover {
   background-color: #538753;
 }
 
@@ -591,15 +578,6 @@ body.light-mode #ratingLegend {
   border-color: #9fb49f;
 }
 
-#categoryList {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease;
-}
-
-#categoryList.show {
-  max-height: 1000px;
-}
 
 /* Provide spacing between kink dropdowns and scrollbar */
 #kinkList select {
