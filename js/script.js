@@ -36,6 +36,21 @@ function attachRipple(btn) {
   btn.addEventListener('click', createRipple);
 }
 
+function updateTabsForCategory(categoryData) {
+  const generalTab = document.getElementById('neutralTab');
+  if (categoryData.Neutral && categoryData.Neutral.length > 0) {
+    generalTab.style.display = 'block';
+    generalTab.classList.remove('disabled');
+    generalTab.title = '';
+  } else {
+    generalTab.style.display = 'none';
+    // fallback to Giving tab if General isn't available
+    if (currentAction === 'Neutral') {
+      switchTab('Giving');
+    }
+  }
+}
+
 function switchTab(action) {
   currentAction = action;
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -187,7 +202,9 @@ function showCategories() {
 function showKinks(category) {
   currentCategory = category;
   kinkList.innerHTML = '';
-  const kinks = surveyA[category]?.[currentAction];
+  const categoryData = surveyA[category];
+  updateTabsForCategory(categoryData);
+  const kinks = categoryData?.[currentAction];
   subCategoryWrapper.style.display = 'block';
   categoryPanel.classList.add('extended');
   if (!kinks || kinks.length === 0) {

@@ -429,6 +429,18 @@
       {
         "name": "Face slapping",
         "rating": null
+      },
+      {
+        "name": "Belly fucking",
+        "rating": null
+      },
+      {
+        "name": "Navel play",
+        "rating": null
+      },
+      {
+        "name": "Licking",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -527,13 +539,21 @@
       {
         "name": "Face slapping",
         "rating": null
-      }
-    ],
-    "Neutral": [
+      },
       {
         "name": "Belly fucking",
         "rating": null
       },
+      {
+        "name": "Navel play",
+        "rating": null
+      },
+      {
+        "name": "Licking",
+        "rating": null
+      }
+    ],
+    "Neutral": [
       {
         "name": "Contraceptives",
         "rating": null
@@ -551,15 +571,7 @@
         "rating": null
       },
       {
-        "name": "Licking",
-        "rating": null
-      },
-      {
         "name": "Masturbation",
-        "rating": null
-      },
-      {
-        "name": "Navel play",
         "rating": null
       },
       {
