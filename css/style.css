@@ -578,3 +578,8 @@ body.light-mode #ratingLegend {
 #categoryList.show {
   max-height: 1000px;
 }
+
+/* Provide spacing between kink dropdowns and scrollbar */
+#kinkList select {
+  margin-right: 16px;
+}
