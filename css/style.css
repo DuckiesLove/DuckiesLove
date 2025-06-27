@@ -126,12 +126,12 @@ body.light-mode #closeSubSidebarBtn {
   color: white;
 }
 body.light-mode #categoryContainer button {
-  background-color: #d7e8d5;
+  background-color: #c1d0bf;
   color: #2f4f2f;
-  border: 1px solid #b1c8b1;
+  border: 1px solid #9fb49f;
 }
 body.light-mode #categoryContainer button.active {
-  background-color: #5e9c64;
+  background-color: #548c5a;
   color: #fff;
 }
 
@@ -141,7 +141,7 @@ body.dark-mode {
   color: #e0e0e0;
 }
 body.light-mode {
-  background-color: #e8f4e8;
+  background-color: #d0dbd0;
   color: #2f4f2f;
 }
 body.theme-blue {
@@ -165,14 +165,14 @@ body.theme-rainbow {
 
 /* Theme-specific panel colors */
 body.light-mode .category-panel {
-  background-color: #d7e8d5;
+  background-color: #c1d0bf;
   color: #2f4f2f;
-  border-right-color: #b1c8b1;
+  border-right-color: #9fb49f;
 }
 body.light-mode .subcategory-wrapper {
-  background-color: #d7e8d5;
+  background-color: #c1d0bf;
   color: #2f4f2f;
-  border-left-color: #b1c8b1;
+  border-left-color: #9fb49f;
 }
 body.theme-blue .category-panel {
   background-color: #002244;
@@ -265,11 +265,11 @@ h1 {
 
 /* Tab Colors by Theme */
 body.light-mode .tab {
-  background-color: #d7e8d5;
+  background-color: #c1d0bf;
   color: #2f4f2f;
 }
 body.light-mode .tab.active {
-  background-color: #5e9c64;
+  background-color: #548c5a;
   color: #fff;
   border: 1px solid #4b7f4b;
 }
@@ -333,13 +333,13 @@ button:hover {
 }
 body.light-mode button,
 body.light-mode #toggleSidebarBtn {
-  background-color: #5e9c64;
+  background-color: #548c5a;
   color: #fff;
   border: 1px solid #4b7f4b;
 }
 body.light-mode button:hover,
 body.light-mode #toggleSidebarBtn:hover {
-  background-color: #5d965d;
+  background-color: #538753;
 }
 
 /* Spacer below tabs */
@@ -376,12 +376,12 @@ textarea {
   color: #fff;
 }
 body.light-mode #categoryContainer button {
-  background-color: #d7e8d5;
+  background-color: #c1d0bf;
   color: #2f4f2f;
-  border: 1px solid #b1c8b1;
+  border: 1px solid #9fb49f;
 }
 body.light-mode #categoryContainer button.active {
-  background-color: #5e9c64;
+  background-color: #548c5a;
   color: #fff;
 }
 
@@ -398,9 +398,9 @@ body.dark-mode #comparisonResult {
   border-color: #444;
 }
 body.light-mode #comparisonResult {
-  background-color: #d7e8d5;
+  background-color: #c1d0bf;
   color: #2f4f2f;
-  border-color: #b1c8b1;
+  border-color: #9fb49f;
 }
 body.theme-blue #comparisonResult {
   background-color: #002244;
