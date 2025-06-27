@@ -38,12 +38,13 @@ function attachRipple(btn) {
 
 function updateTabsForCategory(categoryData) {
   const generalTab = document.getElementById('neutralTab');
+  generalTab.style.display = 'block';
   if (categoryData.Neutral && categoryData.Neutral.length > 0) {
-    generalTab.style.display = 'block';
     generalTab.classList.remove('disabled');
     generalTab.title = '';
   } else {
-    generalTab.style.display = 'none';
+    generalTab.classList.add('disabled');
+    generalTab.title = 'No general options';
     // fallback to Giving tab if General isn't available
     if (currentAction === 'Neutral') {
       switchTab('Giving');
