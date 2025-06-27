@@ -22,14 +22,14 @@ body {
 }
 
 .category-panel.extended {
-  width: 480px;
+  width: 560px;
 }
 
 .subcategory-wrapper {
   position: absolute;
   left: 220px;
   top: 0;
-  width: 260px;
+  width: 340px;
   background-color: #1e1e2f;
   border-left: 2px solid #444;
   padding: 15px;

@@ -354,6 +354,7 @@ function showKinks(category) {
     container.style.display = 'flex';
     container.style.justifyContent = 'space-between';
     container.style.alignItems = 'center';
+    container.style.whiteSpace = 'nowrap';
 
     const label = document.createElement('span');
     label.textContent = kink.name + ': ';
