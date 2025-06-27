@@ -559,10 +559,6 @@
         "rating": null
       },
       {
-        "name": "Cuddles",
-        "rating": null
-      },
-      {
         "name": "Food Play",
         "rating": null
       },
@@ -575,19 +571,7 @@
         "rating": null
       },
       {
-        "name": "Romance / affection",
-        "rating": null
-      },
-      {
         "name": "Sex toys",
-        "rating": null
-      },
-      {
-        "name": "Sexting /Chat etc",
-        "rating": null
-      },
-      {
-        "name": "Sexting via phone or video call",
         "rating": null
       },
       {
@@ -596,10 +580,6 @@
       },
       {
         "name": "Vanilla Sex",
-        "rating": null
-      },
-      {
-        "name": "Voice Notes",
         "rating": null
       },
       {
@@ -1025,7 +1005,28 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "Neutral": [
+      {
+        "name": "Romance / affection",
+        "rating": null
+      },
+      {
+        "name": "Sexting /Chat etc",
+        "rating": null
+      },
+      {
+        "name": "Sexting via phone or video call",
+        "rating": null
+      },
+      {
+        "name": "Voice Notes",
+        "rating": null
+      },
+      {
+        "name": "Cuddles",
+        "rating": null
+      }
+    ]
   },
   "Roleplaying": {
     "Giving": [
