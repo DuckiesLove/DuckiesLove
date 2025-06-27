@@ -126,12 +126,12 @@ body.light-mode #closeSubSidebarBtn {
   color: white;
 }
 body.light-mode #categoryContainer button {
-  background-color: #e7e7e7;
+  background-color: #f2f2f2;
   color: #222;
-  border: 1px solid #bbb;
+  border: 1px solid #ccc;
 }
 body.light-mode #categoryContainer button.active {
-  background-color: #3e8e7e;
+  background-color: #70c0b0;
   color: #fff;
 }
 
@@ -141,7 +141,7 @@ body.dark-mode {
   color: #e0e0e0;
 }
 body.light-mode {
-  background-color: #f7f7f7;
+  background-color: #ffffff;
   color: #222;
 }
 body.theme-blue {
@@ -265,13 +265,13 @@ h1 {
 
 /* Tab Colors by Theme */
 body.light-mode .tab {
-  background-color: #e7e7e7;
+  background-color: #f2f2f2;
   color: #222;
 }
 body.light-mode .tab.active {
-  background-color: #3e8e7e;
+  background-color: #70c0b0;
   color: #fff;
-  border: 1px solid #2d6d63;
+  border: 1px solid #50a99a;
 }
 body.dark-mode .tab {
   background-color: #222;
@@ -333,13 +333,13 @@ button:hover {
 }
 body.light-mode button,
 body.light-mode #toggleSidebarBtn {
-  background-color: #3e8e7e;
+  background-color: #70c0b0;
   color: #fff;
-  border: 1px solid #2d6d63;
+  border: 1px solid #50a99a;
 }
 body.light-mode button:hover,
 body.light-mode #toggleSidebarBtn:hover {
-  background-color: #347369;
+  background-color: #5ab9a9;
 }
 
 /* Spacer below tabs */
@@ -376,12 +376,12 @@ textarea {
   color: #fff;
 }
 body.light-mode #categoryContainer button {
-  background-color: #e7e7e7;
+  background-color: #f2f2f2;
   color: #222;
-  border: 1px solid #bbb;
+  border: 1px solid #ccc;
 }
 body.light-mode #categoryContainer button.active {
-  background-color: #3e8e7e;
+  background-color: #70c0b0;
   color: #fff;
 }
 
