@@ -205,12 +205,14 @@ body.theme-love-notes-lipstick .subcategory-wrapper {
   border-left-color: #20c997;
 }
 body.theme-rainbow .category-panel {
-  background-color: rgba(255,255,255,0.8);
+  /* Fully opaque panel to avoid text bleeding through */
+  background-color: #fff;
   color: #000;
   border-right-color: #603636;
 }
 body.theme-rainbow .subcategory-wrapper {
-  background-color: rgba(255,255,255,0.8);
+  /* Fully opaque panel to avoid text bleeding through */
+  background-color: #fff;
   color: #000;
   border-left-color: #603636;
 }
