@@ -264,6 +264,10 @@ h1 {
   color: #fff;
   font-weight: bold;
 }
+.tab.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
 
 /* Tab Colors by Theme */
 body.light-mode .tab {
