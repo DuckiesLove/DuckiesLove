@@ -201,8 +201,6 @@ const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
 const categoryPanel = document.getElementById('categoryPanel');
 const subCategoryWrapper = document.getElementById('subCategoryWrapper');
-const categoryButton = document.getElementById('categoryButton');
-const categoryListEl = document.getElementById('categoryList');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
 const closeSubSidebarBtn = document.getElementById('closeSubSidebarBtn');
 const openSidebarBtn = document.getElementById('openSidebarBtn');
@@ -224,12 +222,6 @@ function shouldDisplayItem(item) {
   return true;
 }
 
-function toggleCategories() {
-  if (categoryListEl) {
-    categoryListEl.classList.toggle('show');
-  }
-}
-
 function showOverlay() {
   if (window.innerWidth <= 768) {
     categoryOverlay.style.display = 'block';
@@ -242,7 +234,6 @@ function hideOverlay() {
 
 categoryPanel.style.display = 'none'; // Hide by default
 subCategoryWrapper.style.display = 'none';
-categoryButton.style.display = 'none';
 openSidebarBtn.style.display = 'none';
 
 openSidebarBtn.addEventListener('click', () => {
@@ -251,22 +242,6 @@ openSidebarBtn.addEventListener('click', () => {
   subCategoryWrapper.style.display = 'none';
   showOverlay();
   openSidebarBtn.style.display = 'none';
-});
-
-categoryButton.addEventListener('click', () => {
-  toggleCategories();
-  if (window.innerWidth <= 768) {
-    categoryPanel.classList.toggle('visible');
-    categoryPanel.classList.remove('extended');
-    subCategoryWrapper.style.display = 'none';
-    if (categoryPanel.classList.contains('visible')) {
-      showOverlay();
-      openSidebarBtn.style.display = 'none';
-    } else {
-      hideOverlay();
-      openSidebarBtn.style.display = 'block';
-    }
-  }
 });
 
 closeSidebarBtn.addEventListener('click', () => {
@@ -305,7 +280,6 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       categoryPanel.style.display = 'block';
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
-      categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       renderMainCategories();
       showCategories();
@@ -345,7 +319,6 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     categoryPanel.style.display = 'block'; // Show sidebar
     subCategoryWrapper.style.display = 'none';
     categoryPanel.classList.remove('extended');
-    categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
     openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
     if (window.innerWidth <= 768) {
       categoryPanel.classList.add('visible');
@@ -380,7 +353,6 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
 
 function showCategories() {
   categoryContainer.innerHTML = '';
-  if (categoryListEl) categoryListEl.innerHTML = '';
   if (!surveyA) return [];
 
   const categories = Object.keys(surveyA);
@@ -408,17 +380,15 @@ function showCategories() {
           subCategoryWrapper.style.display = 'none';
           categoryPanel.classList.remove('extended');
         }
-        if (categoryListEl) categoryListEl.classList.remove('show');
+        
       };
       attachRipple(btn);
       return btn;
     };
 
     categoryContainer.appendChild(createButton());
-    if (categoryListEl) categoryListEl.appendChild(createButton());
   });
   applyAnimation(categoryContainer, 'fade-in');
-  if (categoryListEl) applyAnimation(categoryListEl, 'fade-in');
   return available;
 }
 
@@ -652,7 +622,6 @@ window.addEventListener('DOMContentLoaded', () => {
       categoryPanel.style.display = 'block';
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
-      categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       renderMainCategories();
       showCategories();
@@ -675,4 +644,3 @@ window.addEventListener('resize', () => {
   }
 });
 
-window.toggleCategories = toggleCategories;
