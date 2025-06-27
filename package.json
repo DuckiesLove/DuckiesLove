@@ -1,0 +1,13 @@
+{
+  "name": "duckieslove",
+  "version": "1.0.0",
+  "description": "This repository hosts the static files for the Talk Kink website.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
