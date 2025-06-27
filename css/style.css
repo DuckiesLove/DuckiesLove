@@ -93,7 +93,9 @@ body.light-mode #closeSubSidebarBtn {
   }
 
   #categoryPanel {
-    left: -220px;
+    width: 90%;
+    max-width: 320px;
+    left: -100%;
   }
 
   #categoryPanel.visible {
@@ -108,7 +110,8 @@ body.light-mode #closeSubSidebarBtn {
     display: block;
   }
   #categoryPanel.extended {
-    width: 100%;
+    width: 90%;
+    max-width: 320px;
   }
 
   .subcategory-wrapper {
