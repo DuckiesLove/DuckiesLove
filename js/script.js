@@ -89,6 +89,19 @@ function saveProgress() {
   updateSaveStatus();
 }
 
+// Remove any Neutral items from Giving/Receiving so tabs never mix options
+function filterGeneralOptions(survey) {
+  Object.values(survey).forEach(cat => {
+    if (!cat.Neutral) return;
+    const neutralNames = new Set(cat.Neutral.map(k => k.name.trim().toLowerCase()));
+    ['Giving', 'Receiving'].forEach(role => {
+      if (Array.isArray(cat[role])) {
+        cat[role] = cat[role].filter(k => !neutralNames.has(k.name.trim().toLowerCase()));
+      }
+    });
+  });
+}
+
 function markUnsaved() {
   saveStatusEl.textContent = 'Unsaved changes...';
   saveStatusEl.classList.add('unsaved');
@@ -133,6 +146,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
     try {
       const parsed = JSON.parse(ev.target.result);
       surveyA = parsed.survey || parsed;
+      filterGeneralOptions(surveyA);
       categoryPanel.style.display = 'block';
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
@@ -152,6 +166,7 @@ document.getElementById('fileB').addEventListener('change', (e) => {
     try {
       const parsed = JSON.parse(ev.target.result);
       surveyB = parsed.survey || parsed;
+      filterGeneralOptions(surveyB);
     } catch {
       alert('Invalid JSON for Survey B.');
     }
@@ -166,6 +181,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     .then(res => res.json())
     .then(data => {
       surveyA = data;
+      filterGeneralOptions(surveyA);
       categoryPanel.style.display = 'block'; // Show sidebar
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
@@ -363,6 +379,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (saved && !surveyA) {
     if (confirm('Resume unfinished survey?')) {
       surveyA = JSON.parse(saved);
+      filterGeneralOptions(surveyA);
       categoryPanel.style.display = 'block';
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
