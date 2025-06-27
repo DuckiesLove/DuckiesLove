@@ -1,23 +1,14 @@
 // ================== Theme Setup ==================
 const themeSelector = document.getElementById('themeSelector');
-const outerWildsBanner = document.getElementById('outerWildsBanner');
-const monsterPromBanner = document.getElementById('monsterPromBanner');
-
-function updateBannerVisibility(theme) {
-  outerWildsBanner.style.display = theme === 'theme-outer-wilds' ? 'block' : 'none';
-  monsterPromBanner.style.display = theme === 'theme-monster-prom' ? 'block' : 'none';
-}
 
 const savedTheme = localStorage.getItem('selectedTheme') || 'dark-mode';
 document.body.className = savedTheme;
 themeSelector.value = savedTheme;
-updateBannerVisibility(savedTheme);
 
 themeSelector.addEventListener('change', () => {
   const selectedTheme = themeSelector.value;
   document.body.className = selectedTheme;
   localStorage.setItem('selectedTheme', selectedTheme);
-  updateBannerVisibility(selectedTheme);
 });
 
 // ================== Tab Switching ==================
