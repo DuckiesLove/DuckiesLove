@@ -528,3 +528,20 @@ button .ripple {
     opacity: 0;
   }
 }
+
+#ratingLegend {
+  display: none;
+  position: absolute;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 5px;
+  padding: 8px 12px;
+  z-index: 1000;
+  max-width: 200px;
+}
+body.light-mode #ratingLegend {
+  background-color: #a9b8a9;
+  color: #2f4f2f;
+  border-color: #9fb49f;
+}

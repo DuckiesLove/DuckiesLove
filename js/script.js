@@ -150,6 +150,18 @@ const subCategoryWrapper = document.getElementById('subCategoryWrapper');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
 const closeSubSidebarBtn = document.getElementById('closeSubSidebarBtn');
+const ratingLegend = document.getElementById('ratingLegend');
+
+function showRatingLegend(target) {
+  const rect = target.getBoundingClientRect();
+  ratingLegend.style.top = `${rect.top + window.scrollY}px`;
+  ratingLegend.style.left = `${rect.right + 10 + window.scrollX}px`;
+  ratingLegend.style.display = 'block';
+}
+
+function hideRatingLegend() {
+  ratingLegend.style.display = 'none';
+}
 
 categoryPanel.style.display = 'none'; // Hide by default
 subCategoryWrapper.style.display = 'none';
@@ -318,6 +330,11 @@ function showKinks(category) {
       kink.rating = select.value === '' ? null : Number(select.value);
       markUnsaved();
     };
+
+    select.addEventListener('focus', () => showRatingLegend(select));
+    select.addEventListener('blur', hideRatingLegend);
+    select.addEventListener('mouseenter', () => showRatingLegend(select));
+    select.addEventListener('mouseleave', hideRatingLegend);
 
     container.appendChild(select);
     kinkList.appendChild(container);
