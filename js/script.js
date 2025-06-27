@@ -11,16 +11,6 @@ themeSelector.addEventListener('change', () => {
   localStorage.setItem('selectedTheme', selectedTheme);
 });
 
-const roleSelector = document.getElementById('roleSelector');
-let userRoles = JSON.parse(localStorage.getItem('userRoles') || '[]');
-Array.from(roleSelector.options).forEach(opt => {
-  if (userRoles.includes(opt.value)) opt.selected = true;
-});
-roleSelector.addEventListener('change', () => {
-  userRoles = Array.from(roleSelector.selectedOptions).map(o => o.value);
-  localStorage.setItem('userRoles', JSON.stringify(userRoles));
-  if (currentCategory) showKinks(currentCategory);
-});
 
 // ================== Tab Switching ==================
 let currentAction = 'Giving';
@@ -229,9 +219,6 @@ function hideRatingLegend() {
 }
 
 function shouldDisplayItem(item) {
-  if (Array.isArray(item.roles) && item.roles.length) {
-    return item.roles.some(r => userRoles.includes(r));
-  }
   return true;
 }
 
