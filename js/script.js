@@ -356,6 +356,9 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   a.download = 'kink-survey.json';
   a.click();
   URL.revokeObjectURL(url);
+  // Clear saved progress so the user isn't asked to resume next time
+  localStorage.removeItem('savedSurvey');
+  localStorage.removeItem('lastSaved');
 });
 
 // ================== See Our Compatibility ==================
