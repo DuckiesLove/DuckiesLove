@@ -36,15 +36,16 @@
     7 = Core kink
   </div>
 
-  <!-- Tabs -->
-  <div class="tab-container">
-    <div id="givingTab" class="tab active">Giving</div>
-    <div id="receivingTab" class="tab">Receiving</div>
-    <div id="generalTab" class="tab">Neutral</div>
+  <!-- Tabs and Categories -->
+  <div class="tab-toggle-group">
+    <div class="tab-container">
+      <div id="givingTab" class="tab active" onclick="switchTab('Giving')">Giving</div>
+      <div id="receivingTab" class="tab" onclick="switchTab('Receiving')">Receiving</div>
+      <div id="generalTab" class="tab" onclick="switchTab('General')">Neutral</div>
+    </div>
+    <button id="categoryButton" onclick="toggleCategories()">≡ Categories</button>
+    <div id="categoryList" style="display: none;"></div>
   </div>
-
-  <!-- Mobile Toggle Button -->
-  <button id="toggleSidebarBtn">☰ Categories</button>
 
   <!-- Layout -->
   <div class="main-container">

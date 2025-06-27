@@ -170,7 +170,8 @@ const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
 const categoryPanel = document.getElementById('categoryPanel');
 const subCategoryWrapper = document.getElementById('subCategoryWrapper');
-const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+const categoryButton = document.getElementById('categoryButton');
+const categoryListEl = document.getElementById('categoryList');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
 const closeSubSidebarBtn = document.getElementById('closeSubSidebarBtn');
 const ratingLegend = document.getElementById('ratingLegend');
@@ -186,14 +187,23 @@ function hideRatingLegend() {
   ratingLegend.style.display = 'none';
 }
 
+function toggleCategories() {
+  if (categoryListEl) {
+    categoryListEl.classList.toggle('show');
+  }
+}
+
 categoryPanel.style.display = 'none'; // Hide by default
 subCategoryWrapper.style.display = 'none';
-toggleSidebarBtn.style.display = 'none';
+categoryButton.style.display = 'none';
 
-toggleSidebarBtn.addEventListener('click', () => {
-  categoryPanel.classList.toggle('visible');
-  categoryPanel.classList.remove('extended');
-  subCategoryWrapper.style.display = 'none';
+categoryButton.addEventListener('click', () => {
+  toggleCategories();
+  if (window.innerWidth <= 768) {
+    categoryPanel.classList.toggle('visible');
+    categoryPanel.classList.remove('extended');
+    subCategoryWrapper.style.display = 'none';
+  }
 });
 
 closeSidebarBtn.addEventListener('click', () => {
@@ -221,7 +231,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       categoryPanel.style.display = 'block';
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
-      toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+      categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       renderMainCategories();
       showCategories();
       saveProgress();
@@ -258,7 +268,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     categoryPanel.style.display = 'block'; // Show sidebar
     subCategoryWrapper.style.display = 'none';
     categoryPanel.classList.remove('extended');
-    toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+    categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
     renderMainCategories();
     showCategories();
     saveProgress();
@@ -277,8 +287,10 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
 });
 
 // ================== Category + Kink Display ==================
+
 function showCategories() {
   categoryContainer.innerHTML = '';
+  if (categoryListEl) categoryListEl.innerHTML = '';
   if (!surveyA) return [];
 
   const categories = Object.keys(surveyA);
@@ -289,30 +301,37 @@ function showCategories() {
     const hasItems = Array.isArray(items) && items.length > 0;
     if (hasItems) available.push(cat);
 
-    const btn = document.createElement('button');
-    btn.textContent = cat;
-    if (cat === currentCategory) btn.classList.add('active');
-    if (!hasItems) {
-      btn.classList.add('disabled');
-    }
-    btn.onclick = () => {
-      if (currentCategory === cat) return;
-      currentCategory = cat;
-      showCategories();
-      if (hasItems) {
-        showKinks(cat);
-      } else {
-        subCategoryWrapper.style.display = 'none';
-        categoryPanel.classList.remove('extended');
+    const createButton = () => {
+      const btn = document.createElement('button');
+      btn.textContent = cat;
+      if (cat === currentCategory) btn.classList.add('active');
+      if (!hasItems) {
+        btn.classList.add('disabled');
       }
-      if (window.innerWidth <= 768) {
-        categoryPanel.classList.remove('visible');
-      }
+      btn.onclick = () => {
+        if (currentCategory === cat) return;
+        currentCategory = cat;
+        showCategories();
+        if (hasItems) {
+          showKinks(cat);
+        } else {
+          subCategoryWrapper.style.display = 'none';
+          categoryPanel.classList.remove('extended');
+        }
+        if (window.innerWidth <= 768) {
+          categoryPanel.classList.remove('visible');
+        }
+        if (categoryListEl) categoryListEl.classList.remove('show');
+      };
+      attachRipple(btn);
+      return btn;
     };
-    attachRipple(btn);
-    categoryContainer.appendChild(btn);
+
+    categoryContainer.appendChild(createButton());
+    if (categoryListEl) categoryListEl.appendChild(createButton());
   });
   applyAnimation(categoryContainer, 'fade-in');
+  if (categoryListEl) applyAnimation(categoryListEl, 'fade-in');
   return available;
 }
 
@@ -496,7 +515,7 @@ window.addEventListener('DOMContentLoaded', () => {
       categoryPanel.style.display = 'block';
       subCategoryWrapper.style.display = 'none';
       categoryPanel.classList.remove('extended');
-      toggleSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+      categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       renderMainCategories();
       showCategories();
     } else {
@@ -507,3 +526,5 @@ window.addEventListener('DOMContentLoaded', () => {
   updateSaveStatus();
   document.querySelectorAll('button').forEach(attachRipple);
 });
+
+window.toggleCategories = toggleCategories;
