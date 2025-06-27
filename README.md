@@ -36,6 +36,12 @@ The website is built from the following files in this repository:
 - `js/script.js`
 - `template-survey.json`
 
+## Setup
+
+Run `setup.sh` to install optional tools for local development. The script
+installs the Node `serve` package when `npm` is available so you can preview
+the site locally.
+
 ## Local Development
 
 Serve the static files locally to preview changes before pushing them to GitHub.
