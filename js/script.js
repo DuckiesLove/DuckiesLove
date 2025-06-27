@@ -205,6 +205,9 @@ function showCategories() {
   if (!surveyA) return [];
 
   const available = Object.keys(surveyA).filter(cat => {
+    if (cat === 'Other' && currentAction !== 'Neutral') {
+      return false;
+    }
     const items = surveyA[cat][currentAction];
     return Array.isArray(items) && items.length > 0;
   });
