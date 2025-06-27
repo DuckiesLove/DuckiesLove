@@ -36,7 +36,7 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
   },
   "Body Part Torture": {
     "Giving": [
@@ -83,7 +83,7 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
   },
   "Bondage and Suspension": {
     "Giving": [
@@ -330,7 +330,7 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
   },
   "Breath Play": {
     "Giving": [
@@ -369,7 +369,7 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
   },
   "Psychological": {
     "Giving": [
@@ -432,7 +432,7 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
   },
   "Sexual Activity": {
     "Giving": [
@@ -583,7 +583,7 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
   },
   "Sensation Play": {
     "Giving": [
@@ -670,12 +670,12 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
   },
   "Other": {
     "Giving": [],
     "Receiving": [],
-    "Neutral": [
+    "General": [
       {
         "name": "Feet",
         "rating": null
@@ -703,27 +703,37 @@
       {
         "name": "Leather clothing",
         "rating": null
-      },
-      {
-        "name": "Romance / affection",
-        "rating": null
-      },
-      {
-        "name": "Sexting /Chat etc",
-        "rating": null
-      },
-      {
-        "name": "Sexting via phone or video call",
-        "rating": null
-      },
-      {
-        "name": "Voice Notes",
-        "rating": null
-      },
-      {
-        "name": "Cuddles",
-        "rating": null
       }
+    ]
+  },
+  "General": {
+    "Giving": [
+      { "name": "Licking", "rating": null },
+      { "name": "Belly fucking", "rating": null },
+      { "name": "Navel play", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Licking", "rating": null },
+      { "name": "Belly fucking", "rating": null },
+      { "name": "Navel play", "rating": null }
+    ],
+    "General": [
+      { "name": "Cuddles", "rating": null },
+      { "name": "Food Play", "rating": null },
+      { "name": "Kisses", "rating": null },
+      { "name": "Masturbation", "rating": null },
+      { "name": "Romance / affection", "rating": null },
+      { "name": "Sex toys", "rating": null },
+      { "name": "Sexting /Chat etc", "rating": null },
+      { "name": "Sexting via phone or video call", "rating": null },
+      { "name": "Strip tease", "rating": null },
+      { "name": "Vanilla Sex", "rating": null },
+      { "name": "Voice Notes", "rating": null },
+      { "name": "Shaving (body hair)", "rating": null },
+      { "name": "Sexy clothing (private)", "rating": null },
+      { "name": "Sexy clothing (public)", "rating": null },
+      { "name": "Outdoor scenes", "rating": null },
+      { "name": "Public exposure", "rating": null }
     ]
   },
   "Roleplaying": {
@@ -835,7 +845,7 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
   },
   "Service and Restrictive Behaviour": {
     "Giving": [
@@ -914,7 +924,7 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
   },
   "Voyeurism/Exhibitionism": {
     "Giving": [
@@ -961,6 +971,24 @@
         "rating": null
       }
     ],
-    "Neutral": []
+    "General": []
+  },
+  "Digital & Remote Play": {
+    "Giving": [
+      { "name": "Sending tasks or orders digitally", "rating": null },
+      { "name": "Controlling a remote toy", "rating": null },
+      { "name": "Recording dominant voice clips", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Receiving instructions or tasks", "rating": null },
+      { "name": "Being controlled via remote toy", "rating": null },
+      { "name": "Receiving audio clips or instructions", "rating": null }
+    ],
+    "General": [
+      { "name": "Sexting or digital roleplay scenes", "rating": null },
+      { "name": "Scheduled good morning/night rituals", "rating": null },
+      { "name": "Participating in a video call scene", "rating": null },
+      { "name": "Digital aftercare (calls, texts, images)", "rating": null }
+    ]
   }
 }

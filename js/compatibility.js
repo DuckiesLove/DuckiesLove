@@ -8,11 +8,11 @@ function calculateCompatibility(surveyA, surveyB) {
   categories.forEach(category => {
     if (!surveyB[category]) return;
 
-    ['Giving', 'Receiving', 'Neutral'].forEach(action => {
+    ['Giving', 'Receiving', 'General'].forEach(action => {
       const listA = surveyA[category][action] || [];
       const listB = surveyB[category][
         action === 'Giving' ? 'Receiving' :
-        action === 'Receiving' ? 'Giving' : 'Neutral'
+        action === 'Receiving' ? 'Giving' : 'General'
       ] || [];
 
       listA.forEach(itemA => {
@@ -26,11 +26,10 @@ function calculateCompatibility(surveyA, surveyB) {
             const diff = Math.abs(ratingA - ratingB);
             totalScore += Math.max(0, 100 - diff * 20);
             count++;
-            if ((ratingA === 6 && ratingB === 1) || (ratingA === 1 && ratingB === 6)) {
+            if ((ratingA >= 6 && ratingB <= 1) || (ratingB >= 6 && ratingA <= 1)) {
               redFlags.push(itemA.name);
             } else if (
-              (ratingA === 6 && ratingB === 2) || (ratingA === 2 && ratingB === 6) ||
-              (ratingA === 5 && ratingB === 1) || (ratingA === 1 && ratingB === 5)
+              (ratingA >= 5 && ratingB <= 2) || (ratingB >= 5 && ratingA <= 2)
             ) {
               yellowFlags.push(itemA.name);
             }
@@ -47,7 +46,7 @@ function calculateCompatibility(surveyA, surveyB) {
   let simCount = 0;
   categories.forEach(category => {
     if (!surveyB[category]) return;
-    ['Giving', 'Receiving', 'Neutral'].forEach(action => {
+    ['Giving', 'Receiving', 'General'].forEach(action => {
       const listA = surveyA[category][action] || [];
       const listB = surveyB[category][action] || [];
       listA.forEach(itemA => {
