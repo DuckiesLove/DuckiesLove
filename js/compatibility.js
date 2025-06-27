@@ -26,10 +26,10 @@ function calculateCompatibility(surveyA, surveyB) {
             const diff = Math.abs(ratingA - ratingB);
             totalScore += Math.max(0, 100 - diff * 20);
             count++;
-            if ((ratingA >= 6 && ratingB <= 1) || (ratingB >= 6 && ratingA <= 1)) {
-              redFlags.push(itemA.name);
-            } else if (
-              (ratingA >= 5 && ratingB <= 2) || (ratingB >= 5 && ratingA <= 2)
+          if ((ratingA >= 5 && ratingB <= 1) || (ratingB >= 5 && ratingA <= 1)) {
+            redFlags.push(itemA.name);
+          } else if (
+              (ratingA >= 4 && ratingB <= 2) || (ratingB >= 4 && ratingA <= 2)
             ) {
               yellowFlags.push(itemA.name);
             }
