@@ -147,6 +147,22 @@ function filterGeneralOptions(survey) {
   });
 }
 
+// Constrain legacy ratings to the current 0–5 scale
+function normalizeRatings(survey) {
+  Object.values(survey).forEach(cat => {
+    ['Giving', 'Receiving', 'General'].forEach(role => {
+      if (Array.isArray(cat[role])) {
+        cat[role].forEach(item => {
+          if (typeof item.rating === 'number') {
+            if (item.rating > RATING_MAX) item.rating = RATING_MAX;
+            if (item.rating < 0) item.rating = 0;
+          }
+        });
+      }
+    });
+  });
+}
+
 // Ensure a survey object includes all categories and items from the template
 function mergeSurveyWithTemplate(survey, template) {
   if (!template || typeof template !== 'object') return;
@@ -258,6 +274,7 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       const parsed = JSON.parse(ev.target.result);
       surveyA = parsed.survey || parsed;
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
+      normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
       updateTabsForCategory();
       categoryPanel.style.display = 'block';
@@ -281,6 +298,7 @@ document.getElementById('fileB').addEventListener('change', (e) => {
       const parsed = JSON.parse(ev.target.result);
       surveyB = parsed.survey || parsed;
       mergeSurveyWithTemplate(surveyB, window.templateSurvey);
+      normalizeRatings(surveyB);
       filterGeneralOptions(surveyB);
     } catch {
       alert('Invalid JSON for Survey B.');
@@ -295,6 +313,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
 
   const initialize = data => {
     surveyA = data;
+    normalizeRatings(surveyA);
     filterGeneralOptions(surveyA);
     updateTabsForCategory();
     categoryPanel.style.display = 'block'; // Show sidebar
@@ -588,6 +607,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (confirm('Resume unfinished survey?')) {
       surveyA = JSON.parse(saved);
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
+      normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
       updateTabsForCategory();
       categoryPanel.style.display = 'block';
