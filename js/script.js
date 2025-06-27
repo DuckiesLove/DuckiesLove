@@ -347,6 +347,11 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     categoryPanel.classList.remove('extended');
     categoryButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
     openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+    if (window.innerWidth <= 768) {
+      categoryPanel.classList.add('visible');
+      showOverlay();
+      openSidebarBtn.style.display = 'none';
+    }
     renderMainCategories();
     showCategories();
     saveProgress();
