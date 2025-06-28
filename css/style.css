@@ -409,7 +409,15 @@ body.light-mode button:hover {
 /* Input Fields */
 input[type="file"] {
   display: block;
-  margin: 10px 0 20px 0;
+  margin: 10px 0;
+}
+
+#fileB {
+  margin-top: 0;
+}
+
+#loadMyBtn {
+  margin-bottom: 5px;
 }
 
 textarea {
