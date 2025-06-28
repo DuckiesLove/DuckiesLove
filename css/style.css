@@ -406,6 +406,10 @@ body.light-mode button:hover {
   margin-top: 30px;
 }
 
+#newSurveyBtn {
+  margin-bottom: 20px;
+}
+
 /* Input Fields */
 #uploadWrapper {
   margin-bottom: 20px;
@@ -421,6 +425,7 @@ body.light-mode button:hover {
 }
 
 #loadMyBtn {
+  margin-top: 20px;
   margin-bottom: 5px;
 }
 
