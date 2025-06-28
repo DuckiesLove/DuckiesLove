@@ -103,26 +103,6 @@ document.getElementById('generalTab').onclick = () => switchTab('General');
 let surveyA = null;
 let surveyB = null;
 let currentCategory = null;
-let unsavedTimer = null;
-const saveStatusEl = document.getElementById('saveStatus');
-
-function updateSaveStatus() {
-  const ts = localStorage.getItem('lastSaved');
-  if (ts) {
-    const d = new Date(ts);
-    saveStatusEl.textContent = `Last Saved: ${d.toLocaleString()}`;
-    saveStatusEl.classList.remove('unsaved');
-  } else {
-    saveStatusEl.textContent = '';
-  }
-}
-
-function saveProgress() {
-  if (!surveyA) return;
-  localStorage.setItem('savedSurvey', JSON.stringify(surveyA));
-  localStorage.setItem('lastSaved', new Date().toISOString());
-  updateSaveStatus();
-}
 
 // Remove any General items from Giving/Receiving so tabs never mix options
 function filterGeneralOptions(survey) {
@@ -206,12 +186,6 @@ function mergeSurveyWithTemplate(survey, template) {
   });
 }
 
-function markUnsaved() {
-  saveStatusEl.textContent = 'Unsaved changes...';
-  saveStatusEl.classList.add('unsaved');
-  clearTimeout(unsavedTimer);
-  unsavedTimer = setTimeout(saveProgress, 1000);
-}
 
 const mainCategoryList = document.getElementById('mainCategoryList');
 const categoryContainer = document.getElementById('categoryContainer');
@@ -284,8 +258,6 @@ categoryOverlay.addEventListener('click', () => {
 
 function loadSurveyAFile(file) {
   if (!file) return;
-  localStorage.removeItem('savedSurvey');
-  localStorage.removeItem('lastSaved');
   const reader = new FileReader();
   reader.onload = ev => {
     try {
@@ -301,7 +273,6 @@ function loadSurveyAFile(file) {
       openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
       renderMainCategories();
       showCategories();
-      saveProgress();
     } catch {
       alert('Invalid JSON for Survey A.');
     }
@@ -339,8 +310,6 @@ document.getElementById('fileB').addEventListener('change', e => {
 
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
-  localStorage.removeItem('savedSurvey');
-  localStorage.removeItem('lastSaved');
 
   const initialize = data => {
     surveyA = data;
@@ -358,7 +327,6 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     }
     renderMainCategories();
     showCategories();
-    saveProgress();
   };
 
   fetch('template-survey.json')
@@ -448,7 +416,6 @@ function showKinks(category) {
       textarea.value = kink.value || '';
       textarea.oninput = () => {
         kink.value = textarea.value;
-        markUnsaved();
       };
       container.appendChild(textarea);
     } else if (kink.type === 'multi') {
@@ -466,8 +433,7 @@ function showKinks(category) {
           } else {
             kink.value = kink.value.filter(v => v !== optText);
           }
-          markUnsaved();
-        };
+      };
         lbl.appendChild(cb);
         lbl.append(' ' + optText);
         container.appendChild(lbl);
@@ -487,7 +453,6 @@ function showKinks(category) {
       });
       select.onchange = () => {
         kink.value = select.value;
-        markUnsaved();
       };
       container.appendChild(select);
     } else {
@@ -505,7 +470,6 @@ function showKinks(category) {
       }
       select.onchange = () => {
         kink.rating = select.value === '' ? null : Number(select.value);
-        markUnsaved();
       };
       select.addEventListener('focus', () => showRatingLegend(select));
       select.addEventListener('blur', hideRatingLegend);
@@ -533,9 +497,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   a.download = 'kink-survey.json';
   a.click();
   URL.revokeObjectURL(url);
-  // Clear saved progress so the user isn't asked to resume next time
-  localStorage.removeItem('savedSurvey');
-  localStorage.removeItem('lastSaved');
+  // Finished export
 });
 
 // ================== See Our Compatibility ==================
@@ -661,28 +623,7 @@ document.getElementById('compareBtn').addEventListener('click', () => {
 // ================== Start ==================
 switchTab('Giving');
 
-// Resume previous session if available
 window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('savedSurvey');
-  if (saved && !surveyA) {
-    if (confirm('Resume unfinished survey?')) {
-      surveyA = normalizeSurveyFormat(JSON.parse(saved));
-      mergeSurveyWithTemplate(surveyA, window.templateSurvey);
-      normalizeRatings(surveyA);
-      filterGeneralOptions(surveyA);
-      updateTabsForCategory();
-      categoryPanel.style.display = 'block';
-      subCategoryWrapper.style.display = 'none';
-      categoryPanel.classList.remove('extended');
-      openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
-      renderMainCategories();
-      showCategories();
-    } else {
-      localStorage.removeItem('savedSurvey');
-      localStorage.removeItem('lastSaved');
-    }
-  }
-  updateSaveStatus();
   document.querySelectorAll('button').forEach(attachRipple);
 });
 

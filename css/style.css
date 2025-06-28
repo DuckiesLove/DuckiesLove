@@ -279,16 +279,6 @@ h1 {
 }
 
 
-#saveStatus {
-  text-align: center;
-  margin-bottom: 10px;
-  font-size: 0.9em;
-  color: #8a8a8a;
-}
-
-#saveStatus.unsaved {
-  color: #ff6464;
-}
 
 /* Tab Container */
 .tab-container {
