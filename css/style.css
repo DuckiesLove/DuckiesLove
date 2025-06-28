@@ -409,7 +409,18 @@ body.light-mode button:hover {
 /* Input Fields */
 input[type="file"] {
   display: block;
-  margin: 10px 0 20px 0;
+  margin: 10px 0;
+}
+
+
+/* Upload section */
+#uploadWrapper input[type="file"],
+#uploadWrapper button {
+  margin: 5px 0;
+}
+
+#uploadWrapper {
+  margin-top: 10px;
 }
 
 textarea {
