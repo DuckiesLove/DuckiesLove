@@ -344,19 +344,16 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     saveProgress();
   };
 
-  const loadFromJson = () =>
-    fetch('template-survey.json')
-      .then(res => res.json())
-      .then(initialize)
-      .catch(err => {
-        alert('Failed to load template: ' + err.message);
-      });
-
-  if (window.templateSurvey) {
-    initialize(window.templateSurvey);
-  } else {
-    loadFromJson();
-  }
+  fetch('template-survey.json')
+    .then(res => res.json())
+    .then(data => {
+      window.templateSurvey = data; // cache latest template
+      // use a fresh copy so future resets aren't mutated
+      initialize(JSON.parse(JSON.stringify(data)));
+    })
+    .catch(err => {
+      alert('Failed to load template: ' + err.message);
+    });
 });
 
 // ================== Category + Kink Display ==================
