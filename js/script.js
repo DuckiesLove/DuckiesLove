@@ -295,13 +295,6 @@ function loadSurveyAFile(file) {
 document.getElementById('fileA').addEventListener('change', e => {
   loadSurveyAFile(e.target.files[0]);
 });
-document.getElementById('loadMyBtn').addEventListener('click', () => {
-  document.getElementById('fileA').click();
-});
-
-document.getElementById('loadPartnerBtn').addEventListener('click', () => {
-  document.getElementById('fileB').click();
-});
 
 document.getElementById('fileB').addEventListener('change', e => {
   const fileInput = e.target;

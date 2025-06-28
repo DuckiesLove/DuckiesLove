@@ -424,10 +424,6 @@ body.light-mode button:hover {
   margin-top: 0;
 }
 
-#loadMyBtn {
-  margin-top: 20px;
-  margin-bottom: 5px;
-}
 
 #uploadControls {
   margin-top: 15px;
@@ -435,6 +431,25 @@ body.light-mode button:hover {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+#uploadControls input[type="file"] {
+  display: none;
+}
+
+.file-upload {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: #4a4a4a;
+  color: white;
+  font-weight: bold;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.file-upload:hover {
+  background-color: #5a5a5a;
 }
 
 #compareWrapper {
