@@ -36,6 +36,9 @@ The website is built from the following files in this repository:
 - `js/script.js`
 - `template-survey.json`
 
+The **Start New Survey** button fetches `template-survey.json` to load the
+initial set of kinks.
+
 ## Setup
 
 Run `setup.sh` to install optional tools for local development. The script
