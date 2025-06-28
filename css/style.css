@@ -429,6 +429,18 @@ body.light-mode button:hover {
   margin-bottom: 5px;
 }
 
+#uploadControls {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#compareWrapper {
+  margin-top: 15px;
+}
+
 textarea {
   display: block;
   width: 100%;
