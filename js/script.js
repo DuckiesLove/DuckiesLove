@@ -153,6 +153,23 @@ function normalizeRatings(survey) {
   });
 }
 
+// Convert a template with only top-level roles into a single-category structure
+function normalizeSurveyFormat(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const actions = ['Giving', 'Receiving', 'General'];
+  const keys = Object.keys(obj);
+  if (keys.every(k => actions.includes(k))) {
+    return {
+      Misc: {
+        Giving: Array.isArray(obj.Giving) ? obj.Giving : [],
+        Receiving: Array.isArray(obj.Receiving) ? obj.Receiving : [],
+        General: Array.isArray(obj.General) ? obj.General : []
+      }
+    };
+  }
+  return obj;
+}
+
 // Ensure a survey object includes all categories and items from the template
 function mergeSurveyWithTemplate(survey, template) {
   if (!template || typeof template !== 'object') return;
@@ -273,7 +290,7 @@ function loadSurveyAFile(file) {
   reader.onload = ev => {
     try {
       const parsed = JSON.parse(ev.target.result);
-      surveyA = parsed.survey || parsed;
+      surveyA = normalizeSurveyFormat(parsed.survey || parsed);
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
@@ -309,7 +326,7 @@ document.getElementById('fileB').addEventListener('change', e => {
   reader.onload = ev => {
     try {
       const parsed = JSON.parse(ev.target.result);
-      surveyB = parsed.survey || parsed;
+      surveyB = normalizeSurveyFormat(parsed.survey || parsed);
       mergeSurveyWithTemplate(surveyB, window.templateSurvey);
       normalizeRatings(surveyB);
       filterGeneralOptions(surveyB);
@@ -347,9 +364,9 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
   fetch('template-survey.json')
     .then(res => res.json())
     .then(data => {
-      window.templateSurvey = data; // cache latest template
+      window.templateSurvey = normalizeSurveyFormat(data); // cache latest template
       // use a fresh copy so future resets aren't mutated
-      initialize(JSON.parse(JSON.stringify(data)));
+      initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
     })
     .catch(err => {
       alert('Failed to load template: ' + err.message);
@@ -626,7 +643,7 @@ document.getElementById('compareBtn').addEventListener('click', () => {
     reader.onload = ev => {
       try {
         const parsed = JSON.parse(ev.target.result);
-        surveyB = parsed.survey || parsed;
+        surveyB = normalizeSurveyFormat(parsed.survey || parsed);
         mergeSurveyWithTemplate(surveyB, window.templateSurvey);
         normalizeRatings(surveyB);
         filterGeneralOptions(surveyB);
@@ -649,7 +666,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('savedSurvey');
   if (saved && !surveyA) {
     if (confirm('Resume unfinished survey?')) {
-      surveyA = JSON.parse(saved);
+      surveyA = normalizeSurveyFormat(JSON.parse(saved));
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
