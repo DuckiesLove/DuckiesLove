@@ -344,8 +344,19 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     saveProgress();
   };
 
-  const data = window.templateSurvey;
-  initialize(data);
+  const loadFromJson = () =>
+    fetch('template-survey.json')
+      .then(res => res.json())
+      .then(initialize)
+      .catch(err => {
+        alert('Failed to load template: ' + err.message);
+      });
+
+  if (window.templateSurvey) {
+    initialize(window.templateSurvey);
+  } else {
+    loadFromJson();
+  }
 });
 
 // ================== Category + Kink Display ==================
