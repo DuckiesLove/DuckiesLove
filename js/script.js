@@ -291,25 +291,6 @@ document.getElementById('fileA').addEventListener('change', (e) => {
   reader.readAsText(e.target.files[0]);
 });
 
-document.getElementById('fileB').addEventListener('change', (e) => {
-  if (!confirm('Have you reviewed consent with your partner?')) {
-    e.target.value = '';
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    try {
-      const parsed = JSON.parse(ev.target.result);
-      surveyB = parsed.survey || parsed;
-      mergeSurveyWithTemplate(surveyB, window.templateSurvey);
-      normalizeRatings(surveyB);
-      filterGeneralOptions(surveyB);
-    } catch {
-      alert('Invalid JSON for Survey B.');
-    }
-  };
-  reader.readAsText(e.target.files[0]);
-});
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
   localStorage.removeItem('savedSurvey');
@@ -519,16 +500,17 @@ document.getElementById('compareBtn').addEventListener('click', () => {
   const resultDiv = document.getElementById('comparisonResult');
   resultDiv.innerHTML = '';
 
-  if (!surveyA || !surveyB) {
-    resultDiv.textContent = 'Please upload both surveys.';
+  if (!surveyA) {
+    resultDiv.textContent = 'Please upload your survey first.';
     return;
   }
 
-  const categories = Object.keys(surveyA);
-  let totalScore = 0;
-  let count = 0;
-  let redFlags = [];
-  let yellowFlags = [];
+  const doCompare = () => {
+    const categories = Object.keys(surveyA);
+    let totalScore = 0;
+    let count = 0;
+    let redFlags = [];
+    let yellowFlags = [];
 
   categories.forEach(category => {
     if (!surveyB[category]) return;
@@ -592,17 +574,45 @@ document.getElementById('compareBtn').addEventListener('click', () => {
     });
   });
 
-  const avgSim = simCount ? Math.round(simScore / simCount) : 0;
-  output += `<h4>Similarity Score: ${avgSim}%</h4>`;
+    const avgSim = simCount ? Math.round(simScore / simCount) : 0;
+    output += `<h4>Similarity Score: ${avgSim}%</h4>`;
 
-  if (redFlags.length) {
-    output += `<p>🚩 Red flags: ${[...new Set(redFlags)].join(', ')}</p>`;
-  }
-  if (yellowFlags.length) {
-    output += `<p>⚠️ Yellow flags: ${[...new Set(yellowFlags)].join(', ')}</p>`;
-  }
+    if (redFlags.length) {
+      output += `<p>🚩 Red flags: ${[...new Set(redFlags)].join(', ')}</p>`;
+    }
+    if (yellowFlags.length) {
+      output += `<p>⚠️ Yellow flags: ${[...new Set(yellowFlags)].join(', ')}</p>`;
+    }
 
-  resultDiv.innerHTML = output;
+    resultDiv.innerHTML = output;
+  };
+
+  if (!surveyB) {
+    const fileInput = document.getElementById('fileB');
+    if (!fileInput.files.length) {
+      resultDiv.textContent = 'Please select a partner survey file.';
+      return;
+    }
+    if (!confirm('Have you reviewed consent with your partner?')) {
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        surveyB = parsed.survey || parsed;
+        mergeSurveyWithTemplate(surveyB, window.templateSurvey);
+        normalizeRatings(surveyB);
+        filterGeneralOptions(surveyB);
+        doCompare();
+      } catch {
+        alert('Invalid JSON for Survey B.');
+      }
+    };
+    reader.readAsText(fileInput.files[0]);
+  } else {
+    doCompare();
+  }
 });
 
 // ================== Start ==================
