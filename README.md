@@ -75,3 +75,9 @@ This will default to <http://localhost:3000>.
 ## Troubleshooting
 
 If you encounter a browser warning that the site is not secure or it reports an invalid response, verify that your DNS records point to GitHub. After the records have propagated, enable **Enforce HTTPS** in the Pages settings so GitHub can serve a valid certificate.
+
+### Resolving `ERR_SSL_PROTOCOL_ERROR`
+If your browser shows “www.talkkink.org sent an invalid response” or `ERR_SSL_PROTOCOL_ERROR`, follow these steps:
+1. Confirm the `www` DNS record points to the GitHub IP addresses or uses a CNAME to your GitHub Pages domain.
+2. In the repository’s **Settings** → **Pages** section, set `www.talkkink.org` as the custom domain (if not already) and enable **Enforce HTTPS**.
+3. Wait a few minutes for GitHub to issue the SSL certificate. Once done, refresh https://www.talkkink.org and the warning should disappear.
