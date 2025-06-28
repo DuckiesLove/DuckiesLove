@@ -71,3 +71,7 @@ serve .
 ```
 
 This will default to <http://localhost:3000>.
+
+## Troubleshooting
+
+If you encounter a browser warning that the site is not secure or it reports an invalid response, verify that your DNS records point to GitHub. After the records have propagated, enable **Enforce HTTPS** in the Pages settings so GitHub can serve a valid certificate.
