@@ -296,22 +296,20 @@ document.getElementById('fileA').addEventListener('change', e => {
   loadSurveyAFile(e.target.files[0]);
 });
 document.getElementById('loadMyBtn').addEventListener('click', () => {
-  const input = document.getElementById('fileA');
-  if (!input.files.length) {
-    input.click();
-  } else {
-    loadSurveyAFile(input.files[0]);
-  }
+  document.getElementById('fileA').click();
 });
 
-
 document.getElementById('loadPartnerBtn').addEventListener('click', () => {
-  const fileInput = document.getElementById('fileB');
+  document.getElementById('fileB').click();
+});
+
+document.getElementById('fileB').addEventListener('change', e => {
+  const fileInput = e.target;
   if (!fileInput.files.length) {
-    alert('Please select a partner survey file.');
     return;
   }
   if (!confirm('Have you reviewed consent with your partner?')) {
+    fileInput.value = '';
     return;
   }
   const reader = new FileReader();
