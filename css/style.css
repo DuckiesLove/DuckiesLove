@@ -390,76 +390,6 @@ button {
   transition: background-color 0.3s;
 }
 
-.action-button {
-  width: 230px;
-  text-align: center;
-}
-button:hover {
-  background-color: #666;
-}
-body.light-mode button {
-  background-color: #548c5a;
-  color: #fff;
-  border: 1px solid #4b7f4b;
-}
-body.light-mode button:hover {
-  background-color: #538753;
-}
-
-/* Spacer below tabs */
-#downloadBtn {
-  margin-top: 30px;
-}
-
-#newSurveyBtn {
-  margin-bottom: 20px;
-}
-
-/* Input Fields */
-#uploadWrapper {
-  margin-bottom: 20px;
-}
-
-#uploadWrapper input[type="file"] {
-  display: block;
-  margin: 10px 0;
-}
-
-#fileB {
-  margin-top: 0;
-}
-
-
-#uploadControls {
-  margin-top: 15px;
-  margin-bottom: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-#uploadControls input[type="file"] {
-  display: none;
-}
-
-.file-upload {
-  display: block;
-  padding: 10px 20px;
-  background-color: #4a4a4a;
-  color: white;
-  font-weight: bold;
-  border-radius: 5px;
-  cursor: pointer;
-  margin: 0 auto 10px;
-}
-
-.file-upload:hover {
-  background-color: #5a5a5a;
-}
-
-#compareWrapper {
-  margin-top: 15px;
-}
 
 textarea {
   display: block;
@@ -646,7 +576,7 @@ body.light-mode #ratingLegend {
 }
 
 .survey-button {
-  width: 220px;
+  width: 260px;
   height: 50px;
   font-size: 16px;
   font-weight: bold;
@@ -656,12 +586,19 @@ body.light-mode #ratingLegend {
   color: white;
   cursor: pointer;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .survey-button:hover {
   background-color: #666;
 }
 
-.survey-button input[type="file"] {
+.file-upload input[type="file"] {
   display: none;
+}
+
+.file-upload span {
+  pointer-events: none;
 }
