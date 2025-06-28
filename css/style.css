@@ -407,7 +407,11 @@ body.light-mode button:hover {
 }
 
 /* Input Fields */
-input[type="file"] {
+#uploadWrapper {
+  margin-bottom: 20px;
+}
+
+#uploadWrapper input[type="file"] {
   display: block;
   margin: 10px 0;
 }
