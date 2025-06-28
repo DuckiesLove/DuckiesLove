@@ -265,11 +265,12 @@ categoryOverlay.addEventListener('click', () => {
   if (window.innerWidth <= 768) openSidebarBtn.style.display = 'block';
 });
 
-document.getElementById('fileA').addEventListener('change', (e) => {
+function loadSurveyAFile(file) {
+  if (!file) return;
   localStorage.removeItem('savedSurvey');
   localStorage.removeItem('lastSaved');
   const reader = new FileReader();
-  reader.onload = (ev) => {
+  reader.onload = ev => {
     try {
       const parsed = JSON.parse(ev.target.result);
       surveyA = parsed.survey || parsed;
@@ -288,8 +289,21 @@ document.getElementById('fileA').addEventListener('change', (e) => {
       alert('Invalid JSON for Survey A.');
     }
   };
-  reader.readAsText(e.target.files[0]);
+  reader.readAsText(file);
+}
+
+document.getElementById('fileA').addEventListener('change', e => {
+  loadSurveyAFile(e.target.files[0]);
 });
+document.getElementById('loadMyBtn').addEventListener('click', () => {
+  const input = document.getElementById('fileA');
+  if (!input.files.length) {
+    input.click();
+  } else {
+    loadSurveyAFile(input.files[0]);
+  }
+});
+
 
 document.getElementById('loadPartnerBtn').addEventListener('click', () => {
   const fileInput = document.getElementById('fileB');
