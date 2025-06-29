@@ -21,6 +21,13 @@ body {
   transition: left 0.3s ease, width 0.3s ease;
 }
 
+#roleDefinitionsPanel {
+  width: 440px;
+  padding: 20px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
 .category-panel.extended {
   width: 840px;
 }
@@ -663,4 +670,20 @@ body.light-mode #ratingLegend {
 
 .file-upload span {
   pointer-events: none;
+}
+
+.section-header {
+  margin-top: 20px;
+  margin-bottom: 10px;
+  font-size: 18px;
+  border-bottom: 1px solid #555;
+  padding-bottom: 4px;
+}
+
+.role-block {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.05);
 }
