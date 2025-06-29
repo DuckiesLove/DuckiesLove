@@ -109,6 +109,11 @@ body.light-mode #closeSubSidebarBtn {
   }
 }
 
+/* Ensure space below the final category button */
+#categoryContainer {
+  padding-bottom: 40px;
+}
+
 #categoryContainer button {
   display: block;
   width: 100%;
@@ -479,6 +484,35 @@ body.theme-rainbow #comparisonResult {
   z-index: 180;
   display: none;
 }
+
+/* Overlay displayed for password entry */
+#passwordOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 300;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-modal {
+  background-color: #1e1e2f;
+  padding: 20px;
+  border-radius: 8px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+body.light-mode .password-modal {
+  background-color: #fff;
+  color: #2f4f2f;
+}
 /* Micro-Animations */
 .fade-in {
   animation: fadeIn 0.3s ease-in-out;
@@ -546,7 +580,10 @@ body.light-mode #ratingLegend {
   color: #2f4f2f;
   border-color: #9fb49f;
 }
-
+/* Provide spacing at the top and bottom of the kink list */
+#kinkList {
+  padding: 10px 0;
+}
 
 /* Provide spacing between kink dropdowns and scrollbar */
 #kinkList select {
