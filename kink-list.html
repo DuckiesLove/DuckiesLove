@@ -10,20 +10,23 @@
   <h1>Your Kink List</h1>
   <p>Upload your exported survey to view an organised list of your kinks.</p>
 
-  <label class="survey-button file-upload">
-    <span>Select Survey File</span>
-    <input type="file" id="listFile" hidden />
-  </label>
-
-  <button id="downloadListBtn" class="survey-button" disabled>Download List</button>
+  <div class="button-container">
+    <button id="uploadButton" class="survey-button">Generate Kink Data</button>
+    <button id="downloadButton" class="survey-button" disabled>Download List</button>
+  </div>
+  <input type="file" id="listFile" hidden />
 
   <div id="listOutput"></div>
 
   <script type="module">
-    const downloadBtn = document.getElementById('downloadListBtn');
+    const uploadBtn = document.getElementById('uploadButton');
+    const downloadBtn = document.getElementById('downloadButton');
+    const fileInput = document.getElementById('listFile');
     let currentSurvey = null;
 
-    document.getElementById('listFile').addEventListener('change', e => {
+    uploadBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
