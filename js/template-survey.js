@@ -498,7 +498,7 @@ window.templateSurvey =
         "rating": null
       },
       {
-        "name": "Triple (oral and anal)",
+        "name": "Triple (Oral, Vaginal and Anal)",
         "rating": null
       },
       {
@@ -572,7 +572,7 @@ window.templateSurvey =
         "rating": null
       },
       {
-        "name": "Triple (oral and anal)",
+        "name": "Triple (Oral, Vaginal and Anal)",
         "rating": null
       },
       {
