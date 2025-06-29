@@ -15,9 +15,14 @@
     <input type="file" id="listFile" hidden />
   </label>
 
+  <button id="downloadListBtn" class="survey-button" disabled>Download List</button>
+
   <div id="listOutput"></div>
 
   <script type="module">
+    const downloadBtn = document.getElementById('downloadListBtn');
+    let currentSurvey = null;
+
     document.getElementById('listFile').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -26,12 +31,26 @@
         try {
           const parsed = JSON.parse(ev.target.result);
           const survey = parsed.survey || parsed;
+          currentSurvey = survey;
+          downloadBtn.disabled = false;
           showList(survey);
         } catch {
           document.getElementById('listOutput').textContent = 'Invalid file.';
         }
       };
       reader.readAsText(file);
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (!currentSurvey) return;
+      const text = generateListText(currentSurvey);
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'kink-list.txt';
+      a.click();
+      URL.revokeObjectURL(url);
     });
 
     function showList(survey) {
@@ -59,6 +78,30 @@
         });
         container.appendChild(section);
       });
+    }
+
+    function generateListText(survey) {
+      let text = '';
+      Object.entries(survey).forEach(([category, actions]) => {
+        text += category + '\n';
+        ['Giving', 'Receiving', 'General'].forEach(role => {
+          const items = Array.isArray(actions[role]) ? actions[role] : [];
+          if (!items.length) return;
+          text += '  ' + role + '\n';
+          items
+            .slice()
+            .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1))
+            .forEach(item => {
+              const rating =
+                item.rating === null || item.rating === undefined
+                  ? '—'
+                  : item.rating;
+              text += `    ${item.name}: ${rating}\n`;
+            });
+        });
+        text += '\n';
+      });
+      return text;
     }
   </script>
 </body>
