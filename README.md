@@ -48,6 +48,24 @@ When the site loads, a password prompt now appears before any content is shown.
 The expected password hash is defined in `js/login.js`. Update that file to
 change the required password.
 
+### Changing the Password
+
+The `PASSWORD_HASH` constant stores the SHA-256 hash of the accepted password.
+To generate a new hash with Node.js run:
+
+```bash
+node -e "console.log(require('crypto').createHash('sha256').update('NEWPASS').digest('hex'))"
+```
+
+Replace `NEWPASS` with your desired password and copy the resulting hash into
+`js/login.js`. You may need to clear your browser's local storage after
+updating the hash so the login prompt appears again.
+
+### Sidebar Visibility
+
+The sidebar is hidden until a survey is loaded. Click **Start New Survey** or
+upload an existing survey file and the sidebar with categories will appear.
+
 ## Local Development
 
 Serve the static files locally to preview changes before pushing them to GitHub.
