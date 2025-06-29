@@ -1436,6 +1436,8 @@ window.templateSurvey =
           "Daily texting",
           "After-scene debriefs",
           "Scheduled check-ins",
+          "Mix of text/video check-ins",
+          "In-person check-ins",
           "Journaling together",
           "Minimal / low contact",
           "Other"
