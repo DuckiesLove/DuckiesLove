@@ -22,9 +22,14 @@ body {
 }
 
 #roleDefinitionsPanel {
-  width: 440px;
-  padding: 20px;
-  font-size: 15px;
+  width: 460px;
+  max-width: 100%;
+  background-color: #1a1a2e;
+  padding: 24px;
+  overflow-y: auto;
+  color: #fff;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 16px;
   line-height: 1.6;
 }
 
