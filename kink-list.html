@@ -121,7 +121,8 @@
     async function generateKinkPDF(results) {
       let jsPDF;
       try {
-        ({ jsPDF } = await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.es.min.js'));
+        await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+        jsPDF = window.jspdf.jsPDF;
       } catch (err) {
         alert('Failed to load PDF library: ' + err.message);
         return;
