@@ -1,4 +1,5 @@
 import { calculateCompatibility } from './compatibility.js';
+import { pruneSurvey } from './pruneSurvey.js';
 
 // ================== Password Protection ==================
 const PASSWORD = 'NadaHeartsDuckies';
@@ -511,7 +512,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     alert('No survey loaded.');
     return;
   }
-  const exportObj = { survey: surveyA };
+  const exportObj = { survey: pruneSurvey(surveyA) };
   const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
