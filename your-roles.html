@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Role Matches</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="dark-mode">
+  <h1>Your Role Matches</h1>
+  <p>Upload your exported survey to see how your kinks align with common roles.</p>
+
+  <label class="survey-button file-upload">
+    <span>Select Survey File</span>
+    <input type="file" id="roleFile" hidden />
+  </label>
+
+  <div id="rolesOutput"></div>
+
+  <script type="module">
+    import { calculateRoleScores } from './js/calculateRoleScores.js';
+
+    function flattenSurvey(survey) {
+      const items = [];
+      Object.values(survey).forEach(cat => {
+        ['Giving', 'Receiving', 'General'].forEach(role => {
+          if (Array.isArray(cat[role])) {
+            items.push(...cat[role]);
+          }
+        });
+      });
+      return items;
+    }
+
+    document.getElementById('roleFile').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          const survey = parsed.survey || parsed;
+          const scores = calculateRoleScores({ all: flattenSurvey(survey) });
+          const container = document.getElementById('rolesOutput');
+          if (!scores.length) {
+            container.textContent = 'No role data found.';
+            return;
+          }
+          const ul = document.createElement('ul');
+          scores.forEach(s => {
+            const li = document.createElement('li');
+            li.textContent = `${s.name}: ${s.percent}%`;
+            ul.appendChild(li);
+          });
+          container.innerHTML = '';
+          container.appendChild(ul);
+        } catch (err) {
+          document.getElementById('rolesOutput').textContent = 'Invalid file.';
+        }
+      };
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
