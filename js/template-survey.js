@@ -1053,6 +1053,10 @@ window.templateSurvey =
       {
         "name": "Recording dominant voice clips",
         "rating": null
+      },
+      {
+        "name": "Tracking obedience (journals, apps)",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -1066,6 +1070,10 @@ window.templateSurvey =
       },
       {
         "name": "Receiving audio clips or instructions",
+        "rating": null
+      },
+      {
+        "name": "Tracking obedience (journals, apps)",
         "rating": null
       }
     ],
@@ -1084,6 +1092,26 @@ window.templateSurvey =
       },
       {
         "name": "Digital aftercare (calls, texts, images)",
+        "rating": null
+      },
+      {
+        "name": "Sexting /Chat etc",
+        "rating": null
+      },
+      {
+        "name": "Sexting via phone or video call",
+        "rating": null
+      },
+      {
+        "name": "Voice Notes",
+        "rating": null
+      },
+      {
+        "name": "Being on-call at specified times",
+        "rating": null
+      },
+      {
+        "name": "Daily task assignments",
         "rating": null
       }
     ]
