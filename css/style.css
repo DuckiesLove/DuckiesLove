@@ -29,6 +29,14 @@ body {
   margin-bottom: 10px;
 }
 
+/* Fallback padding for non-WebKit browsers */
+.category-panel::before,
+.category-panel::after {
+  content: '';
+  display: block;
+  height: 10px;
+}
+
 .category-panel.extended {
   width: 780px;
 }
@@ -574,6 +582,14 @@ body.light-mode #ratingLegend {
 #categoryList::-webkit-scrollbar-track {
   margin-top: 10px;
   margin-bottom: 10px;
+}
+
+/* Ensure mobile list has space in all browsers */
+#categoryList::before,
+#categoryList::after {
+  content: '';
+  display: block;
+  height: 10px;
 }
 
 #categoryList.show {
