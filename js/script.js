@@ -1,3 +1,5 @@
+import { calculateCompatibility } from './compatibility.js';
+
 // ================== Theme Setup ==================
 const themeSelector = document.getElementById('themeSelector');
 
@@ -510,85 +512,16 @@ document.getElementById('compareBtn').addEventListener('click', () => {
     return;
   }
 
-  const doCompare = () => {
-    const categories = Object.keys(surveyA);
-    let totalScore = 0;
-    let count = 0;
-    let redFlags = [];
-    let yellowFlags = [];
-
-  categories.forEach(category => {
-    if (!surveyB[category]) return;
-
-    ['Giving', 'Receiving', 'General'].forEach(action => {
-      const listA = surveyA[category][action] || [];
-      const listB = surveyB[category][
-        action === 'Giving' ? 'Receiving' :
-        action === 'Receiving' ? 'Giving' : 'General'
-      ] || [];
-
-      listA.forEach(itemA => {
-        const match = listB.find(itemB =>
-          itemB.name.trim().toLowerCase() === itemA.name.trim().toLowerCase()
-        );
-        if (match) {
-          const ratingA = parseInt(itemA.rating);
-          const ratingB = parseInt(match.rating);
-          if (Number.isInteger(ratingA) && Number.isInteger(ratingB)) {
-            const diff = Math.abs(ratingA - ratingB);
-            totalScore += Math.max(0, 100 - diff * 20);
-            count++;
-            if ((ratingA >= 5 && ratingB <= 1) || (ratingB >= 5 && ratingA <= 1)) {
-              redFlags.push(itemA.name);
-            } else if (
-              (ratingA >= 4 && ratingB <= 2) || (ratingB >= 4 && ratingA <= 2)
-            ) {
-              yellowFlags.push(itemA.name);
-            }
-          }
-        }
-      });
-    });
-  });
-
-  const avg = count ? Math.round(totalScore / count) : 0;
-  let output = `<h3>Compatibility Score: ${avg}%</h3>`;
-
-  // Similarity Score (same role)
-  let simScore = 0;
-  let simCount = 0;
-  categories.forEach(category => {
-    if (!surveyB[category]) return;
-    ['Giving', 'Receiving', 'General'].forEach(action => {
-      const listA = surveyA[category][action] || [];
-      const listB = surveyB[category][action] || [];
-      listA.forEach(itemA => {
-        const match = listB.find(itemB =>
-          itemB.name.trim().toLowerCase() === itemA.name.trim().toLowerCase()
-        );
-        if (match) {
-          const ratingA = parseInt(itemA.rating);
-          const ratingB = parseInt(match.rating);
-          if (Number.isInteger(ratingA) && Number.isInteger(ratingB)) {
-            const diff = Math.abs(ratingA - ratingB);
-            simScore += Math.max(0, 100 - diff * 20);
-            simCount++;
-          }
-        }
-      });
-    });
-  });
-
-    const avgSim = simCount ? Math.round(simScore / simCount) : 0;
-    output += `<h4>Similarity Score: ${avgSim}%</h4>`;
-
-    if (redFlags.length) {
-      output += `<p>🚩 Red flags: ${[...new Set(redFlags)].join(', ')}</p>`;
+  const runComparison = () => {
+    const result = calculateCompatibility(surveyA, surveyB);
+    let output = `<h3>Compatibility Score: ${result.compatibilityScore}%</h3>`;
+    output += `<h4>Similarity Score: ${result.similarityScore}%</h4>`;
+    if (result.redFlags.length) {
+      output += `<p>🚩 Red flags: ${result.redFlags.join(', ')}</p>`;
     }
-    if (yellowFlags.length) {
-      output += `<p>⚠️ Yellow flags: ${[...new Set(yellowFlags)].join(', ')}</p>`;
+    if (result.yellowFlags.length) {
+      output += `<p>⚠️ Yellow flags: ${result.yellowFlags.join(', ')}</p>`;
     }
-
     resultDiv.innerHTML = output;
   };
 
@@ -609,14 +542,14 @@ document.getElementById('compareBtn').addEventListener('click', () => {
         mergeSurveyWithTemplate(surveyB, window.templateSurvey);
         normalizeRatings(surveyB);
         filterGeneralOptions(surveyB);
-        doCompare();
+        runComparison();
       } catch {
         alert('Invalid JSON for Survey B.');
       }
     };
     reader.readAsText(fileInput.files[0]);
   } else {
-    doCompare();
+    runComparison();
   }
 });
 
