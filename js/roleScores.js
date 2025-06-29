@@ -10,8 +10,8 @@ export function calculateRoleScores(surveyData, maxRating = 5) {
       items.forEach(item => {
         if (item && typeof item.rating === 'number' && item.roles) {
           item.roles.forEach(r => {
-            const name = r.name;
-            const weight = r.weight ?? 1;
+            const name = typeof r === 'string' ? r : r.name;
+            const weight = typeof r === 'object' && r.weight !== undefined ? r.weight : 1;
             if (!roleScores[name]) roleScores[name] = 0;
             if (!roleMaxScores[name]) roleMaxScores[name] = 0;
             roleScores[name] += item.rating * weight;
