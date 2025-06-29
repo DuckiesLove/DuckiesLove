@@ -23,6 +23,12 @@ body {
   transition: left 0.3s ease, width 0.3s ease;
 }
 
+/* Add space at the start and end of the sidebar scrollbar */
+.category-panel::-webkit-scrollbar-track {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
 .category-panel.extended {
   width: 780px;
 }
@@ -562,6 +568,12 @@ body.light-mode #ratingLegend {
   overflow-y: auto; /* Ensure scrolling still works */
   overflow-x: hidden;
   transition: max-height 0.3s ease;
+}
+
+/* Create gap above and below the mobile category list scrollbar */
+#categoryList::-webkit-scrollbar-track {
+  margin-top: 10px;
+  margin-bottom: 10px;
 }
 
 #categoryList.show {
