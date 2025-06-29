@@ -20,7 +20,6 @@
   <div id="listOutput"></div>
 
   <script type="module">
-    import { jsPDF } from 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.es.min.js';
 
     const uploadBtn = document.getElementById('uploadButton');
     const downloadBtn = document.getElementById('downloadButton');
@@ -119,7 +118,14 @@
       return arr.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
     }
 
-    function generateKinkPDF(results) {
+    async function generateKinkPDF(results) {
+      let jsPDF;
+      try {
+        ({ jsPDF } = await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.es.min.js'));
+      } catch (err) {
+        alert('Failed to load PDF library: ' + err.message);
+        return;
+      }
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       let y = 20;
@@ -138,7 +144,9 @@
       doc.setFontSize(12);
 
       results.forEach(item => {
-        const percent = typeof item.rating === 'number' ? Math.round(item.rating * 100) : 0;
+        const percent = typeof item.rating === 'number'
+          ? Math.round((item.rating / 5) * 100)
+          : 0;
 
         let color = '#999999';
         if (percent >= 80) color = '#00FF00';
