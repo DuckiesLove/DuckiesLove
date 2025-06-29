@@ -20,6 +20,8 @@
   <div id="listOutput"></div>
 
   <script type="module">
+    import { jsPDF } from 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.es.min.js';
+
     const uploadBtn = document.getElementById('uploadButton');
     const downloadBtn = document.getElementById('downloadButton');
     const fileInput = document.getElementById('listFile');
@@ -47,14 +49,8 @@
 
     downloadBtn.addEventListener('click', () => {
       if (!currentSurvey) return;
-      const text = generateListText(currentSurvey);
-      const blob = new Blob([text], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'kink-list.txt';
-      a.click();
-      URL.revokeObjectURL(url);
+      const results = flattenSurvey(currentSurvey);
+      generateKinkPDF(results);
     });
 
     function showList(survey) {
@@ -106,6 +102,65 @@
         text += '\n';
       });
       return text;
+    }
+
+    function flattenSurvey(survey) {
+      const arr = [];
+      Object.values(survey).forEach(actions => {
+        ['Giving', 'Receiving', 'General'].forEach(role => {
+          const items = Array.isArray(actions[role]) ? actions[role] : [];
+          items.forEach(item => {
+            if (typeof item.rating === 'number') {
+              arr.push({ name: item.name, rating: item.rating });
+            }
+          });
+        });
+      });
+      return arr.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
+    }
+
+    function generateKinkPDF(results) {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = 20;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.text('Your Kink Profile', pageWidth / 2, y, { align: 'center' });
+      y += 10;
+
+      doc.setLineWidth(0.5);
+      doc.setDrawColor(200);
+      doc.line(10, y, pageWidth - 10, y);
+      y += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+
+      results.forEach(item => {
+        const percent = typeof item.rating === 'number' ? Math.round(item.rating * 100) : 0;
+
+        let color = '#999999';
+        if (percent >= 80) color = '#00FF00';
+        else if (percent >= 50) color = '#FFA500';
+        else if (percent > 0) color = '#FF3300';
+        else color = '#555555';
+
+        doc.setTextColor(color);
+        doc.text(`${percent}%`, 10, y);
+
+        doc.setTextColor(color);
+        doc.text(item.name, 40, y);
+
+        y += 8;
+
+        if (y > 280) {
+          doc.addPage();
+          y = 20;
+        }
+      });
+
+      doc.save('kink-results.pdf');
     }
   </script>
 </body>
