@@ -27,7 +27,8 @@ body {
   background-color: #1a1a2e;
   padding: 24px;
   overflow-y: auto;
-  color: #fff;
+  scroll-behavior: smooth;
+  color: #d6d6d6;
   font-family: 'Segoe UI', sans-serif;
   font-size: 16px;
   line-height: 1.6;
@@ -677,36 +678,42 @@ body.light-mode #ratingLegend {
   pointer-events: none;
 }
 
+.section-header:nth-of-type(odd) {
+  color: #ff875f;
+}
+
+.section-header:nth-of-type(even) {
+  color: #8fd3f4;
+}
+
 .section-header {
-  margin-top: 20px;
-  margin-bottom: 10px;
-  font-size: 18px;
-  border-bottom: 1px solid #555;
+  font-size: 1.3rem;
+  margin: 24px 0 12px;
+  border-bottom: 2px solid #444;
   padding-bottom: 4px;
 }
 
-.role-card {
-  width: 100%;
-  margin-bottom: 12px;
-  padding: 12px;
-  border: 1px solid #444;
-  border-radius: 8px;
-  background-color: #2a2a3d;
-  transition: background-color 0.2s ease;
+.section-divider {
+  border-top: 1px solid #333;
+  margin: 24px 0;
 }
 
-.role-card:hover {
-  background-color: #33334a;
+.role-card {
+  background: #2a2a3d;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
 .role-card h4 {
-  margin: 0 0 6px;
-  color: #ff9565;
-  font-size: 16px;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #ffffff;
 }
 
 .role-card p {
+  font-size: 0.95rem;
+  color: #d6d6d6;
   margin: 0;
-  color: #ccc;
-  font-size: 14px;
 }
