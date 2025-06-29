@@ -498,7 +498,7 @@ window.templateSurvey =
         "rating": null
       },
       {
-        "name": "Triple (oral and anal)",
+        "name": "Triple (Oral, Vaginal and Anal)",
         "rating": null
       },
       {
@@ -572,7 +572,7 @@ window.templateSurvey =
         "rating": null
       },
       {
-        "name": "Triple (oral and anal)",
+        "name": "Triple (Oral, Vaginal and Anal)",
         "rating": null
       },
       {
@@ -1042,34 +1042,39 @@ window.templateSurvey =
   },
   "Digital & Remote Play": {
     "Giving": [
+      { "name": "Sending tasks or orders digitally", "rating": null },
       {
-        "name": "Sending tasks or orders digitally",
+        "name": "Recording dominant voice clips (commands, edging, praise, degradation, etc.)",
         "rating": null
-      },
-      {
-        "name": "Controlling a remote toy",
-        "rating": null
-      },
-      {
-        "name": "Recording dominant voice clips",
-        "rating": null
-      },
-      {
-        "name": "Tracking obedience (journals, apps)",
-        "rating": null
-      }
-    ],
+"Digital & Remote Play": {
+  "Giving": [
+    { "name": "Controlling a remote toy", "rating": null },
+    { "name": "Recording dominant voice clips", "rating": null },
+    { "name": "Tracking obedience (journals, apps)", "rating": null },
+    { "name": "Remote control of a sex toy", "rating": null },
+    { "name": "Monitoring behavior via app or shared doc", "rating": null },
+    { "name": "Giving punishment assignments remotely", "rating": null },
+    { "name": "Creating countdowns, timers, or denial periods", "rating": null },
+    { "name": "Sending written instructions with delayed permissions", "rating": null },
+    { "name": "Creating custom video or audio tasks", "rating": null },
+    { "name": "Voice message control during scenes", "rating": null }
+  ]
+}
+
     "Receiving": [
+      { "name": "Receiving tasks or orders digitally", "rating": null },
+      { "name": "Listening to dominant voice clips", "rating": null },
+      { "name": "Using a remote-controlled toy controlled by another", "rating": null },
+      { "name": "Completing daily protocol assignments", "rating": null },
+      { "name": "Submitting proof (photo, video, text)", "rating": null },
+      { "name": "Following recorded or timed commands", "rating": null },
+      { "name": "Receiving surprise instructions", "rating": null },
       {
-        "name": "Receiving instructions or tasks",
+        "name": "Hearing name/praise spoken in a custom clip",
         "rating": null
       },
       {
-        "name": "Being controlled via remote toy",
-        "rating": null
-      },
-      {
-        "name": "Receiving audio clips or instructions",
+        "name": "Sending submissive voice clips (obedience, begging, thank-you messages, affirmations, etc.)",
         "rating": null
       },
       {
@@ -1078,42 +1083,20 @@ window.templateSurvey =
       }
     ],
     "General": [
-      {
-        "name": "Sexting or digital roleplay scenes",
-        "rating": null
-      },
-      {
-        "name": "Scheduled good morning/night rituals",
-        "rating": null
-      },
-      {
-        "name": "Participating in a video call scene",
-        "rating": null
-      },
-      {
-        "name": "Digital aftercare (calls, texts, images)",
-        "rating": null
-      },
-      {
-        "name": "Sexting /Chat etc",
-        "rating": null
-      },
-      {
-        "name": "Sexting via phone or video call",
-        "rating": null
-      },
-      {
-        "name": "Voice Notes",
-        "rating": null
-      },
-      {
-        "name": "Being on-call at specified times",
-        "rating": null
-      },
-      {
-        "name": "Daily task assignments",
-        "rating": null
-      }
+{
+  "name": "Digital & Remote Play",
+  "Receiving": [
+    { "name": "Sexting or digital roleplay scenes", "rating": null },
+    { "name": "Scheduled good morning/night rituals", "rating": null },
+    { "name": "Participating in a video call scene", "rating": null },
+    { "name": "Digital aftercare (calls, texts, images)", "rating": null },
+    { "name": "Sexting via phone or video call", "rating": null },
+    { "name": "Voice notes", "rating": null },
+    { "name": "Being on-call at specified times", "rating": null },
+    { "name": "Daily task assignments", "rating": null }
+  ]
+}
+
     ]
   },
   "Communication": {
@@ -1464,6 +1447,8 @@ window.templateSurvey =
           "Daily texting",
           "After-scene debriefs",
           "Scheduled check-ins",
+          "Mix of text/video check-ins",
+          "In-person check-ins",
           "Journaling together",
           "Minimal / low contact",
           "Other"
