@@ -685,10 +685,28 @@ body.light-mode #ratingLegend {
   padding-bottom: 4px;
 }
 
-.role-block {
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border: 1px solid #555;
-  border-radius: 4px;
-  background-color: rgba(255, 255, 255, 0.05);
+.role-card {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background-color: #2a2a3d;
+  transition: background-color 0.2s ease;
+}
+
+.role-card:hover {
+  background-color: #33334a;
+}
+
+.role-card h4 {
+  margin: 0 0 6px;
+  color: #ff9565;
+  font-size: 16px;
+}
+
+.role-card p {
+  margin: 0;
+  color: #ccc;
+  font-size: 14px;
 }
