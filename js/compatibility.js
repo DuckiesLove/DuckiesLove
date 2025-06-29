@@ -8,38 +8,43 @@ export function calculateCompatibility(surveyA, surveyB) {
   categories.forEach(category => {
     if (!surveyB[category]) return;
 
-    ['Giving', 'Receiving', 'General'].forEach(action => {
+    ['Giving', 'Receiving'].forEach(action => {
       const listA = surveyA[category][action] || [];
-      const listB = surveyB[category][
-        action === 'Giving' ? 'Receiving' :
-        action === 'Receiving' ? 'Giving' : 'General'
-      ] || [];
+      const listB =
+        surveyB[category][action === 'Giving' ? 'Receiving' : 'Giving'] || [];
 
       listA.forEach(itemA => {
-        const match = listB.find(itemB =>
-          itemB.name.trim().toLowerCase() === itemA.name.trim().toLowerCase()
+        const match = listB.find(
+          itemB =>
+            itemB.name.trim().toLowerCase() ===
+            itemA.name.trim().toLowerCase()
         );
-        if (match) {
-          const ratingA = parseInt(itemA.rating);
-          const ratingB = parseInt(match.rating);
-          if (Number.isInteger(ratingA) && Number.isInteger(ratingB)) {
-            const diff = Math.abs(ratingA - ratingB);
-            totalScore += Math.max(0, 100 - diff * 20);
-            count++;
-          if ((ratingA >= 5 && ratingB <= 1) || (ratingB >= 5 && ratingA <= 1)) {
-            redFlags.push(itemA.name);
-          } else if (
-              (ratingA >= 4 && ratingB <= 2) || (ratingB >= 4 && ratingA <= 2)
-            ) {
-              yellowFlags.push(itemA.name);
-            }
-          }
+        if (!match) return;
+        const ratingA = parseInt(itemA.rating);
+        const ratingB = parseInt(match.rating);
+        if (!Number.isInteger(ratingA) || !Number.isInteger(ratingB)) return;
+
+        count++;
+
+        if ((ratingA >= 5 && ratingB <= 1) || (ratingB >= 5 && ratingA <= 1)) {
+          redFlags.push(itemA.name);
+        } else if (
+          (ratingA >= 4 && ratingB <= 2) ||
+          (ratingB >= 4 && ratingA <= 2)
+        ) {
+          yellowFlags.push(itemA.name);
+        }
+
+        if (ratingA >= 4 && ratingB >= 4) {
+          totalScore += 1;
+        } else if (ratingA >= 3 && ratingB >= 3) {
+          totalScore += 0.5;
         }
       });
     });
   });
 
-  const avg = count ? Math.round(totalScore / count) : 0;
+  const avg = count ? Math.round((totalScore / count) * 100) : 0;
 
   // Similarity Score (same role)
   let simScore = 0;
