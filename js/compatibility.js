@@ -1,4 +1,4 @@
-function calculateCompatibility(surveyA, surveyB) {
+export function calculateCompatibility(surveyA, surveyB) {
   const categories = Object.keys(surveyA);
   let totalScore = 0;
   let count = 0;
@@ -76,6 +76,4 @@ function calculateCompatibility(surveyA, surveyB) {
   };
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = { calculateCompatibility };
-}
+

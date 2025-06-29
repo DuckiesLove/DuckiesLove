@@ -1,6 +1,6 @@
-const { calculateCompatibility } = require('../js/compatibility');
-const assert = require('node:assert');
-const test = require('node:test');
+import { calculateCompatibility } from '../js/compatibility.js';
+import assert from 'node:assert';
+import test from 'node:test';
 
 test('opposite ratings trigger red flag and zero score', () => {
   const surveyA = { Cat: { Giving: [{ name: 'A', rating: 5 }], Receiving: [], General: [] } };
