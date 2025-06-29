@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Kink List</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="dark-mode">
+  <h1>Your Kink List</h1>
+  <p>Upload your exported survey to view an organised list of your kinks.</p>
+
+  <label class="survey-button file-upload">
+    <span>Select Survey File</span>
+    <input type="file" id="listFile" hidden />
+  </label>
+
+  <div id="listOutput"></div>
+
+  <script type="module">
+    document.getElementById('listFile').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          const survey = parsed.survey || parsed;
+          showList(survey);
+        } catch {
+          document.getElementById('listOutput').textContent = 'Invalid file.';
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    function showList(survey) {
+      const container = document.getElementById('listOutput');
+      container.innerHTML = '';
+      Object.entries(survey).forEach(([category, actions]) => {
+        const section = document.createElement('section');
+        const h2 = document.createElement('h2');
+        h2.textContent = category;
+        section.appendChild(h2);
+        ['Giving','Receiving','General'].forEach(role => {
+          const items = Array.isArray(actions[role]) ? actions[role] : [];
+          if (!items.length) return;
+          const h3 = document.createElement('h3');
+          h3.textContent = role;
+          section.appendChild(h3);
+          const ul = document.createElement('ul');
+          items.slice().sort((a,b) => (b.rating ?? -1) - (a.rating ?? -1)).forEach(item => {
+            const li = document.createElement('li');
+            const rating = item.rating === null || item.rating === undefined ? '—' : item.rating;
+            li.textContent = `${item.name}: ${rating}`;
+            ul.appendChild(li);
+          });
+          section.appendChild(ul);
+        });
+        container.appendChild(section);
+      });
+    }
+  </script>
+</body>
+</html>
