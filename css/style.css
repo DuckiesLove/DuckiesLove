@@ -169,8 +169,8 @@ body.light-mode #closeRoleDefinitionsBtn {
 }
 
 #categoryContainer button.active {
-  background-color: #666;
-  color: white;
+  background-color: #007acc;
+  color: #fff;
 }
 #categoryContainer button.disabled,
 #mainCategoryList button.disabled {
@@ -440,7 +440,7 @@ textarea {
   border: 1px solid #aaa;
 }
 #categoryContainer button.active {
-  background-color: #444;
+  background-color: #007acc;
   color: #fff;
 }
 body.light-mode #categoryContainer button {
@@ -451,6 +451,32 @@ body.light-mode #categoryContainer button {
 body.light-mode #categoryContainer button.active {
   background-color: #548c5a;
   color: #fff;
+  border: 1px solid #4b7f4b;
+}
+body.dark-mode #categoryContainer button.active {
+  background-color: #00bfff;
+  color: #000;
+  border: 1px solid #0099cc;
+}
+body.theme-blue #categoryContainer button.active {
+  background-color: #0055aa;
+  color: #fff;
+  border: 1px solid #003377;
+}
+body.theme-echoes-beyond #categoryContainer button.active {
+  background-color: #334863;
+  color: #fca311;
+  border: 1px solid #fca311;
+}
+body.theme-love-notes-lipstick #categoryContainer button.active {
+  background-color: #ff6bd6;
+  color: #311847;
+  border: 1px solid #20c997;
+}
+body.theme-rainbow #categoryContainer button.active {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #000;
+  border: 1px solid #603636;
 }
 
 /* Result Section with Theme Support */
