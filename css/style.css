@@ -24,9 +24,11 @@ body {
 }
 
 /* Add space at the start and end of the sidebar scrollbar */
+
+/* Increase the gaps so text at the start and end of the list isn't cramped */
 .category-panel::-webkit-scrollbar-track {
-  margin-top: 10px;
-  margin-bottom: 10px;
+  margin-top: 20px;
+  margin-bottom: 20px;
 }
 
 /* Fallback padding for non-WebKit browsers */
@@ -34,7 +36,7 @@ body {
 .category-panel::after {
   content: '';
   display: block;
-  height: 10px;
+  height: 20px;
 }
 
 .category-panel.extended {
@@ -580,8 +582,8 @@ body.light-mode #ratingLegend {
 
 /* Create gap above and below the mobile category list scrollbar */
 #categoryList::-webkit-scrollbar-track {
-  margin-top: 10px;
-  margin-bottom: 10px;
+  margin-top: 20px;
+  margin-bottom: 20px;
 }
 
 /* Ensure mobile list has space in all browsers */
@@ -589,7 +591,7 @@ body.light-mode #ratingLegend {
 #categoryList::after {
   content: '';
   display: block;
-  height: 10px;
+  height: 20px;
 }
 
 #categoryList.show {
