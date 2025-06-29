@@ -504,10 +504,23 @@ body.theme-rainbow #comparisonResult {
   padding: 20px;
   border-radius: 8px;
   color: #fff;
+.password-modal {
+  background-color: #1e1e2f;
+  padding: 20px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.scroll-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  overflow-y: auto;
+}
+
 }
 body.light-mode .password-modal {
   background-color: #fff;
