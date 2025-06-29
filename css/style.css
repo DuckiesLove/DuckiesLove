@@ -14,8 +14,10 @@ body {
   background-color: #1e1e2f;
   border-right: 2px solid #444;
   padding: 15px;
+  padding-top: 20px;
+  padding-bottom: 20px;
   height: 100vh;
-  overflow-y: auto;
+  overflow-y: auto; /* Ensure scrolling still works */
   z-index: 200;
   display: none; /* hidden until a survey loads */
   transition: left 0.3s ease, width 0.3s ease;
