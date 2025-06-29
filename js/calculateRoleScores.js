@@ -7,8 +7,8 @@ function calculateRoleScores(surveyData, maxRating = 5) {
     for (const item of items) {
       if (item.rating !== null && Array.isArray(item.roles)) {
         for (const role of item.roles) {
-          const roleName = role.name;
-          const weight = role.weight || 1;
+          const roleName = typeof role === 'string' ? role : role.name;
+          const weight = typeof role === 'object' && role.weight !== undefined ? role.weight : 1;
           const score = item.rating * weight;
           const maxScore = maxRating * weight;
 
