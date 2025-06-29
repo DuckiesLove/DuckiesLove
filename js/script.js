@@ -446,14 +446,11 @@ function showKinks(category) {
 
   visible.forEach(kink => {
     const container = document.createElement('div');
-    container.style.marginBottom = '10px';
-    container.style.display = 'flex';
-    container.style.justifyContent = 'space-between';
-    container.style.alignItems = 'center';
-    container.style.whiteSpace = window.innerWidth <= 768 ? 'normal' : 'nowrap';
+    container.classList.add('kink-container');
 
     const label = document.createElement('span');
-    label.textContent = kink.name + ': ';
+    label.classList.add('kink-label');
+    label.textContent = kink.name + ':';
     container.appendChild(label);
 
     if (kink.type === 'text') {

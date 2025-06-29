@@ -633,10 +633,6 @@ body.light-mode #ratingLegend {
   padding: 10px 0;
 }
 
-/* Provide spacing between kink dropdowns and scrollbar */
-#kinkList select {
-  margin-right: 16px;
-}
 
 /* Layout for survey action buttons */
 .button-group {
@@ -723,4 +719,31 @@ body.light-mode #ratingLegend {
   font-size: 0.93rem;
   color: #d6d6d6;
   margin: 0;
+}
+/* Communication panel layout adjustments */
+#kinkList .kink-container {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+#kinkList .kink-label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+#kinkList textarea,
+#kinkList select {
+  display: block;
+  width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
+  margin: 0 auto;
+}
+
+@media (max-width: 600px) {
+  #kinkList textarea,
+  #kinkList select {
+    max-width: 100%;
+  }
 }
