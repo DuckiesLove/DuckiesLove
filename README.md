@@ -42,6 +42,12 @@ Run `setup.sh` to install optional tools for local development. The script
 installs the Node `serve` package when `npm` is available so you can preview
 the site locally.
 
+## Password Gate
+
+When the site loads, a password prompt now appears before any content is shown.
+The expected password hash is defined in `js/login.js`. Update that file to
+change the required password.
+
 ## Local Development
 
 Serve the static files locally to preview changes before pushing them to GitHub.
