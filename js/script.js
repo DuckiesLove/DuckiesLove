@@ -1,5 +1,25 @@
 import { calculateCompatibility } from './compatibility.js';
 
+// ================== Password Protection ==================
+const PASSWORD = 'talkkink';
+
+function setupPasswordProtection() {
+  if (sessionStorage.getItem('authenticated') === 'true') return;
+  const overlay = document.getElementById('passwordOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('passwordSubmit').onclick = () => {
+    const val = document.getElementById('passwordInput').value;
+    if (val === PASSWORD) {
+      sessionStorage.setItem('authenticated', 'true');
+      overlay.style.display = 'none';
+    } else {
+      alert('Incorrect password');
+    }
+  };
+}
+
+setupPasswordProtection();
+
 // ================== Theme Setup ==================
 const themeSelector = document.getElementById('themeSelector');
 
