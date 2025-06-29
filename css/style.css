@@ -692,6 +692,13 @@ body.light-mode #ratingLegend {
   background-color: #666;
 }
 
+.button-container {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
 .file-upload input[type="file"] {
   display: none;
 }
