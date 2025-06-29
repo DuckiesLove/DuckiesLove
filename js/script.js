@@ -1,7 +1,7 @@
 import { calculateCompatibility } from './compatibility.js';
 
 // ================== Password Protection ==================
-const PASSWORD = 'talkkink';
+const PASSWORD = 'NadaHeartsDuckies';
 
 function setupPasswordProtection() {
   if (sessionStorage.getItem('authenticated') === 'true') return;
