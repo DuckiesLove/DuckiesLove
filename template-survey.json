@@ -1940,5 +1940,66 @@
       }
     ],
     "General": []
-  }
+  },
+  "Primal & Bratting": [
+    {
+      "name": "Chase and capture play",
+      "rating": null,
+      "roles": [
+        { "name": "Primal (Hunter)", "weight": 1 },
+        { "name": "Prey", "weight": 1 },
+        { "name": "Emotional Primal", "weight": 0.8 },
+        { "name": "Emotional Prey", "weight": 0.8 }
+      ]
+    },
+    {
+      "name": "Bratting for punishment",
+      "rating": null,
+      "roles": [
+        { "name": "Brat", "weight": 1 },
+        { "name": "Service Submissive", "weight": 0.5 },
+        { "name": "Handler", "weight": 1 },
+        { "name": "Emotional Sadist", "weight": 0.6 }
+      ]
+    }
+  ],
+  "Headspace & Regression": [
+    {
+      "name": "Caregiver/little regression play",
+      "rating": null,
+      "roles": [
+        { "name": "Little", "weight": 1 },
+        { "name": "Caregiver", "weight": 1 }
+      ]
+    }
+  ],
+  "Performance & Internal Struggle": [
+    {
+      "name": "Obedience under observation",
+      "rating": null,
+      "roles": [
+        { "name": "Performance Sub", "weight": 1 },
+        { "name": "Service Submissive", "weight": 0.8 }
+      ]
+    },
+    {
+      "name": "Speech restriction and self-denial",
+      "rating": null,
+      "roles": [
+        { "name": "Internal Conflict Sub", "weight": 1 },
+        { "name": "Emotional Masochist", "weight": 0.7 }
+      ]
+    }
+  ],
+  "Mindfuck & Manipulation": [
+    {
+      "name": "Confusing commands and reality shifts",
+      "rating": null,
+      "roles": [
+        { "name": "Mindfuck Enthusiast / Manipulation Sub", "weight": 1 },
+        { "name": "Mindfuck Dominant / Manipulator", "weight": 1 },
+        { "name": "Emotional Masochist", "weight": 0.6 }
+      ]
+    }
+  ]
 }
