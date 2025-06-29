@@ -220,6 +220,10 @@ const closeSubSidebarBtn = document.getElementById('closeSubSidebarBtn');
 const openSidebarBtn = document.getElementById('openSidebarBtn');
 const ratingLegend = document.getElementById('ratingLegend');
 const categoryOverlay = document.getElementById('categoryOverlay');
+const roleDefinitionsPanel = document.getElementById('roleDefinitionsPanel');
+const roleDefinitionsOverlay = document.getElementById('roleDefinitionsOverlay');
+const roleDefinitionsBtn = document.getElementById('roleDefinitionsBtn');
+const closeRoleDefinitionsBtn = document.getElementById('closeRoleDefinitionsBtn');
 
 function showRatingLegend(target) {
   const rect = target.getBoundingClientRect();
@@ -244,6 +248,20 @@ function showOverlay() {
 
 function hideOverlay() {
   categoryOverlay.style.display = 'none';
+}
+
+function showRolePanel() {
+  roleDefinitionsPanel.style.display = 'block';
+  if (window.innerWidth <= 768) {
+    roleDefinitionsPanel.classList.add('visible');
+  }
+  roleDefinitionsOverlay.style.display = 'block';
+}
+
+function hideRolePanel() {
+  roleDefinitionsPanel.classList.remove('visible');
+  roleDefinitionsPanel.style.display = 'none';
+  roleDefinitionsOverlay.style.display = 'none';
 }
 
 categoryPanel.style.display = 'none'; // Hide by default
@@ -278,6 +296,10 @@ categoryOverlay.addEventListener('click', () => {
   hideOverlay();
   if (window.innerWidth <= 768) openSidebarBtn.style.display = 'block';
 });
+
+roleDefinitionsBtn.addEventListener('click', showRolePanel);
+closeRoleDefinitionsBtn.addEventListener('click', hideRolePanel);
+roleDefinitionsOverlay.addEventListener('click', hideRolePanel);
 
 function loadSurveyAFile(file) {
   if (!file) return;
@@ -586,6 +608,7 @@ window.addEventListener('resize', () => {
     hideOverlay();
     categoryPanel.classList.remove('visible');
     openSidebarBtn.style.display = 'none';
+    hideRolePanel();
   } else if (!categoryPanel.classList.contains('visible')) {
     openSidebarBtn.style.display = 'block';
   }
