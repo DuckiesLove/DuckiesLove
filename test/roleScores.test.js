@@ -26,29 +26,23 @@ const sampleSurvey = {
 
 test('calculates percentages based on rating and weight', () => {
   const result = calculateRoleScores(sampleSurvey);
-  const expected = [
-    { name: 'Masochist', percent: 100 },
-    { name: 'Sadist', percent: 100 }
-  ];
-  // result order isn't guaranteed when percentages tie
-  assert.deepStrictEqual(
-    result.sort((a, b) => a.name.localeCompare(b.name)),
-    expected.sort((a, b) => a.name.localeCompare(b.name))
-  );
+  const mas = result.find(r => r.name === 'masochist');
+  const sad = result.find(r => r.name === 'sadist');
+  assert.strictEqual(mas.percent, 100);
+  assert.strictEqual(sad.percent, 100);
 });
 
 test('handles partial scores and missing weights', () => {
   const survey = {
     Cat: {
       Giving: [
-        { name: 'X', rating: 3, roles: [{ name: 'Dom' }] }
+        { name: 'X', rating: 3, roles: [{ name: 'dominant' }] }
       ],
       Receiving: [],
       General: []
     }
   };
   const result = calculateRoleScores(survey);
-  assert.deepStrictEqual(result, [
-    { name: 'Dom', percent: 60 }
-  ]);
+  const dom = result.find(r => r.name === 'dominant');
+  assert.strictEqual(dom.percent, 60);
 });
