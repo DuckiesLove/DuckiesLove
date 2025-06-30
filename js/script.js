@@ -2,7 +2,7 @@ import { calculateCompatibility } from './compatibility.js';
 import { pruneSurvey } from './pruneSurvey.js';
 
 // ================== Password Protection ==================
-const PASSWORD = 'NadaHeartsDuckies';
+const PASSWORD = 'toopoortosue';
 
 function setupPasswordProtection() {
   if (sessionStorage.getItem('authenticated') === 'true') return;
