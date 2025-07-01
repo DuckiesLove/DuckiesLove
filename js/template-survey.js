@@ -1046,21 +1046,15 @@ window.templateSurvey =
       {
         "name": "Recording dominant voice clips (commands, edging, praise, degradation, etc.)",
         "rating": null
-"Digital & Remote Play": {
-  "Giving": [
-    { "name": "Controlling a remote toy", "rating": null },
-    { "name": "Recording dominant voice clips", "rating": null },
-    { "name": "Tracking obedience (journals, apps)", "rating": null },
-    { "name": "Remote control of a sex toy", "rating": null },
-    { "name": "Monitoring behavior via app or shared doc", "rating": null },
-    { "name": "Giving punishment assignments remotely", "rating": null },
-    { "name": "Creating countdowns, timers, or denial periods", "rating": null },
-    { "name": "Sending written instructions with delayed permissions", "rating": null },
-    { "name": "Creating custom video or audio tasks", "rating": null },
-    { "name": "Voice message control during scenes", "rating": null }
-  ]
-}
-
+      },
+      { "name": "Remote control of a sex toy", "rating": null },
+      { "name": "Monitoring behavior via app or shared doc", "rating": null },
+      { "name": "Giving punishment assignments remotely", "rating": null },
+      { "name": "Creating countdowns, timers, or denial periods", "rating": null },
+      { "name": "Sending written instructions with delayed permissions", "rating": null },
+      { "name": "Creating custom video or audio tasks", "rating": null },
+      { "name": "Voice message control during scenes", "rating": null }
+    ],
     "Receiving": [
       { "name": "Receiving tasks or orders digitally", "rating": null },
       { "name": "Listening to dominant voice clips", "rating": null },
@@ -1076,27 +1070,15 @@ window.templateSurvey =
       {
         "name": "Sending submissive voice clips (obedience, begging, thank-you messages, affirmations, etc.)",
         "rating": null
-      },
-      {
-        "name": "Tracking obedience (journals, apps)",
-        "rating": null
       }
     ],
     "General": [
-{
-  "name": "Digital & Remote Play",
-  "Receiving": [
-    { "name": "Sexting or digital roleplay scenes", "rating": null },
-    { "name": "Scheduled good morning/night rituals", "rating": null },
-    { "name": "Participating in a video call scene", "rating": null },
-    { "name": "Digital aftercare (calls, texts, images)", "rating": null },
-    { "name": "Sexting via phone or video call", "rating": null },
-    { "name": "Voice notes", "rating": null },
-    { "name": "Being on-call at specified times", "rating": null },
-    { "name": "Daily task assignments", "rating": null }
-  ]
-}
-
+      { "name": "Scheduling digital rituals or reminders", "rating": null },
+      { "name": "Using training, habit, or behavior-tracking apps", "rating": null },
+      { "name": "Online rituals (digital kneeling, posture protocols)", "rating": null },
+      { "name": "Role-based texting (e.g., \"Use honorifics in chat\")", "rating": null },
+      { "name": "Shared playlists, affirmations, or mantras", "rating": null },
+      { "name": "Countdown timers to next task, release, or interaction", "rating": null }
     ]
   },
   "Communication": {
