@@ -382,7 +382,12 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
       initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
     })
     .catch(err => {
-      alert('Failed to load template: ' + err.message);
+      if (window.templateSurvey) {
+        console.warn('Failed to load template, using embedded copy:', err);
+        initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
+      } else {
+        alert('Failed to load template: ' + err.message);
+      }
     });
 });
 

@@ -39,6 +39,11 @@ The website is built from the following files in this repository:
 The **Start New Survey** button fetches `template-survey.json` each time it is
 clicked so you always start with a fresh set of kinks.
 
+**Note:** Because this file is fetched dynamically, opening `index.html`
+directly from your file system can produce errors like
+`Failed to load template: Unexpected token < ...`. Run a local web server (see
+below) when previewing the site so the template file loads correctly.
+
 ## Setup
 
 Run `setup.sh` to install optional tools for local development. The script
