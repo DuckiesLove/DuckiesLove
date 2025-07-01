@@ -1,44 +1,5 @@
-window.templateSurvey = 
+window.templateSurvey =
 {
-  "Bodily Fluids and Functions": {
-    "Giving": [
-      {
-        "name": "Watersports/golden showers",
-        "rating": null
-      },
-      {
-        "name": "Cum",
-        "rating": null
-      },
-      {
-        "name": "Blood",
-        "rating": null
-      },
-      {
-        "name": "Scat",
-        "rating": null
-      }
-    ],
-    "Receiving": [
-      {
-        "name": "Watersports/golden showers",
-        "rating": null
-      },
-      {
-        "name": "Cum",
-        "rating": null
-      },
-      {
-        "name": "Blood",
-        "rating": null
-      },
-      {
-        "name": "Scat",
-        "rating": null
-      }
-    ],
-    "General": []
-  },
   "Body Part Torture": {
     "Giving": [
       {
@@ -60,6 +21,26 @@ window.templateSurvey =
       {
         "name": "Clit clips/weights/suction",
         "rating": null
+      },
+      {
+        "name": "Hair pulling",
+        "rating": null
+      },
+      {
+        "name": "Face slapping",
+        "rating": null
+      },
+      {
+        "name": "Butt slapping",
+        "rating": null
+      },
+      {
+        "name": "Breast slapping",
+        "rating": null
+      },
+      {
+        "name": "Genital slapping",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -81,6 +62,26 @@ window.templateSurvey =
       },
       {
         "name": "Clit clips/weights/suction",
+        "rating": null
+      },
+      {
+        "name": "Hair pulling",
+        "rating": null
+      },
+      {
+        "name": "Face slapping",
+        "rating": null
+      },
+      {
+        "name": "Butt slapping",
+        "rating": null
+      },
+      {
+        "name": "Breast slapping",
+        "rating": null
+      },
+      {
+        "name": "Genital slapping",
         "rating": null
       }
     ],
@@ -207,6 +208,22 @@ window.templateSurvey =
       {
         "name": "Suspension (inverted)",
         "rating": null
+      },
+      {
+        "name": "Breath play",
+        "rating": null
+      },
+      {
+        "name": "Smothering",
+        "rating": null
+      },
+      {
+        "name": "Forced self-breath-control",
+        "rating": null
+      },
+      {
+        "name": "Gas mask",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -329,6 +346,22 @@ window.templateSurvey =
       {
         "name": "Suspension (inverted)",
         "rating": null
+      },
+      {
+        "name": "Breath play",
+        "rating": null
+      },
+      {
+        "name": "Smothering",
+        "rating": null
+      },
+      {
+        "name": "Forced self-breath-control",
+        "rating": null
+      },
+      {
+        "name": "Gas mask",
+        "rating": null
       }
     ],
     "General": []
@@ -372,72 +405,13 @@ window.templateSurvey =
     ],
     "General": []
   },
-  "Psychological": {
-    "Giving": [
-      {
-        "name": "Primal/Prey",
-        "rating": null
-      },
-      {
-        "name": "Conditioning",
-        "rating": null
-      },
-      {
-        "name": "COC",
-        "rating": null
-      },
-      {
-        "name": "Psycholagny (hands free, mentally stimulated orgasm)",
-        "rating": null
-      },
-      {
-        "name": "Hypno Play",
-        "rating": null
-      },
-      {
-        "name": "Praise",
-        "rating": null
-      },
-      {
-        "name": "Degradation",
-        "rating": null
-      }
-    ],
-    "Receiving": [
-      {
-        "name": "Primal/Prey",
-        "rating": null
-      },
-      {
-        "name": "Conditioning",
-        "rating": null
-      },
-      {
-        "name": "COC",
-        "rating": null
-      },
-      {
-        "name": "Psycholagny (hands free, mentally stimulated orgasm)",
-        "rating": null
-      },
-      {
-        "name": "Hypno Play",
-        "rating": null
-      },
-      {
-        "name": "Praise",
-        "rating": null
-      },
-      {
-        "name": "Degradation",
-        "rating": null
-      }
-    ],
-    "General": []
-  },
   "Sexual Activity": {
     "Giving": [
       {
+        "name": "Licking",
+        "rating": null
+      },
+      {
         "name": "Fellatio/Cunnilingus",
         "rating": null
       },
@@ -463,10 +437,6 @@ window.templateSurvey =
       },
       {
         "name": "Anal plugs (large)",
-        "rating": null
-      },
-      {
-        "name": "Anal plug (public, under clothes)",
         "rating": null
       },
       {
@@ -499,19 +469,15 @@ window.templateSurvey =
       },
       {
         "name": "Triple (Oral, Vaginal and Anal)",
-        "rating": null
-      },
-      {
-        "name": "Forced masturbation",
-        "rating": null
-      },
-      {
-        "name": "Orgasm control",
         "rating": null
       }
     ],
     "Receiving": [
       {
+        "name": "Licking",
+        "rating": null
+      },
+      {
         "name": "Fellatio/Cunnilingus",
         "rating": null
       },
@@ -537,10 +503,6 @@ window.templateSurvey =
       },
       {
         "name": "Anal plugs (large)",
-        "rating": null
-      },
-      {
-        "name": "Anal plug (public, under clothes)",
         "rating": null
       },
       {
@@ -573,14 +535,6 @@ window.templateSurvey =
       },
       {
         "name": "Triple (Oral, Vaginal and Anal)",
-        "rating": null
-      },
-      {
-        "name": "Forced masturbation",
-        "rating": null
-      },
-      {
-        "name": "Orgasm control",
         "rating": null
       }
     ],
@@ -627,6 +581,18 @@ window.templateSurvey =
       {
         "name": "Clothespins",
         "rating": null
+      },
+      {
+        "name": "Needles",
+        "rating": null
+      },
+      {
+        "name": "Sensory deprivation",
+        "rating": null
+      },
+      {
+        "name": "Physical overpowering / Manhandling",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -669,6 +635,18 @@ window.templateSurvey =
       {
         "name": "Clothespins",
         "rating": null
+      },
+      {
+        "name": "Needles",
+        "rating": null
+      },
+      {
+        "name": "Sensory deprivation",
+        "rating": null
+      },
+      {
+        "name": "Physical overpowering / Manhandling",
+        "rating": null
       }
     ],
     "General": []
@@ -707,108 +685,8 @@ window.templateSurvey =
       }
     ]
   },
-  "General": {
-    "Giving": [
-      {
-        "name": "Licking",
-        "rating": null
-      },
-      {
-        "name": "Belly fucking",
-        "rating": null
-      },
-      {
-        "name": "Navel play",
-        "rating": null
-      }
-    ],
-    "Receiving": [
-      {
-        "name": "Licking",
-        "rating": null
-      },
-      {
-        "name": "Belly fucking",
-        "rating": null
-      },
-      {
-        "name": "Navel play",
-        "rating": null
-      }
-    ],
-    "General": [
-      {
-        "name": "Cuddles",
-        "rating": null
-      },
-      {
-        "name": "Food Play",
-        "rating": null
-      },
-      {
-        "name": "Kisses",
-        "rating": null
-      },
-      {
-        "name": "Masturbation",
-        "rating": null
-      },
-      {
-        "name": "Romance / affection",
-        "rating": null
-      },
-      {
-        "name": "Sex toys",
-        "rating": null
-      },
-      {
-        "name": "Sexting /Chat etc",
-        "rating": null
-      },
-      {
-        "name": "Sexting via phone or video call",
-        "rating": null
-      },
-      {
-        "name": "Strip tease",
-        "rating": null
-      },
-      {
-        "name": "Vanilla Sex",
-        "rating": null
-      },
-      {
-        "name": "Voice Notes",
-        "rating": null
-      },
-      {
-        "name": "Shaving (body hair)",
-        "rating": null
-      },
-      {
-        "name": "Sexy clothing (private)",
-        "rating": null
-      },
-      {
-        "name": "Sexy clothing (public)",
-        "rating": null
-      },
-      {
-        "name": "Outdoor scenes",
-        "rating": null
-      },
-      {
-        "name": "Public exposure",
-        "rating": null
-      }
-    ]
-  },
   "Roleplaying": {
     "Giving": [
-      {
-        "name": "Fear play",
-        "rating": null
-      },
       {
         "name": "Fantasy abandonment",
         "rating": null
@@ -859,10 +737,6 @@ window.templateSurvey =
       }
     ],
     "Receiving": [
-      {
-        "name": "Fear play",
-        "rating": null
-      },
       {
         "name": "Fantasy abandonment",
         "rating": null
@@ -951,6 +825,50 @@ window.templateSurvey =
       {
         "name": "Massage",
         "rating": null
+      },
+      {
+        "name": "Domestic tasks",
+        "rating": null
+      },
+      {
+        "name": "Serving food and drink",
+        "rating": null
+      },
+      {
+        "name": "Personal care rituals",
+        "rating": null
+      },
+      {
+        "name": "Being on-call at specified times",
+        "rating": null
+      },
+      {
+        "name": "Daily task assignments",
+        "rating": null
+      },
+      {
+        "name": "Corrections for imperfection",
+        "rating": null
+      },
+      {
+        "name": "Uniforms / Dress codes",
+        "rating": null
+      },
+      {
+        "name": "Kneeling / Posture presentation",
+        "rating": null
+      },
+      {
+        "name": "Silent service",
+        "rating": null
+      },
+      {
+        "name": "Public service (at parties or events)",
+        "rating": null
+      },
+      {
+        "name": "Erotic service (pleasure on command, without seeking your own)",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -989,6 +907,50 @@ window.templateSurvey =
       {
         "name": "Massage",
         "rating": null
+      },
+      {
+        "name": "Domestic tasks",
+        "rating": null
+      },
+      {
+        "name": "Serving food and drink",
+        "rating": null
+      },
+      {
+        "name": "Personal care rituals",
+        "rating": null
+      },
+      {
+        "name": "Being on-call at specified times",
+        "rating": null
+      },
+      {
+        "name": "Daily task assignments",
+        "rating": null
+      },
+      {
+        "name": "Corrections for imperfection",
+        "rating": null
+      },
+      {
+        "name": "Uniforms / Dress codes",
+        "rating": null
+      },
+      {
+        "name": "Kneeling / Posture presentation",
+        "rating": null
+      },
+      {
+        "name": "Silent service",
+        "rating": null
+      },
+      {
+        "name": "Public service (at parties or events)",
+        "rating": null
+      },
+      {
+        "name": "Erotic service (pleasure on command, without seeking your own)",
+        "rating": null
       }
     ],
     "General": []
@@ -1014,6 +976,10 @@ window.templateSurvey =
       {
         "name": "Modelling for erotic photos",
         "rating": null
+      },
+      {
+        "name": "Toys under clothes in public",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -1035,6 +1001,10 @@ window.templateSurvey =
       },
       {
         "name": "Modelling for erotic photos",
+        "rating": null
+      },
+      {
+        "name": "Toys under clothes in public",
         "rating": null
       }
     ],
@@ -1063,10 +1033,7 @@ window.templateSurvey =
       { "name": "Submitting proof (photo, video, text)", "rating": null },
       { "name": "Following recorded or timed commands", "rating": null },
       { "name": "Receiving surprise instructions", "rating": null },
-      {
-        "name": "Hearing name/praise spoken in a custom clip",
-        "rating": null
-      },
+      { "name": "Hearing name/praise spoken in a custom clip", "rating": null },
       {
         "name": "Sending submissive voice clips (obedience, begging, thank-you messages, affirmations, etc.)",
         "rating": null
@@ -1450,6 +1417,605 @@ window.templateSurvey =
         ]
       }
     ]
-  }
+  },
+  "Body Fluids and Functions": {
+    "Giving": [
+      {
+        "name": "Watersports/golden showers",
+        "rating": null
+      },
+      {
+        "name": "Cum",
+        "rating": null
+      },
+      {
+        "name": "Blood",
+        "rating": null
+      },
+      {
+        "name": "Scat",
+        "rating": null
+      },
+      {
+        "name": "Sweat",
+        "rating": null
+      },
+      {
+        "name": "Vomit",
+        "rating": null
+      },
+      {
+        "name": "Tears/crying",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Watersports/golden showers",
+        "rating": null
+      },
+      {
+        "name": "Cum",
+        "rating": null
+      },
+      {
+        "name": "Blood",
+        "rating": null
+      },
+      {
+        "name": "Scat",
+        "rating": null
+      },
+      {
+        "name": "Sweat",
+        "rating": null
+      },
+      {
+        "name": "Vomit",
+        "rating": null
+      },
+      {
+        "name": "Tears/crying",
+        "rating": null
+      }
+    ],
+    "General": []
+  },
+  "Psychological Primal / Prey": {
+    "Giving": [
+      {
+        "name": "Primal/Prey",
+        "rating": null
+      },
+      {
+        "name": "Conditioning",
+        "rating": null
+      },
+      {
+        "name": "COC",
+        "rating": null
+      },
+      {
+        "name": "Psycholagny (hands free, mentally stimulated orgasm)",
+        "rating": null
+      },
+      {
+        "name": "Hypno Play",
+        "rating": null
+      },
+      {
+        "name": "Praise",
+        "rating": null
+      },
+      {
+        "name": "Degradation",
+        "rating": null
+      },
+      {
+        "name": "Traditional primal/prey",
+        "rating": null
+      },
+      {
+        "name": "Fear play",
+        "rating": null
+      },
+      {
+        "name": "Objectification",
+        "rating": null
+      },
+      {
+        "name": "Gaslighting",
+        "rating": null
+      },
+      {
+        "name": "Role erosion (identity play / loss of self)",
+        "rating": null
+      },
+      {
+        "name": "Jealousy play",
+        "rating": null
+      },
+      {
+        "name": "Manipulation",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Primal/Prey",
+        "rating": null
+      },
+      {
+        "name": "Conditioning",
+        "rating": null
+      },
+      {
+        "name": "COC",
+        "rating": null
+      },
+      {
+        "name": "Psycholagny (hands free, mentally stimulated orgasm)",
+        "rating": null
+      },
+      {
+        "name": "Hypno Play",
+        "rating": null
+      },
+      {
+        "name": "Praise",
+        "rating": null
+      },
+      {
+        "name": "Degradation",
+        "rating": null
+      },
+      {
+        "name": "Traditional primal/prey",
+        "rating": null
+      },
+      {
+        "name": "Fear play",
+        "rating": null
+      },
+      {
+        "name": "Objectification",
+        "rating": null
+      },
+      {
+        "name": "Gaslighting",
+        "rating": null
+      },
+      {
+        "name": "Role erosion (identity play / loss of self)",
+        "rating": null
+      },
+      {
+        "name": "Jealousy play",
+        "rating": null
+      },
+      {
+        "name": "Manipulation",
+        "rating": null
+      }
+    ],
+    "General": []
+  },
+  "Body Part / Fetish Play": {
+    "Giving": [
+      {
+        "name": "Belly fucking",
+        "rating": null
+      },
+      {
+        "name": "Navel play",
+        "rating": null
+      },
+      {
+        "name": "Feet / Foot worship",
+        "rating": null
+      },
+      {
+        "name": "Hands",
+        "rating": null
+      },
+      {
+        "name": "Hair",
+        "rating": null
+      },
+      {
+        "name": "Thighs",
+        "rating": null
+      },
+      {
+        "name": "Neck",
+        "rating": null
+      },
+      {
+        "name": "Ears",
+        "rating": null
+      },
+      {
+        "name": "Belly",
+        "rating": null
+      },
+      {
+        "name": "Voice fetish",
+        "rating": null
+      },
+      {
+        "name": "Nails / Makeup fetish",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Belly fucking",
+        "rating": null
+      },
+      {
+        "name": "Navel play",
+        "rating": null
+      },
+      {
+        "name": "Feet / Foot worship",
+        "rating": null
+      },
+      {
+        "name": "Hands",
+        "rating": null
+      },
+      {
+        "name": "Hair",
+        "rating": null
+      },
+      {
+        "name": "Thighs",
+        "rating": null
+      },
+      {
+        "name": "Neck",
+        "rating": null
+      },
+      {
+        "name": "Ears",
+        "rating": null
+      },
+      {
+        "name": "Belly",
+        "rating": null
+      },
+      {
+        "name": "Voice fetish",
+        "rating": null
+      },
+      {
+        "name": "Nails / Makeup fetish",
+        "rating": null
+      }
+    ],
+    "General": [
+      {
+        "name": "Cuddles",
+        "rating": null
+      },
+      {
+        "name": "Food Play",
+        "rating": null
+      },
+      {
+        "name": "Kisses",
+        "rating": null
+      },
+      {
+        "name": "Masturbation",
+        "rating": null
+      },
+      {
+        "name": "Romance / affection",
+        "rating": null
+      },
+      {
+        "name": "Sex toys",
+        "rating": null
+      },
+      {
+        "name": "Sexting /Chat etc",
+        "rating": null
+      },
+      {
+        "name": "Sexting via phone or video call",
+        "rating": null
+      },
+      {
+        "name": "Strip tease",
+        "rating": null
+      },
+      {
+        "name": "Vanilla Sex",
+        "rating": null
+      },
+      {
+        "name": "Voice Notes",
+        "rating": null
+      },
+      {
+        "name": "Shaving (body hair)",
+        "rating": null
+      },
+      {
+        "name": "Sexy clothing (private)",
+        "rating": null
+      },
+      {
+        "name": "Sexy clothing (public)",
+        "rating": null
+      },
+      {
+        "name": "Outdoor scenes",
+        "rating": null
+      },
+      {
+        "name": "Public exposure",
+        "rating": null
+      }
+    ]
+  },
+  "Orgasm Control & Sexual Manipulation": {
+    "Giving": [
+      {
+        "name": "Edging",
+        "rating": null
+      },
+      {
+        "name": "Short term denial",
+        "rating": null
+      },
+      {
+        "name": "Long term denial",
+        "rating": null
+      },
+      {
+        "name": "Forced orgasms / Overstimulation",
+        "rating": null
+      },
+      {
+        "name": "Ruined orgasms",
+        "rating": null
+      },
+      {
+        "name": "No touch periods",
+        "rating": null
+      },
+      {
+        "name": "Milking",
+        "rating": null
+      },
+      {
+        "name": "Chastity devices",
+        "rating": null
+      },
+      {
+        "name": "Consensual orgasm control",
+        "rating": null
+      },
+      {
+        "name": "Forced masturbation",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Edging",
+        "rating": null
+      },
+      {
+        "name": "Short term denial",
+        "rating": null
+      },
+      {
+        "name": "Long term denial",
+        "rating": null
+      },
+      {
+        "name": "Forced orgasms / Overstimulation",
+        "rating": null
+      },
+      {
+        "name": "Ruined orgasms",
+        "rating": null
+      },
+      {
+        "name": "No touch periods",
+        "rating": null
+      },
+      {
+        "name": "Milking",
+        "rating": null
+      },
+      {
+        "name": "Chastity devices",
+        "rating": null
+      },
+      {
+        "name": "Consensual orgasm control",
+        "rating": null
+      },
+      {
+        "name": "Forced masturbation",
+        "rating": null
+      }
+    ],
+    "General": []
+  },
+  "Protocol and Ritual": {
+    "Giving": [
+      {
+        "name": "Formal language",
+        "rating": null
+      },
+      {
+        "name": "Greeting and departure rituals (kneeling, verbal scripts, gestures)",
+        "rating": null
+      },
+      {
+        "name": "Requiring permission for things (speech, movement, attire)",
+        "rating": null
+      },
+      {
+        "name": "Daily rituals (morning check-ins, status reports, mantra repetitions)",
+        "rating": null
+      },
+      {
+        "name": "Specific postures for rest, attention, punishment, waiting",
+        "rating": null
+      },
+      {
+        "name": "Restricted behavior (no eye contact, silence, no questions)",
+        "rating": null
+      },
+      {
+        "name": "Ritual object use (collar, cuffs, leash, tokens)",
+        "rating": null
+      },
+      {
+        "name": "Tracking obedience (journals, apps)",
+        "rating": null
+      },
+      {
+        "name": "Formalized rules for misbehavior and correction",
+        "rating": null
+      },
+      {
+        "name": "Ritualized aftercare or scene closure",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Formal language",
+        "rating": null
+      },
+      {
+        "name": "Greeting and departure rituals (kneeling, verbal scripts, gestures)",
+        "rating": null
+      },
+      {
+        "name": "Requiring permission for things (speech, movement, attire)",
+        "rating": null
+      },
+      {
+        "name": "Daily rituals (morning check-ins, status reports, mantra repetitions)",
+        "rating": null
+      },
+      {
+        "name": "Specific postures for rest, attention, punishment, waiting",
+        "rating": null
+      },
+      {
+        "name": "Restricted behavior (no eye contact, silence, no questions)",
+        "rating": null
+      },
+      {
+        "name": "Ritual object use (collar, cuffs, leash, tokens)",
+        "rating": null
+      },
+      {
+        "name": "Tracking obedience (journals, apps)",
+        "rating": null
+      },
+      {
+        "name": "Formalized rules for misbehavior and correction",
+        "rating": null
+      },
+      {
+        "name": "Ritualized aftercare or scene closure",
+        "rating": null
+      }
+    ],
+    "General": [
+      { "name": "Following daily rituals or protocol", "rating": null },
+      { "name": "Structured speech rules (e.g., titles, third person)", "rating": null },
+      { "name": "Receiving correction when out of line", "rating": null },
+      { "name": "Inspection rituals or readiness checks", "rating": null }
+    ]
+  },
+  "Primal & Bratting": [
+    {
+      "name": "Chase and capture play",
+      "rating": null,
+      "roles": [
+        { "name": "Primal (Hunter)", "weight": 1 },
+        { "name": "Prey", "weight": 1 },
+        { "name": "Emotional Primal", "weight": 0.8 },
+        { "name": "Emotional Prey", "weight": 0.8 }
+      ]
+    },
+    {
+      "name": "Bratting for punishment",
+      "rating": null,
+      "roles": [
+        { "name": "Brat", "weight": 1 },
+        { "name": "Service Submissive", "weight": 0.5 },
+        { "name": "Handler", "weight": 1 },
+        { "name": "Emotional Sadist", "weight": 0.6 }
+      ]
+    },
+    { "name": "Playful growling and biting", "rating": null },
+    { "name": "Provoking with teasing or taunts", "rating": null },
+    { "name": "Escaping or hiding to encourage pursuit", "rating": null },
+    { "name": "Refusing commands just for fun", "rating": null }
+  ],
+  "Headspace & Regression": [
+    {
+      "name": "Caregiver/little regression play",
+      "rating": null,
+      "roles": [
+        { "name": "Little", "weight": 1 },
+        { "name": "Caregiver", "weight": 1 }
+      ]
+    },
+    { "name": "Using pacifiers or sippy cups", "rating": null },
+    { "name": "Coloring or childlike crafts", "rating": null },
+    { "name": "Stuffed animal comfort", "rating": null },
+    { "name": "Speaking in a childlike voice", "rating": null },
+    { "name": "Bedtime stories or lullabies", "rating": null }
+  ],
+  "Performance & Internal Struggle": [
+    {
+      "name": "Obedience under observation",
+      "rating": null,
+      "roles": [
+        { "name": "Performance Sub", "weight": 1 },
+        { "name": "Service Submissive", "weight": 0.8 }
+      ]
+    },
+    {
+      "name": "Speech restriction and self-denial",
+      "rating": null,
+      "roles": [
+        { "name": "Internal Conflict Sub", "weight": 1 },
+        { "name": "Emotional Masochist", "weight": 0.7 }
+      ]
+    },
+    { "name": "Maintaining composure during humiliation", "rating": null },
+    { "name": "Obedience drills for an audience", "rating": null },
+    { "name": "Struggling against personal urges", "rating": null },
+    { "name": "Displaying submission despite conflict", "rating": null }
+  ],
+  "Mindfuck & Manipulation": [
+    {
+      "name": "Confusing commands and reality shifts",
+      "rating": null,
+      "roles": [
+        { "name": "Mindfuck Enthusiast / Manipulation Sub", "weight": 1 },
+        { "name": "Mindfuck Dominant / Manipulator", "weight": 1 },
+        { "name": "Emotional Masochist", "weight": 0.6 }
+      ]
+    },
+    { "name": "Gaslighting or contradictory cues", "rating": null },
+    { "name": "Presenting false choices", "rating": null },
+    { "name": "Hidden motives or secret tasks", "rating": null },
+    { "name": "Illogical rules meant to confuse", "rating": null }
+  ]
 }
 ;
