@@ -2016,6 +2016,23 @@ window.templateSurvey =
     { "name": "Presenting false choices", "rating": null },
     { "name": "Hidden motives or secret tasks", "rating": null },
     { "name": "Illogical rules meant to confuse", "rating": null }
+  ],
+  "Protocol Play": [
+    { "name": "Object retrieval on all fours with item in mouth", "rating": null },
+    { "name": "Fetching hairbrush or punishment tool from dresser while crawling", "rating": null },
+    { "name": "Presenting chosen discipline tool in kneeling posture", "rating": null },
+    { "name": "Assigned posture or kneeling positions as ritual", "rating": null },
+    { "name": "Requesting permission using specific protocol phrases", "rating": null },
+    { "name": "Carrying items in mouth as submissive gesture", "rating": null },
+    { "name": "Crawling back with object to Dominant after retrieval", "rating": null },
+    { "name": "Following via nipple leash as protocol or punishment", "rating": null },
+    { "name": "Crawling assigned paths as ritual or obedience training", "rating": null }
+  ],
+  "Mouth Play": [
+    { "name": "Holding tools or restraints in teeth while crawling", "rating": null },
+    { "name": "Placing objects from mouth into Dominant’s palm", "rating": null },
+    { "name": "Using mouth instead of hands for service rituals", "rating": null },
+    { "name": "Gag presentation and silent waiting protocol", "rating": null }
   ]
 }
 ;
