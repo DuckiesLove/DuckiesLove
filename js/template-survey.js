@@ -1963,7 +1963,11 @@ window.templateSurvey =
     { "name": "Playful growling and biting", "rating": null },
     { "name": "Provoking with teasing or taunts", "rating": null },
     { "name": "Escaping or hiding to encourage pursuit", "rating": null },
-    { "name": "Refusing commands just for fun", "rating": null }
+    { "name": "Refusing commands just for fun", "rating": null },
+    { "name": "Provoking your partner to chase or discipline you", "rating": null },
+    { "name": "Taunting or teasing as a form of play", "rating": null },
+    { "name": "Intentional resistance during power exchange", "rating": null },
+    { "name": "Being caught and overpowered", "rating": null }
   ],
   "Headspace & Regression": [
     {
@@ -1978,7 +1982,11 @@ window.templateSurvey =
     { "name": "Coloring or childlike crafts", "rating": null },
     { "name": "Stuffed animal comfort", "rating": null },
     { "name": "Speaking in a childlike voice", "rating": null },
-    { "name": "Bedtime stories or lullabies", "rating": null }
+    { "name": "Bedtime stories or lullabies", "rating": null },
+    { "name": "Entering altered headspaces (e.g., prey, pet, little)", "rating": null },
+    { "name": "Regressive behaviors as comfort (coloring, babytalk)", "rating": null },
+    { "name": "Being cared for during emotional vulnerability", "rating": null },
+    { "name": "Guided emotional headspace entry", "rating": null }
   ],
   "Performance & Internal Struggle": [
     {
@@ -2000,7 +2008,11 @@ window.templateSurvey =
     { "name": "Maintaining composure during humiliation", "rating": null },
     { "name": "Obedience drills for an audience", "rating": null },
     { "name": "Struggling against personal urges", "rating": null },
-    { "name": "Displaying submission despite conflict", "rating": null }
+    { "name": "Displaying submission despite conflict", "rating": null },
+    { "name": "Being told to act normal while struggling internally", "rating": null },
+    { "name": "Pleasing through high-functioning obedience", "rating": null },
+    { "name": "Performing submission while masking resistance", "rating": null },
+    { "name": "The pressure of appearing 'good' while feeling conflicted", "rating": null }
   ],
   "Mindfuck & Manipulation": [
     {
@@ -2015,7 +2027,11 @@ window.templateSurvey =
     { "name": "Gaslighting or contradictory cues", "rating": null },
     { "name": "Presenting false choices", "rating": null },
     { "name": "Hidden motives or secret tasks", "rating": null },
-    { "name": "Illogical rules meant to confuse", "rating": null }
+    { "name": "Illogical rules meant to confuse", "rating": null },
+    { "name": "Gaslight-style scenes (with consent and clarity)", "rating": null },
+    { "name": "False threats or staged surprises", "rating": null },
+    { "name": "Confusing commands to prompt hesitation", "rating": null },
+    { "name": "Emotional trickery as arousal", "rating": null }
   ],
   "Protocol Play": [
     { "name": "Object retrieval on all fours with item in mouth", "rating": null },
@@ -2026,13 +2042,21 @@ window.templateSurvey =
     { "name": "Carrying items in mouth as submissive gesture", "rating": null },
     { "name": "Crawling back with object to Dominant after retrieval", "rating": null },
     { "name": "Following via nipple leash as protocol or punishment", "rating": null },
-    { "name": "Crawling assigned paths as ritual or obedience training", "rating": null }
+    { "name": "Crawling assigned paths as ritual or obedience training", "rating": null },
+    { "name": "Crawling rituals (e.g., object retrieval)", "rating": null },
+    { "name": "Carrying objects in mouth as obedience", "rating": null },
+    { "name": "Presenting tools or toys in posture", "rating": null },
+    { "name": "Using honorifics or preset protocol language", "rating": null }
   ],
   "Mouth Play": [
     { "name": "Holding tools or restraints in teeth while crawling", "rating": null },
     { "name": "Placing objects from mouth into Dominant’s palm", "rating": null },
     { "name": "Using mouth instead of hands for service rituals", "rating": null },
-    { "name": "Gag presentation and silent waiting protocol", "rating": null }
+    { "name": "Gag presentation and silent waiting protocol", "rating": null },
+    { "name": "Holding objects in teeth while crawling", "rating": null },
+    { "name": "Returning items using mouth only", "rating": null },
+    { "name": "Gag rituals or waiting silently", "rating": null },
+    { "name": "Leash held in mouth", "rating": null }
   ]
 }
 ;
