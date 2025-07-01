@@ -19,7 +19,43 @@
 
   <div id="listOutput"></div>
 
-  <script type="module">
+    <script src="js/template-survey.js"></script>
+    <script type="module">
+
+      function mergeSurveyWithTemplate(survey, template) {
+        if (!template || typeof template !== 'object') return;
+        Object.entries(template).forEach(([cat, tmpl]) => {
+          if (!survey[cat]) {
+            survey[cat] = JSON.parse(JSON.stringify(tmpl));
+            return;
+          }
+          ['Giving', 'Receiving', 'General'].forEach(role => {
+            const tItems = Array.isArray(tmpl[role]) ? tmpl[role] : [];
+            if (!Array.isArray(survey[cat][role])) survey[cat][role] = [];
+            const existing = new Set(
+              survey[cat][role].map(i => (i.name || '').trim().toLowerCase())
+            );
+            tItems.forEach(it => {
+              if (!existing.has(it.name.trim().toLowerCase())) {
+                const obj = { name: it.name, rating: null };
+                if (it.type) obj.type = it.type;
+                if (it.options) obj.options = it.options;
+                if (it.roles) obj.roles = it.roles;
+                survey[cat][role].push(obj);
+              } else {
+                const ex = survey[cat][role].find(
+                  i => i.name.trim().toLowerCase() === it.name.trim().toLowerCase()
+                );
+                if (ex) {
+                  if (it.type) ex.type = it.type;
+                  if (it.options) ex.options = it.options;
+                  if (it.roles) ex.roles = it.roles;
+                }
+              }
+            });
+          });
+        });
+      }
 
     const uploadBtn = document.getElementById('uploadButton');
     const downloadBtn = document.getElementById('downloadButton');
@@ -33,15 +69,16 @@
       if (!file) return;
       const reader = new FileReader();
       reader.onload = ev => {
-        try {
-          const parsed = JSON.parse(ev.target.result);
-          const survey = parsed.survey || parsed;
-          currentSurvey = survey;
-          downloadBtn.disabled = false;
-          showList(survey);
-        } catch {
-          document.getElementById('listOutput').textContent = 'Invalid file.';
-        }
+          try {
+            const parsed = JSON.parse(ev.target.result);
+            const survey = parsed.survey || parsed;
+            mergeSurveyWithTemplate(survey, window.templateSurvey);
+            currentSurvey = survey;
+            downloadBtn.disabled = false;
+            showList(survey);
+          } catch {
+            document.getElementById('listOutput').textContent = 'Invalid file.';
+          }
       };
       reader.readAsText(file);
     });
