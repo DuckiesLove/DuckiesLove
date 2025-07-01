@@ -1931,7 +1931,12 @@
         "rating": null
       }
     ],
-    "General": []
+    "General": [
+      { "name": "Following daily rituals or protocol", "rating": null },
+      { "name": "Structured speech rules (e.g., titles, third person)", "rating": null },
+      { "name": "Receiving correction when out of line", "rating": null },
+      { "name": "Inspection rituals or readiness checks", "rating": null }
+    ]
   },
   "Primal & Bratting": [
     {
@@ -1953,7 +1958,11 @@
         { "name": "Handler", "weight": 1 },
         { "name": "Emotional Sadist", "weight": 0.6 }
       ]
-    }
+    },
+    { "name": "Playful growling and biting", "rating": null },
+    { "name": "Provoking with teasing or taunts", "rating": null },
+    { "name": "Escaping or hiding to encourage pursuit", "rating": null },
+    { "name": "Refusing commands just for fun", "rating": null }
   ],
   "Headspace & Regression": [
     {
@@ -1963,7 +1972,12 @@
         { "name": "Little", "weight": 1 },
         { "name": "Caregiver", "weight": 1 }
       ]
-    }
+    },
+    { "name": "Using pacifiers or sippy cups", "rating": null },
+    { "name": "Coloring or childlike crafts", "rating": null },
+    { "name": "Stuffed animal comfort", "rating": null },
+    { "name": "Speaking in a childlike voice", "rating": null },
+    { "name": "Bedtime stories or lullabies", "rating": null }
   ],
   "Performance & Internal Struggle": [
     {
@@ -1981,7 +1995,11 @@
         { "name": "Internal Conflict Sub", "weight": 1 },
         { "name": "Emotional Masochist", "weight": 0.7 }
       ]
-    }
+    },
+    { "name": "Maintaining composure during humiliation", "rating": null },
+    { "name": "Obedience drills for an audience", "rating": null },
+    { "name": "Struggling against personal urges", "rating": null },
+    { "name": "Displaying submission despite conflict", "rating": null }
   ],
   "Mindfuck & Manipulation": [
     {
@@ -1992,6 +2010,10 @@
         { "name": "Mindfuck Dominant / Manipulator", "weight": 1 },
         { "name": "Emotional Masochist", "weight": 0.6 }
       ]
-    }
+    },
+    { "name": "Gaslighting or contradictory cues", "rating": null },
+    { "name": "Presenting false choices", "rating": null },
+    { "name": "Hidden motives or secret tasks", "rating": null },
+    { "name": "Illogical rules meant to confuse", "rating": null }
   ]
 }
