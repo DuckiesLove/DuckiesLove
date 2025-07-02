@@ -31,3 +31,10 @@ test('similar ratings in same role produce similarity score', () => {
   const result = calculateCompatibility(surveyA, surveyB);
   assert.strictEqual(result.similarityScore, 100);
 });
+
+test('returns breakdown per category', () => {
+  const surveyA = { Cat: { Giving: [{ name: 'A', rating: 5 }], Receiving: [], General: [] } };
+  const surveyB = { Cat: { Giving: [], Receiving: [{ name: 'A', rating: 5 }], General: [] } };
+  const result = calculateCompatibility(surveyA, surveyB);
+  assert.strictEqual(result.categoryBreakdown.Cat, 100);
+});

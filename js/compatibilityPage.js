@@ -2,6 +2,7 @@ import { calculateCompatibility } from './compatibility.js';
 
 let surveyA = null;
 let surveyB = null;
+let lastResult = null;
 
 function filterGeneralOptions(survey) {
   Object.values(survey).forEach(cat => {
@@ -137,8 +138,16 @@ function checkAndCompare() {
     return;
   }
   const result = calculateCompatibility(surveyA, surveyB);
+  lastResult = result;
   let html = `<h3>Compatibility Score: ${result.compatibilityScore}%</h3>`;
   html += `<h4>Similarity Score: ${result.similarityScore}%</h4>`;
+  if (result.categoryBreakdown && Object.keys(result.categoryBreakdown).length) {
+    html += '<ul>';
+    Object.entries(result.categoryBreakdown).forEach(([cat, val]) => {
+      html += `<li>${cat}: ${val}%</li>`;
+    });
+    html += '</ul>';
+  }
   if (result.redFlags.length) {
     html += `<p>🚩 Red flags: ${result.redFlags.join(', ')}</p>`;
   }
@@ -165,4 +174,24 @@ if (fileBInput) {
 const calcBtn = document.getElementById('calculateCompatibility');
 if (calcBtn) {
   calcBtn.addEventListener('click', checkAndCompare);
+}
+
+const downloadBtn = document.getElementById('downloadResults');
+if (downloadBtn) {
+  downloadBtn.addEventListener('click', () => {
+    if (!lastResult) {
+      alert('No results to download.');
+      return;
+    }
+    const exportObj = { compatibility: lastResult };
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], {
+      type: 'application/json'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'compatibility-results.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 }
