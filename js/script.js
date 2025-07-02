@@ -374,7 +374,7 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     showCategories();
   };
 
-  fetch('template-survey.json')
+  fetch('template-survey.json', { cache: 'no-store' })
     .then(res => res.json())
     .then(data => {
       window.templateSurvey = normalizeSurveyFormat(data); // cache latest template
