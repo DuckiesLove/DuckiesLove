@@ -337,33 +337,39 @@ function loadSurveyAFile(file) {
   reader.readAsText(file);
 }
 
-document.getElementById('fileA').addEventListener('change', e => {
-  loadSurveyAFile(e.target.files[0]);
-});
+const fileAInput = document.getElementById('fileA');
+if (fileAInput) {
+  fileAInput.addEventListener('change', e => {
+    loadSurveyAFile(e.target.files[0]);
+  });
+}
 
-document.getElementById('fileB').addEventListener('change', e => {
-  const fileInput = e.target;
-  if (!fileInput.files.length) {
-    return;
-  }
+const fileBInput = document.getElementById('fileB');
+if (fileBInput) {
+  fileBInput.addEventListener('change', e => {
+    const fileInput = e.target;
+    if (!fileInput.files.length) {
+      return;
+    }
   if (!confirm('Have you reviewed consent with your partner?')) {
     fileInput.value = '';
     return;
   }
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const parsed = JSON.parse(ev.target.result);
-      surveyB = normalizeSurveyFormat(parsed.survey || parsed);
-      mergeSurveyWithTemplate(surveyB, window.templateSurvey);
-      normalizeRatings(surveyB);
-      filterGeneralOptions(surveyB);
-    } catch {
-      alert('Invalid JSON for Survey B.');
-    }
-  };
-  reader.readAsText(fileInput.files[0]);
-});
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        surveyB = normalizeSurveyFormat(parsed.survey || parsed);
+        mergeSurveyWithTemplate(surveyB, window.templateSurvey);
+        normalizeRatings(surveyB);
+        filterGeneralOptions(surveyB);
+      } catch {
+        alert('Invalid JSON for Survey B.');
+      }
+    };
+    reader.readAsText(fileInput.files[0]);
+  });
+}
 
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
