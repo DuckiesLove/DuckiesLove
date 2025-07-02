@@ -94,6 +94,13 @@ function mergeSurveyWithTemplate(survey, template) {
   });
 }
 
+function getColor(percent) {
+  if (percent >= 75) return '#4caf50';
+  if (percent >= 50) return '#ffcc00';
+  if (percent >= 25) return '#ff9900';
+  return '#ff4444';
+}
+
 function loadFileA(file) {
   if (!file) return;
   const reader = new FileReader();
@@ -139,22 +146,47 @@ function checkAndCompare() {
   }
   const result = calculateCompatibility(surveyA, surveyB);
   lastResult = result;
-  let html = `<h3>Compatibility Score: ${result.compatibilityScore}%</h3>`;
-  html += `<h4>Similarity Score: ${result.similarityScore}%</h4>`;
+  output.innerHTML = '';
+
+  const makeBar = (label, percent) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'progress-container';
+    const lbl = document.createElement('div');
+    lbl.className = 'progress-label';
+    lbl.textContent = label;
+    const percSpan = document.createElement('span');
+    percSpan.textContent = `${percent}%`;
+    lbl.appendChild(percSpan);
+    const bar = document.createElement('div');
+    bar.className = 'progress-bar';
+    const fill = document.createElement('div');
+    fill.className = 'progress-fill';
+    fill.style.width = `${percent}%`;
+    fill.style.backgroundColor = getColor(percent);
+    bar.appendChild(fill);
+    wrap.appendChild(lbl);
+    wrap.appendChild(bar);
+    return wrap;
+  };
+
+  output.appendChild(makeBar('Compatibility Score', result.compatibilityScore));
+  output.appendChild(makeBar('Similarity Score', result.similarityScore));
+
   if (result.categoryBreakdown && Object.keys(result.categoryBreakdown).length) {
-    html += '<ul>';
     Object.entries(result.categoryBreakdown).forEach(([cat, val]) => {
-      html += `<li>${cat}: ${val}%</li>`;
+      output.appendChild(makeBar(cat, val));
     });
-    html += '</ul>';
   }
   if (result.redFlags.length) {
-    html += `<p>🚩 Red flags: ${result.redFlags.join(', ')}</p>`;
+    const p = document.createElement('p');
+    p.textContent = `🚩 Red flags: ${result.redFlags.join(', ')}`;
+    output.appendChild(p);
   }
   if (result.yellowFlags.length) {
-    html += `<p>⚠️ Yellow flags: ${result.yellowFlags.join(', ')}</p>`;
+    const p = document.createElement('p');
+    p.textContent = `⚠️ Yellow flags: ${result.yellowFlags.join(', ')}`;
+    output.appendChild(p);
   }
-  output.innerHTML = html;
 }
 
 const fileAInput = document.getElementById('fileA');
