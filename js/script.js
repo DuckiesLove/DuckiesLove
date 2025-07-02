@@ -559,7 +559,8 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'kink-survey.json';
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  a.download = `kink-survey-${ts}.json`;
   a.click();
   URL.revokeObjectURL(url);
   // Finished export

@@ -7,15 +7,17 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body class="dark-mode">
-  <h1>Your Role Matches</h1>
-  <p>Upload your exported survey to see how your kinks align with common roles.</p>
+  <div class="scroll-container">
+    <h1>Your Role Matches</h1>
+    <p>Upload your exported survey to see how your kinks align with common roles.</p>
 
-  <label class="survey-button file-upload">
-    <span>Select Survey File</span>
-    <input type="file" id="roleFile" hidden />
-  </label>
+    <label class="survey-button file-upload">
+      <span>Select Survey File</span>
+      <input type="file" id="roleFile" hidden />
+    </label>
 
-  <div id="rolesOutput"></div>
+    <div id="rolesOutput"></div>
+  </div>
 
   <script type="module">
     import { calculateRoleScores } from './js/calculateRoleScores.js';
@@ -32,6 +34,34 @@
       return items;
     }
 
+    function getColor(percent) {
+      if (percent >= 75) return '#4caf50';
+      if (percent >= 50) return '#ffcc00';
+      if (percent >= 25) return '#ff9900';
+      return '#ff4444';
+    }
+
+    function createBar(name, percent) {
+      const wrap = document.createElement('div');
+      wrap.className = 'progress-container';
+      const label = document.createElement('div');
+      label.className = 'progress-label';
+      label.textContent = name;
+      const percentSpan = document.createElement('span');
+      percentSpan.textContent = `${percent}%`;
+      label.appendChild(percentSpan);
+      const bar = document.createElement('div');
+      bar.className = 'progress-bar';
+      const fill = document.createElement('div');
+      fill.className = 'progress-fill';
+      fill.style.width = `${percent}%`;
+      fill.style.backgroundColor = getColor(percent);
+      bar.appendChild(fill);
+      wrap.appendChild(label);
+      wrap.appendChild(bar);
+      return wrap;
+    }
+
     document.getElementById('roleFile').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -46,14 +76,10 @@
             container.textContent = 'No role data found.';
             return;
           }
-          const ul = document.createElement('ul');
-          scores.forEach(s => {
-            const li = document.createElement('li');
-            li.textContent = `${s.name}: ${s.percent}%`;
-            ul.appendChild(li);
-          });
           container.innerHTML = '';
-          container.appendChild(ul);
+          scores.forEach(s => {
+            container.appendChild(createBar(s.name, s.percent));
+          });
         } catch (err) {
           document.getElementById('rolesOutput').textContent = 'Invalid file.';
         }
