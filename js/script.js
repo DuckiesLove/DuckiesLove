@@ -170,7 +170,19 @@ function normalizeSurveyFormat(obj) {
       }
     };
   }
-  return obj;
+
+  const normalized = {};
+  Object.entries(obj).forEach(([cat, val]) => {
+    if (Array.isArray(val)) {
+      normalized[cat] = { Giving: [], Receiving: [], General: val };
+    } else {
+      normalized[cat] = { ...val };
+      actions.forEach(role => {
+        if (!Array.isArray(normalized[cat][role])) normalized[cat][role] = [];
+      });
+    }
+  });
+  return normalized;
 }
 
 // Ensure a survey object includes all categories and items from the template
