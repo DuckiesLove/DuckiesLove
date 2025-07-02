@@ -560,7 +560,8 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
 });
 
 // ================== See Our Compatibility ==================
-document.getElementById('compareBtn').addEventListener('click', () => {
+const compareBtn = document.getElementById('compareBtn');
+if (compareBtn) compareBtn.addEventListener('click', () => {
   const resultDiv = document.getElementById('comparisonResult');
   resultDiv.innerHTML = '';
 
