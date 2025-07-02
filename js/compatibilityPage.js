@@ -103,7 +103,6 @@ function loadFileA(file) {
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
-      checkAndCompare();
     } catch {
       alert('Invalid JSON for Survey A.');
     }
@@ -124,7 +123,6 @@ function loadFileB(file) {
       mergeSurveyWithTemplate(surveyB, window.templateSurvey);
       normalizeRatings(surveyB);
       filterGeneralOptions(surveyB);
-      checkAndCompare();
     } catch {
       alert('Invalid JSON for Survey B.');
     }
@@ -150,10 +148,21 @@ function checkAndCompare() {
   output.innerHTML = html;
 }
 
-document.getElementById('fileA').addEventListener('change', e => {
-  loadFileA(e.target.files[0]);
-});
+const fileAInput = document.getElementById('fileA');
+if (fileAInput) {
+  fileAInput.addEventListener('change', e => {
+    loadFileA(e.target.files[0]);
+  });
+}
 
-document.getElementById('fileB').addEventListener('change', e => {
-  loadFileB(e.target.files[0]);
-});
+const fileBInput = document.getElementById('fileB');
+if (fileBInput) {
+  fileBInput.addEventListener('change', e => {
+    loadFileB(e.target.files[0]);
+  });
+}
+
+const calcBtn = document.getElementById('calculateCompatibility');
+if (calcBtn) {
+  calcBtn.addEventListener('click', checkAndCompare);
+}
