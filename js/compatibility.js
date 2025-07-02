@@ -4,9 +4,13 @@ export function calculateCompatibility(surveyA, surveyB) {
   let count = 0;
   let redFlags = [];
   let yellowFlags = [];
+  const catTotals = {};
+  const catCounts = {};
 
   categories.forEach(category => {
     if (!surveyB[category]) return;
+    catTotals[category] = 0;
+    catCounts[category] = 0;
 
     ['Giving', 'Receiving'].forEach(action => {
       const listA = surveyA[category][action] || [];
@@ -25,6 +29,7 @@ export function calculateCompatibility(surveyA, surveyB) {
         if (!Number.isInteger(ratingA) || !Number.isInteger(ratingB)) return;
 
         count++;
+        catCounts[category]++;
 
         if ((ratingA >= 5 && ratingB <= 1) || (ratingB >= 5 && ratingA <= 1)) {
           redFlags.push(itemA.name);
@@ -37,8 +42,10 @@ export function calculateCompatibility(surveyA, surveyB) {
 
         if (ratingA >= 4 && ratingB >= 4) {
           totalScore += 1;
+          catTotals[category] += 1;
         } else if (ratingA >= 3 && ratingB >= 3) {
           totalScore += 0.5;
+          catTotals[category] += 0.5;
         }
       });
     });
@@ -73,11 +80,18 @@ export function calculateCompatibility(surveyA, surveyB) {
 
   const avgSim = simCount ? Math.round(simScore / simCount) : 0;
 
+  const categoryBreakdown = {};
+  Object.keys(catTotals).forEach(cat => {
+    const c = catCounts[cat];
+    categoryBreakdown[cat] = c ? Math.round((catTotals[cat] / c) * 100) : 0;
+  });
+
   return {
     compatibilityScore: avg,
     similarityScore: avgSim,
     redFlags: [...new Set(redFlags)],
-    yellowFlags: [...new Set(yellowFlags)]
+    yellowFlags: [...new Set(yellowFlags)],
+    categoryBreakdown
   };
 }
 
