@@ -142,12 +142,12 @@
 
     function flattenSurvey(survey) {
       const arr = [];
-      Object.values(survey).forEach(actions => {
+      Object.entries(survey).forEach(([category, actions]) => {
         ['Giving', 'Receiving', 'General'].forEach(role => {
           const items = Array.isArray(actions[role]) ? actions[role] : [];
           items.forEach(item => {
             if (typeof item.rating === 'number') {
-              arr.push({ name: item.name, rating: item.rating });
+              arr.push({ category, name: item.name, rating: item.rating });
             }
           });
         });

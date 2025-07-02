@@ -22,10 +22,10 @@
 
     function flattenSurvey(survey) {
       const items = [];
-      Object.values(survey).forEach(cat => {
+      Object.entries(survey).forEach(([category, cat]) => {
         ['Giving', 'Receiving', 'General'].forEach(role => {
           if (Array.isArray(cat[role])) {
-            items.push(...cat[role]);
+            cat[role].forEach(it => items.push({ category, ...it }));
           }
         });
       });
