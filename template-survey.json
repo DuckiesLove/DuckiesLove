@@ -1011,40 +1011,106 @@
   },
   "Digital & Remote Play": {
     "Giving": [
-      { "name": "Sending tasks or orders digitally", "rating": null },
+      {
+        "name": "Sending tasks or orders digitally",
+        "rating": null
+      },
       {
         "name": "Recording dominant voice clips (commands, edging, praise, degradation, etc.)",
         "rating": null
       },
-      { "name": "Remote control of a sex toy", "rating": null },
-      { "name": "Monitoring behavior via app or shared doc", "rating": null },
-      { "name": "Giving punishment assignments remotely", "rating": null },
-      { "name": "Creating countdowns, timers, or denial periods", "rating": null },
-      { "name": "Sending written instructions with delayed permissions", "rating": null },
-      { "name": "Creating custom video or audio tasks", "rating": null },
-      { "name": "Voice message control during scenes", "rating": null }
+      {
+        "name": "Remote control of a sex toy",
+        "rating": null
+      },
+      {
+        "name": "Monitoring behavior via app or shared doc",
+        "rating": null
+      },
+      {
+        "name": "Giving punishment assignments remotely",
+        "rating": null
+      },
+      {
+        "name": "Creating countdowns, timers, or denial periods",
+        "rating": null
+      },
+      {
+        "name": "Sending written instructions with delayed permissions",
+        "rating": null
+      },
+      {
+        "name": "Creating custom video or audio tasks",
+        "rating": null
+      },
+      {
+        "name": "Voice message control during scenes",
+        "rating": null
+      }
     ],
     "Receiving": [
-      { "name": "Receiving tasks or orders digitally", "rating": null },
-      { "name": "Listening to dominant voice clips", "rating": null },
-      { "name": "Using a remote-controlled toy controlled by another", "rating": null },
-      { "name": "Completing daily protocol assignments", "rating": null },
-      { "name": "Submitting proof (photo, video, text)", "rating": null },
-      { "name": "Following recorded or timed commands", "rating": null },
-      { "name": "Receiving surprise instructions", "rating": null },
-      { "name": "Hearing name/praise spoken in a custom clip", "rating": null },
+      {
+        "name": "Receiving tasks or orders digitally",
+        "rating": null
+      },
+      {
+        "name": "Listening to dominant voice clips",
+        "rating": null
+      },
+      {
+        "name": "Using a remote-controlled toy controlled by another",
+        "rating": null
+      },
+      {
+        "name": "Completing daily protocol assignments",
+        "rating": null
+      },
+      {
+        "name": "Submitting proof (photo, video, text)",
+        "rating": null
+      },
+      {
+        "name": "Following recorded or timed commands",
+        "rating": null
+      },
+      {
+        "name": "Receiving surprise instructions",
+        "rating": null
+      },
+      {
+        "name": "Hearing name/praise spoken in a custom clip",
+        "rating": null
+      },
       {
         "name": "Sending submissive voice clips (obedience, begging, thank-you messages, affirmations, etc.)",
         "rating": null
       }
     ],
     "General": [
-      { "name": "Scheduling digital rituals or reminders", "rating": null },
-      { "name": "Using training, habit, or behavior-tracking apps", "rating": null },
-      { "name": "Online rituals (digital kneeling, posture protocols)", "rating": null },
-      { "name": "Role-based texting (e.g., \"Use honorifics in chat\")", "rating": null },
-      { "name": "Shared playlists, affirmations, or mantras", "rating": null },
-      { "name": "Countdown timers to next task, release, or interaction", "rating": null }
+      {
+        "name": "Scheduling digital rituals or reminders",
+        "rating": null
+      },
+      {
+        "name": "Using training, habit, or behavior-tracking apps",
+        "rating": null
+      },
+      {
+        "name": "Online rituals (digital kneeling, posture protocols)",
+        "rating": null
+      },
+      {
+        "name": "Role-based texting (e.g., \"Use honorifics in chat\")",
+        "rating": null
+      },
+      {
+        "name": "Shared playlists, affirmations, or mantras",
+        "rating": null
+      },
+      {
+        "name": "Countdown timers to next task, release, or interaction",
+        "rating": null
+      }
     ]
   },
   "Communication": {
@@ -1249,7 +1315,7 @@
         ]
       },
       {
-        "name": "You’re mine / control language",
+        "name": "You\u2019re mine / control language",
         "rating": null,
         "roles": [
           "prey"
@@ -1932,129 +1998,639 @@
       }
     ],
     "General": [
-      { "name": "Following daily rituals or protocol", "rating": null },
-      { "name": "Structured speech rules (e.g., titles, third person)", "rating": null },
-      { "name": "Receiving correction when out of line", "rating": null },
-      { "name": "Inspection rituals or readiness checks", "rating": null }
+      {
+        "name": "Following daily rituals or protocol",
+        "rating": null
+      },
+      {
+        "name": "Structured speech rules (e.g., titles, third person)",
+        "rating": null
+      },
+      {
+        "name": "Receiving correction when out of line",
+        "rating": null
+      },
+      {
+        "name": "Inspection rituals or readiness checks",
+        "rating": null
+      }
     ]
   },
-  "Primal & Bratting": [
-    {
-      "name": "Chase and capture play",
-      "rating": null,
-      "roles": [
-        { "name": "Primal (Hunter)", "weight": 1 },
-        { "name": "Prey", "weight": 1 },
-        { "name": "Emotional Primal", "weight": 0.8 },
-        { "name": "Emotional Prey", "weight": 0.8 }
-      ]
-    },
-    {
-      "name": "Bratting for punishment",
-      "rating": null,
-      "roles": [
-        { "name": "Brat", "weight": 1 },
-        { "name": "Service Submissive", "weight": 0.5 },
-        { "name": "Handler", "weight": 1 },
-        { "name": "Emotional Sadist", "weight": 0.6 }
-      ]
-    },
-    { "name": "Playful growling and biting", "rating": null },
-    { "name": "Provoking with teasing or taunts", "rating": null },
-    { "name": "Escaping or hiding to encourage pursuit", "rating": null },
-    { "name": "Refusing commands just for fun", "rating": null },
-    { "name": "Provoking your partner to chase or discipline you", "rating": null },
-    { "name": "Taunting or teasing as a form of play", "rating": null },
-    { "name": "Intentional resistance during power exchange", "rating": null },
-    { "name": "Being caught and overpowered", "rating": null }
-  ],
-  "Headspace & Regression": [
-    {
-      "name": "Caregiver/little regression play",
-      "rating": null,
-      "roles": [
-        { "name": "Little", "weight": 1 },
-        { "name": "Caregiver", "weight": 1 }
-      ]
-    },
-    { "name": "Using pacifiers or sippy cups", "rating": null },
-    { "name": "Coloring or childlike crafts", "rating": null },
-    { "name": "Stuffed animal comfort", "rating": null },
-    { "name": "Speaking in a childlike voice", "rating": null },
-    { "name": "Bedtime stories or lullabies", "rating": null },
-    { "name": "Entering altered headspaces (e.g., prey, pet, little)", "rating": null },
-    { "name": "Regressive behaviors as comfort (coloring, babytalk)", "rating": null },
-    { "name": "Being cared for during emotional vulnerability", "rating": null },
-    { "name": "Guided emotional headspace entry", "rating": null }
-  ],
+  "Primal & Bratting": {
+    "Giving": [
+      {
+        "name": "Chase and capture play",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Primal (Hunter)",
+            "weight": 1
+          },
+          {
+            "name": "Prey",
+            "weight": 1
+          },
+          {
+            "name": "Emotional Primal",
+            "weight": 0.8
+          },
+          {
+            "name": "Emotional Prey",
+            "weight": 0.8
+          }
+        ]
+      },
+      {
+        "name": "Bratting for punishment",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Brat",
+            "weight": 1
+          },
+          {
+            "name": "Service Submissive",
+            "weight": 0.5
+          },
+          {
+            "name": "Handler",
+            "weight": 1
+          },
+          {
+            "name": "Emotional Sadist",
+            "weight": 0.6
+          }
+        ]
+      },
+      {
+        "name": "Playful growling and biting",
+        "rating": null
+      },
+      {
+        "name": "Provoking with teasing or taunts",
+        "rating": null
+      },
+      {
+        "name": "Escaping or hiding to encourage pursuit",
+        "rating": null
+      },
+      {
+        "name": "Refusing commands just for fun",
+        "rating": null
+      },
+      {
+        "name": "Provoking your partner to chase or discipline you",
+        "rating": null
+      },
+      {
+        "name": "Taunting or teasing as a form of play",
+        "rating": null
+      },
+      {
+        "name": "Intentional resistance during power exchange",
+        "rating": null
+      },
+      {
+        "name": "Being caught and overpowered",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Chase and capture play",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Primal (Hunter)",
+            "weight": 1
+          },
+          {
+            "name": "Prey",
+            "weight": 1
+          },
+          {
+            "name": "Emotional Primal",
+            "weight": 0.8
+          },
+          {
+            "name": "Emotional Prey",
+            "weight": 0.8
+          }
+        ]
+      },
+      {
+        "name": "Bratting for punishment",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Brat",
+            "weight": 1
+          },
+          {
+            "name": "Service Submissive",
+            "weight": 0.5
+          },
+          {
+            "name": "Handler",
+            "weight": 1
+          },
+          {
+            "name": "Emotional Sadist",
+            "weight": 0.6
+          }
+        ]
+      },
+      {
+        "name": "Playful growling and biting",
+        "rating": null
+      },
+      {
+        "name": "Provoking with teasing or taunts",
+        "rating": null
+      },
+      {
+        "name": "Escaping or hiding to encourage pursuit",
+        "rating": null
+      },
+      {
+        "name": "Refusing commands just for fun",
+        "rating": null
+      },
+      {
+        "name": "Provoking your partner to chase or discipline you",
+        "rating": null
+      },
+      {
+        "name": "Taunting or teasing as a form of play",
+        "rating": null
+      },
+      {
+        "name": "Intentional resistance during power exchange",
+        "rating": null
+      },
+      {
+        "name": "Being caught and overpowered",
+        "rating": null
+      }
+    ],
+    "General": []
+  },
+  "Headspace & Regression": {
+    "Giving": [
+      {
+        "name": "Caregiver/little regression play",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Little",
+            "weight": 1
+          },
+          {
+            "name": "Caregiver",
+            "weight": 1
+          }
+        ]
+      },
+      {
+        "name": "Using pacifiers or sippy cups",
+        "rating": null
+      },
+      {
+        "name": "Coloring or childlike crafts",
+        "rating": null
+      },
+      {
+        "name": "Stuffed animal comfort",
+        "rating": null
+      },
+      {
+        "name": "Speaking in a childlike voice",
+        "rating": null
+      },
+      {
+        "name": "Bedtime stories or lullabies",
+        "rating": null
+      },
+      {
+        "name": "Entering altered headspaces (e.g., prey, pet, little)",
+        "rating": null
+      },
+      {
+        "name": "Regressive behaviors as comfort (coloring, babytalk)",
+        "rating": null
+      },
+      {
+        "name": "Being cared for during emotional vulnerability",
+        "rating": null
+      },
+      {
+        "name": "Guided emotional headspace entry",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Caregiver/little regression play",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Little",
+            "weight": 1
+          },
+          {
+            "name": "Caregiver",
+            "weight": 1
+          }
+        ]
+      },
+      {
+        "name": "Using pacifiers or sippy cups",
+        "rating": null
+      },
+      {
+        "name": "Coloring or childlike crafts",
+        "rating": null
+      },
+      {
+        "name": "Stuffed animal comfort",
+        "rating": null
+      },
+      {
+        "name": "Speaking in a childlike voice",
+        "rating": null
+      },
+      {
+        "name": "Bedtime stories or lullabies",
+        "rating": null
+      },
+      {
+        "name": "Entering altered headspaces (e.g., prey, pet, little)",
+        "rating": null
+      },
+      {
+        "name": "Regressive behaviors as comfort (coloring, babytalk)",
+        "rating": null
+      },
+      {
+        "name": "Being cared for during emotional vulnerability",
+        "rating": null
+      },
+      {
+        "name": "Guided emotional headspace entry",
+        "rating": null
+      }
+    ],
+    "General": []
+  },
   "Performance & Internal Struggle": [
     {
       "name": "Obedience under observation",
       "rating": null,
       "roles": [
-        { "name": "Performance Sub", "weight": 1 },
-        { "name": "Service Submissive", "weight": 0.8 }
+        {
+          "name": "Performance Sub",
+          "weight": 1
+        },
+        {
+          "name": "Service Submissive",
+          "weight": 0.8
+        }
       ]
     },
     {
       "name": "Speech restriction and self-denial",
       "rating": null,
       "roles": [
-        { "name": "Internal Conflict Sub", "weight": 1 },
-        { "name": "Emotional Masochist", "weight": 0.7 }
+        {
+          "name": "Internal Conflict Sub",
+          "weight": 1
+        },
+        {
+          "name": "Emotional Masochist",
+          "weight": 0.7
+        }
       ]
     },
-    { "name": "Maintaining composure during humiliation", "rating": null },
-    { "name": "Obedience drills for an audience", "rating": null },
-    { "name": "Struggling against personal urges", "rating": null },
-    { "name": "Displaying submission despite conflict", "rating": null },
-    { "name": "Being told to act normal while struggling internally", "rating": null },
-    { "name": "Pleasing through high-functioning obedience", "rating": null },
-    { "name": "Performing submission while masking resistance", "rating": null },
-    { "name": "The pressure of appearing 'good' while feeling conflicted", "rating": null }
-  ],
-  "Mindfuck & Manipulation": [
     {
-      "name": "Confusing commands and reality shifts",
-      "rating": null,
-      "roles": [
-        { "name": "Mindfuck Enthusiast / Manipulation Sub", "weight": 1 },
-        { "name": "Mindfuck Dominant / Manipulator", "weight": 1 },
-        { "name": "Emotional Masochist", "weight": 0.6 }
-      ]
+      "name": "Maintaining composure during humiliation",
+      "rating": null
     },
-    { "name": "Gaslighting or contradictory cues", "rating": null },
-    { "name": "Presenting false choices", "rating": null },
-    { "name": "Hidden motives or secret tasks", "rating": null },
-    { "name": "Illogical rules meant to confuse", "rating": null },
-    { "name": "Gaslight-style scenes (with consent and clarity)", "rating": null },
-    { "name": "False threats or staged surprises", "rating": null },
-    { "name": "Confusing commands to prompt hesitation", "rating": null },
-    { "name": "Emotional trickery as arousal", "rating": null }
+    {
+      "name": "Obedience drills for an audience",
+      "rating": null
+    },
+    {
+      "name": "Struggling against personal urges",
+      "rating": null
+    },
+    {
+      "name": "Displaying submission despite conflict",
+      "rating": null
+    },
+    {
+      "name": "Being told to act normal while struggling internally",
+      "rating": null
+    },
+    {
+      "name": "Pleasing through high-functioning obedience",
+      "rating": null
+    },
+    {
+      "name": "Performing submission while masking resistance",
+      "rating": null
+    },
+    {
+      "name": "The pressure of appearing 'good' while feeling conflicted",
+      "rating": null
+    }
   ],
-  "Protocol Play": [
-    { "name": "Object retrieval on all fours with item in mouth", "rating": null },
-    { "name": "Fetching hairbrush or punishment tool from dresser while crawling", "rating": null },
-    { "name": "Presenting chosen discipline tool in kneeling posture", "rating": null },
-    { "name": "Assigned posture or kneeling positions as ritual", "rating": null },
-    { "name": "Requesting permission using specific protocol phrases", "rating": null },
-    { "name": "Carrying items in mouth as submissive gesture", "rating": null },
-    { "name": "Crawling back with object to Dominant after retrieval", "rating": null },
-    { "name": "Following via nipple leash as protocol or punishment", "rating": null },
-    { "name": "Crawling assigned paths as ritual or obedience training", "rating": null },
-    { "name": "Crawling rituals (e.g., object retrieval)", "rating": null },
-    { "name": "Carrying objects in mouth as obedience", "rating": null },
-    { "name": "Presenting tools or toys in posture", "rating": null },
-    { "name": "Using honorifics or preset protocol language", "rating": null }
-  ],
-  "Mouth Play": [
-    { "name": "Holding tools or restraints in teeth while crawling", "rating": null },
-    { "name": "Placing objects from mouth into Dominant’s palm", "rating": null },
-    { "name": "Using mouth instead of hands for service rituals", "rating": null },
-    { "name": "Gag presentation and silent waiting protocol", "rating": null },
-    { "name": "Holding objects in teeth while crawling", "rating": null },
-    { "name": "Returning items using mouth only", "rating": null },
-    { "name": "Gag rituals or waiting silently", "rating": null },
-    { "name": "Leash held in mouth", "rating": null }
-  ]
+  "Mindfuck & Manipulation": {
+    "Giving": [
+      {
+        "name": "Confusing commands and reality shifts",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Mindfuck Enthusiast / Manipulation Sub",
+            "weight": 1
+          },
+          {
+            "name": "Mindfuck Dominant / Manipulator",
+            "weight": 1
+          },
+          {
+            "name": "Emotional Masochist",
+            "weight": 0.6
+          }
+        ]
+      },
+      {
+        "name": "Gaslighting or contradictory cues",
+        "rating": null
+      },
+      {
+        "name": "Presenting false choices",
+        "rating": null
+      },
+      {
+        "name": "Hidden motives or secret tasks",
+        "rating": null
+      },
+      {
+        "name": "Illogical rules meant to confuse",
+        "rating": null
+      },
+      {
+        "name": "Gaslight-style scenes (with consent and clarity)",
+        "rating": null
+      },
+      {
+        "name": "False threats or staged surprises",
+        "rating": null
+      },
+      {
+        "name": "Confusing commands to prompt hesitation",
+        "rating": null
+      },
+      {
+        "name": "Emotional trickery as arousal",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Confusing commands and reality shifts",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Mindfuck Enthusiast / Manipulation Sub",
+            "weight": 1
+          },
+          {
+            "name": "Mindfuck Dominant / Manipulator",
+            "weight": 1
+          },
+          {
+            "name": "Emotional Masochist",
+            "weight": 0.6
+          }
+        ]
+      },
+      {
+        "name": "Gaslighting or contradictory cues",
+        "rating": null
+      },
+      {
+        "name": "Presenting false choices",
+        "rating": null
+      },
+      {
+        "name": "Hidden motives or secret tasks",
+        "rating": null
+      },
+      {
+        "name": "Illogical rules meant to confuse",
+        "rating": null
+      },
+      {
+        "name": "Gaslight-style scenes (with consent and clarity)",
+        "rating": null
+      },
+      {
+        "name": "False threats or staged surprises",
+        "rating": null
+      },
+      {
+        "name": "Confusing commands to prompt hesitation",
+        "rating": null
+      },
+      {
+        "name": "Emotional trickery as arousal",
+        "rating": null
+      }
+    ],
+    "General": []
+  },
+  "Protocol Play": {
+    "Giving": [
+      {
+        "name": "Object retrieval on all fours with item in mouth",
+        "rating": null
+      },
+      {
+        "name": "Fetching hairbrush or punishment tool from dresser while crawling",
+        "rating": null
+      },
+      {
+        "name": "Presenting chosen discipline tool in kneeling posture",
+        "rating": null
+      },
+      {
+        "name": "Assigned posture or kneeling positions as ritual",
+        "rating": null
+      },
+      {
+        "name": "Requesting permission using specific protocol phrases",
+        "rating": null
+      },
+      {
+        "name": "Carrying items in mouth as submissive gesture",
+        "rating": null
+      },
+      {
+        "name": "Crawling back with object to Dominant after retrieval",
+        "rating": null
+      },
+      {
+        "name": "Following via nipple leash as protocol or punishment",
+        "rating": null
+      },
+      {
+        "name": "Crawling assigned paths as ritual or obedience training",
+        "rating": null
+      },
+      {
+        "name": "Crawling rituals (e.g., object retrieval)",
+        "rating": null
+      },
+      {
+        "name": "Carrying objects in mouth as obedience",
+        "rating": null
+      },
+      {
+        "name": "Presenting tools or toys in posture",
+        "rating": null
+      },
+      {
+        "name": "Using honorifics or preset protocol language",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Object retrieval on all fours with item in mouth",
+        "rating": null
+      },
+      {
+        "name": "Fetching hairbrush or punishment tool from dresser while crawling",
+        "rating": null
+      },
+      {
+        "name": "Presenting chosen discipline tool in kneeling posture",
+        "rating": null
+      },
+      {
+        "name": "Assigned posture or kneeling positions as ritual",
+        "rating": null
+      },
+      {
+        "name": "Requesting permission using specific protocol phrases",
+        "rating": null
+      },
+      {
+        "name": "Carrying items in mouth as submissive gesture",
+        "rating": null
+      },
+      {
+        "name": "Crawling back with object to Dominant after retrieval",
+        "rating": null
+      },
+      {
+        "name": "Following via nipple leash as protocol or punishment",
+        "rating": null
+      },
+      {
+        "name": "Crawling assigned paths as ritual or obedience training",
+        "rating": null
+      },
+      {
+        "name": "Crawling rituals (e.g., object retrieval)",
+        "rating": null
+      },
+      {
+        "name": "Carrying objects in mouth as obedience",
+        "rating": null
+      },
+      {
+        "name": "Presenting tools or toys in posture",
+        "rating": null
+      },
+      {
+        "name": "Using honorifics or preset protocol language",
+        "rating": null
+      }
+    ],
+    "General": []
+  },
+  "Mouth Play": {
+    "Giving": [
+      {
+        "name": "Holding tools or restraints in teeth while crawling",
+        "rating": null
+      },
+      {
+        "name": "Placing objects from mouth into Dominant\u2019s palm",
+        "rating": null
+      },
+      {
+        "name": "Using mouth instead of hands for service rituals",
+        "rating": null
+      },
+      {
+        "name": "Gag presentation and silent waiting protocol",
+        "rating": null
+      },
+      {
+        "name": "Holding objects in teeth while crawling",
+        "rating": null
+      },
+      {
+        "name": "Returning items using mouth only",
+        "rating": null
+      },
+      {
+        "name": "Gag rituals or waiting silently",
+        "rating": null
+      },
+      {
+        "name": "Leash held in mouth",
+        "rating": null
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Holding tools or restraints in teeth while crawling",
+        "rating": null
+      },
+      {
+        "name": "Placing objects from mouth into Dominant\u2019s palm",
+        "rating": null
+      },
+      {
+        "name": "Using mouth instead of hands for service rituals",
+        "rating": null
+      },
+      {
+        "name": "Gag presentation and silent waiting protocol",
+        "rating": null
+      },
+      {
+        "name": "Holding objects in teeth while crawling",
+        "rating": null
+      },
+      {
+        "name": "Returning items using mouth only",
+        "rating": null
+      },
+      {
+        "name": "Gag rituals or waiting silently",
+        "rating": null
+      },
+      {
+        "name": "Leash held in mouth",
+        "rating": null
+      }
+    ],
+    "General": []
+  }
 }

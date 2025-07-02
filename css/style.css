@@ -222,6 +222,31 @@ body.light-mode #mainCategoryList button.active {
   background-color: #548c5a;
   color: #fff;
 }
+body.dark-mode #mainCategoryList button.active {
+  background-color: #00bfff;
+  color: #000;
+  border: 1px solid #0099cc;
+}
+body.theme-blue #mainCategoryList button.active {
+  background-color: #0055aa;
+  color: #fff;
+  border: 1px solid #003377;
+}
+body.theme-echoes-beyond #mainCategoryList button.active {
+  background-color: #334863;
+  color: #fca311;
+  border: 1px solid #fca311;
+}
+body.theme-love-notes-lipstick #mainCategoryList button.active {
+  background-color: #ff6bd6;
+  color: #311847;
+  border: 1px solid #20c997;
+}
+body.theme-rainbow #mainCategoryList button.active {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #000;
+  border: 1px solid #603636;
+}
 
 /* Theme Styling */
 body.dark-mode {
