@@ -724,10 +724,10 @@ body.light-mode #ratingLegend {
   margin-bottom: 20px;
 }
 
-/* Grid layout for compatibility page buttons */
+//* Grid layout for compatibility page buttons */
 .button-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, auto);
   gap: 30px 40px;
   justify-content: center;
   justify-items: center;
