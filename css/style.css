@@ -724,6 +724,16 @@ body.light-mode #ratingLegend {
   margin-bottom: 20px;
 }
 
+/* Grid layout for compatibility page buttons */
+.button-grid {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 20px;
+  justify-content: center;
+  justify-items: center;
+  margin-bottom: 20px;
+}
+
 .file-upload input[type="file"] {
   display: none;
 }
