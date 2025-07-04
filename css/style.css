@@ -727,8 +727,9 @@ body.light-mode #ratingLegend {
 /* Grid layout for compatibility page buttons */
 .button-grid {
   display: grid;
-  grid-template-columns: repeat(2, auto);
-  gap: 20px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 30px 40px;
+  justify-content: center;
   justify-items: center;
   width: fit-content;
   margin: 0 auto 20px;
