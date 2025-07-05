@@ -741,7 +741,7 @@ body.light-mode #ratingLegend {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 40px; /* larger gap between button groups */
   margin: 0 auto 20px;
 }
 
