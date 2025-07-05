@@ -585,11 +585,7 @@ body.theme-rainbow #comparisonResult {
   justify-content: center;
 }
 
-.password-modal {
-  background-color: #1e1e2f;
-  padding: 20px;
-  border-radius: 8px;
-  color: #fff;
+
 .password-modal {
   background-color: #1e1e2f;
   padding: 20px;
@@ -605,8 +601,6 @@ body.theme-rainbow #comparisonResult {
   padding-top: 20px;
   padding-bottom: 20px;
   overflow-y: auto;
-}
-
 }
 body.light-mode .password-modal {
   background-color: #fff;
@@ -735,12 +729,10 @@ body.light-mode #ratingLegend {
 
 //* Grid layout for compatibility page buttons */
 .button-grid {
-  display: grid;
-  grid-template-columns: repeat(2, auto);
+  display: flex;
+  flex-wrap: wrap;
   gap: 30px 40px;
   justify-content: center;
-  justify-items: center;
-  width: fit-content;
   margin: 0 auto 20px;
 }
 
