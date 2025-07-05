@@ -724,6 +724,15 @@ body.light-mode #ratingLegend {
   margin-bottom: 20px;
 }
 
+/* Back button placement on compatibility page */
+.back-button-container {
+  align-self: flex-start;
+  margin-left: 20px;
+}
+.back-button-container button {
+  margin: 10px 0;
+}
+
 //* Grid layout for compatibility page buttons */
 .button-grid {
   display: grid;
