@@ -942,3 +942,19 @@ body.light-mode #ratingLegend {
 .kink-table td:first-child {
   text-align: left;
 }
+.accordion-panel,
+.accordion-panel > summary,
+.accordion-panel > details {
+  max-width: 700px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.accordion-panel > summary {
+  cursor: pointer;
+}
+
+.accordion-panel > details[open] {
+  border: 1px solid #444;
+}

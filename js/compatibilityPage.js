@@ -180,6 +180,7 @@ function checkAndCompare() {
   if (result.kinkBreakdown) {
     Object.entries(result.kinkBreakdown).forEach(([cat, list]) => {
       const details = document.createElement('details');
+      details.classList.add('accordion-panel');
       const summary = document.createElement('summary');
       summary.textContent = cat;
       details.appendChild(summary);
