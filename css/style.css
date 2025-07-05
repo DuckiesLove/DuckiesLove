@@ -961,6 +961,10 @@ body.light-mode #ratingLegend {
   overflow-y: auto;
 }
 
+/* ✅ Codex Instructions: Accordion Overflow Fix for Bottom Categories
+   Goal: Prevent bottom categories like “Protocol Play” and “Mouth Play” from visually spilling out or stretching beyond the accordion layout.
+   These styles ensure the open section is scrollable, sized appropriately, and visually contained like the top categories.
+*/
 /* Codex update: prevent accordion items from stretching */
 .accordion-item {
   flex-shrink: 0;
@@ -968,6 +972,8 @@ body.light-mode #ratingLegend {
   min-height: auto;
   height: auto;
   overflow: hidden;
+  border-radius: 4px;
+  max-width: 100%;
   transition: max-height 0.3s ease;
 }
 
@@ -975,11 +981,22 @@ body.light-mode #ratingLegend {
   max-height: 1000px;
 }
 
+.accordion-item.active .accordion-content {
+  max-height: 800px;
+}
+
 .accordion-button,
 .accordion-content {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+.accordion-content {
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 1rem;
+  transition: max-height 0.3s ease-in-out;
 }
 
 /* Ensure sidebar and accordion items do not stretch full height */
@@ -996,10 +1013,9 @@ body.light-mode #ratingLegend {
 
 /* Prevent bottom accordion sections from growing outside view */
 .accordion-container {
-  max-height: 100vh;
-  overflow-y: auto;
-  padding-bottom: 2rem;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  max-height: 100%;
+  overflow-y: auto;
 }
