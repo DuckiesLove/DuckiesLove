@@ -731,7 +731,7 @@ body.light-mode #ratingLegend {
 .button-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 30px 40px;
+  gap: 30px 80px;
   justify-content: center;
   margin: 0 auto 20px;
 }
