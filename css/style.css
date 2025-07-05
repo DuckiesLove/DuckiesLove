@@ -457,6 +457,19 @@ textarea {
   font-family: inherit;
 }
 
+select {
+  width: 200px;
+  max-width: 100%;
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  display: inline-block;
+  margin-top: 5px;
+  box-sizing: border-box;
+}
+
 /* Category and Kink List */
 #categoryContainer button {
   margin: 5px;
@@ -831,8 +844,7 @@ body.light-mode #ratingLegend {
   margin-bottom: 6px;
 }
 
-#kinkList textarea,
-#kinkList select {
+#kinkList textarea {
   display: block;
   width: 100%;
   max-width: 600px;
@@ -840,9 +852,13 @@ body.light-mode #ratingLegend {
   margin: 0 auto;
 }
 
+#kinkList select {
+  margin: 0 auto;
+  display: inline-block;
+}
+
 @media (max-width: 600px) {
-  #kinkList textarea,
-  #kinkList select {
+  #kinkList textarea {
     max-width: 100%;
   }
 }
