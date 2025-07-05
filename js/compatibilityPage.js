@@ -177,6 +177,49 @@ function checkAndCompare() {
       output.appendChild(makeBar(cat, val));
     });
   }
+  if (result.kinkBreakdown) {
+    Object.entries(result.kinkBreakdown).forEach(([cat, list]) => {
+      const details = document.createElement('details');
+      const summary = document.createElement('summary');
+      summary.textContent = cat;
+      details.appendChild(summary);
+
+      const table = document.createElement('table');
+      table.className = 'kink-table';
+      const thead = document.createElement('thead');
+      const hr = document.createElement('tr');
+      ['Kink', 'You G', 'You R', 'You N', 'Partner G', 'Partner R', 'Partner N', 'Match'].forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr);
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      list.forEach(item => {
+        const tr = document.createElement('tr');
+        const vals = [
+          item.name,
+          item.you.giving ?? '-',
+          item.you.receiving ?? '-',
+          item.you.general ?? '-',
+          item.partner.giving ?? '-',
+          item.partner.receiving ?? '-',
+          item.partner.general ?? '-',
+          item.indicator
+        ];
+        vals.forEach(v => {
+          const td = document.createElement('td');
+          td.textContent = v;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      details.appendChild(table);
+      output.appendChild(details);
+    });
+  }
   if (result.redFlags.length) {
     const p = document.createElement('p');
     p.textContent = `🚩 Red flags: ${result.redFlags.join(', ')}`;

@@ -38,3 +38,12 @@ test('returns breakdown per category', () => {
   const result = calculateCompatibility(surveyA, surveyB);
   assert.strictEqual(result.categoryBreakdown.Cat, 100);
 });
+
+test('kink breakdown includes match info', () => {
+  const surveyA = { Cat: { Giving: [{ name: 'Z', rating: 4 }], Receiving: [], General: [] } };
+  const surveyB = { Cat: { Giving: [], Receiving: [{ name: 'Z', rating: 4 }], General: [] } };
+  const result = calculateCompatibility(surveyA, surveyB);
+  assert.strictEqual(result.kinkBreakdown.Cat[0].indicator, '✅');
+  assert.strictEqual(result.kinkBreakdown.Cat[0].you.giving, 4);
+  assert.strictEqual(result.kinkBreakdown.Cat[0].partner.receiving, 4);
+});

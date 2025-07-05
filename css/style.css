@@ -883,3 +883,25 @@ body.light-mode #ratingLegend {
   width: 0;
   background-color: #4caf50;
 }
+
+/* Kink breakdown table */
+.kink-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+}
+
+.kink-table th,
+.kink-table td {
+  border: 1px solid #666;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.kink-table th {
+  background-color: #333;
+}
+
+.kink-table td:first-child {
+  text-align: left;
+}

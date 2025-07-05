@@ -86,12 +86,65 @@ export function calculateCompatibility(surveyA, surveyB) {
     categoryBreakdown[cat] = c ? Math.round((catTotals[cat] / c) * 100) : 0;
   });
 
+  const kinkBreakdown = {};
+  categories.forEach(category => {
+    if (!surveyB[category]) return;
+    const catA = surveyA[category];
+    const catB = surveyB[category];
+    const names = new Set();
+    ['Giving', 'Receiving', 'General'].forEach(role => {
+      (catA[role] || []).forEach(k => names.add(k.name));
+      (catB[role] || []).forEach(k => names.add(k.name));
+    });
+    kinkBreakdown[category] = [];
+    names.forEach(name => {
+      const getRating = (cat, role) => {
+        const item = (cat[role] || []).find(
+          i => i.name.trim().toLowerCase() === name.trim().toLowerCase()
+        );
+        const r = item ? parseInt(item.rating) : null;
+        return Number.isInteger(r) ? r : null;
+      };
+
+      const aG = getRating(catA, 'Giving');
+      const aR = getRating(catA, 'Receiving');
+      const aGen = getRating(catA, 'General');
+      const bG = getRating(catB, 'Giving');
+      const bR = getRating(catB, 'Receiving');
+      const bGen = getRating(catB, 'General');
+
+      let indicator = '⚠️';
+      if ((aG >= 3 && bR >= 3) || (aR >= 3 && bG >= 3)) {
+        indicator = '✅';
+      } else if (aGen >= 3 && bGen >= 3) {
+        indicator = '🟢';
+      } else if (
+        (aG >= 3 && (bR === 0 || bR === null)) ||
+        (aR >= 3 && (bG === 0 || bG === null)) ||
+        (aGen >= 3 && (bGen === 0 || bGen === null)) ||
+        (bG >= 3 && (aR === 0 || aR === null)) ||
+        (bR >= 3 && (aG === 0 || aG === null)) ||
+        (bGen >= 3 && (aGen === 0 || aGen === null))
+      ) {
+        indicator = '❌';
+      }
+
+      kinkBreakdown[category].push({
+        name,
+        you: { giving: aG, receiving: aR, general: aGen },
+        partner: { giving: bG, receiving: bR, general: bGen },
+        indicator
+      });
+    });
+  });
+
   return {
     compatibilityScore: avg,
     similarityScore: avgSim,
     redFlags: [...new Set(redFlags)],
     yellowFlags: [...new Set(yellowFlags)],
-    categoryBreakdown
+    categoryBreakdown,
+    kinkBreakdown
   };
 }
 
