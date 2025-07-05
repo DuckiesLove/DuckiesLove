@@ -12,19 +12,21 @@
     <div class="back-button-container">
       <button onclick="window.location.href='index.html'">&larr; Back</button>
     </div>
-    <div class="button-grid">
-      <label class="survey-button file-upload">
+    <div class="compatibility-button-container">
+      <label class="compatibility-button file-upload">
         <span>Upload Your Survey</span>
         <input type="file" id="fileA" hidden />
       </label>
-      <label class="survey-button file-upload">
+      <label class="compatibility-button file-upload">
         <span>Upload Partner's Survey</span>
         <input type="file" id="fileB" hidden />
       </label>
-      <button id="calculateCompatibility" class="survey-button">
+      <button id="calculateCompatibility" class="compatibility-button">
         Calculate Partner Compatibility
       </button>
-      <button id="downloadResults" class="survey-button">Download Results</button>
+      <button id="downloadResults" class="compatibility-button">
+        Download Results
+      </button>
     </div>
     <div id="comparisonResult"></div>
   </div>
