@@ -2808,5 +2808,30 @@
       }
     ],
     "General": []
+  },
+  "Impact Play": {
+    "Giving": [],
+    "Receiving": [],
+    "General": []
+  },
+  "Medical Play": {
+    "Giving": [],
+    "Receiving": [],
+    "General": []
+  },
+  "Pet Play": {
+    "Giving": [],
+    "Receiving": [],
+    "General": []
+  },
+  "Body Modification": {
+    "Giving": [],
+    "Receiving": [],
+    "General": []
+  },
+  "Gender Play & Transformation": {
+    "Giving": [],
+    "Receiving": [],
+    "General": []
   }
 }
