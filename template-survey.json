@@ -2810,28 +2810,133 @@
     "General": []
   },
   "Impact Play": {
-    "Giving": [],
-    "Receiving": [],
-    "General": []
+    "Giving": [
+      { "name": "Hand spanking", "rating": null },
+      { "name": "Paddle strikes", "rating": null },
+      { "name": "Crop snaps", "rating": null },
+      { "name": "Flogger swings", "rating": null },
+      { "name": "Cane strokes", "rating": null },
+      { "name": "Belt or strap hits", "rating": null },
+      { "name": "Whip cracks", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Hand spanking", "rating": null },
+      { "name": "Paddle strikes", "rating": null },
+      { "name": "Crop snaps", "rating": null },
+      { "name": "Flogger swings", "rating": null },
+      { "name": "Cane strokes", "rating": null },
+      { "name": "Belt or strap hits", "rating": null },
+      { "name": "Whip cracks", "rating": null }
+    ],
+    "General": [
+      { "name": "Preferred intensity levels", "rating": null },
+      { "name": "Aftercare for bruises", "rating": null },
+      { "name": "Target body areas", "rating": null },
+      { "name": "Implement selection", "rating": null }
+    ]
   },
   "Medical Play": {
-    "Giving": [],
-    "Receiving": [],
-    "General": []
+    "Giving": [
+      { "name": "Needle play", "rating": null },
+      { "name": "Catheter insertion", "rating": null },
+      { "name": "Speculum exams", "rating": null },
+      { "name": "Enema administration", "rating": null },
+      { "name": "Temperature taking", "rating": null },
+      { "name": "Medical restraints", "rating": null },
+      { "name": "Doctor\/nurse roleplay", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Needle play", "rating": null },
+      { "name": "Catheter insertion", "rating": null },
+      { "name": "Speculum exams", "rating": null },
+      { "name": "Enema administration", "rating": null },
+      { "name": "Temperature taking", "rating": null },
+      { "name": "Medical restraints", "rating": null },
+      { "name": "Doctor\/nurse roleplay", "rating": null }
+    ],
+    "General": [
+      { "name": "Sterilization procedures", "rating": null },
+      { "name": "Professional vs roleplay scenes", "rating": null },
+      { "name": "Consent for invasive acts", "rating": null },
+      { "name": "Access to medical equipment", "rating": null }
+    ]
   },
   "Pet Play": {
-    "Giving": [],
-    "Receiving": [],
-    "General": []
+    "Giving": [
+      { "name": "Puppy or kitten play", "rating": null },
+      { "name": "Pony play", "rating": null },
+      { "name": "Wearing collar and leash", "rating": null },
+      { "name": "Eating from a bowl", "rating": null },
+      { "name": "Kenneling or caging", "rating": null },
+      { "name": "Pet training commands", "rating": null },
+      { "name": "Animal costumes or gear", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Puppy or kitten play", "rating": null },
+      { "name": "Pony play", "rating": null },
+      { "name": "Wearing collar and leash", "rating": null },
+      { "name": "Eating from a bowl", "rating": null },
+      { "name": "Kenneling or caging", "rating": null },
+      { "name": "Pet training commands", "rating": null },
+      { "name": "Animal costumes or gear", "rating": null }
+    ],
+    "General": [
+      { "name": "Preferred animal identities", "rating": null },
+      { "name": "Public vs private play", "rating": null },
+      { "name": "Training style and discipline", "rating": null },
+      { "name": "Use of pet names and commands", "rating": null }
+    ]
   },
   "Body Modification": {
-    "Giving": [],
-    "Receiving": [],
-    "General": []
+    "Giving": [
+      { "name": "Piercings", "rating": null },
+      { "name": "Tattoos", "rating": null },
+      { "name": "Branding", "rating": null },
+      { "name": "Scarification", "rating": null },
+      { "name": "Permanent chastity devices", "rating": null },
+      { "name": "Cosmetic implants", "rating": null },
+      { "name": "Stretching or gauges", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Piercings", "rating": null },
+      { "name": "Tattoos", "rating": null },
+      { "name": "Branding", "rating": null },
+      { "name": "Scarification", "rating": null },
+      { "name": "Permanent chastity devices", "rating": null },
+      { "name": "Cosmetic implants", "rating": null },
+      { "name": "Stretching or gauges", "rating": null }
+    ],
+    "General": [
+      { "name": "Temporary vs permanent changes", "rating": null },
+      { "name": "Professional vs DIY methods", "rating": null },
+      { "name": "Body placement considerations", "rating": null },
+      { "name": "Healing and aftercare", "rating": null }
+    ]
   },
   "Gender Play & Transformation": {
-    "Giving": [],
-    "Receiving": [],
-    "General": []
+    "Giving": [
+      { "name": "Crossdressing", "rating": null },
+      { "name": "Forced feminization", "rating": null },
+      { "name": "Forced masculinization", "rating": null },
+      { "name": "Gender role reversal", "rating": null },
+      { "name": "Pronoun changes", "rating": null },
+      { "name": "Voice or mannerism training", "rating": null },
+      { "name": "Sissy or tomboy persona", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Crossdressing", "rating": null },
+      { "name": "Forced feminization", "rating": null },
+      { "name": "Forced masculinization", "rating": null },
+      { "name": "Gender role reversal", "rating": null },
+      { "name": "Pronoun changes", "rating": null },
+      { "name": "Voice or mannerism training", "rating": null },
+      { "name": "Sissy or tomboy persona", "rating": null }
+    ],
+    "General": [
+      { "name": "Preferred pronouns and names", "rating": null },
+      { "name": "Public presentation comfort", "rating": null },
+      { "name": "Clothing and appearance", "rating": null },
+      { "name": "Exploration of identity", "rating": null }
+    ]
   }
 }
