@@ -2766,6 +2766,34 @@ window.templateSurvey =
       { "name": "Healing and aftercare", "rating": null }
     ]
   },
+  "Relationship Preferences": {
+    "Giving": [],
+    "Receiving": [],
+    "General": [
+      {
+        "name": "Preferred relationship style",
+        "type": "dropdown",
+        "options": [
+          "Monogamous",
+          "Open relationship",
+          "Polyamorous",
+          "No preference"
+        ]
+      },
+      {
+        "name": "Relationship goals",
+        "type": "multi",
+        "options": [
+          "One night stand",
+          "Short-term play",
+          "Long-term relationship",
+          "Platonic play partners",
+          "Romantic partners",
+          "Kink partners"
+        ]
+      }
+    ]
+  },
   "Gender Play & Transformation": {
     "Giving": [
       { "name": "Crossdressing", "rating": null },
