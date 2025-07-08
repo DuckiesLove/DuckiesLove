@@ -2282,92 +2282,96 @@
     ],
     "General": []
   },
-  "Performance & Internal Struggle": [
-    {
-      "name": "Obedience under observation",
-      "rating": null,
-      "roles": [
-        {
-          "name": "Performance Sub",
-          "weight": 1
-        },
-        {
-          "name": "Service Submissive",
-          "weight": 0.8
-        }
-      ]
-    },
-    {
-      "name": "Speech restriction and self-denial",
-      "rating": null,
-      "roles": [
-        {
-          "name": "Internal Conflict Sub",
-          "weight": 1
-        },
-        {
-          "name": "Emotional Masochist",
-          "weight": 0.7
-        }
-      ]
-    },
-    {
-      "name": "Maintaining composure during humiliation",
-      "rating": null
-    },
-    {
-      "name": "Obedience drills for an audience",
-      "rating": null
-    },
-    {
-      "name": "Struggling against personal urges",
-      "rating": null
-    },
-    {
-      "name": "Displaying submission despite conflict",
-      "rating": null
-    },
-    {
-      "name": "Being told to act normal while struggling internally",
-      "rating": null
-    },
-    {
-      "name": "Pleasing through high-functioning obedience",
-      "rating": null
-    },
-    {
-      "name": "Performing submission while masking resistance",
-      "rating": null
-    },
-    {
-      "name": "The pressure of appearing 'good' while feeling conflicted",
-      "rating": null
-    },
-    {
-      "name": "Being made to perform emotions on command (cry, beg, moan)",
-      "rating": null
-    },
-    {
-      "name": "Struggling openly while still obeying",
-      "rating": null
-    },
-    {
-      "name": "Performing exaggerated resistance or denial",
-      "rating": null
-    },
-    {
-      "name": "Being punished for 'breaking character'",
-      "rating": null
-    },
-    {
-      "name": "Putting on a show for someone else’s pleasure",
-      "rating": null
-    },
-    {
-      "name": "Rehearsed degradation or humiliation scripts",
-      "rating": null
-    }
-  ],
+  "Performance & Internal Struggle": {
+    "Giving": [],
+    "Receiving": [],
+    "General": [
+      {
+        "name": "Obedience under observation",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Performance Sub",
+            "weight": 1
+          },
+          {
+            "name": "Service Submissive",
+            "weight": 0.8
+          }
+        ]
+      },
+      {
+        "name": "Speech restriction and self-denial",
+        "rating": null,
+        "roles": [
+          {
+            "name": "Internal Conflict Sub",
+            "weight": 1
+          },
+          {
+            "name": "Emotional Masochist",
+            "weight": 0.7
+          }
+        ]
+      },
+      {
+        "name": "Maintaining composure during humiliation",
+        "rating": null
+      },
+      {
+        "name": "Obedience drills for an audience",
+        "rating": null
+      },
+      {
+        "name": "Struggling against personal urges",
+        "rating": null
+      },
+      {
+        "name": "Displaying submission despite conflict",
+        "rating": null
+      },
+      {
+        "name": "Being told to act normal while struggling internally",
+        "rating": null
+      },
+      {
+        "name": "Pleasing through high-functioning obedience",
+        "rating": null
+      },
+      {
+        "name": "Performing submission while masking resistance",
+        "rating": null
+      },
+      {
+        "name": "The pressure of appearing 'good' while feeling conflicted",
+        "rating": null
+      },
+      {
+        "name": "Being made to perform emotions on command (cry, beg, moan)",
+        "rating": null
+      },
+      {
+        "name": "Struggling openly while still obeying",
+        "rating": null
+      },
+      {
+        "name": "Performing exaggerated resistance or denial",
+        "rating": null
+      },
+      {
+        "name": "Being punished for 'breaking character'",
+        "rating": null
+      },
+      {
+        "name": "Putting on a show for someone else’s pleasure",
+        "rating": null
+      },
+      {
+        "name": "Rehearsed degradation or humiliation scripts",
+        "rating": null
+      }
+    ]
+  },
   "Mindfuck & Manipulation": {
     "Giving": [
       {
