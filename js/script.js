@@ -244,6 +244,7 @@ const progressLabel = document.getElementById('progressLabel');
 const progressFill = document.getElementById('progressFill');
 const nextCategoryBtn = document.getElementById('nextCategoryBtn');
 const skipCategoryBtn = document.getElementById('skipCategoryBtn');
+const mainNavButtons = document.querySelector('.main-nav-buttons');
 
 function showRatingLegend(target) {
   const rect = target.getBoundingClientRect();
@@ -287,6 +288,7 @@ function startNewSurvey() {
   if (newSurveyBtn) newSurveyBtn.style.display = 'none';
   if (downloadBtn) downloadBtn.style.display = 'none';
   if (homeBtn) homeBtn.style.display = 'block';
+  if (mainNavButtons) mainNavButtons.style.display = 'none';
 
   const initialize = data => {
     if (!confirm(
