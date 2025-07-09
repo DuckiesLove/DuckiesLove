@@ -237,7 +237,6 @@ const closeRoleDefinitionsBtn = document.getElementById('closeRoleDefinitionsBtn
 const surveyIntro = document.getElementById('surveyIntro');
 const startSurveyBtn = document.getElementById('startSurveyBtn');
 const categoryDescription = document.getElementById('categoryDescription');
-const highIntensityToggle = document.getElementById('highIntensityToggle');
 const newSurveyBtn = document.getElementById('newSurveyBtn');
 const downloadBtn = document.getElementById('downloadBtn');
 const progressBanner = document.getElementById('progressBanner');
@@ -290,7 +289,9 @@ function startNewSurvey() {
   if (homeBtn) homeBtn.style.display = 'block';
 
   const initialize = data => {
-    if (!highIntensityToggle.checked) {
+    if (!confirm(
+      'The High-Intensity Kinks category includes intense but SSC-aware options that require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.\n\nInclude this category?'
+    )) {
       delete data["High-Intensity Kinks (SSC-Aware)"];
     }
     surveyA = data;
