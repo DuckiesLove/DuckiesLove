@@ -615,9 +615,15 @@ if (compareBtn) compareBtn.addEventListener('click', () => {
 // ================== Start ==================
 switchTab('Giving');
 
-window.addEventListener('DOMContentLoaded', () => {
+function init() {
   document.querySelectorAll('button').forEach(attachRipple);
-  surveyIntro.style.display = 'flex';
-});
+  if (surveyIntro) surveyIntro.style.display = 'flex';
+}
+
+if (document.readyState !== 'loading') {
+  init();
+} else {
+  window.addEventListener('DOMContentLoaded', init);
+}
 
 

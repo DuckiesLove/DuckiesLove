@@ -40,5 +40,33 @@ export function getSurveyHTML() {
       </div>
     </div>
   </div>
+
+  <div id="passwordOverlay">
+    <div class="password-modal">
+      <label for="passwordInput">Enter Password:</label>
+      <input type="password" id="passwordInput" />
+      <button id="passwordSubmit">Enter</button>
+    </div>
+  </div>
+
+  <div id="surveyIntro" class="overlay">
+    <div class="intro-modal">
+      <p>Follow the prompts to rate each category in order.</p>
+      <button id="startSurveyBtn">Start Survey</button>
+    </div>
+  </div>
+
+  <div id="categoryPreview" class="overlay" style="display:none">
+    <div class="intro-modal">
+      <p>Select the categories you want to include:</p>
+      <div id="previewList" class="scroll-container"></div>
+      <button id="beginSurveyBtn">Begin Survey</button>
+    </div>
+  </div>
+
+  <button id="homeBtn" class="survey-button" style="display:none;">Home</button>
+
+  <script src="js/template-survey.js"></script>
+  <script type="module" src="js/script.js"></script>
   `;
 }

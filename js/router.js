@@ -7,24 +7,35 @@ import { getRolesHTML } from './pages/roles.js';
 function loadPage() {
   const route = window.location.hash || '#/';
   const container = document.getElementById('main-content');
+  let html = '';
 
   switch (route) {
     case '#/survey':
-      container.innerHTML = getSurveyHTML();
+      html = getSurveyHTML();
       break;
     case '#/results':
-      container.innerHTML = getResultsHTML();
+      html = getResultsHTML();
       break;
     case '#/compare':
-      container.innerHTML = getCompareHTML();
+      html = getCompareHTML();
       break;
     case '#/roles':
-      container.innerHTML = getRolesHTML();
+      html = getRolesHTML();
       break;
     default:
-      container.innerHTML = getHomeHTML();
+      html = getHomeHTML();
       break;
   }
+
+  container.innerHTML = html;
+
+  container.querySelectorAll('script').forEach(original => {
+    const script = document.createElement('script');
+    if (original.src) script.src = original.src;
+    if (original.type) script.type = original.type;
+    document.body.appendChild(script);
+    original.remove();
+  });
 }
 
 window.addEventListener('hashchange', loadPage);
