@@ -19,22 +19,22 @@ function setupPasswordProtection() {
   };
 }
 
+
 setupPasswordProtection();
 
 // ================== Theme Setup ==================
-const themeSelector = document.getElementById('themeSelector');
-
-const savedTheme = localStorage.getItem('selectedTheme') || 'dark-mode';
-document.body.className = savedTheme;
-
-if (themeSelector) {
-  themeSelector.value = savedTheme;
-
-  themeSelector.addEventListener('change', () => {
-    const selectedTheme = themeSelector.value;
-    document.body.className = selectedTheme;
-    localStorage.setItem('selectedTheme', selectedTheme);
-  });
+function initTheme() {
+  const themeSelector = document.getElementById('themeSelector');
+  const savedTheme = localStorage.getItem('selectedTheme') || 'dark-mode';
+  document.body.className = savedTheme;
+  if (themeSelector) {
+    themeSelector.value = savedTheme;
+    themeSelector.addEventListener('change', function () {
+      const selectedTheme = themeSelector.value;
+      document.body.className = selectedTheme;
+      localStorage.setItem('selectedTheme', selectedTheme);
+    });
+  }
 }
 
 
@@ -634,6 +634,7 @@ if (compareBtn) compareBtn.addEventListener('click', () => {
 switchTab('Giving');
 
 function init() {
+  initTheme();
   document.querySelectorAll('button').forEach(attachRipple);
   if (surveyIntro) {
     surveyIntro.style.display = 'flex';
