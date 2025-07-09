@@ -3,6 +3,20 @@ import { calculateCompatibility } from './compatibility.js';
 let surveyA = null;
 let surveyB = null;
 let lastResult = null;
+const RATING_LABELS = {
+  0: 'Hard No',
+  1: 'Dislike / Haven\u2019t Considered',
+  2: 'Would Try for Partner',
+  3: 'Okay / Neutral',
+  4: 'Like',
+  5: 'Love / Core Interest'
+};
+
+function formatRating(val) {
+  return val === null || val === undefined
+    ? '-'
+    : `${val} - ${RATING_LABELS[val]}`;
+}
 
 function loadSavedSurvey() {
   const saved = localStorage.getItem('savedSurvey');
@@ -215,12 +229,12 @@ function checkAndCompare() {
         const tr = document.createElement('tr');
         const vals = [
           item.name,
-          item.you.giving ?? '-',
-          item.you.receiving ?? '-',
-          item.you.general ?? '-',
-          item.partner.giving ?? '-',
-          item.partner.receiving ?? '-',
-          item.partner.general ?? '-',
+          formatRating(item.you.giving),
+          formatRating(item.you.receiving),
+          formatRating(item.you.general),
+          formatRating(item.partner.giving),
+          formatRating(item.partner.receiving),
+          formatRating(item.partner.general),
           item.indicator
         ];
         vals.forEach(v => {
@@ -273,7 +287,10 @@ if (downloadBtn) {
       alert('No results to download.');
       return;
     }
-    const exportObj = { compatibility: lastResult };
+    const exportObj = {
+      compatibility: lastResult,
+      ratingLabels: RATING_LABELS
+    };
     const blob = new Blob([JSON.stringify(exportObj, null, 2)], {
       type: 'application/json'
     });

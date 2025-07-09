@@ -46,6 +46,14 @@ const ACTION_LABELS = {
   General: 'Non-Specific Role'
 };
 const RATING_MAX = 5;
+const RATING_LABELS = {
+  0: 'Hard No',
+  1: 'Dislike / Haven\u2019t Considered',
+  2: 'Would Try for Partner',
+  3: 'Okay / Neutral',
+  4: 'Like',
+  5: 'Love / Core Interest'
+};
 function applyAnimation(el, cls) {
   el.classList.add(cls);
   el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
@@ -538,7 +546,7 @@ function showKinks(category) {
       for (let i = 0; i <= RATING_MAX; i++) {
         const opt = document.createElement('option');
         opt.value = i;
-        opt.textContent = i;
+        opt.textContent = `${i} - ${RATING_LABELS[i]}`;
         if (kink.rating == i) opt.selected = true;
         select.appendChild(opt);
       }
@@ -596,7 +604,10 @@ function exportSurvey() {
     alert('No survey loaded.');
     return;
   }
-  const exportObj = { survey: pruneSurvey(surveyA) };
+  const exportObj = {
+    survey: pruneSurvey(surveyA),
+    ratingLabels: RATING_LABELS
+  };
   const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
