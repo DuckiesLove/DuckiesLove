@@ -34,49 +34,10 @@ body {
   line-height: 1.6;
 }
 
-.category-panel.extended {
-  width: 840px;
-}
 
-.subcategory-wrapper {
-  position: absolute;
-  left: 220px;
-  top: 0;
-  width: 620px;
-  background-color: #1e1e2f;
-  border-left: 2px solid #444;
-  padding: 15px;
-  height: 100%;
-  overflow-y: auto;
-  z-index: 199;
-  display: none;
-}
 
-.category-panel.extended .subcategory-wrapper {
-  display: block;
-}
 
-#closeSidebarBtn {
-  text-align: right;
-  background: none;
-  border: none;
-  color: #ccc;
-  font-size: 18px;
-  width: 100%;
-  display: none;
-}
-#closeSubSidebarBtn {
-  text-align: right;
-  background: none;
-  border: none;
-  color: #ccc;
-  font-size: 18px;
-  width: 100%;
-}
-body.light-mode #closeSidebarBtn,
-body.light-mode #closeSubSidebarBtn {
-  color: #2f4f2f;
-}
+
 
 #closeRoleDefinitionsBtn {
   text-align: right;
@@ -90,31 +51,7 @@ body.light-mode #closeRoleDefinitionsBtn {
   color: #2f4f2f;
 }
 
-/* Mobile open sidebar button */
-#openSidebarBtn {
-  display: none;
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  z-index: 210;
-  padding: 6px 10px;
-  font-size: 18px;
-}
-
 @media (max-width: 768px) {
-  #openSidebarBtn {
-    display: block;
-  }
-
-  #categoryPanel {
-    width: 90%;
-    max-width: 320px;
-    left: -100%;
-  }
-
-  #categoryPanel.visible {
-    left: 0;
-  }
 
   #roleDefinitionsPanel {
     width: 90%;
@@ -127,21 +64,7 @@ body.light-mode #closeRoleDefinitionsBtn {
   }
 
 
-  #closeSidebarBtn {
-    display: block;
-  }
-  #closeSubSidebarBtn {
-    display: block;
-  }
-  #categoryPanel.extended {
-    width: 90%;
-    max-width: 320px;
-  }
-
-  .subcategory-wrapper {
-    left: 0;
-    width: 100%;
-  }
+  /* mobile adjustments left intentionally blank after sidebar removal */
 }
 
 /* Ensure space below the final category button */
@@ -282,52 +205,26 @@ body.light-mode .category-panel {
   color: #2f4f2f;
   border-right-color: #9fb49f;
 }
-body.light-mode .subcategory-wrapper {
-  background-color: #a9b8a9;
-  color: #2f4f2f;
-  border-left-color: #9fb49f;
-}
 body.theme-blue .category-panel {
   background-color: #002244;
   color: #fff;
   border-right-color: #003366;
-}
-body.theme-blue .subcategory-wrapper {
-  background-color: #002244;
-  color: #fff;
-  border-left-color: #003366;
 }
 body.theme-echoes-beyond .category-panel {
   background-color: #1b263b;
   color: #fca311;
   border-right-color: #fca311;
 }
-body.theme-echoes-beyond .subcategory-wrapper {
-  background-color: #1b263b;
-  color: #fca311;
-  border-left-color: #fca311;
-}
 body.theme-love-notes-lipstick .category-panel {
   background-color: #3f206b;
   color: #ff6bd6;
   border-right-color: #20c997;
-}
-body.theme-love-notes-lipstick .subcategory-wrapper {
-  background-color: #3f206b;
-  color: #ff6bd6;
-  border-left-color: #20c997;
 }
 body.theme-rainbow .category-panel {
   /* Fully opaque panel to avoid text bleeding through */
   background-color: #fff;
   color: #000;
   border-right-color: #603636;
-}
-body.theme-rainbow .subcategory-wrapper {
-  /* Fully opaque panel to avoid text bleeding through */
-  background-color: #fff;
-  color: #000;
-  border-left-color: #603636;
 }
 
 
@@ -553,16 +450,9 @@ body.theme-rainbow #comparisonResult {
 /* Layout Wrapper for Sidebar and Content */
 .main-container {
   display: flex;
-  flex-direction: row;
-  margin-left: 220px; /* Make room for fixed sidebar */
+  flex-direction: column;
   padding: 20px;
   box-sizing: border-box;
-}
-
-@media (max-width: 768px) {
-  .main-container {
-    margin-left: 0;
-  }
 }
 
 /* Content Area Next to Sidebar */
@@ -606,7 +496,8 @@ body.theme-rainbow #comparisonResult {
   color: #fff;
 }
 
-#surveyIntro .intro-modal {
+#surveyIntro .intro-modal,
+#categoryPreview .intro-modal {
   background-color: #1e1e2f;
   padding: 20px;
   border-radius: 8px;
@@ -630,7 +521,8 @@ body.light-mode .password-modal {
   background-color: #fff;
   color: #2f4f2f;
 }
-body.light-mode #surveyIntro .intro-modal {
+body.light-mode #surveyIntro .intro-modal,
+body.light-mode #categoryPreview .intro-modal {
   background-color: #fff;
   color: #2f4f2f;
 }
@@ -644,11 +536,19 @@ body.light-mode #surveyIntro .intro-modal {
   flex: 1;
 }
 
-#switchSidebarLink {
-  display: block;
-  margin-top: 6px;
-  text-align: right;
+#surveyContainer {
+  max-width: 800px;
+  margin: 0 auto;
 }
+
+.final-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+}
+
 /* Micro-Animations */
 .fade-in {
   animation: fadeIn 0.3s ease-in-out;

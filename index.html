@@ -30,7 +30,6 @@
   <div id="progressBanner" class="progress-container" style="display:none">
     <div id="progressLabel" class="progress-label"></div>
     <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
-    <a href="#" id="switchSidebarLink">Switch to Sidebar Mode</a>
   </div>
 
 
@@ -46,9 +45,6 @@
     </ul>
   </div>
 
-  <!-- Mobile Open Sidebar Button -->
-  <button id="openSidebarBtn" title="Open categories">☰</button>
-
   <!-- Tabs -->
   <div class="tab-toggle-group">
     <div class="tab-container">
@@ -60,22 +56,21 @@
 
   <!-- Layout -->
   <div class="main-container">
-    <div id="categoryPanel" class="category-panel">
-      <button id="closeSidebarBtn">✖ Close</button>
-      <div id="mainCategoryList" class="main-category-list"></div>
-      <div id="categoryContainer"></div>
-      <div id="subCategoryWrapper" class="subcategory-wrapper">
-        <button id="closeSubSidebarBtn">✖ Close</button>
+    <div class="content-panel">
+      <div id="surveyContainer">
+        <h2 id="categoryTitle"></h2>
         <div id="kinkList"></div>
         <div class="nav-buttons">
           <button id="nextCategoryBtn">Next Category</button>
           <button id="skipCategoryBtn">Skip</button>
         </div>
       </div>
+      <div id="finalScreen" class="final-screen" style="display:none">
+        <button id="saveSurveyBtn">Save Survey</button>
+        <button id="returnHomeBtn">Return Home</button>
+      </div>
     </div>
-    <div class="content-panel"></div>
   </div>
-  <div id="categoryOverlay" class="overlay"></div>
 
   <!-- Role Definitions Panel -->
   <div id="roleDefinitionsPanel" class="category-panel">
@@ -186,6 +181,15 @@
     <div class="intro-modal">
       <p>Follow the prompts to rate each category in order.</p>
       <button id="startSurveyBtn">Start Survey</button>
+    </div>
+  </div>
+
+  <!-- Category Preview Overlay -->
+  <div id="categoryPreview" class="overlay" style="display:none">
+    <div class="intro-modal">
+      <p>Select the categories you want to include:</p>
+      <div id="previewList" class="scroll-container"></div>
+      <button id="beginSurveyBtn">Begin Survey</button>
     </div>
   </div>
 
