@@ -236,6 +236,8 @@ const roleDefinitionsBtn = document.getElementById('roleDefinitionsBtn');
 const closeRoleDefinitionsBtn = document.getElementById('closeRoleDefinitionsBtn');
 const surveyIntro = document.getElementById('surveyIntro');
 const startSurveyBtn = document.getElementById('startSurveyBtn');
+const categoryDescription = document.getElementById('categoryDescription');
+const highIntensityToggle = document.getElementById('highIntensityToggle');
 const newSurveyBtn = document.getElementById('newSurveyBtn');
 const downloadBtn = document.getElementById('downloadBtn');
 const progressBanner = document.getElementById('progressBanner');
@@ -288,6 +290,9 @@ function startNewSurvey() {
   if (homeBtn) homeBtn.style.display = 'block';
 
   const initialize = data => {
+    if (!highIntensityToggle.checked) {
+      delete data["High-Intensity Kinks (SSC-Aware)"];
+    }
     surveyA = data;
     normalizeRatings(surveyA);
     filterGeneralOptions(surveyA);
@@ -450,6 +455,13 @@ function showKinks(category) {
   currentCategory = category;
   kinkList.innerHTML = '';
   categoryTitle.textContent = category;
+  if (category === 'High-Intensity Kinks (SSC-Aware)') {
+    categoryDescription.textContent = 'This category includes intense but SSC-aware kink options. These scenes require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.';
+    categoryDescription.style.display = 'block';
+  } else {
+    categoryDescription.textContent = '';
+    categoryDescription.style.display = 'none';
+  }
   surveyContainer.style.display = 'block';
   finalScreen.style.display = 'none';
   const categoryData = surveyA[category];

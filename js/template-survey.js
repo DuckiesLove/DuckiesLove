@@ -2940,5 +2940,111 @@ window.templateSurvey =
       { "name": "Clothing and appearance", "rating": null },
       { "name": "Exploration of identity", "rating": null }
     ]
+  },
+  "Chastity Devices": {
+    "Giving": [
+      { "name": "Wearing a chastity cage (short term)", "rating": null },
+      { "name": "Long-term chastity training", "rating": null },
+      { "name": "Chastity device control with permission to unlock", "rating": null },
+      { "name": "Locked remotely by another person", "rating": null },
+      { "name": "Orgasm denial enforced by chastity", "rating": null },
+      { "name": "Wearing a belt-style chastity device", "rating": null },
+      { "name": "Humiliation while locked in chastity", "rating": null },
+      { "name": "Sleep in chastity (overnight)", "rating": null },
+      { "name": "Being teased while unable to touch yourself", "rating": null },
+      { "name": "Begging for release from chastity", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Wearing a chastity cage (short term)", "rating": null },
+      { "name": "Long-term chastity training", "rating": null },
+      { "name": "Chastity device control with permission to unlock", "rating": null },
+      { "name": "Locked remotely by another person", "rating": null },
+      { "name": "Orgasm denial enforced by chastity", "rating": null },
+      { "name": "Wearing a belt-style chastity device", "rating": null },
+      { "name": "Humiliation while locked in chastity", "rating": null },
+      { "name": "Sleep in chastity (overnight)", "rating": null },
+      { "name": "Being teased while unable to touch yourself", "rating": null },
+      { "name": "Begging for release from chastity", "rating": null }
+    ],
+    "General": []
+  },
+  "Shibari & Rope Bondage": {
+    "Giving": [
+      { "name": "Being tied in aesthetic rope patterns (Shibari)", "rating": null },
+      { "name": "Rope bondage for restraint and control", "rating": null },
+      { "name": "Rope suspension (partial or full)", "rating": null },
+      { "name": "Learning to tie rope as a form of dominance", "rating": null },
+      { "name": "Being tied in vulnerable or exposing poses", "rating": null },
+      { "name": "Practicing rope with emotional connection", "rating": null },
+      { "name": "Enduring discomfort for the beauty of the rope", "rating": null },
+      { "name": "Being tied in a mirror and told to look", "rating": null },
+      { "name": "Punishment ties (e.g., uncomfortable or humiliating positions)", "rating": null },
+      { "name": "Solo rope practice for mindfulness or masochism", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Being tied in aesthetic rope patterns (Shibari)", "rating": null },
+      { "name": "Rope bondage for restraint and control", "rating": null },
+      { "name": "Rope suspension (partial or full)", "rating": null },
+      { "name": "Learning to tie rope as a form of dominance", "rating": null },
+      { "name": "Being tied in vulnerable or exposing poses", "rating": null },
+      { "name": "Practicing rope with emotional connection", "rating": null },
+      { "name": "Enduring discomfort for the beauty of the rope", "rating": null },
+      { "name": "Being tied in a mirror and told to look", "rating": null },
+      { "name": "Punishment ties (e.g., uncomfortable or humiliating positions)", "rating": null },
+      { "name": "Solo rope practice for mindfulness or masochism", "rating": null }
+    ],
+    "General": []
+  },
+  "Cosplay & Identity Play": {
+    "Giving": [
+      { "name": "Dressing up in costumes for scenes", "rating": null },
+      { "name": "Playing as fictional characters", "rating": null },
+      { "name": "Petplay with collars, ears, or tails", "rating": null },
+      { "name": "Pretending to be a doll, robot, or object", "rating": null },
+      { "name": "Master/slave cosplay dynamic (non-24/7)", "rating": null },
+      { "name": "Roleplaying as a fantasy species or non-human", "rating": null },
+      { "name": "Using cosplay to deepen power exchange", "rating": null },
+      { "name": "Scene built around a character’s story or world", "rating": null },
+      { "name": "Fantasy uniforms (nurse, teacher, etc.)", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Dressing up in costumes for scenes", "rating": null },
+      { "name": "Playing as fictional characters", "rating": null },
+      { "name": "Petplay with collars, ears, or tails", "rating": null },
+      { "name": "Pretending to be a doll, robot, or object", "rating": null },
+      { "name": "Master/slave cosplay dynamic (non-24/7)", "rating": null },
+      { "name": "Roleplaying as a fantasy species or non-human", "rating": null },
+      { "name": "Using cosplay to deepen power exchange", "rating": null },
+      { "name": "Scene built around a character’s story or world", "rating": null },
+      { "name": "Fantasy uniforms (nurse, teacher, etc.)", "rating": null }
+    ],
+    "General": []
+  },
+  "High-Intensity Kinks (SSC-Aware)": {
+    "Giving": [
+      { "name": "Intense breath play (e.g., smothering or pressure)", "rating": null },
+      { "name": "Knife play or blade play (without injury)", "rating": null },
+      { "name": "Fear play using known or negotiated triggers", "rating": null },
+      { "name": "Abduction or home-invasion style roleplay (negotiated)", "rating": null },
+      { "name": "Medical-themed scenes with sharp objects (not bloodletting)", "rating": null },
+      { "name": "Sensory deprivation with added disorientation or helplessness", "rating": null },
+      { "name": "Scenes involving heavy objectification or emotional manipulation (with care)", "rating": null },
+      { "name": "Mock interrogation or intense role pressure", "rating": null },
+      { "name": "Consensual threats without follow-through (e.g. 'If you don’t...')", "rating": null },
+      { "name": "High-intensity primal scenes involving struggle or fear", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Intense breath play (e.g., smothering or pressure)", "rating": null },
+      { "name": "Knife play or blade play (without injury)", "rating": null },
+      { "name": "Fear play using known or negotiated triggers", "rating": null },
+      { "name": "Abduction or home-invasion style roleplay (negotiated)", "rating": null },
+      { "name": "Medical-themed scenes with sharp objects (not bloodletting)", "rating": null },
+      { "name": "Sensory deprivation with added disorientation or helplessness", "rating": null },
+      { "name": "Scenes involving heavy objectification or emotional manipulation (with care)", "rating": null },
+      { "name": "Mock interrogation or intense role pressure", "rating": null },
+      { "name": "Consensual threats without follow-through (e.g. 'If you don’t...')", "rating": null },
+      { "name": "High-intensity primal scenes involving struggle or fear", "rating": null }
+    ],
+    "General": []
   }
 };
