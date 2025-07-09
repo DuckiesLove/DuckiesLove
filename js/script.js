@@ -43,7 +43,7 @@ let currentAction = 'Giving';
 const ACTION_LABELS = {
   Giving: 'Giving',
   Receiving: 'Receiving',
-  General: 'Neutral'
+  General: 'Non-Specific Role'
 };
 const RATING_MAX = 5;
 function applyAnimation(el, cls) {
