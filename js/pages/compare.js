@@ -1,16 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>See Our Compatibility</title>
-  <link rel="stylesheet" href="css/styles.css" />
-</head>
-<body class="dark-mode">
+export function getCompareHTML() {
+  return `
   <div class="scroll-container">
     <h1>See Our Compatibility</h1>
     <div class="back-button-container">
-      <button onclick="window.location.href='index.html'">&larr; Back</button>
+      <button onclick="window.location.hash='#/'">&larr; Back</button>
     </div>
     <div class="compatibility-button-container">
       <div class="button-group">
@@ -24,17 +17,12 @@
         </label>
       </div>
       <div class="button-container">
-        <button id="calculateCompatibility" class="compatibility-button">
-          Calculate Partner Compatibility
-        </button>
-        <button id="downloadResults" class="compatibility-button">
-          Download Results
-        </button>
+        <button id="calculateCompatibility" class="compatibility-button">Calculate Partner Compatibility</button>
+        <button id="downloadResults" class="compatibility-button">Download Results</button>
       </div>
     </div>
     <div id="comparisonResult"></div>
   </div>
   <script src="js/template-survey.js"></script>
-  <script type="module" src="js/compatibilityPage.js"></script>
-</body>
-</html>
+  <script type="module" src="js/compatibilityPage.js"></script>`;
+}
