@@ -218,6 +218,8 @@ const surveyContainer = document.getElementById('surveyContainer');
 const finalScreen = document.getElementById('finalScreen');
 const saveSurveyBtn = document.getElementById('saveSurveyBtn');
 const returnHomeBtn = document.getElementById('returnHomeBtn');
+const homeBtn = document.getElementById('homeBtn');
+const buttonGroup = document.querySelector('.button-group');
 const categoryPreview = document.getElementById('categoryPreview');
 const previewList = document.getElementById('previewList');
 const beginSurveyBtn = document.getElementById('beginSurveyBtn');
@@ -293,6 +295,9 @@ saveSurveyBtn.addEventListener('click', exportSurvey);
 returnHomeBtn.addEventListener('click', () => {
   window.location.href = 'index.html';
 });
+if (homeBtn) homeBtn.addEventListener('click', () => {
+  window.location.href = 'index.html';
+});
 
 if (nextCategoryBtn) nextCategoryBtn.addEventListener('click', nextCategory);
 if (skipCategoryBtn) skipCategoryBtn.addEventListener('click', skipCategory);
@@ -361,6 +366,8 @@ if (fileBInput) {
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
   guidedMode = true;
+  if (buttonGroup) buttonGroup.style.display = 'none';
+  if (homeBtn) homeBtn.style.display = 'block';
 
   const initialize = data => {
     surveyA = data;
