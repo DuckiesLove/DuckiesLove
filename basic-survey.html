@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kink Interest Survey</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .progress-container {
+      width: 60%;
+      margin: 20px auto;
+      background-color: #2b2b2b;
+      border-radius: 10px;
+      height: 18px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background-color: #4caf50;
+      width: 0%;
+      transition: width 0.4s ease;
+      border-radius: 10px 0 0 10px;
+    }
+
+    .button-group {
+      margin-top: 30px;
+    }
+
+    button {
+      background-color: #333;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      margin: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background-color: #555;
+    }
+
+    #mainButtons {
+      display: block;
+    }
+
+    #categoryContainer {
+      margin-top: 30px;
+      padding: 20px;
+      border: 1px solid #333;
+      border-radius: 10px;
+      background-color: #1e1e1e;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .category-title {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+
+    .question {
+      margin: 10px 0;
+    }
+
+    .rating-scale {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .rating-scale label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .rating-scale input[type="radio"] {
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h3>Category <span id="categoryNumber">1</span> of 28</h3>
+
+  <div class="progress-container">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <div id="categoryContainer">
+    <div class="category-title" id="categoryTitle">Loading...</div>
+    <div class="question" id="categoryQuestion">Please start the survey.</div>
+    <div class="rating-scale" id="ratingContainer">
+      <label>0<input type="radio" name="rating" value="0"></label>
+      <label>1<input type="radio" name="rating" value="1"></label>
+      <label>2<input type="radio" name="rating" value="2"></label>
+      <label>3<input type="radio" name="rating" value="3"></label>
+      <label>4<input type="radio" name="rating" value="4"></label>
+      <label>5<input type="radio" name="rating" value="5"></label>
+    </div>
+  </div>
+
+  <div class="button-group">
+    <button onclick="prevCategory()">Back</button>
+    <button onclick="nextCategory()">Next Category</button>
+    <button onclick="skipCategory()">Skip</button>
+  </div>
+
+  <div class="button-group" id="mainButtons">
+    <button onclick="startSurvey()">Start New Survey</button>
+    <button onclick="exportList()">Export My List</button>
+    <button onclick="seeCompatibility()">See Our Compatibility</button>
+  </div>
+
+  <script>
+    let currentCategory = 0;
+    const totalCategories = 28;
+    const ratings = Array(totalCategories).fill(null);
+
+    const categories = [
+      { title: "Body Part Torture", question: "How do you feel about body part torture?" },
+      { title: "Bondage and Suspension", question: "How do you feel about bondage and suspension?" },
+      { title: "Breath Play", question: "How do you feel about breath play?" },
+      { title: "Sexual Activity", question: "How do you feel about sexual activity?" },
+      { title: "Sensation Play", question: "How do you feel about sensation play?" },
+      { title: "Other", question: "How do you feel about other?" },
+      { title: "Roleplaying", question: "How do you feel about roleplaying?" },
+      { title: "Service and Restrictive Behaviour", question: "How do you feel about service and restrictive behaviour?" },
+      { title: "Voyeurism/Exhibitionism", question: "How do you feel about voyeurism/exhibitionism?" },
+      { title: "Digital & Remote Play", question: "How do you feel about digital & remote play?" },
+      { title: "Communication", question: "How do you feel about communication?" },
+      { title: "Body Fluids and Functions", question: "How do you feel about body fluids and functions?" },
+      { title: "Psychological Primal / Prey", question: "How do you feel about psychological primal / prey?" },
+      { title: "Body Part / Fetish Play", question: "How do you feel about body part / fetish play?" },
+      { title: "Orgasm Control & Sexual Manipulation", question: "How do you feel about orgasm control & sexual manipulation?" },
+      { title: "Protocol and Ritual", question: "How do you feel about protocol and ritual?" },
+      { title: "Primal & Bratting", question: "How do you feel about primal & bratting?" },
+      { title: "Headspace & Regression", question: "How do you feel about headspace & regression?" },
+      { title: "Performance & Internal Struggle", question: "How do you feel about performance & internal struggle?" },
+      { title: "Mindfuck & Manipulation", question: "How do you feel about mindfuck & manipulation?" },
+      { title: "Protocol Play", question: "How do you feel about protocol play?" },
+      { title: "Mouth Play", question: "How do you feel about mouth play?" },
+      { title: "Impact Play", question: "How do you feel about impact play?" },
+      { title: "Medical Play", question: "How do you feel about medical play?" },
+      { title: "Pet Play", question: "How do you feel about pet play?" },
+      { title: "Body Modification", question: "How do you feel about body modification?" },
+      { title: "Relationship Preferences", question: "How do you feel about relationship preferences?" },
+      { title: "Gender Play & Transformation", question: "How do you feel about gender play & transformation?" }
+    ];
+
+    function updateProgress(current, total) {
+      const progress = (current / total) * 100;
+      document.getElementById("progressBar").style.width = progress + "%";
+      document.getElementById("categoryNumber").textContent = current;
+    }
+
+    function loadCategory(index) {
+      if (index < categories.length) {
+        document.getElementById("categoryTitle").textContent = categories[index].title;
+        document.getElementById("categoryQuestion").textContent = categories[index].question;
+        document.querySelectorAll("input[name='rating']").forEach(input => {
+          input.checked = ratings[index] === Number(input.value);
+        });
+      } else {
+        document.getElementById("categoryTitle").textContent = "Survey Complete!";
+        document.getElementById("categoryQuestion").textContent = "You may now export or view compatibility.";
+        document.getElementById("ratingContainer").style.display = "none";
+      }
+    }
+
+    function startSurvey() {
+      document.getElementById("mainButtons").style.display = "none";
+      currentCategory = 1;
+      updateProgress(currentCategory, totalCategories);
+      loadCategory(currentCategory - 1);
+    }
+
+    function nextCategory() {
+      storeRating();
+      if (currentCategory < totalCategories) {
+        currentCategory++;
+        updateProgress(currentCategory, totalCategories);
+        loadCategory(currentCategory - 1);
+      }
+    }
+
+    function prevCategory() {
+      storeRating();
+      if (currentCategory > 1) {
+        currentCategory--;
+        updateProgress(currentCategory, totalCategories);
+        loadCategory(currentCategory - 1);
+      }
+    }
+
+    function skipCategory() {
+      ratings[currentCategory - 1] = null;
+      nextCategory();
+    }
+
+    function storeRating() {
+      const selected = document.querySelector("input[name='rating']:checked");
+      if (selected) {
+        ratings[currentCategory - 1] = Number(selected.value);
+      }
+    }
+
+    function exportList() {
+      const exportData = categories.map((cat, i) => ({
+        category: cat.title,
+        rating: ratings[i]
+      }));
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "survey_results.json";
+      link.click();
+    }
+
+    function seeCompatibility() {
+      const numericRatings = ratings.filter(r => r !== null);
+      if (!numericRatings.length) {
+        alert("No ratings yet!");
+        return;
+      }
+      const average = numericRatings.reduce((a, b) => a + b, 0) / numericRatings.length;
+      alert("Your average interest score is: " + average.toFixed(2));
+    }
+  </script>
+</body>
+</html>
