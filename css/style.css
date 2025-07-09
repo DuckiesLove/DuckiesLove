@@ -813,9 +813,9 @@ body.light-mode #ratingLegend {
 /* Instruction banner on main page */
 .instruction-banner {
   text-align: center;
-  color: #d0d0d0;
   max-width: 800px;
   margin: 10px auto 30px;
+  color: inherit;
 }
 
 /* Centered menu container for main buttons */
