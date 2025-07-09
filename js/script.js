@@ -53,8 +53,10 @@ const RATING_LABELS = {
   3: 'Okay / Neutral',
   4: 'Like',
   5: 'Love / Core Interest'
+};
 const HIGH_INTENSITY_CATEGORY = 'High-Intensity Kinks (SSC-Aware)';
-const HIGH_INTENSITY_WARNING = 'The High-Intensity Kinks category includes intense but SSC-aware kink options that require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.';
+const HIGH_INTENSITY_WARNING =
+  'The High-Intensity Kinks category includes intense but SSC-aware kink options that require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.';
 
 function applyAnimation(el, cls) {
   el.classList.add(cls);
@@ -314,12 +316,8 @@ function startNewSurvey() {
       cb.checked = false;
       if (cat === HIGH_INTENSITY_CATEGORY) {
         cb.addEventListener('change', () => {
-<if (cb.checked) {
-  if (!confirm(HIGH_INTENSITY_WARNING)) {
-    cb.checked = false;
-  }
-}
-
+          if (cb.checked && !confirm(HIGH_INTENSITY_WARNING)) {
+            cb.checked = false;
           }
         });
       }
@@ -363,12 +361,8 @@ if (selectAllBtn) {
   selectAllBtn.addEventListener('click', () => {
     previewList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
       if (cb.value === HIGH_INTENSITY_CATEGORY) {
-if (!cb.checked) {
-  if (confirm(HIGH_INTENSITY_WARNING)) {
-    cb.checked = true;
-  }
-}
-
+        if (cb.checked) return;
+        if (confirm(HIGH_INTENSITY_WARNING)) {
           cb.checked = true;
         }
       } else {
