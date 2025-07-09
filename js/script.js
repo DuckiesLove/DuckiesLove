@@ -54,6 +54,9 @@ const RATING_LABELS = {
   4: 'Like',
   5: 'Love / Core Interest'
 };
+const HIGH_INTENSITY_CATEGORY = 'High-Intensity Kinks (SSC-Aware)';
+const HIGH_INTENSITY_WARNING =
+  'The High-Intensity Kinks category includes intense but SSC-aware kink options that require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.';
 function applyAnimation(el, cls) {
   el.classList.add(cls);
   el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
@@ -299,11 +302,6 @@ function startNewSurvey() {
   if (mainNavButtons) mainNavButtons.style.display = 'none';
 
   const initialize = data => {
-    if (!confirm(
-      'The High-Intensity Kinks category includes intense but SSC-aware options that require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.\n\nInclude this category?'
-    )) {
-      delete data["High-Intensity Kinks (SSC-Aware)"];
-    }
     surveyA = data;
     normalizeRatings(surveyA);
     filterGeneralOptions(surveyA);
@@ -314,7 +312,14 @@ function startNewSurvey() {
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.value = cat;
-      cb.checked = true;
+      cb.checked = false;
+      if (cat === HIGH_INTENSITY_CATEGORY) {
+        cb.addEventListener('change', () => {
+          if (cb.checked && !confirm(HIGH_INTENSITY_WARNING)) {
+            cb.checked = false;
+          }
+        });
+      }
       label.appendChild(cb);
       label.append(' ' + cat);
       previewList.appendChild(label);
@@ -354,7 +359,13 @@ if (newSurveyBtn) {
 if (selectAllBtn) {
   selectAllBtn.addEventListener('click', () => {
     previewList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-      cb.checked = true;
+      if (cb.value === HIGH_INTENSITY_CATEGORY) {
+        if (!cb.checked && confirm(HIGH_INTENSITY_WARNING)) {
+          cb.checked = true;
+        }
+      } else {
+        cb.checked = true;
+      }
     });
   });
 }
