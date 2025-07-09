@@ -594,6 +594,10 @@ window.templateSurvey =
         "name": "Physical overpowering / Manhandling",
         "rating": null
       }
+      ,{
+        "name": "Figging",
+        "rating": null
+      }
     ],
     "Receiving": [
       {
@@ -646,6 +650,10 @@ window.templateSurvey =
       },
       {
         "name": "Physical overpowering / Manhandling",
+        "rating": null
+      }
+      ,{
+        "name": "Figging",
         "rating": null
       }
     ],
