@@ -225,6 +225,8 @@ const homeBtn = document.getElementById('homeBtn');
 const buttonGroup = document.querySelector('.button-group');
 const categoryPreview = document.getElementById('categoryPreview');
 const previewList = document.getElementById('previewList');
+const selectAllBtn = document.getElementById('selectAllBtn');
+const deselectAllBtn = document.getElementById('deselectAllBtn');
 const templateJson = document.getElementById('templateJson');
 const beginSurveyBtn = document.getElementById('beginSurveyBtn');
 const ratingLegend = document.getElementById('ratingLegend');
@@ -331,6 +333,22 @@ startSurveyBtn.addEventListener('click', () => {
 
 if (newSurveyBtn) {
   newSurveyBtn.addEventListener('click', startNewSurvey);
+}
+
+if (selectAllBtn) {
+  selectAllBtn.addEventListener('click', () => {
+    previewList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.checked = true;
+    });
+  });
+}
+
+if (deselectAllBtn) {
+  deselectAllBtn.addEventListener('click', () => {
+    previewList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.checked = false;
+    });
+  });
 }
 
 beginSurveyBtn.addEventListener('click', () => {
@@ -574,6 +592,11 @@ function exportSurvey() {
   a.download = `kink-survey-${ts}.json`;
   a.click();
   URL.revokeObjectURL(url);
+  try {
+    localStorage.setItem('savedSurvey', JSON.stringify(exportObj));
+  } catch (err) {
+    console.warn('Failed to save survey to localStorage:', err);
+  }
 }
 
 if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);

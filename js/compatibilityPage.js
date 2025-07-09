@@ -4,6 +4,20 @@ let surveyA = null;
 let surveyB = null;
 let lastResult = null;
 
+function loadSavedSurvey() {
+  const saved = localStorage.getItem('savedSurvey');
+  if (!saved) return;
+  try {
+    const parsed = JSON.parse(saved);
+    surveyA = normalizeSurveyFormat(parsed.survey || parsed);
+    mergeSurveyWithTemplate(surveyA, window.templateSurvey);
+    normalizeRatings(surveyA);
+    filterGeneralOptions(surveyA);
+  } catch (err) {
+    console.warn('Failed to parse saved survey:', err);
+  }
+}
+
 function filterGeneralOptions(survey) {
   Object.values(survey).forEach(cat => {
     if (!cat.General) return;
@@ -271,3 +285,5 @@ if (downloadBtn) {
     URL.revokeObjectURL(url);
   });
 }
+
+document.addEventListener('DOMContentLoaded', loadSavedSurvey);
