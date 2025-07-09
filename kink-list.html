@@ -24,6 +24,15 @@
     <script src="js/template-survey.js"></script>
     <script type="module">
 
+      const RATING_LABELS = {
+        0: 'Hard No',
+        1: 'Dislike / Haven\u2019t Considered',
+        2: 'Would Try for Partner',
+        3: 'Okay / Neutral',
+        4: 'Like',
+        5: 'Love / Core Interest'
+      };
+
       function mergeSurveyWithTemplate(survey, template) {
         if (!template || typeof template !== 'object') return;
         Object.entries(template).forEach(([cat, tmpl]) => {
@@ -108,7 +117,7 @@
           const ul = document.createElement('ul');
           items.slice().sort((a,b) => (b.rating ?? -1) - (a.rating ?? -1)).forEach(item => {
             const li = document.createElement('li');
-            const rating = item.rating === null || item.rating === undefined ? '—' : item.rating;
+            const rating = item.rating === null || item.rating === undefined ? '—' : `${item.rating} - ${RATING_LABELS[item.rating]}`;
             li.textContent = `${item.name}: ${rating}`;
             ul.appendChild(li);
           });
@@ -133,7 +142,7 @@
               const rating =
                 item.rating === null || item.rating === undefined
                   ? '—'
-                  : item.rating;
+                  : `${item.rating} - ${RATING_LABELS[item.rating]}`;
               text += `    ${item.name}: ${rating}\n`;
             });
         });
@@ -175,6 +184,12 @@
       doc.text('Your Kink Profile', pageWidth / 2, y, { align: 'center' });
       y += 10;
 
+      Object.entries(RATING_LABELS).forEach(([num, label]) => {
+        doc.text(`${num} = ${label}`, 10, y);
+        y += 6;
+      });
+      y += 4;
+
       doc.setLineWidth(0.5);
       doc.setDrawColor(200);
       doc.line(10, y, pageWidth - 10, y);
@@ -198,7 +213,8 @@
         doc.text(`${percent}%`, 10, y);
 
         doc.setTextColor(color);
-        doc.text(item.name, 40, y);
+        const label = RATING_LABELS[item.rating] || '-';
+        doc.text(`${item.name} (${label})`, 40, y);
 
         y += 8;
 
