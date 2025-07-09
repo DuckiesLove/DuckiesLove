@@ -669,6 +669,13 @@ body.light-mode .static-rating-legend {
   gap: 10px;
 }
 
+.main-nav-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
 .section-spacing {
   margin-top: 30px;
 }
