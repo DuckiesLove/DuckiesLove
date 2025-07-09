@@ -235,6 +235,7 @@ const closeRoleDefinitionsBtn = document.getElementById('closeRoleDefinitionsBtn
 const surveyIntro = document.getElementById('surveyIntro');
 const startSurveyBtn = document.getElementById('startSurveyBtn');
 const newSurveyBtn = document.getElementById('newSurveyBtn');
+const downloadBtn = document.getElementById('downloadBtn');
 const progressBanner = document.getElementById('progressBanner');
 const progressLabel = document.getElementById('progressLabel');
 const progressFill = document.getElementById('progressFill');
@@ -280,7 +281,8 @@ roleDefinitionsOverlay.addEventListener('click', hideRolePanel);
 
 function startNewSurvey() {
   guidedMode = true;
-  if (buttonGroup) buttonGroup.style.display = 'none';
+  if (newSurveyBtn) newSurveyBtn.style.display = 'none';
+  if (downloadBtn) downloadBtn.style.display = 'none';
   if (homeBtn) homeBtn.style.display = 'block';
 
   const initialize = data => {
@@ -573,7 +575,7 @@ function exportSurvey() {
   URL.revokeObjectURL(url);
 }
 
-document.getElementById('downloadBtn').addEventListener('click', exportSurvey);
+if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);
 
 // ================== See Our Compatibility ==================
 const compareBtn = document.getElementById('compareBtn');
