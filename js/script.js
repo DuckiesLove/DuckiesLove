@@ -92,7 +92,6 @@ function switchTab(action) {
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
   const tabEl = document.getElementById(`${action.toLowerCase()}Tab`);
   if (tabEl) tabEl.classList.add('active');
-  renderMainCategories();
   const cats = showCategories();
   if (!cats.includes(currentCategory)) {
     currentCategory = null;
@@ -100,22 +99,10 @@ function switchTab(action) {
   if (currentCategory) {
     showKinks(currentCategory);
   } else {
-    subCategoryWrapper.style.display = 'none';
-    categoryPanel.classList.remove('extended');
+    kinkList.innerHTML = '';
+    categoryTitle.textContent = '';
   }
-  applyAnimation(categoryContainer, 'fade-in');
-}
-
-function renderMainCategories() {
-  mainCategoryList.innerHTML = '';
-  ['Giving', 'Receiving', 'General'].forEach(action => {
-    const btn = document.createElement('button');
-    btn.textContent = ACTION_LABELS[action] || action;
-    if (action === currentAction) btn.classList.add('active');
-    btn.onclick = () => switchTab(action);
-    attachRipple(btn);
-    mainCategoryList.appendChild(btn);
-  });
+  applyAnimation(kinkList, 'fade-in');
 }
 
 document.getElementById('givingTab').onclick = () => switchTab('Giving');
@@ -225,16 +212,16 @@ function mergeSurveyWithTemplate(survey, template) {
 }
 
 
-const mainCategoryList = document.getElementById('mainCategoryList');
-const categoryContainer = document.getElementById('categoryContainer');
 const kinkList = document.getElementById('kinkList');
-const categoryPanel = document.getElementById('categoryPanel');
-const subCategoryWrapper = document.getElementById('subCategoryWrapper');
-const closeSidebarBtn = document.getElementById('closeSidebarBtn');
-const closeSubSidebarBtn = document.getElementById('closeSubSidebarBtn');
-const openSidebarBtn = document.getElementById('openSidebarBtn');
+const categoryTitle = document.getElementById('categoryTitle');
+const surveyContainer = document.getElementById('surveyContainer');
+const finalScreen = document.getElementById('finalScreen');
+const saveSurveyBtn = document.getElementById('saveSurveyBtn');
+const returnHomeBtn = document.getElementById('returnHomeBtn');
+const categoryPreview = document.getElementById('categoryPreview');
+const previewList = document.getElementById('previewList');
+const beginSurveyBtn = document.getElementById('beginSurveyBtn');
 const ratingLegend = document.getElementById('ratingLegend');
-const categoryOverlay = document.getElementById('categoryOverlay');
 const roleDefinitionsPanel = document.getElementById('roleDefinitionsPanel');
 const roleDefinitionsOverlay = document.getElementById('roleDefinitionsOverlay');
 const roleDefinitionsBtn = document.getElementById('roleDefinitionsBtn');
@@ -244,7 +231,6 @@ const startSurveyBtn = document.getElementById('startSurveyBtn');
 const progressBanner = document.getElementById('progressBanner');
 const progressLabel = document.getElementById('progressLabel');
 const progressFill = document.getElementById('progressFill');
-const switchSidebarLink = document.getElementById('switchSidebarLink');
 const nextCategoryBtn = document.getElementById('nextCategoryBtn');
 const skipCategoryBtn = document.getElementById('skipCategoryBtn');
 
@@ -263,15 +249,6 @@ function shouldDisplayItem(item) {
   return true;
 }
 
-function showOverlay() {
-  if (window.innerWidth <= 768) {
-    categoryOverlay.style.display = 'block';
-  }
-}
-
-function hideOverlay() {
-  categoryOverlay.style.display = 'none';
-}
 
 function showRolePanel() {
   roleDefinitionsPanel.style.display = 'block';
@@ -287,38 +264,7 @@ function hideRolePanel() {
   roleDefinitionsOverlay.style.display = 'none';
 }
 
-categoryPanel.style.display = 'none'; // Hide by default
-subCategoryWrapper.style.display = 'none';
-openSidebarBtn.style.display = 'none';
 
-openSidebarBtn.addEventListener('click', () => {
-  categoryPanel.classList.add('visible');
-  categoryPanel.classList.remove('extended');
-  subCategoryWrapper.style.display = 'none';
-  showOverlay();
-  openSidebarBtn.style.display = 'none';
-});
-
-closeSidebarBtn.addEventListener('click', () => {
-  categoryPanel.classList.remove('visible');
-  categoryPanel.classList.remove('extended');
-  subCategoryWrapper.style.display = 'none';
-  hideOverlay();
-  if (window.innerWidth <= 768) openSidebarBtn.style.display = 'block';
-});
-
-closeSubSidebarBtn.addEventListener('click', () => {
-  categoryPanel.classList.remove('extended');
-  subCategoryWrapper.style.display = 'none';
-});
-
-categoryOverlay.addEventListener('click', () => {
-  categoryPanel.classList.remove('visible');
-  categoryPanel.classList.remove('extended');
-  subCategoryWrapper.style.display = 'none';
-  hideOverlay();
-  if (window.innerWidth <= 768) openSidebarBtn.style.display = 'block';
-});
 
 roleDefinitionsBtn.addEventListener('click', showRolePanel);
 closeRoleDefinitionsBtn.addEventListener('click', hideRolePanel);
@@ -330,12 +276,22 @@ startSurveyBtn.addEventListener('click', () => {
   document.getElementById('newSurveyBtn').click();
 });
 
-switchSidebarLink.addEventListener('click', e => {
-  e.preventDefault();
-  guidedMode = false;
-  progressBanner.style.display = 'none';
-  showCategories();
-  if (currentCategory) showKinks(currentCategory);
+beginSurveyBtn.addEventListener('click', () => {
+  categoryOrder = Array.from(previewList.querySelectorAll('input[type="checkbox"]'))
+    .filter(cb => cb.checked)
+    .map(cb => cb.value);
+  categoryIndex = 0;
+  currentCategory = categoryOrder[0] || null;
+  categoryPreview.style.display = 'none';
+  if (currentCategory) {
+    showKinks(currentCategory);
+    updateProgress();
+  }
+});
+
+saveSurveyBtn.addEventListener('click', exportSurvey);
+returnHomeBtn.addEventListener('click', () => {
+  window.location.href = 'index.html';
 });
 
 if (nextCategoryBtn) nextCategoryBtn.addEventListener('click', nextCategory);
@@ -352,12 +308,15 @@ function loadSurveyAFile(file) {
       normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
       updateTabsForCategory();
-      categoryPanel.style.display = 'block';
-      subCategoryWrapper.style.display = 'none';
-      categoryPanel.classList.remove('extended');
-      openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
-      renderMainCategories();
-      showCategories();
+      if (guidedMode) {
+        categoryOrder = Object.keys(surveyA);
+        categoryIndex = 0;
+        currentCategory = categoryOrder[0] || null;
+        if (currentCategory) {
+          showKinks(currentCategory);
+          updateProgress();
+        }
+      }
     } catch {
       alert('Invalid JSON for Survey A.');
     }
@@ -401,39 +360,31 @@ if (fileBInput) {
 
 
 document.getElementById('newSurveyBtn').addEventListener('click', () => {
+  guidedMode = true;
 
   const initialize = data => {
     surveyA = data;
     normalizeRatings(surveyA);
     filterGeneralOptions(surveyA);
     updateTabsForCategory();
-    if (guidedMode) {
-      categoryOrder = Object.keys(surveyA);
-      categoryIndex = 0;
-      currentCategory = categoryOrder[0] || null;
-    }
-    categoryPanel.style.display = 'block'; // Show sidebar
-    subCategoryWrapper.style.display = 'none';
-    categoryPanel.classList.remove('extended');
-    openSidebarBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
-    if (window.innerWidth <= 768) {
-      categoryPanel.classList.add('visible');
-      showOverlay();
-      openSidebarBtn.style.display = 'none';
-    }
-    renderMainCategories();
-    showCategories();
-    if (guidedMode && currentCategory) {
-      showKinks(currentCategory);
-      updateProgress();
-    }
+    previewList.innerHTML = '';
+    Object.keys(surveyA).forEach(cat => {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = cat;
+      cb.checked = true;
+      label.appendChild(cb);
+      label.append(' ' + cat);
+      previewList.appendChild(label);
+    });
+    categoryPreview.style.display = 'flex';
   };
 
   fetch('template-survey.json', { cache: 'no-store' })
     .then(res => res.json())
     .then(data => {
-      window.templateSurvey = normalizeSurveyFormat(data); // cache latest template
-      // use a fresh copy so future resets aren't mutated
+      window.templateSurvey = normalizeSurveyFormat(data);
       initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
     })
     .catch(err => {
@@ -449,81 +400,20 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
 // ================== Category + Kink Display ==================
 
 function showCategories() {
-  categoryContainer.innerHTML = '';
   if (!surveyA) return [];
-
-  const categories = Object.keys(surveyA);
-  const available = [];
-
-  if (guidedMode && categoryOrder.length) {
-    const cat = currentCategory || categoryOrder[categoryIndex];
-    const items = surveyA[cat][currentAction];
-    const hasItems = Array.isArray(items) && items.length > 0;
-    if (hasItems) available.push(cat);
-    const btn = document.createElement('button');
-    btn.textContent = cat;
-    if (cat === currentCategory) btn.classList.add('active');
-    if (!hasItems) btn.classList.add('disabled');
-    btn.onclick = () => {
-      if (currentCategory === cat) return;
-      currentCategory = cat;
-      showCategories();
-      if (hasItems) {
-        showKinks(cat);
-      } else {
-        subCategoryWrapper.style.display = 'none';
-        categoryPanel.classList.remove('extended');
-      }
-    };
-    attachRipple(btn);
-    categoryContainer.appendChild(btn);
-    applyAnimation(categoryContainer, 'fade-in');
-    return available;
-  }
-
-  categories.forEach(cat => {
-    const items = surveyA[cat][currentAction];
-    const hasItems = Array.isArray(items) && items.length > 0;
-    if (hasItems) available.push(cat);
-
-    const createButton = () => {
-      const btn = document.createElement('button');
-      btn.textContent = cat;
-      if (cat === currentCategory) btn.classList.add('active');
-      if (!hasItems) {
-        btn.classList.add('disabled');
-      }
-      btn.onclick = () => {
-        if (currentCategory === cat) return;
-        currentCategory = cat;
-        showCategories();
-        if (hasItems) {
-          showKinks(cat);
-        } else {
-          subCategoryWrapper.style.display = 'none';
-          categoryPanel.classList.remove('extended');
-        }
-        
-      };
-      attachRipple(btn);
-      return btn;
-    };
-
-    categoryContainer.appendChild(createButton());
-  });
-  applyAnimation(categoryContainer, 'fade-in');
-  return available;
+  return Object.keys(surveyA);
 }
 
 function showKinks(category) {
   currentCategory = category;
   kinkList.innerHTML = '';
+  categoryTitle.textContent = category;
+  surveyContainer.style.display = 'block';
+  finalScreen.style.display = 'none';
   const categoryData = surveyA[category];
   updateTabsForCategory();
   updateProgress();
   const kinks = categoryData?.[currentAction];
-  subCategoryWrapper.style.display = 'block';
-  categoryPanel.classList.add('extended');
   if (!kinks || kinks.length === 0) {
     kinkList.textContent = 'No items here.';
     return;
@@ -629,13 +519,13 @@ function nextCategory() {
   if (categoryIndex < categoryOrder.length - 1) {
     categoryIndex++;
     currentCategory = categoryOrder[categoryIndex];
-    showCategories();
     showKinks(currentCategory);
   } else {
     categoryIndex = categoryOrder.length;
     currentCategory = null;
-    subCategoryWrapper.style.display = 'none';
-    categoryPanel.classList.remove('extended');
+    surveyContainer.style.display = 'none';
+    finalScreen.style.display = 'flex';
+    progressBanner.style.display = 'none';
   }
   updateProgress();
 }
@@ -645,7 +535,7 @@ function skipCategory() {
 }
 
 // ================== Export My List ==================
-document.getElementById('downloadBtn').addEventListener('click', () => {
+function exportSurvey() {
   if (!surveyA) {
     alert('No survey loaded.');
     return;
@@ -659,8 +549,9 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   a.download = `kink-survey-${ts}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  // Finished export
-});
+}
+
+document.getElementById('downloadBtn').addEventListener('click', exportSurvey);
 
 // ================== See Our Compatibility ==================
 const compareBtn = document.getElementById('compareBtn');
@@ -720,18 +611,6 @@ switchTab('Giving');
 window.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('button').forEach(attachRipple);
   surveyIntro.style.display = 'flex';
-  categoryPanel.style.display = 'none';
-  openSidebarBtn.style.display = 'none';
 });
 
-window.addEventListener('resize', () => {
-  if (window.innerWidth > 768) {
-    hideOverlay();
-    categoryPanel.classList.remove('visible');
-    openSidebarBtn.style.display = 'none';
-    hideRolePanel();
-  } else if (!categoryPanel.classList.contains('visible')) {
-    openSidebarBtn.style.display = 'block';
-  }
-});
 
