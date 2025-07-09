@@ -858,6 +858,32 @@ body.light-mode #ratingLegend {
   border-radius: 10px 0 0 10px;
 }
 
+/* Match progress bar background to theme */
+body.dark-mode .progress-container,
+body.dark-mode .progress-bar {
+  background-color: #121212;
+}
+body.light-mode .progress-container,
+body.light-mode .progress-bar {
+  background-color: #b8c5b8;
+}
+body.theme-blue .progress-container,
+body.theme-blue .progress-bar {
+  background-color: #001933;
+}
+body.theme-echoes-beyond .progress-container,
+body.theme-echoes-beyond .progress-bar {
+  background-color: #14213d;
+}
+body.theme-love-notes-lipstick .progress-container,
+body.theme-love-notes-lipstick .progress-bar {
+  background-color: #311847;
+}
+body.theme-rainbow .progress-container,
+body.theme-rainbow .progress-bar {
+  background-color: #fff;
+}
+
 /* Kink breakdown table */
 .kink-table {
   width: 100%;
