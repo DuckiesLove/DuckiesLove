@@ -228,16 +228,37 @@
     }
 
     function exportList() {
-      const exportData = categories.map((cat, i) => ({
-        category: cat.title,
-        rating: ratings[i],
-        role: roles[i]
-      }));
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "survey_results.json";
+      const survey = {};
+      categories.forEach((cat, i) => {
+        const rating = ratings[i];
+        const role = roles[i] || 'non-specific';
+        if (rating === null) return;
+        if (!survey[cat.title]) {
+          survey[cat.title] = { Giving: [], Receiving: [], General: [] };
+        }
+        const item = { name: cat.title, rating };
+        if (role === 'give') survey[cat.title].Giving.push(item);
+        else if (role === 'receive') survey[cat.title].Receiving.push(item);
+        else survey[cat.title].General.push(item);
+      });
+
+      const exportObj = { survey };
+      const blob = new Blob([JSON.stringify(exportObj, null, 2)], {
+        type: 'application/json'
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      link.download = `kink-survey-${ts}.json`;
       link.click();
+      URL.revokeObjectURL(url);
+
+      try {
+        localStorage.setItem('savedSurvey', JSON.stringify(exportObj));
+      } catch (err) {
+        console.warn('Failed to save survey to localStorage:', err);
+      }
     }
 
     function seeCompatibility() {
