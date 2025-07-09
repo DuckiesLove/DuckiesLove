@@ -234,6 +234,7 @@ const roleDefinitionsBtn = document.getElementById('roleDefinitionsBtn');
 const closeRoleDefinitionsBtn = document.getElementById('closeRoleDefinitionsBtn');
 const surveyIntro = document.getElementById('surveyIntro');
 const startSurveyBtn = document.getElementById('startSurveyBtn');
+const newSurveyBtn = document.getElementById('newSurveyBtn');
 const progressBanner = document.getElementById('progressBanner');
 const progressLabel = document.getElementById('progressLabel');
 const progressFill = document.getElementById('progressFill');
@@ -325,6 +326,10 @@ startSurveyBtn.addEventListener('click', () => {
   if (surveyIntro) surveyIntro.style.display = 'none';
   startNewSurvey();
 });
+
+if (newSurveyBtn) {
+  newSurveyBtn.addEventListener('click', startNewSurvey);
+}
 
 beginSurveyBtn.addEventListener('click', () => {
   categoryOrder = Array.from(previewList.querySelectorAll('input[type="checkbox"]'))
@@ -628,8 +633,7 @@ switchTab('Giving');
 function init() {
   document.querySelectorAll('button').forEach(attachRipple);
   if (surveyIntro) {
-    surveyIntro.style.display = 'none';
-    startNewSurvey();
+    surveyIntro.style.display = 'flex';
   }
 }
 
