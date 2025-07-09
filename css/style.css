@@ -949,7 +949,7 @@ body.theme-rainbow .progress-bar {
 }
 
 /* ✅ Codex Instructions: Accordion Overflow Fix for Bottom Categories
-   Goal: Prevent bottom categories like “Protocol Play” and “Mouth Play” from visually spilling out or stretching beyond the accordion layout.
+   Goal: Prevent bottom categories like “Protocol and Ritual” and “Mouth Play” from visually spilling out or stretching beyond the accordion layout.
    These styles ensure the open section is scrollable, sized appropriately, and visually contained like the top categories.
 */
 /* Codex update: prevent accordion items from stretching */
