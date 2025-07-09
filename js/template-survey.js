@@ -383,6 +383,14 @@ window.templateSurvey =
       {
         "name": "Drowning",
         "rating": null
+      },
+      {
+        "name": "Rebreathing into a bag or object",
+        "rating": null
+      },
+      {
+        "name": "Verbal control of breath (e.g., 'hold it' on command)",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -400,6 +408,14 @@ window.templateSurvey =
       },
       {
         "name": "Drowning",
+        "rating": null
+      },
+      {
+        "name": "Rebreathing into a bag or object",
+        "rating": null
+      },
+      {
+        "name": "Verbal control of breath (e.g., 'hold it' on command)",
         "rating": null
       }
     ],
@@ -689,6 +705,18 @@ window.templateSurvey =
       },
       {
         "name": "Leather clothing",
+        "rating": null
+      },
+      {
+        "name": "Training protocols outside scenes (e.g., etiquette, memory)",
+        "rating": null
+      },
+      {
+        "name": "Long-distance training/structure",
+        "rating": null
+      },
+      {
+        "name": "Scene journaling and reflection",
         "rating": null
       }
     ]
@@ -1018,7 +1046,7 @@ window.templateSurvey =
     ],
     "General": []
   },
-  "Digital & Remote Play": {
+  "Virtual & Long-Distance Play": {
     "Giving": [
       {
         "name": "Sending tasks or orders digitally",
@@ -1054,6 +1082,10 @@ window.templateSurvey =
       },
       {
         "name": "Voice message control during scenes",
+        "rating": null
+      },
+      {
+        "name": "Being on-call at specified times",
         "rating": null
       }
     ],
@@ -1093,6 +1125,10 @@ window.templateSurvey =
       {
         "name": "Sending submissive voice clips (obedience, begging, thank-you messages, affirmations, etc.)",
         "rating": null
+      },
+      {
+        "name": "Being on-call at specified times",
+        "rating": null
       }
     ],
     "General": [
@@ -1118,6 +1154,26 @@ window.templateSurvey =
       },
       {
         "name": "Countdown timers to next task, release, or interaction",
+        "rating": null
+      },
+      {
+        "name": "Scheduled good morning/night rituals",
+        "rating": null
+      },
+      {
+        "name": "Participating in video call scenes",
+        "rating": null
+      },
+      {
+        "name": "Digital aftercare (texts, voice, images)",
+        "rating": null
+      },
+      {
+        "name": "Sexting or digital roleplay scenes",
+        "rating": null
+      },
+      {
+        "name": "Voice notes or submissive/dominant affirmations",
         "rating": null
       }
     ]
@@ -2848,9 +2904,17 @@ window.templateSurvey =
           "Romantic partners",
           "Kink partners"
         ]
-      }
-    ]
-  },
+      },
+      { "name": "Monogamous", "rating": null },
+      { "name": "Polyamorous", "rating": null },
+      { "name": "Hierarchical dynamics", "rating": null },
+      { "name": "Non-hierarchical poly", "rating": null },
+      { "name": "Solo-poly", "rating": null },
+      { "name": "Open with boundaries", "rating": null },
+      { "name": "Closed but kinky with others", "rating": null },
+      { "name": "Switch-friendly dynamics", "rating": null }
+      ]
+    },
   "Gender Play & Transformation": {
     "Giving": [
       { "name": "Crossdressing", "rating": null },
