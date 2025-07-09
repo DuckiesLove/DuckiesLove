@@ -102,6 +102,11 @@
   <div id="categoryContainer">
     <div class="category-title" id="categoryTitle">Loading...</div>
     <div class="question" id="categoryQuestion">Please start the survey.</div>
+    <select id="roleSelector">
+      <option value="give">Give</option>
+      <option value="receive">Receive</option>
+      <option value="non-specific">Non-Specific Role</option>
+    </select>
     <div class="rating-scale" id="ratingContainer">
       <label>0<input type="radio" name="rating" value="0"></label>
       <label>1<input type="radio" name="rating" value="1"></label>
@@ -128,6 +133,7 @@
     let currentCategory = 0;
     const totalCategories = 28;
     const ratings = Array(totalCategories).fill(null);
+    const roles = Array(totalCategories).fill(null);
 
     const categories = [
       { title: "Body Part Torture", question: "How do you feel about body part torture?" },
@@ -173,6 +179,8 @@
         document.querySelectorAll("input[name='rating']").forEach(input => {
           input.checked = ratings[index] === Number(input.value);
         });
+        const roleSelect = document.getElementById("roleSelector");
+        if (roleSelect) roleSelect.value = roles[index] || "";
       } else {
         document.getElementById("categoryTitle").textContent = "Survey Complete!";
         document.getElementById("categoryQuestion").textContent = "You may now export or view compatibility.";
@@ -215,12 +223,15 @@
       if (selected) {
         ratings[currentCategory - 1] = Number(selected.value);
       }
+      const selectedRole = document.getElementById("roleSelector").value;
+      roles[currentCategory - 1] = selectedRole;
     }
 
     function exportList() {
       const exportData = categories.map((cat, i) => ({
         category: cat.title,
-        rating: ratings[i]
+        rating: ratings[i],
+        role: roles[i]
       }));
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
       const link = document.createElement("a");
