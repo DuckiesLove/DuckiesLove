@@ -60,6 +60,7 @@ export function getSurveyHTML() {
     <div class="intro-modal">
       <p>Select the categories you want to include:</p>
       <div id="previewList" class="scroll-container"></div>
+      <pre id="templateJson" class="json-display"></pre>
       <button id="beginSurveyBtn">Begin Survey</button>
     </div>
   </div>

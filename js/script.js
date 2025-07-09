@@ -222,6 +222,7 @@ const homeBtn = document.getElementById('homeBtn');
 const buttonGroup = document.querySelector('.button-group');
 const categoryPreview = document.getElementById('categoryPreview');
 const previewList = document.getElementById('previewList');
+const templateJson = document.getElementById('templateJson');
 const beginSurveyBtn = document.getElementById('beginSurveyBtn');
 const ratingLegend = document.getElementById('ratingLegend');
 const roleDefinitionsPanel = document.getElementById('roleDefinitionsPanel');
@@ -268,14 +269,58 @@ function hideRolePanel() {
 
 
 
+
 roleDefinitionsBtn.addEventListener('click', showRolePanel);
 closeRoleDefinitionsBtn.addEventListener('click', hideRolePanel);
 roleDefinitionsOverlay.addEventListener('click', hideRolePanel);
 
+function startNewSurvey() {
+  guidedMode = true;
+  if (buttonGroup) buttonGroup.style.display = 'none';
+  if (homeBtn) homeBtn.style.display = 'block';
+
+  const initialize = data => {
+    surveyA = data;
+    normalizeRatings(surveyA);
+    filterGeneralOptions(surveyA);
+    updateTabsForCategory();
+    previewList.innerHTML = '';
+    Object.keys(surveyA).forEach(cat => {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = cat;
+      cb.checked = true;
+      label.appendChild(cb);
+      label.append(' ' + cat);
+      previewList.appendChild(label);
+    });
+    if (templateJson) {
+      templateJson.textContent = JSON.stringify(surveyA, null, 2);
+    }
+    categoryPreview.style.display = 'flex';
+  };
+
+  fetch('template-survey.json', { cache: 'no-store' })
+    .then(res => res.json())
+    .then(data => {
+      window.templateSurvey = normalizeSurveyFormat(data);
+      initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
+    })
+    .catch(err => {
+      if (window.templateSurvey) {
+        console.warn('Failed to load template, using embedded copy:', err);
+        initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
+      } else {
+        alert('Failed to load template: ' + err.message);
+      }
+    });
+}
+
 startSurveyBtn.addEventListener('click', () => {
   guidedMode = true;
-  surveyIntro.style.display = 'none';
-  document.getElementById('newSurveyBtn').click();
+  if (surveyIntro) surveyIntro.style.display = 'none';
+  startNewSurvey();
 });
 
 beginSurveyBtn.addEventListener('click', () => {
@@ -364,45 +409,7 @@ if (fileBInput) {
 }
 
 
-document.getElementById('newSurveyBtn').addEventListener('click', () => {
-  guidedMode = true;
-  if (buttonGroup) buttonGroup.style.display = 'none';
-  if (homeBtn) homeBtn.style.display = 'block';
 
-  const initialize = data => {
-    surveyA = data;
-    normalizeRatings(surveyA);
-    filterGeneralOptions(surveyA);
-    updateTabsForCategory();
-    previewList.innerHTML = '';
-    Object.keys(surveyA).forEach(cat => {
-      const label = document.createElement('label');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.value = cat;
-      cb.checked = true;
-      label.appendChild(cb);
-      label.append(' ' + cat);
-      previewList.appendChild(label);
-    });
-    categoryPreview.style.display = 'flex';
-  };
-
-  fetch('template-survey.json', { cache: 'no-store' })
-    .then(res => res.json())
-    .then(data => {
-      window.templateSurvey = normalizeSurveyFormat(data);
-      initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
-    })
-    .catch(err => {
-      if (window.templateSurvey) {
-        console.warn('Failed to load template, using embedded copy:', err);
-        initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
-      } else {
-        alert('Failed to load template: ' + err.message);
-      }
-    });
-});
 
 // ================== Category + Kink Display ==================
 

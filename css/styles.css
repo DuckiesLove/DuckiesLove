@@ -949,3 +949,19 @@ body.light-mode #ratingLegend {
   max-height: 100%;
   overflow-y: auto;
 }
+
+.json-display {
+  width: 100%;
+  max-width: 600px;
+  height: 200px;
+  overflow: auto;
+  background-color: #1e1e2f;
+  color: #fff;
+  padding: 10px;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+body.light-mode .json-display {
+  background-color: #fff;
+  color: #2f4f2f;
+}
