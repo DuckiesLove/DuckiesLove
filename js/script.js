@@ -126,6 +126,9 @@ document.getElementById('generalTab').onclick = () => switchTab('General');
 let surveyA = null;
 let surveyB = null;
 let currentCategory = null;
+let guidedMode = false;
+let categoryOrder = [];
+let categoryIndex = 0;
 
 // Remove any General items from Giving/Receiving so tabs never mix options
 function filterGeneralOptions(survey) {
@@ -236,6 +239,14 @@ const roleDefinitionsPanel = document.getElementById('roleDefinitionsPanel');
 const roleDefinitionsOverlay = document.getElementById('roleDefinitionsOverlay');
 const roleDefinitionsBtn = document.getElementById('roleDefinitionsBtn');
 const closeRoleDefinitionsBtn = document.getElementById('closeRoleDefinitionsBtn');
+const surveyIntro = document.getElementById('surveyIntro');
+const startSurveyBtn = document.getElementById('startSurveyBtn');
+const progressBanner = document.getElementById('progressBanner');
+const progressLabel = document.getElementById('progressLabel');
+const progressFill = document.getElementById('progressFill');
+const switchSidebarLink = document.getElementById('switchSidebarLink');
+const nextCategoryBtn = document.getElementById('nextCategoryBtn');
+const skipCategoryBtn = document.getElementById('skipCategoryBtn');
 
 function showRatingLegend(target) {
   const rect = target.getBoundingClientRect();
@@ -313,6 +324,23 @@ roleDefinitionsBtn.addEventListener('click', showRolePanel);
 closeRoleDefinitionsBtn.addEventListener('click', hideRolePanel);
 roleDefinitionsOverlay.addEventListener('click', hideRolePanel);
 
+startSurveyBtn.addEventListener('click', () => {
+  guidedMode = true;
+  surveyIntro.style.display = 'none';
+  document.getElementById('newSurveyBtn').click();
+});
+
+switchSidebarLink.addEventListener('click', e => {
+  e.preventDefault();
+  guidedMode = false;
+  progressBanner.style.display = 'none';
+  showCategories();
+  if (currentCategory) showKinks(currentCategory);
+});
+
+if (nextCategoryBtn) nextCategoryBtn.addEventListener('click', nextCategory);
+if (skipCategoryBtn) skipCategoryBtn.addEventListener('click', skipCategory);
+
 function loadSurveyAFile(file) {
   if (!file) return;
   const reader = new FileReader();
@@ -379,6 +407,11 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     normalizeRatings(surveyA);
     filterGeneralOptions(surveyA);
     updateTabsForCategory();
+    if (guidedMode) {
+      categoryOrder = Object.keys(surveyA);
+      categoryIndex = 0;
+      currentCategory = categoryOrder[0] || null;
+    }
     categoryPanel.style.display = 'block'; // Show sidebar
     subCategoryWrapper.style.display = 'none';
     categoryPanel.classList.remove('extended');
@@ -390,6 +423,10 @@ document.getElementById('newSurveyBtn').addEventListener('click', () => {
     }
     renderMainCategories();
     showCategories();
+    if (guidedMode && currentCategory) {
+      showKinks(currentCategory);
+      updateProgress();
+    }
   };
 
   fetch('template-survey.json', { cache: 'no-store' })
@@ -417,6 +454,32 @@ function showCategories() {
 
   const categories = Object.keys(surveyA);
   const available = [];
+
+  if (guidedMode && categoryOrder.length) {
+    const cat = currentCategory || categoryOrder[categoryIndex];
+    const items = surveyA[cat][currentAction];
+    const hasItems = Array.isArray(items) && items.length > 0;
+    if (hasItems) available.push(cat);
+    const btn = document.createElement('button');
+    btn.textContent = cat;
+    if (cat === currentCategory) btn.classList.add('active');
+    if (!hasItems) btn.classList.add('disabled');
+    btn.onclick = () => {
+      if (currentCategory === cat) return;
+      currentCategory = cat;
+      showCategories();
+      if (hasItems) {
+        showKinks(cat);
+      } else {
+        subCategoryWrapper.style.display = 'none';
+        categoryPanel.classList.remove('extended');
+      }
+    };
+    attachRipple(btn);
+    categoryContainer.appendChild(btn);
+    applyAnimation(categoryContainer, 'fade-in');
+    return available;
+  }
 
   categories.forEach(cat => {
     const items = surveyA[cat][currentAction];
@@ -457,6 +520,7 @@ function showKinks(category) {
   kinkList.innerHTML = '';
   const categoryData = surveyA[category];
   updateTabsForCategory();
+  updateProgress();
   const kinks = categoryData?.[currentAction];
   subCategoryWrapper.style.display = 'block';
   categoryPanel.classList.add('extended');
@@ -548,6 +612,38 @@ function showKinks(category) {
   applyAnimation(kinkList, 'fade-in');
 }
 
+function updateProgress() {
+  if (!guidedMode || !categoryOrder.length) {
+    progressBanner.style.display = 'none';
+    return;
+  }
+  progressBanner.style.display = 'block';
+  const total = categoryOrder.length;
+  const percent = (categoryIndex / total) * 100;
+  progressLabel.textContent = `Category ${categoryIndex + 1} of ${total}`;
+  progressFill.style.width = `${percent}%`;
+}
+
+function nextCategory() {
+  if (!guidedMode) return;
+  if (categoryIndex < categoryOrder.length - 1) {
+    categoryIndex++;
+    currentCategory = categoryOrder[categoryIndex];
+    showCategories();
+    showKinks(currentCategory);
+  } else {
+    categoryIndex = categoryOrder.length;
+    currentCategory = null;
+    subCategoryWrapper.style.display = 'none';
+    categoryPanel.classList.remove('extended');
+  }
+  updateProgress();
+}
+
+function skipCategory() {
+  nextCategory();
+}
+
 // ================== Export My List ==================
 document.getElementById('downloadBtn').addEventListener('click', () => {
   if (!surveyA) {
@@ -623,6 +719,9 @@ switchTab('Giving');
 
 window.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('button').forEach(attachRipple);
+  surveyIntro.style.display = 'flex';
+  categoryPanel.style.display = 'none';
+  openSidebarBtn.style.display = 'none';
 });
 
 window.addEventListener('resize', () => {
