@@ -1022,3 +1022,12 @@ body.light-mode .json-display {
   background-color: #fff;
   color: #2f4f2f;
 }
+
+#categoryDescription {
+  margin-bottom: 10px;
+  font-style: italic;
+}
+
+.toggle-advanced {
+  margin: 10px 0;
+}
