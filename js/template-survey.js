@@ -1962,6 +1962,86 @@ window.templateSurvey =
       {
         "name": "Ritualized aftercare or scene closure",
         "rating": null
+      },
+      {
+        "name": "Object retrieval on all fours with item in mouth",
+        "rating": null
+      },
+      {
+        "name": "Fetching hairbrush or punishment tool from dresser while crawling",
+        "rating": null
+      },
+      {
+        "name": "Presenting chosen discipline tool in kneeling posture",
+        "rating": null
+      },
+      {
+        "name": "Assigned posture or kneeling positions as ritual",
+        "rating": null
+      },
+      {
+        "name": "Requesting permission using specific protocol phrases",
+        "rating": null
+      },
+      {
+        "name": "Carrying items in mouth as submissive gesture",
+        "rating": null
+      },
+      {
+        "name": "Crawling back with object to Dominant after retrieval",
+        "rating": null
+      },
+      {
+        "name": "Following via nipple leash as protocol or punishment",
+        "rating": null
+      },
+      {
+        "name": "Crawling assigned paths as ritual or obedience training",
+        "rating": null
+      },
+      {
+        "name": "Crawling rituals (e.g., object retrieval)",
+        "rating": null
+      },
+      {
+        "name": "Carrying objects in mouth as obedience",
+        "rating": null
+      },
+      {
+        "name": "Presenting tools or toys in posture",
+        "rating": null
+      },
+      {
+        "name": "Using honorifics or preset protocol language",
+        "rating": null
+      },
+      {
+        "name": "Greeting rituals (e.g., kneeling, kissing feet)",
+        "rating": null
+      },
+      {
+        "name": "Daily check-ins or structured reports",
+        "rating": null
+      },
+      {
+        "name": "Clothing restrictions or uniforms",
+        "rating": null
+      },
+      {
+        "name": "Posture training (sitting, kneeling, standing)",
+        "rating": null
+      },
+      {
+        "name": "Punishments for incorrect behavior or tone",
+        "rating": null
+      },
+      {
+        "name": "Crawling with items in mouth (e.g., hairbrush, spoon)",
+        "rating": null
+      },
+      {
+        "name": "Earning permission for meals, bathroom use, or rest",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -2003,6 +2083,86 @@ window.templateSurvey =
       },
       {
         "name": "Ritualized aftercare or scene closure",
+        "rating": null
+      },
+      {
+        "name": "Object retrieval on all fours with item in mouth",
+        "rating": null
+      },
+      {
+        "name": "Fetching hairbrush or punishment tool from dresser while crawling",
+        "rating": null
+      },
+      {
+        "name": "Presenting chosen discipline tool in kneeling posture",
+        "rating": null
+      },
+      {
+        "name": "Assigned posture or kneeling positions as ritual",
+        "rating": null
+      },
+      {
+        "name": "Requesting permission using specific protocol phrases",
+        "rating": null
+      },
+      {
+        "name": "Carrying items in mouth as submissive gesture",
+        "rating": null
+      },
+      {
+        "name": "Crawling back with object to Dominant after retrieval",
+        "rating": null
+      },
+      {
+        "name": "Following via nipple leash as protocol or punishment",
+        "rating": null
+      },
+      {
+        "name": "Crawling assigned paths as ritual or obedience training",
+        "rating": null
+      },
+      {
+        "name": "Crawling rituals (e.g., object retrieval)",
+        "rating": null
+      },
+      {
+        "name": "Carrying objects in mouth as obedience",
+        "rating": null
+      },
+      {
+        "name": "Presenting tools or toys in posture",
+        "rating": null
+      },
+      {
+        "name": "Using honorifics or preset protocol language",
+        "rating": null
+      },
+      {
+        "name": "Greeting rituals (e.g., kneeling, kissing feet)",
+        "rating": null
+      },
+      {
+        "name": "Daily check-ins or structured reports",
+        "rating": null
+      },
+      {
+        "name": "Clothing restrictions or uniforms",
+        "rating": null
+      },
+      {
+        "name": "Posture training (sitting, kneeling, standing)",
+        "rating": null
+      },
+      {
+        "name": "Punishments for incorrect behavior or tone",
+        "rating": null
+      },
+      {
+        "name": "Crawling with items in mouth (e.g., hairbrush, spoon)",
+        "rating": null
+      },
+      {
+        "name": "Earning permission for meals, bathroom use, or rest",
         "rating": null
       }
     ],
@@ -2483,117 +2643,6 @@ window.templateSurvey =
       },
       {
         "name": "Emotional trickery as arousal",
-        "rating": null
-      }
-    ],
-    "General": []
-  },
-  "Protocol Play": {
-    "Giving": [
-      {
-        "name": "Object retrieval on all fours with item in mouth",
-        "rating": null
-      },
-      {
-        "name": "Fetching hairbrush or punishment tool from dresser while crawling",
-        "rating": null
-      },
-      {
-        "name": "Presenting chosen discipline tool in kneeling posture",
-        "rating": null
-      },
-      {
-        "name": "Assigned posture or kneeling positions as ritual",
-        "rating": null
-      },
-      {
-        "name": "Requesting permission using specific protocol phrases",
-        "rating": null
-      },
-      {
-        "name": "Carrying items in mouth as submissive gesture",
-        "rating": null
-      },
-      {
-        "name": "Crawling back with object to Dominant after retrieval",
-        "rating": null
-      },
-      {
-        "name": "Following via nipple leash as protocol or punishment",
-        "rating": null
-      },
-      {
-        "name": "Crawling assigned paths as ritual or obedience training",
-        "rating": null
-      },
-      {
-        "name": "Crawling rituals (e.g., object retrieval)",
-        "rating": null
-      },
-      {
-        "name": "Carrying objects in mouth as obedience",
-        "rating": null
-      },
-      {
-        "name": "Presenting tools or toys in posture",
-        "rating": null
-      },
-      {
-        "name": "Using honorifics or preset protocol language",
-        "rating": null
-      }
-    ],
-    "Receiving": [
-      {
-        "name": "Object retrieval on all fours with item in mouth",
-        "rating": null
-      },
-      {
-        "name": "Fetching hairbrush or punishment tool from dresser while crawling",
-        "rating": null
-      },
-      {
-        "name": "Presenting chosen discipline tool in kneeling posture",
-        "rating": null
-      },
-      {
-        "name": "Assigned posture or kneeling positions as ritual",
-        "rating": null
-      },
-      {
-        "name": "Requesting permission using specific protocol phrases",
-        "rating": null
-      },
-      {
-        "name": "Carrying items in mouth as submissive gesture",
-        "rating": null
-      },
-      {
-        "name": "Crawling back with object to Dominant after retrieval",
-        "rating": null
-      },
-      {
-        "name": "Following via nipple leash as protocol or punishment",
-        "rating": null
-      },
-      {
-        "name": "Crawling assigned paths as ritual or obedience training",
-        "rating": null
-      },
-      {
-        "name": "Crawling rituals (e.g., object retrieval)",
-        "rating": null
-      },
-      {
-        "name": "Carrying objects in mouth as obedience",
-        "rating": null
-      },
-      {
-        "name": "Presenting tools or toys in posture",
-        "rating": null
-      },
-      {
-        "name": "Using honorifics or preset protocol language",
         "rating": null
       }
     ],
