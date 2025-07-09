@@ -534,7 +534,8 @@ function updateProgress() {
   progressBanner.style.display = 'block';
   const total = categoryOrder.length;
   const percent = (categoryIndex / total) * 100;
-  progressLabel.textContent = `Category ${categoryIndex + 1} of ${total}`;
+  const remaining = total - categoryIndex - 1;
+  progressLabel.textContent = `Category ${categoryIndex + 1} of ${total} (${remaining} left)`;
   progressFill.style.width = `${percent}%`;
 }
 
