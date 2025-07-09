@@ -255,6 +255,7 @@ const progressFill = document.getElementById('progressFill');
 const nextCategoryBtn = document.getElementById('nextCategoryBtn');
 const skipCategoryBtn = document.getElementById('skipCategoryBtn');
 const mainNavButtons = document.querySelector('.main-nav-buttons');
+const cancelSurveyBtn = document.getElementById('cancelSurveyBtn');
 
 function showRatingLegend(target) {
   const rect = target.getBoundingClientRect();
@@ -404,6 +405,9 @@ returnHomeBtn.addEventListener('click', () => {
   window.location.href = 'index.html';
 });
 if (homeBtn) homeBtn.addEventListener('click', () => {
+  window.location.href = 'index.html';
+});
+if (cancelSurveyBtn) cancelSurveyBtn.addEventListener('click', () => {
   window.location.href = 'index.html';
 });
 
