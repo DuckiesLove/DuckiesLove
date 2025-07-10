@@ -238,7 +238,7 @@ const saveSurveyBtn = document.getElementById('saveSurveyBtn');
 const returnHomeBtn = document.getElementById('returnHomeBtn');
 const homeBtn = document.getElementById('homeBtn');
 const buttonGroup = document.querySelector('.button-group');
-const categoryPreview = document.getElementById('categoryPreview');
+const categoryPanel = document.getElementById('category-panel');
 const previewList = document.getElementById('previewList');
 const selectAllBtn = document.getElementById('selectAllBtn');
 const deselectAllBtn = document.getElementById('deselectAllBtn');
@@ -305,7 +305,7 @@ function startNewSurvey() {
   if (homeBtn) homeBtn.style.display = 'block';
   if (mainNavButtons) mainNavButtons.style.display = 'none';
 
-  categoryPreview.style.display = 'flex';
+  categoryPanel.style.display = 'flex';
   const initialize = data => {
     surveyA = data;
     normalizeRatings(surveyA);
@@ -314,7 +314,7 @@ function startNewSurvey() {
     previewList.innerHTML = '';
     Object.keys(surveyA).forEach(cat => {
       const label = document.createElement('label');
-      label.className = 'category-option';
+      label.className = 'category-card';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.value = cat;
@@ -418,7 +418,7 @@ beginSurveyBtn.addEventListener('click', () => {
     .map(cb => cb.value);
   categoryIndex = 0;
   currentCategory = categoryOrder[0] || null;
-  categoryPreview.style.display = 'none';
+  categoryPanel.style.display = 'none';
   if (currentCategory) {
     showKinks(currentCategory);
     updateProgress();
