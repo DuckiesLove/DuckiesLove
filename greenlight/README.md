@@ -22,6 +22,9 @@ A private, local-submissive memory tracker and devotion log.
 - Add YouTube links with thumbnail preview
 - Record or upload voice memos for each card
 - Customizable label for video links (defaults to "YouTube Video")
+- Mark complete counter
+- Partner notes with initials and timestamp
+- Dual timezone shared moment scheduler
 
 ## Setup
 
