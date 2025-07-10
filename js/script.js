@@ -320,7 +320,7 @@ function startNewSurvey() {
     previewList.innerHTML = '';
     Object.keys(surveyA).forEach(cat => {
       const label = document.createElement('label');
-      label.className = 'category-card';
+      label.className = 'checkbox-item';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.value = cat;
