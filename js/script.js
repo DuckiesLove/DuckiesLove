@@ -469,6 +469,7 @@ beginSurveyBtn.addEventListener('click', () => {
   categoryOverlay.style.display = 'none';
   if (categoryOrder.length) {
     buildPanelLayout();
+    if (downloadBtn) downloadBtn.style.display = 'block';
   }
 });
 
