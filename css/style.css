@@ -1016,10 +1016,10 @@ body.light-mode .static-rating-legend {
 }
 /* Communication panel layout adjustments */
 #kinkList .kink-container {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 #kinkList .kink-label {
@@ -1042,10 +1042,10 @@ body.light-mode .static-rating-legend {
 }
 
 .panel-content .kink-container {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 .panel-content .kink-label {
   flex: 1;
