@@ -1,4 +1,5 @@
 import { calculateCompatibility } from './compatibility.js';
+import { initTheme } from './theme.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -303,4 +304,7 @@ if (downloadBtn) {
   });
 }
 
-document.addEventListener('DOMContentLoaded', loadSavedSurvey);
+document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  loadSavedSurvey();
+});
