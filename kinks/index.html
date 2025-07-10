@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Talk Kink</title>
-  <link rel="stylesheet" href="css/style.css" />
-  <link rel="stylesheet" href="css/theme.css" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/theme.css" />
 </head>
 <body class="dark-mode">
 
@@ -56,6 +56,9 @@
     <div class="content-panel">
       <div id="panelContainer" style="display:none;"></div>
       <div id="surveyContainer">
+        <div class="export-button-container">
+          <button id="downloadBtn" class="survey-button">Export My List</button>
+        </div>
         <h2 id="categoryTitle"></h2>
         <p id="categoryDescription" style="display:none;"></p>
         <div id="kinkList"></div>
@@ -207,10 +210,10 @@
 
     <!-- Compatibility button -->
     <div class="main-nav-buttons">
-      <button id="compatibilityBtn" class="survey-button" onclick="location.href='compatibility.html'">See Our Compatibility</button>
+      <button id="compatibilityBtn" class="survey-button" onclick="location.href='../compatibility.html'">See Our Compatibility</button>
       <button id="roleDefinitionsBtn" class="survey-button">Role Definitions</button>
-      <button id="roleResultsBtn" class="survey-button" onclick="location.href='your-roles.html'">View Role Results</button>
-      <button id="kinkListBtn" class="survey-button" onclick="location.href='kink-list.html'">View Kink List</button>
+      <button id="roleResultsBtn" class="survey-button" onclick="location.href='../your-roles.html'">View Role Results</button>
+      <button id="kinkListBtn" class="survey-button" onclick="location.href='../kink-list.html'">View Kink List</button>
       <a href="/greenlight/" class="survey-button">🌿 Open Ritual Tracker</a>
     </div>
   </div>
@@ -218,7 +221,7 @@
   </div>
 
   <!-- Script -->
-  <script src="js/template-survey.js"></script>
-  <script type="module" src="js/script.js"></script>
+  <script src="../js/template-survey.js"></script>
+  <script type="module" src="../js/script.js"></script>
 </body>
 </html>
