@@ -4,12 +4,20 @@ const addBtn = document.getElementById('add-category-btn');
 const presetMenu = document.getElementById('preset-menu');
 const presetButtons = document.querySelectorAll('#preset-menu .preset-option');
 const customOption = document.getElementById('custom-option');
+const undoContainer = document.getElementById('undo-container');
+const undoList = document.getElementById('undo-list');
 
 const STORAGE_KEY = 'greenlight-categories';
+const DELETED_KEY = 'greenlight-deleted';
 let categories = [];
+let deletedCategories = [];
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(categories));
+}
+
+function saveDeleted() {
+  localStorage.setItem(DELETED_KEY, JSON.stringify(deletedCategories));
 }
 
 function createForm(cat) {
@@ -37,8 +45,14 @@ function createForm(cat) {
   };
   label.appendChild(checkbox);
 
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.textContent = '✕';
+  deleteBtn.onclick = () => deleteCategory(cat.id);
+
   div.appendChild(input);
   div.appendChild(label);
+  div.appendChild(deleteBtn);
 
   return div;
 }
@@ -46,8 +60,68 @@ function createForm(cat) {
 function createCard(cat) {
   const div = document.createElement('div');
   div.className = 'category-card';
-  div.textContent = cat.name;
+  const span = document.createElement('span');
+  span.textContent = cat.name;
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = '✕';
+  deleteBtn.onclick = () => deleteCategory(cat.id);
+
+  div.appendChild(span);
+  div.appendChild(deleteBtn);
   return div;
+}
+
+function cleanupDeleted() {
+  const now = Date.now();
+  deletedCategories = deletedCategories.filter(c => now - c.deletedAt < 24 * 60 * 60 * 1000);
+  saveDeleted();
+}
+
+function renderUndo() {
+  cleanupDeleted();
+  undoList.innerHTML = '';
+  if (deletedCategories.length === 0) {
+    undoContainer.classList.add('hidden');
+    return;
+  }
+  undoContainer.classList.remove('hidden');
+  deletedCategories.forEach(cat => {
+    const div = document.createElement('div');
+    div.className = 'undo-item';
+    const span = document.createElement('span');
+    span.textContent = cat.name;
+    const btn = document.createElement('button');
+    btn.textContent = 'Undo';
+    btn.onclick = () => restoreCategory(cat.id);
+    div.appendChild(span);
+    div.appendChild(btn);
+    undoList.appendChild(div);
+  });
+}
+
+function restoreCategory(id) {
+  const idx = deletedCategories.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  const cat = deletedCategories.splice(idx, 1)[0];
+  delete cat.deletedAt;
+  categories.push(cat);
+  save();
+  saveDeleted();
+  render();
+  renderUndo();
+}
+
+function deleteCategory(id) {
+  const idx = categories.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  const cat = categories.splice(idx, 1)[0];
+  cat.deletedAt = Date.now();
+  deletedCategories.push(cat);
+  save();
+  saveDeleted();
+  render();
+  renderUndo();
 }
 
 function render() {
@@ -72,7 +146,17 @@ function load() {
       categories = [];
     }
   }
+  const delData = localStorage.getItem(DELETED_KEY);
+  if (delData) {
+    try {
+      deletedCategories = JSON.parse(delData);
+    } catch {
+      deletedCategories = [];
+    }
+  }
+  cleanupDeleted();
   render();
+  renderUndo();
 }
 
 function addCategory(name = '') {
