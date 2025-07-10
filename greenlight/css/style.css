@@ -1,8 +1,22 @@
+:root {
+  --bg-color: #1D2E28;
+  --card-bg: #14452F;
+  --text-color: #ffffff;
+  --accent-color: #2a9fd6;
+}
+
+.light-mode {
+  --bg-color: #ffffff;
+  --card-bg: #e0e0e0;
+  --text-color: #222222;
+  --accent-color: #006c9a;
+}
+
 body {
   margin: 0;
   font-family: 'Segoe UI', sans-serif;
-  background-color: #1D2E28;
-  color: #ffffff;
+  background-color: var(--bg-color);
+  color: var(--text-color);
 }
 
 input,
@@ -17,8 +31,18 @@ header {
   background-color: #0F5132;
   padding: 1rem;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
+#menu-btn,
+#dark-mode-toggle {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 1.5rem;
+}
 h1 {
   margin: 0;
 }
@@ -28,7 +52,7 @@ h1 {
 }
 
 .card {
-  background-color: #14452F;
+  background-color: var(--card-bg);
   padding: 1rem;
   border-radius: 1rem;
   margin-bottom: 1rem;
@@ -38,7 +62,7 @@ h1 {
   position: fixed;
   bottom: 30px;
   right: 30px;
-  background-color: #2a9fd6;
+  background-color: var(--accent-color);
   color: white;
   border: none;
   font-size: 2rem;
@@ -63,7 +87,7 @@ h1 {
 }
 
 .undo-item {
-  background-color: #623221;
+  background-color: var(--card-bg);
   padding: 0.5rem 1rem;
   border-radius: 1rem;
   margin-bottom: 0.5rem;
@@ -81,4 +105,34 @@ h1 {
   border: none;
   padding: 0.25rem 0.5rem;
   border-radius: 0.5rem;
+}
+
+.hidden {
+  display: none;
+}
+
+#menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 200px;
+  height: 100%;
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  padding: 1rem;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+}
+
+#menu ul {
+  list-style: none;
+  padding: 0;
+}
+
+#menu li {
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+
+#partner-notes {
+  padding: 1rem;
 }
