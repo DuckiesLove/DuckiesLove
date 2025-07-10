@@ -11,21 +11,6 @@ let cards = [];
 addBtn.onclick = () => modal.classList.remove('hidden');
 closeModal.onclick = () => modal.classList.add('hidden');
 
-function parseDuration(str) {
-  if (!str) return 0;
-  let total = 0;
-  const regex = /(\d+)\s*([smhd])/gi;
-  let m;
-  while ((m = regex.exec(str))) {
-    const val = parseInt(m[1]);
-    const unit = m[2].toLowerCase();
-    if (unit === 's') total += val * 1000;
-    if (unit === 'm') total += val * 60 * 1000;
-    if (unit === 'h') total += val * 60 * 60 * 1000;
-    if (unit === 'd') total += val * 24 * 60 * 60 * 1000;
-  }
-  return total;
-}
 
 function formatTime(ms) {
   const sec = Math.max(0, Math.floor(ms / 1000));
@@ -81,16 +66,6 @@ function createCard(card) {
   typeSel.value = card.timerType;
   typeSel.onchange = () => {
     card.timerType = typeSel.value;
-    saveCards();
-  };
-
-  const timerInput = document.createElement('input');
-  timerInput.className = 'ritual-timer';
-  timerInput.placeholder = 'e.g., 30m, 2h';
-  timerInput.value = card.inputText || '';
-  timerInput.onchange = () => {
-    card.inputText = timerInput.value;
-    card.duration = parseDuration(timerInput.value);
     saveCards();
   };
 
@@ -203,7 +178,6 @@ function createCard(card) {
   el.appendChild(title);
   el.appendChild(categoryInput);
   el.appendChild(typeSel);
-  el.appendChild(timerInput);
   el.appendChild(timerDisplay);
   el.appendChild(completeTime);
   el.appendChild(complete);
@@ -217,7 +191,7 @@ function createCard(card) {
     const now = Date.now();
     let diff = 0;
     if (card.timerType === 'left') {
-      diff = card.duration - (now - card.lastCompleted);
+      diff = card.lastCompleted - now;
     } else {
       diff = now - card.lastCompleted;
     }
@@ -232,8 +206,6 @@ function addRitual(name = 'New Ritual') {
     id: Date.now(),
     title: name,
     timerType: 'left',
-    inputText: '',
-    duration: 0,
     lastCompleted: Date.now(),
     youtubeLink: '',
     audios: [],
