@@ -8,6 +8,15 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="password-overlay" class="password-overlay">
+    <div class="password-box">
+      <label for="password-input">Password:</label>
+      <input type="password" id="password-input" />
+      <button onclick="checkPassword()">Unlock</button>
+      <p id="password-error" style="display:none;color:red;">Incorrect password</p>
+    </div>
+  </div>
+
   <h1>Beneath the Greenlight</h1>
   <p class="section-desc">Devotion Tracker</p>
 

@@ -1,3 +1,33 @@
+const PASSWORD = "Duckies";
+
+function showPasswordOverlay() {
+  const overlay = document.getElementById("password-overlay");
+  if (overlay) overlay.style.display = "flex";
+}
+
+function checkPassword() {
+  const value = document.getElementById("password-input").value;
+  if (value === PASSWORD) {
+    localStorage.setItem("greenlightUnlocked", "true");
+    document.getElementById("password-overlay").style.display = "none";
+    initApp();
+  } else {
+    document.getElementById("password-error").style.display = "block";
+  }
+}
+
+function initApp() {
+  const container = document.getElementById("tracker-container");
+  subjects.forEach((subject, i) =>
+    container.appendChild(createCard(i, subject))
+  );
+
+  if (localStorage.getItem("theme") === "dark") {
+    document.body.classList.add("dark");
+    document.getElementById("theme-toggle").checked = true;
+  }
+}
+
 const subjects = [
   "Braiding", "Reading", "Videos to Watch", "Service & Protocol", "Tasks Today",
   "Shibari Practice", "Dom’s Assigned Task", "Bathing / Grooming",
@@ -82,11 +112,9 @@ function dropCard(e) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const container = document.getElementById("tracker-container");
-  subjects.forEach((subject, i) => container.appendChild(createCard(i, subject)));
-
-  if (localStorage.getItem("theme") === "dark") {
-    document.body.classList.add("dark");
-    document.getElementById("theme-toggle").checked = true;
+  if (localStorage.getItem("greenlightUnlocked") === "true") {
+    initApp();
+  } else {
+    showPasswordOverlay();
   }
 });
