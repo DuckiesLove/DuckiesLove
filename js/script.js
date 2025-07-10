@@ -1,5 +1,6 @@
 import { calculateCompatibility } from './compatibility.js';
 import { pruneSurvey } from './pruneSurvey.js';
+import { initTheme } from './theme.js';
 
 // ================== Password Protection ==================
 const PASSWORD = 'toopoortosue';
@@ -24,22 +25,7 @@ function setupPasswordProtection(callback) {
   };
 }
 
-// ================== Theme Setup ==================
-function initTheme() {
-  const themeSelector = document.getElementById('themeSelector');
-  const savedTheme = localStorage.getItem('selectedTheme') || 'dark-mode';
-  document.body.className = savedTheme;
-  if (themeSelector) {
-    themeSelector.value = savedTheme;
-    themeSelector.addEventListener('change', function () {
-      const selectedTheme = themeSelector.value;
-      document.body.className = selectedTheme;
-      localStorage.setItem('selectedTheme', selectedTheme);
-    });
-  }
-}
-
-
+// ================== Theme Setup (handled in theme.js) ==================
 // ================== Tab Switching ==================
 let currentAction = 'Giving';
 const ACTION_LABELS = {

@@ -1,0 +1,64 @@
+:root {
+  --bg-color: #1a1a2e;
+  --panel-color: #292b3d;
+  --text-color: #f0f0f0;
+  --button-bg: #444;
+  --button-text: #ffffff;
+  --button-hover-bg: #666;
+}
+
+.theme-lightforest,
+.light-mode {
+  --bg-color: #c3cfc4;
+  --panel-color: #e9f1ec;
+  --text-color: #1b2a1a;
+  --button-bg: #558c75;
+  --button-text: #ffffff;
+  --button-hover-bg: #446d60;
+}
+
+.theme-darkviolet,
+.dark-mode {
+  --bg-color: #1a1a2e;
+  --panel-color: #292b3d;
+  --text-color: #f0f0f0;
+  --button-bg: #7c5fe9;
+  --button-text: #ffffff;
+  --button-hover-bg: #9b84ff;
+}
+
+.theme-blue {
+  --bg-color: #001933;
+  --panel-color: #002244;
+  --text-color: #ffffff;
+  --button-bg: #0055aa;
+  --button-text: #ffffff;
+  --button-hover-bg: #003377;
+}
+
+.theme-echoes-beyond {
+  --bg-color: #14213d;
+  --panel-color: #1b263b;
+  --text-color: #fca311;
+  --button-bg: #334863;
+  --button-text: #fca311;
+  --button-hover-bg: #1f3352;
+}
+
+.theme-love-notes-lipstick {
+  --bg-color: #311847;
+  --panel-color: #3f206b;
+  --text-color: #ff6bd6;
+  --button-bg: #ff6bd6;
+  --button-text: #311847;
+  --button-hover-bg: #c44fb0;
+}
+
+.theme-rainbow {
+  --bg-color: #ffffff;
+  --panel-color: #ffffff;
+  --text-color: #000000;
+  --button-bg: rgba(255, 255, 255, 0.9);
+  --button-text: #000000;
+  --button-hover-bg: rgba(255, 255, 255, 0.7);
+}
