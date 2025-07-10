@@ -21,15 +21,15 @@
   <p class="section-desc">Devotion Tracker</p>
 
   <div class="toolbar">
-    <label for="sort-method">Sort:</label>
-    <select id="sort-method" onchange="sortCards()">
+    <label for="sort-method" class="toggle-label">Sort:</label>
+    <select id="sort-method" class="sort-select" onchange="sortCards()">
       <option value="default">Default</option>
       <option value="alphabetical">A–Z</option>
       <option value="lastdone">Last Done</option>
     </select>
 
-    <label for="theme-toggle">Dark Mode:</label>
-    <input type="checkbox" id="theme-toggle" onchange="toggleTheme()" />
+    <label for="theme-toggle" class="toggle-label">Dark Mode:</label>
+    <input type="checkbox" id="theme-toggle" class="toggle-input" onchange="toggleTheme()" />
   </div>
 
   <div class="tracker-container" id="tracker-container">
