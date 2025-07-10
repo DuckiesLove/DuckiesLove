@@ -1,105 +1,88 @@
+
 body {
+  margin: 0;
   font-family: 'Segoe UI', sans-serif;
   background-color: #1D2E28;
-  margin: 0;
-  padding: 2em;
   color: #ffffff;
-  transition: background-color 0.3s, color 0.3s;
 }
-body.dark {
-  background-color: #1e1e1e;
-  color: #aaccee;
+header {
+  background-color: #0F5132;
+  padding: 1rem;
+  text-align: center;
 }
 h1 {
-  color: #0F5132;
-}
-.section-desc {
-  color: #0F5132;
-  margin-bottom: 1.5em;
-}
-.tracker-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1em;
-}
-.tracker-card {
-  border: 2px solid #33ccff;
-  border-radius: 10px;
-  background-color: #1D2E28;
-  color: white;
-  padding: 1em;
-  box-shadow: 0 2px 4px rgba(58, 124, 165, 0.1);
-  width: calc(100% - 2em);
-  max-width: 320px;
-  display: flex;
-  flex-direction: column;
-}
-.tracker-title {
-  font-size: 1.1em;
-  margin-bottom: 0.5em;
-  border: none;
-  border-bottom: 1px solid #33ccff;
-  background: none;
-  color: #0F5132;
-  font-weight: 700;
-}
-textarea.notes {
-  margin-top: 0.5em;
-  padding: 0.5em;
-  font-size: 1em;
-  border-radius: 8px;
-  background-color: #1D2E28;
-  border: 1px solid #3399ff;
+  margin: 0;
   color: #ffffff;
-  resize: vertical;
 }
-button.mark-done {
-  margin-top: 0.8em;
-  padding: 0.5em;
-  background-color: #18392B;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+#content {
+  padding: 2rem;
 }
-button.mark-done:hover {
-  box-shadow: 0 0 8px #0F5132;
+.empty-state {
+  color: #cccccc;
+  text-align: center;
+  margin-top: 5rem;
 }
-.toolbar {
-  display: flex;
-  gap: 1em;
-  margin-bottom: 1em;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.toggle-label,
-.sort-select {
-  color: #0A5C36;
-}
-
-.toggle-input:checked + .toggle-slider {
-  background-color: #14452F;
-}
-
-.password-overlay {
+#addBtn {
   position: fixed;
-  inset: 0;
-  background-color: rgba(230, 245, 234, 0.95);
+  bottom: 30px;
+  right: 30px;
+  background-color: #2a9fd6;
+  color: white;
+  border: none;
+  font-size: 2rem;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  box-shadow: 0px 0px 10px #14452F;
+}
+#modal.hidden {
   display: none;
-  align-items: center;
-  justify-content: center;
 }
-body.dark .password-overlay {
-  background-color: rgba(30, 30, 30, 0.95);
-}
-.password-box {
+#modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0,0,0,0.7);
   display: flex;
-  flex-direction: column;
-  gap: 0.5em;
+  justify-content: center;
+  align-items: center;
 }
-.password-box input {
-  padding: 0.5em;
-  border-radius: 4px;
-  border: 1px solid #3a7ca5;
+.modal-content {
+  background-color: #14452F;
+  padding: 2rem;
+  border-radius: 1rem;
+  width: 80%;
+  max-width: 500px;
+  position: relative;
+}
+.modal-content h2 {
+  margin-top: 0;
+}
+.modal-content p {
+  margin-bottom: 0.5rem;
+}
+.preset-buttons button {
+  background-color: #0A5C36;
+  color: white;
+  border: none;
+  margin: 0.3rem;
+  padding: 0.6rem 1rem;
+  border-radius: 1rem;
+}
+#customBtn {
+  background-color: #2a9fd6;
+  border: none;
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 1rem;
+  color: #fff;
+  font-weight: bold;
+}
+#closeModal {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  color: white;
+  font-size: 1.5rem;
+  border: none;
 }

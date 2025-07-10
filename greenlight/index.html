@@ -1,39 +1,36 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Beneath the Greenlight</title>
-  <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="password-overlay" class="password-overlay">
-    <div class="password-box">
-      <label for="password-input">Password:</label>
-      <input type="password" id="password-input" />
-      <button onclick="checkPassword()">Unlock</button>
-      <p id="password-error" style="display:none;color:red;">Incorrect password</p>
+  <header>
+    <h1>🌿 Beneath the Greenlight</h1>
+  </header>
+  <main id="content">
+    <p class="empty-state">No rituals yet. Tap the + button to begin your devotion.</p>
+  </main>
+  <button id="addBtn">+</button>
+
+  <div id="modal" class="hidden">
+    <div class="modal-content">
+      <h2>Add Ritual</h2>
+      <p>Popular Rituals</p>
+      <div class="preset-buttons">
+        <button>Braiding</button>
+        <button>Service</button>
+        <button>Reading</button>
+        <button>Gratefulness</button>
+        <button>Aftercare</button>
+        <button>Quiet Time</button>
+      </div>
+      <button id="customBtn">Add Custom Ritual</button>
+      <button id="closeModal">×</button>
     </div>
-  </div>
-
-  <h1>Beneath the Greenlight</h1>
-  <p class="section-desc">Devotion Tracker</p>
-
-  <div class="toolbar">
-    <label for="sort-method" class="toggle-label">Sort:</label>
-    <select id="sort-method" class="sort-select" onchange="sortCards()">
-      <option value="default">Default</option>
-      <option value="alphabetical">A–Z</option>
-      <option value="lastdone">Last Done</option>
-    </select>
-
-    <label for="theme-toggle" class="toggle-label">Dark Mode:</label>
-    <input type="checkbox" id="theme-toggle" class="toggle-input" onchange="toggleTheme()" />
-  </div>
-
-  <div class="tracker-container" id="tracker-container">
-    <!-- Cards will load here -->
   </div>
 
   <script src="script.js"></script>
