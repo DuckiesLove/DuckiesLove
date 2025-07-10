@@ -1016,14 +1016,14 @@ body.light-mode .static-rating-legend {
 }
 /* Communication panel layout adjustments */
 #kinkList .kink-container {
-  margin-bottom: 4px;
-  display: flex;
+  margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  column-gap: 16px;
   align-items: center;
-  gap: 6px;
 }
 
 #kinkList .kink-label {
-  flex: 1;
   margin-bottom: 0;
 }
 
@@ -1042,13 +1042,13 @@ body.light-mode .static-rating-legend {
 }
 
 .panel-content .kink-container {
-  margin-bottom: 4px;
-  display: flex;
+  margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  column-gap: 16px;
   align-items: center;
-  gap: 6px;
 }
 .panel-content .kink-label {
-  flex: 1;
   margin-bottom: 0;
 }
 .panel-content select {
@@ -1063,6 +1063,12 @@ body.light-mode .static-rating-legend {
 @media (max-width: 600px) {
   #kinkList textarea {
     max-width: 100%;
+  }
+
+  #kinkList .kink-container,
+  .panel-content .kink-container {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
   }
 }
 
