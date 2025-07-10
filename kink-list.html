@@ -15,6 +15,7 @@
     <div class="button-container">
       <button id="uploadButton" class="survey-button">Generate Kink Data</button>
       <button id="downloadButton" class="survey-button" disabled>Download List</button>
+      <button id="downloadSurveyBtn" class="survey-button" disabled>Download Survey Data</button>
     </div>
   </div>
   <input type="file" id="listFile" hidden />
@@ -73,6 +74,7 @@
 
     const uploadBtn = document.getElementById('uploadButton');
     const downloadBtn = document.getElementById('downloadButton');
+    const downloadSurveyBtn = document.getElementById('downloadSurveyBtn');
     const fileInput = document.getElementById('listFile');
     let currentSurvey = null;
 
@@ -89,6 +91,7 @@
             mergeSurveyWithTemplate(survey, window.templateSurvey);
             currentSurvey = survey;
             downloadBtn.disabled = false;
+            downloadSurveyBtn.disabled = false;
             showList(survey);
           } catch {
             document.getElementById('listOutput').textContent = 'Invalid file.';
@@ -101,6 +104,21 @@
       if (!currentSurvey) return;
       const results = flattenSurvey(currentSurvey);
       generateKinkPDF(results);
+    });
+
+    downloadSurveyBtn.addEventListener('click', () => {
+      if (!currentSurvey) return;
+      const exportObj = { survey: currentSurvey };
+      const blob = new Blob([JSON.stringify(exportObj, null, 2)], {
+        type: 'application/json'
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      link.download = `kink-survey-${ts}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
     });
 
     function showList(survey) {
