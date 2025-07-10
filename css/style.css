@@ -625,6 +625,62 @@ body.light-mode #categoryPanel {
   padding: 20px;
 }
 
+/* Panel Survey Layout */
+.panel-container {
+  max-width: 750px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.expandable-panel {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.expandable-panel summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-weight: bold;
+  list-style: none;
+}
+
+.expandable-panel[open] .panel-content {
+  padding: 16px;
+  animation: fadeSlide 0.3s ease;
+}
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+body.dark-mode .expandable-panel summary {
+  background-color: #333;
+  color: #f5f5f5;
+}
+body.light-mode .expandable-panel summary {
+  background-color: #a9b8a9;
+  color: #2f4f2f;
+}
+body.theme-blue .expandable-panel summary {
+  background-color: #003366;
+  color: #fff;
+}
+body.theme-echoes-beyond .expandable-panel summary {
+  background-color: #2b314c;
+  color: #fca311;
+}
+body.theme-love-notes-lipstick .expandable-panel summary {
+  background-color: #562b88;
+  color: #ff6bd6;
+}
+body.theme-rainbow .expandable-panel summary {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #000;
+}
+
 /* Micro-Animations */
 .fade-in {
   animation: fadeIn 0.3s ease-in-out;
