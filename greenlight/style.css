@@ -67,3 +67,25 @@ button {
   align-items: center;
   flex-wrap: wrap;
 }
+
+.password-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(242, 247, 244, 0.95);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+body.dark .password-overlay {
+  background-color: rgba(30, 30, 30, 0.95);
+}
+.password-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+.password-box input {
+  padding: 0.5em;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
