@@ -4,23 +4,25 @@ import { pruneSurvey } from './pruneSurvey.js';
 // ================== Password Protection ==================
 const PASSWORD = 'toopoortosue';
 
-function setupPasswordProtection() {
-  if (sessionStorage.getItem('authenticated') === 'true') return;
+function setupPasswordProtection(callback) {
   const overlay = document.getElementById('passwordOverlay');
+  if (sessionStorage.getItem('authenticated') === 'true') {
+    if (overlay) overlay.style.display = 'none';
+    if (typeof callback === 'function') callback();
+    return;
+  }
   overlay.style.display = 'flex';
   document.getElementById('passwordSubmit').onclick = () => {
     const val = document.getElementById('passwordInput').value;
     if (val === PASSWORD) {
       sessionStorage.setItem('authenticated', 'true');
       overlay.style.display = 'none';
+      if (typeof callback === 'function') callback();
     } else {
       alert('Incorrect password');
     }
   };
 }
-
-
-setupPasswordProtection();
 
 // ================== Theme Setup ==================
 function initTheme() {
@@ -710,15 +712,13 @@ switchTab('Giving');
 function init() {
   initTheme();
   document.querySelectorAll('button').forEach(attachRipple);
-  if (surveyIntro) {
-    surveyIntro.style.display = 'flex';
-  }
+  startNewSurvey();
 }
 
 if (document.readyState !== 'loading') {
-  init();
+  setupPasswordProtection(init);
 } else {
-  window.addEventListener('DOMContentLoaded', init);
+  window.addEventListener('DOMContentLoaded', () => setupPasswordProtection(init));
 }
 
 
