@@ -498,7 +498,7 @@ body.theme-rainbow #comparisonResult {
 }
 
 #surveyIntro .intro-modal,
-#category-panel {
+#categoryPanel {
   background-color: #1e1e2f;
   padding: 20px;
   border-radius: 8px;
@@ -507,6 +507,9 @@ body.theme-rainbow #comparisonResult {
   flex-direction: column;
   gap: 10px;
   align-items: center;
+  width: 90%;
+  max-width: 400px;
+  box-sizing: border-box;
 }
 
 .scroll-container,
@@ -595,7 +598,7 @@ body.light-mode .password-modal {
   color: #2f4f2f;
 }
 body.light-mode #surveyIntro .intro-modal,
-body.light-mode #category-panel {
+body.light-mode #categoryPanel {
   background-color: #fff;
   color: #2f4f2f;
 }
