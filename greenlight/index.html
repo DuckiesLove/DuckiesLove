@@ -21,14 +21,20 @@
       <h2>Add Ritual</h2>
       <p>Popular Rituals</p>
       <div class="preset-buttons">
-        <button>Braiding</button>
-        <button>Service</button>
-        <button>Reading</button>
-        <button>Gratefulness</button>
-        <button>Aftercare</button>
-        <button>Quiet Time</button>
+        <button data-title="Braiding">Braiding</button>
+        <button data-title="Service">Service</button>
+        <button data-title="Reading">Reading</button>
+        <button data-title="Gratefulness">Gratefulness</button>
+        <button data-title="Aftercare">Aftercare</button>
+        <button data-title="Quiet Time">Quiet Time</button>
       </div>
-      <button id="customBtn">Add Custom Ritual</button>
+      <form id="ritualForm">
+        <input id="ritualTitle" placeholder="Title" />
+        <textarea id="ritualNotes" placeholder="Notes"></textarea>
+        <input id="ritualVideo" type="url" placeholder="Video URL" />
+        <input id="ritualFiles" type="file" accept="image/*,audio/*" multiple />
+        <button type="submit" id="saveRitualBtn">Save Ritual</button>
+      </form>
       <button id="closeModal">×</button>
     </div>
   </div>
