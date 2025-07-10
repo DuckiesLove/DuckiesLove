@@ -1018,12 +1018,13 @@ body.light-mode .static-rating-legend {
 #kinkList .kink-container {
   margin-bottom: 20px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 #kinkList .kink-label {
-  display: block;
-  margin-bottom: 6px;
+  flex: 1;
+  margin-bottom: 0;
 }
 
 #kinkList textarea {
@@ -1037,8 +1038,21 @@ body.light-mode .static-rating-legend {
 }
 
 #kinkList select {
-  margin: 0 auto;
-  display: inline-block;
+  margin: 0;
+}
+
+.panel-content .kink-container {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.panel-content .kink-label {
+  flex: 1;
+  margin-bottom: 0;
+}
+.panel-content select {
+  margin: 0;
 }
 
 @media (max-width: 600px) {

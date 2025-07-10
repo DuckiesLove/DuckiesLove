@@ -26,13 +26,6 @@ function setupPasswordProtection(callback) {
 }
 
 // ================== Theme Setup (handled in theme.js) ==================
-// ================== Tab Switching ==================
-let currentAction = 'Giving';
-const ACTION_LABELS = {
-  Giving: 'Giving',
-  Receiving: 'Receiving',
-  General: 'Non-Specific Role'
-};
 const RATING_MAX = 5;
 const RATING_LABELS = {
   0: 'Hard No',
@@ -70,48 +63,7 @@ function attachRipple(btn) {
   btn.addEventListener('click', createRipple);
 }
 
-function updateTabsForCategory() {
-  const generalTab = document.getElementById('generalTab');
-  if (!surveyA) {
-    generalTab.style.display = 'none';
-    return;
-  }
-
-  const hasGeneral = Object.values(surveyA).some(
-    cat => Array.isArray(cat.General) && cat.General.length > 0
-  );
-
-  if (hasGeneral) {
-    generalTab.style.display = 'block';
-    generalTab.classList.remove('disabled');
-    generalTab.title = '';
-  } else {
-    generalTab.style.display = 'none';
-    if (currentAction === 'General') switchTab('Giving');
-  }
-}
-
-function switchTab(action) {
-  currentAction = action;
-  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-  const tabEl = document.getElementById(`${action.toLowerCase()}Tab`);
-  if (tabEl) tabEl.classList.add('active');
-  const cats = showCategories();
-  if (!cats.includes(currentCategory)) {
-    currentCategory = null;
-  }
-  if (currentCategory) {
-    showKinks(currentCategory);
-  } else {
-    kinkList.innerHTML = '';
-    categoryTitle.textContent = '';
-  }
-  applyAnimation(kinkList, 'fade-in');
-}
-
-document.getElementById('givingTab').onclick = () => switchTab('Giving');
-document.getElementById('receivingTab').onclick = () => switchTab('Receiving');
-document.getElementById('generalTab').onclick = () => switchTab('General');
+function updateTabsForCategory() {}
 
 // ================== Survey Logic ==================
 let surveyA = null;
@@ -277,6 +229,88 @@ function hideRolePanel() {
   roleDefinitionsPanel.classList.remove('visible');
   roleDefinitionsPanel.style.display = 'none';
   roleDefinitionsOverlay.style.display = 'none';
+}
+
+function getUnifiedItems(catData) {
+  const map = new Map();
+  ['Giving', 'Receiving', 'General'].forEach(role => {
+    (catData[role] || []).forEach(it => {
+      const key = it.name.trim().toLowerCase();
+      let obj = map.get(key);
+      if (!obj) {
+        obj = { name: it.name, catData };
+        map.set(key, obj);
+      }
+      obj[role] = it;
+      if (typeof it.rating === 'number') obj.rating = it.rating;
+      if (it.type) obj.type = it.type;
+      if (it.options) obj.options = it.options;
+      if (it.roles) obj.roles = it.roles;
+    });
+  });
+  map.forEach(obj => {
+    if (obj.Giving && obj.Receiving) obj.orientation = 'Both';
+    else if (obj.Giving) obj.orientation = 'Giving';
+    else if (obj.Receiving) obj.orientation = 'Receiving';
+    else if (obj.General) obj.orientation = 'Both';
+    else obj.orientation = '';
+    if (obj.rating === undefined) obj.rating = null;
+  });
+  return Array.from(map.values());
+}
+
+function setItemOrientation(info, val) {
+  const cd = info.catData;
+  const remove = (arr, obj) => {
+    const idx = arr.indexOf(obj);
+    if (idx > -1) arr.splice(idx, 1);
+  };
+  if (info.Giving) remove(cd.Giving, info.Giving);
+  if (info.Receiving) remove(cd.Receiving, info.Receiving);
+  if (info.General) remove(cd.General, info.General);
+  info.Giving = info.Receiving = info.General = null;
+  info.orientation = val;
+  if (val === 'Giving') {
+    const o = { name: info.name, rating: info.rating };
+    if (info.type) o.type = info.type;
+    if (info.options) o.options = info.options;
+    if (info.roles) o.roles = info.roles;
+    cd.Giving.push(o);
+    info.Giving = o;
+  } else if (val === 'Receiving') {
+    const o = { name: info.name, rating: info.rating };
+    if (info.type) o.type = info.type;
+    if (info.options) o.options = info.options;
+    if (info.roles) o.roles = info.roles;
+    cd.Receiving.push(o);
+    info.Receiving = o;
+  } else if (val === 'Both') {
+    const o1 = { name: info.name, rating: info.rating };
+    const o2 = { name: info.name, rating: info.rating };
+    if (info.type) {
+      o1.type = info.type;
+      o2.type = info.type;
+    }
+    if (info.options) {
+      o1.options = info.options;
+      o2.options = info.options;
+    }
+    if (info.roles) {
+      o1.roles = info.roles;
+      o2.roles = info.roles;
+    }
+    cd.Giving.push(o1);
+    cd.Receiving.push(o2);
+    info.Giving = o1;
+    info.Receiving = o2;
+  }
+}
+
+function setItemRating(info, val) {
+  info.rating = val;
+  if (info.Giving) info.Giving.rating = val;
+  if (info.Receiving) info.Receiving.rating = val;
+  if (info.General) info.General.rating = val;
 }
 
 
@@ -512,91 +546,60 @@ function showKinks(category) {
   surveyContainer.style.display = 'block';
   finalScreen.style.display = 'none';
   const categoryData = surveyA[category];
-  updateTabsForCategory();
   updateProgress();
-  const kinks = categoryData?.[currentAction];
-  if (!kinks || kinks.length === 0) {
+  const items = getUnifiedItems(categoryData).filter(shouldDisplayItem);
+  if (!items.length) {
     kinkList.textContent = 'No items here.';
     return;
   }
 
-  const visible = kinks.filter(shouldDisplayItem);
-
-  visible.forEach(kink => {
+  items.forEach(info => {
     const container = document.createElement('div');
     container.classList.add('kink-container');
 
     const label = document.createElement('span');
     label.classList.add('kink-label');
-    label.textContent = kink.name + ':';
+    label.textContent = info.name;
     container.appendChild(label);
 
-    if (kink.type === 'text') {
-      const textarea = document.createElement('textarea');
-      textarea.value = kink.value || '';
-      textarea.oninput = () => {
-        kink.value = textarea.value;
-      };
-      container.appendChild(textarea);
-    } else if (kink.type === 'multi') {
-      kink.value = Array.isArray(kink.value) ? kink.value : [];
-      kink.options.forEach(optText => {
-        const lbl = document.createElement('label');
-        lbl.style.marginRight = '8px';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = optText;
-        cb.checked = kink.value.includes(optText);
-        cb.onchange = () => {
-          if (cb.checked) {
-            if (!kink.value.includes(optText)) kink.value.push(optText);
-          } else {
-            kink.value = kink.value.filter(v => v !== optText);
-          }
-      };
-        lbl.appendChild(cb);
-        lbl.append(' ' + optText);
-        container.appendChild(lbl);
-      });
-    } else if (kink.type === 'dropdown') {
-      const select = document.createElement('select');
-      const empty = document.createElement('option');
-      empty.value = '';
-      empty.textContent = '—';
-      select.appendChild(empty);
-      kink.options.forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = o;
-        opt.textContent = o;
-        if (kink.value === o) opt.selected = true;
-        select.appendChild(opt);
-      });
-      select.onchange = () => {
-        kink.value = select.value;
-      };
-      container.appendChild(select);
-    } else {
-      const select = document.createElement('select');
-      const empty = document.createElement('option');
-      empty.value = '';
-      empty.textContent = '—';
-      select.appendChild(empty);
-      for (let i = 0; i <= RATING_MAX; i++) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = `${i} - ${RATING_LABELS[i]}`;
-        if (kink.rating == i) opt.selected = true;
-        select.appendChild(opt);
-      }
-      select.onchange = () => {
-        kink.rating = select.value === '' ? null : Number(select.value);
-      };
-      select.addEventListener('focus', () => showRatingLegend(select));
-      select.addEventListener('blur', hideRatingLegend);
-      select.addEventListener('mouseenter', () => showRatingLegend(select));
-      select.addEventListener('mouseleave', hideRatingLegend);
-      container.appendChild(select);
+    const roleSelect = document.createElement('select');
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '—';
+    roleSelect.appendChild(blank);
+    ['Giving', 'Receiving', 'Both'].forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = r;
+      if (info.orientation === r) opt.selected = true;
+      roleSelect.appendChild(opt);
+    });
+    roleSelect.onchange = () => {
+      setItemOrientation(info, roleSelect.value);
+    };
+    container.appendChild(roleSelect);
+
+    const ratingSelect = document.createElement('select');
+    const blankR = document.createElement('option');
+    blankR.value = '';
+    blankR.textContent = '—';
+    ratingSelect.appendChild(blankR);
+    for (let i = 0; i <= RATING_MAX; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${i} - ${RATING_LABELS[i]}`;
+      if (info.rating == i) opt.selected = true;
+      ratingSelect.appendChild(opt);
     }
+    ratingSelect.onchange = () => {
+      const val = ratingSelect.value === '' ? null : Number(ratingSelect.value);
+      setItemRating(info, val);
+    };
+    ratingSelect.addEventListener('focus', () => showRatingLegend(ratingSelect));
+    ratingSelect.addEventListener('blur', hideRatingLegend);
+    ratingSelect.addEventListener('mouseenter', () => showRatingLegend(ratingSelect));
+    ratingSelect.addEventListener('mouseleave', hideRatingLegend);
+    container.appendChild(ratingSelect);
 
     kinkList.appendChild(container);
   });
@@ -638,85 +641,56 @@ function skipCategory() {
 
 function renderPanelKinks(container, category) {
   const categoryData = surveyA[category];
-  const kinks = categoryData?.[currentAction];
-  if (!kinks || kinks.length === 0) {
+  const items = getUnifiedItems(categoryData).filter(shouldDisplayItem);
+  if (!items.length) {
     container.textContent = 'No items here.';
     return;
   }
-  const visible = kinks.filter(shouldDisplayItem);
-  visible.forEach(kink => {
+  items.forEach(info => {
     const div = document.createElement('div');
     div.classList.add('kink-container');
     const label = document.createElement('span');
     label.classList.add('kink-label');
-    label.textContent = kink.name + ':';
+    label.textContent = info.name;
     div.appendChild(label);
-    if (kink.type === 'text') {
-      const textarea = document.createElement('textarea');
-      textarea.value = kink.value || '';
-      textarea.oninput = () => {
-        kink.value = textarea.value;
-      };
-      div.appendChild(textarea);
-    } else if (kink.type === 'multi') {
-      kink.value = Array.isArray(kink.value) ? kink.value : [];
-      kink.options.forEach(optText => {
-        const lbl = document.createElement('label');
-        lbl.style.marginRight = '8px';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = optText;
-        cb.checked = kink.value.includes(optText);
-        cb.onchange = () => {
-          if (cb.checked) {
-            if (!kink.value.includes(optText)) kink.value.push(optText);
-          } else {
-            kink.value = kink.value.filter(v => v !== optText);
-          }
-        };
-        lbl.appendChild(cb);
-        lbl.append(' ' + optText);
-        div.appendChild(lbl);
-      });
-    } else if (kink.type === 'dropdown') {
-      const select = document.createElement('select');
-      const empty = document.createElement('option');
-      empty.value = '';
-      empty.textContent = '—';
-      select.appendChild(empty);
-      kink.options.forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = o;
-        opt.textContent = o;
-        if (kink.value === o) opt.selected = true;
-        select.appendChild(opt);
-      });
-      select.onchange = () => {
-        kink.value = select.value;
-      };
-      div.appendChild(select);
-    } else {
-      const select = document.createElement('select');
-      const empty = document.createElement('option');
-      empty.value = '';
-      empty.textContent = '—';
-      select.appendChild(empty);
-      for (let i = 0; i <= RATING_MAX; i++) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = `${i} - ${RATING_LABELS[i]}`;
-        if (kink.rating == i) opt.selected = true;
-        select.appendChild(opt);
-      }
-      select.onchange = () => {
-        kink.rating = select.value === '' ? null : Number(select.value);
-      };
-      select.addEventListener('focus', () => showRatingLegend(select));
-      select.addEventListener('blur', hideRatingLegend);
-      select.addEventListener('mouseenter', () => showRatingLegend(select));
-      select.addEventListener('mouseleave', hideRatingLegend);
-      div.appendChild(select);
+
+    const roleSelect = document.createElement('select');
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '—';
+    roleSelect.appendChild(blank);
+    ['Giving', 'Receiving', 'Both'].forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = r;
+      if (info.orientation === r) opt.selected = true;
+      roleSelect.appendChild(opt);
+    });
+    roleSelect.onchange = () => setItemOrientation(info, roleSelect.value);
+    div.appendChild(roleSelect);
+
+    const ratingSelect = document.createElement('select');
+    const blankR = document.createElement('option');
+    blankR.value = '';
+    blankR.textContent = '—';
+    ratingSelect.appendChild(blankR);
+    for (let i = 0; i <= RATING_MAX; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${i} - ${RATING_LABELS[i]}`;
+      if (info.rating == i) opt.selected = true;
+      ratingSelect.appendChild(opt);
     }
+    ratingSelect.onchange = () => {
+      const val = ratingSelect.value === '' ? null : Number(ratingSelect.value);
+      setItemRating(info, val);
+    };
+    ratingSelect.addEventListener('focus', () => showRatingLegend(ratingSelect));
+    ratingSelect.addEventListener('blur', hideRatingLegend);
+    ratingSelect.addEventListener('mouseenter', () => showRatingLegend(ratingSelect));
+    ratingSelect.addEventListener('mouseleave', hideRatingLegend);
+    div.appendChild(ratingSelect);
+
     container.appendChild(div);
   });
 }
@@ -834,7 +808,6 @@ if (compareBtn) compareBtn.addEventListener('click', () => {
 });
 
 // ================== Start ==================
-switchTab('Giving');
 
 function init() {
   initTheme();
