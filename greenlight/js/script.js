@@ -1,30 +1,49 @@
+// DOM Elements
 const container = document.getElementById('cards-container');
-const addBtn = document.getElementById('add-card');
+const addBtn = document.getElementById('add-card') || document.getElementById('add-category-btn');
 const localTime = document.getElementById('local-time');
 const partnerOffset = document.getElementById('partner-offset');
 const partnerTime = document.getElementById('partner-time');
+const undoContainer = document.getElementById('undo-container');
+const undoList = document.getElementById('undo-list');
 
+// Storage Keys
 const STORAGE_KEY = 'greenlight-cards';
+const DELETED_KEY = 'greenlight-deleted';
+
+// State
 let cards = [];
+let deletedCards = [];
 
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
-}
-
-function load() {
-  const data = localStorage.getItem(STORAGE_KEY);
-  if (data) {
-    try { cards = JSON.parse(data); } catch { cards = []; }
-  }
-  render();
-}
-
+// Utility
 function formatElapsed(hours) {
   const h = Math.floor(Math.abs(hours));
   const m = Math.floor((Math.abs(hours) - h) * 60);
   return `${h}h ${m}m`;
 }
 
+// Storage
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+}
+function saveDeleted() {
+  localStorage.setItem(DELETED_KEY, JSON.stringify(deletedCards));
+}
+function load() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  if (data) {
+    try { cards = JSON.parse(data); } catch { cards = []; }
+  }
+  const delData = localStorage.getItem(DELETED_KEY);
+  if (delData) {
+    try { deletedCards = JSON.parse(delData); } catch { deletedCards = []; }
+  }
+  cleanupDeleted();
+  render();
+  renderUndo();
+}
+
+// Card Creation
 function createCard(card) {
   const div = document.createElement('div');
   div.className = 'card';
@@ -41,6 +60,7 @@ function createCard(card) {
   due.onchange = () => { card.dueHours = Number(due.value); save(); updateTime(); };
 
   const timeInfo = document.createElement('div');
+  const countSpan = document.createElement('span');
 
   const markBtn = document.createElement('button');
   markBtn.textContent = 'Mark Complete';
@@ -50,8 +70,6 @@ function createCard(card) {
     save();
     updateTime();
   };
-
-  const countSpan = document.createElement('span');
 
   const yt = document.createElement('input');
   yt.type = 'url';
@@ -64,7 +82,7 @@ function createCard(card) {
   link.target = '_blank';
   link.href = card.youtube || '#';
 
-  // notes
+  // Notes
   const notesList = document.createElement('ul');
   const noteInput = document.createElement('input');
   noteInput.placeholder = 'Add note';
@@ -87,13 +105,15 @@ function createCard(card) {
     }
   };
 
-  // voice recording
+  // Voice Recording
   let recorder;
   const recBtn = document.createElement('button');
   recBtn.textContent = 'Record';
+
   const playBtn = document.createElement('button');
   playBtn.textContent = 'Play';
-  playBtn.disabled = true;
+  playBtn.disabled = !card.audio;
+
   recBtn.onclick = async () => {
     if (!recorder) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -118,14 +138,15 @@ function createCard(card) {
       recBtn.textContent = 'Record';
     }
   };
+
   playBtn.onclick = () => {
     if (card.audio) {
       const audio = new Audio(card.audio);
       audio.play();
     }
   };
-  if (card.audio) playBtn.disabled = false;
 
+  // Time Display
   function updateTime() {
     if (card.lastDone) {
       const hours = (Date.now() - card.lastDone) / 3600000;
@@ -144,6 +165,12 @@ function createCard(card) {
   updateTime();
   setInterval(updateTime, 60000);
 
+  // Delete Button
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = '✕';
+  deleteBtn.onclick = () => deleteCard(card.id);
+
+  // Assemble Card
   div.appendChild(title);
   div.appendChild(due);
   div.appendChild(timeInfo);
@@ -163,15 +190,12 @@ function createCard(card) {
   div.appendChild(noteInput);
   div.appendChild(initialsInput);
   div.appendChild(addNote);
+  div.appendChild(deleteBtn);
 
   return div;
 }
 
-function render() {
-  container.innerHTML = '';
-  cards.forEach(card => container.appendChild(createCard(card)));
-}
-
+// Add a Card
 function addCard(title = '') {
   cards.push({
     id: Date.now(),
@@ -187,14 +211,72 @@ function addCard(title = '') {
   render();
 }
 
-addBtn.addEventListener('click', () => addCard());
+// Undo / Deleted Cards
+function deleteCard(id) {
+  const idx = cards.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  const card = cards.splice(idx, 1)[0];
+  card.deletedAt = Date.now();
+  deletedCards.push(card);
+  save();
+  saveDeleted();
+  render();
+  renderUndo();
+}
 
-localTime.addEventListener('input', updateSchedule);
-partnerOffset.addEventListener('input', updateSchedule);
+function restoreCard(id) {
+  const idx = deletedCards.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  const card = deletedCards.splice(idx, 1)[0];
+  delete card.deletedAt;
+  cards.push(card);
+  save();
+  saveDeleted();
+  render();
+  renderUndo();
+}
 
+function cleanupDeleted() {
+  const now = Date.now();
+  deletedCards = deletedCards.filter(c => now - c.deletedAt < 24 * 60 * 60 * 1000);
+  saveDeleted();
+}
+
+function renderUndo() {
+  cleanupDeleted();
+  undoList.innerHTML = '';
+  if (deletedCards.length === 0) {
+    undoContainer.classList.add('hidden');
+    return;
+  }
+  undoContainer.classList.remove('hidden');
+  deletedCards.forEach(card => {
+    const div = document.createElement('div');
+    div.className = 'undo-item';
+    const span = document.createElement('span');
+    span.textContent = card.title;
+    const btn = document.createElement('button');
+    btn.textContent = 'Undo';
+    btn.onclick = () => restoreCard(card.id);
+    div.appendChild(span);
+    div.appendChild(btn);
+    undoList.appendChild(div);
+  });
+}
+
+// Render All Cards
+function render() {
+  container.innerHTML = '';
+  cards.forEach(card => container.appendChild(createCard(card)));
+}
+
+// Scheduler
 function updateSchedule() {
   const date = new Date(localTime.value);
-  if (isNaN(date)) { partnerTime.textContent = ''; return; }
+  if (isNaN(date)) {
+    partnerTime.textContent = '';
+    return;
+  }
   const localOff = -date.getTimezoneOffset() / 60;
   const partnerOff = Number(partnerOffset.value || 0);
   const utc = date.getTime() - localOff * 3600000;
@@ -202,4 +284,8 @@ function updateSchedule() {
   partnerTime.textContent = 'Partner time: ' + pDate.toLocaleString();
 }
 
+// Listeners
+addBtn.addEventListener('click', () => addCard());
+localTime.addEventListener('input', updateSchedule);
+partnerOffset.addEventListener('input', updateSchedule);
 window.addEventListener('load', load);
