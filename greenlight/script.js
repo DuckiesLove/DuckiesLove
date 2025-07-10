@@ -129,12 +129,11 @@ function createCard(card) {
 
   updateThumb();
 
-  const recordBtn = document.createElement('button');
-  recordBtn.textContent = 'Record';
+  const audioInput = document.createElement('input');
+  audioInput.type = 'file';
+  audioInput.accept = 'audio/*';
   const audioList = document.createElement('div');
   audioList.className = 'audio-list';
-  let recorder;
-  let chunks = [];
 
   function addAudio(url) {
     const audio = document.createElement('audio');
@@ -149,30 +148,18 @@ function createCard(card) {
     card.audios = [];
   }
 
-  recordBtn.onclick = async () => {
-    if (!recorder) {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recorder = new MediaRecorder(stream);
-      recorder.ondataavailable = e => chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        addAudio(url);
-        const reader = new FileReader();
-        reader.onload = () => {
-          card.audios.push(reader.result);
-          saveCards();
-        };
-        reader.readAsDataURL(blob);
-        chunks = [];
-        recorder = null;
-        recordBtn.textContent = 'Record';
-      };
-      recorder.start();
-      recordBtn.textContent = 'Stop';
-    } else {
-      recorder.stop();
-    }
+  audioInput.onchange = () => {
+    const file = audioInput.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    addAudio(url);
+    const reader = new FileReader();
+    reader.onload = () => {
+      card.audios.push(reader.result);
+      saveCards();
+    };
+    reader.readAsDataURL(file);
+    audioInput.value = '';
   };
 
   el.appendChild(title);
@@ -183,7 +170,7 @@ function createCard(card) {
   el.appendChild(complete);
   el.appendChild(ytInput);
   el.appendChild(ytPreviewLink);
-  el.appendChild(recordBtn);
+  el.appendChild(audioInput);
   el.appendChild(audioList);
   content.appendChild(el);
 
