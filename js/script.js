@@ -731,7 +731,9 @@ switchTab('Giving');
 function init() {
   initTheme();
   document.querySelectorAll('button').forEach(attachRipple);
-  startNewSurvey();
+  if (surveyIntro) {
+    surveyIntro.style.display = 'flex';
+  }
 }
 
 if (document.readyState !== 'loading') {
