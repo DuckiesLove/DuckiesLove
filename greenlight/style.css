@@ -92,4 +92,13 @@ h1 {
 
 .timer-display { text-align: center; font-weight: bold; }
 .complete-box { align-self: flex-start; }
+.youtube-thumb {
+  width: 100%;
+  border-radius: 0.5rem;
+  margin-top: 0.5rem;
+}
+.audio-list audio {
+  width: 100%;
+  margin-top: 0.5rem;
+}
 

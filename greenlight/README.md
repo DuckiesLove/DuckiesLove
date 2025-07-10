@@ -11,6 +11,7 @@ A private, local-submissive memory tracker and devotion log.
   5. Tasks Today
   6. Shibari Practice
 - Tracks last completed and calculates next due
+- Timestamp input for logging when tasks were completed
 - Editable notes per card
 - Drag-and-drop reorder
 - Sort by title or last done
@@ -18,6 +19,8 @@ A private, local-submissive memory tracker and devotion log.
 - Installs as a mobile app (PWA)
 - Data saved privately in browser (no account needed)
 - Categorize memories on the main screen
+- Add YouTube links with thumbnail preview
+- Record voice memos for each card
 - Customizable label for video links (defaults to "YouTube Video")
 
 ## Setup
