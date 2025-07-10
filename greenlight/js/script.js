@@ -343,7 +343,10 @@ function updateSchedule() {
 addBtn.addEventListener('click', () => addCard());
 localTime.addEventListener('input', updateSchedule);
 partnerTz.addEventListener('input', updateSchedule);
-window.addEventListener('load', load);
+window.addEventListener('load', () => {
+  localStorage.removeItem('greenlight-categories');
+  load();
+});
 menuBtn.addEventListener('click', toggleMenu);
 closeMenuBtn.addEventListener('click', toggleMenu);
 darkToggle.addEventListener('click', toggleDarkMode);
