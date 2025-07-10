@@ -774,6 +774,10 @@ function exportSurvey() {
   } catch (err) {
     console.warn('Failed to save survey to localStorage:', err);
   }
+  // After exporting, send the user to the data tools page
+  setTimeout(() => {
+    window.location.href = '/data-tools.html';
+  }, 0);
 }
 
 if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);
