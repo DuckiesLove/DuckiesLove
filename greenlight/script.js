@@ -41,6 +41,13 @@ function formatTime(ms) {
   return parts.join(' ');
 }
 
+function toInputValue(ts) {
+  const d = new Date(ts);
+  const off = d.getTimezoneOffset();
+  const local = new Date(ts - off * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
 function saveCards() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
 }
@@ -80,14 +87,106 @@ function createCard(card) {
   const timerDisplay = document.createElement('div');
   timerDisplay.className = 'timer-display';
 
+  const completeTime = document.createElement('input');
+  completeTime.type = 'datetime-local';
+  completeTime.className = 'complete-time';
+  completeTime.value = toInputValue(card.lastCompleted);
+  completeTime.onchange = () => {
+    const t = new Date(completeTime.value);
+    card.lastCompleted = t.getTime();
+    saveCards();
+  };
+
   const complete = document.createElement('input');
   complete.type = 'checkbox';
   complete.className = 'complete-box';
   complete.onchange = () => {
     if (complete.checked) {
       card.lastCompleted = Date.now();
+      completeTime.value = toInputValue(card.lastCompleted);
       saveCards();
       complete.checked = false;
+    }
+  };
+
+  const ytInput = document.createElement('input');
+  ytInput.type = 'url';
+  ytInput.placeholder = 'YouTube Link';
+  ytInput.value = card.youtubeLink || '';
+
+  const ytPreviewLink = document.createElement('a');
+  ytPreviewLink.target = '_blank';
+  const ytThumb = document.createElement('img');
+  ytThumb.className = 'youtube-thumb';
+  ytPreviewLink.appendChild(ytThumb);
+
+  function updateThumb() {
+    if (!ytInput.value) {
+      ytThumb.style.display = 'none';
+      return;
+    }
+    const idMatch = ytInput.value.match(/[?&]v=([^&]+)/) || ytInput.value.match(/youtu\.be\/([^?]+)/);
+    if (idMatch) {
+      const id = idMatch[1];
+      ytThumb.src = `https://img.youtube.com/vi/${id}/0.jpg`;
+      ytThumb.style.display = 'block';
+      ytPreviewLink.href = `https://www.youtube.com/watch?v=${id}`;
+    } else {
+      ytThumb.style.display = 'none';
+    }
+  }
+
+  ytInput.onchange = () => {
+    card.youtubeLink = ytInput.value;
+    updateThumb();
+    saveCards();
+  };
+
+  updateThumb();
+
+  const recordBtn = document.createElement('button');
+  recordBtn.textContent = 'Record';
+  const audioList = document.createElement('div');
+  audioList.className = 'audio-list';
+  let recorder;
+  let chunks = [];
+
+  function addAudio(url) {
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.src = url;
+    audioList.appendChild(audio);
+  }
+
+  if (Array.isArray(card.audios)) {
+    card.audios.forEach(a => addAudio(a));
+  } else {
+    card.audios = [];
+  }
+
+  recordBtn.onclick = async () => {
+    if (!recorder) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        addAudio(url);
+        const reader = new FileReader();
+        reader.onload = () => {
+          card.audios.push(reader.result);
+          saveCards();
+        };
+        reader.readAsDataURL(blob);
+        chunks = [];
+        recorder = null;
+        recordBtn.textContent = 'Record';
+      };
+      recorder.start();
+      recordBtn.textContent = 'Stop';
+    } else {
+      recorder.stop();
     }
   };
 
@@ -95,7 +194,12 @@ function createCard(card) {
   el.appendChild(typeSel);
   el.appendChild(timerInput);
   el.appendChild(timerDisplay);
+  el.appendChild(completeTime);
   el.appendChild(complete);
+  el.appendChild(ytInput);
+  el.appendChild(ytPreviewLink);
+  el.appendChild(recordBtn);
+  el.appendChild(audioList);
   content.appendChild(el);
 
   function update() {
@@ -119,7 +223,9 @@ function addRitual(name = 'New Ritual') {
     timerType: 'left',
     inputText: '',
     duration: 0,
-    lastCompleted: Date.now()
+    lastCompleted: Date.now(),
+    youtubeLink: '',
+    audios: []
   };
   cards.push(card);
   saveCards();
