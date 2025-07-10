@@ -132,6 +132,9 @@ function createCard(card) {
   const audioInput = document.createElement('input');
   audioInput.type = 'file';
   audioInput.accept = 'audio/*';
+  const recordBtn = document.createElement('button');
+  recordBtn.className = 'record-btn';
+  recordBtn.textContent = 'Record';
   const audioList = document.createElement('div');
   audioList.className = 'audio-list';
 
@@ -162,6 +165,42 @@ function createCard(card) {
     audioInput.value = '';
   };
 
+  let mediaRecorder = null;
+  let chunks = [];
+  recordBtn.onclick = async () => {
+    if (!mediaRecorder) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        chunks = [];
+        mediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          const url = URL.createObjectURL(blob);
+          addAudio(url);
+          const reader = new FileReader();
+          reader.onload = () => {
+            card.audios.push(reader.result);
+            saveCards();
+          };
+          reader.readAsDataURL(blob);
+          recordBtn.textContent = 'Record';
+          mediaRecorder = null;
+        };
+        mediaRecorder.start();
+        recordBtn.textContent = 'Stop';
+      } catch (err) {
+        console.error(err);
+        alert('Recording failed.');
+        mediaRecorder = null;
+      }
+    } else {
+      mediaRecorder.stop();
+    }
+  };
+
   el.appendChild(title);
   el.appendChild(categoryInput);
   el.appendChild(typeSel);
@@ -171,6 +210,7 @@ function createCard(card) {
   el.appendChild(ytInput);
   el.appendChild(ytPreviewLink);
   el.appendChild(audioInput);
+  el.appendChild(recordBtn);
   el.appendChild(audioList);
   content.appendChild(el);
 

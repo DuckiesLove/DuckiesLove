@@ -20,7 +20,7 @@ A private, local-submissive memory tracker and devotion log.
 - Data saved privately in browser (no account needed)
 - Categorize memories on the main screen
 - Add YouTube links with thumbnail preview
-- Load voice memos for each card
+- Record or upload voice memos for each card
 - Customizable label for video links (defaults to "YouTube Video")
 
 ## Setup
