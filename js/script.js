@@ -57,6 +57,8 @@ const RATING_LABELS = {
 const HIGH_INTENSITY_CATEGORY = 'High-Intensity Kinks (SSC-Aware)';
 const HIGH_INTENSITY_WARNING =
   'The High-Intensity Kinks category includes intense but SSC-aware kink options that require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.';
+
+
 function applyAnimation(el, cls) {
   el.classList.add(cls);
   el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
@@ -360,7 +362,12 @@ if (selectAllBtn) {
   selectAllBtn.addEventListener('click', () => {
     previewList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
       if (cb.value === HIGH_INTENSITY_CATEGORY) {
-        if (!cb.checked && confirm(HIGH_INTENSITY_WARNING)) {
+if (!cb.checked) {
+  if (confirm(HIGH_INTENSITY_WARNING)) {
+    cb.checked = true;
+  }
+}
+
           cb.checked = true;
         }
       } else {
