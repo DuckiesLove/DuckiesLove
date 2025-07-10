@@ -1,6 +1,9 @@
 const completedContainer = document.getElementById('completed-cards-container');
 const formArea = document.getElementById('card-form-area');
 const addBtn = document.getElementById('add-category-btn');
+const presetMenu = document.getElementById('preset-menu');
+const presetButtons = document.querySelectorAll('#preset-menu .preset-option');
+const customOption = document.getElementById('custom-option');
 
 const STORAGE_KEY = 'greenlight-categories';
 let categories = [];
@@ -72,12 +75,34 @@ function load() {
   render();
 }
 
-addBtn.addEventListener('click', () => {
-  const cat = { id: Date.now(), name: '', completed: false };
+function addCategory(name = '') {
+  const cat = { id: Date.now(), name, completed: false };
   categories.push(cat);
   save();
   render();
   formArea.style.display = 'block';
+}
+
+addBtn.addEventListener('click', () => {
+  presetMenu.classList.toggle('hidden');
+});
+
+presetButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    addCategory(btn.textContent);
+    presetMenu.classList.add('hidden');
+  });
+});
+
+customOption.addEventListener('click', () => {
+  addCategory();
+  presetMenu.classList.add('hidden');
+});
+
+document.addEventListener('click', (e) => {
+  if (!presetMenu.contains(e.target) && e.target !== addBtn) {
+    presetMenu.classList.add('hidden');
+  }
 });
 
 window.addEventListener('load', load);
