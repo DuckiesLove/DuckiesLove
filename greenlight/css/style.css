@@ -156,3 +156,30 @@ h1 {
 #partner-notes {
   padding: 1rem;
 }
+/* Wraps all category names properly and aligns them with dropdowns */
+.category-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px; /* smaller space between label and dropdown */
+  margin-bottom: 8px; /* spacing between each row */
+  flex-wrap: nowrap;
+}
+
+/* Ensures the category name wraps and doesn't overflow */
+.category-label {
+  white-space: normal;
+  word-wrap: break-word;
+  max-width: 240px; /* adjust as needed for layout */
+  padding-right: 4px;
+  display: inline-block;
+  vertical-align: top;
+  font-size: 16px; /* keep text readable */
+}
+
+/* Aligns dropdown nicely next to label */
+.rating-select {
+  display: inline-block;
+  vertical-align: top;
+  margin-left: 0;
+  min-width: 120px; /* consistent size */
+}
