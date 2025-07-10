@@ -2,7 +2,7 @@
 const container = document.getElementById('cards-container');
 const addBtn = document.getElementById('add-card');
 const localTime = document.getElementById('local-time');
-const partnerOffset = document.getElementById('partner-offset');
+const partnerTz = document.getElementById('partner-tz');
 const partnerTime = document.getElementById('partner-time');
 const undoContainer = document.getElementById('undo-container');
 const undoList = document.getElementById('undo-list');
@@ -18,12 +18,14 @@ const menuRecent = document.getElementById('menu-recent');
 const menuSettings = document.getElementById('menu-settings');
 const settingsSection = document.getElementById('settings-section');
 const darkToggle = document.getElementById('dark-mode-toggle');
+const closeMenuBtn = document.getElementById('close-menu');
 
 // Storage Keys
 const STORAGE_KEY = 'greenlight-cards';
 const DELETED_KEY = 'greenlight-deleted';
 const NOTES_KEY = 'greenlight-notes';
 const MODE_KEY = 'greenlight-mode';
+const TZ_KEY = 'greenlight-tz';
 
 // State
 let cards = [];
@@ -61,10 +63,15 @@ function load() {
   if (mode === 'light') {
     document.body.classList.add('light-mode');
   }
+  const tz = localStorage.getItem(TZ_KEY);
+  if (tz && partnerTz) {
+    partnerTz.value = tz;
+  }
   cleanupDeleted();
   render();
   renderUndo();
   renderNotes();
+  updateSchedule();
 }
 
 // Card Creation
@@ -326,19 +333,19 @@ function updateSchedule() {
     partnerTime.textContent = '';
     return;
   }
-  const localOff = -date.getTimezoneOffset() / 60;
-  const partnerOff = Number(partnerOffset.value || 0);
-  const utc = date.getTime() - localOff * 3600000;
-  const pDate = new Date(utc + partnerOff * 3600000);
-  partnerTime.textContent = 'Partner time: ' + pDate.toLocaleString();
+  const tz = partnerTz.value || 'UTC';
+  const pString = date.toLocaleString([], { timeZone: tz });
+  partnerTime.textContent = `Partner time (${tz}): ` + pString;
+  localStorage.setItem(TZ_KEY, tz);
 }
 
 // Listeners
 addBtn.addEventListener('click', () => addCard());
 localTime.addEventListener('input', updateSchedule);
-partnerOffset.addEventListener('input', updateSchedule);
+partnerTz.addEventListener('input', updateSchedule);
 window.addEventListener('load', load);
 menuBtn.addEventListener('click', toggleMenu);
+closeMenuBtn.addEventListener('click', toggleMenu);
 darkToggle.addEventListener('click', toggleDarkMode);
 menuNotes.addEventListener('click', () => {
   notesSection.classList.toggle('hidden');
