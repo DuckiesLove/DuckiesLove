@@ -30,11 +30,21 @@
       </div>
       <form id="ritualForm">
         <input id="ritualTitle" placeholder="Title" />
+        <input id="ritualCategory" placeholder="Category" list="categoryOptions" />
         <textarea id="ritualNotes" placeholder="Notes"></textarea>
         <input id="ritualVideo" type="url" placeholder="Video URL" />
+        <input id="ritualVideoLabel" placeholder="Video Label" value="YouTube Video" />
         <input id="ritualFiles" type="file" accept="image/*,audio/*" multiple />
         <button type="submit" id="saveRitualBtn">Save Memory</button>
       </form>
+      <datalist id="categoryOptions">
+        <option value="Braiding"></option>
+        <option value="Service"></option>
+        <option value="Reading"></option>
+        <option value="Gratefulness"></option>
+        <option value="Aftercare"></option>
+        <option value="Quiet Time"></option>
+      </datalist>
       <button id="closeModal">×</button>
     </div>
   </div>

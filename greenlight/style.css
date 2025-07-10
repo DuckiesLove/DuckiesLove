@@ -38,6 +38,11 @@ h1 {
 #modal.hidden {
   display: none;
 }
+
+.category-header {
+  margin-top: 2rem;
+  color: #2a9fd6;
+}
 #modal {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;

@@ -17,6 +17,8 @@ A private, local-submissive memory tracker and devotion log.
 - Dark mode toggle
 - Installs as a mobile app (PWA)
 - Data saved privately in browser (no account needed)
+- Categorize memories on the main screen
+- Customizable label for video links (defaults to "YouTube Video")
 
 ## Setup
 
