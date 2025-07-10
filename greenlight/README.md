@@ -1,6 +1,6 @@
 # Beneath the Greenlight
 
-A private, local-submissive ritual tracker and devotion log.
+A private, local-submissive memory tracker and devotion log.
 
 ## Features
 - 6 editable devotion cards:
