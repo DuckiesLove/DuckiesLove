@@ -314,19 +314,38 @@ function startNewSurvey() {
     previewList.innerHTML = '';
     Object.keys(surveyA).forEach(cat => {
       const label = document.createElement('label');
+      label.className = 'category-option';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.value = cat;
       cb.checked = false;
-      if (cat === HIGH_INTENSITY_CATEGORY) {
-        cb.addEventListener('change', () => {
-          if (cb.checked && !confirm(HIGH_INTENSITY_WARNING)) {
-            cb.checked = false;
+
+      const updateSelected = () => {
+        label.classList.toggle('selected', cb.checked);
+      };
+
+      label.addEventListener('click', e => {
+        e.preventDefault();
+        if (!cb.checked) {
+          if (cat === HIGH_INTENSITY_CATEGORY) {
+            if (confirm(HIGH_INTENSITY_WARNING)) {
+              cb.checked = true;
+            }
+          } else {
+            cb.checked = true;
           }
-        });
-      }
+        } else {
+          cb.checked = false;
+        }
+        updateSelected();
+      });
+
+      cb.addEventListener('change', updateSelected);
+
       label.appendChild(cb);
-      label.append(' ' + cat);
+      const span = document.createElement('span');
+      span.textContent = ' ' + cat;
+      label.appendChild(span);
       previewList.appendChild(label);
     });
     if (templateJson) {
@@ -370,18 +389,16 @@ if (newSurveyBtn) {
 if (selectAllBtn) {
   selectAllBtn.addEventListener('click', () => {
     previewList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-      if (cb.value === HIGH_INTENSITY_CATEGORY) {
-if (!cb.checked) {
-  if (confirm(HIGH_INTENSITY_WARNING)) {
-    cb.checked = true;
-  }
-}
-
+      if (!cb.checked) {
+        if (cb.value === HIGH_INTENSITY_CATEGORY) {
+          if (confirm(HIGH_INTENSITY_WARNING)) {
+            cb.checked = true;
+          }
+        } else {
           cb.checked = true;
         }
-      } else {
-        cb.checked = true;
       }
+      cb.dispatchEvent(new Event('change'));
     });
   });
 }
@@ -390,6 +407,7 @@ if (deselectAllBtn) {
   deselectAllBtn.addEventListener('click', () => {
     previewList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
       cb.checked = false;
+      cb.dispatchEvent(new Event('change'));
     });
   });
 }

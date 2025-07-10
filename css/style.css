@@ -519,6 +519,44 @@ body.theme-rainbow #comparisonResult {
   overflow-y: auto;
 }
 
+/* Category selection panels */
+.category-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background-color: #1e1e2f;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  max-width: 320px;
+  width: 100%;
+  cursor: pointer;
+  text-align: center;
+}
+
+.category-option.selected {
+  background-color: #2a2a3d;
+  border-color: #4caf50;
+}
+
+.category-option input {
+  margin-bottom: 6px;
+}
+
+body.light-mode .category-option {
+  background-color: #fff;
+  color: #2f4f2f;
+  border-color: #9fb49f;
+}
+
+body.light-mode .category-option.selected {
+  background-color: #a9b8a9;
+  border-color: #548c5a;
+}
+
 .selection-buttons {
   display: flex;
   gap: 10px;
