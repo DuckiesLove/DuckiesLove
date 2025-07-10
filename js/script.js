@@ -238,7 +238,8 @@ const saveSurveyBtn = document.getElementById('saveSurveyBtn');
 const returnHomeBtn = document.getElementById('returnHomeBtn');
 const homeBtn = document.getElementById('homeBtn');
 const buttonGroup = document.querySelector('.button-group');
-const categoryPanel = document.getElementById('category-panel');
+const categoryOverlay = document.getElementById('categoryOverlay');
+const categoryPanel = document.getElementById('categoryPanel');
 const previewList = document.getElementById('previewList');
 const selectAllBtn = document.getElementById('selectAllBtn');
 const deselectAllBtn = document.getElementById('deselectAllBtn');
@@ -305,7 +306,7 @@ function startNewSurvey() {
   if (homeBtn) homeBtn.style.display = 'block';
   if (mainNavButtons) mainNavButtons.style.display = 'none';
 
-  categoryPanel.style.display = 'flex';
+  categoryOverlay.style.display = 'flex';
   const initialize = data => {
     surveyA = data;
     normalizeRatings(surveyA);
@@ -418,7 +419,7 @@ beginSurveyBtn.addEventListener('click', () => {
     .map(cb => cb.value);
   categoryIndex = 0;
   currentCategory = categoryOrder[0] || null;
-  categoryPanel.style.display = 'none';
+  categoryOverlay.style.display = 'none';
   if (currentCategory) {
     showKinks(currentCategory);
     updateProgress();
