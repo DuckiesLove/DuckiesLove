@@ -1186,3 +1186,36 @@ body.light-mode .json-display {
   font-style: italic;
 }
 
+/* Scrollbar styling for panels */
+.scrollable-panel {
+  scrollbar-width: thin;
+  scrollbar-color: #888 #2b2b2b;
+  padding-bottom: 12px;
+}
+
+.scrollable-panel::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.scrollable-panel::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 5px;
+}
+
+.scrollable-panel::-webkit-scrollbar-track {
+  background: #2b2b2b;
+}
+
+body.light-mode .scrollable-panel {
+  scrollbar-color: #666 #d0d0d0;
+}
+
+body.light-mode .scrollable-panel::-webkit-scrollbar-thumb {
+  background-color: #666;
+}
+
+body.light-mode .scrollable-panel::-webkit-scrollbar-track {
+  background: #d0d0d0;
+}
+
