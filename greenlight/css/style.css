@@ -5,6 +5,20 @@ body {
   color: #ffffff;
 }
 
+#form-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 header {
   background-color: #0F5132;
   padding: 1rem;
