@@ -47,15 +47,45 @@
     <button id="custom-option">Custom</button>
   </div>
 
-  <!-- Add Custom Category -->
-  <button id="add-category-btn">＋</button>
-
-  <!-- Shared Moment Scheduler -->
-  <section id="scheduler">
-    <h2>Shared Moment Scheduler</h2>
-    <label>Local time <input type="datetime-local" id="local-time"></label>
-    <label>Partner UTC offset <input type="number" id="partner-offset" value="0"></label>
-    <p id="partner-time"></p>
+  <!-- Settings Section -->
+  <section id="settings-section" class="hidden">
+    <h2>Settings</h2>
+    <div id="scheduler">
+      <h3>Shared Moment Scheduler</h3>
+      <label>Local time <input type="datetime-local" id="local-time"></label>
+      <label>Partner time zone
+        <select id="partner-offset">
+          <option value="-12">UTC-12:00</option>
+          <option value="-11">UTC-11:00</option>
+          <option value="-10">UTC-10:00</option>
+          <option value="-9">UTC-09:00</option>
+          <option value="-8">UTC-08:00</option>
+          <option value="-7">UTC-07:00</option>
+          <option value="-6">UTC-06:00</option>
+          <option value="-5">UTC-05:00</option>
+          <option value="-4">UTC-04:00</option>
+          <option value="-3">UTC-03:00</option>
+          <option value="-2">UTC-02:00</option>
+          <option value="-1">UTC-01:00</option>
+          <option value="0" selected>UTC+00:00</option>
+          <option value="1">UTC+01:00</option>
+          <option value="2">UTC+02:00</option>
+          <option value="3">UTC+03:00</option>
+          <option value="4">UTC+04:00</option>
+          <option value="5">UTC+05:00</option>
+          <option value="6">UTC+06:00</option>
+          <option value="7">UTC+07:00</option>
+          <option value="8">UTC+08:00</option>
+          <option value="9">UTC+09:00</option>
+          <option value="10">UTC+10:00</option>
+          <option value="11">UTC+11:00</option>
+          <option value="12">UTC+12:00</option>
+          <option value="13">UTC+13:00</option>
+          <option value="14">UTC+14:00</option>
+        </select>
+      </label>
+      <p id="partner-time"></p>
+    </div>
   </section>
 
   <!-- Partner Notes Section -->
@@ -68,7 +98,7 @@
   </section>
 
   <!-- Slide-out Menu -->
-  <nav id="menu" class="hidden">
+  <nav id="menu">
     <ul>
       <li id="menu-recent">Recently Deleted</li>
       <li id="menu-notes">Partner Notes</li>

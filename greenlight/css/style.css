@@ -113,14 +113,19 @@ h1 {
 
 #menu {
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 60px;
+  left: -220px;
   width: 200px;
-  height: 100%;
+  height: calc(100% - 60px);
   background-color: var(--card-bg);
   color: var(--text-color);
   padding: 1rem;
   box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+  transition: left 0.3s ease;
+}
+
+#menu.open {
+  left: 0;
 }
 
 #menu ul {

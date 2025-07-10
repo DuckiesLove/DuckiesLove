@@ -1,6 +1,6 @@
 // DOM Elements
 const container = document.getElementById('cards-container');
-const addBtn = document.getElementById('add-card') || document.getElementById('add-category-btn');
+const addBtn = document.getElementById('add-card');
 const localTime = document.getElementById('local-time');
 const partnerOffset = document.getElementById('partner-offset');
 const partnerTime = document.getElementById('partner-time');
@@ -15,6 +15,8 @@ const noteText = document.getElementById('note-text');
 const saveNoteBtn = document.getElementById('save-note');
 const menuNotes = document.getElementById('menu-notes');
 const menuRecent = document.getElementById('menu-recent');
+const menuSettings = document.getElementById('menu-settings');
+const settingsSection = document.getElementById('settings-section');
 const darkToggle = document.getElementById('dark-mode-toggle');
 
 // Storage Keys
@@ -308,7 +310,7 @@ function renderNotes() {
 }
 
 function toggleMenu() {
-  menu.classList.toggle('hidden');
+  menu.classList.toggle('open');
 }
 
 function toggleDarkMode() {
@@ -344,6 +346,10 @@ menuNotes.addEventListener('click', () => {
 });
 menuRecent.addEventListener('click', () => {
   undoContainer.classList.toggle('hidden');
+  toggleMenu();
+});
+menuSettings.addEventListener('click', () => {
+  settingsSection.classList.toggle('hidden');
   toggleMenu();
 });
 saveNoteBtn.addEventListener('click', () => {
