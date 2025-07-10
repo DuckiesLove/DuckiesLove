@@ -332,20 +332,27 @@ function startNewSurvey() {
     }
   };
 
-  fetch('template-survey.json', { cache: 'no-store' })
-    .then(res => res.json())
-    .then(data => {
-      window.templateSurvey = normalizeSurveyFormat(data);
-      initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
-    })
-    .catch(err => {
-      if (window.templateSurvey) {
-        console.warn('Failed to load template, using embedded copy:', err);
+  if (location.protocol.startsWith('http')) {
+    fetch('template-survey.json', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        window.templateSurvey = normalizeSurveyFormat(data);
         initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
-      } else {
-        alert('Failed to load template: ' + err.message);
-      }
-    });
+      })
+      .catch(err => {
+        if (window.templateSurvey) {
+          console.warn('Failed to load template, using embedded copy:', err);
+          initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
+        } else {
+          alert('Failed to load template: ' + err.message);
+        }
+      });
+  } else if (window.templateSurvey) {
+    // When opened directly from the file system, use the embedded template
+    initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
+  } else {
+    alert('Failed to load template: unsupported protocol');
+  }
 }
 
 startSurveyBtn.addEventListener('click', () => {
