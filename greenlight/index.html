@@ -1,50 +1,33 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Beneath the Greenlight</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
     <h1>🌿 Beneath the Greenlight</h1>
   </header>
   <main id="content">
-    <p class="empty-state">No memories yet. Tap the + button to start recording.</p>
+    <p class="empty-state">No rituals yet. Tap the + button to begin.</p>
   </main>
   <button id="addBtn">+</button>
 
   <div id="modal" class="hidden">
     <div class="modal-content">
-      <h2>Add Memory</h2>
-      <p>Popular Memories</p>
+      <h2>Add Ritual</h2>
+      <p>Popular Rituals</p>
       <div class="preset-buttons">
-        <button data-title="Braiding">Braiding</button>
-        <button data-title="Service">Service</button>
-        <button data-title="Reading">Reading</button>
-        <button data-title="Gratefulness">Gratefulness</button>
-        <button data-title="Aftercare">Aftercare</button>
-        <button data-title="Quiet Time">Quiet Time</button>
+        <button>Braiding</button>
+        <button>Service</button>
+        <button>Reading</button>
+        <button>Gratefulness</button>
+        <button>Aftercare</button>
+        <button>Quiet Time</button>
       </div>
-      <form id="ritualForm">
-        <input id="ritualTitle" placeholder="Title" />
-        <input id="ritualCategory" placeholder="Category" list="categoryOptions" />
-        <textarea id="ritualNotes" placeholder="Notes"></textarea>
-        <input id="ritualVideo" type="url" placeholder="Video URL" />
-        <input id="ritualVideoLabel" placeholder="Video Label" value="YouTube Video" />
-        <input id="ritualFiles" type="file" accept="image/*,audio/*" multiple />
-        <button type="submit" id="saveRitualBtn">Save Memory</button>
-      </form>
-      <datalist id="categoryOptions">
-        <option value="Braiding"></option>
-        <option value="Service"></option>
-        <option value="Reading"></option>
-        <option value="Gratefulness"></option>
-        <option value="Aftercare"></option>
-        <option value="Quiet Time"></option>
-      </datalist>
+      <button id="customBtn">Custom Ritual</button>
       <button id="closeModal">×</button>
     </div>
   </div>
