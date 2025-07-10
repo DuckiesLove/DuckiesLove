@@ -102,6 +102,19 @@ function normalizeRatings(survey) {
   });
 }
 
+// Set the orientation property of every item to an empty value
+function resetItemOrientations(survey) {
+  Object.values(survey).forEach(cat => {
+    ['Giving', 'Receiving', 'General'].forEach(role => {
+      if (Array.isArray(cat[role])) {
+        cat[role].forEach(item => {
+          item.orientation = '';
+        });
+      }
+    });
+  });
+}
+
 // Convert a template with only top-level roles into a single-category structure
 function normalizeSurveyFormat(obj) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
@@ -147,7 +160,7 @@ function mergeSurveyWithTemplate(survey, template) {
       );
       tItems.forEach(it => {
         if (!existing.has(it.name.trim().toLowerCase())) {
-          const obj = { name: it.name, rating: null };
+          const obj = { name: it.name, rating: null, orientation: '' };
           if (it.type) obj.type = it.type;
           if (it.options) obj.options = it.options;
           if (it.roles) obj.roles = it.roles;
@@ -246,14 +259,17 @@ function getUnifiedItems(catData) {
       if (it.type) obj.type = it.type;
       if (it.options) obj.options = it.options;
       if (it.roles) obj.roles = it.roles;
+      if (it.orientation !== undefined) obj.orientation = it.orientation;
     });
   });
   map.forEach(obj => {
-    if (obj.Giving && obj.Receiving) obj.orientation = 'Both';
-    else if (obj.Giving) obj.orientation = 'Giving';
-    else if (obj.Receiving) obj.orientation = 'Receiving';
-    else if (obj.General) obj.orientation = 'Both';
-    else obj.orientation = '';
+    if (obj.orientation === undefined) {
+      if (obj.Giving && obj.Receiving) obj.orientation = 'Both';
+      else if (obj.Giving) obj.orientation = 'Giving';
+      else if (obj.Receiving) obj.orientation = 'Receiving';
+      else if (obj.General) obj.orientation = 'Both';
+      else obj.orientation = '';
+    }
     if (obj.rating === undefined) obj.rating = null;
   });
   return Array.from(map.values());
@@ -265,28 +281,33 @@ function setItemOrientation(info, val) {
     const idx = arr.indexOf(obj);
     if (idx > -1) arr.splice(idx, 1);
   };
-  if (info.Giving) remove(cd.Giving, info.Giving);
-  if (info.Receiving) remove(cd.Receiving, info.Receiving);
-  if (info.General) remove(cd.General, info.General);
-  info.Giving = info.Receiving = info.General = null;
+  if (val !== '') {
+    if (info.Giving) remove(cd.Giving, info.Giving);
+    if (info.Receiving) remove(cd.Receiving, info.Receiving);
+    if (info.General) remove(cd.General, info.General);
+    info.Giving = info.Receiving = info.General = null;
+  }
   info.orientation = val;
+  if (info.Giving) info.Giving.orientation = val;
+  if (info.Receiving) info.Receiving.orientation = val;
+  if (info.General) info.General.orientation = val;
   if (val === 'Giving') {
-    const o = { name: info.name, rating: info.rating };
+    const o = { name: info.name, rating: info.rating, orientation: 'Giving' };
     if (info.type) o.type = info.type;
     if (info.options) o.options = info.options;
     if (info.roles) o.roles = info.roles;
     cd.Giving.push(o);
     info.Giving = o;
   } else if (val === 'Receiving') {
-    const o = { name: info.name, rating: info.rating };
+    const o = { name: info.name, rating: info.rating, orientation: 'Receiving' };
     if (info.type) o.type = info.type;
     if (info.options) o.options = info.options;
     if (info.roles) o.roles = info.roles;
     cd.Receiving.push(o);
     info.Receiving = o;
   } else if (val === 'Both') {
-    const o1 = { name: info.name, rating: info.rating };
-    const o2 = { name: info.name, rating: info.rating };
+    const o1 = { name: info.name, rating: info.rating, orientation: 'Both' };
+    const o2 = { name: info.name, rating: info.rating, orientation: 'Both' };
     if (info.type) {
       o1.type = info.type;
       o2.type = info.type;
@@ -334,6 +355,7 @@ function startNewSurvey() {
   progressBanner.style.display = 'none';
   const initialize = data => {
     surveyA = data;
+    resetItemOrientations(surveyA);
     normalizeRatings(surveyA);
     filterGeneralOptions(surveyA);
     updateTabsForCategory();
