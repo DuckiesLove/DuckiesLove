@@ -19,6 +19,13 @@ const menuSettings = document.getElementById('menu-settings');
 const settingsSection = document.getElementById('settings-section');
 const darkToggle = document.getElementById('dark-mode-toggle');
 const closeMenuBtn = document.getElementById('close-menu');
+const globalRecordBtn = document.getElementById('global-record');
+const globalPlayBtn = document.getElementById('global-play');
+const emojiSelect = document.getElementById('emoji-select');
+const exportBtn = document.getElementById('export-json');
+const timerInput = document.getElementById('timer-minutes');
+const startTimerBtn = document.getElementById('start-timer');
+const timerDisplay = document.getElementById('timer-display');
 
 // Storage Keys
 const STORAGE_KEY = 'greenlight-cards';
@@ -31,6 +38,9 @@ const TZ_KEY = 'greenlight-tz';
 let cards = [];
 let deletedCards = [];
 let partnerNotes = [];
+let globalRecorder;
+let globalAudio;
+let timerId = null;
 
 // Utility
 function formatElapsed(hours) {
@@ -375,4 +385,86 @@ saveNoteBtn.addEventListener('click', () => {
     renderNotes();
   }
 });
+
+// Global audio memo
+if (globalRecordBtn && globalPlayBtn) {
+  globalRecordBtn.addEventListener('click', async () => {
+    if (!globalRecorder) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      globalRecorder = new MediaRecorder(stream);
+      const chunks = [];
+      globalRecorder.ondataavailable = e => chunks.push(e.data);
+      globalRecorder.onstop = () => {
+        globalAudio = new Blob(chunks, { type: 'audio/webm' });
+        globalPlayBtn.disabled = false;
+      };
+      globalRecorder.start();
+      globalRecordBtn.textContent = 'Stop';
+    } else {
+      globalRecorder.stop();
+      globalRecorder = null;
+      globalRecordBtn.textContent = 'Record Memo';
+    }
+  });
+
+  globalPlayBtn.addEventListener('click', () => {
+    if (globalAudio) {
+      const url = URL.createObjectURL(globalAudio);
+      const audio = new Audio(url);
+      audio.play();
+    }
+  });
+}
+
+// Emoji picker for notes
+if (emojiSelect) {
+  emojiSelect.addEventListener('change', () => {
+    noteText.value += emojiSelect.value;
+    emojiSelect.value = '';
+  });
+}
+
+// Export data
+if (exportBtn) {
+  exportBtn.addEventListener('click', () => {
+    const data = { cards, partnerNotes };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'greenlight-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+// Simple countdown timer
+if (startTimerBtn) {
+  startTimerBtn.addEventListener('click', () => {
+    if (timerId) {
+      clearInterval(timerId);
+      timerId = null;
+      timerDisplay.textContent = '';
+      startTimerBtn.textContent = 'Start Timer';
+      return;
+    }
+    const minutes = parseInt(timerInput.value, 10);
+    if (isNaN(minutes) || minutes <= 0) return;
+    let remaining = minutes * 60;
+    const update = () => {
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      timerDisplay.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+      if (remaining <= 0) {
+        clearInterval(timerId);
+        timerId = null;
+        startTimerBtn.textContent = 'Start Timer';
+      }
+      remaining--;
+    };
+    update();
+    timerId = setInterval(update, 1000);
+    startTimerBtn.textContent = 'Stop Timer';
+  });
+}
 

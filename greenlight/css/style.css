@@ -183,3 +183,30 @@ h1 {
   margin-left: 0;
   min-width: 120px; /* consistent size */
 }
+
+.audio-section, .emoji-picker, .export-btn, .timer-section {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.audio-section button,
+.emoji-picker select,
+.export-btn button,
+.timer-section input,
+.timer-section button {
+  background-color: #1d3127;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  border: none;
+}
+
+.timer-display {
+  font-size: 1rem;
+  color: #d2f8e1;
+  font-weight: bold;
+}
