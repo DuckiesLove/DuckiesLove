@@ -87,3 +87,29 @@ h1 {
 .hidden {
   display: none;
 }
+
+#undo-container {
+  max-width: 600px;
+  margin: 20px auto;
+}
+
+.undo-item {
+  background-color: #623221;
+  padding: 0.5rem 1rem;
+  border-radius: 1rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.category-card button,
+.category-form button,
+.undo-item button {
+  margin-left: auto;
+  background-color: #d9534f;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+}
