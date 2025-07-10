@@ -65,6 +65,16 @@ function createCard(card) {
     saveCards();
   };
 
+  const categoryInput = document.createElement('input');
+  categoryInput.className = 'ritual-category';
+  categoryInput.placeholder = 'Category';
+  categoryInput.setAttribute('list', 'categoryOptions');
+  categoryInput.value = card.category || '';
+  categoryInput.oninput = () => {
+    card.category = categoryInput.value;
+    saveCards();
+  };
+
   const typeSel = document.createElement('select');
   typeSel.className = 'ritual-type';
   typeSel.innerHTML = `<option value="left">Time Left</option><option value="since">Time Since</option>`;
@@ -191,6 +201,7 @@ function createCard(card) {
   };
 
   el.appendChild(title);
+  el.appendChild(categoryInput);
   el.appendChild(typeSel);
   el.appendChild(timerInput);
   el.appendChild(timerDisplay);
@@ -225,7 +236,8 @@ function addRitual(name = 'New Ritual') {
     duration: 0,
     lastCompleted: Date.now(),
     youtubeLink: '',
-    audios: []
+    audios: [],
+    category: ''
   };
   cards.push(card);
   saveCards();
