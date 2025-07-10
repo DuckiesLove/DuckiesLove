@@ -102,3 +102,12 @@ h1 {
   margin-top: 0.5rem;
 }
 
+.record-btn {
+  background-color: #0A5C36;
+  color: white;
+  border: none;
+  margin-top: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-radius: 1rem;
+}
+
