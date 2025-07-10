@@ -13,22 +13,53 @@
   <header>
     <h1>🌿 Beneath the Greenlight</h1>
   </header>
-  <main>
-    <div id="cards-container"></div>
-    <button id="add-card">＋</button>
+<main id="main-content">
+  <!-- Ritual Tracker Cards Section -->
+  <div id="cards-container"></div>
+  <button id="add-card">＋</button>
 
-    <section id="scheduler">
-      <h2>Shared Moment Scheduler</h2>
-      <label>Local time <input type="datetime-local" id="local-time"></label>
-      <label>Partner UTC offset <input type="number" id="partner-offset" value="0"></label>
-      <p id="partner-time"></p>
-    </section>
-  </main>
-  <script src="js/script.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
-    }
-  </script>
-</body>
-</html>
+  <!-- Completed Cards Area -->
+  <div id="completed-cards-container">
+    <!-- Only completed cards show up here -->
+  </div>
+
+  <!-- Card Form Area -->
+  <div id="form-container">
+    <div id="card-form-area" style="display: none;"></div>
+  </div>
+
+  <!-- Undo Deleted Cards -->
+  <div id="undo-container" class="hidden">
+    <h2>Recently Deleted</h2>
+    <div id="undo-list"></div>
+  </div>
+
+  <!-- Preset Menu -->
+  <div id="preset-menu" class="hidden">
+    <button class="preset-option">Braiding</button>
+    <button class="preset-option">Reading</button>
+    <button class="preset-option">Videos to Watch</button>
+    <button class="preset-option">Service &amp; Protocol</button>
+    <button class="preset-option">Tasks Today</button>
+    <button class="preset-option">Shibari Practice</button>
+    <button id="custom-option">Custom</button>
+  </div>
+
+  <button id="add-category-btn">＋</button>
+
+  <!-- Shared Moment Scheduler -->
+  <section id="scheduler">
+    <h2>Shared Moment Scheduler</h2>
+    <label>Local time <input type="datetime-local" id="local-time"></label>
+    <label>Partner UTC offset <input type="number" id="partner-offset" value="0"></label>
+    <p id="partner-time"></p>
+  </section>
+</main>
+
+<script src="/greenlight/js/script.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+  }
+</script>
+
