@@ -50,14 +50,14 @@ function createCard(i, subject) {
     <input class="tracker-title" value="${savedTitle}" />
     <p>Last done: <span id="last-done-${i}">${savedTime}</span></p>
     <p>Next due: <span id="next-due-${i}">–</span></p>
-    <textarea placeholder="Notes...">${savedNotes}</textarea>
-    <button onclick="markDone(${i})">Mark as Done</button>
+    <textarea class="notes" placeholder="Notes...">${savedNotes}</textarea>
+    <button class="mark-done" onclick="markDone(${i})">Mark as Done</button>
   `;
 
   card.querySelector(".tracker-title").addEventListener("input", (e) =>
     localStorage.setItem(`title-${i}`, e.target.value)
   );
-  card.querySelector("textarea").addEventListener("input", (e) =>
+  card.querySelector(".notes").addEventListener("input", (e) =>
     localStorage.setItem(`notes-${i}`, e.target.value)
   );
   card.addEventListener("dragstart", dragStart);
