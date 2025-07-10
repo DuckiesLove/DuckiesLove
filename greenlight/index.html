@@ -4,42 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Beneath the Greenlight</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/greenlight/css/style.css">
 </head>
 <body>
   <header>
     <h1>🌿 Beneath the Greenlight</h1>
   </header>
-  <main id="content">
-    <p class="empty-state">No rituals yet. Tap the + button to begin.</p>
-  </main>
-  <button id="addBtn">+</button>
-
-  <div id="modal" class="hidden">
-    <div class="modal-content">
-      <h2>Add Ritual</h2>
-      <p>Popular Rituals</p>
-      <div class="preset-buttons">
-        <button>Braiding</button>
-        <button>Service</button>
-        <button>Reading</button>
-        <button>Gratefulness</button>
-        <button>Aftercare</button>
-        <button>Quiet Time</button>
-      </div>
-      <button id="customBtn">Custom Ritual</button>
-      <button id="closeModal">×</button>
+  <main id="main-content">
+    <div id="completed-cards-container">
+      <!-- Only completed cards show up here -->
     </div>
-  </div>
-  <datalist id="categoryOptions">
-    <option value="Braiding"></option>
-    <option value="Reading"></option>
-    <option value="Videos to Watch"></option>
-    <option value="Service &amp; Protocol"></option>
-    <option value="Tasks Today"></option>
-    <option value="Shibari Practice"></option>
-  </datalist>
-
-  <script src="script.js"></script>
+    <div id="card-form-area" style="display: none;"></div>
+    <button id="add-category-btn">＋</button>
+  </main>
+  <script src="/greenlight/js/script.js"></script>
 </body>
 </html>
