@@ -1317,3 +1317,27 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
   background: #d0d0d0;
 }
 
+
+/* Wrap text for long category names and bring dropdowns closer */
+.category-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px; /* reduced space between text and dropdown */
+  margin-bottom: 10px;
+}
+
+/* Allow category text to wrap naturally */
+.category-label {
+  white-space: normal;
+  word-wrap: break-word;
+  max-width: 220px; /* adjust for mobile view */
+  flex-shrink: 0;
+  font-size: 16px;
+  padding-right: 4px;
+}
+
+/* Keep dropdown aligned tightly next to label */
+.rating-select {
+  min-width: 100px;
+  margin-left: 0;
+}
