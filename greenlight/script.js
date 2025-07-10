@@ -1,8 +1,10 @@
 const subjects = [
-  "Braiding", "Reading", "Videos to Watch", "Service & Protocol", "Tasks Today",
-  "Shibari Practice", "Dom’s Assigned Task", "Bathing / Grooming",
-  "Cleaning Assigned Areas", "Daily Check-In Message", "Obedience Without Prompt",
-  "Reflective Journal", "Scene Prep", "Stuffie Time", "App Usage Logged"
+  "Braiding",
+  "Reading",
+  "Videos to Watch",
+  "Service & Protocol",
+  "Tasks Today",
+  "Shibari Practice"
 ];
 
 function createCard(i, subject) {

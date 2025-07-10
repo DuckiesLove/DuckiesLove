@@ -3,7 +3,13 @@
 A private, local-submissive ritual tracker and devotion log.
 
 ## Features
-- 15 editable devotion cards (e.g. Braiding, Reading, Shibari)
+- 6 editable devotion cards:
+  1. Braiding
+  2. Reading
+  3. Videos to Watch
+  4. Service & Protocol
+  5. Tasks Today
+  6. Shibari Practice
 - Tracks last completed and calculates next due
 - Editable notes per card
 - Drag-and-drop reorder
