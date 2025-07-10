@@ -11,7 +11,9 @@
 </head>
 <body>
   <header>
+    <button id="menu-btn" aria-label="Menu">☰</button>
     <h1>🌿 Beneath the Greenlight</h1>
+    <button id="dark-mode-toggle" aria-label="Toggle Dark Mode">🌓</button>
   </header>
 <main id="main-content">
   <!-- Active Cards Section -->
@@ -55,6 +57,25 @@
     <label>Partner UTC offset <input type="number" id="partner-offset" value="0"></label>
     <p id="partner-time"></p>
   </section>
+
+  <!-- Partner Notes Section -->
+  <section id="partner-notes" class="hidden">
+    <h2>Partner Notes</h2>
+    <ul id="notes-list"></ul>
+    <input id="note-initials" placeholder="Initials">
+    <textarea id="note-text" placeholder="Write a note"></textarea>
+    <button id="save-note">Save Note</button>
+  </section>
+
+  <!-- Slide-out Menu -->
+  <nav id="menu" class="hidden">
+    <ul>
+      <li id="menu-recent">Recently Deleted</li>
+      <li id="menu-notes">Partner Notes</li>
+      <li id="menu-settings">Settings</li>
+      <li id="menu-about">About</li>
+    </ul>
+  </nav>
 </main>
 
 <script src="/greenlight/js/script.js"></script>

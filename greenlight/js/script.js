@@ -6,14 +6,27 @@ const partnerOffset = document.getElementById('partner-offset');
 const partnerTime = document.getElementById('partner-time');
 const undoContainer = document.getElementById('undo-container');
 const undoList = document.getElementById('undo-list');
+const menuBtn = document.getElementById('menu-btn');
+const menu = document.getElementById('menu');
+const notesSection = document.getElementById('partner-notes');
+const notesList = document.getElementById('notes-list');
+const noteInitials = document.getElementById('note-initials');
+const noteText = document.getElementById('note-text');
+const saveNoteBtn = document.getElementById('save-note');
+const menuNotes = document.getElementById('menu-notes');
+const menuRecent = document.getElementById('menu-recent');
+const darkToggle = document.getElementById('dark-mode-toggle');
 
 // Storage Keys
 const STORAGE_KEY = 'greenlight-cards';
 const DELETED_KEY = 'greenlight-deleted';
+const NOTES_KEY = 'greenlight-notes';
+const MODE_KEY = 'greenlight-mode';
 
 // State
 let cards = [];
 let deletedCards = [];
+let partnerNotes = [];
 
 // Utility
 function formatElapsed(hours) {
@@ -38,9 +51,18 @@ function load() {
   if (delData) {
     try { deletedCards = JSON.parse(delData); } catch { deletedCards = []; }
   }
+  const noteData = localStorage.getItem(NOTES_KEY);
+  if (noteData) {
+    try { partnerNotes = JSON.parse(noteData); } catch { partnerNotes = []; }
+  }
+  const mode = localStorage.getItem(MODE_KEY);
+  if (mode === 'light') {
+    document.body.classList.add('light-mode');
+  }
   cleanupDeleted();
   render();
   renderUndo();
+  renderNotes();
 }
 
 // Card Creation
@@ -83,7 +105,7 @@ function createCard(card) {
   link.href = card.youtube || '#';
 
   // Notes
-  const notesList = document.createElement('ul');
+  const cardNotesList = document.createElement('ul');
   const noteInput = document.createElement('input');
   noteInput.placeholder = 'Add note';
   const initialsInput = document.createElement('input');
@@ -180,12 +202,12 @@ function createCard(card) {
   div.appendChild(link);
   div.appendChild(recBtn);
   div.appendChild(playBtn);
-  div.appendChild(notesList);
+  div.appendChild(cardNotesList);
   card.notes.forEach(n => {
     const li = document.createElement('li');
     const d = new Date(n.time);
     li.textContent = `${d.toLocaleString()} ${n.initials}: ${n.text}`;
-    notesList.appendChild(li);
+    cardNotesList.appendChild(li);
   });
   div.appendChild(noteInput);
   div.appendChild(initialsInput);
@@ -270,6 +292,31 @@ function render() {
   cards.forEach(card => container.appendChild(createCard(card)));
 }
 
+// Partner Notes
+function saveNotes() {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(partnerNotes));
+}
+
+function renderNotes() {
+  notesList.innerHTML = '';
+  partnerNotes.forEach(n => {
+    const li = document.createElement('li');
+    const d = new Date(n.time);
+    li.textContent = `${d.toLocaleString()} ${n.initials}: ${n.text}`;
+    notesList.appendChild(li);
+  });
+}
+
+function toggleMenu() {
+  menu.classList.toggle('hidden');
+}
+
+function toggleDarkMode() {
+  document.body.classList.toggle('light-mode');
+  const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+  localStorage.setItem(MODE_KEY, mode);
+}
+
 // Scheduler
 function updateSchedule() {
   const date = new Date(localTime.value);
@@ -289,3 +336,27 @@ addBtn.addEventListener('click', () => addCard());
 localTime.addEventListener('input', updateSchedule);
 partnerOffset.addEventListener('input', updateSchedule);
 window.addEventListener('load', load);
+menuBtn.addEventListener('click', toggleMenu);
+darkToggle.addEventListener('click', toggleDarkMode);
+menuNotes.addEventListener('click', () => {
+  notesSection.classList.toggle('hidden');
+  toggleMenu();
+});
+menuRecent.addEventListener('click', () => {
+  undoContainer.classList.toggle('hidden');
+  toggleMenu();
+});
+saveNoteBtn.addEventListener('click', () => {
+  if (noteText.value.trim()) {
+    partnerNotes.push({
+      text: noteText.value,
+      initials: noteInitials.value,
+      time: Date.now()
+    });
+    noteText.value = '';
+    noteInitials.value = '';
+    saveNotes();
+    renderNotes();
+  }
+});
+
