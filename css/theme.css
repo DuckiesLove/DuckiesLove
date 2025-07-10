@@ -19,12 +19,13 @@
 
 .theme-darkviolet,
 .dark-mode {
-  --bg-color: #1a1a2e;
-  --panel-color: #292b3d;
-  --text-color: #f0f0f0;
-  --button-bg: #7c5fe9;
-  --button-text: #ffffff;
-  --button-hover-bg: #9b84ff;
+  /* Dark forest green theme */
+  --bg-color: #013220;
+  --panel-color: #025f3d;
+  --text-color: #5fa1d7;
+  --button-bg: #146b3a;
+  --button-text: #d0eaff;
+  --button-hover-bg: #1b8a55;
 }
 
 .theme-blue {
