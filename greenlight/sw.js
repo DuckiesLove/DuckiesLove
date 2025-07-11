@@ -8,7 +8,7 @@ const FILES = [
   './css/style.css',
   './js/script.js',
   './manifest.json',
-  './duck.svg'
+  './greenlightduck.png'
 ];
 self.addEventListener('install', e => {
   self.skipWaiting();
