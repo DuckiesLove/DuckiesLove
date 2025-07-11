@@ -8,6 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="duck.svg">
   <meta name="theme-color" content="#0F5132">
   <link href="https://fonts.googleapis.com/css2?family=Lexend+Deca&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -47,7 +48,22 @@
     </ul>
 
   </nav>
-</main>
+  </main>
+  </div>
+
+  <div id="entry-select-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content entry-modal">
+      <button class="close-btn" onclick="closeModal(this)">✕</button>
+      <h2>Add New Entry</h2>
+      <div id="entry-options">
+        <button class="pill-btn">Shared Activity</button>
+        <button class="pill-btn">Shared Calendar Event</button>
+        <button class="pill-btn">YouTube Video</button>
+        <button class="pill-btn">Learning Exercise</button>
+        <button class="pill-btn">Personal Task</button>
+      </div>
+      <button id="custom-entry-btn" class="full-width-btn">Add Something Custom</button>
+    </div>
   </div>
 
   <div id="new-card-modal" class="modal hidden" role="dialog" aria-modal="true">
@@ -141,8 +157,6 @@
         <h2>About</h2>
         <p>Beneath the Greenlight helps you track shared moments and notes.</p>
       </div>
-    </div>
-
 
 
 <script src="/greenlight/js/script.js"></script>
