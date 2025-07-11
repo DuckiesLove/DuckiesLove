@@ -124,7 +124,21 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCards();
   loadNotes();
   renderNotes();
+  populateTimeZones(yourTz);
+  populateTimeZones(partnerTz);
 });
+
+function populateTimeZones(selectElement) {
+  if (!selectElement || typeof Intl.supportedValuesOf !== 'function') return;
+  const zones = Intl.supportedValuesOf('timeZone');
+  selectElement.innerHTML = '<option value="">Select time zone</option>';
+  zones.forEach(zone => {
+    const option = document.createElement('option');
+    option.value = zone;
+    option.textContent = zone;
+    selectElement.appendChild(option);
+  });
+}
 
 // Country list for dropdowns
 const COUNTRIES = [
