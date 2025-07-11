@@ -5,6 +5,7 @@ const localTime = document.getElementById('local-time');
 const localTimeLabel = document.getElementById('local-time-label');
 const localTimeText = document.getElementById('local-time-text');
 const partnerTz = document.getElementById('partner-tz');
+const partnerCountry = document.getElementById('partner-country');
 const partnerTime = document.getElementById('partner-time');
 const yourTimeDisplay = document.getElementById('your-time');
 const undoModal = document.getElementById('undo-modal');
@@ -50,6 +51,7 @@ const DELETED_KEY = 'greenlight-deleted';
 const NOTES_KEY = 'greenlight-notes';
 const MODE_KEY = 'greenlight-mode';
 const TZ_KEY = 'greenlight-tz';
+const COUNTRY_KEY = 'greenlight-country';
 
 // State
 let cards = [];
@@ -94,6 +96,10 @@ function load() {
   if (tz && partnerTz) {
     partnerTz.value = tz;
   }
+  const country = localStorage.getItem(COUNTRY_KEY);
+  if (country && partnerCountry) {
+    partnerCountry.value = country;
+  }
   cleanupDeleted();
   if (container) render();
   if (undoList) renderUndo();
@@ -101,10 +107,10 @@ function load() {
   if (localTime && partnerTz) {
     if (!localTime.value) {
       const now = new Date();
-      localTime.value = now.toISOString().slice(0, 16);
+      localTime.value = now.toISOString().slice(0, 10);
       if (localTimeText) {
         const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        localTimeText.textContent = `Local time (${tzName})`;
+        localTimeText.textContent = `Local date (${tzName})`;
       }
     }
     updateSchedule();
@@ -380,19 +386,22 @@ function toggleDarkMode() {
 
 // Scheduler
 function updateSchedule() {
-  const date = new Date(localTime.value);
-  if (isNaN(date)) {
+  const dateVal = localTime.value;
+  const date = new Date(dateVal);
+  if (!dateVal || isNaN(date)) {
     yourTimeDisplay.textContent = '';
     partnerTime.textContent = '';
     return;
   }
-  const tz = partnerTz.value || 'UTC';
-  const pString = date.toLocaleString([], { timeZone: tz });
+  const tz = partnerTz.value.trim() || 'UTC';
+  const country = partnerCountry ? partnerCountry.value.trim() : '';
   const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const yourString = date.toLocaleString([], { timeZoneName: 'short' });
-  yourTimeDisplay.textContent = `Your Time (${localTz}): ${yourString}`;
-  partnerTime.textContent = `Their Time (${tz}): ${pString}`;
+  const yourDate = date.toLocaleDateString([], { timeZone: localTz });
+  const partnerDate = date.toLocaleDateString([], { timeZone: tz });
+  yourTimeDisplay.textContent = `Your Date (${localTz}): ${yourDate}`;
+  partnerTime.textContent = `Their Date (${tz}${country ? ', ' + country : ''}): ${partnerDate}`;
   localStorage.setItem(TZ_KEY, tz);
+  if (partnerCountry) localStorage.setItem(COUNTRY_KEY, country);
 }
 
 // Listeners
@@ -426,6 +435,7 @@ if (cancelCardBtn) {
 }
 if (localTime) localTime.addEventListener('input', updateSchedule);
 if (partnerTz) partnerTz.addEventListener('input', updateSchedule);
+if (partnerCountry) partnerCountry.addEventListener('input', updateSchedule);
 window.addEventListener('load', () => {
   localStorage.removeItem('greenlight-categories');
   load();

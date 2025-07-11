@@ -73,17 +73,12 @@
       <h2>Settings</h2>
       <div id="scheduler">
         <h3>Shared Moment Scheduler</h3>
-        <label id="local-time-label"><span id="local-time-text">Local time</span> <input type="datetime-local" id="local-time"></label>
+        <label id="local-time-label"><span id="local-time-text">Local date</span> <input type="date" id="local-time"></label>
         <label>Partner time zone
-          <select id="partner-tz">
-            <option value="UTC">UTC</option>
-            <option value="America/Los_Angeles">America/Los_Angeles</option>
-            <option value="America/New_York">America/New_York</option>
-            <option value="Europe/London">Europe/London</option>
-            <option value="Europe/Berlin">Europe/Berlin</option>
-            <option value="Asia/Tokyo">Asia/Tokyo</option>
-            <option value="Australia/Sydney">Australia/Sydney</option>
-          </select>
+          <input id="partner-tz" placeholder="e.g., America/New_York">
+        </label>
+        <label>Partner country
+          <input id="partner-country" placeholder="Country">
         </label>
         <p id="your-time"></p>
         <p id="partner-time"></p>
