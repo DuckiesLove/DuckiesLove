@@ -2,6 +2,8 @@
 const container = document.getElementById('cards-container');
 const addBtn = document.getElementById('add-card');
 const localTime = document.getElementById('local-time');
+const localTimeLabel = document.getElementById('local-time-label');
+const localTimeText = document.getElementById('local-time-text');
 const partnerTz = document.getElementById('partner-tz');
 const partnerTime = document.getElementById('partner-time');
 const yourTimeDisplay = document.getElementById('your-time');
@@ -96,7 +98,17 @@ function load() {
   if (container) render();
   if (undoList) renderUndo();
   if (notesList) renderNotes();
-  if (localTime && partnerTz) updateSchedule();
+  if (localTime && partnerTz) {
+    if (!localTime.value) {
+      const now = new Date();
+      localTime.value = now.toISOString().slice(0, 16);
+      if (localTimeText) {
+        const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        localTimeText.textContent = `Local time (${tzName})`;
+      }
+    }
+    updateSchedule();
+  }
 }
 
 // Card Creation
@@ -376,7 +388,9 @@ function updateSchedule() {
   }
   const tz = partnerTz.value || 'UTC';
   const pString = date.toLocaleString([], { timeZone: tz });
-  yourTimeDisplay.textContent = `Your Time: ${date.toLocaleString()}`;
+  const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const yourString = date.toLocaleString([], { timeZoneName: 'short' });
+  yourTimeDisplay.textContent = `Your Time (${localTz}): ${yourString}`;
   partnerTime.textContent = `Their Time (${tz}): ${pString}`;
   localStorage.setItem(TZ_KEY, tz);
 }
@@ -447,6 +461,11 @@ if (menuRecent) menuRecent.addEventListener('click', () => {
   toggleMenu();
 });
 if (menuSettings) menuSettings.addEventListener('click', () => {
+  if (localTime) {
+    const now = new Date();
+    localTime.value = now.toISOString().slice(0, 16);
+    updateSchedule();
+  }
   openModal(settingsModal);
   toggleMenu();
 });
