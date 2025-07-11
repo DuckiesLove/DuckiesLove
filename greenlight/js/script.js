@@ -427,11 +427,11 @@ function updateSchedule() {
 // Listeners
 if (addBtn) {
   addBtn.addEventListener('click', () => {
-    modal.classList.remove('hidden');
     modalTitle.value = '';
     modalEstimate.value = '';
     modalYoutube.value = '';
     modalType.value = 'due';
+    openModal(modal);
   });
 }
 
@@ -444,13 +444,13 @@ if (saveCardBtn) {
       estimate: Number(modalEstimate.value) || 0,
       youtube: modalYoutube.value
     });
-    modal.classList.add('hidden');
+    closeModal(saveCardBtn);
   });
 }
 
 if (cancelCardBtn) {
   cancelCardBtn.addEventListener('click', () => {
-    modal.classList.add('hidden');
+    closeModal(cancelCardBtn);
   });
 }
 if (localTime) localTime.addEventListener('input', updateSchedule);
@@ -465,21 +465,35 @@ if (closeMenuBtn) closeMenuBtn.addEventListener('click', toggleMenu);
 if (darkToggle) darkToggle.addEventListener('click', toggleDarkMode);
 function openModal(el) {
   if (el) el.classList.remove('hidden');
+  const mainPage = document.getElementById('main-page');
+  if (mainPage) mainPage.style.display = 'none';
+  const overlay = document.getElementById('modal-overlay');
+  if (overlay) overlay.style.display = 'block';
 }
 function hideModal(el) {
   if (el) el.classList.add('hidden');
 }
 
 function closeModal(button) {
-  const modal =
-    button.closest('.modal-box') || button.closest('.popup-card');
+  const modal = button.closest('.modal-box') || button.closest('.popup-card');
   if (modal) {
     modal.style.display = 'none';
+
+    // Clear inputs
     const inputs = modal.querySelectorAll('input, textarea');
     inputs.forEach(input => (input.value = ''));
   }
+
+  // Hide overlay if present
   const overlay = document.getElementById('modal-overlay');
   if (overlay) overlay.style.display = 'none';
+
+  // Re-show main interface
+  const mainPage = document.getElementById('main-page');
+  if (mainPage) mainPage.style.display = 'block';
+
+  // Optional: reset scroll or focus
+  window.scrollTo(0, 0);
 }
 if (menuNotes) menuNotes.addEventListener('click', () => {
   openModal(notesModal);
