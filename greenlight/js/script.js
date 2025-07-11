@@ -466,8 +466,20 @@ if (darkToggle) darkToggle.addEventListener('click', toggleDarkMode);
 function openModal(el) {
   if (el) el.classList.remove('hidden');
 }
-function closeModal(el) {
+function hideModal(el) {
   if (el) el.classList.add('hidden');
+}
+
+function closeModal(button) {
+  const modal =
+    button.closest('.modal-box') || button.closest('.popup-card');
+  if (modal) {
+    modal.style.display = 'none';
+    const inputs = modal.querySelectorAll('input, textarea');
+    inputs.forEach(input => (input.value = ''));
+  }
+  const overlay = document.getElementById('modal-overlay');
+  if (overlay) overlay.style.display = 'none';
 }
 if (menuNotes) menuNotes.addEventListener('click', () => {
   openModal(notesModal);
@@ -489,11 +501,11 @@ if (menuVoice) menuVoice.addEventListener('click', () => {
   openModal(voiceModal);
   toggleMenu();
 });
-if (closeUndoBtn) closeUndoBtn.addEventListener('click', () => closeModal(undoModal));
-if (closeNotesBtn) closeNotesBtn.addEventListener('click', () => closeModal(notesModal));
-if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => closeModal(settingsModal));
-if (closeAboutBtn) closeAboutBtn.addEventListener('click', () => closeModal(aboutModal));
-if (closeVoiceBtn) closeVoiceBtn.addEventListener('click', () => closeModal(voiceModal));
+if (closeUndoBtn) closeUndoBtn.addEventListener('click', () => hideModal(undoModal));
+if (closeNotesBtn) closeNotesBtn.addEventListener('click', () => hideModal(notesModal));
+if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => hideModal(settingsModal));
+if (closeAboutBtn) closeAboutBtn.addEventListener('click', () => hideModal(aboutModal));
+if (closeVoiceBtn) closeVoiceBtn.addEventListener('click', () => hideModal(voiceModal));
 if (saveNoteBtn) {
   saveNoteBtn.addEventListener('click', () => {
     if (noteText.value.trim()) {

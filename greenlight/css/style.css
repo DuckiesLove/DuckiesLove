@@ -250,3 +250,24 @@ h1 {
   padding: 0.25rem 0.5rem;
   border-radius: 0.5rem;
 }
+
+.close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: white;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.modal-box,
+.popup-card {
+  position: relative;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: #18392B;
+  color: white;
+}
