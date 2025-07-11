@@ -70,41 +70,43 @@ let recorder;
 let recordedData;
 
 // --------------------------- UI Handlers ---------------------------
-// Persist and toggle light/dark mode
-const savedMode = localStorage.getItem(MODE_KEY);
-if (savedMode === 'light') {
-  document.body.classList.add('light-mode');
-}
-if (darkToggle) {
-  darkToggle.addEventListener('click', () => {
-    const isLight = document.body.classList.toggle('light-mode');
-    localStorage.setItem(MODE_KEY, isLight ? 'light' : 'dark');
-  });
-}
+document.addEventListener('DOMContentLoaded', () => {
+  // Persist and toggle light/dark mode
+  const savedMode = localStorage.getItem(MODE_KEY);
+  if (savedMode === 'light') {
+    document.body.classList.add('light-mode');
+  }
+  if (darkToggle) {
+    darkToggle.addEventListener('click', () => {
+      const isLight = document.body.classList.toggle('light-mode');
+      localStorage.setItem(MODE_KEY, isLight ? 'light' : 'dark');
+    });
+  }
 
-// Slide-out menu open/close
-if (menuBtn) {
-  menuBtn.addEventListener('click', () => {
-    menu.classList.add('open');
-  });
-}
+  // Slide-out menu open/close
+  if (menuBtn) {
+    menuBtn.addEventListener('click', () => {
+      menu.classList.add('open');
+    });
+  }
 
-if (closeMenuBtn) {
-  closeMenuBtn.addEventListener('click', () => {
+  if (closeMenuBtn) {
+    closeMenuBtn.addEventListener('click', () => {
+      menu.classList.remove('open');
+    });
+  }
+
+  function openMenuModal(modalEl) {
     menu.classList.remove('open');
-  });
-}
+    openModal(modalEl);
+  }
 
-function openMenuModal(modalEl) {
-  menu.classList.remove('open');
-  openModal(modalEl);
-}
-
-if (menuNotes) menuNotes.addEventListener('click', () => openMenuModal(notesModal));
-if (menuRecent) menuRecent.addEventListener('click', () => openMenuModal(undoModal));
-if (menuSettings) menuSettings.addEventListener('click', () => openMenuModal(settingsModal));
-if (menuAbout) menuAbout.addEventListener('click', () => openMenuModal(aboutModal));
-if (menuVoice) menuVoice.addEventListener('click', () => openMenuModal(voiceModal));
+  if (menuNotes) menuNotes.addEventListener('click', () => openMenuModal(notesModal));
+  if (menuRecent) menuRecent.addEventListener('click', () => openMenuModal(undoModal));
+  if (menuSettings) menuSettings.addEventListener('click', () => openMenuModal(settingsModal));
+  if (menuAbout) menuAbout.addEventListener('click', () => openMenuModal(aboutModal));
+  if (menuVoice) menuVoice.addEventListener('click', () => openMenuModal(voiceModal));
+});
 
 // Country list for dropdowns
 const COUNTRIES = [
