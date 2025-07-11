@@ -76,30 +76,8 @@
     <button id="save-note">Save Note</button>
   </section>
 
-  <div class="audio-section">
-    <button id="global-record">Record Memo</button>
-    <button id="global-play" disabled>Play Memo</button>
-  </div>
-
-  <div class="emoji-picker">
-    <label for="emoji-select">Insert Emoji</label>
-    <select id="emoji-select">
-      <option value="">🙂</option>
-      <option>😀</option>
-      <option>😢</option>
-      <option>😍</option>
-      <option>😡</option>
-    </select>
-  </div>
-
   <div class="export-btn">
     <button id="export-json">Export Data</button>
-  </div>
-
-  <div class="timer-section">
-    <input id="timer-minutes" type="number" min="1" placeholder="Minutes">
-    <button id="start-timer">Start Timer</button>
-    <span id="timer-display" class="timer-display"></span>
   </div>
 
   <!-- Slide-out Menu -->
@@ -108,6 +86,10 @@
     <ul>
       <li id="menu-recent">Recently Deleted</li>
       <li id="menu-notes">Partner Notes</li>
+      <li class="voice-memos">
+        <button id="global-record">Record Memo</button>
+        <button id="global-play" disabled>Play Memo</button>
+      </li>
       <li id="menu-settings">Settings</li>
       <li id="menu-about">About</li>
     </ul>
