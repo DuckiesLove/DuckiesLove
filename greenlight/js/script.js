@@ -54,7 +54,7 @@ const style = document.createElement('style');
 style.textContent = `
   #note-text {
     width: 100%;
-    height: 120px;
+    height: 200px;
     font-size: 1rem;
     padding: 12px;
     border-radius: 8px;
