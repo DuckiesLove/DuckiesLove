@@ -22,11 +22,7 @@ const darkToggle = document.getElementById('dark-mode-toggle');
 const closeMenuBtn = document.getElementById('close-menu');
 const globalRecordBtn = document.getElementById('global-record');
 const globalPlayBtn = document.getElementById('global-play');
-const emojiSelect = document.getElementById('emoji-select');
 const exportBtn = document.getElementById('export-json');
-const timerInput = document.getElementById('timer-minutes');
-const startTimerBtn = document.getElementById('start-timer');
-const timerDisplay = document.getElementById('timer-display');
 const modal = document.getElementById('new-card-modal');
 const modalTitle = document.getElementById('new-card-title');
 const modalType = document.getElementById('new-card-type');
@@ -48,7 +44,6 @@ let deletedCards = [];
 let partnerNotes = [];
 let globalRecorder;
 let globalAudio;
-let timerId = null;
 
 // Utility
 function formatElapsed(hours) {
@@ -517,13 +512,6 @@ if (globalRecordBtn && globalPlayBtn) {
   });
 }
 
-// Emoji picker for notes
-if (emojiSelect) {
-  emojiSelect.addEventListener('change', () => {
-    noteText.value += emojiSelect.value;
-    emojiSelect.value = '';
-  });
-}
 
 // Export data
 if (exportBtn) {
@@ -539,33 +527,4 @@ if (exportBtn) {
   });
 }
 
-// Simple countdown timer
-if (startTimerBtn) {
-  startTimerBtn.addEventListener('click', () => {
-    if (timerId) {
-      clearInterval(timerId);
-      timerId = null;
-      timerDisplay.textContent = '';
-      startTimerBtn.textContent = 'Start Timer';
-      return;
-    }
-    const minutes = parseInt(timerInput.value, 10);
-    if (isNaN(minutes) || minutes <= 0) return;
-    let remaining = minutes * 60;
-    const update = () => {
-      const m = Math.floor(remaining / 60);
-      const s = remaining % 60;
-      timerDisplay.textContent = `${m}:${s.toString().padStart(2, '0')}`;
-      if (remaining <= 0) {
-        clearInterval(timerId);
-        timerId = null;
-        startTimerBtn.textContent = 'Start Timer';
-      }
-      remaining--;
-    };
-    update();
-    timerId = setInterval(update, 1000);
-    startTimerBtn.textContent = 'Stop Timer';
-  });
-}
 
