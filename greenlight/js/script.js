@@ -168,46 +168,6 @@ function createCard(card) {
     }
   };
 
-  // Voice Recording
-  let recorder;
-  const recBtn = document.createElement('button');
-  recBtn.textContent = '🎤';
-
-  const playBtn = document.createElement('button');
-  playBtn.textContent = '▶️';
-  playBtn.disabled = !card.audio;
-
-  recBtn.onclick = async () => {
-    if (!recorder) {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recorder = new MediaRecorder(stream);
-      const chunks = [];
-      recorder.ondataavailable = e => chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.onload = () => {
-          card.audio = reader.result;
-          save();
-          playBtn.disabled = false;
-        };
-        reader.readAsDataURL(blob);
-      };
-      recorder.start();
-      recBtn.textContent = '⏹';
-    } else {
-      recorder.stop();
-      recorder = null;
-      recBtn.textContent = '🎤';
-    }
-  };
-
-  playBtn.onclick = () => {
-    if (card.audio) {
-      const audio = new Audio(card.audio);
-      audio.play();
-    }
-  };
 
   // Time Display
   function updateTime() {
@@ -246,8 +206,6 @@ function createCard(card) {
   div.appendChild(countSpan);
   div.appendChild(yt);
   div.appendChild(link);
-  div.appendChild(recBtn);
-  div.appendChild(playBtn);
   div.appendChild(cardNotesList);
   card.notes.forEach(n => {
     const li = document.createElement('li');
@@ -274,8 +232,7 @@ function addCard(data = {}) {
     lastDone: null,
     youtube: data.youtube || '',
     notes: [],
-    count: 0,
-    audio: null
+    count: 0
   });
   save();
   render();
@@ -465,34 +422,18 @@ if (closeMenuBtn) closeMenuBtn.addEventListener('click', toggleMenu);
 if (darkToggle) darkToggle.addEventListener('click', toggleDarkMode);
 function openModal(el) {
   if (el) el.classList.remove('hidden');
-  const mainPage = document.getElementById('main-page');
-  if (mainPage) mainPage.style.display = 'none';
-  const overlay = document.getElementById('modal-overlay');
-  if (overlay) overlay.style.display = 'block';
 }
 function hideModal(el) {
   if (el) el.classList.add('hidden');
 }
 
 function closeModal(button) {
-  const modal = button.closest('.modal-box') || button.closest('.popup-card');
-  if (modal) {
-    modal.style.display = 'none';
-
-    // Clear inputs
-    const inputs = modal.querySelectorAll('input, textarea');
+  const modalWrapper = button.closest('.modal');
+  if (modalWrapper) {
+    modalWrapper.classList.add('hidden');
+    const inputs = modalWrapper.querySelectorAll('input, textarea');
     inputs.forEach(input => (input.value = ''));
   }
-
-  // Hide overlay if present
-  const overlay = document.getElementById('modal-overlay');
-  if (overlay) overlay.style.display = 'none';
-
-  // Re-show main interface
-  const mainPage = document.getElementById('main-page');
-  if (mainPage) mainPage.style.display = 'block';
-
-  // Optional: reset scroll or focus
   window.scrollTo(0, 0);
 }
 if (menuNotes) menuNotes.addEventListener('click', () => {
@@ -537,7 +478,7 @@ if (saveNoteBtn) {
 }
 
 // Voice notes handling
-const VOICE_KEY = 'greenlight-voice';
+const VOICE_KEY = 'greenlight-voice-notes';
 
 function saveVoices() {
   localStorage.setItem(VOICE_KEY, JSON.stringify(voiceNotes));
