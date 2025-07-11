@@ -16,7 +16,6 @@ const menuBtn = document.getElementById('menu-btn');
 const menu = document.getElementById('menu');
 const notesModal = document.getElementById('notes-modal');
 const notesList = document.getElementById('notes-list');
-const noteInitials = document.getElementById('note-initials');
 const noteText = document.getElementById('note-text');
 const saveNoteBtn = document.getElementById('save-note');
 const menuNotes = document.getElementById('menu-notes');
