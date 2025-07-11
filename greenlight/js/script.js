@@ -6,6 +6,8 @@ const localTimeLabel = document.getElementById('local-time-label');
 const localTimeText = document.getElementById('local-time-text');
 const partnerTz = document.getElementById('partner-tz');
 const partnerCountry = document.getElementById('partner-country');
+const yourTz = document.getElementById('your-tz');
+const yourCountry = document.getElementById('your-country');
 const partnerTime = document.getElementById('partner-time');
 const yourTimeDisplay = document.getElementById('your-time');
 const undoModal = document.getElementById('undo-modal');
@@ -52,6 +54,8 @@ const NOTES_KEY = 'greenlight-notes';
 const MODE_KEY = 'greenlight-mode';
 const TZ_KEY = 'greenlight-tz';
 const COUNTRY_KEY = 'greenlight-country';
+const MY_TZ_KEY = 'greenlight-your-tz';
+const MY_COUNTRY_KEY = 'greenlight-your-country';
 
 // State
 let cards = [];
@@ -60,6 +64,51 @@ let partnerNotes = [];
 let voiceNotes = [];
 let recorder;
 let recordedData;
+
+// Country list for dropdowns
+const COUNTRIES = [
+  "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda",
+  "Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas",
+  "Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize",
+  "Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana",
+  "Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde",
+  "Cambodia","Cameroon","Canada","Central African Republic","Chad",
+  "Chile","China","Colombia","Comoros","Congo","Costa Rica",
+  "Croatia","Cuba","Cyprus","Czechia","Democratic Republic of the Congo",
+  "Denmark","Djibouti","Dominica","Dominican Republic","Ecuador",
+  "Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia",
+  "Eswatini","Ethiopia","Fiji","Finland","France","Gabon",
+  "Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala",
+  "Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary",
+  "Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy",
+  "Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kuwait",
+  "Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya",
+  "Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi",
+  "Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania",
+  "Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia",
+  "Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru",
+  "Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria",
+  "North Korea","North Macedonia","Norway","Oman","Pakistan","Palau",
+  "Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland",
+  "Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis",
+  "Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino",
+  "Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles",
+  "Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands",
+  "Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka",
+  "Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan",
+  "Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago",
+  "Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine",
+  "United Arab Emirates","United Kingdom","United States","Uruguay",
+  "Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen",
+  "Zambia","Zimbabwe"
+];
+
+function populateCountrySelect(select) {
+  if (!select) return;
+  select.innerHTML =
+    '<option value=""></option>' +
+    COUNTRIES.map(c => `<option value="${c}">${c}</option>`).join('');
+}
 
 // Utility
 function formatElapsed(hours) {
@@ -99,6 +148,14 @@ function load() {
   const country = localStorage.getItem(COUNTRY_KEY);
   if (country && partnerCountry) {
     partnerCountry.value = country;
+  }
+  const myTz = localStorage.getItem(MY_TZ_KEY);
+  if (myTz && yourTz) {
+    yourTz.value = myTz;
+  }
+  const myCountry = localStorage.getItem(MY_COUNTRY_KEY);
+  if (myCountry && yourCountry) {
+    yourCountry.value = myCountry;
   }
   cleanupDeleted();
   if (container) render();
@@ -395,13 +452,17 @@ function updateSchedule() {
   }
   const tz = partnerTz.value.trim() || 'UTC';
   const country = partnerCountry ? partnerCountry.value.trim() : '';
-  const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const localTz = (yourTz && yourTz.value.trim()) ||
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const myCountry = yourCountry ? yourCountry.value.trim() : '';
   const yourDate = date.toLocaleDateString([], { timeZone: localTz });
   const partnerDate = date.toLocaleDateString([], { timeZone: tz });
-  yourTimeDisplay.textContent = `Your Date (${localTz}): ${yourDate}`;
+  yourTimeDisplay.textContent = `Your Date (${localTz}${myCountry ? ', ' + myCountry : ''}): ${yourDate}`;
   partnerTime.textContent = `Their Date (${tz}${country ? ', ' + country : ''}): ${partnerDate}`;
   localStorage.setItem(TZ_KEY, tz);
   if (partnerCountry) localStorage.setItem(COUNTRY_KEY, country);
+  if (yourTz) localStorage.setItem(MY_TZ_KEY, yourTz.value.trim());
+  if (yourCountry) localStorage.setItem(MY_COUNTRY_KEY, myCountry);
 }
 
 // Listeners
@@ -435,9 +496,13 @@ if (cancelCardBtn) {
 }
 if (localTime) localTime.addEventListener('input', updateSchedule);
 if (partnerTz) partnerTz.addEventListener('input', updateSchedule);
-if (partnerCountry) partnerCountry.addEventListener('input', updateSchedule);
+if (partnerCountry) partnerCountry.addEventListener('change', updateSchedule);
+if (yourTz) yourTz.addEventListener('input', updateSchedule);
+if (yourCountry) yourCountry.addEventListener('change', updateSchedule);
 window.addEventListener('load', () => {
   localStorage.removeItem('greenlight-categories');
+  populateCountrySelect(partnerCountry);
+  populateCountrySelect(yourCountry);
   load();
   loadVoices();
 });
