@@ -2,9 +2,12 @@ const CACHE = 'greenlight-v2';
 const FILES = [
   './',
   './index.html',
+  './partner-notes/index.html',
+  './shared-scheduler/index.html',
   './css/style.css',
   './js/script.js',
-  './manifest.json'
+  './manifest.json',
+  './duck.svg'
 ];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));

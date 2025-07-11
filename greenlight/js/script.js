@@ -86,10 +86,10 @@ function load() {
     partnerTz.value = tz;
   }
   cleanupDeleted();
-  render();
-  renderUndo();
-  renderNotes();
-  updateSchedule();
+  if (container) render();
+  if (undoContainer && undoList) renderUndo();
+  if (notesList) renderNotes();
+  if (localTime && partnerTz) updateSchedule();
 }
 
 // Card Creation
@@ -306,6 +306,7 @@ function cleanupDeleted() {
 }
 
 function renderUndo() {
+  if (!undoContainer || !undoList) return;
   cleanupDeleted();
   undoList.innerHTML = '';
   if (deletedCards.length === 0) {
@@ -329,6 +330,7 @@ function renderUndo() {
 
 // Render All Cards
 function render() {
+  if (!container) return;
   container.innerHTML = '';
   cards.forEach(card => {
     const el = createCard(card);
@@ -358,6 +360,7 @@ function saveNotes() {
 }
 
 function renderNotes() {
+  if (!notesList) return;
   notesList.innerHTML = '';
   partnerNotes.forEach((n, idx) => {
     const li = document.createElement('li');
@@ -392,7 +395,9 @@ function renderNotes() {
 }
 
 function toggleMenu() {
-  menu.classList.toggle('open');
+  if (menu) {
+    menu.classList.toggle('open');
+  }
 }
 
 function toggleDarkMode() {
@@ -417,62 +422,70 @@ function updateSchedule() {
 }
 
 // Listeners
-addBtn.addEventListener('click', () => {
-  modal.classList.remove('hidden');
-  modalTitle.value = '';
-  modalEstimate.value = '';
-  modalYoutube.value = '';
-  modalType.value = 'due';
-});
-
-saveCardBtn.addEventListener('click', () => {
-  addCard({
-    title: modalTitle.value,
-    dueHours: Number(modalEstimate.value) || 24,
-    type: modalType.value,
-    estimate: Number(modalEstimate.value) || 0,
-    youtube: modalYoutube.value
+if (addBtn) {
+  addBtn.addEventListener('click', () => {
+    modal.classList.remove('hidden');
+    modalTitle.value = '';
+    modalEstimate.value = '';
+    modalYoutube.value = '';
+    modalType.value = 'due';
   });
-  modal.classList.add('hidden');
-});
+}
 
-cancelCardBtn.addEventListener('click', () => {
-  modal.classList.add('hidden');
-});
-localTime.addEventListener('input', updateSchedule);
-partnerTz.addEventListener('input', updateSchedule);
+if (saveCardBtn) {
+  saveCardBtn.addEventListener('click', () => {
+    addCard({
+      title: modalTitle.value,
+      dueHours: Number(modalEstimate.value) || 24,
+      type: modalType.value,
+      estimate: Number(modalEstimate.value) || 0,
+      youtube: modalYoutube.value
+    });
+    modal.classList.add('hidden');
+  });
+}
+
+if (cancelCardBtn) {
+  cancelCardBtn.addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+}
+if (localTime) localTime.addEventListener('input', updateSchedule);
+if (partnerTz) partnerTz.addEventListener('input', updateSchedule);
 window.addEventListener('load', () => {
   localStorage.removeItem('greenlight-categories');
   load();
 });
-menuBtn.addEventListener('click', toggleMenu);
-closeMenuBtn.addEventListener('click', toggleMenu);
-darkToggle.addEventListener('click', toggleDarkMode);
-menuNotes.addEventListener('click', () => {
-  notesSection.classList.toggle('hidden');
+if (menuBtn) menuBtn.addEventListener('click', toggleMenu);
+if (closeMenuBtn) closeMenuBtn.addEventListener('click', toggleMenu);
+if (darkToggle) darkToggle.addEventListener('click', toggleDarkMode);
+if (menuNotes) menuNotes.addEventListener('click', () => {
+  if (notesSection) notesSection.classList.toggle('hidden');
   toggleMenu();
 });
-menuRecent.addEventListener('click', () => {
-  undoContainer.classList.toggle('hidden');
+if (menuRecent) menuRecent.addEventListener('click', () => {
+  if (undoContainer) undoContainer.classList.toggle('hidden');
   toggleMenu();
 });
-menuSettings.addEventListener('click', () => {
-  settingsSection.classList.toggle('hidden');
+if (menuSettings) menuSettings.addEventListener('click', () => {
+  if (settingsSection) settingsSection.classList.toggle('hidden');
   toggleMenu();
 });
-saveNoteBtn.addEventListener('click', () => {
-  if (noteText.value.trim()) {
-    partnerNotes.push({
-      text: noteText.value,
-      initials: noteInitials.value,
-      time: Date.now()
-    });
-    noteText.value = '';
-    noteInitials.value = '';
-    saveNotes();
-    renderNotes();
-  }
-});
+if (saveNoteBtn) {
+  saveNoteBtn.addEventListener('click', () => {
+    if (noteText.value.trim()) {
+      partnerNotes.push({
+        text: noteText.value,
+        initials: noteInitials.value,
+        time: Date.now()
+      });
+      noteText.value = '';
+      noteInitials.value = '';
+      saveNotes();
+      renderNotes();
+    }
+  });
+}
 
 // Global audio memo
 if (globalRecordBtn && globalPlayBtn) {
