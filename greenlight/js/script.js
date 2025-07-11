@@ -49,7 +49,6 @@ const modalYoutube = document.getElementById('new-card-youtube');
 const saveCardBtn = document.getElementById('save-card');
 const cancelCardBtn = document.getElementById('cancel-card');
 const entryModal = document.getElementById('entry-select-modal');
-const customEntryBtn = document.getElementById('custom-entry-btn');
 
 // Storage Keys
 const STORAGE_KEY = 'greenlight-cards';
@@ -106,6 +105,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (menuSettings) menuSettings.addEventListener('click', () => openMenuModal(settingsModal));
   if (menuAbout) menuAbout.addEventListener('click', () => openMenuModal(aboutModal));
   if (menuVoice) menuVoice.addEventListener('click', () => openMenuModal(voiceModal));
+
+  loadCards();
+  renderCards();
 });
 
 // Country list for dropdowns
@@ -159,18 +161,15 @@ if (addBtn) {
 // Add card when a preset option is chosen
 document.querySelectorAll('#entry-options .add-option').forEach(btn => {
   btn.addEventListener('click', () => {
-    addCard({ title: btn.textContent, label: btn.dataset.type || '' });
-    hideModal(entryModal);
+    if (btn.dataset.type === 'custom') {
+      hideModal(entryModal);
+      openModal(modal);
+    } else {
+      addCard({ title: btn.textContent, label: btn.dataset.type || '' });
+      hideModal(entryModal);
+    }
   });
 });
-
-// Open custom card modal from selection modal
-if (customEntryBtn) {
-  customEntryBtn.addEventListener('click', () => {
-    hideModal(entryModal);
-    openModal(modal);
-  });
-}
 
 // ✅ Save Button Adds Card with User-Defined Info
 if (saveCardBtn) {
@@ -258,13 +257,83 @@ function createCardElement(card) {
   const div = document.createElement('div');
   div.className = 'card';
   div.dataset.created = card.created;
-  const title = document.createElement('span');
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'card-delete';
+  closeBtn.textContent = '×';
+  closeBtn.addEventListener('click', () => {
+    cards = cards.filter(c => c !== card);
+    saveCards();
+    renderCards();
+  });
+  div.appendChild(closeBtn);
+
+  const title = document.createElement('h3');
   title.textContent = card.title;
+  div.appendChild(title);
+
+  const label = document.createElement('p');
+  label.textContent = card.label;
+  div.appendChild(label);
+
   const time = document.createElement('span');
   time.className = 'timestamp';
   time.textContent = formatAgo(card.created);
-  div.appendChild(title);
   div.appendChild(time);
+
+  const count = document.createElement('span');
+  count.className = 'complete-count';
+  count.textContent = `Completed: ${card.completed}`;
+  div.appendChild(count);
+
+  const completeBtn = document.createElement('button');
+  completeBtn.textContent = 'Mark Complete';
+  completeBtn.addEventListener('click', () => {
+    card.created = Date.now();
+    card.completed = (card.completed || 0) + 1;
+    saveCards();
+    renderCards();
+  });
+  div.appendChild(completeBtn);
+
+  if (card.youtube) {
+    const ytBtn = document.createElement('button');
+    ytBtn.textContent = 'Open Video';
+    ytBtn.addEventListener('click', () => {
+      window.open(card.youtube, '_blank');
+    });
+    div.appendChild(ytBtn);
+  }
+
+  const noteInitial = document.createElement('input');
+  noteInitial.placeholder = 'Initials';
+  const noteInput = document.createElement('input');
+  noteInput.placeholder = 'Add note';
+  const addNote = document.createElement('button');
+  addNote.textContent = 'Add Note';
+  const notesDiv = document.createElement('div');
+  notesDiv.className = 'card-notes';
+  if (Array.isArray(card.notes)) {
+    card.notes.forEach(n => {
+      const p = document.createElement('p');
+      p.textContent = `${n.initials} ${new Date(n.time).toLocaleString()}: ${n.text}`;
+      notesDiv.appendChild(p);
+    });
+  }
+  addNote.addEventListener('click', () => {
+    const txt = noteInput.value.trim();
+    if (!txt) return;
+    const init = noteInitial.value.trim() || '?';
+    card.notes.push({ initials: init, text: txt, time: Date.now() });
+    noteInput.value = '';
+    saveCards();
+    renderCards();
+  });
+  div.appendChild(noteInitial);
+  div.appendChild(noteInput);
+  div.appendChild(addNote);
+  div.appendChild(notesDiv);
+
   return div;
 }
 
@@ -275,13 +344,28 @@ function renderCards() {
   if (noCards) noCards.classList.toggle('hidden', cards.length !== 0);
 }
 
+function saveCards() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+}
+
+function loadCards() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (Array.isArray(data)) cards = data;
+  } catch {}
+}
+
 function addCard(data = {}) {
   const card = {
     title: data.title || 'Activity',
     label: data.label || '',
     created: Date.now(),
+    completed: 0,
+    youtube: data.youtube || '',
+    notes: []
   };
   cards.push(card);
+  saveCards();
   renderCards();
 }
 
