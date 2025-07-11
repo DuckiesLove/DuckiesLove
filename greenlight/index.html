@@ -24,16 +24,7 @@
     <p id="no-cards" class="hidden">No Trackers Yet – Press + to Begin</p>
     <button id="add-card">＋</button>
 
-    <div id="category-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content modal-box">
-        <button class="close-btn" onclick="closeModal(this)">✕</button>
-        <button class="category-option" data-type="activity">Shared Activity</button>
-        <button class="category-option" data-type="calendar">Shared Calendar Item</button>
-        <button class="category-option" data-type="youtube">YouTube Video</button>
-        <button class="category-option" data-type="learning">Learning Exercise</button>
-        <button class="category-option" data-type="personal">Personal Task</button>
-      </div>
-    </div>
+
 
 
   <!-- Slide-out Menu -->
@@ -54,15 +45,16 @@
   <div id="entry-select-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content entry-modal">
       <button class="close-btn" onclick="closeModal(this)">✕</button>
-      <h2>Add New Entry</h2>
+      <h2>Add Activity</h2>
+      <p class="modal-subtext">Choose a shared task, ritual, or activity to track.</p>
       <div id="entry-options">
-        <button class="pill-btn">Shared Activity</button>
-        <button class="pill-btn">Shared Calendar Event</button>
-        <button class="pill-btn">YouTube Video</button>
-        <button class="pill-btn">Learning Exercise</button>
-        <button class="pill-btn">Personal Task</button>
+        <button class="pill-btn add-option" data-type="activity">Shared Activity</button>
+        <button class="pill-btn add-option" data-type="calendar">Shared Calendar</button>
+        <button class="pill-btn add-option" data-type="youtube">YouTube Link</button>
+        <button class="pill-btn add-option" data-type="learning">Learning Exercise</button>
+        <button class="pill-btn add-option" data-type="task">Task to Complete</button>
       </div>
-      <button id="custom-entry-btn" class="full-width-btn">Add Something Custom</button>
+      <button id="custom-entry-btn" class="full-width-btn">➕ Add Custom</button>
     </div>
   </div>
 

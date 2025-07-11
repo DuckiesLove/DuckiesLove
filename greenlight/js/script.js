@@ -34,8 +34,6 @@ const saveVoiceBtn = document.getElementById('voice-save');
 const labelInput = document.getElementById('voice-label');
 const fileInput = document.getElementById('voice-file');
 const voiceList = document.getElementById('voice-list');
-const categoryModal = document.getElementById('category-modal');
-const categoryOptions = document.querySelectorAll('.category-option');
 const noCards = document.getElementById('no-cards');
 const closeUndoBtn = document.getElementById('close-undo');
 const closeNotesBtn = document.getElementById('close-notes');
@@ -112,25 +110,28 @@ const COUNTRIES = [
   "Zambia","Zimbabwe"
 ];
 
-// ✅ Handle + Button to Open Category Modal
+// Open the activity selection modal
 if (addBtn) {
   addBtn.addEventListener('click', () => {
-    openModal(categoryModal);
+    openModal(entryModal);
   });
 }
 
-// ✅ Category Buttons Populate Modal with Pre-Filled Info
-categoryOptions.forEach(btn => {
+// Add card when a preset option is chosen
+document.querySelectorAll('#entry-options .add-option').forEach(btn => {
   btn.addEventListener('click', () => {
-    modalTitle.value = btn.textContent;
-    modalLabel.value = '';
-    modalEstimate.value = '';
-    modalYoutube.value = '';
-    modalType.value = 'due';
-    openModal(modal);
-    hideModal(categoryModal);
+    addCard({ title: btn.textContent, label: btn.dataset.type || '' });
+    hideModal(entryModal);
   });
 });
+
+// Open custom card modal from selection modal
+if (customEntryBtn) {
+  customEntryBtn.addEventListener('click', () => {
+    hideModal(entryModal);
+    openModal(modal);
+  });
+}
 
 // ✅ Save Button Adds Card with User-Defined Info
 if (saveCardBtn) {
@@ -199,5 +200,67 @@ if (vid) {
   thumbnail.style.height = '80px';
   thumbnail.style.borderRadius = '8px';
 }
+
+
+// ---- Minimal Helpers and Card Logic ----
+function openModal(modal) {
+  if (modal) modal.classList.remove('hidden');
+}
+
+function hideModal(modal) {
+  if (modal) modal.classList.add('hidden');
+}
+
+function closeModal(btn) {
+  if (btn && btn.closest) hideModal(btn.closest('.modal'));
+}
+
+function formatAgo(created) {
+  const diff = Date.now() - created;
+  const mins = Math.floor(diff / 60000);
+  const hrs = Math.floor(mins / 60);
+  if (hrs) return `${hrs}h ${mins % 60}m ago`;
+  return `${mins}m ago`;
+}
+
+function createCardElement(card) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.dataset.created = card.created;
+  const title = document.createElement('span');
+  title.textContent = card.title;
+  const time = document.createElement('span');
+  time.className = 'timestamp';
+  time.textContent = formatAgo(card.created);
+  div.appendChild(title);
+  div.appendChild(time);
+  return div;
+}
+
+function renderCards() {
+  if (!container) return;
+  container.innerHTML = '';
+  cards.forEach(card => container.appendChild(createCardElement(card)));
+  if (noCards) noCards.classList.toggle('hidden', cards.length !== 0);
+}
+
+function addCard(data = {}) {
+  const card = {
+    title: data.title || 'Activity',
+    label: data.label || '',
+    created: Date.now(),
+  };
+  cards.push(card);
+  renderCards();
+}
+
+// update timestamps periodically
+setInterval(() => {
+  document.querySelectorAll('.card').forEach(div => {
+    const t = Number(div.dataset.created);
+    const span = div.querySelector('.timestamp');
+    if (t && span) span.textContent = formatAgo(t);
+  });
+}, 60000);
 
 
