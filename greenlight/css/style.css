@@ -1,8 +1,8 @@
 :root {
-  --bg-color: #1D2E28;
+  --bg-color: #0F5132;
   --card-bg: #14452F;
-  --text-color: #ffffff;
-  --accent-color: #2a9fd6;
+  --text-color: #F8F8F8;
+  --accent-color: #009DFF;
 }
 
 .light-mode {
@@ -14,7 +14,7 @@
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', sans-serif;
+  font-family: 'Lexend Deca', 'Segoe UI', sans-serif;
   background-color: var(--bg-color);
   color: var(--text-color);
 }
@@ -209,4 +209,37 @@ h1 {
   font-size: 1rem;
   color: #d2f8e1;
   font-weight: bold;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  background-color: var(--card-bg);
+  padding: 1rem;
+  border-radius: 1rem;
+  width: 90%;
+  max-width: 320px;
+}
+.modal-content button {
+  margin-top: 0.5rem;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.5rem;
+  margin-right: 0.5rem;
 }
