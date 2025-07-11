@@ -381,3 +381,21 @@ h1 {
 .close-btn:hover {
   color: var(--accent-color);
 }
+
+/* Shared calendar page */
+#calendar-controls {
+  padding: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+#calendar {
+  padding: 1rem;
+}
+#tz-info {
+  flex-basis: 100%;
+}
+#event-modal .modal-content {
+  min-height: 500px;
+}

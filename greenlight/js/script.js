@@ -149,8 +149,6 @@ const COUNTRIES = [
   "United Arab Emirates","United Kingdom","United States","Uruguay",
   "Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen",
   "Zambia","Zimbabwe"
-];
-
 // Open the activity selection modal
 if (addBtn) {
   addBtn.addEventListener('click', () => {
@@ -161,7 +159,9 @@ if (addBtn) {
 // Add card when a preset option is chosen
 document.querySelectorAll('#entry-options .add-option').forEach(btn => {
   btn.addEventListener('click', () => {
-    if (btn.dataset.type === 'custom') {
+    if (btn.dataset.type === 'calendar') {
+      window.location.href = 'calendar.html';
+    } else if (btn.dataset.type === 'custom') {
       hideModal(entryModal);
       openModal(modal);
     } else {
@@ -192,6 +192,7 @@ if (cancelCardBtn) {
     closeModal(cancelCardBtn);
   });
 }
+
 
 // ✅ Remove GIF Support (No GIF input)
 // Just ensure no input, field, or upload logic for GIFs exists anywhere
