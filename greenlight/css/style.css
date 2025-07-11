@@ -77,6 +77,18 @@ h1 {
   box-shadow: 0 0 10px #14452F;
 }
 
+#credits-btn {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
 #scheduler {
   padding: 1rem;
 }

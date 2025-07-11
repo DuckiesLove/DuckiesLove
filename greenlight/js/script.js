@@ -39,6 +39,8 @@ const closeNotesBtn = document.getElementById('close-notes');
 const closeSettingsBtn = document.getElementById('close-settings');
 const closeAboutBtn = document.getElementById('close-about');
 const closeVoiceBtn = document.getElementById('close-voice');
+const creditsBtn = document.getElementById('credits-btn');
+const creditsModal = document.getElementById('credits-modal');
 const modal = document.getElementById('new-card-modal');
 const modalTitle = document.getElementById('new-card-title');
 const modalType = document.getElementById('new-card-type');
@@ -552,6 +554,7 @@ if (menuVoice) menuVoice.addEventListener('click', () => {
   openModal(voiceModal);
   toggleMenu();
 });
+if (creditsBtn) creditsBtn.addEventListener('click', () => openModal(creditsModal));
 if (closeUndoBtn) closeUndoBtn.addEventListener('click', () => hideModal(undoModal));
 if (closeNotesBtn) closeNotesBtn.addEventListener('click', () => hideModal(notesModal));
 if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => hideModal(settingsModal));
