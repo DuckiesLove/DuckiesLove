@@ -39,45 +39,76 @@
     </div>
   </div>
 
-  <!-- Undo Deleted Cards -->
-  <div id="undo-container" class="hidden">
-    <h2>Recently Deleted</h2>
-    <div id="undo-list"></div>
+  <!-- Recently Deleted Modal -->
+  <div id="undo-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close-modal" id="close-undo">×</button>
+      <h2>Recently Deleted</h2>
+      <div id="undo-list"></div>
+    </div>
   </div>
 
-  <!-- Settings Section -->
-  <section id="settings-section" class="hidden">
-    <h2>Settings</h2>
-    <div id="scheduler">
-      <h3>Shared Moment Scheduler</h3>
-      <label>Local time <input type="datetime-local" id="local-time"></label>
-      <label>Partner time zone
-        <select id="partner-tz">
-          <option value="UTC">UTC</option>
-          <option value="America/Los_Angeles">America/Los_Angeles</option>
-          <option value="America/New_York">America/New_York</option>
-          <option value="Europe/London">Europe/London</option>
-          <option value="Europe/Berlin">Europe/Berlin</option>
-          <option value="Asia/Tokyo">Asia/Tokyo</option>
-          <option value="Australia/Sydney">Australia/Sydney</option>
-        </select>
-      </label>
-      <p id="your-time"></p>
-      <p id="partner-time"></p>
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close-modal" id="close-settings">×</button>
+      <h2>Settings</h2>
+      <div id="scheduler">
+        <h3>Shared Moment Scheduler</h3>
+        <label>Local time <input type="datetime-local" id="local-time"></label>
+        <label>Partner time zone
+          <select id="partner-tz">
+            <option value="UTC">UTC</option>
+            <option value="America/Los_Angeles">America/Los_Angeles</option>
+            <option value="America/New_York">America/New_York</option>
+            <option value="Europe/London">Europe/London</option>
+            <option value="Europe/Berlin">Europe/Berlin</option>
+            <option value="Asia/Tokyo">Asia/Tokyo</option>
+            <option value="Australia/Sydney">Australia/Sydney</option>
+          </select>
+        </label>
+        <p id="your-time"></p>
+        <p id="partner-time"></p>
+      </div>
     </div>
-  </section>
+  </div>
 
-  <!-- Partner Notes Section -->
-  <section id="partner-notes" class="hidden">
-    <h2>Partner Notes</h2>
-    <ul id="notes-list"></ul>
-    <input id="note-initials" placeholder="Initials">
-    <textarea id="note-text" placeholder="Write a note"></textarea>
-    <button id="save-note">Save Note</button>
-  </section>
+  <!-- Partner Notes Modal -->
+  <div id="notes-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close-modal" id="close-notes">×</button>
+      <h2>Partner Notes</h2>
+      <ul id="notes-list"></ul>
+      <input id="note-initials" placeholder="Initials">
+      <textarea id="note-text" placeholder="Write a note"></textarea>
+      <button id="save-note">Save Note</button>
+    </div>
+  </div>
 
-  <div class="export-btn">
-    <button id="export-json">Export Data</button>
+  <!-- Voice Notes Modal -->
+  <div id="voice-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close-modal" id="close-voice">×</button>
+      <h2>Voice Notes</h2>
+      <div id="voice-controls">
+        <button id="voice-record">Record</button>
+        <input id="voice-label" placeholder="Label (optional)">
+        <button id="voice-save">Save</button>
+      </div>
+      <div id="voice-load">
+        <input id="voice-file" type="file" accept=".webm,.mp3,.wav">
+      </div>
+      <ul id="voice-list"></ul>
+    </div>
+  </div>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close-modal" id="close-about">×</button>
+      <h2>About</h2>
+      <p>Beneath the Greenlight helps you track shared moments and notes.</p>
+    </div>
   </div>
 
   <!-- Slide-out Menu -->
@@ -86,10 +117,7 @@
     <ul>
       <li id="menu-recent">Recently Deleted</li>
       <li id="menu-notes">Partner Notes</li>
-      <li class="voice-memos">
-        <button id="global-record">Record Memo</button>
-        <button id="global-play" disabled>Play Memo</button>
-      </li>
+      <li id="menu-voice">Voice Notes</li>
       <li id="menu-settings">Settings</li>
       <li id="menu-about">About</li>
     </ul>

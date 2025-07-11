@@ -5,11 +5,11 @@ const localTime = document.getElementById('local-time');
 const partnerTz = document.getElementById('partner-tz');
 const partnerTime = document.getElementById('partner-time');
 const yourTimeDisplay = document.getElementById('your-time');
-const undoContainer = document.getElementById('undo-container');
+const undoModal = document.getElementById('undo-modal');
 const undoList = document.getElementById('undo-list');
 const menuBtn = document.getElementById('menu-btn');
 const menu = document.getElementById('menu');
-const notesSection = document.getElementById('partner-notes');
+const notesModal = document.getElementById('notes-modal');
 const notesList = document.getElementById('notes-list');
 const noteInitials = document.getElementById('note-initials');
 const noteText = document.getElementById('note-text');
@@ -17,12 +17,23 @@ const saveNoteBtn = document.getElementById('save-note');
 const menuNotes = document.getElementById('menu-notes');
 const menuRecent = document.getElementById('menu-recent');
 const menuSettings = document.getElementById('menu-settings');
-const settingsSection = document.getElementById('settings-section');
+const settingsModal = document.getElementById('settings-modal');
 const darkToggle = document.getElementById('dark-mode-toggle');
 const closeMenuBtn = document.getElementById('close-menu');
-const globalRecordBtn = document.getElementById('global-record');
-const globalPlayBtn = document.getElementById('global-play');
-const exportBtn = document.getElementById('export-json');
+const menuAbout = document.getElementById('menu-about');
+const aboutModal = document.getElementById('about-modal');
+const menuVoice = document.getElementById('menu-voice');
+const voiceModal = document.getElementById('voice-modal');
+const recordBtn = document.getElementById('voice-record');
+const saveVoiceBtn = document.getElementById('voice-save');
+const labelInput = document.getElementById('voice-label');
+const fileInput = document.getElementById('voice-file');
+const voiceList = document.getElementById('voice-list');
+const closeUndoBtn = document.getElementById('close-undo');
+const closeNotesBtn = document.getElementById('close-notes');
+const closeSettingsBtn = document.getElementById('close-settings');
+const closeAboutBtn = document.getElementById('close-about');
+const closeVoiceBtn = document.getElementById('close-voice');
 const modal = document.getElementById('new-card-modal');
 const modalTitle = document.getElementById('new-card-title');
 const modalType = document.getElementById('new-card-type');
@@ -42,8 +53,9 @@ const TZ_KEY = 'greenlight-tz';
 let cards = [];
 let deletedCards = [];
 let partnerNotes = [];
-let globalRecorder;
-let globalAudio;
+let voiceNotes = [];
+let recorder;
+let recordedData;
 
 // Utility
 function formatElapsed(hours) {
@@ -82,7 +94,7 @@ function load() {
   }
   cleanupDeleted();
   if (container) render();
-  if (undoContainer && undoList) renderUndo();
+  if (undoList) renderUndo();
   if (notesList) renderNotes();
   if (localTime && partnerTz) updateSchedule();
 }
@@ -301,14 +313,10 @@ function cleanupDeleted() {
 }
 
 function renderUndo() {
-  if (!undoContainer || !undoList) return;
+  if (!undoList) return;
   cleanupDeleted();
   undoList.innerHTML = '';
-  if (deletedCards.length === 0) {
-    undoContainer.classList.add('hidden');
-    return;
-  }
-  undoContainer.classList.remove('hidden');
+  if (deletedCards.length === 0) return;
   deletedCards.forEach(card => {
     const div = document.createElement('div');
     div.className = 'undo-item';
@@ -450,22 +458,42 @@ if (partnerTz) partnerTz.addEventListener('input', updateSchedule);
 window.addEventListener('load', () => {
   localStorage.removeItem('greenlight-categories');
   load();
+  loadVoices();
 });
 if (menuBtn) menuBtn.addEventListener('click', toggleMenu);
 if (closeMenuBtn) closeMenuBtn.addEventListener('click', toggleMenu);
 if (darkToggle) darkToggle.addEventListener('click', toggleDarkMode);
+function openModal(el) {
+  if (el) el.classList.remove('hidden');
+}
+function closeModal(el) {
+  if (el) el.classList.add('hidden');
+}
 if (menuNotes) menuNotes.addEventListener('click', () => {
-  if (notesSection) notesSection.classList.toggle('hidden');
+  openModal(notesModal);
   toggleMenu();
 });
 if (menuRecent) menuRecent.addEventListener('click', () => {
-  if (undoContainer) undoContainer.classList.toggle('hidden');
+  openModal(undoModal);
   toggleMenu();
 });
 if (menuSettings) menuSettings.addEventListener('click', () => {
-  if (settingsSection) settingsSection.classList.toggle('hidden');
+  openModal(settingsModal);
   toggleMenu();
 });
+if (menuAbout) menuAbout.addEventListener('click', () => {
+  openModal(aboutModal);
+  toggleMenu();
+});
+if (menuVoice) menuVoice.addEventListener('click', () => {
+  openModal(voiceModal);
+  toggleMenu();
+});
+if (closeUndoBtn) closeUndoBtn.addEventListener('click', () => closeModal(undoModal));
+if (closeNotesBtn) closeNotesBtn.addEventListener('click', () => closeModal(notesModal));
+if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => closeModal(settingsModal));
+if (closeAboutBtn) closeAboutBtn.addEventListener('click', () => closeModal(aboutModal));
+if (closeVoiceBtn) closeVoiceBtn.addEventListener('click', () => closeModal(voiceModal));
 if (saveNoteBtn) {
   saveNoteBtn.addEventListener('click', () => {
     if (noteText.value.trim()) {
@@ -482,48 +510,102 @@ if (saveNoteBtn) {
   });
 }
 
-// Global audio memo
-if (globalRecordBtn && globalPlayBtn) {
-  globalRecordBtn.addEventListener('click', async () => {
-    if (!globalRecorder) {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      globalRecorder = new MediaRecorder(stream);
-      const chunks = [];
-      globalRecorder.ondataavailable = e => chunks.push(e.data);
-      globalRecorder.onstop = () => {
-        globalAudio = new Blob(chunks, { type: 'audio/webm' });
-        globalPlayBtn.disabled = false;
-      };
-      globalRecorder.start();
-      globalRecordBtn.textContent = 'Stop';
-    } else {
-      globalRecorder.stop();
-      globalRecorder = null;
-      globalRecordBtn.textContent = 'Record Memo';
-    }
-  });
+// Voice notes handling
+const VOICE_KEY = 'greenlight-voice';
 
-  globalPlayBtn.addEventListener('click', () => {
-    if (globalAudio) {
-      const url = URL.createObjectURL(globalAudio);
-      const audio = new Audio(url);
-      audio.play();
+function saveVoices() {
+  localStorage.setItem(VOICE_KEY, JSON.stringify(voiceNotes));
+}
+
+function loadVoices() {
+  const data = localStorage.getItem(VOICE_KEY);
+  if (data) {
+    try { voiceNotes = JSON.parse(data); } catch { voiceNotes = []; }
+  }
+  renderVoices();
+}
+
+function renderVoices() {
+  if (!voiceList) return;
+  voiceList.innerHTML = '';
+  voiceNotes.forEach((note, idx) => {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = note.label || `Voice ${idx + 1}`;
+    const play = document.createElement('button');
+    play.textContent = 'Play';
+    play.onclick = () => new Audio(note.dataURL).play();
+    const del = document.createElement('button');
+    del.textContent = 'Delete';
+    del.onclick = () => {
+      voiceNotes.splice(idx, 1);
+      saveVoices();
+      renderVoices();
+    };
+    li.appendChild(span);
+    li.appendChild(play);
+    li.appendChild(del);
+    voiceList.appendChild(li);
+  });
+}
+
+if (recordBtn) {
+  recordBtn.addEventListener('click', async () => {
+    if (!recorder) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recorder = new MediaRecorder(stream);
+      const chunks = [];
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onload = () => { recordedData = reader.result; };
+        reader.readAsDataURL(blob);
+      };
+      recorder.start();
+      recordBtn.textContent = 'Stop';
+    } else {
+      recorder.stop();
+      recorder = null;
+      recordBtn.textContent = 'Record';
     }
   });
 }
 
+if (saveVoiceBtn) {
+  saveVoiceBtn.addEventListener('click', () => {
+    if (recordedData) {
+      voiceNotes.push({
+        id: Date.now(),
+        label: labelInput.value,
+        dataURL: recordedData,
+        timestamp: Date.now()
+      });
+      labelInput.value = '';
+      recordedData = null;
+      saveVoices();
+      renderVoices();
+    }
+  });
+}
 
-// Export data
-if (exportBtn) {
-  exportBtn.addEventListener('click', () => {
-    const data = { cards, partnerNotes };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'greenlight-data.json';
-    a.click();
-    URL.revokeObjectURL(url);
+if (fileInput) {
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      voiceNotes.push({
+        id: Date.now(),
+        label: file.name,
+        dataURL: reader.result,
+        timestamp: Date.now()
+      });
+      saveVoices();
+      renderVoices();
+    };
+    reader.readAsDataURL(file);
+    fileInput.value = '';
   });
 }
 
