@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shared Calendar - Beneath the Greenlight</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="greenlightduck.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <a id="close-calendar" href="/greenlight/" aria-label="Back">↩️</a>
+    <h1>Shared Calendar</h1>
+    <button id="dark-mode-toggle" aria-label="Toggle Dark Mode">🌓</button>
+  </header>
+  <div id="calendar-controls">
+    <div id="tz-info">
+      <span id="your-display"></span>
+      <span id="partner-display"></span>
+    </div>
+    <select id="tz-toggle">
+      <option value="your">Your Time</option>
+      <option value="partner">Partner Time</option>
+    </select>
+    <button id="add-event">Add Event</button>
+    <button id="export-events">Export</button>
+    <button id="import-events">Import</button>
+    <input type="file" id="import-file" accept="application/json" class="hidden">
+  </div>
+  <div id="calendar"></div>
+
+  <div id="event-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content modal-box">
+      <button class="close-modal" onclick="closeModal(this)">×</button>
+      <label>Event Title <input id="event-title" required></label>
+      <label>Start <input type="datetime-local" id="event-start" required></label>
+      <label>End <input type="datetime-local" id="event-end" required></label>
+      <label>Label (optional) <input id="event-label"></label>
+      <label>Visibility
+        <select id="event-visibility">
+          <option value="busy">Busy</option>
+          <option value="free">Free</option>
+          <option value="tentative">Tentative</option>
+        </select>
+      </label>
+      <label>Initials <input id="event-initials" required></label>
+      <div>
+        <button id="save-event">Save</button>
+        <button id="delete-event" class="hidden">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/script.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+    }
+  </script>
+</body>
+</html>

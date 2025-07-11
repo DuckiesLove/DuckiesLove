@@ -159,6 +159,10 @@ if (addBtn) {
 // Add card when a preset option is chosen
 document.querySelectorAll('#entry-options .add-option').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (btn.dataset.type === 'calendar') {
+      window.location.href = 'calendar.html';
+      return;
+    }
     addCard({ title: btn.textContent, label: btn.dataset.type || '' });
     hideModal(entryModal);
   });
