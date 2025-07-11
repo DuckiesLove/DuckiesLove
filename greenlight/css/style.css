@@ -70,6 +70,29 @@ h1 {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+  position: relative;
+}
+
+.card-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.complete-count {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.card-notes {
+  width: 100%;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
 }
 
 #add-card {
