@@ -44,7 +44,7 @@
 
   <div id="entry-select-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content entry-modal">
-      <button class="close-btn" onclick="window.location.href='/greenlight/'">✕</button>
+      <button class="close-modal" onclick="window.location.href='/greenlight/'">×</button>
       <h2>Add Activity</h2>
       <p class="modal-subtext">Choose a shared task, ritual, or activity to track.</p>
       <div id="entry-options">
@@ -60,7 +60,7 @@
 
   <div id="new-card-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content modal-box">
-      <button class="close-btn" onclick="closeModal(this)">✕</button>
+      <button class="close-modal" onclick="closeModal(this)">×</button>
       <label>Name <input id="new-card-title" type="text"></label>
       <label>Custom Label <input id="new-card-label" type="text"></label>
       <label>Timer type
@@ -81,7 +81,7 @@
   <!-- Recently Deleted Modal -->
   <div id="undo-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content modal-box">
-      <button class="close-btn" onclick="closeModal(this)">✕</button>
+      <button class="close-modal" onclick="closeModal(this)">×</button>
       <h2>Recently Deleted</h2>
       <div id="undo-list"></div>
     </div>
@@ -90,7 +90,7 @@
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content modal-box">
-      <button class="close-btn" onclick="closeModal(this)">✕</button>
+      <button class="close-modal" onclick="closeModal(this)">×</button>
       <h2>Settings</h2>
       <div id="scheduler">
         <h3>Shared Moment Scheduler</h3>
@@ -116,7 +116,7 @@
   <!-- Partner Notes Modal -->
   <div id="notes-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content modal-box">
-      <button class="close-btn" onclick="closeModal(this)">✕</button>
+      <button class="close-modal" onclick="closeModal(this)">×</button>
       <h2>Partner Notes</h2>
       <ul id="notes-list"></ul>
       <input id="note-initials" placeholder="Initials">
@@ -128,7 +128,7 @@
   <!-- Voice Notes Modal -->
   <div id="voice-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content modal-box">
-      <button class="close-btn" onclick="closeModal(this)">✕</button>
+      <button class="close-modal" onclick="closeModal(this)">×</button>
       <h2>Voice Notes</h2>
       <div id="voice-controls">
         <button id="voice-record">Record</button>
@@ -145,7 +145,7 @@
   <!-- About Modal -->
     <div id="about-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content modal-box">
-        <button class="close-btn" onclick="closeModal(this)">✕</button>
+        <button class="close-modal" onclick="closeModal(this)">×</button>
         <h2>About</h2>
         <p>Beneath the Greenlight helps you track shared moments and notes.</p>
       </div>
