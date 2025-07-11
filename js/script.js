@@ -476,8 +476,8 @@ beginSurveyBtn.addEventListener('click', () => {
 saveSurveyBtn.addEventListener('click', exportSurvey);
 
 function navigateHome() {
-  // Always go to the site's main page regardless of the current directory
-  const path = '../index.html';
+  // Always go to the Greenlight homepage
+  const path = '/greenlight/';
   window.location.href = path;
 }
 

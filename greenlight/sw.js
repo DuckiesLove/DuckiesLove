@@ -1,5 +1,5 @@
 // Bump the cache name to force clients to fetch the latest assets
-const CACHE = 'greenlight-v4';
+const CACHE = 'greenlight-v5';
 const FILES = [
   './',
   './index.html',
@@ -7,8 +7,6 @@ const FILES = [
   './shared-scheduler/index.html',
   './css/style.css',
   './js/script.js',
-  './manifest.json',
-  './duck.svg'
 ];
 self.addEventListener('install', e => {
   self.skipWaiting();

@@ -1,6 +1,8 @@
 # Talk Kink GitHub Pages
 
 This repository hosts the static files for the Talk Kink website.
+Visiting https://www.talkkink.org/ now automatically loads the
+`/greenlight/` tool.
 
 ## DNS Configuration
 
@@ -31,7 +33,7 @@ After the DNS records resolve, go to the repository’s **Settings** → **Pages
 
 The website is built from the following files in this repository:
 
-- `index.html`
+- `index.html` (redirects to `/greenlight/`)
 - `css/style.css`
 - `js/script.js`
 - `template-survey.json`
@@ -80,6 +82,16 @@ serve .
 ```
 
 This will default to <http://localhost:3000>.
+
+## Automated Tests
+
+Run the test suite with Node's built-in runner:
+
+```bash
+npm test
+```
+
+This command executes all files under `test/` using `node --test`.
 
 ## Troubleshooting
 
