@@ -474,12 +474,15 @@ beginSurveyBtn.addEventListener('click', () => {
 });
 
 saveSurveyBtn.addEventListener('click', exportSurvey);
-returnHomeBtn.addEventListener('click', () => {
-  window.location.href = 'index.html';
-});
-if (homeBtn) homeBtn.addEventListener('click', () => {
-  window.location.href = 'index.html';
-});
+
+function navigateHome() {
+  // Always go to the site's main page regardless of the current directory
+  const path = '../index.html';
+  window.location.href = path;
+}
+
+returnHomeBtn.addEventListener('click', navigateHome);
+if (homeBtn) homeBtn.addEventListener('click', navigateHome);
 
 if (nextCategoryBtn) nextCategoryBtn.addEventListener('click', nextCategory);
 if (skipCategoryBtn) skipCategoryBtn.addEventListener('click', skipCategory);
