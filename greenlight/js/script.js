@@ -193,14 +193,6 @@ function createCard(card) {
   // ... rest of createCard logic stays the same
 }
 
-// ✅ Use image thumbnails for YouTube if valid
-if (vid) {
-  thumbnail.src = `https://img.youtube.com/vi/${vid}/0.jpg`;
-  thumbnail.alt = 'YouTube thumbnail';
-  thumbnail.style.height = '80px';
-  thumbnail.style.borderRadius = '8px';
-}
-
 
 // ---- Minimal Helpers and Card Logic ----
 function openModal(modal) {
