@@ -149,6 +149,7 @@ const COUNTRIES = [
   "United Arab Emirates","United Kingdom","United States","Uruguay",
   "Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen",
   "Zambia","Zimbabwe"
+];
 // Open the activity selection modal
 if (addBtn) {
   addBtn.addEventListener('click', () => {
