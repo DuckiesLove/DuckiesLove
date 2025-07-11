@@ -4,12 +4,5 @@
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f2f7f4",
-  "theme_color": "#225533",
-  "icons": [
-    {
-      "src": "GreenLightDuckIcon.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    }
-  ]
+  "theme_color": "#225533"
 }

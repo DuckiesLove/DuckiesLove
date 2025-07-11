@@ -4,6 +4,7 @@ const addBtn = document.getElementById('add-card');
 const localTime = document.getElementById('local-time');
 const partnerTz = document.getElementById('partner-tz');
 const partnerTime = document.getElementById('partner-time');
+const yourTimeDisplay = document.getElementById('your-time');
 const undoContainer = document.getElementById('undo-container');
 const undoList = document.getElementById('undo-list');
 const menuBtn = document.getElementById('menu-btn');
@@ -26,6 +27,13 @@ const exportBtn = document.getElementById('export-json');
 const timerInput = document.getElementById('timer-minutes');
 const startTimerBtn = document.getElementById('start-timer');
 const timerDisplay = document.getElementById('timer-display');
+const modal = document.getElementById('new-card-modal');
+const modalTitle = document.getElementById('new-card-title');
+const modalType = document.getElementById('new-card-type');
+const modalEstimate = document.getElementById('new-card-estimate');
+const modalYoutube = document.getElementById('new-card-youtube');
+const saveCardBtn = document.getElementById('save-card');
+const cancelCardBtn = document.getElementById('cancel-card');
 
 // Storage Keys
 const STORAGE_KEY = 'greenlight-cards';
@@ -88,6 +96,8 @@ function load() {
 function createCard(card) {
   const div = document.createElement('div');
   div.className = 'card';
+  div.draggable = true;
+  div.dataset.id = card.id;
 
   const title = document.createElement('input');
   title.value = card.title;
@@ -99,6 +109,11 @@ function createCard(card) {
   due.min = '1';
   due.value = card.dueHours;
   due.onchange = () => { card.dueHours = Number(due.value); save(); updateTime(); };
+
+  const estimateSpan = document.createElement('span');
+  if (card.estimate) {
+    estimateSpan.textContent = `Est: ${card.estimate}m`;
+  }
 
   const timeInfo = document.createElement('div');
   const countSpan = document.createElement('span');
@@ -149,10 +164,10 @@ function createCard(card) {
   // Voice Recording
   let recorder;
   const recBtn = document.createElement('button');
-  recBtn.textContent = 'Record';
+  recBtn.textContent = '🎤';
 
   const playBtn = document.createElement('button');
-  playBtn.textContent = 'Play';
+  playBtn.textContent = '▶️';
   playBtn.disabled = !card.audio;
 
   recBtn.onclick = async () => {
@@ -172,11 +187,11 @@ function createCard(card) {
         reader.readAsDataURL(blob);
       };
       recorder.start();
-      recBtn.textContent = 'Stop';
+      recBtn.textContent = '⏹';
     } else {
       recorder.stop();
       recorder = null;
-      recBtn.textContent = 'Record';
+      recBtn.textContent = '🎤';
     }
   };
 
@@ -191,11 +206,15 @@ function createCard(card) {
   function updateTime() {
     if (card.lastDone) {
       const hours = (Date.now() - card.lastDone) / 3600000;
-      const remaining = card.dueHours - hours;
-      if (remaining > 0) {
-        timeInfo.textContent = 'Due in ' + formatElapsed(remaining);
-      } else {
+      if (card.type === 'since') {
         timeInfo.textContent = 'Last done ' + formatElapsed(hours) + ' ago';
+      } else {
+        const remaining = card.dueHours - hours;
+        if (remaining > 0) {
+          timeInfo.textContent = 'Due in ' + formatElapsed(remaining);
+        } else {
+          timeInfo.textContent = 'Last done ' + formatElapsed(hours) + ' ago';
+        }
       }
     } else {
       timeInfo.textContent = 'Not completed yet';
@@ -214,6 +233,7 @@ function createCard(card) {
   // Assemble Card
   div.appendChild(title);
   div.appendChild(due);
+  div.appendChild(estimateSpan);
   div.appendChild(timeInfo);
   div.appendChild(markBtn);
   div.appendChild(countSpan);
@@ -237,13 +257,15 @@ function createCard(card) {
 }
 
 // Add a Card
-function addCard(title = '') {
+function addCard(data = {}) {
   cards.push({
     id: Date.now(),
-    title,
-    dueHours: 24,
+    title: data.title || '',
+    dueHours: data.dueHours || 24,
+    type: data.type || 'due',
+    estimate: data.estimate || 0,
     lastDone: null,
-    youtube: '',
+    youtube: data.youtube || '',
     notes: [],
     count: 0,
     audio: null
@@ -308,7 +330,26 @@ function renderUndo() {
 // Render All Cards
 function render() {
   container.innerHTML = '';
-  cards.forEach(card => container.appendChild(createCard(card)));
+  cards.forEach(card => {
+    const el = createCard(card);
+    el.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', card.id);
+    });
+    el.addEventListener('dragover', e => e.preventDefault());
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      const draggedId = Number(e.dataTransfer.getData('text/plain'));
+      const targetId = card.id;
+      const from = cards.findIndex(c => c.id === draggedId);
+      const to = cards.findIndex(c => c.id === targetId);
+      if (from === -1 || to === -1 || from === to) return;
+      const [moved] = cards.splice(from, 1);
+      cards.splice(to, 0, moved);
+      save();
+      render();
+    });
+    container.appendChild(el);
+  });
 }
 
 // Partner Notes
@@ -318,10 +359,34 @@ function saveNotes() {
 
 function renderNotes() {
   notesList.innerHTML = '';
-  partnerNotes.forEach(n => {
+  partnerNotes.forEach((n, idx) => {
     const li = document.createElement('li');
     const d = new Date(n.time);
-    li.textContent = `${d.toLocaleString()} ${n.initials}: ${n.text}`;
+    const span = document.createElement('span');
+    span.textContent = `${d.toLocaleString()} ${n.initials}: ${n.text}`;
+
+    const editBtn = document.createElement('button');
+    editBtn.textContent = 'Edit';
+    editBtn.onclick = () => {
+      const newText = prompt('Edit note', n.text);
+      if (newText !== null) {
+        n.text = newText;
+        saveNotes();
+        renderNotes();
+      }
+    };
+
+    const delBtn = document.createElement('button');
+    delBtn.textContent = 'Delete';
+    delBtn.onclick = () => {
+      partnerNotes.splice(idx, 1);
+      saveNotes();
+      renderNotes();
+    };
+
+    li.appendChild(span);
+    li.appendChild(editBtn);
+    li.appendChild(delBtn);
     notesList.appendChild(li);
   });
 }
@@ -340,17 +405,40 @@ function toggleDarkMode() {
 function updateSchedule() {
   const date = new Date(localTime.value);
   if (isNaN(date)) {
+    yourTimeDisplay.textContent = '';
     partnerTime.textContent = '';
     return;
   }
   const tz = partnerTz.value || 'UTC';
   const pString = date.toLocaleString([], { timeZone: tz });
-  partnerTime.textContent = `Partner time (${tz}): ` + pString;
+  yourTimeDisplay.textContent = `Your Time: ${date.toLocaleString()}`;
+  partnerTime.textContent = `Their Time (${tz}): ${pString}`;
   localStorage.setItem(TZ_KEY, tz);
 }
 
 // Listeners
-addBtn.addEventListener('click', () => addCard());
+addBtn.addEventListener('click', () => {
+  modal.classList.remove('hidden');
+  modalTitle.value = '';
+  modalEstimate.value = '';
+  modalYoutube.value = '';
+  modalType.value = 'due';
+});
+
+saveCardBtn.addEventListener('click', () => {
+  addCard({
+    title: modalTitle.value,
+    dueHours: Number(modalEstimate.value) || 24,
+    type: modalType.value,
+    estimate: Number(modalEstimate.value) || 0,
+    youtube: modalYoutube.value
+  });
+  modal.classList.add('hidden');
+});
+
+cancelCardBtn.addEventListener('click', () => {
+  modal.classList.add('hidden');
+});
 localTime.addEventListener('input', updateSchedule);
 partnerTz.addEventListener('input', updateSchedule);
 window.addEventListener('load', () => {

@@ -17,7 +17,6 @@ A private, local-submissive memory tracker and devotion log.
 - Sort by title or last done
 - Dark mode toggle
 - Installs as a mobile app (PWA)
-- Custom green duck icon embedded in the page for the home screen
 - Data saved privately in browser (no account needed)
 - Categorize memories on the main screen
 - Add YouTube links with thumbnail preview

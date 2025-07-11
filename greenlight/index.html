@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Beneath the Greenlight</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#225533">
-  <link rel="apple-touch-icon" href="GreenLightDuckIcon.png">
+  <meta name="theme-color" content="#0F5132">
+  <link href="https://fonts.googleapis.com/css2?family=Lexend+Deca&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -19,6 +19,24 @@
   <!-- Active Cards Section -->
   <div id="cards-container"></div>
   <button id="add-card">＋</button>
+
+  <div id="new-card-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <label>Name <input id="new-card-title" type="text"></label>
+      <label>Timer type
+        <select id="new-card-type">
+          <option value="due">Time left until due</option>
+          <option value="since">Time since last completed</option>
+        </select>
+      </label>
+      <label>Estimated time (minutes)
+        <input id="new-card-estimate" type="number" min="0">
+      </label>
+      <label>YouTube link <input id="new-card-youtube" type="url"></label>
+      <button id="save-card">Save</button>
+      <button id="cancel-card">Cancel</button>
+    </div>
+  </div>
 
   <!-- Undo Deleted Cards -->
   <div id="undo-container" class="hidden">
@@ -43,6 +61,7 @@
           <option value="Australia/Sydney">Australia/Sydney</option>
         </select>
       </label>
+      <p id="your-time"></p>
       <p id="partner-time"></p>
     </div>
   </section>
