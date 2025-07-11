@@ -74,11 +74,17 @@
       <div id="scheduler">
         <h3>Shared Moment Scheduler</h3>
         <label id="local-time-label"><span id="local-time-text">Local date</span> <input type="date" id="local-time"></label>
+        <label>Your time zone
+          <input id="your-tz" placeholder="e.g., America/Chicago">
+        </label>
+        <label>Your country
+          <select id="your-country"></select>
+        </label>
         <label>Partner time zone
           <input id="partner-tz" placeholder="e.g., America/New_York">
         </label>
         <label>Partner country
-          <input id="partner-country" placeholder="Country">
+          <select id="partner-country"></select>
         </label>
         <p id="your-time"></p>
         <p id="partner-time"></p>
