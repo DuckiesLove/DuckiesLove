@@ -48,6 +48,8 @@ const modalEstimate = document.getElementById('new-card-estimate');
 const modalYoutube = document.getElementById('new-card-youtube');
 const saveCardBtn = document.getElementById('save-card');
 const cancelCardBtn = document.getElementById('cancel-card');
+const entryModal = document.getElementById('entry-select-modal');
+const customEntryBtn = document.getElementById('custom-entry-btn');
 
 // Storage Keys
 const STORAGE_KEY = 'greenlight-cards';
@@ -473,11 +475,24 @@ function updateSchedule() {
 // Listeners
 if (addBtn) {
   addBtn.addEventListener('click', () => {
+    openModal(entryModal);
+  });
+}
+
+if (customEntryBtn) {
+  customEntryBtn.addEventListener('click', () => {
     modalTitle.value = '';
     modalEstimate.value = '';
     modalYoutube.value = '';
     modalType.value = 'due';
+    hideModal(entryModal);
     openModal(modal);
+  });
+}
+
+if (entryModal) {
+  entryModal.addEventListener('click', e => {
+    if (e.target === entryModal) hideModal(entryModal);
   });
 }
 
