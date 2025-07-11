@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shared Scheduler - Beneath the Greenlight</title>
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" type="image/svg+xml" href="../duck.svg">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header>
+    <a href="../index.html" aria-label="Back">←</a>
+    <h1>Shared Scheduler</h1>
+    <button id="dark-mode-toggle" aria-label="Toggle Dark Mode">🌓</button>
+  </header>
+  <section id="settings-section">
+    <div id="scheduler">
+      <h3>Shared Moment Scheduler</h3>
+      <label>Local time <input type="datetime-local" id="local-time"></label>
+      <label>Partner time zone
+        <select id="partner-tz">
+          <option value="UTC">UTC</option>
+          <option value="America/Los_Angeles">America/Los_Angeles</option>
+          <option value="America/New_York">America/New_York</option>
+          <option value="Europe/London">Europe/London</option>
+          <option value="Europe/Berlin">Europe/Berlin</option>
+          <option value="Asia/Tokyo">Asia/Tokyo</option>
+          <option value="Australia/Sydney">Australia/Sydney</option>
+        </select>
+      </label>
+      <p id="your-time"></p>
+      <p id="partner-time"></p>
+    </div>
+  </section>
+  <script src="../js/script.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js'));
+    }
+  </script>
+</body>
+</html>
