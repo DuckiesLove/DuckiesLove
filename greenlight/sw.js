@@ -1,5 +1,5 @@
 // Bump the cache name to force clients to fetch the latest assets
-const CACHE = 'greenlight-v5';
+const CACHE = 'greenlight-v6';
 const FILES = [
   './',
   './index.html',
