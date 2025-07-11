@@ -7,7 +7,6 @@ const FILES = [
   './shared-scheduler/index.html',
   './css/style.css',
   './js/script.js',
-  './manifest.json'
 ];
 self.addEventListener('install', e => {
   self.skipWaiting();
