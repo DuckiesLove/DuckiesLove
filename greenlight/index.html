@@ -11,15 +11,32 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <div id="main-page">
   <header>
     <button id="menu-btn" aria-label="Menu">☰</button>
     <h1>🌿 Beneath the Greenlight</h1>
     <button id="dark-mode-toggle" aria-label="Toggle Dark Mode">🌓</button>
   </header>
-<main id="main-content">
-  <!-- Active Cards Section -->
-  <div id="cards-container"></div>
-  <button id="add-card">＋</button>
+  <main id="main-content">
+    <!-- Active Cards Section -->
+    <div id="cards-container"></div>
+    <button id="add-card">＋</button>
+
+
+  <!-- Slide-out Menu -->
+  <nav id="menu">
+    <button id="close-menu" aria-label="Close">×</button>
+    <ul>
+      <li id="menu-recent">Recently Deleted</li>
+      <li id="menu-notes">Partner Notes</li>
+      <li id="menu-voice">Voice Notes</li>
+      <li id="menu-settings">Settings</li>
+      <li id="menu-about">About</li>
+    </ul>
+
+  </nav>
+</main>
+  </div>
 
   <div id="new-card-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content modal-box">
@@ -111,19 +128,6 @@
       <p>Beneath the Greenlight helps you track shared moments and notes.</p>
     </div>
   </div>
-
-  <!-- Slide-out Menu -->
-  <nav id="menu">
-    <button id="close-menu" aria-label="Close">×</button>
-    <ul>
-      <li id="menu-recent">Recently Deleted</li>
-      <li id="menu-notes">Partner Notes</li>
-      <li id="menu-voice">Voice Notes</li>
-      <li id="menu-settings">Settings</li>
-      <li id="menu-about">About</li>
-    </ul>
-  </nav>
-</main>
 
 <script src="/greenlight/js/script.js"></script>
 <script>
