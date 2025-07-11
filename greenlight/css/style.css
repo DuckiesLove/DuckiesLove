@@ -99,8 +99,8 @@ h1 {
   position: fixed;
   bottom: 30px;
   right: 30px;
-  background-color: var(--accent-color);
-  color: white;
+  background-color: var(--bg-color);
+  color: var(--text-color);
   border: none;
   font-size: 2rem;
   width: 60px;
