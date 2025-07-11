@@ -425,6 +425,7 @@ function openModal(el) {
 }
 function hideModal(el) {
   if (el) el.classList.add('hidden');
+  if (menu) menu.classList.remove('open');
 }
 
 function closeModal(button) {
@@ -434,6 +435,7 @@ function closeModal(button) {
     const inputs = modalWrapper.querySelectorAll('input, textarea');
     inputs.forEach(input => (input.value = ''));
   }
+  if (menu) menu.classList.remove('open');
   window.scrollTo(0, 0);
 }
 if (menuNotes) menuNotes.addEventListener('click', () => {
