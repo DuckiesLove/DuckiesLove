@@ -49,6 +49,21 @@ const saveCardBtn = document.getElementById('save-card');
 const cancelCardBtn = document.getElementById('cancel-card');
 const entryModal = document.getElementById('entry-select-modal');
 
+// Style for the partner notes textarea
+const style = document.createElement('style');
+style.textContent = `
+  #note-text {
+    width: 100%;
+    height: 120px;
+    font-size: 1rem;
+    padding: 12px;
+    border-radius: 8px;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+`;
+document.head.appendChild(style);
+
 // Storage Keys
 const STORAGE_KEY = 'greenlight-cards';
 const DELETED_KEY = 'greenlight-deleted';
@@ -107,6 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadCards();
   renderCards();
+  loadNotes();
+  renderNotes();
 });
 
 // Country list for dropdowns
@@ -190,6 +207,18 @@ if (saveCardBtn) {
 if (cancelCardBtn) {
   cancelCardBtn.addEventListener('click', () => {
     closeModal(cancelCardBtn);
+  });
+}
+
+// Save partner notes
+if (saveNoteBtn) {
+  saveNoteBtn.addEventListener('click', () => {
+    const text = noteText.value.trim();
+    if (!text) return;
+    partnerNotes.push({ text, time: Date.now() });
+    noteText.value = '';
+    saveNotes();
+    renderNotes();
   });
 }
 
@@ -378,5 +407,26 @@ setInterval(() => {
     if (t && span) span.textContent = formatAgo(t);
   });
 }, 60000);
+
+function saveNotes() {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(partnerNotes));
+}
+
+function loadNotes() {
+  try {
+    const data = JSON.parse(localStorage.getItem(NOTES_KEY));
+    if (Array.isArray(data)) partnerNotes = data;
+  } catch {}
+}
+
+function renderNotes() {
+  if (!notesList) return;
+  notesList.innerHTML = '';
+  partnerNotes.forEach(n => {
+    const li = document.createElement('li');
+    li.textContent = `${new Date(n.time).toLocaleString()}: ${n.text}`;
+    notesList.appendChild(li);
+  });
+}
 
 
