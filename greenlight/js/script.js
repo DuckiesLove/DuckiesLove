@@ -34,15 +34,17 @@ const saveVoiceBtn = document.getElementById('voice-save');
 const labelInput = document.getElementById('voice-label');
 const fileInput = document.getElementById('voice-file');
 const voiceList = document.getElementById('voice-list');
+const categoryModal = document.getElementById('category-modal');
+const categoryOptions = document.querySelectorAll('.category-option');
+const noCards = document.getElementById('no-cards');
 const closeUndoBtn = document.getElementById('close-undo');
 const closeNotesBtn = document.getElementById('close-notes');
 const closeSettingsBtn = document.getElementById('close-settings');
 const closeAboutBtn = document.getElementById('close-about');
 const closeVoiceBtn = document.getElementById('close-voice');
-const creditsBtn = document.getElementById('credits-btn');
-const creditsModal = document.getElementById('credits-modal');
 const modal = document.getElementById('new-card-modal');
 const modalTitle = document.getElementById('new-card-title');
+const modalLabel = document.getElementById('new-card-label');
 const modalType = document.getElementById('new-card-type');
 const modalEstimate = document.getElementById('new-card-estimate');
 const modalYoutube = document.getElementById('new-card-youtube');
@@ -122,6 +124,22 @@ function formatElapsed(hours) {
   return `${h}h ${m}m`;
 }
 
+function getYoutubeId(url) {
+  if (!url) return '';
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtu.be')) {
+      return u.pathname.slice(1);
+    }
+    if (u.searchParams.get('v')) {
+      return u.searchParams.get('v');
+    }
+  } catch {
+    return '';
+  }
+  return '';
+}
+
 // Storage
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
@@ -191,6 +209,11 @@ function createCard(card) {
   title.placeholder = 'Title';
   title.oninput = () => { card.title = title.value; save(); };
 
+  const label = document.createElement('input');
+  label.value = card.label || '';
+  label.placeholder = 'Label';
+  label.oninput = () => { card.label = label.value; save(); };
+
   const due = document.createElement('input');
   due.type = 'number';
   due.min = '1';
@@ -218,12 +241,22 @@ function createCard(card) {
   yt.type = 'url';
   yt.placeholder = 'YouTube link';
   yt.value = card.youtube || '';
-  yt.oninput = () => { card.youtube = yt.value; save(); link.href = yt.value; };
+  yt.oninput = () => {
+    card.youtube = yt.value;
+    save();
+    link.href = yt.value;
+    const vid = getYoutubeId(yt.value);
+    if (vid) thumbnail.src = `https://img.youtube.com/vi/${vid}/0.jpg`;
+  };
 
   const link = document.createElement('a');
   link.textContent = 'Open Video';
   link.target = '_blank';
   link.href = card.youtube || '#';
+
+  const thumbnail = document.createElement('img');
+  const firstId = getYoutubeId(card.youtube);
+  if (firstId) thumbnail.src = `https://img.youtube.com/vi/${firstId}/0.jpg`;
 
   // Notes
   const cardNotesList = document.createElement('ul');
@@ -279,13 +312,15 @@ function createCard(card) {
 
   // Assemble Card
   div.appendChild(title);
+  div.appendChild(label);
   div.appendChild(due);
   div.appendChild(estimateSpan);
+  if (thumbnail.src) div.appendChild(thumbnail);
   div.appendChild(timeInfo);
   div.appendChild(markBtn);
   div.appendChild(countSpan);
   div.appendChild(yt);
-  div.appendChild(link);
+  if (thumbnail.src) div.appendChild(link);
   div.appendChild(cardNotesList);
   card.notes.forEach(n => {
     const li = document.createElement('li');
@@ -306,6 +341,7 @@ function addCard(data = {}) {
   cards.push({
     id: Date.now(),
     title: data.title || '',
+    label: data.label || '',
     dueHours: data.dueHours || 24,
     type: data.type || 'due',
     estimate: data.estimate || 0,
@@ -372,6 +408,7 @@ function renderUndo() {
 function render() {
   if (!container) return;
   container.innerHTML = '';
+  if (noCards) noCards.classList.toggle('hidden', cards.length !== 0);
   cards.forEach(card => {
     const el = createCard(card);
     el.addEventListener('dragstart', e => {
@@ -473,11 +510,7 @@ function updateSchedule() {
 // Listeners
 if (addBtn) {
   addBtn.addEventListener('click', () => {
-    modalTitle.value = '';
-    modalEstimate.value = '';
-    modalYoutube.value = '';
-    modalType.value = 'due';
-    openModal(modal);
+    openModal(categoryModal);
   });
 }
 
@@ -485,6 +518,7 @@ if (saveCardBtn) {
   saveCardBtn.addEventListener('click', () => {
     addCard({
       title: modalTitle.value,
+      label: modalLabel.value,
       dueHours: Number(modalEstimate.value) || 24,
       type: modalType.value,
       estimate: Number(modalEstimate.value) || 0,
@@ -510,6 +544,17 @@ window.addEventListener('load', () => {
   populateCountrySelect(yourCountry);
   load();
   loadVoices();
+});
+categoryOptions.forEach(btn => {
+  btn.addEventListener('click', () => {
+    modalTitle.value = btn.textContent;
+    modalLabel.value = '';
+    modalEstimate.value = '';
+    modalYoutube.value = '';
+    modalType.value = 'due';
+    openModal(modal);
+    hideModal(categoryModal);
+  });
 });
 if (menuBtn) menuBtn.addEventListener('click', toggleMenu);
 if (closeMenuBtn) closeMenuBtn.addEventListener('click', toggleMenu);
@@ -557,7 +602,6 @@ if (menuVoice) menuVoice.addEventListener('click', () => {
   openModal(voiceModal);
   toggleMenu();
 });
-if (creditsBtn) creditsBtn.addEventListener('click', () => openModal(creditsModal));
 if (closeUndoBtn) closeUndoBtn.addEventListener('click', () => hideModal(undoModal));
 if (closeNotesBtn) closeNotesBtn.addEventListener('click', () => hideModal(notesModal));
 if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => hideModal(settingsModal));

@@ -56,11 +56,20 @@ h1 {
   padding: 1rem;
 }
 
+#no-cards {
+  text-align: center;
+  margin-top: 1rem;
+}
+
 .card {
   background-color: var(--card-bg);
   padding: 1rem;
   border-radius: 1rem;
   margin-bottom: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 #add-card {
@@ -77,17 +86,6 @@ h1 {
   box-shadow: 0 0 10px #14452F;
 }
 
-#credits-btn {
-  position: fixed;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: none;
-  border: none;
-  color: var(--text-color);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
 
 #scheduler {
   padding: 1rem;
@@ -239,6 +237,11 @@ h1 {
   padding: 0.4rem 0.8rem;
   border-radius: 0.5rem;
   margin-right: 0.5rem;
+}
+.category-option {
+  display: block;
+  width: 100%;
+  margin: 0.25rem 0;
 }
 
 #voice-controls,
