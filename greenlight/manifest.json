@@ -7,9 +7,9 @@
   "theme_color": "#0F5132",
   "icons": [
     {
-      "src": "duck.svg",
+      "src": "greenlightduck.png",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/png"
     }
   ]
 }
