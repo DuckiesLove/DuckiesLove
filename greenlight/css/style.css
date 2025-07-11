@@ -143,13 +143,18 @@ h1 {
   cursor: pointer;
 }
 
-#menu .voice-memos {
-  cursor: default;
-  flex-direction: column;
-  align-items: flex-start;
-}
 
 #close-menu {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 1.2rem;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.close-modal {
   background: none;
   border: none;
   color: var(--text-color);
@@ -190,22 +195,6 @@ h1 {
   min-width: 120px; /* consistent size */
 }
 
-.voice-memos, .export-btn {
-  margin-top: 0.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-.voice-memos button,
-.export-btn button {
-  background-color: #1d3127;
-  color: white;
-  padding: 0.4rem 0.8rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  border: none;
-}
 
 .modal {
   position: fixed;
@@ -238,4 +227,26 @@ h1 {
   padding: 0.4rem 0.8rem;
   border-radius: 0.5rem;
   margin-right: 0.5rem;
+}
+
+#voice-controls,
+#voice-load {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+#voice-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+#voice-list button {
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
 }
