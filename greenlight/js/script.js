@@ -297,6 +297,44 @@ function formatAgo(created) {
   return `${mins}m ago`;
 }
 
+// Extract a YouTube video ID from various URL formats
+function extractYouTubeID(url) {
+  const regex = /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^#&?]*)/;
+  const match = url.match(regex);
+  return match && match[1].length >= 11 ? match[1].substring(0, 11) : null;
+}
+
+// Insert a YouTube thumbnail preview into the card element
+function renderYouTubeThumbnail(cardElement, videoUrl) {
+  const videoId = extractYouTubeID(videoUrl);
+  if (!videoId) return;
+
+  const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  const img = document.createElement('img');
+  img.src = thumbnailUrl;
+  img.alt = 'YouTube Thumbnail';
+  img.style.width = '100%';
+  img.style.borderRadius = '8px';
+  img.style.marginTop = '10px';
+  img.style.transition = 'transform 0.2s ease';
+
+  img.addEventListener('mouseover', () => {
+    img.style.transform = 'scale(1.03)';
+    img.style.cursor = 'pointer';
+  });
+
+  img.addEventListener('mouseout', () => {
+    img.style.transform = 'scale(1)';
+  });
+
+  img.addEventListener('click', () => {
+    window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank');
+  });
+
+  const noteSection = cardElement.querySelector('.card-notes') || cardElement.lastElementChild;
+  cardElement.insertBefore(img, noteSection);
+}
+
 function createCardElement(card) {
   const div = document.createElement('div');
   div.className = 'card';
@@ -341,12 +379,7 @@ function createCardElement(card) {
   div.appendChild(completeBtn);
 
   if (card.youtube) {
-    const ytBtn = document.createElement('button');
-    ytBtn.textContent = 'Open Video';
-    ytBtn.addEventListener('click', () => {
-      window.open(card.youtube, '_blank');
-    });
-    div.appendChild(ytBtn);
+    renderYouTubeThumbnail(div, card.youtube);
   }
 
   const noteInitial = document.createElement('input');
