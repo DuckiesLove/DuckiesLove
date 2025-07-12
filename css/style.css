@@ -1373,25 +1373,29 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
   }
 }
 
-/* ===== SURVEY CATEGORY PROGRESS TRACKER ===== */
-/* Applies to the text like "Category 1 of 17 (16 left)" */
+/* === SURVEY CATEGORY PROGRESS TRACKER FIX === */
+/* Prevents "Category 1 of X (Y left)" from being cut off */
 
 #survey-section .category-progress {
-  white-space: normal; /* Allow text to wrap */
-  word-wrap: break-word;
-  font-size: 14px;
-  line-height: 1.4;
-  text-align: center; /* Optional: center the tracker */
+  display: block;
+  width: 100%;
   max-width: 100%;
-  margin: 12px 0;
-  padding: 0 8px;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-size: 14px;
+  text-align: center;
+  margin-top: 10px;
+  margin-bottom: 8px;
+  padding: 0 12px;
+  line-height: 1.4;
 }
 
-/* Make sure it stays readable on small screens */
+/* Ensures safe resizing on mobile */
 @media (max-width: 768px) {
   #survey-section .category-progress {
     font-size: 13px;
     text-align: center;
-    padding: 0 10px;
+    padding: 0 8px;
   }
 }
