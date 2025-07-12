@@ -337,6 +337,71 @@ function setItemRating(info, val) {
   if (info.General) info.General.rating = val;
 }
 
+function initializeSurvey(data) {
+  surveyA = data;
+  resetItemOrientations(surveyA);
+  normalizeRatings(surveyA);
+  filterGeneralOptions(surveyA);
+  updateTabsForCategory();
+  previewList.innerHTML = '';
+  Object.keys(surveyA).forEach(cat => {
+    const label = document.createElement('label');
+    label.className = 'checkbox-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = cat;
+    cb.checked = false;
+
+    const updateSelected = () => {
+      label.classList.toggle('selected', cb.checked);
+    };
+
+    label.addEventListener('click', e => {
+      e.preventDefault();
+      if (!cb.checked) {
+        if (cat === HIGH_INTENSITY_CATEGORY) {
+          if (confirm(HIGH_INTENSITY_WARNING)) {
+            cb.checked = true;
+          }
+        } else {
+          cb.checked = true;
+        }
+      } else {
+        cb.checked = false;
+      }
+      updateSelected();
+    });
+
+    cb.addEventListener('change', updateSelected);
+
+    label.appendChild(cb);
+    const span = document.createElement('span');
+    span.textContent = ' ' + cat;
+    label.appendChild(span);
+    previewList.appendChild(label);
+  });
+  if (templateJson) {
+    templateJson.textContent = JSON.stringify(surveyA, null, 2);
+  }
+}
+
+function loadSavedSurvey() {
+  const saved = localStorage.getItem('savedSurvey');
+  if (!saved) return null;
+  try {
+    const parsed = JSON.parse(saved);
+    const survey = normalizeSurveyFormat(parsed.survey || parsed);
+    mergeSurveyWithTemplate(survey, window.templateSurvey);
+    normalizeRatings(survey);
+    filterGeneralOptions(survey);
+    resetItemOrientations(survey);
+    return survey;
+  } catch (err) {
+    console.warn('Failed to parse saved survey:', err);
+    return null;
+  }
+}
+
 
 
 
@@ -356,53 +421,7 @@ function startNewSurvey() {
   surveyContainer.style.display = 'none';
   finalScreen.style.display = 'none';
   progressBanner.style.display = 'none';
-  const initialize = data => {
-    surveyA = data;
-    resetItemOrientations(surveyA);
-    normalizeRatings(surveyA);
-    filterGeneralOptions(surveyA);
-    updateTabsForCategory();
-    previewList.innerHTML = '';
-    Object.keys(surveyA).forEach(cat => {
-      const label = document.createElement('label');
-      label.className = 'checkbox-item';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.value = cat;
-      cb.checked = false;
-
-      const updateSelected = () => {
-        label.classList.toggle('selected', cb.checked);
-      };
-
-      label.addEventListener('click', e => {
-        e.preventDefault();
-        if (!cb.checked) {
-          if (cat === HIGH_INTENSITY_CATEGORY) {
-            if (confirm(HIGH_INTENSITY_WARNING)) {
-              cb.checked = true;
-            }
-          } else {
-            cb.checked = true;
-          }
-        } else {
-          cb.checked = false;
-        }
-        updateSelected();
-      });
-
-      cb.addEventListener('change', updateSelected);
-
-      label.appendChild(cb);
-      const span = document.createElement('span');
-      span.textContent = ' ' + cat;
-      label.appendChild(span);
-      previewList.appendChild(label);
-    });
-    if (templateJson) {
-      templateJson.textContent = JSON.stringify(surveyA, null, 2);
-    }
-  };
+  const initialize = data => initializeSurvey(data);
 
   if (location.protocol.startsWith('http')) {
     fetch('template-survey.json', { cache: 'no-store' })
@@ -846,6 +865,10 @@ if (compareBtn) compareBtn.addEventListener('click', () => {
 function init() {
   initTheme();
   document.querySelectorAll('button').forEach(attachRipple);
+  const saved = loadSavedSurvey();
+  if (saved) {
+    initializeSurvey(saved);
+  }
   if (surveyIntro) {
     surveyIntro.style.display = 'flex';
   }
