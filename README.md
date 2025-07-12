@@ -1,8 +1,8 @@
 # Talk Kink GitHub Pages
 
 This repository hosts the static files for the Talk Kink website.
-Visiting https://www.talkkink.org/ now automatically loads the
-`/greenlight/` tool.
+Visiting https://www.talkkink.org/ shows the Kink Interest Survey and
+provides a link to the `/greenlight/` tool.
 
 ## DNS Configuration
 
@@ -33,7 +33,7 @@ After the DNS records resolve, go to the repository’s **Settings** → **Pages
 
 The website is built from the following files in this repository:
 
-- `index.html` (redirects to `/greenlight/`)
+- `index.html` (main survey page linking to `/greenlight/` and other tools)
 - `css/style.css`
 - `js/script.js`
 - `template-survey.json`
