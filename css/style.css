@@ -170,9 +170,9 @@ body.light-mode #mainCategoryList button.active {
   border: 1px solid #000;
 }
 body.dark-mode #mainCategoryList button.active {
-  background-color: #146b3a;
-  color: #d0eaff;
-  border: 1px solid #0d4b2a;
+  background-color: #00bfff;
+  color: #000;
+  border: 1px solid #0099cc;
 }
 body.theme-blue #mainCategoryList button.active {
   background-color: #0055aa;
@@ -197,13 +197,13 @@ body.theme-rainbow #mainCategoryList button.active {
 
 /* Theme Styling */
 body.dark-mode {
-  background-color: #013220;
-  color: #5fa1d7;
-  --panel-color: #025f3d;
-  --text-color: #5fa1d7;
-  --button-bg: #146b3a;
-  --button-text: #d0eaff;
-  --button-hover-bg: #1b8a55;
+  background-color: #121212;
+  color: #e0e0e0;
+  --panel-color: #1e1e2f;
+  --text-color: #e0e0e0;
+  --button-bg: #7c5fe9;
+  --button-text: #ffffff;
+  --button-hover-bg: #9b84ff;
 }
 body.light-mode {
   background-color: #b8c5b8;
@@ -341,13 +341,13 @@ body.light-mode .tab.active {
   border: 1px solid #000;
 }
 body.dark-mode .tab {
-  background-color: #025f3d;
-  color: #5fa1d7;
+  background-color: #222;
+  color: #f5f5f5;
 }
 body.dark-mode .tab.active {
-  background-color: #146b3a;
-  color: #d0eaff;
-  border: 1px solid #0d4b2a;
+  background-color: #00bfff;
+  color: #000;
+  border: 1px solid #0099cc;
 }
 body.theme-blue .tab {
   background-color: #003366;
@@ -445,9 +445,9 @@ body.light-mode #categoryContainer button.active {
   border: 1px solid #000;
 }
 body.dark-mode #categoryContainer button.active {
-  background-color: #146b3a;
-  color: #d0eaff;
-  border: 1px solid #0d4b2a;
+  background-color: #00bfff;
+  color: #000;
+  border: 1px solid #0099cc;
 }
 body.theme-blue #categoryContainer button.active {
   background-color: #0055aa;
@@ -478,9 +478,9 @@ body.theme-rainbow #categoryContainer button.active {
   border: 1px solid #ccc;
 }
 body.dark-mode #comparisonResult {
-  background-color: #025f3d;
-  color: #5fa1d7;
-  border-color: #0d4b2a;
+  background-color: #1f1f1f;
+  color: #e0e0e0;
+  border-color: #444;
 }
 body.light-mode #comparisonResult {
   background-color: #a9b8a9;
@@ -749,8 +749,8 @@ body.light-mode #surveyIntro .intro-modal {
 }
 
 body.dark-mode .expandable-panel summary {
-  background-color: #025f3d;
-  color: #5fa1d7;
+  background-color: #333;
+  color: #f5f5f5;
 }
 body.light-mode .expandable-panel summary {
   background-color: #a9b8a9;
@@ -1146,7 +1146,7 @@ body.light-mode .static-rating-legend {
 /* Match progress bar background to theme */
 body.dark-mode .progress-container,
 body.dark-mode .progress-bar {
-  background-color: #013220;
+  background-color: #121212;
 }
 body.light-mode .progress-container,
 body.light-mode .progress-bar {
