@@ -1324,26 +1324,51 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
 }
 
 
-/* Wrap text for long category names and bring dropdowns closer */
-.category-row {
+/* ===== TALK KINK SURVEY LAYOUT FIX (DESKTOP + MOBILE) ===== */
+/* Applies ONLY to survey content — does not affect Greenlight */
+
+#survey-section .category-row {
   display: flex;
   align-items: flex-start;
-  gap: 6px; /* reduced space between text and dropdown */
+  gap: 8px;
   margin-bottom: 10px;
+  flex-wrap: wrap; /* allows wrapping on smaller screens */
 }
 
-/* Allow category text to wrap naturally */
-.category-label {
+/* Label for category/kink name */
+#survey-section .category-label {
   white-space: normal;
   word-wrap: break-word;
-  max-width: 220px; /* adjust for mobile view */
-  flex-shrink: 0;
-  font-size: 16px;
-  padding-right: 4px;
+  max-width: 250px;
+  padding-right: 6px;
+  font-size: 15px;
+  line-height: 1.4;
+  flex: 1 1 60%; /* allows flexibility */
 }
 
-/* Keep dropdown aligned tightly next to label */
-.rating-select {
+/* Dropdown styling */
+#survey-section .rating-select {
   min-width: 100px;
+  max-width: 150px;
+  flex: 1 1 35%;
   margin-left: 0;
+}
+
+/* ===== RESPONSIVE TWEAKS ===== */
+@media (max-width: 768px) {
+  #survey-section .category-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  #survey-section .category-label {
+    max-width: 100%;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  #survey-section .rating-select {
+    width: 100%;
+    max-width: 100%;
+  }
 }
