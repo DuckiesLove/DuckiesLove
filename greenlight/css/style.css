@@ -99,6 +99,35 @@ h1 {
   transition: transform 0.2s ease;
 }
 
+.youtube-wrapper {
+  position: relative;
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.youtube-wrapper img {
+  width: 100%;
+  display: block;
+}
+
+.youtube-wrapper iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: none;
+}
+
+.play-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3rem;
+  color: white;
+  pointer-events: none;
+}
+
 #add-card {
   position: fixed;
   bottom: 30px;
