@@ -490,7 +490,15 @@ beginSurveyBtn.addEventListener('click', () => {
   currentCategory = categoryOrder[0] || null;
   categoryOverlay.style.display = 'none';
   if (categoryOrder.length) {
-    buildPanelLayout();
+    // When the page includes a panel container, show the expandable layout.
+    // Otherwise fall back to the guided mode view starting with the first
+    // selected category.
+    if (panelContainer) {
+      buildPanelLayout();
+    } else if (currentCategory) {
+      showKinks(currentCategory);
+      updateProgress();
+    }
     if (downloadBtn) downloadBtn.style.display = 'block';
   }
 });
