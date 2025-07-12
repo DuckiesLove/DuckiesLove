@@ -185,6 +185,9 @@ const kinkList = document.getElementById('kinkList');
 const categoryTitle = document.getElementById('categoryTitle');
 const surveyContainer = document.getElementById('surveyContainer');
 const finalScreen = document.getElementById('finalScreen');
+// Some pages (like /index.html) don't include the panelContainer element used
+// for the optional "all categories at once" view.  Grab it if present so the
+// logic can gracefully skip related calls when it's missing.
 const panelContainer = document.getElementById('panelContainer');
 const saveSurveyBtn = document.getElementById('saveSurveyBtn');
 const returnHomeBtn = document.getElementById('returnHomeBtn');
@@ -349,7 +352,7 @@ function startNewSurvey() {
   if (mainNavButtons) mainNavButtons.style.display = 'none';
 
   categoryOverlay.style.display = 'flex';
-  panelContainer.style.display = 'none';
+  if (panelContainer) panelContainer.style.display = 'none';
   surveyContainer.style.display = 'none';
   finalScreen.style.display = 'none';
   progressBanner.style.display = 'none';
@@ -722,6 +725,7 @@ function renderPanelKinks(container, category) {
 }
 
 function buildPanelLayout() {
+  if (!panelContainer) return;
   panelContainer.innerHTML = '';
   panelContainer.style.display = 'block';
   surveyContainer.style.display = 'none';
@@ -750,7 +754,7 @@ function buildPanelLayout() {
     renderPanelKinks(content, cat);
     details.appendChild(summary);
     details.appendChild(content);
-    panelContainer.appendChild(details);
+    if (panelContainer) panelContainer.appendChild(details);
   });
 }
 
