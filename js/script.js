@@ -786,6 +786,20 @@ function buildPanelLayout() {
 }
 
 // ================== Export My List ==================
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.style.display = 'none';
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
+}
+
 function exportSurvey() {
   if (!surveyA) {
     alert('No survey loaded.');
@@ -795,14 +809,11 @@ function exportSurvey() {
     survey: pruneSurvey(surveyA),
     ratingLabels: RATING_LABELS
   };
-  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], {
+    type: 'application/json'
+  });
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  a.download = `kink-survey-${ts}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `kink-survey-${ts}.json`);
   try {
     localStorage.setItem('savedSurvey', JSON.stringify(exportObj));
   } catch (err) {
