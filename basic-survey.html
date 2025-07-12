@@ -247,11 +247,16 @@
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
+      link.style.display = 'none';
       link.href = url;
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
       link.download = `kink-survey-${ts}.json`;
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 0);
 
       try {
         localStorage.setItem('savedSurvey', JSON.stringify(exportObj));
