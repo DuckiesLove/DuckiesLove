@@ -1372,7 +1372,7 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
 #survey-section,
 #survey-section * {
   transition: color 0.3s ease, background-color 0.3s ease,
-    font-family 0.3s ease, border-color 0.3s ease;
+    font-family 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 #survey-section .category-row {
@@ -1402,11 +1402,19 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
   margin-left: 0;
 }
 
-#survey-section select {
-  padding: 6px;
-  border-radius: 4px;
+#survey-section select,
+#survey-section input[type="text"] {
+  padding: 8px;
+  border-radius: 6px;
   border: 1px solid #aaa;
   appearance: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+#survey-section select:hover,
+#survey-section input[type="text"]:hover {
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
 }
 
 /* ===== RESPONSIVE TWEAKS ===== */

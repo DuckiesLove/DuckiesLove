@@ -22,41 +22,57 @@ export function applyThemeFontStyles(theme) {
       fontColor: '#111',
       bgColor: '#ffffff',
       fontFamily: 'Arial, sans-serif',
-      dropdownBg: '#fff',
-      dropdownText: '#111',
+      inputBg: '#f7f7f7',
+      inputText: '#111',
       borderColor: '#ccc'
     },
     'dark-mode': {
       fontColor: '#f2f2f2',
       bgColor: '#121212',
       fontFamily: 'Helvetica, sans-serif',
-      dropdownBg: '#1f1f1f',
-      dropdownText: '#f2f2f2',
-      borderColor: '#444'
+      inputBg: '#2a2a2a',
+      inputText: '#ffffff',
+      borderColor: '#666'
     },
     'theme-blue': {
       fontColor: '#ffffff',
       bgColor: '#001933',
       fontFamily: 'Helvetica, sans-serif',
-      dropdownBg: '#002244',
-      dropdownText: '#ffffff',
+      inputBg: '#002244',
+      inputText: '#ffffff',
       borderColor: '#003366'
     },
     'theme-blue-sky': {
       fontColor: '#002244',
       bgColor: '#e6f2ff',
       fontFamily: 'Helvetica, sans-serif',
-      dropdownBg: '#cde6ff',
-      dropdownText: '#002244',
+      inputBg: '#cde6ff',
+      inputText: '#002244',
       borderColor: '#99c9f2'
     },
     'theme-echoes-beyond': {
       fontColor: '#d0ffd0',
       bgColor: '#0f1b0f',
       fontFamily: '"Courier New", monospace',
-      dropdownBg: '#1e2e1e',
-      dropdownText: '#d0ffd0',
+      inputBg: '#1e2e1e',
+      inputText: '#d0ffd0',
       borderColor: '#355935'
+    },
+    'theme-love-notes-lipstick': {
+      fontColor: '#ffffff',
+      bgColor: '#2b002b',
+      fontFamily: 'Helvetica, sans-serif',
+      inputBg: '#a64ca6',
+      inputText: '#fff0f5',
+      borderColor: '#d47bd4'
+    },
+    'theme-rainbow': {
+      fontColor: '#000000',
+      bgColor: '#ffffff',
+      fontFamily: 'Helvetica, sans-serif',
+      inputBg: 'linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet)',
+      inputText: '#ffffff',
+      borderColor: '#555'
     }
   };
 
@@ -72,10 +88,11 @@ export function applyThemeFontStyles(theme) {
       el.style.fontFamily = selected.fontFamily;
     });
 
-    surveyContent.querySelectorAll('select').forEach(select => {
-      select.style.backgroundColor = selected.dropdownBg;
-      select.style.color = selected.dropdownText;
-      select.style.borderColor = selected.borderColor;
+    surveyContent.querySelectorAll('select, input[type="text"]').forEach(input => {
+      input.style.background = selected.inputBg;
+      input.style.color = selected.inputText;
+      input.style.borderColor = selected.borderColor;
+      input.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
     });
   }
 
