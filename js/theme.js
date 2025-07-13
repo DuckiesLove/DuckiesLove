@@ -24,7 +24,9 @@ export function applyThemeFontStyles(theme) {
       fontFamily: 'Arial, sans-serif',
       inputBg: '#f7f7f7',
       inputText: '#111',
-      borderColor: '#ccc'
+      borderColor: '#ccc',
+      buttonBg: '#e0e0e0',
+      buttonText: '#111'
     },
     'dark-mode': {
       fontColor: '#f2f2f2',
@@ -32,7 +34,9 @@ export function applyThemeFontStyles(theme) {
       fontFamily: 'Helvetica, sans-serif',
       inputBg: '#2a2a2a',
       inputText: '#ffffff',
-      borderColor: '#666'
+      borderColor: '#666',
+      buttonBg: '#333',
+      buttonText: '#f2f2f2'
     },
     'theme-blue': {
       fontColor: '#ffffff',
@@ -40,39 +44,49 @@ export function applyThemeFontStyles(theme) {
       fontFamily: 'Helvetica, sans-serif',
       inputBg: '#002244',
       inputText: '#ffffff',
-      borderColor: '#003366'
+      borderColor: '#003366',
+      buttonBg: '#0055aa',
+      buttonText: '#ffffff'
     },
     'theme-blue-sky': {
       fontColor: '#002244',
-      bgColor: '#e6f2ff',
+      bgColor: '#dfefff',
       fontFamily: 'Helvetica, sans-serif',
-      inputBg: '#cde6ff',
+      inputBg: '#b0d4ff',
       inputText: '#002244',
-      borderColor: '#99c9f2'
+      borderColor: '#99c9f2',
+      buttonBg: '#99c9f2',
+      buttonText: '#002244'
     },
     'theme-echoes-beyond': {
-      fontColor: '#d0ffd0',
-      bgColor: '#0f1b0f',
+      fontColor: '#ffcc66',
+      bgColor: '#0b1d26',
       fontFamily: '"Courier New", monospace',
-      inputBg: '#1e2e1e',
-      inputText: '#d0ffd0',
-      borderColor: '#355935'
+      inputBg: '#ffb347',
+      inputText: '#003366',
+      borderColor: '#cc7a00',
+      buttonBg: '#0b1d26',
+      buttonText: '#ffcc66'
     },
     'theme-love-notes-lipstick': {
-      fontColor: '#ffffff',
+      fontColor: '#fff0f5',
       bgColor: '#2b002b',
       fontFamily: 'Helvetica, sans-serif',
       inputBg: '#a64ca6',
       inputText: '#fff0f5',
-      borderColor: '#d47bd4'
+      borderColor: '#d47bd4',
+      buttonBg: '#d47bd4',
+      buttonText: '#2b002b'
     },
     'theme-rainbow': {
-      fontColor: '#000000',
-      bgColor: '#ffffff',
+      fontColor: '#ffffff',
+      bgColor: '#000000',
       fontFamily: 'Helvetica, sans-serif',
       inputBg: 'linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet)',
       inputText: '#ffffff',
-      borderColor: '#555'
+      borderColor: '#ffffff',
+      buttonBg: 'linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet)',
+      buttonText: '#ffffff'
     }
   };
 
@@ -93,6 +107,11 @@ export function applyThemeFontStyles(theme) {
       input.style.color = selected.inputText;
       input.style.borderColor = selected.borderColor;
       input.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
+    });
+
+    surveyContent.querySelectorAll('button').forEach(btn => {
+      btn.style.background = selected.buttonBg;
+      btn.style.color = selected.buttonText;
     });
   }
 
