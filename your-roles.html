@@ -17,8 +17,10 @@
       <input type="file" id="roleFile" hidden />
     </label>
 
-    <div id="rolesOutput"></div>
+    <div id="rolesOutput" class="pdf-container result-container"></div>
   </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
   <script type="module">
     import { calculateRoleScores } from './js/calculateRoleScores.js';
@@ -37,32 +39,33 @@
       return items;
     }
 
-    function getColor(percent) {
-      if (percent >= 75) return '#4caf50';
-      if (percent >= 50) return '#ffcc00';
-      if (percent >= 25) return '#ff9900';
-      return '#ff4444';
+    function titleCase(str) {
+      return str.replace(/\b\w/g, c => c.toUpperCase());
     }
 
-    function createBar(name, percent) {
-      const wrap = document.createElement('div');
-      wrap.className = 'progress-container';
+    function createEntry(name, percent) {
+      const row = document.createElement('div');
+      row.className = 'result-entry';
       const label = document.createElement('div');
-      label.className = 'progress-label';
-      label.textContent = name;
-      const percentSpan = document.createElement('span');
-      percentSpan.textContent = `${percent}%`;
-      label.appendChild(percentSpan);
-      const bar = document.createElement('div');
-      bar.className = 'progress-bar';
-      const fill = document.createElement('div');
-      fill.className = 'progress-fill';
-      fill.style.width = `${percent}%`;
-      fill.style.backgroundColor = getColor(percent);
-      bar.appendChild(fill);
-      wrap.appendChild(label);
-      wrap.appendChild(bar);
-      return wrap;
+      label.className = 'label';
+      label.textContent = titleCase(name);
+      const score = document.createElement('div');
+      score.className = 'score';
+      score.textContent = `${percent}%`;
+      row.appendChild(label);
+      row.appendChild(score);
+      return row;
+    }
+
+    function downloadResults() {
+      const element = document.getElementById('rolesOutput');
+      const opt = {
+        margin: 0.5,
+        filename: 'TalkKink_Compatibility_Report.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(element).save();
     }
 
     document.getElementById('roleFile').addEventListener('change', e => {
@@ -80,9 +83,25 @@
             return;
           }
           container.innerHTML = '';
+          const heading = document.createElement('div');
+          heading.style.textAlign = 'center';
+          heading.style.fontSize = '24px';
+          heading.style.fontWeight = 'bold';
+          heading.style.marginBottom = '30px';
+          heading.textContent = 'TalkKink Compatibility Profile';
+          container.appendChild(heading);
+          const title = document.createElement('div');
+          title.className = 'result-section-title';
+          title.textContent = 'Your Survey Summary';
+          container.appendChild(title);
           scores.forEach(s => {
-            container.appendChild(createBar(s.name, s.percent));
+            container.appendChild(createEntry(s.name, s.percent));
           });
+          const btn = document.createElement('button');
+          btn.className = 'download-btn';
+          btn.textContent = 'Download PDF';
+          btn.addEventListener('click', downloadResults);
+          container.appendChild(btn);
         } catch (err) {
           document.getElementById('rolesOutput').textContent = 'Invalid file.';
         }
