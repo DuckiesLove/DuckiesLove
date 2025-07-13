@@ -40,6 +40,16 @@
   --progress-fill-color: #0055aa;
 }
 
+.theme-blue-sky {
+  --bg-color: #e6f2ff;
+  --panel-color: #cde6ff;
+  --text-color: #002244;
+  --button-bg: #99c9f2;
+  --button-text: #002244;
+  --button-hover-bg: #b5d8ff;
+  --progress-fill-color: #99c9f2;
+}
+
 .theme-echoes-beyond {
   --bg-color: #14213d;
   --panel-color: #1b263b;

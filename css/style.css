@@ -179,6 +179,11 @@ body.theme-blue #mainCategoryList button.active {
   color: #fff;
   border: 1px solid #003377;
 }
+body.theme-blue-sky #mainCategoryList button.active {
+  background-color: #99c9f2;
+  color: #002244;
+  border: 1px solid #99c9f2;
+}
 body.theme-echoes-beyond #mainCategoryList button.active {
   background-color: #334863;
   color: #fca311;
@@ -263,6 +268,11 @@ body.theme-blue .category-panel {
   background-color: #002244;
   color: #fff;
   border-right-color: #003366;
+}
+body.theme-blue-sky .category-panel {
+  background-color: #cde6ff;
+  color: #002244;
+  border-right-color: #99c9f2;
 }
 body.theme-echoes-beyond .category-panel {
   background-color: #1b263b;
@@ -356,6 +366,14 @@ body.theme-blue .tab {
 body.theme-blue .tab.active {
   background-color: #0055aa;
   border: 1px solid #003377;
+}
+body.theme-blue-sky .tab {
+  background-color: #cde6ff;
+  color: #002244;
+}
+body.theme-blue-sky .tab.active {
+  background-color: #99c9f2;
+  border: 1px solid #99c9f2;
 }
 body.theme-echoes-beyond .tab {
   background-color: #2b314c;
@@ -454,6 +472,11 @@ body.theme-blue #categoryContainer button.active {
   color: #fff;
   border: 1px solid #003377;
 }
+body.theme-blue-sky #categoryContainer button.active {
+  background-color: #99c9f2;
+  color: #002244;
+  border: 1px solid #99c9f2;
+}
 body.theme-echoes-beyond #categoryContainer button.active {
   background-color: #334863;
   color: #fca311;
@@ -490,6 +513,10 @@ body.light-mode #comparisonResult {
 body.theme-blue #comparisonResult {
   background-color: #002244;
   color: #fff;
+}
+body.theme-blue-sky #comparisonResult {
+  background-color: #cde6ff;
+  color: #002244;
 }
 body.theme-echoes-beyond #comparisonResult {
   background-color: #1b263b;
@@ -760,6 +787,10 @@ body.light-mode .expandable-panel summary {
 body.theme-blue .expandable-panel summary {
   background-color: #003366;
   color: #fff;
+}
+body.theme-blue-sky .expandable-panel summary {
+  background-color: #cde6ff;
+  color: #002244;
 }
 body.theme-echoes-beyond .expandable-panel summary {
   background-color: #2b314c;
@@ -1156,6 +1187,10 @@ body.light-mode .progress-bar {
 body.theme-blue .progress-container,
 body.theme-blue .progress-bar {
   background-color: #001933;
+}
+body.theme-blue-sky .progress-container,
+body.theme-blue-sky .progress-bar {
+  background-color: #e6f2ff;
 }
 body.theme-echoes-beyond .progress-container,
 body.theme-echoes-beyond .progress-bar {
