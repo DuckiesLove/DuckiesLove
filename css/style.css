@@ -646,8 +646,9 @@ body.theme-rainbow #comparisonResult {
 }
 
 .checkbox-item.selected {
-  background-color: #e0e0e0;
-  border-color: #4caf50;
+  background-color: var(--button-hover-bg, #e0e0e0);
+  border-color: var(--progress-fill-color, #4caf50);
+  color: var(--button-text, #fff);
 }
 
 .checkbox-item input {
