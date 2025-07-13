@@ -1405,3 +1405,77 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
     padding: 0 8px;
   }
 }
+/* === STYLES FOR CR COMPATIBILITY RESULTS DISPLAY === */
+/* Mimics BDSMTest.org style while preserving original role data */
+
+#cr-results-container {
+  background-color: #111;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+  font-family: 'Arial', sans-serif;
+  color: white;
+}
+
+#cr-results-container h2 {
+  font-size: 20px;
+  margin-bottom: 10px;
+  color: #00ff99;
+  text-align: center;
+}
+
+/* Each role result row */
+.cr-result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 6px 0;
+}
+
+/* Role name */
+.cr-role-name {
+  flex: 1;
+  text-align: left;
+  padding-right: 10px;
+}
+
+/* Bar container and percentage */
+.cr-role-score {
+  flex: 2;
+  display: flex;
+  align-items: center;
+}
+
+/* Progress bar outline */
+.cr-bar {
+  height: 4px;
+  background-color: #444;
+  width: 100%;
+  margin-right: 8px;
+  position: relative;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* Fill inside bar */
+.cr-fill {
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 3px;
+}
+
+/* Text % next to bar */
+.cr-percent {
+  width: 32px;
+  text-align: right;
+  font-size: 13px;
+}
+
+/* Fill color logic */
+.cr-fill.green { background-color: #00cc44; }     /* 80–100% */
+.cr-fill.yellow { background-color: #ffaa00; }    /* 30–79% */
+.cr-fill.red { background-color: #cc0033; }       /* 0–29% */
