@@ -34,6 +34,22 @@ export function applyThemeFontStyles(theme) {
       dropdownText: '#f2f2f2',
       borderColor: '#444'
     },
+    'theme-blue': {
+      fontColor: '#ffffff',
+      bgColor: '#001933',
+      fontFamily: 'Helvetica, sans-serif',
+      dropdownBg: '#002244',
+      dropdownText: '#ffffff',
+      borderColor: '#003366'
+    },
+    'theme-blue-sky': {
+      fontColor: '#002244',
+      bgColor: '#e6f2ff',
+      fontFamily: 'Helvetica, sans-serif',
+      dropdownBg: '#cde6ff',
+      dropdownText: '#002244',
+      borderColor: '#99c9f2'
+    },
     'theme-echoes-beyond': {
       fontColor: '#d0ffd0',
       bgColor: '#0f1b0f',
