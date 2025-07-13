@@ -1594,7 +1594,7 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 6px;
-  color: #000;
+  color: var(--text-color);
 }
 
 .kink-bar-row {
@@ -1607,7 +1607,7 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
 .kink-label {
   width: 120px;
   font-size: 14px;
-  color: #333;
+  color: var(--text-color);
 }
 
 .kink-bar-container {
@@ -1632,5 +1632,5 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
   width: 32px;
   font-size: 13px;
   text-align: right;
-  color: #222;
+  color: var(--text-color);
 }
