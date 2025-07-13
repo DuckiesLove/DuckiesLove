@@ -417,6 +417,10 @@ function startNewSurvey() {
   if (homeBtn) homeBtn.style.display = 'block';
   if (mainNavButtons) mainNavButtons.style.display = 'none';
 
+  if (themeSelector) {
+    applyThemeFontStyles(themeSelector.value);
+  }
+
   categoryOverlay.style.display = 'flex';
   if (panelContainer) panelContainer.style.display = 'none';
   surveyContainer.style.display = 'none';
@@ -487,6 +491,9 @@ if (deselectAllBtn) {
 }
 
 beginSurveyBtn.addEventListener('click', () => {
+  if (themeSelector) {
+    applyThemeFontStyles(themeSelector.value);
+  }
   categoryOrder = Array.from(previewList.querySelectorAll('input[type="checkbox"]'))
     .filter(cb => cb.checked)
     .map(cb => cb.value);
