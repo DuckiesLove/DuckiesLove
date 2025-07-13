@@ -1,5 +1,6 @@
 export function initTheme() {
   const themeSelector = document.getElementById('themeSelector');
+  const fontSelector = document.getElementById('fontSelectorIntro');
   const savedTheme = localStorage.getItem('selectedTheme') || 'dark-mode';
   document.body.className = savedTheme;
   applyThemeFontStyles(savedTheme);
@@ -10,6 +11,19 @@ export function initTheme() {
       document.body.className = selectedTheme;
       localStorage.setItem('selectedTheme', selectedTheme);
       applyThemeFontStyles(selectedTheme);
+      const currentFont = fontSelector ? fontSelector.value : null;
+      if (currentFont) applyCustomFont(currentFont);
+    });
+  }
+
+  if (fontSelector) {
+    const savedFont = localStorage.getItem('selectedFont') || 'default';
+    fontSelector.value = savedFont;
+    applyCustomFont(savedFont);
+    fontSelector.addEventListener('change', () => {
+      const selectedFont = fontSelector.value;
+      localStorage.setItem('selectedFont', selectedFont);
+      applyCustomFont(selectedFont);
     });
   }
 }
@@ -66,5 +80,26 @@ export function applyThemeFontStyles(theme) {
   if (categoryPanel) {
     categoryPanel.style.color = selected.fontColor;
     categoryPanel.style.fontFamily = selected.fontFamily;
+  }
+}
+
+export function applyCustomFont(font) {
+  const surveyContent = document.querySelector('#survey-section');
+  const categoryPanel = document.querySelector('#categoryPanel');
+
+  if (font === 'default') {
+    applyThemeFontStyles(document.body.className);
+    return;
+  }
+
+  if (surveyContent) {
+    surveyContent.style.fontFamily = font;
+    surveyContent.querySelectorAll('*').forEach(el => {
+      el.style.fontFamily = font;
+    });
+  }
+
+  if (categoryPanel) {
+    categoryPanel.style.fontFamily = font;
   }
 }

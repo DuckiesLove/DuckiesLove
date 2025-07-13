@@ -1,6 +1,6 @@
 import { calculateCompatibility } from './compatibility.js';
 import { pruneSurvey } from './pruneSurvey.js';
-import { initTheme, applyThemeFontStyles } from './theme.js';
+import { initTheme, applyThemeFontStyles, applyCustomFont } from './theme.js';
 
 // ================== Password Protection ==================
 const PASSWORD = 'toopoortosue';
@@ -208,6 +208,7 @@ const closeRoleDefinitionsBtn = document.getElementById('closeRoleDefinitionsBtn
 const surveyIntro = document.getElementById('surveyIntro');
 const startSurveyBtn = document.getElementById('startSurveyBtn');
 const themeSelector = document.getElementById('themeSelector');
+const fontSelector = document.getElementById('fontSelectorIntro');
 const categoryDescription = document.getElementById('categoryDescription');
 const newSurveyBtn = document.getElementById('newSurveyBtn');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -420,6 +421,9 @@ function startNewSurvey() {
   if (themeSelector) {
     applyThemeFontStyles(themeSelector.value);
   }
+  if (fontSelector) {
+    applyCustomFont(fontSelector.value);
+  }
 
   categoryOverlay.style.display = 'flex';
   if (panelContainer) panelContainer.style.display = 'none';
@@ -457,6 +461,9 @@ startSurveyBtn.addEventListener('click', () => {
   if (themeSelector) {
     applyThemeFontStyles(themeSelector.value);
   }
+  if (fontSelector) {
+    applyCustomFont(fontSelector.value);
+  }
   startNewSurvey();
 });
 
@@ -493,6 +500,9 @@ if (deselectAllBtn) {
 beginSurveyBtn.addEventListener('click', () => {
   if (themeSelector) {
     applyThemeFontStyles(themeSelector.value);
+  }
+  if (fontSelector) {
+    applyCustomFont(fontSelector.value);
   }
   categoryOrder = Array.from(previewList.querySelectorAll('input[type="checkbox"]'))
     .filter(cb => cb.checked)
