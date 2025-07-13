@@ -11,3 +11,28 @@ export function initTheme() {
     });
   }
 }
+
+export function applyThemeFontStyles(theme) {
+  const surveyContent = document.querySelector('#survey-section');
+  const themeStyles = {
+    'light-mode': {
+      fontColor: '#111',
+      fontFamily: 'Arial, sans-serif'
+    },
+    'dark-mode': {
+      fontColor: '#eee',
+      fontFamily: 'Helvetica, sans-serif'
+    },
+    'theme-echoes-beyond': {
+      fontColor: '#e0ffe0',
+      fontFamily: '"Courier New", monospace'
+    }
+  };
+
+  const selected = themeStyles[theme] || themeStyles['dark-mode'];
+
+  if (surveyContent) {
+    surveyContent.style.color = selected.fontColor;
+    surveyContent.style.fontFamily = selected.fontFamily;
+  }
+}

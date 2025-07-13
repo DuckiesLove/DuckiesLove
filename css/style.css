@@ -1333,6 +1333,10 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
 /* ===== TALK KINK SURVEY LAYOUT FIX (DESKTOP + MOBILE) ===== */
 /* Applies ONLY to survey content — does not affect Greenlight */
 
+#survey-section {
+  transition: color 0.3s ease, font-family 0.3s ease;
+}
+
 #survey-section .category-row {
   display: flex;
   align-items: flex-start;
