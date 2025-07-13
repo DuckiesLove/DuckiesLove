@@ -1,6 +1,6 @@
 import { calculateCompatibility } from './compatibility.js';
 import { pruneSurvey } from './pruneSurvey.js';
-import { initTheme } from './theme.js';
+import { initTheme, applyThemeFontStyles } from './theme.js';
 
 // ================== Password Protection ==================
 const PASSWORD = 'toopoortosue';
@@ -207,6 +207,7 @@ const roleDefinitionsBtn = document.getElementById('roleDefinitionsBtn');
 const closeRoleDefinitionsBtn = document.getElementById('closeRoleDefinitionsBtn');
 const surveyIntro = document.getElementById('surveyIntro');
 const startSurveyBtn = document.getElementById('startSurveyBtn');
+const themeSelector = document.getElementById('themeSelector');
 const categoryDescription = document.getElementById('categoryDescription');
 const newSurveyBtn = document.getElementById('newSurveyBtn');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -449,6 +450,9 @@ function startNewSurvey() {
 startSurveyBtn.addEventListener('click', () => {
   guidedMode = true;
   if (surveyIntro) surveyIntro.style.display = 'none';
+  if (themeSelector) {
+    applyThemeFontStyles(themeSelector.value);
+  }
   startNewSurvey();
 });
 
