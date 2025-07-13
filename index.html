@@ -27,6 +27,7 @@
     </select>
   </div>
 
+
   <div id="progressBanner" class="progress-container" style="display:block">
     <div class="progress-bar">
       <span id="progressLabel" class="progress-bar-text"></span>
@@ -186,6 +187,14 @@
   <div id="surveyIntro" class="overlay">
     <div class="intro-modal">
       <p>Follow the prompts to rate each category in order.</p>
+      <label for="fontSelectorIntro">Font Style:</label>
+      <select id="fontSelectorIntro">
+        <option value="default">Default</option>
+        <option value="'Arial', sans-serif">Arial</option>
+        <option value="'Georgia', serif">Georgia</option>
+        <option value="'Courier New', monospace">Courier New</option>
+        <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+      </select>
       <button id="startSurveyBtn">Start Survey</button>
     </div>
   </div>
