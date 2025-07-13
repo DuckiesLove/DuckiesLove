@@ -566,13 +566,6 @@ body.theme-rainbow #comparisonResult {
   box-sizing: border-box;
 }
 
-#surveyIntro select {
-  padding: 6px;
-  border-radius: 4px;
-  border: 1px solid #aaa;
-  appearance: none;
-}
-
 #categoryOverlay {
   display: none;
   align-items: center;
