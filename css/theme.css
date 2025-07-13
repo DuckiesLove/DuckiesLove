@@ -5,6 +5,7 @@
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
+  --progress-fill-color: #4caf50;
 }
 
 .theme-lightforest,
@@ -15,6 +16,7 @@
   --button-bg: #558c75;
   --button-text: #ffffff;
   --button-hover-bg: #446d60;
+  --progress-fill-color: #558c75;
 }
 
 .theme-darkviolet,
@@ -25,6 +27,7 @@
   --button-bg: #7c5fe9;
   --button-text: #ffffff;
   --button-hover-bg: #9b84ff;
+  --progress-fill-color: #7c5fe9;
 }
 
 .theme-blue {
@@ -34,6 +37,7 @@
   --button-bg: #0055aa;
   --button-text: #ffffff;
   --button-hover-bg: #003377;
+  --progress-fill-color: #0055aa;
 }
 
 .theme-echoes-beyond {
@@ -43,6 +47,7 @@
   --button-bg: #334863;
   --button-text: #fca311;
   --button-hover-bg: #1f3352;
+  --progress-fill-color: #334863;
 }
 
 .theme-love-notes-lipstick {
@@ -52,6 +57,7 @@
   --button-bg: #ff6bd6;
   --button-text: #311847;
   --button-hover-bg: #c44fb0;
+  --progress-fill-color: #ff6bd6;
 }
 
 .theme-rainbow {
@@ -61,4 +67,5 @@
   --button-bg: rgba(255, 255, 255, 0.9);
   --button-text: #000000;
   --button-hover-bg: rgba(255, 255, 255, 0.7);
+  --progress-fill-color: #603636;
 }
