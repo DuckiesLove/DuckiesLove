@@ -14,6 +14,7 @@ export function initTheme() {
 
 export function applyThemeFontStyles(theme) {
   const surveyContent = document.querySelector('#survey-section');
+  const categoryPanel = document.querySelector('#categoryPanel');
   const themeStyles = {
     'light-mode': {
       fontColor: '#111',
@@ -34,5 +35,10 @@ export function applyThemeFontStyles(theme) {
   if (surveyContent) {
     surveyContent.style.color = selected.fontColor;
     surveyContent.style.fontFamily = selected.fontFamily;
+  }
+
+  if (categoryPanel) {
+    categoryPanel.style.color = selected.fontColor;
+    categoryPanel.style.fontFamily = selected.fontFamily;
   }
 }
