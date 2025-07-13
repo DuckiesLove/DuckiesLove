@@ -20,15 +20,27 @@ export function applyThemeFontStyles(theme) {
   const themeStyles = {
     'light-mode': {
       fontColor: '#111',
-      fontFamily: 'Arial, sans-serif'
+      bgColor: '#ffffff',
+      fontFamily: 'Arial, sans-serif',
+      dropdownBg: '#fff',
+      dropdownText: '#111',
+      borderColor: '#ccc'
     },
     'dark-mode': {
-      fontColor: '#eee',
-      fontFamily: 'Helvetica, sans-serif'
+      fontColor: '#f2f2f2',
+      bgColor: '#121212',
+      fontFamily: 'Helvetica, sans-serif',
+      dropdownBg: '#1f1f1f',
+      dropdownText: '#f2f2f2',
+      borderColor: '#444'
     },
     'theme-echoes-beyond': {
-      fontColor: '#e0ffe0',
-      fontFamily: '"Courier New", monospace'
+      fontColor: '#d0ffd0',
+      bgColor: '#0f1b0f',
+      fontFamily: '"Courier New", monospace',
+      dropdownBg: '#1e2e1e',
+      dropdownText: '#d0ffd0',
+      borderColor: '#355935'
     }
   };
 
@@ -36,7 +48,19 @@ export function applyThemeFontStyles(theme) {
 
   if (surveyContent) {
     surveyContent.style.color = selected.fontColor;
+    surveyContent.style.backgroundColor = selected.bgColor;
     surveyContent.style.fontFamily = selected.fontFamily;
+
+    surveyContent.querySelectorAll('*').forEach(el => {
+      el.style.color = selected.fontColor;
+      el.style.fontFamily = selected.fontFamily;
+    });
+
+    surveyContent.querySelectorAll('select').forEach(select => {
+      select.style.backgroundColor = selected.dropdownBg;
+      select.style.color = selected.dropdownText;
+      select.style.borderColor = selected.borderColor;
+    });
   }
 
   if (categoryPanel) {
