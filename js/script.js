@@ -506,8 +506,8 @@ beginSurveyBtn.addEventListener('click', () => {
 saveSurveyBtn.addEventListener('click', exportSurvey);
 
 function navigateHome() {
-  // Always go to the Greenlight homepage
-  const path = '/greenlight/';
+  // Always go to the main website
+  const path = 'https://www.talkking.org';
   window.location.href = path;
 }
 
