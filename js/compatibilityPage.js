@@ -331,9 +331,12 @@ if (fileBInput) {
 const downloadBtn = document.getElementById('downloadResults');
 if (downloadBtn) {
   downloadBtn.addEventListener('click', () => {
-    if (!lastResult) {
-      alert('No results to download.');
+    if (!surveyA || !surveyB) {
+      alert('Please upload both surveys first.');
       return;
+    }
+    if (!lastResult) {
+      lastResult = buildKinkBreakdown(surveyA, surveyB);
     }
     generateComparisonPDF(lastResult);
   });
