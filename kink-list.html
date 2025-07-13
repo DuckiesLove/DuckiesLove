@@ -26,6 +26,7 @@
     <script src="js/template-survey.js"></script>
     <script type="module">
       import { initTheme } from './js/theme.js';
+      import { calculateCategoryScores } from './js/categoryScores.js';
       initTheme();
 
       const RATING_LABELS = {
@@ -103,7 +104,8 @@
     downloadBtn.addEventListener('click', () => {
       if (!currentSurvey) return;
       const results = flattenSurvey(currentSurvey);
-      generateKinkPDF(results);
+      const categories = calculateCategoryScores(currentSurvey);
+      generateKinkPDF(results, categories);
     });
 
     downloadSurveyBtn.addEventListener('click', () => {
@@ -192,7 +194,7 @@
       return arr.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
     }
 
-    async function generateKinkPDF(results) {
+    async function generateKinkPDF(results, categories) {
       let jsPDF;
       try {
         await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
@@ -209,6 +211,21 @@
       doc.setFontSize(18);
       doc.text('Your Kink Profile', pageWidth / 2, y, { align: 'center' });
       y += 10;
+
+      if (Array.isArray(categories) && categories.length) {
+        doc.setFontSize(14);
+        doc.text('Category Summary', pageWidth / 2, y, { align: 'center' });
+        y += 8;
+        doc.setFont('helvetica', 'normal');
+        categories.forEach(cat => {
+          doc.text(cat.name, 10, y);
+          doc.text(`${cat.percent}%`, pageWidth - 10, y, { align: 'right' });
+          y += 6;
+          if (y > 280) { doc.addPage(); y = 20; }
+        });
+        doc.setFont('helvetica', 'bold');
+        y += 4;
+      }
 
       Object.entries(RATING_LABELS).forEach(([num, label]) => {
         doc.text(`${num} = ${label}`, 10, y);
