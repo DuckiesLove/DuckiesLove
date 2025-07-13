@@ -1569,3 +1569,55 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
 .download-btn:hover {
   background-color: #444;
 }
+
+/* ===== Kink Comparison Bars ===== */
+.kink-compare-section {
+  margin-bottom: 24px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 16px;
+}
+
+.kink-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 6px;
+  color: #000;
+}
+
+.kink-bar-row {
+  display: flex;
+  align-items: center;
+  margin: 4px 0;
+  gap: 8px;
+}
+
+.kink-label {
+  width: 120px;
+  font-size: 14px;
+  color: #333;
+}
+
+.kink-bar-container {
+  flex: 1;
+  background-color: #ddd;
+  height: 6px;
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.kink-bar-fill {
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background-color: #00cc44;
+  border-radius: 3px;
+}
+
+.kink-score {
+  width: 32px;
+  font-size: 13px;
+  text-align: right;
+  color: #222;
+}
