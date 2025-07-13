@@ -414,6 +414,15 @@ button {
   transition: background-color 0.3s;
 }
 
+/* Base style for role selection buttons */
+.role-button {
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+  border: 1px solid transparent;
+  margin-right: 4px;
+}
+
 
 textarea {
   display: block;
@@ -1370,9 +1379,13 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
 /* Applies ONLY to survey content — does not affect Greenlight */
 
 #survey-section,
-#survey-section * {
-  transition: color 0.3s ease, background-color 0.3s ease,
-    font-family 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+#survey-section *,
+#survey-section select,
+#survey-section input[type="text"],
+.role-button,
+body {
+  transition: background-color 0.3s ease, color 0.3s ease,
+    border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 #survey-section .category-row {
