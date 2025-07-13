@@ -1479,3 +1479,69 @@ body.light-mode .scrollable-panel::-webkit-scrollbar-track {
 .cr-fill.green { background-color: #00cc44; }     /* 80–100% */
 .cr-fill.yellow { background-color: #ffaa00; }    /* 30–79% */
 .cr-fill.red { background-color: #cc0033; }       /* 0–29% */
+
+/* -------------------------------------------------- */
+/*  Compatibility Comparison Updates                  */
+/* -------------------------------------------------- */
+
+/* 🔧 REMOVE EXISTING COMPATIBILITY BARS */
+.compatibility-bar,
+.compare-bar,
+.bar-container,
+.bar-fill {
+  display: none !important;
+}
+
+/* 🧹 CLEAN COMPARISON LAYOUT (NO BARS) */
+.compare-entry {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 14px;
+  border-bottom: 1px solid #e0e0e0;
+}
+.compare-entry .label {
+  flex: 2;
+  font-weight: 500;
+  color: #444;
+}
+.compare-entry .you,
+.compare-entry .partner {
+  flex: 1;
+  text-align: center;
+  color: #666;
+}
+
+/* 🎨 PDF OUTPUT STYLING (MATCH BDSMTest.org Aesthetic) */
+.pdf-container {
+  font-family: 'Inter', sans-serif;
+  color: #333;
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+  background: #fff;
+}
+h2.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  border-bottom: 2px solid #999;
+  padding-bottom: 6px;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+.download-btn {
+  display: block;
+  background-color: #4caf50;
+  color: white;
+  text-align: center;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  width: fit-content;
+  margin: 20px auto;
+}
+.download-btn:hover {
+  background-color: #3e8e41;
+  cursor: pointer;
+}
