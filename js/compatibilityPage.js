@@ -1,4 +1,3 @@
-import { calculateCompatibility } from './compatibility.js';
 import { initTheme } from './theme.js';
 
 let surveyA = null;
@@ -123,11 +122,96 @@ function mergeSurveyWithTemplate(survey, template) {
   });
 }
 
-function getColor(percent) {
-  if (percent >= 75) return '#4caf50';
-  if (percent >= 50) return '#ffcc00';
-  if (percent >= 25) return '#ff9900';
-  return '#ff4444';
+
+function buildKinkBreakdown(surveyA, surveyB) {
+  const breakdown = {};
+  const categories = Object.keys(surveyA);
+  categories.forEach(category => {
+    if (!surveyB[category]) return;
+    const catA = surveyA[category];
+    const catB = surveyB[category];
+    const names = new Set();
+    ['Giving', 'Receiving', 'General'].forEach(role => {
+      (catA[role] || []).forEach(k => names.add(k.name));
+      (catB[role] || []).forEach(k => names.add(k.name));
+    });
+    breakdown[category] = [];
+    names.forEach(name => {
+      const getRating = (cat, role) => {
+        const item = (cat[role] || []).find(
+          i => i.name.trim().toLowerCase() === name.trim().toLowerCase()
+        );
+        const r = item ? parseInt(item.rating) : null;
+        return Number.isInteger(r) ? r : null;
+      };
+
+      const aG = getRating(catA, 'Giving');
+      const aR = getRating(catA, 'Receiving');
+      const aGen = getRating(catA, 'General');
+      const bG = getRating(catB, 'Giving');
+      const bR = getRating(catB, 'Receiving');
+      const bGen = getRating(catB, 'General');
+
+      breakdown[category].push({
+        name,
+        you: { giving: aG, receiving: aR, general: aGen },
+        partner: { giving: bG, receiving: bR, general: bGen }
+      });
+    });
+  });
+  return breakdown;
+}
+
+async function generateComparisonPDF(breakdown) {
+  let jsPDF;
+  try {
+    await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+    jsPDF = window.jspdf.jsPDF;
+  } catch (err) {
+    alert('Failed to load PDF library: ' + err.message);
+    return;
+  }
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 10;
+  let y = 20;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Kink Compatibility Comparison', pageWidth / 2, y, { align: 'center' });
+  y += 10;
+
+  Object.entries(breakdown).forEach(([cat, list]) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(cat, margin, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+
+    list.forEach(item => {
+      const you = `G ${item.you.giving ?? '-'}  R ${item.you.receiving ?? '-'}  N ${item.you.general ?? '-'}`;
+      const partner = `G ${item.partner.giving ?? '-'}  R ${item.partner.receiving ?? '-'}  N ${item.partner.general ?? '-'}`;
+      const match =
+        item.you.giving === item.partner.receiving &&
+        item.you.receiving === item.partner.giving &&
+        item.you.general === item.partner.general;
+      if (match) doc.setTextColor('#00AA00');
+      else doc.setTextColor('#000000');
+      doc.text(item.name, margin, y);
+      doc.text(you, pageWidth / 2 - 5, y, { align: 'right' });
+      doc.text(partner, pageWidth - margin, y, { align: 'right' });
+      y += 6;
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+    y += 4;
+  });
+
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  doc.save(`compatibility-${ts}.pdf`);
 }
 
 function loadFileA(file) {
@@ -140,6 +224,7 @@ function loadFileA(file) {
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
+      updateComparison();
     } catch {
       alert('Invalid JSON for Survey A.');
     }
@@ -160,6 +245,7 @@ function loadFileB(file) {
       mergeSurveyWithTemplate(surveyB, window.templateSurvey);
       normalizeRatings(surveyB);
       filterGeneralOptions(surveyB);
+      updateComparison();
     } catch {
       alert('Invalid JSON for Survey B.');
     }
@@ -167,47 +253,18 @@ function loadFileB(file) {
   reader.readAsText(file);
 }
 
-function checkAndCompare() {
+function updateComparison() {
   const output = document.getElementById('comparisonResult');
   if (!surveyA || !surveyB) {
-    output.textContent = surveyA || surveyB ? 'Please upload both surveys to view compatibility.' : '';
+    output.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
+    lastResult = null;
     return;
   }
-  const result = calculateCompatibility(surveyA, surveyB);
-  lastResult = result;
+  const kinkBreakdown = buildKinkBreakdown(surveyA, surveyB);
+  lastResult = kinkBreakdown;
   output.innerHTML = '';
 
-  const makeBar = (label, percent) => {
-    const wrap = document.createElement('div');
-    wrap.className = 'progress-container';
-    const lbl = document.createElement('div');
-    lbl.className = 'progress-label';
-    lbl.textContent = label;
-    const percSpan = document.createElement('span');
-    percSpan.textContent = `${percent}%`;
-    lbl.appendChild(percSpan);
-    const bar = document.createElement('div');
-    bar.className = 'progress-bar';
-    const fill = document.createElement('div');
-    fill.className = 'progress-fill';
-    fill.style.width = `${percent}%`;
-    fill.style.backgroundColor = getColor(percent);
-    bar.appendChild(fill);
-    wrap.appendChild(lbl);
-    wrap.appendChild(bar);
-    return wrap;
-  };
-
-  output.appendChild(makeBar('Compatibility Score', result.compatibilityScore));
-  output.appendChild(makeBar('Similarity Score', result.similarityScore));
-
-  if (result.categoryBreakdown && Object.keys(result.categoryBreakdown).length) {
-    Object.entries(result.categoryBreakdown).forEach(([cat, val]) => {
-      output.appendChild(makeBar(cat, val));
-    });
-  }
-  if (result.kinkBreakdown) {
-    Object.entries(result.kinkBreakdown).forEach(([cat, list]) => {
+  Object.entries(kinkBreakdown).forEach(([cat, list]) => {
       const details = document.createElement('details');
       details.classList.add('accordion-panel');
       const summary = document.createElement('summary');
@@ -218,7 +275,7 @@ function checkAndCompare() {
       table.className = 'kink-table';
       const thead = document.createElement('thead');
       const hr = document.createElement('tr');
-      ['Kink', 'You G', 'You R', 'You N', 'Partner G', 'Partner R', 'Partner N', 'Match'].forEach(h => {
+      ['Kink', 'You G', 'You R', 'You N', 'Partner G', 'Partner R', 'Partner N'].forEach(h => {
         const th = document.createElement('th');
         th.textContent = h;
         hr.appendChild(th);
@@ -228,6 +285,11 @@ function checkAndCompare() {
       const tbody = document.createElement('tbody');
       list.forEach(item => {
         const tr = document.createElement('tr');
+        const isMatch =
+          item.you.giving === item.partner.receiving &&
+          item.you.receiving === item.partner.giving &&
+          item.you.general === item.partner.general;
+        if (isMatch) tr.classList.add('match-row');
         const vals = [
           item.name,
           formatRating(item.you.giving),
@@ -235,8 +297,7 @@ function checkAndCompare() {
           formatRating(item.you.general),
           formatRating(item.partner.giving),
           formatRating(item.partner.receiving),
-          formatRating(item.partner.general),
-          item.indicator
+          formatRating(item.partner.general)
         ];
         vals.forEach(v => {
           const td = document.createElement('td');
@@ -249,17 +310,6 @@ function checkAndCompare() {
       details.appendChild(table);
       output.appendChild(details);
     });
-  }
-  if (result.redFlags.length) {
-    const p = document.createElement('p');
-    p.textContent = `🚩 Red flags: ${result.redFlags.join(', ')}`;
-    output.appendChild(p);
-  }
-  if (result.yellowFlags.length) {
-    const p = document.createElement('p');
-    p.textContent = `⚠️ Yellow flags: ${result.yellowFlags.join(', ')}`;
-    output.appendChild(p);
-  }
 }
 
 const fileAInput = document.getElementById('fileA');
@@ -276,10 +326,7 @@ if (fileBInput) {
   });
 }
 
-const calcBtn = document.getElementById('calculateCompatibility');
-if (calcBtn) {
-  calcBtn.addEventListener('click', checkAndCompare);
-}
+
 
 const downloadBtn = document.getElementById('downloadResults');
 if (downloadBtn) {
@@ -288,24 +335,7 @@ if (downloadBtn) {
       alert('No results to download.');
       return;
     }
-    const exportObj = {
-      compatibility: lastResult,
-      ratingLabels: RATING_LABELS
-    };
-    const blob = new Blob([JSON.stringify(exportObj, null, 2)], {
-      type: 'application/json'
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = 'compatibility-results.json';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 0);
+    generateComparisonPDF(lastResult);
   });
 }
 

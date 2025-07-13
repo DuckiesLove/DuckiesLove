@@ -1191,6 +1191,12 @@ body.theme-rainbow .progress-bar {
 .kink-table td:first-child {
   text-align: left;
 }
+.match-row {
+  background-color: #263326;
+}
+body.light-mode .match-row {
+  background-color: #ccdacc;
+}
 .accordion-panel,
 .accordion-panel > summary,
 .accordion-panel > details {
