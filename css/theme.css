@@ -10,7 +10,7 @@
 
 .theme-lightforest,
 .light-mode {
-  --bg-color: #c3cfc4;
+  --bg-color: #9ca59d;
   --panel-color: #e9f1ec;
   --text-color: #1b2a1a;
   --button-bg: #558c75;
@@ -31,7 +31,7 @@
 }
 
 .theme-blue {
-  --bg-color: #001933;
+  --bg-color: #001428;
   --panel-color: #002244;
   --text-color: #ffffff;
   --button-bg: #0055aa;
@@ -41,7 +41,7 @@
 }
 
 .theme-blue-sky {
-  --bg-color: #e6f2ff;
+  --bg-color: #b8c1cc;
   --panel-color: #cde6ff;
   --text-color: #002244;
   --button-bg: #99c9f2;
@@ -51,7 +51,7 @@
 }
 
 .theme-echoes-beyond {
-  --bg-color: #14213d;
+  --bg-color: #101a31;
   --panel-color: #1b263b;
   --text-color: #fca311;
   --button-bg: #334863;
@@ -71,7 +71,7 @@
 }
 
 .theme-rainbow {
-  --bg-color: #ffffff;
+  --bg-color: #cccccc;
   --panel-color: #ffffff;
   --text-color: #000000;
   --button-bg: rgba(255, 255, 255, 0.9);

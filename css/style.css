@@ -211,7 +211,7 @@ body.dark-mode {
   --button-hover-bg: #9b84ff;
 }
 body.light-mode {
-  background-color: #b8c5b8;
+  background-color: #939e93;
   color: #2f4f2f;
   --panel-color: #a9b8a9;
   --text-color: #2f4f2f;
@@ -220,7 +220,7 @@ body.light-mode {
   --button-hover-bg: #446d60;
 }
 body.theme-blue {
-  background-color: #001933;
+  background-color: #001428;
   color: #fff;
   --panel-color: #002244;
   --text-color: #fff;
@@ -230,7 +230,7 @@ body.theme-blue {
 }
 body.theme-echoes-beyond {
   /* Outer Wilds inspired colors */
-  background-color: #14213d;
+  background-color: #101a31;
   color: #fca311;
   --panel-color: #1b263b;
   --text-color: #fca311;
@@ -249,7 +249,7 @@ body.theme-love-notes-lipstick {
   --button-hover-bg: #c44fb0;
 }
 body.theme-rainbow {
-  background: linear-gradient(135deg, #ff9a9e, #fad0c4, #fbc2eb, #a18cd1);
+  background: linear-gradient(135deg, #cc7b7e, #c8a69c, #c89bbc, #8170a7);
   color: #000;
   --panel-color: #fff;
   --text-color: #000;
