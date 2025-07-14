@@ -1554,11 +1554,9 @@ body {
 /*  Compatibility Comparison Updates                  */
 /* -------------------------------------------------- */
 
-/* 🔧 REMOVE EXISTING COMPATIBILITY BARS */
+/* Compatibility comparison cleanup */
 .compatibility-bar,
-.compare-bar,
-.bar-container,
-.bar-fill {
+.compare-bar {
   display: none !important;
 }
 
@@ -1694,49 +1692,73 @@ body {
 
 /* ===== Comparison Chart ===== */
 #comparison-chart {
-  margin-top: 20px;
+  background-color: #111;
+  color: white;
+  font-family: Arial, sans-serif;
+  padding: 24px;
+  border-radius: 12px;
+  max-width: 850px;
+  margin: 40px auto;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
 }
 
 .result-row {
-  display: grid;
-  grid-template-columns: 60px 1fr 150px auto;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  padding: 6px 0;
+  gap: 12px;
+  border-bottom: 1px solid #2a2a2a;
 }
 
-.result-row .percentage {
-  text-align: right;
+.result-row:last-child {
+  border-bottom: none;
+}
+
+.percentage {
+  width: 60px;
   font-weight: bold;
+  text-align: right;
+  color: white;
 }
 
-.result-row .bar {
-  height: 6px;
-  background-color: #ddd;
+.role {
+  flex: 1.5;
+  color: white;
+}
+
+.bar-container {
+  flex: 2;
+  background: #222;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
   position: relative;
-  border-radius: 3px;
 }
 
-.result-row .bar::before {
-  content: '';
+.bar-fill {
+  height: 100%;
   position: absolute;
   left: 0;
   top: 0;
-  height: 100%;
-  width: var(--bar-width);
-  background-color: #00cc44;
-  border-radius: 3px;
+  border-radius: 5px;
 }
 
-.result-row .role {
-  font-weight: 500;
+.more-info {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: #ccc;
 }
 
-.result-row .more-info a {
-  color: #0066cc;
-  text-decoration: none;
-}
-
-.result-row .more-info a:hover {
-  text-decoration: underline;
+@media (max-width: 600px) {
+  #comparison-chart {
+    padding: 16px;
+    margin: 20px 10px;
+  }
+  .percentage {
+    width: 45px;
+    font-size: 0.8rem;
+  }
+  .more-info {
+    font-size: 0.75rem;
+  }
 }
