@@ -20,7 +20,7 @@ export function applyThemeColors(theme) {
   const themeStyles = {
     'light-mode': {
       fontColor: '#111',
-      bgColor: '#ffffff',
+      bgColor: '#939e93',
       inputBg: '#f7f7f7',
       inputText: '#111',
       borderColor: '#ccc'
@@ -34,21 +34,21 @@ export function applyThemeColors(theme) {
     },
     'theme-blue': {
       fontColor: '#ffffff',
-      bgColor: '#2a3b55',
+      bgColor: '#1a273f',
       inputBg: '#3a4b6b',
       inputText: '#ffffff',
       borderColor: '#4c5d7a'
     },
     'theme-blue-sky': {
       fontColor: '#002244',
-      bgColor: '#dfefff',
+      bgColor: '#b2bfcc',
       inputBg: '#c9e0ff',
       inputText: '#002244',
       borderColor: '#a9c9e6'
     },
     'theme-echoes-beyond': {
       fontColor: '#ffcc66',
-      bgColor: '#14213d',
+      bgColor: '#101a31',
       inputBg: '#f9d7a5',
       inputText: '#003366',
       borderColor: '#cc7a00'
@@ -62,7 +62,7 @@ export function applyThemeColors(theme) {
     },
     'theme-rainbow': {
       fontColor: '#222',
-      bgColor: '#fff0f5',
+      bgColor: '#ccc0c4',
       inputBg: '#f8e6ff',
       inputText: '#222',
       borderColor: '#d8b0e6'
