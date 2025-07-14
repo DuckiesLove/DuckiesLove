@@ -68,9 +68,77 @@
       return row;
     }
 
+    function applyComparisonStylesForPDF() {
+      const style = document.createElement('style');
+      style.innerHTML = `
+        @media print {
+          body {
+            background-color: #111 !important;
+            color: white !important;
+            font-family: Arial, sans-serif;
+          }
+
+          #comparison-chart {
+            background-color: #111 !important;
+            color: white !important;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 850px;
+            margin: auto;
+            font-size: 14px;
+          }
+
+          .result-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 0;
+            border-bottom: 1px solid #333;
+          }
+
+          .percentage {
+            width: 60px;
+            font-weight: bold;
+            text-align: right;
+            color: white !important;
+          }
+
+          .role {
+            flex: 1.5;
+            color: white !important;
+          }
+
+          .bar-container {
+            flex: 2;
+            background: #222;
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+          }
+
+          .bar-fill {
+            height: 100%;
+            position: absolute;
+            left: 0;
+            top: 0;
+            border-radius: 5px;
+          }
+
+          .more-info {
+            flex-shrink: 0;
+            font-size: 0.85rem;
+            color: #ccc !important;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     function downloadResults() {
       const chart = document.getElementById('comparison-chart');
       if (!chart) return;
+      applyComparisonStylesForPDF();
       const opt = {
         margin: 0.5,
         filename: 'TalkKink_Compatibility_Report.pdf',
