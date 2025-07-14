@@ -45,15 +45,32 @@
 
     function createEntry(name, percent) {
       const row = document.createElement('div');
-      row.className = 'result-entry';
-      const label = document.createElement('div');
-      label.className = 'label';
-      label.textContent = titleCase(name);
-      const score = document.createElement('div');
-      score.className = 'score';
-      score.textContent = `${percent}%`;
-      row.appendChild(label);
-      row.appendChild(score);
+      row.className = 'result-row';
+      row.dataset.score = percent;
+      row.style.setProperty('--bar-width', `${percent}%`);
+
+      const pct = document.createElement('div');
+      pct.className = 'percentage';
+      pct.textContent = `${percent}%`;
+
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+
+      const role = document.createElement('div');
+      role.className = 'role';
+      role.textContent = titleCase(name);
+
+      const info = document.createElement('div');
+      info.className = 'more-info';
+      const link = document.createElement('a');
+      link.href = '#';
+      link.textContent = 'More info';
+      info.appendChild(link);
+
+      row.appendChild(pct);
+      row.appendChild(bar);
+      row.appendChild(role);
+      row.appendChild(info);
       return row;
     }
 
@@ -94,9 +111,12 @@
           title.className = 'result-section-title';
           title.textContent = 'Your Survey Summary';
           container.appendChild(title);
+          const chart = document.createElement('div');
+          chart.id = 'comparison-chart';
           scores.forEach(s => {
-            container.appendChild(createEntry(s.name, s.percent));
+            chart.appendChild(createEntry(s.name, s.percent));
           });
+          container.appendChild(chart);
           const btn = document.createElement('button');
           btn.className = 'download-btn';
           btn.textContent = 'Download PDF';

@@ -1691,3 +1691,52 @@ body {
   text-align: right;
   color: var(--text-color);
 }
+
+/* ===== Comparison Chart ===== */
+#comparison-chart {
+  margin-top: 20px;
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 150px auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.result-row .percentage {
+  text-align: right;
+  font-weight: bold;
+}
+
+.result-row .bar {
+  height: 6px;
+  background-color: #ddd;
+  position: relative;
+  border-radius: 3px;
+}
+
+.result-row .bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: var(--bar-width);
+  background-color: #00cc44;
+  border-radius: 3px;
+}
+
+.result-row .role {
+  font-weight: 500;
+}
+
+.result-row .more-info a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.result-row .more-info a:hover {
+  text-decoration: underline;
+}
