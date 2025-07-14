@@ -43,34 +43,28 @@
       return str.replace(/\b\w/g, c => c.toUpperCase());
     }
 
-    function createEntry(name, percent) {
+    function getBarColor(score) {
+      if (score >= 95) return '#00cc00';
+      if (score >= 85) return '#33cc33';
+      if (score >= 70) return '#66cc33';
+      if (score >= 55) return '#cccc33';
+      if (score >= 40) return '#ff9933';
+      if (score >= 20) return '#ff6633';
+      if (score > 0) return '#cc0033';
+      return '#990000';
+    }
+
+    function renderResultRow(roleName, score, tooltipText) {
       const row = document.createElement('div');
       row.className = 'result-row';
-      row.dataset.score = percent;
-      row.style.setProperty('--bar-width', `${percent}%`);
-
-      const pct = document.createElement('div');
-      pct.className = 'percentage';
-      pct.textContent = `${percent}%`;
-
-      const bar = document.createElement('div');
-      bar.className = 'bar';
-
-      const role = document.createElement('div');
-      role.className = 'role';
-      role.textContent = titleCase(name);
-
-      const info = document.createElement('div');
-      info.className = 'more-info';
-      const link = document.createElement('a');
-      link.href = '#';
-      link.textContent = 'More info';
-      info.appendChild(link);
-
-      row.appendChild(pct);
-      row.appendChild(bar);
-      row.appendChild(role);
-      row.appendChild(info);
+      row.innerHTML = `
+        <div class="percentage">${score}%</div>
+        <div class="bar-container" title="${tooltipText || ''}">
+          <div class="bar-fill" style="width: ${score}%; background-color: ${getBarColor(score)};"></div>
+        </div>
+        <div class="role">${titleCase(roleName)}</div>
+        <div class="more-info"><a href="#">More info</a></div>
+      `;
       return row;
     }
 
@@ -114,7 +108,7 @@
           const chart = document.createElement('div');
           chart.id = 'comparison-chart';
           scores.forEach(s => {
-            chart.appendChild(createEntry(s.name, s.percent));
+            chart.appendChild(renderResultRow(s.name, s.percent));
           });
           container.appendChild(chart);
           const btn = document.createElement('button');
