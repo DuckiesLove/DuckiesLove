@@ -69,14 +69,15 @@
     }
 
     function downloadResults() {
-      const element = document.getElementById('rolesOutput');
+      const chart = document.getElementById('comparison-chart');
+      if (!chart) return;
       const opt = {
         margin: 0.5,
         filename: 'TalkKink_Compatibility_Report.pdf',
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
       };
-      html2pdf().set(opt).from(element).save();
+      html2pdf().set(opt).from(chart).save();
     }
 
     document.getElementById('roleFile').addEventListener('change', e => {
