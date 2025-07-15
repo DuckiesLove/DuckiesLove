@@ -1,4 +1,4 @@
-import { initTheme } from './theme.js';
+import { initTheme, applyPrintStyles } from './theme.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -163,6 +163,7 @@ function buildKinkBreakdown(surveyA, surveyB) {
 }
 
 async function generateComparisonPDF(breakdown) {
+  applyPrintStyles();
   let jsPDF;
   try {
     await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
