@@ -175,19 +175,25 @@ async function generateComparisonPDF(breakdown) {
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
   let y = 20;
+
+  // bar layout sizing
+  const barWidth = 40;
+  const barHeight = 5;
+  const gap = 4;
 
   function toPercent(val) {
     return typeof val === 'number' ? Math.round((val / 5) * 100) : null;
   }
 
   function getColor(p) {
-    if (p === null) return '#555555';
-    if (p >= 80) return '#00FF00';
-    if (p >= 50) return '#FFA500';
-    if (p > 0) return '#FF3300';
-    return '#555555';
+    if (p === null) return '#AAAAAA';
+    if (p >= 80) return '#00CC66';
+    if (p >= 50) return '#FF9900';
+    if (p > 0) return '#CC3333';
+    return '#AAAAAA';
   }
 
   function maxRating(obj) {
@@ -197,45 +203,70 @@ async function generateComparisonPDF(breakdown) {
   }
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
+  doc.setFontSize(16);
   doc.text('Kink Compatibility Comparison', pageWidth / 2, y, { align: 'center' });
-  y += 10;
+  y += 12;
 
   Object.entries(breakdown).forEach(([cat, list]) => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
     doc.text(cat, margin, y);
-    y += 6;
+    y += 8;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
 
     list.forEach(item => {
       const youP = toPercent(maxRating(item.you));
       const partnerP = toPercent(maxRating(item.partner));
-      const match =
-        item.you.giving === item.partner.receiving &&
-        item.you.receiving === item.partner.giving &&
-        item.you.general === item.partner.general;
 
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
       doc.setTextColor('#000000');
       doc.text(item.name, margin, y);
-      doc.setTextColor(getColor(youP));
-      doc.text(youP !== null ? `${youP}%` : '-', pageWidth / 2 - 5, y, { align: 'right' });
-      doc.setTextColor(getColor(partnerP));
-      doc.text(partnerP !== null ? `${partnerP}%` : '-', pageWidth - margin, y, { align: 'right' });
-      if (match) {
-        doc.setDrawColor('#00AA00');
-        doc.rect(margin, y - 4, pageWidth - margin * 2, 6, 'S');
+
+      // Bars for you and partner
+      doc.setFillColor(getColor(youP));
+      doc.rect(pageWidth / 2, y - barHeight, (barWidth * (youP || 0)) / 100, barHeight, 'F');
+
+      doc.setFillColor(getColor(partnerP));
+      doc.rect(pageWidth / 2 + barWidth + gap, y - barHeight, (barWidth * (partnerP || 0)) / 100, barHeight, 'F');
+
+      // Labels
+      doc.setFontSize(8);
+      doc.setTextColor('#333333');
+      doc.text('You', pageWidth / 2, y + 5);
+      doc.text('Partner', pageWidth / 2 + barWidth + gap, y + 5);
+
+      // Icons
+      const mutualMatch = youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90;
+      const hardMismatch = youP === 0 && partnerP === 0;
+
+      if (mutualMatch) {
+        doc.setFontSize(12);
+        doc.setTextColor('#FFD700');
+        doc.text('⭐', pageWidth - margin, y);
+      } else if (hardMismatch) {
+        doc.setFontSize(12);
+        doc.setTextColor('#FF0033');
+        doc.text('🚩', pageWidth - margin, y);
       }
-      doc.setTextColor('#000000');
-      y += 8;
-      if (y > 280) {
+
+      y += 12;
+      if (y > pageHeight - 20) {
         doc.addPage();
         y = 20;
       }
     });
-    y += 4;
+    y += 8;
   });
+
+  doc.setFontSize(10);
+  doc.setTextColor('#333333');
+  doc.text(
+    '⭐ = 90%+ match, 🚩 = 0% mismatch, Green = 80–100%, Orange = 50–79%, Red = 1–49%, Gray = Not Rated',
+    margin,
+    pageHeight - 10
+  );
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   doc.save(`compatibility-${ts}.pdf`);
