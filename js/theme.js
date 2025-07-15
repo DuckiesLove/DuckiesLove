@@ -95,3 +95,82 @@ export function applyThemeColors(theme) {
 
   document.body.style.backgroundColor = selected.bgColor;
 }
+
+export function applyPrintStyles() {
+  if (document.getElementById('pdf-print-style')) return;
+  const style = document.createElement('style');
+  style.id = 'pdf-print-style';
+  style.innerHTML = `
+    @media print {
+      body {
+        background: #111 !important;
+        color: white !important;
+        font-family: Arial, sans-serif;
+      }
+
+      #comparison-chart {
+        max-width: 900px;
+        margin: auto;
+        padding: 20px;
+        background-color: #111 !important;
+        color: white !important;
+        border-radius: 10px;
+        font-size: 14px;
+      }
+
+      .category-title {
+        font-size: 16px;
+        font-weight: bold;
+        margin-top: 20px;
+        color: #44ff88 !important;
+      }
+
+      .result-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 0;
+        border-bottom: 1px solid #333;
+      }
+
+      .percentage {
+        width: 60px;
+        font-weight: bold;
+        color: white !important;
+        text-align: right;
+      }
+
+      .role {
+        flex: 1.5;
+        color: white !important;
+      }
+
+      .bar-container {
+        flex: 2;
+        background: #222;
+        border-radius: 4px;
+        height: 10px;
+        position: relative;
+      }
+
+      .bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        position: absolute;
+        left: 0;
+        top: 0;
+      }
+
+      .bar-fill.green { background: #00cc66; }
+      .bar-fill.yellow { background: #e6c300; }
+      .bar-fill.red { background: #cc0033; }
+
+      .more-info {
+        flex-shrink: 0;
+        font-size: 12px;
+        color: #ccc !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
