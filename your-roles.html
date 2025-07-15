@@ -135,35 +135,96 @@
       document.head.appendChild(style);
     }
 
-    function downloadResults() {
-      const chart = document.getElementById('comparison-chart');
-      if (!chart) return;
-      const styleBlock = `
-        <style>
-          body { background: #111; color: white; font-family: Arial, sans-serif; }
-          .result-row { display: flex; align-items: center; padding: 6px 0; gap: 10px; border-bottom: 1px solid #333; color: white; }
-          .percentage { width: 60px; text-align: right; font-weight: bold; }
-          .role { flex: 1.5; }
-          .bar-container { flex: 2; background: #222; height: 10px; border-radius: 5px; position: relative; overflow: hidden; }
-          .bar-fill { height: 100%; position: absolute; left: 0; top: 0; border-radius: 5px; }
-          .bar-fill.green { background-color: #00cc66; }
-          .bar-fill.yellow { background-color: #ffcc00; }
-          .bar-fill.red { background-color: #cc0033; }
-          .more-info { flex-shrink: 0; font-size: 12px; color: #ccc; }
-        </style>
-      `;
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = styleBlock + chart.outerHTML;
-      document.body.appendChild(wrapper);
-      const opt = {
-        margin: 0.5,
-        filename: 'TalkKink_Compatibility_Report.pdf',
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(wrapper).save().then(() => {
-        document.body.removeChild(wrapper);
+    // Build a fully styled printable DOM
+    function exportStyledChartToPDF() {
+      const original = document.getElementById('comparison-chart');
+      if (!original) return;
+
+      // Clone the styled content
+      const clone = original.cloneNode(true);
+
+      // Apply inline styles directly to each node
+      clone.querySelectorAll('.result-row').forEach(row => {
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '10px';
+        row.style.padding = '6px 0';
+        row.style.borderBottom = '1px solid #333';
+        row.style.color = 'white';
       });
+
+      clone.querySelectorAll('.percentage').forEach(el => {
+        el.style.width = '60px';
+        el.style.textAlign = 'right';
+        el.style.fontWeight = 'bold';
+        el.style.color = 'white';
+      });
+
+      clone.querySelectorAll('.role').forEach(el => {
+        el.style.flex = '1.5';
+        el.style.color = 'white';
+      });
+
+      clone.querySelectorAll('.bar-container').forEach(el => {
+        el.style.flex = '2';
+        el.style.background = '#222';
+        el.style.height = '10px';
+        el.style.borderRadius = '5px';
+        el.style.position = 'relative';
+        el.style.overflow = 'hidden';
+      });
+
+      clone.querySelectorAll('.bar-fill').forEach(el => {
+        el.style.height = '100%';
+        el.style.borderRadius = '5px';
+        el.style.position = 'absolute';
+        el.style.left = '0';
+        el.style.top = '0';
+      });
+
+      clone.querySelectorAll('.bar-fill.green').forEach(el => {
+        el.style.backgroundColor = '#00cc66';
+      });
+      clone.querySelectorAll('.bar-fill.yellow').forEach(el => {
+        el.style.backgroundColor = '#ffcc00';
+      });
+      clone.querySelectorAll('.bar-fill.red').forEach(el => {
+        el.style.backgroundColor = '#cc0033';
+      });
+
+      clone.querySelectorAll('.more-info').forEach(el => {
+        el.style.flexShrink = '0';
+        el.style.fontSize = '12px';
+        el.style.color = '#ccc';
+      });
+
+      // Wrap in a styled container
+      const wrapper = document.createElement('div');
+      wrapper.style.background = '#111';
+      wrapper.style.color = 'white';
+      wrapper.style.fontFamily = 'Arial, sans-serif';
+      wrapper.style.padding = '20px';
+      wrapper.style.borderRadius = '10px';
+      wrapper.style.maxWidth = '850px';
+      wrapper.style.margin = 'auto';
+      wrapper.appendChild(clone);
+
+      // Create a temporary iframe for html2pdf to render from
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.left = '-9999px';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write(`<html><head><title>Export</title></head><body>${wrapper.outerHTML}</body></html>`);
+      doc.close();
+
+      // Wait for DOM to render and trigger PDF
+      setTimeout(() => {
+        html2pdf().from(iframe.contentDocument.body).save('comparison.pdf');
+        document.body.removeChild(iframe);
+      }, 300);
     }
 
     document.getElementById('roleFile').addEventListener('change', e => {
@@ -201,7 +262,7 @@
           const btn = document.createElement('button');
           btn.className = 'download-btn';
           btn.textContent = 'Download PDF';
-          btn.addEventListener('click', downloadResults);
+          btn.addEventListener('click', exportStyledChartToPDF);
           container.appendChild(btn);
         } catch (err) {
           document.getElementById('rolesOutput').textContent = 'Invalid file.';
