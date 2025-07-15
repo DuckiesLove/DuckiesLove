@@ -24,7 +24,7 @@
 
   <script type="module">
     import { calculateRoleScores } from './js/calculateRoleScores.js';
-    import { initTheme, applyPrintStyles } from './js/theme.js';
+    import { initTheme } from './js/theme.js';
     initTheme();
 
     function flattenSurvey(survey) {
@@ -68,163 +68,23 @@
       return row;
     }
 
-    function applyComparisonStylesForPDF() {
-      const style = document.createElement('style');
-      style.innerHTML = `
-        @media print {
-          body {
-            background-color: #111 !important;
-            color: white !important;
-            font-family: Arial, sans-serif;
-          }
+    function exportPDFFromVisibleStyledContent() {
+      const target = document.getElementById('comparison-chart');
+      if (!target) return;
 
-          #comparison-chart {
-            background-color: #111 !important;
-            color: white !important;
-            padding: 24px;
-            border-radius: 12px;
-            max-width: 850px;
-            margin: auto;
-            font-size: 14px;
-          }
+      const opt = {
+        margin: 0.5,
+        filename: 'kink_comparison.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#111'
+        },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
 
-          .result-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 6px 0;
-            border-bottom: 1px solid #333;
-          }
-
-          .percentage {
-            width: 60px;
-            font-weight: bold;
-            text-align: right;
-            color: white !important;
-          }
-
-          .role {
-            flex: 1.5;
-            color: white !important;
-          }
-
-          .bar-container {
-            flex: 2;
-            background: #222;
-            height: 10px;
-            border-radius: 5px;
-            overflow: hidden;
-            position: relative;
-          }
-
-          .bar-fill {
-            height: 100%;
-            position: absolute;
-            left: 0;
-            top: 0;
-            border-radius: 5px;
-          }
-
-          .more-info {
-            flex-shrink: 0;
-            font-size: 0.85rem;
-            color: #ccc !important;
-          }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    // Build a fully styled printable DOM
-    function exportStyledChartToPDF() {
-      const original = document.getElementById('comparison-chart');
-      if (!original) return;
-
-      // Clone the styled content
-      const clone = original.cloneNode(true);
-
-      // Apply inline styles directly to each node
-      clone.querySelectorAll('.result-row').forEach(row => {
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.gap = '10px';
-        row.style.padding = '6px 0';
-        row.style.borderBottom = '1px solid #333';
-        row.style.color = 'white';
-      });
-
-      clone.querySelectorAll('.percentage').forEach(el => {
-        el.style.width = '60px';
-        el.style.textAlign = 'right';
-        el.style.fontWeight = 'bold';
-        el.style.color = 'white';
-      });
-
-      clone.querySelectorAll('.role').forEach(el => {
-        el.style.flex = '1.5';
-        el.style.color = 'white';
-      });
-
-      clone.querySelectorAll('.bar-container').forEach(el => {
-        el.style.flex = '2';
-        el.style.background = '#222';
-        el.style.height = '10px';
-        el.style.borderRadius = '5px';
-        el.style.position = 'relative';
-        el.style.overflow = 'hidden';
-      });
-
-      clone.querySelectorAll('.bar-fill').forEach(el => {
-        el.style.height = '100%';
-        el.style.borderRadius = '5px';
-        el.style.position = 'absolute';
-        el.style.left = '0';
-        el.style.top = '0';
-      });
-
-      clone.querySelectorAll('.bar-fill.green').forEach(el => {
-        el.style.backgroundColor = '#00cc66';
-      });
-      clone.querySelectorAll('.bar-fill.yellow').forEach(el => {
-        el.style.backgroundColor = '#ffcc00';
-      });
-      clone.querySelectorAll('.bar-fill.red').forEach(el => {
-        el.style.backgroundColor = '#cc0033';
-      });
-
-      clone.querySelectorAll('.more-info').forEach(el => {
-        el.style.flexShrink = '0';
-        el.style.fontSize = '12px';
-        el.style.color = '#ccc';
-      });
-
-      // Wrap in a styled container
-      const wrapper = document.createElement('div');
-      wrapper.style.background = '#111';
-      wrapper.style.color = 'white';
-      wrapper.style.fontFamily = 'Arial, sans-serif';
-      wrapper.style.padding = '20px';
-      wrapper.style.borderRadius = '10px';
-      wrapper.style.maxWidth = '850px';
-      wrapper.style.margin = 'auto';
-      wrapper.appendChild(clone);
-
-      // Create a temporary iframe for html2pdf to render from
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'absolute';
-      iframe.style.left = '-9999px';
-      document.body.appendChild(iframe);
-
-      const doc = iframe.contentDocument || iframe.contentWindow.document;
-      doc.open();
-      doc.write(`<html><head><title>Export</title></head><body>${wrapper.outerHTML}</body></html>`);
-      doc.close();
-
-      // Wait for DOM to render and trigger PDF
-      setTimeout(() => {
-        html2pdf().from(iframe.contentDocument.body).save('comparison.pdf');
-        document.body.removeChild(iframe);
-      }, 300);
+      html2pdf().set(opt).from(target).save();
     }
 
     document.getElementById('roleFile').addEventListener('change', e => {
@@ -261,8 +121,8 @@
           container.appendChild(chart);
           const btn = document.createElement('button');
           btn.className = 'download-btn';
-          btn.textContent = 'Download PDF';
-          btn.addEventListener('click', exportStyledChartToPDF);
+          btn.textContent = 'Download My List';
+          btn.setAttribute('onclick', 'exportPDFFromVisibleStyledContent()');
           container.appendChild(btn);
         } catch (err) {
           document.getElementById('rolesOutput').textContent = 'Invalid file.';
