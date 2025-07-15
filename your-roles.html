@@ -138,15 +138,32 @@
     function downloadResults() {
       const chart = document.getElementById('comparison-chart');
       if (!chart) return;
-      applyPrintStyles();
-      applyComparisonStylesForPDF();
+      const styleBlock = `
+        <style>
+          body { background: #111; color: white; font-family: Arial, sans-serif; }
+          .result-row { display: flex; align-items: center; padding: 6px 0; gap: 10px; border-bottom: 1px solid #333; color: white; }
+          .percentage { width: 60px; text-align: right; font-weight: bold; }
+          .role { flex: 1.5; }
+          .bar-container { flex: 2; background: #222; height: 10px; border-radius: 5px; position: relative; overflow: hidden; }
+          .bar-fill { height: 100%; position: absolute; left: 0; top: 0; border-radius: 5px; }
+          .bar-fill.green { background-color: #00cc66; }
+          .bar-fill.yellow { background-color: #ffcc00; }
+          .bar-fill.red { background-color: #cc0033; }
+          .more-info { flex-shrink: 0; font-size: 12px; color: #ccc; }
+        </style>
+      `;
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = styleBlock + chart.outerHTML;
+      document.body.appendChild(wrapper);
       const opt = {
         margin: 0.5,
         filename: 'TalkKink_Compatibility_Report.pdf',
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
       };
-      html2pdf().set(opt).from(chart).save();
+      html2pdf().set(opt).from(wrapper).save().then(() => {
+        document.body.removeChild(wrapper);
+      });
     }
 
     document.getElementById('roleFile').addEventListener('change', e => {
