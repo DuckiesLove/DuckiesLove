@@ -172,10 +172,29 @@ async function generateComparisonPDF(breakdown) {
     alert('Failed to load PDF library: ' + err.message);
     return;
   }
+
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   let y = 20;
+
+  function toPercent(val) {
+    return typeof val === 'number' ? Math.round((val / 5) * 100) : null;
+  }
+
+  function getColor(p) {
+    if (p === null) return '#555555';
+    if (p >= 80) return '#00FF00';
+    if (p >= 50) return '#FFA500';
+    if (p > 0) return '#FF3300';
+    return '#555555';
+  }
+
+  function maxRating(obj) {
+    const vals = [obj.giving, obj.receiving, obj.general].filter(v => typeof v === 'number');
+    if (!vals.length) return null;
+    return Math.max(...vals);
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
@@ -191,18 +210,25 @@ async function generateComparisonPDF(breakdown) {
     doc.setFontSize(11);
 
     list.forEach(item => {
-      const you = `G ${item.you.giving ?? '-'}  R ${item.you.receiving ?? '-'}  N ${item.you.general ?? '-'}`;
-      const partner = `G ${item.partner.giving ?? '-'}  R ${item.partner.receiving ?? '-'}  N ${item.partner.general ?? '-'}`;
+      const youP = toPercent(maxRating(item.you));
+      const partnerP = toPercent(maxRating(item.partner));
       const match =
         item.you.giving === item.partner.receiving &&
         item.you.receiving === item.partner.giving &&
         item.you.general === item.partner.general;
-      if (match) doc.setTextColor('#00AA00');
-      else doc.setTextColor('#000000');
+
+      doc.setTextColor('#000000');
       doc.text(item.name, margin, y);
-      doc.text(you, pageWidth / 2 - 5, y, { align: 'right' });
-      doc.text(partner, pageWidth - margin, y, { align: 'right' });
-      y += 6;
+      doc.setTextColor(getColor(youP));
+      doc.text(youP !== null ? `${youP}%` : '-', pageWidth / 2 - 5, y, { align: 'right' });
+      doc.setTextColor(getColor(partnerP));
+      doc.text(partnerP !== null ? `${partnerP}%` : '-', pageWidth - margin, y, { align: 'right' });
+      if (match) {
+        doc.setDrawColor('#00AA00');
+        doc.rect(margin, y - 4, pageWidth - margin * 2, 6, 'S');
+      }
+      doc.setTextColor('#000000');
+      y += 8;
       if (y > 280) {
         doc.addPage();
         y = 20;
