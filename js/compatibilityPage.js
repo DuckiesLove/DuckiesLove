@@ -176,36 +176,43 @@ async function generateComparisonPDF(breakdown) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 10;
+  const margin = 12;
   let y = 20;
 
   // bar layout sizing
   const barWidth = 40;
-  const barHeight = 5;
-  const gap = 4;
+  const barGap = 5;
 
   function toPercent(val) {
     return typeof val === 'number' ? Math.round((val / 5) * 100) : null;
   }
 
   function getColor(p) {
-    if (p === null) return '#AAAAAA';
-    if (p >= 80) return '#00CC66';
-    if (p >= 50) return '#FF9900';
+    if (p === null) return '#CCCCCC';
+    if (p >= 90) return '#00CC66';
+    if (p >= 50) return '#FFA500';
     if (p > 0) return '#CC3333';
-    return '#AAAAAA';
+    return '#999999';
   }
 
   function maxRating(obj) {
     const vals = [obj.giving, obj.receiving, obj.general].filter(v => typeof v === 'number');
-    if (!vals.length) return null;
-    return Math.max(...vals);
+    return vals.length ? Math.max(...vals) : null;
+  }
+
+  function drawBar(doc, x, y, width, percent, color) {
+    doc.setDrawColor('#CCCCCC');
+    doc.rect(x, y, width, 5); // border
+    if (percent !== null && percent > 0) {
+      doc.setFillColor(color);
+      doc.rect(x, y, width * (percent / 100), 5, 'F');
+    }
   }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.text('Kink Compatibility Comparison', pageWidth / 2, y, { align: 'center' });
-  y += 12;
+  y += 10;
 
   Object.entries(breakdown).forEach(([cat, list]) => {
     doc.setFont('helvetica', 'bold');
@@ -225,17 +232,14 @@ async function generateComparisonPDF(breakdown) {
       doc.text(item.name, margin, y);
 
       // Bars for you and partner
-      doc.setFillColor(getColor(youP));
-      doc.rect(pageWidth / 2, y - barHeight, (barWidth * (youP || 0)) / 100, barHeight, 'F');
-
-      doc.setFillColor(getColor(partnerP));
-      doc.rect(pageWidth / 2 + barWidth + gap, y - barHeight, (barWidth * (partnerP || 0)) / 100, barHeight, 'F');
+      drawBar(doc, pageWidth / 2, y, barWidth, youP, getColor(youP));
+      drawBar(doc, pageWidth / 2 + barWidth + barGap, y, barWidth, partnerP, getColor(partnerP));
 
       // Labels
       doc.setFontSize(8);
       doc.setTextColor('#333333');
-      doc.text('You', pageWidth / 2, y + 5);
-      doc.text('Partner', pageWidth / 2 + barWidth + gap, y + 5);
+      doc.text('You', pageWidth / 2 + barWidth / 2, y + 10, { align: 'center' });
+      doc.text('Partner', pageWidth / 2 + barWidth + barGap + barWidth / 2, y + 10, { align: 'center' });
 
       // Icons
       const mutualMatch = youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90;
@@ -244,26 +248,26 @@ async function generateComparisonPDF(breakdown) {
       if (mutualMatch) {
         doc.setFontSize(12);
         doc.setTextColor('#FFD700');
-        doc.text('⭐', pageWidth - margin, y);
+        doc.text('⭐', pageWidth - margin, y + 4);
       } else if (hardMismatch) {
         doc.setFontSize(12);
         doc.setTextColor('#FF0033');
-        doc.text('🚩', pageWidth - margin, y);
+        doc.text('🚩', pageWidth - margin, y + 4);
       }
 
-      y += 12;
-      if (y > pageHeight - 20) {
+      y += 14;
+      if (y > 270) {
         doc.addPage();
         y = 20;
       }
     });
-    y += 8;
+    y += 6;
   });
 
   doc.setFontSize(10);
   doc.setTextColor('#333333');
   doc.text(
-    '⭐ = 90%+ match, 🚩 = 0% mismatch, Green = 80–100%, Orange = 50–79%, Red = 1–49%, Gray = Not Rated',
+    '⭐ = 90%+ match, 🚩 = 0% mismatch, Green = 90–100%, Orange = 50–89%, Red = 1–49%, Gray = Not Rated/0%',
     margin,
     pageHeight - 10
   );
