@@ -9,7 +9,7 @@ body {
 
 /* Default theme variables */
 :root {
-  --bg-color: #1a1a2e;
+  --bg-color: #000000;
   --panel-color: #292b3d;
   --text-color: #f0f0f0;
   --button-bg: #444;
@@ -1764,7 +1764,7 @@ body {
 }
 /* Compatibility page refined layout */
 #compare-page {
-  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   max-width: 850px;
   margin: 20px auto;
   color: var(--text-color);
@@ -1772,9 +1772,10 @@ body {
 
 .col-labels {
   display: flex;
-  font-weight: 500;
+  font-weight: 700;
   font-size: 16px;
   margin-bottom: 4px;
+  color: #f0f0f0;
 }
 .col-labels .label-col {
   flex: 2;
@@ -1782,6 +1783,7 @@ body {
 .col-labels .col-label {
   flex: 1;
   text-align: center;
+  color: inherit;
 }
 
 .category-header {
@@ -1832,7 +1834,7 @@ body {
   font-size: 12px;
   text-align: center;
   pointer-events: none;
-  color: #000;
+  color: #fff;
 }
 .compare-icons {
   width: 40px;

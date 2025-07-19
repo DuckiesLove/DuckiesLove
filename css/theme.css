@@ -1,5 +1,5 @@
 :root {
-  --bg-color: #1a1a2e;
+  --bg-color: #000000;
   --panel-color: #292b3d;
   --text-color: #f0f0f0;
   --button-bg: #444;
@@ -21,7 +21,7 @@
 
 .theme-darkviolet,
 .dark-mode {
-  --bg-color: #1a1a2e;
+  --bg-color: #000000;
   --panel-color: #292b3d;
   --text-color: #f0f0f0;
   --button-bg: #7c5fe9;

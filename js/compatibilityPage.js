@@ -41,6 +41,11 @@ function barFillColor(percent) {
   return '#FF4C4C';
 }
 
+function barTextColor(percent) {
+  if (percent === null) return '#ffffff';
+  return percent >= 60 ? '#000000' : '#ffffff';
+}
+
 function avgPercent(a, b) {
   const av = (a ?? 0) + (b ?? 0);
   return av / 2;
@@ -55,7 +60,7 @@ function makeBar(percent) {
   outer.appendChild(fill);
   const text = document.createElement('span');
   text.className = 'partner-text';
-  text.style.color = barFillColor(percent ?? 0);
+  text.style.color = barTextColor(percent);
   text.textContent = percent === null ? '-' : percent + '%';
   outer.appendChild(text);
   return outer;
@@ -305,8 +310,8 @@ async function generateComparisonPDF(breakdown) {
     doc.rect(x, yPos, barLength, 5, 'F');
     doc.setDrawColor(255, 255, 255);
     doc.rect(x, yPos, width, 5);
-    const [r, g, b] = colorForPercent(percent);
-    doc.setTextColor(r, g, b);
+    const textColor = percent >= 60 ? [0, 0, 0] : [255, 255, 255];
+    doc.setTextColor(...textColor);
     doc.setFontSize(9);
     addText(`${percent}%`, x + width / 2, yPos + 3.5, { align: 'center' });
     doc.setTextColor(255, 255, 255);
@@ -408,6 +413,8 @@ async function generateComparisonPDF(breakdown) {
       }
     });
 
+    doc.setDrawColor(255, 255, 255);
+    doc.line(margin, y, pageWidth - margin, y);
     y += 6;
   });
 
