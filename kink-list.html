@@ -206,6 +206,10 @@
       }
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      doc.setTextColor(255, 255, 255);
       let y = 20;
 
       doc.setFont('helvetica', 'bold');
