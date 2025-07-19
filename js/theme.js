@@ -102,9 +102,16 @@ export function applyPrintStyles() {
   style.id = 'pdf-print-style';
   style.innerHTML = `
     @media print {
+      :root {
+        --bg-color: #000000 !important;
+        --text-color: #ffffff !important;
+      }
+
+      html,
       body {
-        background: var(--bg-color, #000) !important;
-        color: var(--text-color, #fff) !important;
+        background: #000000 !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact;
         font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
         letter-spacing: 0.3px;
       }
