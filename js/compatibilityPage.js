@@ -41,10 +41,6 @@ function barFillColor(percent) {
   return '#FF4C4C';
 }
 
-function barTextColor(percent) {
-  if (percent === null) return '#ffffff';
-  return percent >= 60 ? '#000000' : '#ffffff';
-}
 
 function avgPercent(a, b) {
   const av = (a ?? 0) + (b ?? 0);
@@ -59,8 +55,7 @@ function makeBar(percent) {
   fill.style.width = percent === null ? '0%' : percent + '%';
   outer.appendChild(fill);
   const text = document.createElement('span');
-  text.className = 'partner-text';
-  text.style.color = barTextColor(percent);
+  text.className = 'partner-text ' + colorClass(percent ?? 0);
   text.textContent = percent === null ? '-' : percent + '%';
   outer.appendChild(text);
   return outer;
@@ -310,8 +305,8 @@ async function generateComparisonPDF(breakdown) {
     doc.rect(x, yPos, barLength, 5, 'F');
     doc.setDrawColor(255, 255, 255);
     doc.rect(x, yPos, width, 5);
-    const textColor = percent >= 60 ? [0, 0, 0] : [255, 255, 255];
-    doc.setTextColor(...textColor);
+    const [tr, tg, tb] = colorForPercent(percent);
+    doc.setTextColor(tr, tg, tb);
     doc.setFontSize(9);
     addText(`${percent}%`, x + width / 2, yPos + 3.5, { align: 'center' });
     doc.setTextColor(255, 255, 255);
@@ -373,9 +368,12 @@ async function generateComparisonPDF(breakdown) {
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(11);
-      doc.setTextColor(255, 255, 255);
+      const avgP = avgPercent(youP, partnerP);
+      const [ir, ig, ib] = colorForPercent(avgP);
+      doc.setTextColor(ir, ig, ib);
       const itemName = ITEM_ABBR[item.name] || item.name;
       addText(itemName, margin, y + 4);
+      doc.setTextColor(255, 255, 255);
 
       drawBarWithPercent(colA, y, youP);
       drawBarWithPercent(colB, y, partnerP);
@@ -509,14 +507,17 @@ function updateComparison() {
     items.forEach(item => {
       const ratingA = maxRating(item.you);
       const ratingB = maxRating(item.partner);
+      const youP = toPercent(ratingA);
+      const partnerP = toPercent(ratingB);
+      const avgP = avgPercent(youP, partnerP);
       const row = document.createElement('div');
       row.className = 'compare-row';
       const label = document.createElement('div');
-      label.className = 'compare-label';
+      label.className = 'compare-label ' + colorClass(avgP ?? 0);
       label.textContent = item.name;
       row.appendChild(label);
-      row.appendChild(makeBar(toPercent(ratingA)));
-      row.appendChild(makeBar(toPercent(ratingB)));
+      row.appendChild(makeBar(youP));
+      row.appendChild(makeBar(partnerP));
       const icons = document.createElement('div');
       icons.className = 'compare-icons';
       icons.textContent = buildIcons(ratingA, ratingB);

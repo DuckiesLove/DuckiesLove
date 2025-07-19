@@ -1773,7 +1773,7 @@ body {
 .col-labels {
   display: flex;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
   margin-bottom: 4px;
   color: #f0f0f0;
 }
@@ -1787,8 +1787,8 @@ body {
 }
 
 .category-header {
-  font-size: 20px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 700;
   text-align: left;
   border-bottom: 1px solid #555;
   padding: 4px 0;
@@ -1801,7 +1801,7 @@ body {
 .compare-row {
   display: flex;
   align-items: center;
-  font-size: 16px;
+  font-size: 14px;
   border-top: 1px solid #333;
   border-bottom: 1px solid #333;
   padding: 4px 0;
@@ -1811,6 +1811,9 @@ body {
   padding-right: 8px;
   font-weight: 500;
 }
+.compare-label.green { color: #00FF88; }
+.compare-label.yellow { color: #FFD700; }
+.compare-label.red { color: #FF4C4C; }
 .partner-bar {
   flex: 1;
   position: relative;
@@ -1831,11 +1834,14 @@ body {
   top: -2px;
   left: 0;
   width: 100%;
-  font-size: 12px;
+  font-size: 14px;
   text-align: center;
   pointer-events: none;
-  color: #fff;
+  color: var(--text-color);
 }
+.partner-text.green { color: #00FF88; }
+.partner-text.yellow { color: #FFD700; }
+.partner-text.red { color: #FF4C4C; }
 .compare-icons {
   width: 40px;
   text-align: right;
