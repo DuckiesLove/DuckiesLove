@@ -187,6 +187,14 @@ async function generateComparisonPDF(breakdown) {
   const margin = 10;
   let y = 20;
 
+  const CATEGORY_ABBR = {
+    'Body Part Torture': 'Body Torture',
+    'Bondage and Suspension': 'Bondage',
+    'Service and Restrictive Behaviour': 'Service & Restrictive',
+    'Voyeurism/Exhibitionism': 'Voyeurism/Exhibition',
+    'Virtual & Long-Distance Play': 'Virtual Play'
+  };
+
   function toPercent(val) {
     return typeof val === 'number' ? Math.round((val / 5) * 100) : null;
   }
@@ -196,21 +204,38 @@ async function generateComparisonPDF(breakdown) {
     return vals.length ? Math.max(...vals) : null;
   }
 
-  function getColor(p) {
-    if (p === null) return '#999999';
-    if (p >= 90) return '#00FF00';
-    if (p >= 50) return '#FFA500';
-    if (p > 0) return '#FF3300';
-    return '#990000';
+  function colorForPercent(p) {
+    if (p === null) return [150, 150, 150];
+    if (p >= 80) return [0, 255, 0];
+    if (p >= 60) return [255, 255, 0];
+    return [255, 0, 0];
   }
 
-  function drawBar(doc, x, y, percent, width = 40, color = '#00FF00') {
+  function barFillColor(p) {
+    if (p === null) return '#666666';
+    if (p >= 80) return '#00cc44';
+    if (p >= 60) return '#cccc00';
+    return '#cc0033';
+  }
+
+  function drawBarWithPercent(x, yPos, percent) {
+    const width = 40;
+    if (percent === null) return;
     const barLength = (percent / 100) * width;
-    doc.setDrawColor(color);
-    doc.setFillColor(color);
-    doc.rect(x, y, barLength, 5, 'F');
-    doc.setDrawColor(255);
-    doc.rect(x, y, width, 5);
+    doc.setFillColor(barFillColor(percent));
+    doc.rect(x, yPos, barLength, 5, 'F');
+    doc.setDrawColor(255, 255, 255);
+    doc.rect(x, yPos, width, 5);
+    const [r, g, b] = colorForPercent(percent);
+    doc.setTextColor(r, g, b);
+    doc.setFontSize(9);
+    doc.text(`${percent}%`, x + width / 2, yPos + 3.5, { align: 'center' });
+    doc.setTextColor(255, 255, 255);
+  }
+
+  function avgPercent(a, b) {
+    const av = (a ?? 0) + (b ?? 0);
+    return av / 2;
   }
 
   doc.setTextColor(255, 255, 255);
@@ -223,35 +248,61 @@ async function generateComparisonPDF(breakdown) {
   y += 10;
 
   Object.entries(breakdown).forEach(([cat, list]) => {
+    const catName = CATEGORY_ABBR[cat] || cat;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
-    doc.text(cat, margin, y);
+    doc.text(catName, margin, y);
     y += 6;
 
-    list.forEach(item => {
-      const youP = toPercent(maxRating(item.you));
-      const partnerP = toPercent(maxRating(item.partner));
-      const barWidth = 40;
+    doc.setFontSize(10);
+    const barWidth = 40;
+    const colA = pageWidth / 2 - barWidth - 10;
+    const colB = pageWidth - margin - barWidth - 10;
+    doc.text('Partner A', colA + barWidth / 2, y, { align: 'center' });
+    doc.text('Partner B', colB + barWidth / 2, y, { align: 'center' });
+    y += 5;
+
+    const items = list
+      .filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
+      .sort((a, b) => {
+        const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
+        const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
+        return bP - aP;
+      });
+
+    items.forEach(item => {
+      const ratingA = maxRating(item.you);
+      const ratingB = maxRating(item.partner);
+      const youP = toPercent(ratingA);
+      const partnerP = toPercent(ratingB);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(11);
-      doc.setTextColor(255);
+      doc.setTextColor(255, 255, 255);
       doc.text(item.name, margin, y + 4);
 
-      drawBar(doc, pageWidth / 2 - barWidth - 10, y, youP ?? 0, barWidth, getColor(youP));
-      drawBar(doc, pageWidth - margin - barWidth - 10, y, partnerP ?? 0, barWidth, getColor(partnerP));
+      drawBarWithPercent(colA, y, youP);
+      drawBarWithPercent(colB, y, partnerP);
 
-      if (youP >= 90 && partnerP >= 90) {
-        doc.setTextColor(255, 215, 0);
-        doc.text('★', pageWidth - margin - 5, y + 4);
+      const symbols = [];
+      if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
+        symbols.push('⭐');
       }
-      if ((youP === 0 && partnerP > 0) || (partnerP === 0 && youP > 0)) {
-        doc.setTextColor(255, 0, 0);
-        doc.text('⚑', pageWidth - margin - 10, y + 4);
+      const lowA = ratingA !== null && ratingA <= 1;
+      const lowB = ratingB !== null && ratingB <= 1;
+      if (lowA || lowB) {
+        symbols.push('🚩');
+      }
+      if (
+        (ratingA === 5 && ratingB !== null && ratingB < 5) ||
+        (ratingB === 5 && ratingA !== null && ratingA < 5)
+      ) {
+        symbols.push('🟨');
+      }
+      if (symbols.length) {
+        doc.text(symbols.join(' '), pageWidth - margin - 4, y + 4, { align: 'right' });
       }
 
-      doc.setTextColor(255);
-      
       y += 10;
       if (y > 270) {
         doc.addPage();
