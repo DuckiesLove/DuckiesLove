@@ -103,9 +103,9 @@ export function applyPrintStyles() {
   style.innerHTML = `
     @media print {
       body {
-        background: #111 !important;
+        background: #000 !important;
         color: white !important;
-        font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
         letter-spacing: 0.3px;
       }
 
