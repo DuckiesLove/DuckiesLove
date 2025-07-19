@@ -27,6 +27,7 @@
     <script type="module">
       import { initTheme, applyPrintStyles } from './js/theme.js';
       import { calculateCategoryScores } from './js/categoryScores.js';
+      import { loadJsPDF } from './js/loadJsPDF.js';
       initTheme();
 
       const RATING_LABELS = {
@@ -198,8 +199,7 @@
       applyPrintStyles();
       let jsPDF;
       try {
-        await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-        jsPDF = window.jspdf.jsPDF;
+        jsPDF = await loadJsPDF();
       } catch (err) {
         alert('Failed to load PDF library: ' + err.message);
         return;
