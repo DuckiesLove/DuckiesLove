@@ -1,5 +1,4 @@
 import { initTheme, applyPrintStyles } from './theme.js';
-import { loadJsPDF } from './loadJsPDF.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -226,198 +225,24 @@ function buildKinkBreakdown(surveyA, surveyB) {
   return breakdown;
 }
 
-async function generateComparisonPDF(breakdown) {
+async function generateComparisonPDF() {
   applyPrintStyles();
-  let jsPDF;
-  try {
-    jsPDF = await loadJsPDF();
-  } catch (err) {
-    alert('Failed to load PDF library: ' + err.message);
-    return;
-  }
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-    putOnlyUsedFonts: true
-  });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 10;
-  let y = 20;
-  const barWidth = 40;
-  const colA = pageWidth / 2 - barWidth - 10;
-  const colB = pageWidth - margin - barWidth - 10;
-
-  function drawColumnHeaders() {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    addText('Partner A', colA + barWidth / 2, y, { align: 'center' });
-    addText('Partner B', colB + barWidth / 2, y, { align: 'center' });
-    y += 5;
-  }
-
-  function addText(str, x, yPos, opts = {}) {
-    doc.text(str, x, yPos, { charSpace: 0.3, ...opts });
-  }
-
-  const CATEGORY_ABBR = {
-    'Body Part Torture': 'Body Torture',
-    'Bondage and Suspension': 'Bondage',
-    'Service and Restrictive Behaviour': 'Service & Restrictive',
-    'Voyeurism/Exhibitionism': 'Voyeurism/Exhibition',
-    'Virtual & Long-Distance Play': 'Virtual Play'
-  };
-
-  const ITEM_ABBR = {
-    'Cock, Ball Torture (CBT)': 'CBT',
-    "Verbal control of breath (e.g., 'hold it' on command)": 'Breath commands',
-    'Clit clips/weights/suction': 'Clit toys'
-  };
-
-  function toPercent(val) {
-    return typeof val === 'number' ? Math.round((val / 5) * 100) : null;
-  }
-
-  function maxRating(obj) {
-    const vals = [obj.giving, obj.receiving, obj.general].filter(v => typeof v === 'number');
-    return vals.length ? Math.max(...vals) : null;
-  }
-
-  function colorForPercent(p) {
-    if (p === null) return [150, 150, 150];
-    if (p >= 80) return [0, 255, 136];
-    if (p >= 60) return [255, 215, 0];
-    return [255, 76, 76];
-  }
-
-  function barFillColor(p) {
-    if (p === null) return '#666666';
-    if (p >= 80) return '#00FF88';
-    if (p >= 60) return '#FFD700';
-    return '#FF4C4C';
-  }
-
-  function drawBarWithPercent(x, yPos, percent) {
-    const width = 40;
-    if (percent === null) return;
-    const barLength = (percent / 100) * width;
-    doc.setFillColor(barFillColor(percent));
-    doc.rect(x, yPos, barLength, 5, 'F');
-    doc.setDrawColor(255, 255, 255);
-    doc.rect(x, yPos, width, 5);
-    const [tr, tg, tb] = colorForPercent(percent);
-    doc.setTextColor(tr, tg, tb);
-    doc.setFontSize(9);
-    addText(`${percent}%`, x + width / 2, yPos + 3.5, { align: 'center' });
-    doc.setTextColor(255, 255, 255);
-  }
-
-  function avgPercent(a, b) {
-    const av = (a ?? 0) + (b ?? 0);
-    return av / 2;
-  }
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFillColor(0, 0, 0);
-  doc.rect(0, 0, 210, 297, 'F');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  addText('Kink Compatibility Comparison', pageWidth / 2, y, { align: 'center' });
-  y += 10;
-  drawColumnHeaders();
-
-  const sortedCats = Object.entries(breakdown)
-    .map(([cat, list]) => {
-      let catMax = 0;
-      list.forEach(it => {
-        const youP = toPercent(maxRating(it.you));
-        const partnerP = toPercent(maxRating(it.partner));
-        const avgP = avgPercent(youP, partnerP);
-        catMax = Math.max(catMax, avgP ?? 0);
-      });
-      return { cat, list, max: catMax };
-    })
-    .sort((a, b) => b.max - a.max);
-
-  sortedCats.forEach(({cat, list, max}) => {
-    const catName = CATEGORY_ABBR[cat] || cat;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    const [cr, cg, cb] = colorForPercent(max);
-    doc.setTextColor(cr, cg, cb);
-    addText(catName, margin, y);
-    doc.setDrawColor(255, 255, 255);
-    doc.line(margin, y + 1.5, pageWidth - margin, y + 1.5);
-    doc.setTextColor(255, 255, 255);
-    y += 6;
-
-    const items = list
-      .filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
-      .sort((a, b) => {
-        const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
-        const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
-        return bP - aP;
-      });
-
-    items.forEach(item => {
-      const ratingA = maxRating(item.you);
-      const ratingB = maxRating(item.partner);
-      const youP = toPercent(ratingA);
-      const partnerP = toPercent(ratingB);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
-      const avgP = avgPercent(youP, partnerP);
-      const [ir, ig, ib] = colorForPercent(avgP);
-      doc.setTextColor(ir, ig, ib);
-      const itemName = ITEM_ABBR[item.name] || item.name;
-      addText(itemName, margin, y + 4);
-      doc.setTextColor(255, 255, 255);
-
-      drawBarWithPercent(colA, y, youP);
-      drawBarWithPercent(colB, y, partnerP);
-
-      const symbols = [];
-      if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
-        symbols.push('⭐');
-      }
-      const avgPVal =
-        youP !== null && partnerP !== null ? avgPercent(youP, partnerP) : null;
-      if (avgPVal !== null && avgPVal <= 30) {
-        symbols.push('🚩');
-      }
-      if (
-        (ratingA === 5 && ratingB !== null && ratingB < 5) ||
-        (ratingB === 5 && ratingA !== null && ratingA < 5)
-      ) {
-        symbols.push('🟨');
-      }
-      if (symbols.length) {
-        addText(symbols.join(' '), pageWidth - margin - 4, y + 4, { align: 'right' });
-      }
-
-      doc.setDrawColor(70, 70, 70);
-      doc.line(margin, y + 6, pageWidth - margin, y + 6);
-
-      y += 10;
-      if (y > 270) {
-        doc.addPage();
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, 210, 297, 'F');
-        doc.setTextColor(255, 255, 255);
-        y = 20;
-        drawColumnHeaders();
-      }
-    });
-
-    doc.setDrawColor(255, 255, 255);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 6;
-  });
-
+  const target = document.getElementById('compare-page');
+  if (!target) return;
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  doc.save(`compatibility-${ts}.pdf`);
+  const opt = {
+    margin: 0.5,
+    filename: `compatibility-${ts}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: getComputedStyle(document.body).backgroundColor },
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+  if (window.html2pdf) {
+    window.html2pdf().set(opt).from(target).save();
+  } else {
+    const { default: html2pdf } = await import('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+    html2pdf().set(opt).from(target).save();
+  }
 }
 
 function loadFileA(file) {
