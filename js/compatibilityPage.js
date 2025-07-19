@@ -238,7 +238,13 @@ function buildKinkBreakdown(surveyA, surveyB) {
 
 async function generateComparisonPDF(breakdown) {
   applyPrintStyles();
-  const jsPDF = await loadJsPDF();
+  let jsPDF;
+  try {
+    jsPDF = await loadJsPDF();
+  } catch (err) {
+    alert('Failed to load PDF library: ' + err.message);
+    return;
+  }
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
