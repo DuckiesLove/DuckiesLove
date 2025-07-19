@@ -1583,8 +1583,8 @@ body {
 /* 🎨 PDF OUTPUT STYLING (MATCH BDSMTest.org Aesthetic) */
 .result-container,
 .pdf-container {
-  background-color: #fafafa;
-  color: #222;
+  background-color: var(--panel-color, #fafafa);
+  color: var(--text-color, #222);
   font-family: 'Inter', sans-serif;
   max-width: 800px;
   margin: 40px auto;
@@ -1599,7 +1599,7 @@ body {
   border-bottom: 2px solid #bbb;
   margin-bottom: 18px;
   padding-bottom: 6px;
-  color: #111;
+  color: var(--text-color, #111);
 }
 
 .result-entry {
@@ -1607,7 +1607,7 @@ body {
   justify-content: space-between;
   padding: 10px 14px;
   margin-bottom: 6px;
-  background-color: #fff;
+  background-color: var(--bg-color, #fff);
   border-radius: 6px;
   border: 1px solid #ddd;
 }
@@ -1619,7 +1619,7 @@ body {
   flex: 1;
   text-align: right;
   font-weight: 400;
-  color: #555;
+  color: var(--text-color, #555);
 }
 
 .download-btn {
