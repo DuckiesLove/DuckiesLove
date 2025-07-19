@@ -104,7 +104,7 @@ export function applyPrintStyles() {
     @media print {
       body {
         background: #000 !important;
-        color: white !important;
+        color: #fff !important;
         font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
         letter-spacing: 0.3px;
       }
@@ -113,20 +113,29 @@ export function applyPrintStyles() {
         max-width: 900px;
         margin: auto;
         padding: 20px;
-        background-color: #111 !important;
-        color: white !important;
+        background-color: #000 !important;
+        color: #fff !important;
         border-radius: 10px;
         font-size: 14px;
       }
 
-      .category-title {
+      .col-labels,
+      .col-labels .col-label {
+        color: #fff !important;
+      }
+
+      .category-header {
         font-size: 16px;
         font-weight: bold;
         margin-top: 20px;
-        color: #44ff88 !important;
+        padding-top: 10px;
+        border-top: 1px solid #444;
       }
+      .category-header.green { color: #00FF88 !important; }
+      .category-header.yellow { color: #FFD700 !important; }
+      .category-header.red { color: #FF4C4C !important; }
 
-      .result-row {
+      .compare-row {
         display: flex;
         align-items: center;
         gap: 10px;
@@ -134,18 +143,66 @@ export function applyPrintStyles() {
         border-bottom: 1px solid #333;
       }
 
+      .compare-label {
+        flex: 2;
+        padding-right: 8px;
+        font-weight: 500;
+      }
+      .compare-label.green { color: #00FF88 !important; }
+      .compare-label.yellow { color: #FFD700 !important; }
+      .compare-label.red { color: #FF4C4C !important; }
+
+      .partner-bar {
+        flex: 1;
+        position: relative;
+        height: 12px;
+        background: #222;
+        border-radius: 6px;
+        margin: 0 6px;
+      }
+      .partner-fill.green { background-color: #00FF88; }
+      .partner-fill.yellow { background-color: #FFD700; }
+      .partner-fill.red { background-color: #FF4C4C; }
+
+      .partner-text {
+        position: absolute;
+        top: -2px;
+        left: 0;
+        width: 100%;
+        font-size: 14px;
+        text-align: center;
+        pointer-events: none;
+      }
+      .partner-text.green { color: #00FF88 !important; }
+      .partner-text.yellow { color: #FFD700 !important; }
+      .partner-text.red { color: #FF4C4C !important; }
+
+      .compare-icons {
+        width: 40px;
+        text-align: right;
+        font-size: 14px;
+      }
+
+      /* legacy role list styles */
+      .result-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 0;
+        border-bottom: 1px solid #333;
+      }
       .percentage {
         width: 60px;
         font-weight: bold;
-        color: white !important;
         text-align: right;
       }
-
+      .percentage.green { color: #00FF88 !important; }
+      .percentage.yellow { color: #FFD700 !important; }
+      .percentage.red { color: #FF4C4C !important; }
       .role {
         flex: 1.5;
-        color: white !important;
+        color: #fff !important;
       }
-
       .bar-container {
         flex: 2;
         background: #222;
@@ -153,7 +210,6 @@ export function applyPrintStyles() {
         height: 10px;
         position: relative;
       }
-
       .bar-fill {
         height: 100%;
         border-radius: 4px;
@@ -161,11 +217,9 @@ export function applyPrintStyles() {
         left: 0;
         top: 0;
       }
-
       .bar-fill.green { background: #00cc66; }
       .bar-fill.yellow { background: #e6c300; }
       .bar-fill.red { background: #cc0033; }
-
       .more-info {
         flex-shrink: 0;
         font-size: 12px;
