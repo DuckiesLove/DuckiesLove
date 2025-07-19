@@ -1,16 +1,5 @@
 import { initTheme, applyPrintStyles } from './theme.js';
-
-let jsPDFLib = null;
-async function loadJsPDF() {
-  if (jsPDFLib) return jsPDFLib;
-  if (window.jspdf && window.jspdf.jsPDF) {
-    jsPDFLib = window.jspdf.jsPDF;
-    return jsPDFLib;
-  }
-  await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-  jsPDFLib = window.jspdf.jsPDF;
-  return jsPDFLib;
-}
+import { loadJsPDF } from './loadJsPDF.js';
 
 let surveyA = null;
 let surveyB = null;
