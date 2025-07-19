@@ -454,8 +454,6 @@ function loadFileB(file) {
   };
   reader.readAsText(file);
 }
-
-}
 function updateComparison() {
   const container = document.getElementById('compare-page');
   const msg = document.getElementById('comparisonResult');
