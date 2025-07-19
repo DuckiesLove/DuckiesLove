@@ -1787,7 +1787,7 @@ body {
 }
 
 .category-header {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
   text-align: left;
   border-bottom: 1px solid #555;
@@ -1810,6 +1810,7 @@ body {
   flex: 2;
   padding-right: 8px;
   font-weight: 500;
+  font-size: 16px;
 }
 .compare-label.green { color: #00FF88; }
 .compare-label.yellow { color: #FFD700; }
@@ -1834,14 +1835,14 @@ body {
   top: -2px;
   left: 0;
   width: 100%;
-  font-size: 14px;
+  font-size: 16px;
   text-align: center;
   pointer-events: none;
-  color: var(--text-color);
+  color: #ffffff;
 }
-.partner-text.green { color: #00FF88; }
-.partner-text.yellow { color: #FFD700; }
-.partner-text.red { color: #FF4C4C; }
+.partner-text.green { color: #ffffff; }
+.partner-text.yellow { color: #ffffff; }
+.partner-text.red { color: #ffffff; }
 .compare-icons {
   width: 40px;
   text-align: right;

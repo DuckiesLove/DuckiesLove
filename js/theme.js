@@ -116,16 +116,16 @@ export function applyPrintStyles() {
         background-color: var(--bg-color, #000) !important;
         color: var(--text-color, #fff) !important;
         border-radius: 10px;
-        font-size: 14px;
+        font-size: 16px;
       }
 
       .col-labels,
       .col-labels .col-label {
-        color: var(--text-color, #fff) !important;
+        color: #ffffff !important;
       }
 
       .category-header {
-        font-size: 16px;
+        font-size: 18px;
         font-weight: bold;
         margin-top: 20px;
         padding-top: 10px;
@@ -147,6 +147,7 @@ export function applyPrintStyles() {
         flex: 2;
         padding-right: 8px;
         font-weight: 500;
+        font-size: 16px;
       }
       .compare-label.green { color: #00FF88 !important; }
       .compare-label.yellow { color: #FFD700 !important; }
@@ -169,13 +170,14 @@ export function applyPrintStyles() {
         top: -2px;
         left: 0;
         width: 100%;
-        font-size: 14px;
+        font-size: 16px;
         text-align: center;
         pointer-events: none;
+        color: #ffffff !important;
       }
-      .partner-text.green { color: #00FF88 !important; }
-      .partner-text.yellow { color: #FFD700 !important; }
-      .partner-text.red { color: #FF4C4C !important; }
+      .partner-text.green { color: #ffffff !important; }
+      .partner-text.yellow { color: #ffffff !important; }
+      .partner-text.red { color: #ffffff !important; }
 
       .compare-icons {
         width: 40px;
