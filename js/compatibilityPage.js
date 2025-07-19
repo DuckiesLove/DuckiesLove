@@ -243,6 +243,17 @@ async function generateComparisonPDF(breakdown) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   let y = 20;
+  const barWidth = 40;
+  const colA = pageWidth / 2 - barWidth - 10;
+  const colB = pageWidth - margin - barWidth - 10;
+
+  function drawColumnHeaders() {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    addText('Partner A', colA + barWidth / 2, y, { align: 'center' });
+    addText('Partner B', colB + barWidth / 2, y, { align: 'center' });
+    y += 5;
+  }
 
   function addText(str, x, yPos, opts = {}) {
     doc.text(str, x, yPos, { charSpace: 0.3, ...opts });
@@ -309,10 +320,11 @@ async function generateComparisonPDF(breakdown) {
   doc.setFillColor(0, 0, 0);
   doc.rect(0, 0, 210, 297, 'F');
 
-  doc.setFont('Inter', 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
   addText('Kink Compatibility Comparison', pageWidth / 2, y, { align: 'center' });
   y += 10;
+  drawColumnHeaders();
 
   const sortedCats = Object.entries(breakdown).map(([cat, list]) => {
     let catMax = 0;
@@ -326,22 +338,15 @@ async function generateComparisonPDF(breakdown) {
 
   sortedCats.forEach(({cat, list, max}) => {
     const catName = CATEGORY_ABBR[cat] || cat;
-    doc.setFont('Inter', 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     const [cr, cg, cb] = colorForPercent(max);
     doc.setTextColor(cr, cg, cb);
     addText(catName, margin, y);
+    doc.setDrawColor(255, 255, 255);
+    doc.line(margin, y + 1.5, pageWidth - margin, y + 1.5);
     doc.setTextColor(255, 255, 255);
     y += 6;
-
-    doc.setFont('Inter', 'bold');
-    doc.setFontSize(10);
-    const barWidth = 40;
-    const colA = pageWidth / 2 - barWidth - 10;
-    const colB = pageWidth - margin - barWidth - 10;
-    addText('Partner A', colA + barWidth / 2, y, { align: 'center' });
-    addText('Partner B', colB + barWidth / 2, y, { align: 'center' });
-    y += 5;
 
     const items = list
       .filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
@@ -357,7 +362,7 @@ async function generateComparisonPDF(breakdown) {
       const youP = toPercent(ratingA);
       const partnerP = toPercent(ratingB);
 
-      doc.setFont('Inter', 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(11);
       doc.setTextColor(255, 255, 255);
       const itemName = ITEM_ABBR[item.name] || item.name;
@@ -370,9 +375,9 @@ async function generateComparisonPDF(breakdown) {
       if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
         symbols.push('⭐');
       }
-      const zeroA = ratingA === 0 && (ratingB ?? 0) > 0;
-      const zeroB = ratingB === 0 && (ratingA ?? 0) > 0;
-      if (zeroA || zeroB) {
+      const avgP =
+        youP !== null && partnerP !== null ? avgPercent(youP, partnerP) : null;
+      if (avgP !== null && avgP <= 30) {
         symbols.push('🚩');
       }
       if (
@@ -395,6 +400,7 @@ async function generateComparisonPDF(breakdown) {
         doc.rect(0, 0, 210, 297, 'F');
         doc.setTextColor(255, 255, 255);
         y = 20;
+        drawColumnHeaders();
       }
     });
 
