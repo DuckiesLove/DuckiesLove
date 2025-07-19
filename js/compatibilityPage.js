@@ -30,6 +30,68 @@ function formatRating(val) {
     : `${val} - ${RATING_LABELS[val]}`;
 }
 
+
+function toPercent(val) {
+  return typeof val === 'number' ? Math.round((val / 5) * 100) : null;
+}
+
+function maxRating(obj) {
+  const vals = [obj.giving, obj.receiving, obj.general].filter(v => typeof v === 'number');
+  return vals.length ? Math.max(...vals) : null;
+}
+
+function colorClass(percent) {
+  if (percent >= 80) return 'green';
+  if (percent >= 60) return 'yellow';
+  return 'red';
+}
+
+function barFillColor(percent) {
+  if (percent >= 80) return '#00FF88';
+  if (percent >= 60) return '#FFD700';
+  return '#FF4C4C';
+}
+
+function avgPercent(a, b) {
+  const av = (a ?? 0) + (b ?? 0);
+  return av / 2;
+}
+
+function makeBar(percent) {
+  const outer = document.createElement('div');
+  outer.className = 'partner-bar';
+  const fill = document.createElement('div');
+  fill.className = 'partner-fill ' + colorClass(percent ?? 0);
+  fill.style.width = percent === null ? '0%' : percent + '%';
+  outer.appendChild(fill);
+  const text = document.createElement('span');
+  text.className = 'partner-text';
+  text.style.color = barFillColor(percent ?? 0);
+  text.textContent = percent === null ? '-' : percent + '%';
+  outer.appendChild(text);
+  return outer;
+}
+
+function buildIcons(ratingA, ratingB) {
+  const youP = toPercent(ratingA);
+  const partnerP = toPercent(ratingB);
+  const symbols = [];
+  if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
+    symbols.push('⭐');
+  }
+  const zeroA = ratingA === 0 && (ratingB ?? 0) > 0;
+  const zeroB = ratingB === 0 && (ratingA ?? 0) > 0;
+  if (zeroA || zeroB) {
+    symbols.push('🚩');
+  }
+  if (
+    (ratingA === 5 && ratingB !== null && ratingB < 5) ||
+    (ratingB === 5 && ratingA !== null && ratingA < 5)
+  ) {
+    symbols.push('🟨');
+  }
+  return symbols.join(' ');
+}
 function loadSavedSurvey() {
   const saved = localStorage.getItem('savedSurvey');
   if (!saved) return;
@@ -387,16 +449,20 @@ function loadFileB(file) {
   reader.readAsText(file);
 }
 
+}
 function updateComparison() {
-  const output = document.getElementById('comparisonResult');
+  const container = document.getElementById('compare-page');
+  const msg = document.getElementById('comparisonResult');
   if (!surveyA || !surveyB) {
-    output.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
+    msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
+    container.innerHTML = '';
     lastResult = null;
     return;
   }
+  msg.textContent = '';
   const kinkBreakdown = buildKinkBreakdown(surveyA, surveyB);
   lastResult = kinkBreakdown;
-  output.innerHTML = '';
+  container.innerHTML = '';
 
   const sortedCats = Object.entries(kinkBreakdown).map(([cat, list]) => {
     let max = 0;
@@ -408,52 +474,45 @@ function updateComparison() {
     return { cat, list, max };
   }).sort((a,b) => b.max - a.max);
 
-  sortedCats.forEach(({cat, list}) => {
-      const details = document.createElement('details');
-      details.classList.add('accordion-panel');
-      const summary = document.createElement('summary');
-      summary.textContent = cat;
-      details.appendChild(summary);
+  const labels = document.createElement('div');
+  labels.className = 'col-labels';
+  labels.innerHTML = '<div class="label-col"></div><div class="col-label">Partner A</div><div class="col-label">Partner B</div><div class="label-col"></div>';
+  container.appendChild(labels);
 
-      const table = document.createElement('table');
-      table.className = 'kink-table';
-      const thead = document.createElement('thead');
-      const hr = document.createElement('tr');
-      ['Kink', 'You G', 'You R', 'You N', 'Partner G', 'Partner R', 'Partner N'].forEach(h => {
-        const th = document.createElement('th');
-        th.textContent = h;
-        hr.appendChild(th);
+  sortedCats.forEach(({cat, list, max}) => {
+    const section = document.createElement('div');
+    const header = document.createElement('div');
+    header.className = 'category-header ' + colorClass(max);
+    header.textContent = cat;
+    section.appendChild(header);
+
+    const items = list.filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
+      .sort((a,b) => {
+        const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
+        const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
+        return bP - aP;
       });
-      thead.appendChild(hr);
-      table.appendChild(thead);
-      const tbody = document.createElement('tbody');
-      list.forEach(item => {
-        const tr = document.createElement('tr');
-        const isMatch =
-          item.you.giving === item.partner.receiving &&
-          item.you.receiving === item.partner.giving &&
-          item.you.general === item.partner.general;
-        if (isMatch) tr.classList.add('match-row');
-        const vals = [
-          item.name,
-          formatRating(item.you.giving),
-          formatRating(item.you.receiving),
-          formatRating(item.you.general),
-          formatRating(item.partner.giving),
-          formatRating(item.partner.receiving),
-          formatRating(item.partner.general)
-        ];
-        vals.forEach(v => {
-          const td = document.createElement('td');
-          td.textContent = v;
-          tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-      });
-      table.appendChild(tbody);
-      details.appendChild(table);
-      output.appendChild(details);
+
+    items.forEach(item => {
+      const ratingA = maxRating(item.you);
+      const ratingB = maxRating(item.partner);
+      const row = document.createElement('div');
+      row.className = 'compare-row';
+      const label = document.createElement('div');
+      label.className = 'compare-label';
+      label.textContent = item.name;
+      row.appendChild(label);
+      row.appendChild(makeBar(toPercent(ratingA)));
+      row.appendChild(makeBar(toPercent(ratingB)));
+      const icons = document.createElement('div');
+      icons.className = 'compare-icons';
+      icons.textContent = buildIcons(ratingA, ratingB);
+      row.appendChild(icons);
+      section.appendChild(row);
     });
+
+    container.appendChild(section);
+  });
 }
 
 const fileAInput = document.getElementById('fileA');
