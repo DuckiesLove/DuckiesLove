@@ -74,6 +74,7 @@
 
       applyPrintStyles();
 
+      const bgColor = getComputedStyle(document.body).backgroundColor;
       const opt = {
         margin: 0.5,
         filename: 'kink_comparison.pdf',
@@ -81,7 +82,7 @@
         html2canvas: {
           scale: 2,
           useCORS: true,
-          backgroundColor: '#fff'
+          backgroundColor: bgColor
         },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
       };
