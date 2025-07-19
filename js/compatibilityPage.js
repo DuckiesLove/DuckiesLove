@@ -1,4 +1,4 @@
-import { initTheme } from './theme.js';
+import { initTheme, applyPrintStyles } from './theme.js';
 
 let jsPDFLib = null;
 async function loadJsPDF() {
@@ -175,8 +175,14 @@ function buildKinkBreakdown(surveyA, surveyB) {
 }
 
 async function generateComparisonPDF(breakdown) {
+  applyPrintStyles();
   const jsPDF = await loadJsPDF();
-  const doc = new jsPDF();
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    putOnlyUsedFonts: true
+  });
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   let y = 20;
@@ -190,23 +196,26 @@ async function generateComparisonPDF(breakdown) {
     return vals.length ? Math.max(...vals) : null;
   }
 
-  function getColorCode(percent) {
-    if (percent >= 90) return '#00cc00'; // green
-    if (percent >= 50) return '#ffaa00'; // orange
-    if (percent > 0) return '#ff3333';   // red
-    return '#bbbbbb';                   // gray
+  function getColor(p) {
+    if (p === null) return '#999999';
+    if (p >= 90) return '#00FF00';
+    if (p >= 50) return '#FFA500';
+    if (p > 0) return '#FF3300';
+    return '#990000';
   }
 
-  function drawVisualMark(doc, x, y, you, partner) {
-    if (you >= 90 && partner >= 90) {
-      doc.setTextColor('#00cc00');
-      doc.text('⭐', x, y);
-    } else if ((you === 0 && partner >= 80) || (partner === 0 && you >= 80)) {
-      doc.setTextColor('#ff3333');
-      doc.text('🚩', x, y);
-    }
-    doc.setTextColor('#000000');
+  function drawBar(doc, x, y, percent, width = 40, color = '#00FF00') {
+    const barLength = (percent / 100) * width;
+    doc.setDrawColor(color);
+    doc.setFillColor(color);
+    doc.rect(x, y, barLength, 5, 'F');
+    doc.setDrawColor(255);
+    doc.rect(x, y, width, 5);
   }
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFillColor(0, 0, 0);
+  doc.rect(0, 0, 210, 297, 'F');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
@@ -226,29 +235,28 @@ async function generateComparisonPDF(breakdown) {
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(11);
-      doc.setTextColor('#000000');
-      doc.text(item.name, margin, y);
+      doc.setTextColor(255);
+      doc.text(item.name, margin, y + 4);
 
-      // "You" Bar
-      if (youP !== null) {
-        doc.setFillColor(getColorCode(youP));
-        doc.rect(pageWidth / 2 - barWidth, y - 4, barWidth * (youP / 100), 5, 'F');
+      drawBar(doc, pageWidth / 2 - barWidth - 10, y, youP ?? 0, barWidth, getColor(youP));
+      drawBar(doc, pageWidth - margin - barWidth - 10, y, partnerP ?? 0, barWidth, getColor(partnerP));
+
+      if (youP >= 90 && partnerP >= 90) {
+        doc.setTextColor(255, 215, 0);
+        doc.text('★', pageWidth - margin - 5, y + 4);
       }
-      doc.text('You', pageWidth / 2 - barWidth - 8, y);
-
-      // "Partner" Bar
-      if (partnerP !== null) {
-        doc.setFillColor(getColorCode(partnerP));
-        doc.rect(pageWidth / 2 + 10, y - 4, barWidth * (partnerP / 100), 5, 'F');
+      if ((youP === 0 && partnerP > 0) || (partnerP === 0 && youP > 0)) {
+        doc.setTextColor(255, 0, 0);
+        doc.text('⚑', pageWidth - margin - 10, y + 4);
       }
-      doc.text('Partner', pageWidth / 2 + barWidth + 12, y);
 
-      // Stars/Flags
-      drawVisualMark(doc, pageWidth - margin - 10, y, youP, partnerP);
-
+      doc.setTextColor(255);
+      
       y += 10;
       if (y > 270) {
         doc.addPage();
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, 210, 297, 'F');
         y = 20;
       }
     });
