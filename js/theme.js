@@ -103,8 +103,8 @@ export function applyPrintStyles() {
   style.innerHTML = `
     @media print {
       body {
-        background: #fff !important;
-        color: #000 !important;
+        background: var(--bg-color, #000) !important;
+        color: var(--text-color, #fff) !important;
         font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
         letter-spacing: 0.3px;
       }
@@ -113,15 +113,15 @@ export function applyPrintStyles() {
         max-width: 900px;
         margin: auto;
         padding: 20px;
-        background-color: #fff !important;
-        color: #000 !important;
+        background-color: var(--bg-color, #000) !important;
+        color: var(--text-color, #fff) !important;
         border-radius: 10px;
         font-size: 14px;
       }
 
       .col-labels,
       .col-labels .col-label {
-        color: #000 !important;
+        color: var(--text-color, #fff) !important;
       }
 
       .category-header {
@@ -195,14 +195,14 @@ export function applyPrintStyles() {
         width: 60px;
         font-weight: bold;
         text-align: right;
-        color: #000 !important;
+        color: var(--text-color, #fff) !important;
       }
       .percentage.green { color: #00FF88 !important; }
       .percentage.yellow { color: #FFD700 !important; }
       .percentage.red { color: #FF4C4C !important; }
       .role {
         flex: 1.5;
-        color: #000 !important;
+        color: var(--text-color, #fff) !important;
       }
       .bar-container {
         flex: 2;
