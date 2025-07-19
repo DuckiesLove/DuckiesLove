@@ -1772,8 +1772,8 @@ body {
 
 .col-labels {
   display: flex;
-  font-weight: bold;
-  font-size: 14px;
+  font-weight: 500;
+  font-size: 16px;
   margin-bottom: 4px;
 }
 .col-labels .label-col {
@@ -1785,12 +1785,12 @@ body {
 }
 
 .category-header {
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 20px;
+  font-weight: 500;
   text-align: left;
   border-bottom: 1px solid #555;
-  padding: 6px 0;
-  margin: 16px 0 8px;
+  padding: 4px 0;
+  margin: 12px 0 4px;
 }
 .category-header.green { color: #00FF88; }
 .category-header.yellow { color: #FFD700; }
@@ -1799,14 +1799,15 @@ body {
 .compare-row {
   display: flex;
   align-items: center;
-  font-size: 14px;
+  font-size: 16px;
   border-top: 1px solid #333;
   border-bottom: 1px solid #333;
-  padding: 6px 0;
+  padding: 4px 0;
 }
 .compare-label {
   flex: 2;
   padding-right: 8px;
+  font-weight: 500;
 }
 .partner-bar {
   flex: 1;
