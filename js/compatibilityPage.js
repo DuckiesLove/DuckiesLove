@@ -382,9 +382,9 @@ async function generateComparisonPDF(breakdown) {
       if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
         symbols.push('⭐');
       }
-      const avgP =
+      const avgPVal =
         youP !== null && partnerP !== null ? avgPercent(youP, partnerP) : null;
-      if (avgP !== null && avgP <= 30) {
+      if (avgPVal !== null && avgPVal <= 30) {
         symbols.push('🚩');
       }
       if (
