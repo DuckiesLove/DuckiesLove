@@ -68,9 +68,10 @@ function buildIcons(ratingA, ratingB) {
   if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
     symbols.push('⭐');
   }
-  const zeroA = ratingA === 0 && (ratingB ?? 0) > 0;
-  const zeroB = ratingB === 0 && (ratingA ?? 0) > 0;
-  if (zeroA || zeroB) {
+  if (
+    (youP !== null && youP <= 30) ||
+    (partnerP !== null && partnerP <= 30)
+  ) {
     symbols.push('🚩');
   }
   if (
@@ -326,15 +327,18 @@ async function generateComparisonPDF(breakdown) {
   y += 10;
   drawColumnHeaders();
 
-  const sortedCats = Object.entries(breakdown).map(([cat, list]) => {
-    let catMax = 0;
-    list.forEach(it => {
-      const youP = toPercent(maxRating(it.you));
-      const partnerP = toPercent(maxRating(it.partner));
-      catMax = Math.max(catMax, youP ?? 0, partnerP ?? 0);
-    });
-    return { cat, list, max: catMax };
-  }).sort((a, b) => b.max - a.max);
+  const sortedCats = Object.entries(breakdown)
+    .map(([cat, list]) => {
+      let catMax = 0;
+      list.forEach(it => {
+        const youP = toPercent(maxRating(it.you));
+        const partnerP = toPercent(maxRating(it.partner));
+        const avgP = avgPercent(youP, partnerP);
+        catMax = Math.max(catMax, avgP ?? 0);
+      });
+      return { cat, list, max: catMax };
+    })
+    .sort((a, b) => b.max - a.max);
 
   sortedCats.forEach(({cat, list, max}) => {
     const catName = CATEGORY_ABBR[cat] || cat;
@@ -463,15 +467,18 @@ function updateComparison() {
   lastResult = kinkBreakdown;
   container.innerHTML = '';
 
-  const sortedCats = Object.entries(kinkBreakdown).map(([cat, list]) => {
-    let max = 0;
-    list.forEach(it => {
-      const youP = toPercent(maxRating(it.you));
-      const partnerP = toPercent(maxRating(it.partner));
-      max = Math.max(max, youP ?? 0, partnerP ?? 0);
-    });
-    return { cat, list, max };
-  }).sort((a,b) => b.max - a.max);
+  const sortedCats = Object.entries(kinkBreakdown)
+    .map(([cat, list]) => {
+      let max = 0;
+      list.forEach(it => {
+        const youP = toPercent(maxRating(it.you));
+        const partnerP = toPercent(maxRating(it.partner));
+        const avgP = avgPercent(youP, partnerP);
+        max = Math.max(max, avgP ?? 0);
+      });
+      return { cat, list, max };
+    })
+    .sort((a, b) => b.max - a.max);
 
   const labels = document.createElement('div');
   labels.className = 'col-labels';
