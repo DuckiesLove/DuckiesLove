@@ -1,13 +1,13 @@
 let jsPDFLib = null;
 export async function loadJsPDF() {
   if (jsPDFLib) return jsPDFLib;
-  if (window.jspdf && window.jspdf.jsPDF) {
+  if (window.jspdf && window.jspdf.jsPDF && !window.jspdf.isStub) {
     jsPDFLib = window.jspdf.jsPDF;
     return jsPDFLib;
   }
   try {
     await import('./vendor/jspdf.umd.min.js');
-    if (window.jspdf && window.jspdf.jsPDF) {
+    if (window.jspdf && window.jspdf.jsPDF && !window.jspdf.isStub) {
       jsPDFLib = window.jspdf.jsPDF;
       return jsPDFLib;
     }
