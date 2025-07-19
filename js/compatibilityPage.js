@@ -187,12 +187,22 @@ async function generateComparisonPDF(breakdown) {
   const margin = 10;
   let y = 20;
 
+  function addText(str, x, yPos, opts = {}) {
+    doc.text(str, x, yPos, { charSpace: 0.3, ...opts });
+  }
+
   const CATEGORY_ABBR = {
     'Body Part Torture': 'Body Torture',
     'Bondage and Suspension': 'Bondage',
     'Service and Restrictive Behaviour': 'Service & Restrictive',
     'Voyeurism/Exhibitionism': 'Voyeurism/Exhibition',
     'Virtual & Long-Distance Play': 'Virtual Play'
+  };
+
+  const ITEM_ABBR = {
+    'Cock, Ball Torture (CBT)': 'CBT',
+    "Verbal control of breath (e.g., 'hold it' on command)": 'Breath commands',
+    'Clit clips/weights/suction': 'Clit toys'
   };
 
   function toPercent(val) {
@@ -206,16 +216,16 @@ async function generateComparisonPDF(breakdown) {
 
   function colorForPercent(p) {
     if (p === null) return [150, 150, 150];
-    if (p >= 80) return [0, 255, 0];
-    if (p >= 60) return [255, 255, 0];
-    return [255, 0, 0];
+    if (p >= 80) return [0, 255, 136];
+    if (p >= 60) return [255, 215, 0];
+    return [255, 76, 76];
   }
 
   function barFillColor(p) {
     if (p === null) return '#666666';
-    if (p >= 80) return '#00cc44';
-    if (p >= 60) return '#cccc00';
-    return '#cc0033';
+    if (p >= 80) return '#00FF88';
+    if (p >= 60) return '#FFD700';
+    return '#FF4C4C';
   }
 
   function drawBarWithPercent(x, yPos, percent) {
@@ -229,8 +239,8 @@ async function generateComparisonPDF(breakdown) {
     const [r, g, b] = colorForPercent(percent);
     doc.setTextColor(r, g, b);
     doc.setFontSize(9);
-    doc.text(`${percent}%`, x + width / 2, yPos + 3.5, { align: 'center' });
-    doc.setTextColor(255, 255, 255);
+    addText(`${percent}%`, x + width / 2, yPos + 3.5, { align: 'center' });
+    doc.setTextColor(240, 240, 240);
   }
 
   function avgPercent(a, b) {
@@ -238,28 +248,41 @@ async function generateComparisonPDF(breakdown) {
     return av / 2;
   }
 
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(240, 240, 240);
   doc.setFillColor(0, 0, 0);
   doc.rect(0, 0, 210, 297, 'F');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.text('Kink Compatibility Comparison', pageWidth / 2, y, { align: 'center' });
+  addText('Kink Compatibility Comparison', pageWidth / 2, y, { align: 'center' });
   y += 10;
 
-  Object.entries(breakdown).forEach(([cat, list]) => {
+  const sortedCats = Object.entries(breakdown).map(([cat, list]) => {
+    let catMax = 0;
+    list.forEach(it => {
+      const youP = toPercent(maxRating(it.you));
+      const partnerP = toPercent(maxRating(it.partner));
+      catMax = Math.max(catMax, youP ?? 0, partnerP ?? 0);
+    });
+    return { cat, list, max: catMax };
+  }).sort((a, b) => b.max - a.max);
+
+  sortedCats.forEach(({cat, list, max}) => {
     const catName = CATEGORY_ABBR[cat] || cat;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
-    doc.text(catName, margin, y);
+    const [cr, cg, cb] = colorForPercent(max);
+    doc.setTextColor(cr, cg, cb);
+    addText(catName, margin, y);
+    doc.setTextColor(240, 240, 240);
     y += 6;
 
     doc.setFontSize(10);
     const barWidth = 40;
     const colA = pageWidth / 2 - barWidth - 10;
     const colB = pageWidth - margin - barWidth - 10;
-    doc.text('Partner A', colA + barWidth / 2, y, { align: 'center' });
-    doc.text('Partner B', colB + barWidth / 2, y, { align: 'center' });
+    addText('Partner A', colA + barWidth / 2, y, { align: 'center' });
+    addText('Partner B', colB + barWidth / 2, y, { align: 'center' });
     y += 5;
 
     const items = list
@@ -278,8 +301,9 @@ async function generateComparisonPDF(breakdown) {
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(11);
-      doc.setTextColor(255, 255, 255);
-      doc.text(item.name, margin, y + 4);
+      doc.setTextColor(240, 240, 240);
+      const itemName = ITEM_ABBR[item.name] || item.name;
+      addText(itemName, margin, y + 4);
 
       drawBarWithPercent(colA, y, youP);
       drawBarWithPercent(colB, y, partnerP);
@@ -288,9 +312,9 @@ async function generateComparisonPDF(breakdown) {
       if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
         symbols.push('⭐');
       }
-      const lowA = ratingA !== null && ratingA <= 1;
-      const lowB = ratingB !== null && ratingB <= 1;
-      if (lowA || lowB) {
+      const zeroA = ratingA === 0 && (ratingB ?? 0) > 0;
+      const zeroB = ratingB === 0 && (ratingA ?? 0) > 0;
+      if (zeroA || zeroB) {
         symbols.push('🚩');
       }
       if (
@@ -300,7 +324,7 @@ async function generateComparisonPDF(breakdown) {
         symbols.push('🟨');
       }
       if (symbols.length) {
-        doc.text(symbols.join(' '), pageWidth - margin - 4, y + 4, { align: 'right' });
+        addText(symbols.join(' '), pageWidth - margin - 4, y + 4, { align: 'right' });
       }
 
       y += 10;
@@ -369,7 +393,17 @@ function updateComparison() {
   lastResult = kinkBreakdown;
   output.innerHTML = '';
 
-  Object.entries(kinkBreakdown).forEach(([cat, list]) => {
+  const sortedCats = Object.entries(kinkBreakdown).map(([cat, list]) => {
+    let max = 0;
+    list.forEach(it => {
+      const youP = toPercent(maxRating(it.you));
+      const partnerP = toPercent(maxRating(it.partner));
+      max = Math.max(max, youP ?? 0, partnerP ?? 0);
+    });
+    return { cat, list, max };
+  }).sort((a,b) => b.max - a.max);
+
+  sortedCats.forEach(({cat, list}) => {
       const details = document.createElement('details');
       details.classList.add('accordion-panel');
       const summary = document.createElement('summary');

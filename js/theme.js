@@ -105,7 +105,8 @@ export function applyPrintStyles() {
       body {
         background: #111 !important;
         color: white !important;
-        font-family: Arial, sans-serif;
+        font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        letter-spacing: 0.3px;
       }
 
       #comparison-chart {
