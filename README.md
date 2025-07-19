@@ -89,8 +89,9 @@ The **Download Data** button on `compatibility.html` relies on the `jsPDF` libra
 loaded from a CDN. When the page is opened directly from your file system
 (`file://`), most browsers block this request and a small stub runs instead. The
 stub no longer triggers a download but shows an alert explaining that PDF
-generation is unavailable. Start a local web server as shown above so the real
-library loads and the PDF downloads correctly.
+generation is unavailable when viewing the files directly. Run a local web server
+and select **Download Data** again so the real library loads and the PDF
+downloads correctly.
 
 ## Automated Tests
 
