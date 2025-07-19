@@ -88,10 +88,9 @@ This will default to <http://localhost:3000>.
 The **Download Data** button on `compatibility.html` relies on the `jsPDF` library
 loaded from a CDN. When the page is opened directly from your file system
 (`file://`), most browsers block this request and a small stub runs instead. The
-stub no longer triggers a download but shows an alert explaining that PDF
-generation is unavailable when viewing the files directly. Run a local web server
-and select **Download Data** again so the real library loads and the PDF
-downloads correctly.
+stub now opens the browser's print dialog so you can choose **Save as PDF** if the
+library fails to load. Run a local web server and select **Download Data** again
+to download the PDF automatically.
 
 ## Automated Tests
 
