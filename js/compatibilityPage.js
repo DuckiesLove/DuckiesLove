@@ -240,7 +240,7 @@ async function generateComparisonPDF(breakdown) {
     doc.setTextColor(r, g, b);
     doc.setFontSize(9);
     addText(`${percent}%`, x + width / 2, yPos + 3.5, { align: 'center' });
-    doc.setTextColor(240, 240, 240);
+    doc.setTextColor(255, 255, 255);
   }
 
   function avgPercent(a, b) {
@@ -248,12 +248,12 @@ async function generateComparisonPDF(breakdown) {
     return av / 2;
   }
 
-  doc.setTextColor(240, 240, 240);
+  doc.setTextColor(255, 255, 255);
   doc.setFillColor(0, 0, 0);
   doc.rect(0, 0, 210, 297, 'F');
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
+  doc.setFont('Inter', 'bold');
+  doc.setFontSize(20);
   addText('Kink Compatibility Comparison', pageWidth / 2, y, { align: 'center' });
   y += 10;
 
@@ -269,14 +269,15 @@ async function generateComparisonPDF(breakdown) {
 
   sortedCats.forEach(({cat, list, max}) => {
     const catName = CATEGORY_ABBR[cat] || cat;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFont('Inter', 'bold');
+    doc.setFontSize(16);
     const [cr, cg, cb] = colorForPercent(max);
     doc.setTextColor(cr, cg, cb);
     addText(catName, margin, y);
-    doc.setTextColor(240, 240, 240);
+    doc.setTextColor(255, 255, 255);
     y += 6;
 
+    doc.setFont('Inter', 'bold');
     doc.setFontSize(10);
     const barWidth = 40;
     const colA = pageWidth / 2 - barWidth - 10;
@@ -299,9 +300,9 @@ async function generateComparisonPDF(breakdown) {
       const youP = toPercent(ratingA);
       const partnerP = toPercent(ratingB);
 
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('Inter', 'normal');
       doc.setFontSize(11);
-      doc.setTextColor(240, 240, 240);
+      doc.setTextColor(255, 255, 255);
       const itemName = ITEM_ABBR[item.name] || item.name;
       addText(itemName, margin, y + 4);
 
@@ -327,11 +328,15 @@ async function generateComparisonPDF(breakdown) {
         addText(symbols.join(' '), pageWidth - margin - 4, y + 4, { align: 'right' });
       }
 
+      doc.setDrawColor(70, 70, 70);
+      doc.line(margin, y + 6, pageWidth - margin, y + 6);
+
       y += 10;
       if (y > 270) {
         doc.addPage();
         doc.setFillColor(0, 0, 0);
         doc.rect(0, 0, 210, 297, 'F');
+        doc.setTextColor(255, 255, 255);
         y = 20;
       }
     });
