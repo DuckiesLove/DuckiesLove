@@ -24,7 +24,7 @@
 
   <script type="module">
     import { calculateRoleScores } from './js/calculateRoleScores.js';
-    import { initTheme } from './js/theme.js';
+    import { initTheme, applyPrintStyles } from './js/theme.js';
     initTheme();
 
     function flattenSurvey(survey) {
@@ -72,6 +72,8 @@
       const target = document.getElementById('comparison-chart');
       if (!target) return;
 
+      applyPrintStyles();
+
       const opt = {
         margin: 0.5,
         filename: 'kink_comparison.pdf',
@@ -79,7 +81,7 @@
         html2canvas: {
           scale: 2,
           useCORS: true,
-          backgroundColor: '#111'
+          backgroundColor: '#000'
         },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
       };
