@@ -105,6 +105,7 @@ export function applyPrintStyles() {
       :root {
         --bg-color: #000000 !important;
         --text-color: #ffffff !important;
+        --panel-color: #000000 !important;
       }
 
       html,

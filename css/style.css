@@ -1583,7 +1583,7 @@ body {
 /* 🎨 PDF OUTPUT STYLING (MATCH BDSMTest.org Aesthetic) */
 .result-container,
 .pdf-container {
-  background-color: var(--panel-color, #fafafa);
+  background-color: var(--panel-color, var(--bg-color, #000));
   color: var(--text-color, #222);
   font-family: 'Inter', sans-serif;
   max-width: 800px;
