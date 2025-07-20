@@ -103,14 +103,14 @@ export function applyPrintStyles() {
   style.innerHTML = `
 @media print {
   :root {
-    --bg-color: #1a1a1a !important;
+    --bg-color: #000000 !important;
     --text-color: #ffffff !important;
-    --panel-color: #1a1a1a !important;
+    --panel-color: #000000 !important;
   }
 
   html,
   body {
-    background: #1a1a1a !important;
+    background: #000000 !important;
     color: #ffffff !important;
     -webkit-print-color-adjust: exact;
     font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
@@ -123,7 +123,7 @@ export function applyPrintStyles() {
         max-width: 900px;
         margin: auto;
         padding: 20px;
-        background-color: var(--bg-color, #1a1a1a) !important;
+        background-color: var(--bg-color, #000000) !important;
         color: var(--text-color, #fff) !important;
         border-radius: 10px;
         font-size: 16px;
