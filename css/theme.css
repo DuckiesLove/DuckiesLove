@@ -1,11 +1,11 @@
 :root {
-  --bg-color: #000000;
+  --bg-color: #1a1a1a;
   --panel-color: #292b3d;
-  --text-color: #f0f0f0;
+  --text-color: #ffffff;
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
-  --progress-fill-color: #4caf50;
+  --progress-fill-color: #00cc66;
 }
 
 .theme-lightforest,
