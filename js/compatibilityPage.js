@@ -230,12 +230,11 @@ async function generateComparisonPDF() {
   const target = document.getElementById('compare-page');
   if (!target) return;
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  const bgColor = getComputedStyle(document.body).backgroundColor;
   const opt = {
     margin: 0.5,
     filename: `compatibility-${ts}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: bgColor },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#000000' },
     jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
   };
   if (window.html2pdf) {
