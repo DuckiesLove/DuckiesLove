@@ -101,27 +101,29 @@ export function applyPrintStyles() {
   const style = document.createElement('style');
   style.id = 'pdf-print-style';
   style.innerHTML = `
-    @media print {
-      :root {
-        --bg-color: #000000 !important;
-        --text-color: #ffffff !important;
-        --panel-color: #000000 !important;
-      }
+@media print {
+  :root {
+    --bg-color: #1a1a1a !important;
+    --text-color: #ffffff !important;
+    --panel-color: #1a1a1a !important;
+  }
 
-      html,
-      body {
-        background: #000000 !important;
-        color: #ffffff !important;
-        -webkit-print-color-adjust: exact;
-        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-        letter-spacing: 0.3px;
-      }
+  html,
+  body {
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    letter-spacing: 0.3px;
+  }
+}
+
 
       #comparison-chart {
         max-width: 900px;
         margin: auto;
         padding: 20px;
-        background-color: var(--bg-color, #000) !important;
+        background-color: var(--bg-color, #1a1a1a) !important;
         color: var(--text-color, #fff) !important;
         border-radius: 10px;
         font-size: 16px;

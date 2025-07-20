@@ -235,7 +235,7 @@ async function generateComparisonPDF() {
     margin: 0.5,
     filename: `compatibility-${ts}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#000000' },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#1a1a1a' },
     jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
   };
   if (window.html2pdf) {
