@@ -35,9 +35,9 @@ function colorClass(percent) {
 }
 
 function barFillColor(percent) {
-  if (percent >= 80) return '#00FF88';
-  if (percent >= 60) return '#FFD700';
-  return '#FF4C4C';
+  if (percent >= 80) return '#00cc66';
+  if (percent >= 60) return '#ffcc00';
+  return '#ff4444';
 }
 
 
@@ -52,6 +52,7 @@ function makeBar(percent) {
   const fill = document.createElement('div');
   fill.className = 'partner-fill ' + colorClass(percent ?? 0);
   fill.style.width = percent === null ? '0%' : percent + '%';
+  fill.style.backgroundColor = barFillColor(percent ?? 0);
   outer.appendChild(fill);
   const text = document.createElement('span');
   text.className = 'partner-text ' + colorClass(percent ?? 0);
@@ -65,19 +66,19 @@ function buildIcons(ratingA, ratingB) {
   const partnerP = toPercent(ratingB);
   const symbols = [];
   if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
-    symbols.push('⭐');
+    symbols.push('<span class="icon-star">⭐</span>');
   }
   if (
     (youP !== null && youP <= 30) ||
     (partnerP !== null && partnerP <= 30)
   ) {
-    symbols.push('🚩');
+    symbols.push('<span class="icon-red-flag">🚩</span>');
   }
   if (
     (ratingA === 5 && ratingB !== null && ratingB < 5) ||
     (ratingB === 5 && ratingA !== null && ratingA < 5)
   ) {
-    symbols.push('🟨');
+    symbols.push('<span class="icon-yellow-flag">🟨</span>');
   }
   return symbols.join(' ');
 }
@@ -345,7 +346,7 @@ function updateComparison() {
       row.appendChild(makeBar(partnerP));
       const icons = document.createElement('div');
       icons.className = 'compare-icons';
-      icons.textContent = buildIcons(ratingA, ratingB);
+      icons.innerHTML = buildIcons(ratingA, ratingB);
       row.appendChild(icons);
       section.appendChild(row);
     });
