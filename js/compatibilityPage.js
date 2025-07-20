@@ -235,7 +235,7 @@ async function generateComparisonPDF() {
     margin: 0.5,
     filename: `compatibility-${ts}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#1a1a1a' },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#000000' },
     jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
   };
   if (window.html2pdf) {
@@ -287,13 +287,16 @@ function loadFileB(file) {
 function updateComparison() {
   const container = document.getElementById('compare-page');
   const msg = document.getElementById('comparisonResult');
+  const dlBtn = document.getElementById('downloadResults');
   if (!surveyA || !surveyB) {
     msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
     container.innerHTML = '';
     lastResult = null;
+    if (dlBtn) dlBtn.style.backgroundColor = '';
     return;
   }
   msg.textContent = '';
+  if (dlBtn) dlBtn.style.backgroundColor = '#000';
   const kinkBreakdown = buildKinkBreakdown(surveyA, surveyB);
   lastResult = kinkBreakdown;
   container.innerHTML = '';
