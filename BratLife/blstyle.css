@@ -36,6 +36,22 @@ section {
   border-radius: 5px;
   border: 1px solid #264d73;
 }
+article {
+  background: #031a33;
+  padding: 1em;
+  margin-bottom: 1em;
+  border-radius: 5px;
+  border: 1px solid #264d73;
+}
+#history-toc ul {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 1em;
+}
+#history-toc li {
+  display: inline-block;
+  margin-right: 10px;
+}
 footer {
   background: #001533;
   text-align: center;
