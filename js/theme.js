@@ -103,18 +103,39 @@ export function applyPrintStyles() {
   style.innerHTML = `
 @media print {
   :root {
-    --bg-color: #000000 !important;
-    --text-color: #ffffff !important;
-    --panel-color: #000000 !important;
+    --bg-color: #ffffff !important;
+    --text-color: #111111 !important;
+    --panel-color: #f2f2f2 !important;
   }
 
-  html,
-  body {
-    background: #000000 !important;
-    color: #ffffff !important;
-    -webkit-print-color-adjust: exact;
+  html, body {
+    background: #ffffff !important;
+    color: #111111 !important;
     font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     letter-spacing: 0.3px;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .category-title {
+    font-weight: bold !important;
+    color: #cc0000 !important;
+  }
+
+  .match-label {
+    color: #008000 !important;
+  }
+
+  .score-flag-high {
+    color: #FFD700 !important;
+  }
+
+  .score-flag-low {
+    color: #FF0000 !important;
+  }
+
+  .score-flag-mismatch {
+    color: #FFCC00 !important;
   }
 }
 
@@ -123,8 +144,8 @@ export function applyPrintStyles() {
         max-width: 900px;
         margin: auto;
         padding: 20px;
-        background-color: var(--bg-color, #000000) !important;
-        color: var(--text-color, #fff) !important;
+        background-color: var(--bg-color, #ffffff) !important;
+        color: var(--text-color, #111111) !important;
         border-radius: 10px;
         font-size: 16px;
       }
@@ -207,14 +228,14 @@ export function applyPrintStyles() {
         width: 60px;
         font-weight: bold;
         text-align: right;
-        color: var(--text-color, #fff) !important;
+        color: var(--text-color, #111111) !important;
       }
       .percentage.green { color: #00FF88 !important; }
       .percentage.yellow { color: #FFD700 !important; }
       .percentage.red { color: #FF4C4C !important; }
       .role {
         flex: 1.5;
-        color: var(--text-color, #fff) !important;
+        color: var(--text-color, #111111) !important;
       }
       .bar-container {
         flex: 2;
@@ -245,23 +266,24 @@ export function applyPrintStyles() {
 
       @media print {
         body, .pdf-export-area {
-          background-color: #111 !important;
-          color: #e0e0e0 !important;
+          background-color: #ffffff !important;
+          color: #111111 !important;
           -webkit-print-color-adjust: exact;
+          print-color-adjust: exact !important;
         }
 
         .discord-button, .dark-button {
-          background-color: #000 !important;
-          color: #fff !important;
-          border: 1px solid #333;
+          background-color: #f2f2f2 !important;
+          color: #111111 !important;
+          border: 1px solid #cccccc;
           padding: 0.5rem 1rem;
           border-radius: 6px;
         }
 
         .category-wrapper {
-          background-color: #1a1a1a !important;
-          color: #f5f5f5 !important;
-          border: 1px solid #333;
+          background-color: #f2f2f2 !important;
+          color: #111111 !important;
+          border: 1px solid #cccccc;
           padding: 1rem;
           border-radius: 6px;
           margin-bottom: 1rem;
