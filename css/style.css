@@ -1853,3 +1853,14 @@ body {
 .icon-red-flag { color: #e60000; }
 .icon-yellow-flag { color: #f1c40f; }
 
+
+.page-break { display: none; }
+
+@media print {
+  .page-break {
+    display: block;
+    height: 0;
+    page-break-before: always;
+    break-before: page;
+  }
+}

@@ -3,6 +3,11 @@ import { initTheme, applyPrintStyles } from './theme.js';
 let surveyA = null;
 let surveyB = null;
 let lastResult = null;
+const PAGE_BREAK_CATEGORIES = new Set([
+  'Communication',
+  'Service',
+  'Impact Play'
+]);
 const RATING_LABELS = {
   0: 'Hard No',
   1: 'Dislike / Haven\u2019t Considered',
@@ -236,7 +241,8 @@ async function generateComparisonPDF() {
     filename: `compatibility-${ts}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true, backgroundColor: '#000000' },
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+    pagebreak: { mode: ['avoid-all', 'css'], before: '.page-break' }
   };
   if (window.html2pdf) {
     window.html2pdf().set(opt).from(target).save();
@@ -355,6 +361,11 @@ function updateComparison() {
     });
 
     container.appendChild(section);
+    if (PAGE_BREAK_CATEGORIES.has(cat)) {
+      const br = document.createElement('div');
+      br.className = 'page-break';
+      container.appendChild(br);
+    }
   });
 }
 

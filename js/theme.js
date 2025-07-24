@@ -238,6 +238,19 @@ export function applyPrintStyles() {
         font-size: 12px;
         color: #ccc !important;
       }
+
+      .page-break {
+        display: none;
+      }
+
+      @media print {
+        .page-break {
+          display: block;
+          height: 0;
+          page-break-before: always;
+          break-before: page;
+        }
+      }
     }
   `;
   document.head.appendChild(style);
