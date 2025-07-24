@@ -96,48 +96,64 @@ export function applyThemeColors(theme) {
   document.body.style.backgroundColor = selected.bgColor;
 }
 
+export const pdfStyles = `
+  @media print {
+    :root {
+      --bg-color: #ffffff !important;
+      --text-color: #000000 !important;
+      --panel-color: #f9f9f9 !important;
+    }
+
+    html, body {
+      background: #ffffff !important;
+      color: #000000 !important;
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      letter-spacing: 0.3px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .category-title {
+      font-size: 16px !important;
+      font-weight: bold !important;
+      color: #b00020 !important; /* deep red */
+      margin-top: 12px;
+    }
+
+    .item-label {
+      font-size: 14px;
+      color: #333333 !important;
+    }
+
+    .match-bar {
+      height: 10px !important;
+      border-radius: 5px;
+      background-color: #e0e0e0 !important;
+    }
+
+    .match-bar-fill {
+      background-color: #00c853 !important; /* bright green */
+    }
+
+    .score-flag-high {
+      color: #ffb300 !important; /* gold */
+    }
+
+    .score-flag-low {
+      color: #d32f2f !important; /* red */
+    }
+
+    .score-flag-mismatch {
+      color: #fbc02d !important; /* yellow */
+    }
+  }
+`;
+
 export function applyPrintStyles() {
   if (document.getElementById('pdf-print-style')) return;
   const style = document.createElement('style');
   style.id = 'pdf-print-style';
-  style.innerHTML = `
-@media print {
-  :root {
-    --bg-color: #ffffff !important;
-    --text-color: #111111 !important;
-    --panel-color: #f2f2f2 !important;
-  }
-
-  html, body {
-    background: #ffffff !important;
-    color: #111111 !important;
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-    letter-spacing: 0.3px;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  .category-title {
-    font-weight: bold !important;
-    color: #cc0000 !important;
-  }
-
-  .match-label {
-    color: #008000 !important;
-  }
-
-  .score-flag-high {
-    color: #FFD700 !important;
-  }
-
-  .score-flag-low {
-    color: #FF0000 !important;
-  }
-
-  .score-flag-mismatch {
-    color: #FFCC00 !important;
-  }
-}
+  style.textContent = pdfStyles + `
 
 
       #comparison-chart {
