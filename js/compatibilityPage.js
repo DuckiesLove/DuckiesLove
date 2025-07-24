@@ -19,6 +19,20 @@ const RATING_LABELS = {
   5: 'Love / Core Interest'
 };
 
+function parseSurveyJSON(text) {
+  const clean = text.replace(/^\uFEFF/, '').trim();
+  try {
+    return JSON.parse(clean);
+  } catch {
+    const first = clean.indexOf('{');
+    const last = clean.lastIndexOf('}');
+    if (first !== -1 && last !== -1 && first < last) {
+      return JSON.parse(clean.slice(first, last + 1));
+    }
+    throw new Error('Invalid JSON');
+  }
+}
+
 function formatRating(val) {
   return val === null || val === undefined
     ? '-'
@@ -263,16 +277,14 @@ function loadFileA(file) {
   const reader = new FileReader();
   reader.onload = ev => {
     try {
-      const text = ev.target.result
-        .replace(/^\uFEFF/, '')
-        .trim();
-      const parsed = JSON.parse(text);
+      const parsed = parseSurveyJSON(ev.target.result);
       surveyA = normalizeSurveyFormat(parsed.survey || parsed);
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
       updateComparison();
-    } catch {
+    } catch (err) {
+      console.warn('Failed to load Survey A:', err);
       alert('Invalid JSON for Survey A.');
     }
   };
@@ -287,16 +299,14 @@ function loadFileB(file) {
   const reader = new FileReader();
   reader.onload = ev => {
     try {
-      const text = ev.target.result
-        .replace(/^\uFEFF/, '')
-        .trim();
-      const parsed = JSON.parse(text);
+      const parsed = parseSurveyJSON(ev.target.result);
       surveyB = normalizeSurveyFormat(parsed.survey || parsed);
       mergeSurveyWithTemplate(surveyB, window.templateSurvey);
       normalizeRatings(surveyB);
       filterGeneralOptions(surveyB);
       updateComparison();
-    } catch {
+    } catch (err) {
+      console.warn('Failed to load Survey B:', err);
       alert('Invalid JSON for Survey B.');
     }
   };
