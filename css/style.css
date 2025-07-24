@@ -1858,8 +1858,8 @@ body {
 
 @media print {
   body {
-    background-color: #1a1a1a !important;
-    color: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #111111 !important;
     font-family: 'Segoe UI', 'Helvetica Neue', sans-serif !important;
     font-size: 11px !important;
     -webkit-print-color-adjust: exact !important;
@@ -1867,37 +1867,37 @@ body {
   }
 
   .category {
-    color: #00ffcc !important;
+    color: #cc0000 !important;
     font-weight: bold !important;
     font-size: 14px !important;
   }
 
   .item-label {
-    color: #ffffff !important;
+    color: #111111 !important;
     font-size: 11px !important;
   }
 
   .score-bar {
-    background-color: #333 !important;
+    background-color: #e0e0e0 !important;
     border-radius: 4px !important;
     overflow: hidden !important;
   }
 
   .bar-fill {
-    background-color: #00cc66 !important;
+    background-color: #008000 !important;
     height: 12px !important;
   }
 
   .bar-fill.zero {
-    background-color: #444 !important;
+    background-color: #cccccc !important;
   }
 
   .star-match {
-    color: #ffcc00 !important;
+    color: #FFD700 !important;
   }
 
   .red-flag {
-    color: #ff6666 !important;
+    color: #FF0000 !important;
   }
 
   .page-break {
@@ -1907,5 +1907,5 @@ body {
 
 #compatibility-report * {
   font-size: 11px !important;
-  color: #ffffff !important;
+  color: #111111 !important;
 }
