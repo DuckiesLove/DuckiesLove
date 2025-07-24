@@ -255,11 +255,11 @@ async function generateComparisonPDF() {
   const opt = {
     margin: [10, 10],
     filename: 'TalkKink_Compatibility.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
+    image: { type: 'jpeg', quality: 1 },
     html2canvas: {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#1a1a1a'
+      backgroundColor: '#121212'
     },
     jsPDF: {
       unit: 'mm',

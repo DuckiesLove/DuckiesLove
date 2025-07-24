@@ -1857,48 +1857,43 @@ body {
 .page-break { display: none; }
 
 @media print {
-  * {
-    -webkit-print-color-adjust: exact !important;
-    color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
   body {
-    background-color: #1a1a1a !important;
+    background-color: #121212 !important;
     color: #ffffff !important;
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
-    font-size: 11px;
+    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif !important;
+    font-size: 11px !important;
     margin: 20px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 
   .category {
-    font-size: 14px;
+    color: #00ffcc !important;
     font-weight: bold;
-    color: #ff4444 !important;
-    margin-top: 12px;
-    page-break-before: auto;
+    font-size: 14px;
+    margin-top: 16px;
   }
 
   .item-label {
-    font-weight: normal;
-    color: #ffffff;
-    text-align: left;
+    color: #ffffff !important;
+    font-size: 11px !important;
   }
 
   .score-bar {
-    background: #2a2a2a !important;
+    background-color: #333 !important;
     border-radius: 4px;
     overflow: hidden;
     position: relative;
   }
 
-  .score-bar .bar-fill {
-    background: #00cc66 !important;
-    height: 12px;
+  .bar-fill {
+    background-color: #00cc66 !important;
+    height: 12px !important;
   }
 
-  .zero-match {
-    background: #555555 !important;
+  .bar-fill.zero {
+    background-color: #444 !important;
   }
 
   .star-match {
@@ -1906,12 +1901,10 @@ body {
   }
 
   .red-flag {
-    color: #ff4444 !important;
+    color: #ff5555 !important;
   }
 
   .page-break {
-    display: block;
-    height: 0;
     page-break-after: always;
   }
 }
