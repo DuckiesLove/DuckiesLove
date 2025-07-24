@@ -117,6 +117,7 @@
           container.appendChild(title);
           const chart = document.createElement('div');
           chart.id = 'comparison-chart';
+          chart.className = 'pdf-export-area';
           scores.forEach(s => {
             chart.appendChild(renderResultRow(s.name, s.percent));
           });

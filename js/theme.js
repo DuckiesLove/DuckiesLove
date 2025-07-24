@@ -244,11 +244,35 @@ export function applyPrintStyles() {
       }
 
       @media print {
+        body, .pdf-export-area {
+          background-color: #111 !important;
+          color: #e0e0e0 !important;
+          -webkit-print-color-adjust: exact;
+        }
+
+        .discord-button, .dark-button {
+          background-color: #000 !important;
+          color: #fff !important;
+          border: 1px solid #333;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+        }
+
+        .category-wrapper {
+          background-color: #1a1a1a !important;
+          color: #f5f5f5 !important;
+          border: 1px solid #333;
+          padding: 1rem;
+          border-radius: 6px;
+          margin-bottom: 1rem;
+        }
+
         .page-break {
           display: block;
           height: 0;
           page-break-before: always;
           break-before: page;
+          page-break-after: always;
         }
       }
     }
