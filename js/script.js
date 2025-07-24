@@ -39,6 +39,20 @@ const HIGH_INTENSITY_CATEGORY = 'High-Intensity Kinks (SSC-Aware)';
 const HIGH_INTENSITY_WARNING =
   'The High-Intensity Kinks category includes intense but SSC-aware kink options that require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.';
 
+function parseSurveyJSON(text) {
+  const clean = text.replace(/^\uFEFF/, '').trim();
+  try {
+    return JSON.parse(clean);
+  } catch {
+    const first = clean.indexOf('{');
+    const last = clean.lastIndexOf('}');
+    if (first !== -1 && last !== -1 && first < last) {
+      return JSON.parse(clean.slice(first, last + 1));
+    }
+    throw new Error('Invalid JSON');
+  }
+}
+
 
 function applyAnimation(el, cls) {
   el.classList.add(cls);
@@ -533,10 +547,7 @@ function loadSurveyAFile(file) {
   const reader = new FileReader();
   reader.onload = ev => {
     try {
-      const text = ev.target.result
-        .replace(/^\uFEFF/, '')
-        .trim();
-      const parsed = JSON.parse(text);
+      const parsed = parseSurveyJSON(ev.target.result);
       surveyA = normalizeSurveyFormat(parsed.survey || parsed);
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       normalizeRatings(surveyA);
@@ -579,15 +590,13 @@ if (fileBInput) {
     const reader = new FileReader();
     reader.onload = ev => {
       try {
-        const text = ev.target.result
-          .replace(/^\uFEFF/, '')
-          .trim();
-        const parsed = JSON.parse(text);
+        const parsed = parseSurveyJSON(ev.target.result);
         surveyB = normalizeSurveyFormat(parsed.survey || parsed);
         mergeSurveyWithTemplate(surveyB, window.templateSurvey);
         normalizeRatings(surveyB);
         filterGeneralOptions(surveyB);
-      } catch {
+      } catch (err) {
+        console.warn('Failed to load Survey B:', err);
         alert('Invalid JSON for Survey B.');
       }
     };
@@ -880,16 +889,14 @@ if (compareBtn) compareBtn.addEventListener('click', () => {
     const reader = new FileReader();
     reader.onload = ev => {
       try {
-        const text = ev.target.result
-          .replace(/^\uFEFF/, '')
-          .trim();
-        const parsed = JSON.parse(text);
+        const parsed = parseSurveyJSON(ev.target.result);
         surveyB = normalizeSurveyFormat(parsed.survey || parsed);
         mergeSurveyWithTemplate(surveyB, window.templateSurvey);
         normalizeRatings(surveyB);
         filterGeneralOptions(surveyB);
         runComparison();
-      } catch {
+      } catch (err) {
+        console.warn('Failed to load Survey B:', err);
         alert('Invalid JSON for Survey B.');
       }
     };
