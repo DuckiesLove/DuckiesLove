@@ -1858,21 +1858,18 @@ body {
 
 @media print {
   body {
-    background-color: #121212 !important;
+    background-color: #1a1a1a !important;
     color: #ffffff !important;
     font-family: 'Segoe UI', 'Helvetica Neue', sans-serif !important;
     font-size: 11px !important;
-    margin: 20px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 
   .category {
     color: #00ffcc !important;
-    font-weight: bold;
-    font-size: 14px;
-    margin-top: 16px;
+    font-weight: bold !important;
+    font-size: 14px !important;
   }
 
   .item-label {
@@ -1882,9 +1879,8 @@ body {
 
   .score-bar {
     background-color: #333 !important;
-    border-radius: 4px;
-    overflow: hidden;
-    position: relative;
+    border-radius: 4px !important;
+    overflow: hidden !important;
   }
 
   .bar-fill {
@@ -1901,11 +1897,11 @@ body {
   }
 
   .red-flag {
-    color: #ff5555 !important;
+    color: #ff6666 !important;
   }
 
   .page-break {
-    page-break-after: always;
+    page-break-after: always !important;
   }
 }
 
