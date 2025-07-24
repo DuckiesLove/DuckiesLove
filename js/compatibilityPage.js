@@ -263,7 +263,10 @@ function loadFileA(file) {
   const reader = new FileReader();
   reader.onload = ev => {
     try {
-      const parsed = JSON.parse(ev.target.result);
+      const text = ev.target.result
+        .replace(/^\uFEFF/, '')
+        .trim();
+      const parsed = JSON.parse(text);
       surveyA = normalizeSurveyFormat(parsed.survey || parsed);
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       normalizeRatings(surveyA);
@@ -284,7 +287,10 @@ function loadFileB(file) {
   const reader = new FileReader();
   reader.onload = ev => {
     try {
-      const parsed = JSON.parse(ev.target.result);
+      const text = ev.target.result
+        .replace(/^\uFEFF/, '')
+        .trim();
+      const parsed = JSON.parse(text);
       surveyB = normalizeSurveyFormat(parsed.survey || parsed);
       mergeSurveyWithTemplate(surveyB, window.templateSurvey);
       normalizeRatings(surveyB);
