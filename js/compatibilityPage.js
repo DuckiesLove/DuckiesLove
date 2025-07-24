@@ -235,61 +235,27 @@ function buildKinkBreakdown(surveyA, surveyB) {
 
 async function generateComparisonPDF() {
   applyPrintStyles();
-  const pdfContainer = document.querySelector('.pdf-export-area');
-  if (!pdfContainer) return;
+  const target = document.querySelector('#compatibility-report');
+  if (!target) return;
 
-  const styledClone = pdfContainer.cloneNode(true);
-  styledClone.style.backgroundColor = '#111';
-  styledClone.style.color = '#eee';
-  styledClone.style.padding = '20px';
-  styledClone.style.fontFamily = "'Segoe UI', sans-serif";
-  styledClone.querySelectorAll('.category-wrapper').forEach(el => {
-    el.style.backgroundColor = '#1a1a1a';
-    el.style.color = '#f5f5f5';
-    el.style.border = '1px solid #333';
-    el.style.padding = '1rem';
-    el.style.borderRadius = '6px';
-  });
-  styledClone.querySelectorAll('.discord-button').forEach(btn => {
-    btn.style.backgroundColor = '#000';
-    btn.style.color = '#fff';
-    btn.style.border = '1px solid #333';
-    btn.style.borderRadius = '6px';
-  });
-  styledClone.style.position = 'fixed';
-  styledClone.style.left = '-9999px';
-  document.body.appendChild(styledClone);
+  const opt = {
+    margin: [10, 10],
+    filename: 'TalkKink_Compatibility.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#1a1a1a'
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait'
+    },
+    pagebreak: { mode: ['css', 'legacy'] }
+  };
 
-  let html2canvasFn = window.html2canvas;
-  if (!html2canvasFn) {
-    try {
-      const { default: h2c } = await import('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-      html2canvasFn = h2c;
-    } catch (err) {
-      console.error('Failed to load html2canvas:', err);
-      document.body.removeChild(styledClone);
-      return;
-    }
-  }
-
-  const canvas = await html2canvasFn(styledClone, { backgroundColor: null, scale: 2 });
-  document.body.removeChild(styledClone);
-  const imgData = canvas.toDataURL('image/png');
-
-  let jsPDF;
-  try {
-    jsPDF = await loadJsPDF();
-  } catch (err) {
-    console.warn('Failed to load jsPDF library:', err);
-    return;
-  }
-
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const imgProps = pdf.getImageProperties(imgData);
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-  pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-  pdf.save('TalkKink_Compatibility.pdf');
+  html2pdf().set(opt).from(target).save();
 }
 
 function loadFileA(file) {
@@ -331,7 +297,7 @@ function loadFileB(file) {
   reader.readAsText(file);
 }
 function updateComparison() {
-  const container = document.getElementById('compare-page');
+  const container = document.getElementById('compatibility-report');
   const msg = document.getElementById('comparisonResult');
   const dlBtn = document.getElementById('downloadResults');
   if (!surveyA || !surveyB) {

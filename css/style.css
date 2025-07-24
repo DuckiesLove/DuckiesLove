@@ -1763,7 +1763,7 @@ body {
   }
 }
 /* Compatibility page refined layout */
-#compare-page {
+#compatibility-report {
   font-family: 'Segoe UI', Arial, sans-serif;
   max-width: 850px;
   margin: 20px auto;
@@ -1857,10 +1857,66 @@ body {
 .page-break { display: none; }
 
 @media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
+    font-size: 11px;
+    margin: 20px !important;
+  }
+
+  .category {
+    font-size: 14px;
+    font-weight: bold;
+    color: #ff4444 !important;
+    margin-top: 12px;
+    page-break-before: auto;
+  }
+
+  .item-label {
+    font-weight: normal;
+    color: #ffffff;
+    text-align: left;
+  }
+
+  .score-bar {
+    background: #2a2a2a !important;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .score-bar .bar-fill {
+    background: #00cc66 !important;
+    height: 12px;
+  }
+
+  .zero-match {
+    background: #555555 !important;
+  }
+
+  .star-match {
+    color: #ffcc00 !important;
+  }
+
+  .red-flag {
+    color: #ff4444 !important;
+  }
+
   .page-break {
     display: block;
     height: 0;
-    page-break-before: always;
-    break-before: page;
+    page-break-after: always;
   }
+}
+
+#compatibility-report * {
+  font-size: 11px !important;
+  color: #ffffff !important;
 }
