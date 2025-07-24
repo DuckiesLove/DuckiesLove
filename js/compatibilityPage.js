@@ -1,3 +1,4 @@
+// Dark mode PDF export styling script using html2canvas and jsPDF
 import { initTheme, applyPrintStyles } from './theme.js';
 import { loadJsPDF } from './loadJsPDF.js';
 
