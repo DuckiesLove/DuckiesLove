@@ -1859,7 +1859,7 @@ body {
 @media print {
   body {
     background-color: #ffffff !important;
-    color: #111111 !important;
+    color: #000000 !important;
     font-family: 'Segoe UI', 'Helvetica Neue', sans-serif !important;
     font-size: 11px !important;
     -webkit-print-color-adjust: exact !important;
@@ -1867,24 +1867,28 @@ body {
   }
 
   .category {
-    color: #cc0000 !important;
+    color: #b00020 !important;
     font-weight: bold !important;
-    font-size: 14px !important;
+    font-size: 16px !important;
+    margin-top: 12px;
   }
 
   .item-label {
-    color: #111111 !important;
-    font-size: 11px !important;
+    color: #333333 !important;
+    font-size: 14px !important;
   }
 
+  .match-bar,
   .score-bar {
     background-color: #e0e0e0 !important;
-    border-radius: 4px !important;
+    border-radius: 5px !important;
     overflow: hidden !important;
+    height: 10px !important;
   }
 
+  .match-bar-fill,
   .bar-fill {
-    background-color: #008000 !important;
+    background-color: #00c853 !important;
     height: 12px !important;
   }
 
@@ -1893,11 +1897,15 @@ body {
   }
 
   .star-match {
-    color: #FFD700 !important;
+    color: #ffb300 !important;
   }
 
   .red-flag {
-    color: #FF0000 !important;
+    color: #d32f2f !important;
+  }
+
+  .score-flag-mismatch {
+    color: #fbc02d !important;
   }
 
   .page-break {
