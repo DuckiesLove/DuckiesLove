@@ -99,13 +99,13 @@ export function applyThemeColors(theme) {
 export const pdfStyles = `
   @media print {
     :root {
-      --bg-color: #ffffff !important;
+      --bg-color: #fdfcfb !important;
       --text-color: #000000 !important;
       --panel-color: #f9f9f9 !important;
     }
 
     html, body {
-      background: #ffffff !important;
+      background: var(--bg-color) !important;
       color: #000000 !important;
       font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
       letter-spacing: 0.3px;
@@ -114,10 +114,10 @@ export const pdfStyles = `
     }
 
     .category-title {
-      font-size: 16px !important;
+      font-size: 18px !important;
       font-weight: bold !important;
       color: #b00020 !important; /* deep red */
-      margin-top: 12px;
+      margin-top: 20px;
     }
 
     .item-label {
@@ -126,9 +126,10 @@ export const pdfStyles = `
     }
 
     .match-bar {
-      height: 10px !important;
-      border-radius: 5px;
+      height: 12px !important;
+      border-radius: 6px;
       background-color: #e0e0e0 !important;
+      box-shadow: inset 0 0 3px rgba(0,0,0,0.15);
     }
 
     .match-bar-fill {
@@ -158,9 +159,9 @@ export function applyPrintStyles() {
 
       #comparison-chart {
         max-width: 900px;
-        margin: auto;
-        padding: 20px;
-        background-color: var(--bg-color, #ffffff) !important;
+        margin: 20px auto;
+        padding: 30px;
+        background-color: var(--bg-color, #fdfcfb) !important;
         color: var(--text-color, #111111) !important;
         border-radius: 10px;
         font-size: 16px;
@@ -174,56 +175,58 @@ export function applyPrintStyles() {
       .category-header {
         font-size: 18px;
         font-weight: bold;
-        margin-top: 20px;
-        padding-top: 10px;
-        border-top: 1px solid #444;
+        margin-top: 24px;
+        padding-top: 8px;
+        color: #b00020 !important;
       }
-      .category-header.green { color: #00FF88 !important; }
-      .category-header.yellow { color: #FFD700 !important; }
-      .category-header.red { color: #FF4C4C !important; }
+      .category-header.green { color: #00c853 !important; }
+      .category-header.yellow { color: #fbc02d !important; }
+      .category-header.red { color: #d32f2f !important; }
 
       .compare-row {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 4px 0;
-        border-bottom: 1px solid #333;
+        padding: 6px 0;
+        border-bottom: 1px solid #ccc;
       }
 
       .compare-label {
         flex: 2;
         padding-right: 8px;
         font-weight: 500;
-        font-size: 16px;
+        font-size: 14px;
+        color: #333 !important;
       }
-      .compare-label.green { color: #00FF88 !important; }
-      .compare-label.yellow { color: #FFD700 !important; }
-      .compare-label.red { color: #FF4C4C !important; }
+      .compare-label.green { color: #00c853 !important; }
+      .compare-label.yellow { color: #fbc02d !important; }
+      .compare-label.red { color: #d32f2f !important; }
 
       .partner-bar {
         flex: 1;
         position: relative;
         height: 12px;
-        background: #222;
+        background: #e0e0e0;
         border-radius: 6px;
         margin: 0 6px;
+        box-shadow: inset 0 0 3px rgba(0,0,0,0.15);
       }
-      .partner-fill.green { background-color: #00FF88; }
-      .partner-fill.yellow { background-color: #FFD700; }
-      .partner-fill.red { background-color: #FF4C4C; }
+      .partner-fill.green { background-color: #00c853; }
+      .partner-fill.yellow { background-color: #fbc02d; }
+      .partner-fill.red { background-color: #d32f2f; }
 
       .partner-text {
         position: absolute;
         top: -2px;
         left: 0;
         width: 100%;
-        font-size: 16px;
+        font-size: 12px;
         text-align: center;
         pointer-events: none;
         color: #ffffff !important;
       }
       .partner-text.green { color: #ffffff !important; }
-      .partner-text.yellow { color: #ffffff !important; }
+      .partner-text.yellow { color: #333333 !important; }
       .partner-text.red { color: #ffffff !important; }
 
       .compare-icons {
@@ -267,9 +270,9 @@ export function applyPrintStyles() {
         left: 0;
         top: 0;
       }
-      .bar-fill.green { background: #00cc66; }
-      .bar-fill.yellow { background: #e6c300; }
-      .bar-fill.red { background: #cc0033; }
+      .bar-fill.green { background: #00c853; }
+      .bar-fill.yellow { background: #fbc02d; }
+      .bar-fill.red { background: #d32f2f; }
       .more-info {
         flex-shrink: 0;
         font-size: 12px;
