@@ -56,9 +56,9 @@ function colorClass(percent) {
 }
 
 function barFillColor(percent) {
-  if (percent >= 80) return '#00cc66';
-  if (percent >= 60) return '#ffcc00';
-  return '#ff4444';
+  if (percent >= 80) return '#00c853';
+  if (percent >= 60) return '#fbc02d';
+  return '#d32f2f';
 }
 
 
