@@ -1911,9 +1911,8 @@ body {
   .page-break {
     page-break-after: always !important;
   }
-}
-
-#compatibility-report * {
-  font-size: 11px !important;
-  color: #111111 !important;
+  #compatibility-report * {
+    font-size: 11px !important;
+    color: #111111 !important;
+  }
 }
