@@ -1,6 +1,6 @@
 export function initTheme() {
   const themeSelector = document.getElementById('themeSelector');
-  const savedTheme = localStorage.getItem('selectedTheme') || 'dark-mode';
+  const savedTheme = localStorage.getItem('selectedTheme') || 'theme-blue';
   document.body.className = savedTheme;
   applyThemeColors(savedTheme);
   if (themeSelector) {
@@ -99,14 +99,14 @@ export function applyThemeColors(theme) {
 export const pdfStyles = `
   @media print {
     :root {
-      --bg-color: #e6f2ff !important;
-      --text-color: #000000 !important;
-      --panel-color: #f9f9f9 !important;
+      --bg-color: #000000 !important;
+      --text-color: #ffffff !important;
+      --panel-color: #292b3d !important;
     }
 
     html, body {
       background: var(--bg-color) !important;
-      color: #000000 !important;
+      color: var(--text-color) !important;
       font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
       font-size: 13px;
       letter-spacing: 0.3px;
@@ -162,8 +162,8 @@ export function applyPrintStyles() {
         max-width: 900px;
         margin: 20px auto;
         padding: 30px;
-        background-color: var(--bg-color, #e6f2ff) !important;
-        color: var(--text-color, #111111) !important;
+        background-color: var(--bg-color, #000000) !important;
+        color: var(--text-color, #ffffff) !important;
         border-radius: 10px;
         font-size: 16px;
       }
@@ -190,7 +190,7 @@ export function applyPrintStyles() {
         gap: 10px;
         padding: 6px 0;
         border-bottom: 1px solid #ccc;
-        background-color: #ffffff !important;
+        background-color: var(--panel-color, #292b3d) !important;
       }
 
       .compare-label {
@@ -249,14 +249,14 @@ export function applyPrintStyles() {
         width: 60px;
         font-weight: bold;
         text-align: right;
-        color: var(--text-color, #111111) !important;
+        color: var(--text-color, #ffffff) !important;
       }
       .percentage.green { color: #00FF88 !important; }
       .percentage.yellow { color: #FFD700 !important; }
       .percentage.red { color: #FF4C4C !important; }
       .role {
         flex: 1.5;
-        color: var(--text-color, #111111) !important;
+        color: var(--text-color, #ffffff) !important;
       }
       .bar-container {
         flex: 2;
@@ -285,7 +285,7 @@ export function applyPrintStyles() {
         margin-bottom: 24px;
         padding: 6px;
         border-bottom: 1px solid #ddd;
-        background-color: #ffffff !important;
+        background-color: var(--panel-color, #292b3d) !important;
       }
 
       .print-footer {
@@ -309,23 +309,23 @@ export function applyPrintStyles() {
 
       @media print {
         body, .pdf-export-area {
-          background-color: #ffffff !important;
-          color: #111111 !important;
+          background-color: var(--bg-color, #000000) !important;
+          color: var(--text-color, #ffffff) !important;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact !important;
         }
 
         .discord-button, .dark-button {
-          background-color: #f2f2f2 !important;
-          color: #111111 !important;
+          background-color: var(--panel-color, #292b3d) !important;
+          color: var(--text-color, #ffffff) !important;
           border: 1px solid #cccccc;
           padding: 0.5rem 1rem;
           border-radius: 6px;
         }
 
         .category-wrapper {
-          background-color: #ffffff !important;
-          color: #111111 !important;
+          background-color: var(--panel-color, #292b3d) !important;
+          color: var(--text-color, #ffffff) !important;
           border: 1px solid #cccccc;
           padding: 1rem;
           border-radius: 6px;
