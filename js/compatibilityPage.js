@@ -414,19 +414,99 @@ if (fileBInput) {
 
 
 
-const downloadBtn = document.getElementById('downloadResults');
-if (downloadBtn) {
-  downloadBtn.addEventListener('click', async () => {
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.style.display = 'none';
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
+}
+
+async function exportPNG() {
+  const element = document.getElementById('print-area');
+  if (!element) return;
+  const canvas = await html2canvas(element, {
+    backgroundColor: '#000000',
+    scale: 2,
+    useCORS: true
+  });
+  const link = document.createElement('a');
+  link.download = 'kink-survey.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function exportHTML() {
+  const element = document.getElementById('print-area');
+  if (!element) return;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Kink Survey Results</title></head><body>${element.innerHTML}</body></html>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  downloadBlob(blob, 'kink-survey.html');
+}
+
+function exportMarkdown() {
+  if (!lastResult) {
     if (!surveyA || !surveyB) {
       alert('Please upload both surveys first.');
       return;
     }
-    if (!lastResult) {
-      lastResult = buildKinkBreakdown(surveyA, surveyB);
-    }
-    await generateComparisonPDF();
-  });
+    lastResult = buildKinkBreakdown(surveyA, surveyB);
+  }
+  const lines = ['# Kink Compatibility Results'];
+  for (const [cat, items] of Object.entries(lastResult)) {
+    lines.push(`\n## ${cat}`);
+    items.forEach(it => {
+      const a = maxRating(it.you);
+      const b = maxRating(it.partner);
+      lines.push(`- **${it.name}** - You: ${formatRating(a)} | Partner: ${formatRating(b)}`);
+    });
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  downloadBlob(blob, 'kink-survey.md');
 }
+
+function exportCSV() {
+  if (!lastResult) {
+    if (!surveyA || !surveyB) {
+      alert('Please upload both surveys first.');
+      return;
+    }
+    lastResult = buildKinkBreakdown(surveyA, surveyB);
+  }
+  const rows = [['Category', 'Item', 'Partner A', 'Partner B']];
+  Object.entries(lastResult).forEach(([cat, list]) => {
+    list.forEach(it => {
+      rows.push([cat, it.name, maxRating(it.you) ?? '', maxRating(it.partner) ?? '']);
+    });
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  downloadBlob(blob, 'kink-survey.csv');
+}
+
+function exportJSON() {
+  if (!lastResult) {
+    if (!surveyA || !surveyB) {
+      alert('Please upload both surveys first.');
+      return;
+    }
+    lastResult = buildKinkBreakdown(surveyA, surveyB);
+  }
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, 'kink-survey.json');
+}
+
+document.getElementById('pngBtn')?.addEventListener('click', exportPNG);
+document.getElementById('htmlBtn')?.addEventListener('click', exportHTML);
+document.getElementById('mdBtn')?.addEventListener('click', exportMarkdown);
+document.getElementById('csvBtn')?.addEventListener('click', exportCSV);
+document.getElementById('jsonBtn')?.addEventListener('click', exportJSON);
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
