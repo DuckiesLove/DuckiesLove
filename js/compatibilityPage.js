@@ -321,7 +321,7 @@ function loadFileB(file) {
 function updateComparison() {
   const container = document.getElementById('compatibility-report');
   const msg = document.getElementById('comparisonResult');
-  const dlBtn = document.getElementById('downloadResults');
+  const dlBtn = document.getElementById('pngBtn');
   if (!surveyA || !surveyB) {
     msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
     container.innerHTML = '';
