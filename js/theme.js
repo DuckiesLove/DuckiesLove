@@ -108,7 +108,7 @@ export const pdfStyles = `
       background: var(--bg-color) !important;
       color: #000000 !important;
       font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-      font-size: 12pt;
+      font-size: 13px;
       letter-spacing: 0.3px;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
@@ -130,7 +130,7 @@ export const pdfStyles = `
       height: 12px !important;
       border-radius: 6px;
       background-color: #e0e0e0 !important;
-      box-shadow: inset 0 0 3px rgba(0,0,0,0.15);
+      box-shadow: none !important;
     }
 
     .match-bar-fill {
@@ -190,6 +190,7 @@ export function applyPrintStyles() {
         gap: 10px;
         padding: 6px 0;
         border-bottom: 1px solid #ccc;
+        background-color: #ffffff !important;
       }
 
       .compare-label {
@@ -210,7 +211,7 @@ export function applyPrintStyles() {
         background: #e0e0e0;
         border-radius: 6px;
         margin: 0 6px;
-        box-shadow: inset 0 0 3px rgba(0,0,0,0.15);
+        box-shadow: none !important;
       }
       .partner-fill.green { background-color: #00c853; }
       .partner-fill.yellow { background-color: #fbc02d; }
@@ -282,8 +283,9 @@ export function applyPrintStyles() {
 
       .category-wrapper {
         margin-bottom: 24px;
-        padding-bottom: 20px;
+        padding: 6px;
         border-bottom: 1px solid #ddd;
+        background-color: #ffffff !important;
       }
 
       .print-footer {
@@ -322,7 +324,7 @@ export function applyPrintStyles() {
         }
 
         .category-wrapper {
-          background-color: #f2f2f2 !important;
+          background-color: #ffffff !important;
           color: #111111 !important;
           border: 1px solid #cccccc;
           padding: 1rem;
