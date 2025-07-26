@@ -252,6 +252,9 @@ async function generateComparisonPDF() {
   const element = document.getElementById("print-area");
   if (!element) return;
 
+  // Force background color for PDF rendering
+  element.style.backgroundColor = "#111"; // or "#000" for pure black
+
   element.classList.add('pdf-export');
   await html2pdf()
     .set({
@@ -272,6 +275,7 @@ async function generateComparisonPDF() {
     .from(element)
     .save();
   element.classList.remove('pdf-export');
+  element.style.backgroundColor = "";
 }
 
 function loadFileA(file) {
