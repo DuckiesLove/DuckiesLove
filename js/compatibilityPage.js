@@ -321,7 +321,7 @@ function loadFileB(file) {
 function updateComparison() {
   const container = document.getElementById('compatibility-report');
   const msg = document.getElementById('comparisonResult');
-  const dlBtn = document.getElementById('downloadResults');
+  const dlBtn = document.getElementById('pngBtn');
   if (!surveyA || !surveyB) {
     msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
     container.innerHTML = '';
@@ -414,19 +414,21 @@ if (fileBInput) {
 
 
 
-const downloadBtn = document.getElementById('downloadResults');
-if (downloadBtn) {
-  downloadBtn.addEventListener('click', async () => {
-    if (!surveyA || !surveyB) {
-      alert('Please upload both surveys first.');
-      return;
-    }
-    if (!lastResult) {
-      lastResult = buildKinkBreakdown(surveyA, surveyB);
-    }
-    await generateComparisonPDF();
+async function exportPNG() {
+  const element = document.getElementById('print-area');
+  if (!element) return;
+  const canvas = await html2canvas(element, {
+    backgroundColor: '#000000',
+    scale: 2,
+    useCORS: true
   });
+  const link = document.createElement('a');
+  link.download = 'kink-survey.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
 }
+
+document.getElementById('pngBtn')?.addEventListener('click', exportPNG);
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
