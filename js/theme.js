@@ -175,7 +175,7 @@ export function applyPrintStyles() {
       .category-header {
         font-size: 18px;
         font-weight: bold;
-        margin-top: 24px;
+        margin: 24px 0 8px;
         padding-top: 8px;
         color: #b00020 !important;
       }
@@ -277,6 +277,27 @@ export function applyPrintStyles() {
         flex-shrink: 0;
         font-size: 12px;
         color: #ccc !important;
+      }
+
+      .category-wrapper {
+        margin-bottom: 24px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .print-footer {
+        position: fixed;
+        bottom: 10px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 12px;
+        color: #666;
+      }
+
+      @media print {
+        body { counter-reset: page; }
+        .print-footer:after { content: counter(page); }
       }
 
       .page-break {

@@ -1794,6 +1794,11 @@ body {
   padding: 4px 0;
   margin: 12px 0 4px;
 }
+.category-wrapper {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #ddd;
+}
 .category-header.green { color: #00cc66; }
 .category-header.yellow { color: #ffcc00; }
 .category-header.red { color: #ff4444; }
@@ -1858,7 +1863,7 @@ body {
 
 @media print {
   body {
-    background-color: #ffffff !important;
+    background-color: #fdfcfb !important;
     color: #000000 !important;
     font-family: 'Segoe UI', 'Helvetica Neue', sans-serif !important;
     font-size: 11px !important;
