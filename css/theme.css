@@ -1,11 +1,11 @@
 :root {
-  --bg-color: #1a1a1a;
-  --panel-color: #292b3d;
-  --text-color: #ffffff;
+  --bg-color: #0f0f0f;
+  --panel-color: #1e1e2f;
+  --text-color: #f0f0f0;
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
-  --progress-fill-color: #00cc66;
+  --progress-fill-color: #00c853;
 }
 
 .theme-lightforest,
@@ -21,13 +21,13 @@
 
 .theme-darkviolet,
 .dark-mode {
-  --bg-color: #000000;
-  --panel-color: #292b3d;
+  --bg-color: #0f0f0f;
+  --panel-color: #1e1e2f;
   --text-color: #f0f0f0;
   --button-bg: #7c5fe9;
   --button-text: #ffffff;
   --button-hover-bg: #9b84ff;
-  --progress-fill-color: #7c5fe9;
+  --progress-fill-color: #00c853;
 }
 
 .theme-blue {

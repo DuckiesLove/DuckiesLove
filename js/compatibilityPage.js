@@ -253,7 +253,15 @@ async function generateComparisonPDF() {
   if (!pdfContainer) return;
 
   pdfContainer.classList.add('pdf-export');
-  await html2pdf().from(pdfContainer).save();
+  await html2pdf()
+    .set({
+      margin: 0,
+      filename: 'survey.pdf',
+      pagebreak: { mode: ['avoid-all'] },
+      html2canvas: { backgroundColor: '#0f0f0f', useCORS: true }
+    })
+    .from(pdfContainer)
+    .save();
   pdfContainer.classList.remove('pdf-export');
 }
 
