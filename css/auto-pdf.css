@@ -1,0 +1,27 @@
+/* === 1. Page Background and Font === */
+body {
+  background-color: #000000; /* Fully black page background */
+  color: #ffffff;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 14px;
+  margin: 0;
+  padding: 0;
+}
+
+/* === 2. Centered Survey Layout with Dark Container === */
+#comparison-container {
+  max-width: 1000px;
+  width: 95%;
+  margin: 2rem auto;
+  padding: 1rem;
+  background-color: #1e1e2f; /* deep navy/purple tone */
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(255,255,255,0.1);
+}
+
+/* === 3. Hide Buttons === */
+button,
+.download-btn,
+.manual-export {
+  display: none !important;
+}
