@@ -563,7 +563,7 @@ function loadSurveyAFile(file) {
         }
       }
     } catch {
-      alert('Invalid JSON for Survey A.');
+        alert('Invalid JSON for Survey A.\nPlease upload the unmodified JSON file exported from this site.');
     }
   };
   reader.readAsText(file);
@@ -597,7 +597,7 @@ if (fileBInput) {
         filterGeneralOptions(surveyB);
       } catch (err) {
         console.warn('Failed to load Survey B:', err);
-        alert('Invalid JSON for Survey B.');
+        alert('Invalid JSON for Survey B.\nPlease upload the unmodified JSON file exported from this site.');
       }
     };
     reader.readAsText(fileInput.files[0]);
@@ -932,7 +932,7 @@ if (compareBtn) compareBtn.addEventListener('click', () => {
         runComparison();
       } catch (err) {
         console.warn('Failed to load Survey B:', err);
-        alert('Invalid JSON for Survey B.');
+        alert('Invalid JSON for Survey B.\nPlease upload the unmodified JSON file exported from this site.');
       }
     };
     reader.readAsText(fileInput.files[0]);
