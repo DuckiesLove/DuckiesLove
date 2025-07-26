@@ -249,23 +249,23 @@ function buildKinkBreakdown(surveyA, surveyB) {
 
 async function generateComparisonPDF() {
   applyPrintStyles();
-  const element = document.getElementById('print-area');
+  const element = document.getElementById("print-area");
   if (!element) return;
 
   element.classList.add('pdf-export');
   await html2pdf()
     .set({
       margin: 0,
-      filename: 'kink-compatibility.pdf',
+      filename: "survey.pdf",
       html2canvas: {
-        backgroundColor: '#000000',
         scale: 2,
+        backgroundColor: "#000000",
         useCORS: true
       },
       jsPDF: {
-        unit: 'in',
-        format: 'letter',
-        orientation: 'portrait'
+        unit: "in",
+        format: "letter",
+        orientation: "portrait"
       },
       pagebreak: { mode: ['avoid-all'] }
     })
