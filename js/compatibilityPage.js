@@ -321,81 +321,64 @@ function loadFileB(file) {
 function updateComparison() {
   const container = document.getElementById('compatibility-report');
   const msg = document.getElementById('comparisonResult');
-  const dlBtn = null;
   if (!surveyA || !surveyB) {
     msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
     container.innerHTML = '';
     lastResult = null;
-    if (dlBtn) {}
     return;
   }
   msg.textContent = '';
-  if (dlBtn) {}
   const kinkBreakdown = buildKinkBreakdown(surveyA, surveyB);
   lastResult = kinkBreakdown;
   container.innerHTML = '';
 
-  const sortedCats = Object.entries(kinkBreakdown)
-    .map(([cat, list]) => {
-      let max = 0;
-      list.forEach(it => {
-        const youP = toPercent(maxRating(it.you));
-        const partnerP = toPercent(maxRating(it.partner));
-        const avgP = avgPercent(youP, partnerP);
-        max = Math.max(max, avgP ?? 0);
-      });
-      return { cat, list, max };
-    })
-    .sort((a, b) => b.max - a.max);
+  const allItems = [];
+  Object.values(kinkBreakdown).forEach(list => {
+    list.forEach(it => allItems.push(it));
+  });
 
-  const labels = document.createElement('div');
-  labels.className = 'col-labels';
-  labels.innerHTML = '<div class="label-col"></div><div class="col-label">Partner A</div><div class="col-label">Partner B</div><div class="label-col"></div>';
-  container.appendChild(labels);
-
-  sortedCats.forEach(({cat, list, max}) => {
-    const section = document.createElement('div');
-    section.className = 'category-wrapper';
-    const header = document.createElement('div');
-    header.className = 'category-header ' + colorClass(max);
-    header.textContent = cat;
-    section.appendChild(header);
-
-    const items = list.filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
-      .sort((a,b) => {
-        const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
-        const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
-        return bP - aP;
-      });
-
-    items.forEach(item => {
-      const ratingA = maxRating(item.you);
-      const ratingB = maxRating(item.partner);
-      const youP = toPercent(ratingA);
-      const partnerP = toPercent(ratingB);
-      const avgP = avgPercent(youP, partnerP);
-      const row = document.createElement('div');
-      row.className = 'compare-row';
-      const label = document.createElement('div');
-      label.className = 'compare-label ' + colorClass(avgP ?? 0);
-      label.textContent = item.name;
-      row.appendChild(label);
-      row.appendChild(makeBar(youP));
-      row.appendChild(makeBar(partnerP));
-      const icons = document.createElement('div');
-      icons.className = 'compare-icons';
-      icons.innerHTML = buildIcons(ratingA, ratingB);
-      row.appendChild(icons);
-      section.appendChild(row);
+  const items = allItems
+    .filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
+    .sort((a, b) => {
+      const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
+      const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
+      return bP - aP;
     });
 
-    container.appendChild(section);
-    if (PAGE_BREAK_CATEGORIES.has(cat)) {
-      const br = document.createElement('div');
-      br.className = 'page-break';
-      container.appendChild(br);
-    }
+  const table = document.createElement('table');
+  table.className = 'results-table';
+  table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Partner B</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+
+  items.forEach(item => {
+    const ratingA = maxRating(item.you);
+    const ratingB = maxRating(item.partner);
+    const youP = toPercent(ratingA);
+    const partnerP = toPercent(ratingB);
+    const row = document.createElement('tr');
+    row.className = 'row';
+
+    const nameTd = document.createElement('td');
+    nameTd.className = 'kink-name';
+    nameTd.textContent = item.name;
+    row.appendChild(nameTd);
+
+    const makeTd = percent => {
+      const td = document.createElement('td');
+      const pct = percent === null ? 0 : percent;
+      const cls = colorClass(percent ?? 0);
+      td.innerHTML = `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
+        `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
+      return td;
+    };
+
+    row.appendChild(makeTd(youP));
+    row.appendChild(makeTd(partnerP));
+    tbody.appendChild(row);
   });
+
+  table.appendChild(tbody);
+  container.appendChild(table);
   setTimeout(() => {
     generateComparisonPDF();
     setTimeout(showFallback, 5000);

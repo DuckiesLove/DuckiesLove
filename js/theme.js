@@ -238,6 +238,47 @@ export function applyPrintStyles() {
         font-size: 14px;
       }
 
+      .results-table {
+        max-width: 700px;
+        margin: 20px auto;
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .results-table th,
+      .results-table td {
+        padding: 8px 12px;
+        text-align: left;
+      }
+      .results-table th {
+        border-bottom: 2px solid #444;
+        font-size: 1rem;
+        color: #ccc;
+      }
+      .results-table .kink-name {
+        color: #ccc;
+        font-weight: bold;
+      }
+      .results-table .row {
+        border-bottom: 1px solid #333;
+      }
+      .results-table .bar-container {
+        width: 100%;
+        background-color: #222;
+        border-radius: 4px;
+        overflow: hidden;
+        height: 12px;
+      }
+      .results-table .bar {
+        height: 12px;
+      }
+      .results-table .green { background-color: #00e676; }
+      .results-table .yellow { background-color: #ffee58; }
+      .results-table .red { background-color: #f44336; }
+      .results-table .percent-label {
+        font-size: 0.85rem;
+        color: #aaa;
+      }
+
       /* legacy role list styles */
       .result-row {
         display: flex;
