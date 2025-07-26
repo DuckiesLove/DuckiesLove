@@ -2114,3 +2114,44 @@ body {
   color: #aaa;
 }
 
+/* Compact result card layout */
+.result-card {
+  background-color: #2e2e2e;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+  color: #f1f1f1;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.result-row.compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  margin: 4px 0;
+}
+
+.result-bar {
+  flex: 1;
+  margin-left: 10px;
+  height: 12px;
+  background-color: #444;
+  border-radius: 4px;
+  position: relative;
+}
+
+.result-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background-color: #00cc66;
+}
+
