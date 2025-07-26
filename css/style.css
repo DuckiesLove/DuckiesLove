@@ -1873,62 +1873,45 @@ body {
 .page-break { display: none; }
 
 @media print {
-  body {
-    background-color: #fdfcfb !important;
+  body, html {
+    background-color: #e6f0fa !important;
+    color: #1a1a1a !important;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    line-height: 1.5;
+    font-size: 12pt !important;
+  }
+
+  .category-header {
+    background-color: #d0e4f5 !important;
     color: #000000 !important;
-    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif !important;
-    font-size: 11px !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+    font-weight: bold;
+    padding: 6px;
+    border-bottom: 1px solid #ccc;
   }
 
-  .category {
-    color: #b00020 !important;
-    font-weight: bold !important;
-    font-size: 16px !important;
-    margin-top: 12px;
+  .kink-row {
+    background-color: #ffffff !important;
+    color: #1a1a1a !important;
+    padding: 4px;
+    border-bottom: 1px solid #dddddd;
   }
 
-  .item-label {
-    color: #333333 !important;
-    font-size: 14px !important;
+  .match-symbols {
+    font-size: 12px;
+    color: #0080ff;
   }
 
-  .match-bar,
-  .score-bar {
-    background-color: #e0e0e0 !important;
-    border-radius: 5px !important;
-    overflow: hidden !important;
-    height: 10px !important;
+  .category-wrapper {
+    border-bottom: 1px solid #4a90e2 !important;
   }
 
-  .match-bar-fill,
-  .bar-fill {
-    background-color: #00c853 !important;
-    height: 12px !important;
+  .icon-star {
+    color: #4a90e2 !important;
   }
 
-  .bar-fill.zero {
-    background-color: #cccccc !important;
-  }
-
-  .star-match {
-    color: #ffb300 !important;
-  }
-
-  .red-flag {
-    color: #d32f2f !important;
-  }
-
-  .score-flag-mismatch {
-    color: #fbc02d !important;
-  }
-
-  .page-break {
-    page-break-after: always !important;
-  }
   #compatibility-report * {
-    font-size: 11px !important;
-    color: #111111 !important;
+    font-size: 12pt !important;
   }
 }
