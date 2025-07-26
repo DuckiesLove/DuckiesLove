@@ -17,7 +17,7 @@
       <input type="file" id="roleFile" hidden />
     </label>
 
-    <div id="rolesOutput" class="pdf-container result-container"></div>
+    <div id="rolesOutput" class="pdf-container print-wrapper result-container"></div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -79,7 +79,7 @@
           margin: 0,
           filename: 'survey.pdf',
           pagebreak: { mode: ['avoid-all'] },
-          html2canvas: { backgroundColor: '#0f0f0f', useCORS: true }
+          html2canvas: { backgroundColor: '#0f0f0f', useCORS: true, scale: 2 }
         })
         .from(pdfContainer)
         .save();

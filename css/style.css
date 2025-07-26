@@ -20,17 +20,26 @@ body {
 .result-card {
   background-color: #1a1a1a !important;
   color: #f0f0f0 !important;
-  border: 1px solid #333 !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
   box-shadow: none !important;
   padding: 16px;
   margin-bottom: 16px;
   border-radius: 8px;
 }
 
+/* Unified styling for each kink category block */
+.kink-category {
+  background-color: #1a1a1a;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 .bar-label,
 .item-label,
 .item-name {
-  color: #a0f2b4 !important;
+  color: #9ef0a7 !important;
 }
 
 .match-bar {
@@ -53,7 +62,7 @@ body {
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
-  --progress-fill-color: #00c853;
+  --progress-fill-color: #00e676;
 }
 .category-panel {
   position: fixed;
@@ -245,9 +254,9 @@ body.dark-mode {
   color: #f0f0f0;
   --panel-color: #1e1e2f;
   --text-color: #f0f0f0;
-  --button-bg: #7c5fe9;
+  --button-bg: #444;
   --button-text: #ffffff;
-  --button-hover-bg: #9b84ff;
+  --button-hover-bg: #666;
 }
 body.light-mode {
   background-color: #939e93;
@@ -1057,7 +1066,7 @@ body.light-mode .static-rating-legend {
   margin-left: auto;
   margin-right: auto;
   font-weight: 700;
-  color: #ff5c5c;
+  color: #ff5e5e;
 }
 
 .section-divider {
@@ -1195,9 +1204,9 @@ body.light-mode .static-rating-legend {
   width: 80%;
   max-width: 300px;
   margin: 20px auto;
-  background-color: #444;
+  background-color: #333;
   border-radius: 4px;
-  border: 1px solid #333;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   height: 26px; /* keep progress bar text from being clipped */
   overflow: hidden;
 }
@@ -1210,7 +1219,7 @@ body.light-mode .static-rating-legend {
 .progress-bar {
   width: 100%;
   height: 100%;
-  background-color: #444;
+  background-color: #333;
   border-radius: 4px;
   padding: 4px 10px;
   font-size: 1rem;
@@ -1225,7 +1234,7 @@ body.light-mode .static-rating-legend {
 .progress-fill {
   height: 100%;
   width: 0;
-  background-color: var(--progress-fill-color, #00c853);
+  background-color: #00e676;
   transition: width 0.4s ease;
   border-radius: 4px 0 0 4px;
 }
@@ -1233,7 +1242,7 @@ body.light-mode .static-rating-legend {
 /* Match progress bar background to theme */
 body.dark-mode .progress-container,
 body.dark-mode .progress-bar {
-  background-color: #444;
+  background-color: #333;
 }
 body.light-mode .progress-container,
 body.light-mode .progress-bar {
@@ -1641,6 +1650,12 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+/* Wrapper used for PDF export */
+.print-wrapper {
+  background-color: #0f0f0f;
+  padding: 20px;
+}
+
 .result-section-title {
   font-size: 20px;
   font-weight: 600;
@@ -1950,7 +1965,7 @@ body {
   }
 
   .pdf-container .bar-label {
-    color: #a0f2b4 !important;
+    color: #9ef0a7 !important;
   }
 
   .pdf-container .match-bar {

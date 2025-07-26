@@ -5,7 +5,7 @@
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
-  --progress-fill-color: #00c853;
+  --progress-fill-color: #00e676;
 }
 
 .theme-lightforest,
@@ -24,10 +24,10 @@
   --bg-color: #0f0f0f;
   --panel-color: #1e1e2f;
   --text-color: #f0f0f0;
-  --button-bg: #7c5fe9;
+  --button-bg: #444;
   --button-text: #ffffff;
-  --button-hover-bg: #9b84ff;
-  --progress-fill-color: #00c853;
+  --button-hover-bg: #666;
+  --progress-fill-color: #00e676;
 }
 
 .theme-blue {
