@@ -427,6 +427,7 @@ function downloadBlob(blob, filename) {
     URL.revokeObjectURL(url);
   }, 0);
 }
+
 async function exportPNG() {
   const element = document.getElementById('print-area');
   if (!element) return;
