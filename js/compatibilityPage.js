@@ -249,20 +249,29 @@ function buildKinkBreakdown(surveyA, surveyB) {
 
 async function generateComparisonPDF() {
   applyPrintStyles();
-  const pdfContainer = document.querySelector('.pdf-container');
-  if (!pdfContainer) return;
+  const element = document.getElementById('print-area');
+  if (!element) return;
 
-  pdfContainer.classList.add('pdf-export');
+  element.classList.add('pdf-export');
   await html2pdf()
     .set({
       margin: 0,
-      filename: 'survey.pdf',
-      pagebreak: { mode: ['avoid-all'] },
-      html2canvas: { backgroundColor: '#0f0f0f', useCORS: true, scale: 2 }
+      filename: 'kink-compatibility.pdf',
+      html2canvas: {
+        backgroundColor: '#000000',
+        scale: 2,
+        useCORS: true
+      },
+      jsPDF: {
+        unit: 'in',
+        format: 'letter',
+        orientation: 'portrait'
+      },
+      pagebreak: { mode: ['avoid-all'] }
     })
-    .from(pdfContainer)
+    .from(element)
     .save();
-  pdfContainer.classList.remove('pdf-export');
+  element.classList.remove('pdf-export');
 }
 
 function loadFileA(file) {

@@ -1972,3 +1972,42 @@ body {
     background-color: #444 !important;
   }
 }
+html, body {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.card, .kink-category, .print-wrapper {
+  background-color: #0a0a0a !important;
+  border: 1px solid #333 !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+
+h1, h2, h3, h4, h5 {
+  color: #00ffb7 !important;
+}
+
+.section-header {
+  color: #ff5555 !important;
+}
+
+.item-label, .partner-label, p, span, li {
+  color: #ffffff !important;
+}
+
+.progress-bar-container {
+  background-color: #222 !important;
+}
+
+.progress-bar-fill {
+  background-color: #00e676 !important;
+}
+
+[class*="dark"], [class*="theme"], .theme-dark {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
