@@ -225,6 +225,7 @@ const themeSelector = document.getElementById('themeSelector');
 const categoryDescription = document.getElementById('categoryDescription');
 const newSurveyBtn = document.getElementById('newSurveyBtn');
 const downloadBtn = document.getElementById('downloadBtn');
+const downloadPdfBtn = document.getElementById('downloadPdfBtn');
 const progressBanner = document.getElementById('progressBanner');
 const progressLabel = document.getElementById('progressLabel');
 const progressFill = document.getElementById('progressFill');
@@ -852,6 +853,37 @@ function exportSurvey() {
 }
 
 if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);
+
+function downloadPDF() {
+  const element = document.getElementById('surveyContainer');
+  if (!element) return;
+  const opt = {
+    margin: 0,
+    filename: 'survey.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 4,
+      backgroundColor: null,
+      useCORS: true,
+      logging: true,
+      scrollY: 0,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+    },
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+  };
+  element.style.backgroundColor = '#0a0a0a';
+  element.style.color = '#f0f0f0';
+  element.querySelectorAll('*').forEach(el => {
+    const computed = getComputedStyle(el);
+    el.style.backgroundColor = computed.backgroundColor;
+    el.style.color = computed.color;
+    el.style.fontFamily = computed.fontFamily;
+  });
+  html2pdf().set(opt).from(element).save();
+}
+
+if (downloadPdfBtn) downloadPdfBtn.addEventListener('click', downloadPDF);
 
 // ================== See Our Compatibility ==================
 const compareBtn = document.getElementById('compareBtn');
