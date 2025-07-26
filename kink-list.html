@@ -13,11 +13,7 @@
     <h2>Your Kink List</h2>
     <p>Upload your exported survey to view an organised list of your kinks.</p>
     <div class="button-container">
-      <button id="uploadButton" class="survey-button">Generate Kink Data</button>
-      <div id="pdfFallback" style="display:none;margin-top:10px;">
-        Having trouble downloading? <button id="downloadPdfFallbackBtn" class="survey-button">Click here to download your PDF</button>
-      </div>
-    </div>
+      <button id="uploadButton" class="survey-button">Generate Kink Data</button>    </div>
   </div>
   <input type="file" id="listFile" hidden />
 
@@ -105,18 +101,7 @@
       if (!currentSurvey) return;
       const results = flattenSurvey(currentSurvey);
       const categories = calculateCategoryScores(currentSurvey);
-      generateKinkPDF(results, categories);
-      setTimeout(showFallback, 5000);
-    }
-
-    function showFallback() {
-      const fb = document.getElementById('pdfFallback');
-      const btn = document.getElementById('downloadPdfFallbackBtn');
-      if (!fb || !btn) return;
-      fb.style.display = 'block';
-      btn.addEventListener('click', triggerAutoPDF);
-    }
-
+      generateKinkPDF(results, categories);    }
     function showList(survey) {
       const container = document.getElementById('listOutput');
       container.innerHTML = '';
@@ -260,7 +245,7 @@
         }
       });
 
-      doc.save('kink-results.pdf');
+      doc.save('kink-compatibility-results.pdf');
     }
   </script>
 </body>
