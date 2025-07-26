@@ -3046,5 +3046,26 @@ window.templateSurvey =
       { "name": "High-intensity primal scenes involving struggle or fear", "rating": null }
     ],
     "General": []
+  },
+  "Behavioral Play": {
+    "Giving": [
+      { "name": "Assigning corner time or time-outs", "rating": null },
+      { "name": "Writing lines or apology letters as correction", "rating": null },
+      { "name": "Removing privileges (phone, TV, sweets)", "rating": null },
+      { "name": "Playful punishments that still reinforce rules", "rating": null },
+      { "name": "Lecturing or scolding to modify behavior", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Being placed in the corner or given a time-out", "rating": null },
+      { "name": "Writing lines or apology letters when misbehaving", "rating": null },
+      { "name": "Having privileges revoked (phone, TV)", "rating": null },
+      { "name": "Receiving playful 'funishments' for minor rule-breaking", "rating": null },
+      { "name": "Getting scolded or lectured for correction", "rating": null }
+    ],
+    "General": [
+      { "name": "Preferred style of discipline (strict vs lenient)", "rating": null },
+      { "name": "Attitude toward funishment vs serious correction", "rating": null },
+      { "name": "Use of behavior contracts or rule agreements", "rating": null }
+    ]
   }
 };
