@@ -2035,3 +2035,40 @@ hr {
   color: #fff !important;
 }
 
+body {
+  background-color: #000;
+  color: #eee;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+#print-area {
+  background-color: #111 !important;
+  color: #f5f5f5;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.category-title {
+  color: #00ff88;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.category-empty {
+  color: #ff4444;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.score-bar {
+  background-color: #00c853;
+  color: #000;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-weight: bold;
+}
+
+.pdf-page {
+  margin-bottom: 2rem;
+}
+
