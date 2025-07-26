@@ -25,12 +25,8 @@
           <input type="file" id="fileB" hidden />
         </label>
       </div>
-      <div class="button-container export-buttons">
-        <button id="pngBtn" class="compatibility-button">Download as PNG</button>
-        <button id="htmlBtn" class="compatibility-button">Export as HTML</button>
-        <button id="mdBtn" class="compatibility-button">Export Markdown</button>
-        <button id="csvBtn" class="compatibility-button">Export CSV</button>
-        <button id="jsonBtn" class="compatibility-button">Save JSON Backup</button>
+      <div id="pdfFallback" class="compatibility-button-container" style="display:none;margin-top:10px;">
+        Having trouble downloading? <button id="downloadPdfFallbackBtn" class="compatibility-button">Click here to download your PDF</button>
       </div>
     </div>
     <div id="comparisonResult"></div>

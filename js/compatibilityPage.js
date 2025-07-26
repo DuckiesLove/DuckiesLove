@@ -321,16 +321,16 @@ function loadFileB(file) {
 function updateComparison() {
   const container = document.getElementById('compatibility-report');
   const msg = document.getElementById('comparisonResult');
-  const dlBtn = document.getElementById('pngBtn');
+  const dlBtn = null;
   if (!surveyA || !surveyB) {
     msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
     container.innerHTML = '';
     lastResult = null;
-    if (dlBtn) dlBtn.style.backgroundColor = '';
+    if (dlBtn) {}
     return;
   }
   msg.textContent = '';
-  if (dlBtn) dlBtn.style.backgroundColor = '#000';
+  if (dlBtn) {}
   const kinkBreakdown = buildKinkBreakdown(surveyA, surveyB);
   lastResult = kinkBreakdown;
   container.innerHTML = '';
@@ -396,6 +396,10 @@ function updateComparison() {
       container.appendChild(br);
     }
   });
+  setTimeout(() => {
+    generateComparisonPDF();
+    setTimeout(showFallback, 5000);
+  }, 0);
 }
 
 const fileAInput = document.getElementById('fileA');
@@ -502,11 +506,14 @@ function exportJSON() {
   downloadBlob(blob, 'kink-survey.json');
 }
 
-document.getElementById('pngBtn')?.addEventListener('click', exportPNG);
-document.getElementById('htmlBtn')?.addEventListener('click', exportHTML);
-document.getElementById('mdBtn')?.addEventListener('click', exportMarkdown);
-document.getElementById('csvBtn')?.addEventListener('click', exportCSV);
-document.getElementById('jsonBtn')?.addEventListener('click', exportJSON);
+function showFallback() {
+  const fb = document.getElementById('pdfFallback');
+  const btn = document.getElementById('downloadPdfFallbackBtn');
+  if (!fb || !btn) return;
+  fb.style.display = 'block';
+  btn.addEventListener('click', generateComparisonPDF);
+}
+
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
