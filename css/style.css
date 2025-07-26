@@ -14,11 +14,34 @@ body {
   font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 
-.card {
-  background-color: #1a1a1a;
-  color: #ffffff;
-  border-radius: 8px;
+.card,
+.category-box,
+.survey-section,
+.result-card {
+  background-color: rgba(30, 40, 60, 0.9) !important;
+  color: #ffffff !important;
+  border: none !important;
   padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+}
+
+.bar-label,
+.item-label,
+.item-name {
+  color: #e0e0e0 !important;
+}
+
+.match-bar {
+  background-color: #00cc88 !important;
+}
+
+.header,
+.top-bar,
+.partner-labels {
+  background-color: #0a0a0a !important;
+  color: #ffffff !important;
+  border: none;
 }
 
 /* Default theme variables */
@@ -1890,7 +1913,7 @@ body {
 @media print {
   body,
   html {
-    background-color: #000000 !important;
+    background-color: #0a0a0a !important;
     color: #ffffff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -1901,6 +1924,22 @@ body {
     color: #ffffff !important;
     padding: 20px;
     font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .card,
+  .category-box,
+  .result-card {
+    background-color: rgba(30, 40, 60, 0.9) !important;
+    color: #ffffff !important;
+    border: none !important;
+  }
+
+  .match-bar {
+    background-color: #00cc88 !important;
+  }
+
+  .item-label {
+    color: #ffffff !important;
   }
 
   .pdf-container h2,
