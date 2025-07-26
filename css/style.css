@@ -7,6 +7,20 @@ body {
   color: var(--text-color);
 }
 
+html,
+body {
+  background-color: #000000;
+  color: #ffffff;
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+
+.card {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
 /* Default theme variables */
 :root {
   --bg-color: #1a1a1a;
@@ -1874,59 +1888,32 @@ body {
 .page-break { display: none; }
 
 @media print {
-  body, html {
-    background-color: #e6f2ff !important;
-    color: #000 !important;
-    font-family: 'Segoe UI', Arial, 'Helvetica Neue', sans-serif;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    line-height: 1.5;
-    font-size: 13px !important;
-  }
-
-  .category-header {
-    background-color: #d0e4f5 !important;
-    color: #000000 !important;
-    font-weight: bold;
-    padding: 6px;
-    border-bottom: 1px solid #ccc;
-  }
-
-  .kink-row {
-    background-color: #ffffff !important;
-    color: #1a1a1a !important;
-    padding: 4px;
-    border-bottom: 1px solid #dddddd;
-  }
-
-  .compare-row {
-    background-color: #ffffff !important;
-  }
-
-  .match-symbols {
-    font-size: 12px;
-    color: #0080ff;
-  }
-
-  .category-wrapper {
-    background-color: #ffffff !important;
-    border-bottom: 1px solid #4a90e2 !important;
-    padding: 6px;
-    margin-bottom: 1.5em;
-  }
-
-  .icon-star {
-    color: #4a90e2 !important;
-  }
-
-  #compatibility-report * {
-    font-size: 13px !important;
+  body,
+  html {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .pdf-container {
-    background: #e6f2ff !important;
-    color: #000 !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    padding: 20px;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .pdf-container h2,
+  .pdf-container h3,
+  .pdf-container .category-title {
+    color: #00c8ff !important;
+  }
+
+  .pdf-container .bar-label {
+    color: #ffffff !important;
+  }
+
+  .pdf-container .match-bar {
+    background-color: #00ff7f !important;
   }
 }

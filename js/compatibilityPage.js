@@ -249,27 +249,12 @@ function buildKinkBreakdown(surveyA, surveyB) {
 
 async function generateComparisonPDF() {
   applyPrintStyles();
-  const target = document.querySelector('#compatibility-report');
-  if (!target) return;
+  const pdfContainer = document.querySelector('.pdf-container');
+  if (!pdfContainer) return;
 
-  const opt = {
-    margin: 0.5,
-    filename: 'kink-compatibility.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#e6f2ff'
-    },
-    jsPDF: {
-      unit: 'in',
-      format: 'letter',
-      orientation: 'portrait'
-    },
-    pagebreak: { mode: ['css', 'legacy'] }
-  };
-
-  html2pdf().set(opt).from(target).save();
+  pdfContainer.classList.add('pdf-export');
+  await html2pdf().from(pdfContainer).save();
+  pdfContainer.classList.remove('pdf-export');
 }
 
 function loadFileA(file) {
