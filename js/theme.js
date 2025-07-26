@@ -1,6 +1,7 @@
 export function initTheme() {
   const themeSelector = document.getElementById('themeSelector');
-  const savedTheme = localStorage.getItem('selectedTheme') || 'theme-blue';
+  const savedTheme =
+    localStorage.getItem('selectedTheme') || document.body.className || 'dark-mode';
   document.body.className = savedTheme;
   applyThemeColors(savedTheme);
   if (themeSelector) {
