@@ -258,7 +258,7 @@ async function generateComparisonPDF() {
       margin: 0,
       filename: 'survey.pdf',
       pagebreak: { mode: ['avoid-all'] },
-      html2canvas: { backgroundColor: '#0f0f0f', useCORS: true }
+      html2canvas: { backgroundColor: '#0f0f0f', useCORS: true, scale: 2 }
     })
     .from(pdfContainer)
     .save();
