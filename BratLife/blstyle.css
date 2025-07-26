@@ -89,6 +89,11 @@ footer {
   animation: fadeSlide 0.3s ease;
 }
 
+/* Add space between bullet points within expandable panels */
+.expandable-panel li {
+  margin-bottom: 8px;
+}
+
 @keyframes fadeSlide {
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
