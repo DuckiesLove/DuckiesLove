@@ -259,7 +259,7 @@ async function generateComparisonPDF() {
     html2canvas: {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#1a1a1a'
+      backgroundColor: '#fdfcfb'
     },
     jsPDF: {
       unit: 'mm',
@@ -349,6 +349,7 @@ function updateComparison() {
 
   sortedCats.forEach(({cat, list, max}) => {
     const section = document.createElement('div');
+    section.className = 'category-wrapper';
     const header = document.createElement('div');
     header.className = 'category-header ' + colorClass(max);
     header.textContent = cat;
