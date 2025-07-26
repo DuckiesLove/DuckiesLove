@@ -259,7 +259,7 @@ async function generateComparisonPDF() {
     html2canvas: {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#e6f0fa'
+      backgroundColor: '#e6f2ff'
     },
     jsPDF: {
       unit: 'in',

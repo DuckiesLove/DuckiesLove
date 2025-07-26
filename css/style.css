@@ -1594,14 +1594,15 @@ body {
 /* 🎨 PDF OUTPUT STYLING (MATCH BDSMTest.org Aesthetic) */
 .result-container,
 .pdf-container {
+  position: relative;
   background-color: var(--panel-color, var(--bg-color, #000));
   color: var(--text-color, #222);
-  font-family: 'Inter', sans-serif;
-  max-width: 800px;
+  font-family: 'Segoe UI', Arial, 'Helvetica Neue', sans-serif;
+  max-width: 900px;
   margin: 40px auto;
   padding: 30px;
   border-radius: 10px;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .result-section-title {
@@ -1874,9 +1875,9 @@ body {
 
 @media print {
   body, html {
-    background-color: #e6f0fa !important;
-    color: #1a1a1a !important;
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    background-color: #e6f2ff !important;
+    color: #000 !important;
+    font-family: 'Segoe UI', Arial, 'Helvetica Neue', sans-serif;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     line-height: 1.5;
@@ -1911,7 +1912,7 @@ body {
     background-color: #ffffff !important;
     border-bottom: 1px solid #4a90e2 !important;
     padding: 6px;
-    margin-bottom: 12px;
+    margin-bottom: 1.5em;
   }
 
   .icon-star {
@@ -1920,5 +1921,12 @@ body {
 
   #compatibility-report * {
     font-size: 13px !important;
+  }
+
+  .pdf-container {
+    background: #e6f2ff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

@@ -99,7 +99,7 @@ export function applyThemeColors(theme) {
 export const pdfStyles = `
   @media print {
     :root {
-      --bg-color: #e6f0fa !important;
+      --bg-color: #e6f2ff !important;
       --text-color: #000000 !important;
       --panel-color: #f9f9f9 !important;
     }
@@ -162,7 +162,7 @@ export function applyPrintStyles() {
         max-width: 900px;
         margin: 20px auto;
         padding: 30px;
-        background-color: var(--bg-color, #e6f0fa) !important;
+        background-color: var(--bg-color, #e6f2ff) !important;
         color: var(--text-color, #111111) !important;
         border-radius: 10px;
         font-size: 16px;
