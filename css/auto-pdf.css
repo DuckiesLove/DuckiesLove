@@ -20,8 +20,18 @@ body {
 }
 
 /* === 3. Hide Buttons === */
-button,
-.download-btn,
-.manual-export {
+button:not(.manual-export),
+.download-btn {
   display: none !important;
+}
+
+.manual-export {
+  display: block;
+  margin: 1rem auto;
+  padding: 0.5rem 1rem;
+  background-color: #333;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
