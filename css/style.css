@@ -1880,7 +1880,7 @@ body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     line-height: 1.5;
-    font-size: 12pt !important;
+    font-size: 13px !important;
   }
 
   .category-header {
@@ -1898,13 +1898,20 @@ body {
     border-bottom: 1px solid #dddddd;
   }
 
+  .compare-row {
+    background-color: #ffffff !important;
+  }
+
   .match-symbols {
     font-size: 12px;
     color: #0080ff;
   }
 
   .category-wrapper {
+    background-color: #ffffff !important;
     border-bottom: 1px solid #4a90e2 !important;
+    padding: 6px;
+    margin-bottom: 12px;
   }
 
   .icon-star {
@@ -1912,6 +1919,6 @@ body {
   }
 
   #compatibility-report * {
-    font-size: 12pt !important;
+    font-size: 13px !important;
   }
 }
