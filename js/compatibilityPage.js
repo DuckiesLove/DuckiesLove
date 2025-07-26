@@ -259,17 +259,14 @@ async function generateComparisonPDF() {
   await html2pdf()
     .set({
       margin: 0,
-      filename: "survey.pdf",
+      filename: 'kink-compatibility-results.pdf',
+      image: { type: 'jpeg', quality: 1 },
       html2canvas: {
         scale: 2,
-        backgroundColor: "#000000",
+        backgroundColor: '#111',
         useCORS: true
       },
-      jsPDF: {
-        unit: "in",
-        format: "letter",
-        orientation: "portrait"
-      },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all'] }
     })
     .from(element)
@@ -380,9 +377,7 @@ function updateComparison() {
   table.appendChild(tbody);
   container.appendChild(table);
   setTimeout(() => {
-    generateComparisonPDF();
-    setTimeout(showFallback, 5000);
-  }, 0);
+    generateComparisonPDF();  }, 0);
 }
 
 const fileAInput = document.getElementById('fileA');
@@ -488,15 +483,6 @@ function exportJSON() {
   const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
   downloadBlob(blob, 'kink-survey.json');
 }
-
-function showFallback() {
-  const fb = document.getElementById('pdfFallback');
-  const btn = document.getElementById('downloadPdfFallbackBtn');
-  if (!fb || !btn) return;
-  fb.style.display = 'block';
-  btn.addEventListener('click', generateComparisonPDF);
-}
-
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
