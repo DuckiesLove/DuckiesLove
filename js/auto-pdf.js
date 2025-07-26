@@ -67,6 +67,12 @@ style.innerHTML = `
 `;
 document.head.appendChild(style);
 
-// EXECUTE EXPORT
-html2pdf().set(opt).from(element).save();
+function downloadPDF() {
+  html2pdf().set(opt).from(element).save();
+}
+
+window.downloadPDF = downloadPDF;
+
+// EXECUTE EXPORT AUTOMATICALLY
+downloadPDF();
 
