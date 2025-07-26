@@ -99,7 +99,7 @@ export function applyThemeColors(theme) {
 export const pdfStyles = `
   @media print {
     :root {
-      --bg-color: #fdfcfb !important;
+      --bg-color: #e6f0fa !important;
       --text-color: #000000 !important;
       --panel-color: #f9f9f9 !important;
     }
@@ -108,6 +108,7 @@ export const pdfStyles = `
       background: var(--bg-color) !important;
       color: #000000 !important;
       font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 12pt;
       letter-spacing: 0.3px;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
@@ -161,7 +162,7 @@ export function applyPrintStyles() {
         max-width: 900px;
         margin: 20px auto;
         padding: 30px;
-        background-color: var(--bg-color, #fdfcfb) !important;
+        background-color: var(--bg-color, #e6f0fa) !important;
         color: var(--text-color, #111111) !important;
         border-radius: 10px;
         font-size: 16px;

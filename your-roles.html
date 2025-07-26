@@ -76,14 +76,18 @@
 
       const opt = {
         margin: 0.5,
-        filename: 'kink_comparison.pdf',
+        filename: 'kink-compatibility.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#000000'
-          },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#e6f0fa'
+        },
+        jsPDF: {
+          unit: 'in',
+          format: 'letter',
+          orientation: 'portrait'
+        }
       };
 
       html2pdf().set(opt).from(target).save();

@@ -253,17 +253,17 @@ async function generateComparisonPDF() {
   if (!target) return;
 
   const opt = {
-    margin: [10, 10],
-    filename: 'TalkKink_Compatibility.pdf',
-    image: { type: 'jpeg', quality: 1 },
+    margin: 0.5,
+    filename: 'kink-compatibility.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
     html2canvas: {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#fdfcfb'
+      backgroundColor: '#e6f0fa'
     },
     jsPDF: {
-      unit: 'mm',
-      format: 'a4',
+      unit: 'in',
+      format: 'letter',
       orientation: 'portrait'
     },
     pagebreak: { mode: ['css', 'legacy'] }
