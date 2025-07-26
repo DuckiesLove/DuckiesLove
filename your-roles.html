@@ -69,28 +69,13 @@
     }
 
     function exportPDFFromVisibleStyledContent() {
-      const target = document.getElementById('comparison-chart');
-      if (!target) return;
-
       applyPrintStyles();
+      const pdfContainer = document.querySelector('.pdf-container');
+      if (!pdfContainer) return;
 
-      const opt = {
-        margin: 0.5,
-        filename: 'kink-compatibility.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#e6f0fa'
-        },
-        jsPDF: {
-          unit: 'in',
-          format: 'letter',
-          orientation: 'portrait'
-        }
-      };
-
-      html2pdf().set(opt).from(target).save();
+      pdfContainer.classList.add('pdf-export');
+      html2pdf().from(pdfContainer).save();
+      pdfContainer.classList.remove('pdf-export');
     }
 
     document.getElementById('roleFile').addEventListener('change', e => {
