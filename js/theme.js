@@ -35,10 +35,10 @@ export function applyThemeColors(theme) {
     },
     'theme-blue': {
       fontColor: '#ffffff',
-      bgColor: '#1a273f',
-      inputBg: '#3a4b6b',
+      bgColor: '#000000',
+      inputBg: '#000000',
       inputText: '#ffffff',
-      borderColor: '#4c5d7a'
+      borderColor: '#444444'
     },
     'theme-blue-sky': {
       fontColor: '#002244',

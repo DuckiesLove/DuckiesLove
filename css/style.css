@@ -268,9 +268,9 @@ body.light-mode {
   --button-hover-bg: #446d60;
 }
 body.theme-blue {
-  background-color: #001428;
+  background-color: #000000;
   color: #fff;
-  --panel-color: #002244;
+  --panel-color: #000000;
   --text-color: #fff;
   --button-bg: #0055aa;
   --button-text: #ffffff;
@@ -313,7 +313,7 @@ body.light-mode .category-panel {
   border-right-color: #9fb49f;
 }
 body.theme-blue .category-panel {
-  background-color: #002244;
+  background-color: #000000;
   color: #fff;
   border-right-color: #003366;
 }
@@ -408,7 +408,7 @@ body.dark-mode .tab.active {
   border: 1px solid #0099cc;
 }
 body.theme-blue .tab {
-  background-color: #003366;
+  background-color: #000000;
   color: #fff;
 }
 body.theme-blue .tab.active {
@@ -525,7 +525,7 @@ body.dark-mode #categoryContainer button.active {
   border: 1px solid #0099cc;
 }
 body.theme-blue #categoryContainer button.active {
-  background-color: #0055aa;
+  background-color: #000000;
   color: #fff;
   border: 1px solid #003377;
 }
@@ -568,7 +568,7 @@ body.light-mode #comparisonResult {
   border-color: #9fb49f;
 }
 body.theme-blue #comparisonResult {
-  background-color: #002244;
+  background-color: #000000;
   color: #fff;
 }
 body.theme-blue-sky #comparisonResult {
@@ -842,7 +842,7 @@ body.light-mode .expandable-panel summary {
   color: #2f4f2f;
 }
 body.theme-blue .expandable-panel summary {
-  background-color: #003366;
+  background-color: #000000;
   color: #fff;
 }
 body.theme-blue-sky .expandable-panel summary {
@@ -1250,7 +1250,7 @@ body.light-mode .progress-bar {
 }
 body.theme-blue .progress-container,
 body.theme-blue .progress-bar {
-  background-color: #001933;
+  background-color: #000000;
 }
 body.theme-blue-sky .progress-container,
 body.theme-blue-sky .progress-bar {
