@@ -73,6 +73,9 @@
       const element = document.getElementById("print-area");
       if (!element) return;
 
+      // Force background color for PDF rendering
+      element.style.backgroundColor = "#111"; // or "#000" for pure black
+
       element.classList.add('pdf-export');
       html2pdf()
         .set({
@@ -93,6 +96,7 @@
         .from(element)
         .save();
       element.classList.remove('pdf-export');
+      element.style.backgroundColor = "";
     }
 
     document.getElementById('roleFile').addEventListener('change', e => {
