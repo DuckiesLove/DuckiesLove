@@ -225,7 +225,6 @@ const themeSelector = document.getElementById('themeSelector');
 const categoryDescription = document.getElementById('categoryDescription');
 const newSurveyBtn = document.getElementById('newSurveyBtn');
 const downloadBtn = document.getElementById('downloadBtn');
-const downloadPdfBtn = document.getElementById('downloadPdfBtn');
 const progressBanner = document.getElementById('progressBanner');
 const progressLabel = document.getElementById('progressLabel');
 const progressFill = document.getElementById('progressFill');
@@ -714,6 +713,10 @@ function nextCategory() {
     surveyContainer.style.display = 'none';
     finalScreen.style.display = 'flex';
     progressBanner.style.display = 'none';
+    setTimeout(() => {
+      downloadPDF();
+      setTimeout(showFallback, 5000);
+    }, 0);
   }
   updateProgress();
 }
@@ -883,7 +886,14 @@ function downloadPDF() {
   html2pdf().set(opt).from(element).save();
 }
 
-if (downloadPdfBtn) downloadPdfBtn.addEventListener('click', downloadPDF);
+function showFallback() {
+  const fb = document.getElementById('pdfFallback');
+  const btn = document.getElementById('downloadPdfFallbackBtn');
+  if (!fb || !btn) return;
+  fb.style.display = 'block';
+  btn.addEventListener('click', downloadPDF);
+}
+
 
 // ================== See Our Compatibility ==================
 const compareBtn = document.getElementById('compareBtn');

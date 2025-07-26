@@ -14,8 +14,9 @@
     <p>Upload your exported survey to view an organised list of your kinks.</p>
     <div class="button-container">
       <button id="uploadButton" class="survey-button">Generate Kink Data</button>
-      <button id="downloadButton" class="survey-button" disabled>Download List</button>
-      <button id="downloadSurveyBtn" class="survey-button" disabled>Download Survey Data</button>
+      <div id="pdfFallback" style="display:none;margin-top:10px;">
+        Having trouble downloading? <button id="downloadPdfFallbackBtn" class="survey-button">Click here to download your PDF</button>
+      </div>
     </div>
   </div>
   <input type="file" id="listFile" hidden />
@@ -75,8 +76,6 @@
       }
 
     const uploadBtn = document.getElementById('uploadButton');
-    const downloadBtn = document.getElementById('downloadButton');
-    const downloadSurveyBtn = document.getElementById('downloadSurveyBtn');
     const fileInput = document.getElementById('listFile');
     let currentSurvey = null;
 
@@ -92,9 +91,8 @@
             const survey = parsed.survey || parsed;
             mergeSurveyWithTemplate(survey, window.templateSurvey);
             currentSurvey = survey;
-            downloadBtn.disabled = false;
-            downloadSurveyBtn.disabled = false;
             showList(survey);
+            setTimeout(triggerAutoPDF, 0);
           } catch {
             document.getElementById('listOutput').textContent = 'Invalid file.';
           }
@@ -102,32 +100,22 @@
       reader.readAsText(file);
     });
 
-    downloadBtn.addEventListener('click', () => {
+
+    function triggerAutoPDF() {
       if (!currentSurvey) return;
       const results = flattenSurvey(currentSurvey);
       const categories = calculateCategoryScores(currentSurvey);
       generateKinkPDF(results, categories);
-    });
+      setTimeout(showFallback, 5000);
+    }
 
-    downloadSurveyBtn.addEventListener('click', () => {
-      if (!currentSurvey) return;
-      const exportObj = { survey: currentSurvey };
-      const blob = new Blob([JSON.stringify(exportObj, null, 2)], {
-        type: 'application/json'
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.style.display = 'none';
-      link.href = url;
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      link.download = `kink-survey-${ts}.json`;
-      document.body.appendChild(link);
-      link.click();
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 0);
-    });
+    function showFallback() {
+      const fb = document.getElementById('pdfFallback');
+      const btn = document.getElementById('downloadPdfFallbackBtn');
+      if (!fb || !btn) return;
+      fb.style.display = 'block';
+      btn.addEventListener('click', triggerAutoPDF);
+    }
 
     function showList(survey) {
       const container = document.getElementById('listOutput');

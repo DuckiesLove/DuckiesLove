@@ -18,6 +18,9 @@
     </label>
 
     <div id="print-area" class="pdf-container print-wrapper result-container"></div>
+    <div id="pdfFallback" style="display:none;margin-top:10px;">
+      Having trouble downloading? <button id="downloadPdfFallbackBtn" class="survey-button">Click here to download your PDF</button>
+    </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -132,17 +135,24 @@
             chart.appendChild(renderResultRow(s.name, s.percent));
           });
           container.appendChild(chart);
-          const btn = document.createElement('button');
-          btn.className = 'download-btn';
-          btn.textContent = 'Download My List';
-          btn.setAttribute('onclick', 'exportPDFFromVisibleStyledContent()');
-          container.appendChild(btn);
+          setTimeout(() => {
+            exportPDFFromVisibleStyledContent();
+            setTimeout(showFallback, 5000);
+          }, 0);
         } catch (err) {
           document.getElementById('print-area').textContent = 'Invalid file.';
         }
       };
       reader.readAsText(file);
     });
+
+    function showFallback() {
+      const fb = document.getElementById('pdfFallback');
+      const btn = document.getElementById('downloadPdfFallbackBtn');
+      if (!fb || !btn) return;
+      fb.style.display = 'block';
+      btn.addEventListener('click', exportPDFFromVisibleStyledContent);
+    }
   </script>
 </body>
 </html>
