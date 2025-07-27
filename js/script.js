@@ -896,7 +896,7 @@ function downloadPDF() {
   element.classList.add('pdf-wrapper');
 
   const opt = {
-    margin: [0, 0, 0, 0],
+    margin: 40,
     filename: 'kink-compatibility-results.pdf',
     image: { type: 'jpeg', quality: 1 },
     html2canvas: {
