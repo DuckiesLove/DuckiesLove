@@ -51,11 +51,6 @@
 <body class="dark-mode">
   <div class="scroll-container scrollable-panel">
     <h1>See Our Compatibility</h1>
-    <div style="text-align: center; margin-top: 20px;">
-      <button id="downloadPDF" style="padding: 10px 20px; font-size: 16px; background-color: #222; color: white; border: none; border-radius: 5px; cursor: pointer;">
-        ⬇️ Download Your PDF Report
-      </button>
-    </div>
     <div class="back-button-container">
       <button onclick="window.location.href='https://www.talkkink.org'">&larr; Back</button>
     </div>
@@ -70,6 +65,7 @@
           <input type="file" id="fileB" hidden />
         </label>
       </div>
+      <button id="download-pdf" class="download-btn">Download PDF</button>
     </div>
     <div id="loading-spinner" class="loading-overlay"><div class="spinner"></div></div>
     <div id="pdf-container">
@@ -79,29 +75,10 @@
         <div id="print-card-list" class="print-only"></div>
       </div>
     </div>
-    <button id="download-pdf" class="btn-download">Download PDF</button>
     <div class="print-footer"></div>
   </div>
   <script src="js/template-survey.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script type="module" src="js/compatibilityPage.js"></script>
-  <script>
-    document.getElementById('downloadPDF').addEventListener('click', function () {
-      const element = document.getElementById('pdf-container');
-      html2pdf().from(element).set({
-        margin: 0,
-        filename: 'Kink_Compatibility_Report.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          scrollY: 0,
-          scrollX: 0,
-          backgroundColor: '#000000'
-        },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-      }).save();
-    });
-  </script>
 </body>
 </html>
