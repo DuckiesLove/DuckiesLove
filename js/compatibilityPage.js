@@ -252,21 +252,31 @@ async function generateComparisonPDF() {
   const element = document.querySelector('.pdf-container');
   if (!element) return;
 
-  const opt = {
-    margin: 0,
-    filename: 'kink-compatibility-results.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#000000' },
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-  };
-
-  const worker = html2pdf().set(opt).from(element).toPdf();
-  const pdf = await worker.get('pdf');
+  const jsPDF = await loadJsPDF();
+  const pdf = new jsPDF({ unit: 'in', format: 'letter', orientation: 'portrait' });
 
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   pdf.setFillColor(18, 18, 18);
   pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  const opt = {
+    margin: 0,
+    filename: 'kink-compatibility-results.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#000000' },
+    jsPDF: pdf
+  };
+
+  const worker = html2pdf().set(opt).from(element).toPdf();
+  await worker.get('pdf');
+
+  const totalPages = pdf.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    pdf.setFillColor(18, 18, 18);
+    pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+  }
 
   await worker.save();
 }
