@@ -1,20 +1,19 @@
 // SETUP DARK PDF EXPORT
-const element = document.getElementById('results'); // main results container
-element.classList.add('pdf-container');
+const content = document.getElementById('results');
+content.classList.add('pdf-container');
 
 const opt = {
-  margin: [0, 0, 0, 0],
+  margin: 0,
   filename: 'kink-compatibility-results.pdf',
   image: { type: 'jpeg', quality: 1 },
   html2canvas: {
     scale: 2,
     useCORS: true,
     backgroundColor: '#000',
-    logging: true,
     scrollY: 0,
     scrollX: 0,
-    windowWidth: element.scrollWidth,
-    windowHeight: element.scrollHeight
+    windowWidth: content.scrollWidth,
+    windowHeight: content.scrollHeight
   },
   jsPDF: { unit: 'px', format: 'a4', orientation: 'portrait' }
 };
@@ -28,19 +27,20 @@ document.querySelectorAll('button').forEach(btn => {
 const printStyle = document.createElement('style');
 printStyle.textContent = `
   @media print {
-    body {
+    html, body {
       background: #000 !important;
       margin: 0 !important;
       padding: 0 !important;
+      height: 100%;
+      width: 100%;
       box-shadow: none !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .pdf-container {
       margin: 0 !important;
       padding: 0 !important;
-    }
-    * {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
+      background: #000 !important;
     }
   }
 `;
@@ -96,7 +96,7 @@ style.innerHTML = `
 document.head.appendChild(style);
 
 function downloadPDF() {
-  html2pdf().set(opt).from(element).save();
+  html2pdf().set(opt).from(content).save();
 }
 
 window.downloadPDF = downloadPDF;
