@@ -76,6 +76,7 @@
       // Force background color for PDF rendering
       element.style.backgroundColor = "#000"; // pure black background
 
+      document.body.classList.add('exporting');
       element.classList.add('pdf-export');
       html2pdf()
         .set({
@@ -91,7 +92,10 @@
           pagebreak: { mode: ['avoid-all'] }
         })
         .from(element)
-        .save();
+        .save()
+        .then(() => {
+          document.body.classList.remove('exporting');
+        });
       element.classList.remove('pdf-export');
       element.style.backgroundColor = "";
     }
