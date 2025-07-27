@@ -578,8 +578,13 @@ document.addEventListener('DOMContentLoaded', () => {
           margin: 0,
           filename: 'kink_compatibility_comparison.pdf',
           image: { type: 'jpeg', quality: 1 },
-          html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#000'
+          },
+          jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+          pagebreak: { mode: ['avoid-all'] }
         })
         .save();
     });
