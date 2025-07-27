@@ -27,20 +27,26 @@ document.querySelectorAll('button').forEach(btn => {
 const printStyle = document.createElement('style');
 printStyle.textContent = `
   @media print {
-    html, body {
+    .pdf-container {
       background: #000 !important;
+      color: #fff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      width: 100vw;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    html, body {
       margin: 0 !important;
       padding: 0 !important;
-      height: 100%;
-      width: 100%;
-      box-shadow: none !important;
+      background: #000 !important;
+    }
+
+    * {
+      box-sizing: border-box !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
-    }
-    .pdf-container {
-      margin: 0 !important;
-      padding: 0 !important;
-      background: #000 !important;
     }
   }
 `;

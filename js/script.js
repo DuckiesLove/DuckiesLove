@@ -866,28 +866,50 @@ function downloadPDF() {
   // Inject minimal styles to ensure full-width dark export
   const style = document.createElement('style');
   style.textContent = `
-    body { margin: 0; background-color: #000 !important; }
-    .pdf-wrapper { background-color: #000 !important; color: #fff; width: 100%; padding: 20px; box-sizing: border-box; }
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .pdf-wrapper {
+      background: #000 !important;
+      color: #fff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      width: 100vw;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #000 !important;
+    }
+
+    * {
+      box-sizing: border-box !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
   `;
   document.head.appendChild(style);
 
   element.classList.add('pdf-wrapper');
 
   const opt = {
-    margin: 0,
-    filename: 'survey.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
+    margin: [0, 0, 0, 0],
+    filename: 'kink-compatibility-results.pdf',
+    image: { type: 'jpeg', quality: 1 },
     html2canvas: {
-      scale: 4,
-      backgroundColor: '#000',
+      scale: 2,
       useCORS: true,
       scrollY: 0,
       scrollX: 0,
+      backgroundColor: '#000',
       windowWidth: element.scrollWidth,
       windowHeight: element.scrollHeight,
     },
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+    jsPDF: {
+      unit: 'px',
+      format: 'a4',
+      orientation: 'portrait',
+    },
   };
 
   html2pdf().set(opt).from(element).save();
