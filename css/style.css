@@ -2305,3 +2305,31 @@ body {
   text-align: center;
 }
 
+@media print {
+  * {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html,
+  body {
+    background: #121212 !important;
+    color: #ffffff !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
+  }
+
+  #pdf-export-wrapper {
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background-color: #121212 !important;
+    width: 100% !important;
+    page-break-before: avoid;
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+}
+
