@@ -7,7 +7,8 @@ const exportToPDF = () => {
     html2canvas: {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#000'
+      backgroundColor: '#000',
+      scrollY: -window.scrollY
     },
     jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
     pagebreak: { mode: ['avoid-all'] }
