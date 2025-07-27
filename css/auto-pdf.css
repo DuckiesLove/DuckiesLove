@@ -18,15 +18,15 @@ body {
   background-color: #000;
   display: flex;
   justify-content: center;
-  padding: 40px;
+  padding: 0;
   width: 100%;
 }
 
 #compatibility-wrapper {
   background-color: #111;
   width: 100%;
-  max-width: 1000px;
-  padding: 20px;
+  max-width: none;
+  padding: 0;
   text-align: left;
   box-sizing: border-box;
 }
