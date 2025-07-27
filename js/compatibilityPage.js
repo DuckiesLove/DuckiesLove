@@ -253,13 +253,23 @@ async function generateComparisonPDF() {
   if (!element) return;
 
   const opt = {
-    margin: 0.5,
+    margin: 0,
     filename: 'kink-compatibility-results.pdf',
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true, backgroundColor: '#000000' },
     jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
   };
-  await html2pdf().set(opt).from(element).save();
+
+  const worker = html2pdf().set(opt).from(element).toPdf();
+  const pdf = await worker.get('pdf');
+
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const barHeight = 0.3;
+  pdf.setFillColor(18, 18, 18);
+  pdf.rect(0, pageHeight - barHeight, pageWidth, barHeight, 'F');
+
+  await worker.save();
 }
 
 function loadFileA(file) {
