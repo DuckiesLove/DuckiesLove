@@ -68,7 +68,8 @@
     }
 
     function exportPDFFromVisibleStyledContent() {
-      applyPrintStyles();
+      const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+      applyPrintStyles(mode);
       const element = document.getElementById("print-area");
       if (!element) return;
 

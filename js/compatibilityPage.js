@@ -248,7 +248,8 @@ function buildKinkBreakdown(surveyA, surveyB) {
 }
 
 async function generateComparisonPDF() {
-  applyPrintStyles();
+  const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+  applyPrintStyles(mode);
   const element = document.querySelector('.pdf-container');
   if (!element) return;
 

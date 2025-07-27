@@ -152,11 +152,67 @@ export const pdfStyles = `
   }
 `;
 
-export function applyPrintStyles() {
+export const lightPdfStyles = `
+  @media print {
+    :root {
+      --bg-color: #ffffff !important;
+      --text-color: #000000 !important;
+      --panel-color: #f0f0f0 !important;
+    }
+
+    html, body {
+      background: var(--bg-color) !important;
+      color: var(--text-color) !important;
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .category-title {
+      font-size: 18px !important;
+      font-weight: bold !important;
+      color: #b00020 !important; /* deep red */
+      margin-top: 20px;
+    }
+
+    .item-label {
+      font-size: 14px;
+      color: #333333 !important;
+    }
+
+    .match-bar {
+      height: 12px !important;
+      border-radius: 6px;
+      background-color: #e0e0e0 !important;
+      box-shadow: none !important;
+    }
+
+    .match-bar-fill {
+      background-color: #00c853 !important; /* bright green */
+    }
+
+    .score-flag-high {
+      color: #ffb300 !important; /* gold */
+    }
+
+    .score-flag-low {
+      color: #d32f2f !important; /* red */
+    }
+
+    .score-flag-mismatch {
+      color: #fbc02d !important; /* yellow */
+    }
+  }
+`;
+
+export function applyPrintStyles(mode = 'dark') {
   if (document.getElementById('pdf-print-style')) return;
   const style = document.createElement('style');
   style.id = 'pdf-print-style';
-  style.textContent = pdfStyles + `
+  const base = mode === 'light' ? lightPdfStyles : pdfStyles;
+  style.textContent = base + `
 
 
       #comparison-chart {
