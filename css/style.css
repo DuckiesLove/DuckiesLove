@@ -2296,3 +2296,10 @@ body {
   }
 }
 
+@media print {
+  body {
+    background: #121212 !important;
+    color: #f1f1f1;
+  }
+}
+
