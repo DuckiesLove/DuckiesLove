@@ -2072,6 +2072,10 @@ body {
   margin-bottom: 2rem;
 }
 
+.print-only {
+  display: none;
+}
+
 /* Simple compatibility results table */
 .results-table {
   max-width: 700px;
@@ -2196,6 +2200,61 @@ body {
   }
   .result-bar-fill {
     background-color: #4caf50 !important;
+  }
+  #print-card-list {
+    display: block;
+  }
+  .results-table {
+    display: none;
+  }
+}
+
+@media print {
+  .pdf-container {
+    background-color: white;
+    padding: 1rem;
+  }
+
+  .comparison-card {
+    width: fit-content;
+    max-width: 100%;
+    margin: 0.5rem auto;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .comparison-card .title {
+    font-size: 1rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+
+  .comparison-card .partner-header {
+    font-weight: bold;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+  }
+
+  .comparison-card .bar {
+    height: 0.75rem;
+    border-radius: 5px;
+    margin: 0.1rem 0;
+  }
+
+  .comparison-card .bar-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+
+  .download-help-button,
+  .save-results-buttons {
+    display: none;
   }
 }
 

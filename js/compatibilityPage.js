@@ -249,30 +249,17 @@ function buildKinkBreakdown(surveyA, surveyB) {
 
 async function generateComparisonPDF() {
   applyPrintStyles();
-  const element = document.getElementById("print-area");
+  const element = document.querySelector('.pdf-container');
   if (!element) return;
 
-  // Force background color for PDF rendering
-  element.style.backgroundColor = "#111"; // or "#000" for pure black
-
-  element.classList.add('pdf-export');
-  await html2pdf()
-    .set({
-      margin: 0,
-      filename: 'kink-compatibility-results.pdf',
-      image: { type: 'jpeg', quality: 1 },
-      html2canvas: {
-        scale: 2,
-        backgroundColor: '#111',
-        useCORS: true
-      },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all'] }
-    })
-    .from(element)
-    .save();
-  element.classList.remove('pdf-export');
-  element.style.backgroundColor = "";
+  const opt = {
+    margin: 0.5,
+    filename: 'kink-compatibility-results.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+  await html2pdf().set(opt).from(element).save();
 }
 
 function loadFileA(file) {
@@ -376,8 +363,51 @@ function updateComparison() {
 
   table.appendChild(tbody);
   container.appendChild(table);
+
+  const cardList = document.getElementById('print-card-list');
+  if (cardList) cardList.innerHTML = '';
+  items.forEach(item => {
+    const ratingA = maxRating(item.you);
+    const ratingB = maxRating(item.partner);
+    const youP = toPercent(ratingA);
+    const partnerP = toPercent(ratingB);
+
+    const card = document.createElement('div');
+    card.className = 'comparison-card';
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'title';
+    titleDiv.textContent = item.name;
+    card.appendChild(titleDiv);
+
+    const makeSection = (label, percent) => {
+      const header = document.createElement('div');
+      header.className = 'partner-header';
+      header.textContent = label;
+      card.appendChild(header);
+      const bar = document.createElement('div');
+      const pct = percent === null ? 0 : percent;
+      const color = barFillColor(pct);
+      bar.className = 'bar';
+      bar.style.backgroundColor = color;
+      bar.style.width = pct + '%';
+      card.appendChild(bar);
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'bar-label';
+      labelDiv.style.color = color;
+      labelDiv.textContent = percent === null ? '-' : pct + '%';
+      card.appendChild(labelDiv);
+    };
+
+    makeSection('Partner A', youP);
+    makeSection('Partner B', partnerP);
+
+    if (cardList) cardList.appendChild(card);
+  });
+
   setTimeout(() => {
-    generateComparisonPDF();  }, 0);
+    generateComparisonPDF();
+  }, 0);
 }
 
 const fileAInput = document.getElementById('fileA');
