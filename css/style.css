@@ -1924,6 +1924,10 @@ body {
 
 .page-break { display: none; }
 
+@page {
+  margin: 0;
+}
+
 @media print {
   body,
   html {
