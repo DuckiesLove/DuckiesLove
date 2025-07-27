@@ -1,6 +1,6 @@
 import { calculateCompatibility } from './compatibility.js';
 import { pruneSurvey } from './pruneSurvey.js';
-import { initTheme, applyThemeColors } from './theme.js';
+import { initTheme, applyThemeColors, applyPrintStyles } from './theme.js';
 
 // ================== Password Protection ==================
 const PASSWORD = 'toopoortosue';
@@ -857,6 +857,8 @@ function exportSurvey() {
 if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);
 
 function downloadPDF() {
+  document.body.classList.add('dark-mode');
+  applyPrintStyles('dark');
   const element = document.getElementById('surveyContainer');
   if (!element) return;
   const opt = {

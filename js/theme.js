@@ -124,7 +124,7 @@ export const pdfStyles = `
 
     .item-label {
       font-size: 14px;
-      color: #333333 !important;
+      color: #cccccc !important;
     }
 
     .match-bar {
@@ -255,7 +255,7 @@ export function applyPrintStyles(mode = 'dark') {
         padding-right: 8px;
         font-weight: 500;
         font-size: 14px;
-        color: #333 !important;
+        color: #dddddd !important;
       }
       .compare-label.green { color: #00c853 !important; }
       .compare-label.yellow { color: #fbc02d !important; }
