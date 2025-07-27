@@ -262,13 +262,17 @@ async function generateComparisonPDF() {
   element.style.paddingBottom = '100px';
 
   const jsPDF = await loadJsPDF();
-  const pdf = new jsPDF({ unit: 'in', format: 'letter', orientation: 'portrait' });
+  const width = element.scrollWidth;
+  const height = element.scrollHeight;
+  const pdf = new jsPDF({
+    unit: 'px',
+    format: [width, height],
+    orientation: 'portrait'
+  });
 
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
   // fill the first page background with pure black
   pdf.setFillColor(0, 0, 0);
-  pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+  pdf.rect(0, 0, width, height, 'F');
 
   const opt = {
     margin: 0,
@@ -280,8 +284,8 @@ async function generateComparisonPDF() {
       backgroundColor: '#000000',
       scrollX: 0,
       scrollY: 0,
-      windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight,
+      windowWidth: width,
+      windowHeight: height,
       logging: false,
       allowTaint: true,
       crossOrigin: 'anonymous'
@@ -297,7 +301,7 @@ async function generateComparisonPDF() {
     pdf.setPage(i);
     // ensure each page background is pure black
     pdf.setFillColor(0, 0, 0);
-    pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+    pdf.rect(0, 0, width, height, 'F');
   }
 
   await worker.save();
@@ -571,7 +575,9 @@ function exportJSON() {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadSavedSurvey();
-  const btn = document.getElementById('download-pdf');
+  const btns = document.querySelectorAll('#download-pdf');
+  btns.forEach((b, i) => { if (i > 0) b.remove(); });
+  const btn = btns[0];
   if (btn) {
     btn.addEventListener('click', async function () {
       const spinner = document.getElementById('loading-spinner');

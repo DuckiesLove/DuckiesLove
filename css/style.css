@@ -1931,7 +1931,7 @@ body {
 @media print {
   body,
   html {
-    background-color: #000 !important;
+    background-color: var(--bg-color, #000) !important;
     color: var(--text-color, inherit) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -2223,12 +2223,12 @@ body {
     align-items: center;
     background-color: var(--panel-color, #1e1e2f);
     color: inherit;
-    padding: 0.25rem 0.5rem;
-    margin: 0.2rem 0;
+    padding: 0.15rem 0.4rem;
+    margin: 0.15rem 0;
     border-radius: 4px;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     height: auto;
-    min-height: 1.4rem;
+    min-height: 1.2rem;
   }
 
   .kink-label {
@@ -2369,6 +2369,10 @@ body {
     page-break-before: avoid;
     page-break-after: avoid;
     page-break-inside: avoid;
+  }
+  #export-target {
+    margin-left: auto !important;
+    margin-right: auto !important;
   }
 }
 
