@@ -265,9 +265,8 @@ async function generateComparisonPDF() {
 
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const barHeight = 0.3;
   pdf.setFillColor(18, 18, 18);
-  pdf.rect(0, pageHeight - barHeight, pageWidth, barHeight, 'F');
+  pdf.rect(0, 0, pageWidth, pageHeight, 'F');
 
   await worker.save();
 }
