@@ -1,9 +1,11 @@
 // SETUP DARK PDF EXPORT
 const content = document.getElementById('results');
 content.classList.add('pdf-container');
+// provide extra space so the last bar never gets cut off
+content.style.paddingBottom = '64px';
 
 const opt = {
-  margin: 0,
+  margin: [0, 0, 0, 0],
   filename: 'kink-compatibility-results.pdf',
   image: { type: 'jpeg', quality: 1 },
   html2canvas: {
@@ -15,7 +17,11 @@ const opt = {
     windowWidth: content.scrollWidth,
     windowHeight: content.scrollHeight
   },
-  jsPDF: { unit: 'px', format: 'a4', orientation: 'portrait' }
+  jsPDF: {
+    unit: 'px',
+    format: [content.scrollWidth, content.scrollHeight],
+    orientation: 'portrait'
+  }
 };
 
 // CLEAN EXPORT BUTTON (REMOVE "Trouble Downloading")
@@ -41,6 +47,8 @@ printStyle.textContent = `
       margin: 0 !important;
       padding: 0 !important;
       background: #000 !important;
+      height: 100% !important;
+      overflow: hidden !important;
     }
 
     * {
@@ -55,10 +63,14 @@ document.head.appendChild(printStyle);
 // STYLE INJECTION (Dark Theme)
 const style = document.createElement('style');
 style.innerHTML = `
-  body {
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
     background-color: #000000 !important;
     color: #f0f0f0 !important;
     font-family: 'Arial', sans-serif;
+    height: 100%;
+    overflow: hidden;
   }
 
   #results {
