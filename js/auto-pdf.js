@@ -1,8 +1,8 @@
 // SETUP DARK PDF EXPORT
-const content = document.getElementById('results');
+const content = document.getElementById('export-target');
 content.classList.add('pdf-container');
 // provide extra space so the last bar never gets cut off
-content.style.paddingBottom = '64px';
+content.style.paddingBottom = '100px';
 
 const opt = {
   margin: [0, 0, 0, 0],
@@ -73,7 +73,7 @@ style.innerHTML = `
     overflow: hidden;
   }
 
-  #results {
+  #export-target {
     background-color: #000000 !important;
     padding: 2rem;
   }
@@ -114,6 +114,9 @@ style.innerHTML = `
 document.head.appendChild(style);
 
 function downloadPDF() {
+  window.scrollTo(0, 0);
+  opt.html2canvas.windowWidth = content.scrollWidth;
+  opt.html2canvas.windowHeight = content.scrollHeight;
   html2pdf().set(opt).from(content).save();
 }
 

@@ -250,13 +250,15 @@ function buildKinkBreakdown(surveyA, surveyB) {
 async function generateComparisonPDF() {
   const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
   applyPrintStyles(mode);
-  const element = document.getElementById('print-area');
+  const element = document.getElementById('export-target');
   if (!element) return;
+  window.scrollTo(0, 0);
 
   // ensure the export container has no margin or padding and a black background
   element.style.margin = '0';
   element.style.padding = '0';
   element.style.background = '#000';
+  element.style.paddingBottom = '100px';
 
   const jsPDF = await loadJsPDF();
   const pdf = new jsPDF({ unit: 'in', format: 'letter', orientation: 'portrait' });
@@ -491,7 +493,7 @@ function downloadBlob(blob, filename) {
 }
 
 async function exportPNG() {
-  const element = document.getElementById('print-area');
+  const element = document.getElementById('export-target');
   if (!element) return;
   const canvas = await html2canvas(element, {
     backgroundColor: '#000000',
@@ -505,7 +507,7 @@ async function exportPNG() {
 }
 
 function exportHTML() {
-  const element = document.getElementById('print-area');
+  const element = document.getElementById('export-target');
   if (!element) return;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Kink Survey Results</title></head><body>${element.innerHTML}</body></html>`;
   const blob = new Blob([html], { type: 'text/html' });
