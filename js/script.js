@@ -867,7 +867,7 @@ function downloadPDF() {
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: {
       scale: 4,
-      backgroundColor: null,
+      backgroundColor: '#000',
       useCORS: true,
       logging: true,
       scrollY: 0,
@@ -876,7 +876,7 @@ function downloadPDF() {
     },
     jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
   };
-  element.style.backgroundColor = '#0a0a0a';
+  element.style.backgroundColor = '#000';
   element.style.color = '#f0f0f0';
   element.querySelectorAll('*').forEach(el => {
     const computed = getComputedStyle(el);
