@@ -532,7 +532,7 @@ saveSurveyBtn.addEventListener('click', exportSurvey);
 
 function navigateHome() {
   // Always go to the main website
-  const path = 'https://www.talkking.org';
+  const path = 'https://www.talkkink.org';
   window.location.href = path;
 }
 
