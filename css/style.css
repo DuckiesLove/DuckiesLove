@@ -2217,39 +2217,53 @@ body {
 
   .pdf-container {
     width: 100%;
-    padding: 1rem;
+    padding: 0.5rem;
     background-color: white;
+    font-family: sans-serif;
   }
+
+  .category-header {
+    font-weight: bold;
+    font-size: 0.85rem;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .category-header.green { color: #00cc44; }
+  .category-header.yellow { color: #cccc00; }
+  .category-header.red { color: #cc0033; }
 
   .comparison-card {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #eeeeee;
-    padding: 0.4rem 0.8rem;
-    margin: 0.25rem 0;
+    background-color: #222;
+    padding: 0.25rem 0.5rem;
+    margin: 0.2rem 0;
     border-radius: 4px;
-    font-size: 0.85rem;
-    width: 100%;
+    font-size: 0.7rem;
+    height: auto;
+    min-height: 1.4rem;
   }
 
   .kink-label {
-    flex: 1;
+    flex: 1.4;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: white;
   }
 
   .partner-score {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.3rem;
   }
 
   .bar {
-    height: 0.4rem;
+    height: 0.35rem;
     border-radius: 3px;
     flex-grow: 1;
     background-color: lightgray;
@@ -2264,11 +2278,16 @@ body {
   }
 
   .percentage-label {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     font-weight: 500;
     color: var(--color);
-    min-width: 2.5rem;
+    min-width: 2.2rem;
     text-align: right;
+  }
+
+  .match-icon {
+    font-size: 0.75rem;
+    margin-left: 0.4rem;
   }
 
   .download-help-button,
