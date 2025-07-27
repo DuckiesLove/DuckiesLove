@@ -276,7 +276,7 @@ async function generateComparisonPDF() {
   pdf.rect(0, 0, width, height, 'F');
 
   const opt = {
-    margin: 40,
+    margin: 0,
     filename: 'kink-compatibility-results.pdf',
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: {
