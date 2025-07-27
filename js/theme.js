@@ -105,7 +105,7 @@ export const pdfStyles = `
       --panel-color: #292b3d !important;
     }
 
-    html, body, #export-target {
+    html, body, #compatibility-wrapper {
       background: var(--bg-color) !important;
       color: var(--text-color) !important;
       margin: 0 !important;
@@ -116,12 +116,12 @@ export const pdfStyles = `
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
-    #export-target {
+    #compatibility-wrapper {
       width: 100vw;
       min-height: 100vh;
       padding-bottom: 100px;
     }
-    #export-target * {
+    #compatibility-wrapper * {
       box-sizing: border-box !important;
     }
 
@@ -170,7 +170,7 @@ export const lightPdfStyles = `
       --panel-color: #f0f0f0 !important;
     }
 
-    html, body, #export-target {
+    html, body, #compatibility-wrapper {
       background: var(--bg-color) !important;
       color: var(--text-color) !important;
       margin: 0 !important;
@@ -181,12 +181,12 @@ export const lightPdfStyles = `
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
-    #export-target {
+    #compatibility-wrapper {
       width: 100vw;
       min-height: 100vh;
       padding-bottom: 100px;
     }
-    #export-target * {
+    #compatibility-wrapper * {
       box-sizing: border-box !important;
     }
 
@@ -454,7 +454,7 @@ export function applyPrintStyles(mode = 'dark') {
       }
 
       @media print {
-        body, #export-target, .pdf-export-area {
+        body, #compatibility-wrapper, .pdf-export-area {
           background-color: var(--bg-color, #000000) !important;
           color: var(--text-color, #ffffff) !important;
           -webkit-print-color-adjust: exact;
