@@ -7,10 +7,55 @@
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/theme.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    @media print {
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #000000 !important;
+        color: #ffffff !important;
+        font-family: 'Segoe UI', sans-serif;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      #pdf-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 0 auto;
+        background: #000 !important;
+      }
+
+      .result-card {
+        max-width: 320px;
+        background: #111;
+        padding: 10px;
+        margin: 10px;
+        color: white;
+        border-radius: 6px;
+        font-size: 12px;
+        line-height: 1.4;
+        box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+      }
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+    }
+  </style>
 </head>
 <body class="dark-mode">
   <div class="scroll-container scrollable-panel">
     <h1>See Our Compatibility</h1>
+    <div style="text-align: center; margin-top: 20px;">
+      <button id="downloadPDF" style="padding: 10px 20px; font-size: 16px; background-color: #222; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        ⬇️ Download Your PDF Report
+      </button>
+    </div>
     <div class="back-button-container">
       <button onclick="window.location.href='https://www.talkkink.org'">&larr; Back</button>
     </div>
@@ -40,5 +85,23 @@
   <script src="js/template-survey.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script type="module" src="js/compatibilityPage.js"></script>
+  <script>
+    document.getElementById('downloadPDF').addEventListener('click', function () {
+      const element = document.getElementById('pdf-container');
+      html2pdf().from(element).set({
+        margin: 0,
+        filename: 'Kink_Compatibility_Report.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          scrollY: 0,
+          scrollX: 0,
+          backgroundColor: '#000000'
+        },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      }).save();
+    });
+  </script>
 </body>
 </html>
