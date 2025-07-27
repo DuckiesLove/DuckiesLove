@@ -251,7 +251,7 @@ async function generateComparisonPDF() {
   document.body.classList.add('exporting');
   const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
   applyPrintStyles(mode);
-  const element = document.getElementById('pdf-export-wrapper');
+  const element = document.getElementById('pdf-container');
   if (!element) return;
   window.scrollTo(0, 0);
 
@@ -290,6 +290,7 @@ async function generateComparisonPDF() {
       allowTaint: true,
       crossOrigin: 'anonymous'
     },
+    pagebreak: { mode: ['avoid-all'] },
     jsPDF: pdf
   };
 
@@ -499,7 +500,7 @@ function downloadBlob(blob, filename) {
 }
 
 async function exportPNG() {
-  const element = document.getElementById('pdf-export-wrapper');
+  const element = document.getElementById('pdf-container');
   if (!element) return;
   const canvas = await html2canvas(element, {
     backgroundColor: '#000000',
@@ -513,7 +514,7 @@ async function exportPNG() {
 }
 
 function exportHTML() {
-  const element = document.getElementById('pdf-export-wrapper');
+  const element = document.getElementById('pdf-container');
   if (!element) return;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Kink Survey Results</title></head><body>${element.innerHTML}</body></html>`;
   const blob = new Blob([html], { type: 'text/html' });
