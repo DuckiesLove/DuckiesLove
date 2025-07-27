@@ -2184,41 +2184,13 @@ body {
   margin-left: 4px;
 }
 
-/* PDF-specific override (white background only for print/export) */
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
-  }
-  .result-card {
-    background-color: white !important;
-    color: black !important;
-    box-shadow: none !important;
-  }
-  .result-bar {
-    background-color: #ddd !important;
-  }
-  .result-bar-fill {
-    background-color: #4caf50 !important;
-  }
-  #print-card-list {
-    display: block;
-  }
-  .results-table {
-    display: none;
-  }
-}
-
-@media print {
-  body {
-    background: white !important;
-    color: black;
-  }
 
   .pdf-container {
     width: 100%;
     padding: 0.5rem;
-    background-color: white;
+    background-color: #121212;
+    color: #f1f1f1;
     font-family: sans-serif;
   }
 
@@ -2299,7 +2271,7 @@ body {
 @media print {
   body {
     background: #121212 !important;
-    color: #f1f1f1;
+    color: #f1f1f1 !important;
   }
 }
 
