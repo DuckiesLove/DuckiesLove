@@ -375,32 +375,34 @@ function updateComparison() {
     const card = document.createElement('div');
     card.className = 'comparison-card';
 
-    const titleDiv = document.createElement('div');
-    titleDiv.className = 'title';
-    titleDiv.textContent = item.name;
-    card.appendChild(titleDiv);
+    const label = document.createElement('div');
+    label.className = 'kink-label';
+    label.textContent = item.name;
+    card.appendChild(label);
 
-    const makeSection = (label, percent) => {
-      const header = document.createElement('div');
-      header.className = 'partner-header';
-      header.textContent = label;
-      card.appendChild(header);
+    const makeScore = percent => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'partner-score';
       const bar = document.createElement('div');
+      bar.className = 'bar';
+      const fill = document.createElement('div');
       const pct = percent === null ? 0 : percent;
       const color = barFillColor(pct);
-      bar.className = 'bar';
-      bar.style.backgroundColor = color;
-      bar.style.width = pct + '%';
-      card.appendChild(bar);
-      const labelDiv = document.createElement('div');
-      labelDiv.className = 'bar-label';
-      labelDiv.style.color = color;
-      labelDiv.textContent = percent === null ? '-' : pct + '%';
-      card.appendChild(labelDiv);
+      fill.className = 'bar-fill';
+      fill.style.setProperty('--color', color);
+      fill.style.setProperty('--width', pct + '%');
+      bar.appendChild(fill);
+      wrapper.appendChild(bar);
+      const pctLabel = document.createElement('div');
+      pctLabel.className = 'percentage-label';
+      pctLabel.style.setProperty('--color', color);
+      pctLabel.textContent = percent === null ? '-' : pct + '%';
+      wrapper.appendChild(pctLabel);
+      return wrapper;
     };
 
-    makeSection('Partner A', youP);
-    makeSection('Partner B', partnerP);
+    card.appendChild(makeScore(youP));
+    card.appendChild(makeScore(partnerP));
 
     if (cardList) cardList.appendChild(card);
   });

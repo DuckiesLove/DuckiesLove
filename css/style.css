@@ -2210,51 +2210,70 @@ body {
 }
 
 @media print {
+  body {
+    background: white !important;
+    color: black;
+  }
+
   .pdf-container {
-    background-color: white;
+    width: 100%;
     padding: 1rem;
+    background-color: white;
   }
 
   .comparison-card {
-    width: fit-content;
-    max-width: 100%;
-    margin: 0.5rem auto;
-    background-color: #f5f5f5;
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
-    box-shadow: none;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .comparison-card .title {
-    font-size: 1rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-  }
-
-  .comparison-card .partner-header {
-    font-weight: bold;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #eeeeee;
+    padding: 0.4rem 0.8rem;
+    margin: 0.25rem 0;
+    border-radius: 4px;
     font-size: 0.85rem;
-    margin-top: 0.25rem;
+    width: 100%;
   }
 
-  .comparison-card .bar {
-    height: 0.75rem;
-    border-radius: 5px;
-    margin: 0.1rem 0;
+  .kink-label {
+    flex: 1;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .comparison-card .bar-label {
-    font-size: 0.85rem;
+  .partner-score {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .bar {
+    height: 0.4rem;
+    border-radius: 3px;
+    flex-grow: 1;
+    background-color: lightgray;
+    position: relative;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background-color: var(--color);
+    width: var(--width);
+  }
+
+  .percentage-label {
+    font-size: 0.75rem;
     font-weight: 500;
-    margin-bottom: 0.5rem;
+    color: var(--color);
+    min-width: 2.5rem;
+    text-align: right;
   }
 
   .download-help-button,
   .save-results-buttons {
-    display: none;
+    display: none !important;
   }
 }
 
