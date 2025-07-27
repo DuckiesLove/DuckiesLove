@@ -8,7 +8,8 @@ const opt = {
   html2canvas: {
     scale: 2,
     useCORS: true,
-    backgroundColor: '#121212' // make sure canvas background is dark!
+    // ensure the captured canvas is pure black
+    backgroundColor: '#000000'
   },
   jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
 };
@@ -22,13 +23,13 @@ document.querySelectorAll('button').forEach(btn => {
 const style = document.createElement('style');
 style.innerHTML = `
   body {
-    background-color: #121212 !important;
+    background-color: #000000 !important;
     color: #f0f0f0 !important;
     font-family: 'Arial', sans-serif;
   }
 
   #results {
-    background-color: #121212 !important;
+    background-color: #000000 !important;
     padding: 2rem;
   }
 

@@ -258,7 +258,8 @@ async function generateComparisonPDF() {
 
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  pdf.setFillColor(18, 18, 18);
+  // fill the first page background with pure black
+  pdf.setFillColor(0, 0, 0);
   pdf.rect(0, 0, pageWidth, pageHeight, 'F');
 
   const opt = {
@@ -275,7 +276,8 @@ async function generateComparisonPDF() {
   const totalPages = pdf.internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     pdf.setPage(i);
-    pdf.setFillColor(18, 18, 18);
+    // ensure each page background is pure black
+    pdf.setFillColor(0, 0, 0);
     pdf.rect(0, 0, pageWidth, pageHeight, 'F');
   }
 
