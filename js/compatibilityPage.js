@@ -281,7 +281,10 @@ async function generateComparisonPDF() {
       scrollX: 0,
       scrollY: 0,
       windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight
+      windowHeight: element.scrollHeight,
+      logging: false,
+      allowTaint: true,
+      crossOrigin: 'anonymous'
     },
     jsPDF: pdf
   };
@@ -570,26 +573,14 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSavedSurvey();
   const btn = document.getElementById('download-pdf');
   if (btn) {
-    btn.addEventListener('click', function () {
-      const element = document.getElementById('pdf-export-wrapper');
+    btn.addEventListener('click', async function () {
       const spinner = document.getElementById('loading-spinner');
       if (spinner) spinner.style.display = 'flex';
-      html2pdf()
-        .from(element)
-        .set({
-          margin: 0,
-          filename: 'kink_compatibility_comparison.pdf',
-          image: { type: 'jpeg', quality: 1 },
-          html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-        })
-        .save()
-        .then(() => {
-          if (spinner) spinner.style.display = 'none';
-        })
-        .catch(() => {
-          if (spinner) spinner.style.display = 'none';
-        });
+      try {
+        await generateComparisonPDF();
+      } finally {
+        if (spinner) spinner.style.display = 'none';
+      }
     });
   }
 });
