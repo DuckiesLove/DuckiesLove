@@ -1,6 +1,6 @@
 const exportToPDF = () => {
-  const element = document.getElementById('pdf-container');
-  const width = element.scrollWidth;
+  const element = document.getElementById('compatibility-wrapper');
+  const width = element.offsetWidth;
   const height = element.scrollHeight;
 
   const opt = {
@@ -18,7 +18,7 @@ const exportToPDF = () => {
     },
     jsPDF: {
       unit: 'px',
-      format: [width + 10, height], // add buffer to avoid cutoff
+      format: [width, height],
       orientation: 'portrait'
     },
     pagebreak: {
