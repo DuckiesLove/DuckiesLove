@@ -572,21 +572,24 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btn) {
     btn.addEventListener('click', function () {
       const element = document.getElementById('pdf-export-wrapper');
+      const spinner = document.getElementById('loading-spinner');
+      if (spinner) spinner.style.display = 'flex';
       html2pdf()
         .from(element)
         .set({
           margin: 0,
           filename: 'kink_compatibility_comparison.pdf',
           image: { type: 'jpeg', quality: 1 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#000'
-          },
-          jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all'] }
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
         })
-        .save();
+        .save()
+        .then(() => {
+          if (spinner) spinner.style.display = 'none';
+        })
+        .catch(() => {
+          if (spinner) spinner.style.display = 'none';
+        });
     });
   }
 });
