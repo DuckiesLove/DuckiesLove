@@ -169,7 +169,8 @@
     }
 
     async function generateKinkPDF(results, categories) {
-      applyPrintStyles();
+      const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+      applyPrintStyles(mode);
       let jsPDF;
       try {
         jsPDF = await loadJsPDF();
