@@ -250,8 +250,13 @@ function buildKinkBreakdown(surveyA, surveyB) {
 async function generateComparisonPDF() {
   const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
   applyPrintStyles(mode);
-  const element = document.querySelector('.pdf-container');
+  const element = document.getElementById('print-area');
   if (!element) return;
+
+  // ensure the export container has no margin or padding and a black background
+  element.style.margin = '0';
+  element.style.padding = '0';
+  element.style.background = '#000';
 
   const jsPDF = await loadJsPDF();
   const pdf = new jsPDF({ unit: 'in', format: 'letter', orientation: 'portrait' });
@@ -266,7 +271,15 @@ async function generateComparisonPDF() {
     margin: 0,
     filename: 'kink-compatibility-results.pdf',
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#000000' },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#000000',
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight
+    },
     jsPDF: pdf
   };
 
