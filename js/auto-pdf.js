@@ -1,7 +1,7 @@
 const exportToPDF = () => {
   const element = document.getElementById('pdf-container');
   const opt = {
-    margin: 0,
+    margin: 0.5,
     filename: 'Kink_Compatibility_Report.pdf',
     image: { type: 'jpeg', quality: 1 },
     html2canvas: {
