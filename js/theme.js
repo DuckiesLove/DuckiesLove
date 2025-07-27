@@ -340,6 +340,34 @@ export function applyPrintStyles() {
         color: #666;
       }
 
+      #export-container {
+        background-color: #000 !important;
+        color: #f1f1f1 !important;
+        padding: 1rem;
+        width: 100%;
+      }
+
+      .comparison-card {
+        background-color: #1a1a1a !important;
+        color: #f1f1f1 !important;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+      }
+
+      .comparison-card .label {
+        color: #ccc !important;
+      }
+
+      .comparison-card .bar {
+        background-color: #333 !important;
+      }
+
+      .comparison-card .bar-fill {
+        background-color: limegreen !important;
+      }
+
       @media print {
         body { counter-reset: page; }
         .print-footer:after { content: counter(page); }
