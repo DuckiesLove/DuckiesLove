@@ -1,5 +1,5 @@
 const exportToPDF = () => {
-  const element = document.getElementById('compatibility-wrapper');
+  const element = document.getElementById('pdf-container');
   const width = element.scrollWidth;
   const height = element.scrollHeight;
 
@@ -28,8 +28,3 @@ const exportToPDF = () => {
   };
   html2pdf().set(opt).from(element).save();
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('download');
-  if (btn) btn.addEventListener('click', exportToPDF);
-});
