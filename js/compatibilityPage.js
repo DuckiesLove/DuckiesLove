@@ -260,7 +260,7 @@ async function generateComparisonPDF() {
   container.style.margin = '0 auto';
   container.style.padding = '0';
   container.style.background = '#000';
-  container.style.paddingBottom = '100px';
+  container.style.paddingBottom = '0';
 
   const jsPDF = await loadJsPDF();
   const width = element.scrollWidth;
