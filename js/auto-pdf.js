@@ -1,23 +1,50 @@
 // SETUP DARK PDF EXPORT
 const element = document.getElementById('results'); // main results container
+element.classList.add('pdf-container');
 
 const opt = {
-  margin: 0,
+  margin: [0, 0, 0, 0],
   filename: 'kink-compatibility-results.pdf',
   image: { type: 'jpeg', quality: 1 },
   html2canvas: {
     scale: 2,
     useCORS: true,
-    // ensure the captured canvas is pure black
-    backgroundColor: '#000000'
+    backgroundColor: '#000',
+    logging: true,
+    scrollY: 0,
+    scrollX: 0,
+    windowWidth: element.scrollWidth,
+    windowHeight: element.scrollHeight
   },
-  jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+  jsPDF: { unit: 'px', format: 'a4', orientation: 'portrait' }
 };
 
 // CLEAN EXPORT BUTTON (REMOVE "Trouble Downloading")
 document.querySelectorAll('button').forEach(btn => {
   if (btn.innerText.toLowerCase().includes('trouble')) btn.remove();
 });
+
+// STYLE INJECTION (Print Overrides)
+const printStyle = document.createElement('style');
+printStyle.textContent = `
+  @media print {
+    body {
+      background: #000 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+    }
+    .pdf-container {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+  }
+`;
+document.head.appendChild(printStyle);
 
 // STYLE INJECTION (Dark Theme)
 const style = document.createElement('style');
