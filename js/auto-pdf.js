@@ -114,10 +114,13 @@ style.innerHTML = `
 document.head.appendChild(style);
 
 function downloadPDF() {
+  document.body.classList.add('exporting');
   window.scrollTo(0, 0);
   opt.html2canvas.windowWidth = content.scrollWidth;
   opt.html2canvas.windowHeight = content.scrollHeight;
-  html2pdf().set(opt).from(content).save();
+  html2pdf().set(opt).from(content).save().then(() => {
+    document.body.classList.remove('exporting');
+  });
 }
 
 window.downloadPDF = downloadPDF;

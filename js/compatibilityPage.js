@@ -248,6 +248,7 @@ function buildKinkBreakdown(surveyA, surveyB) {
 }
 
 async function generateComparisonPDF() {
+  document.body.classList.add('exporting');
   const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
   applyPrintStyles(mode);
   const element = document.getElementById('export-target');
@@ -255,7 +256,7 @@ async function generateComparisonPDF() {
   window.scrollTo(0, 0);
 
   // ensure the export container has no margin or padding and a black background
-  element.style.margin = '0';
+  element.style.margin = '0 auto';
   element.style.padding = '0';
   element.style.background = '#000';
   element.style.paddingBottom = '100px';
@@ -297,6 +298,7 @@ async function generateComparisonPDF() {
   }
 
   await worker.save();
+  document.body.classList.remove('exporting');
 }
 
 function loadFileA(file) {

@@ -858,6 +858,7 @@ if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);
 
 function downloadPDF() {
   document.body.classList.add('dark-mode');
+  document.body.classList.add('exporting');
   applyPrintStyles('dark');
 
   const element = document.getElementById('export-target') || document.getElementById('surveyContainer');
@@ -914,7 +915,9 @@ function downloadPDF() {
     },
   };
 
-  html2pdf().set(opt).from(element).save();
+  html2pdf().set(opt).from(element).save().then(() => {
+    document.body.classList.remove('exporting');
+  });
 }
 
 

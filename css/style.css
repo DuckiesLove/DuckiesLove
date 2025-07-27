@@ -2284,3 +2284,24 @@ body {
   }
 }
 
+/* Center exported content only during PDF generation */
+.exporting #export-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 800px;
+  max-width: 90vw;
+  margin: 0 auto;
+}
+
+.exporting #export-target h1,
+.exporting #export-target h2,
+.exporting #export-target h3,
+.exporting #export-target h4,
+.exporting #export-target h5,
+.exporting #export-target h6 {
+  text-align: center;
+}
+
