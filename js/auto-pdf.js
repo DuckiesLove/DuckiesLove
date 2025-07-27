@@ -12,13 +12,13 @@ const exportToPDF = () => {
       useCORS: true,
       backgroundColor: '#000',
       scrollY: 0,
-      width,
+      width: width,
       windowWidth: width,
       windowHeight: height
     },
     jsPDF: {
       unit: 'px',
-      format: [width, height],
+      format: [width + 10, height], // add buffer to avoid cutoff
       orientation: 'portrait'
     },
     pagebreak: {
