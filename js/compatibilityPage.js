@@ -251,15 +251,16 @@ async function generateComparisonPDF() {
   document.body.classList.add('exporting');
   const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
   applyPrintStyles(mode);
-  const element = document.getElementById('pdf-container');
-  if (!element) return;
+  const container = document.getElementById('pdf-container');
+  const element = document.getElementById('compatibility-wrapper');
+  if (!container || !element) return;
   window.scrollTo(0, 0);
 
   // ensure the export container has no margin or padding and a black background
-  element.style.margin = '0 auto';
-  element.style.padding = '0';
-  element.style.background = '#000';
-  element.style.paddingBottom = '100px';
+  container.style.margin = '0 auto';
+  container.style.padding = '0';
+  container.style.background = '#000';
+  container.style.paddingBottom = '100px';
 
   const jsPDF = await loadJsPDF();
   const width = element.scrollWidth;

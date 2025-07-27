@@ -1,5 +1,5 @@
 const exportToPDF = () => {
-  const element = document.getElementById('pdf-container');
+  const element = document.getElementById('compatibility-wrapper');
   const width = element.scrollWidth;
   const height = element.scrollHeight;
 
