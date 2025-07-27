@@ -1927,15 +1927,15 @@ body {
 @media print {
   body,
   html {
-    background-color: #0f0f0f !important;
-    color: #f0f0f0 !important;
+    background-color: #000 !important;
+    color: var(--text-color, inherit) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .pdf-container {
-    background-color: #0f0f0f !important;
-    color: #f0f0f0 !important;
+    background-color: transparent !important;
+    color: inherit !important;
     padding: 20px;
     font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1944,8 +1944,8 @@ body {
   .card,
   .category-box,
   .result-card {
-    background-color: #1a1a1a !important;
-    color: #f0f0f0 !important;
+    background-color: var(--panel-color, #1e1e2f) !important;
+    color: inherit !important;
     border: 1px solid #333 !important;
     box-shadow: none !important;
   }
@@ -2189,8 +2189,8 @@ body {
   .pdf-container {
     width: 100%;
     padding: 0.5rem;
-    background-color: #121212;
-    color: #f1f1f1;
+    background-color: transparent;
+    color: inherit;
     font-family: sans-serif;
   }
 
@@ -2209,7 +2209,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #222;
+    background-color: var(--panel-color, #1e1e2f);
+    color: inherit;
     padding: 0.25rem 0.5rem;
     margin: 0.2rem 0;
     border-radius: 4px;
@@ -2224,7 +2225,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: white;
+    color: inherit;
   }
 
   .partner-score {
@@ -2270,8 +2271,8 @@ body {
 
 @media print {
   body {
-    background: #121212 !important;
-    color: #f1f1f1 !important;
+    background: #000 !important;
+    color: var(--text-color, inherit) !important;
   }
 }
 
