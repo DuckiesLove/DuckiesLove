@@ -74,7 +74,7 @@
       if (!element) return;
 
       // Force background color for PDF rendering
-      element.style.backgroundColor = "#111"; // or "#000" for pure black
+      element.style.backgroundColor = "#000"; // pure black background
 
       element.classList.add('pdf-export');
       html2pdf()
@@ -84,7 +84,7 @@
           image: { type: 'jpeg', quality: 1 },
           html2canvas: {
             scale: 2,
-            backgroundColor: '#111',
+            backgroundColor: '#000',
             useCORS: true
           },
           jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
