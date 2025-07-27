@@ -17,7 +17,7 @@
       <input type="file" id="roleFile" hidden />
     </label>
 
-    <div id="print-area" class="pdf-container print-wrapper result-container"></div>  </div>
+    <div id="export-target" class="pdf-container print-wrapper result-container"></div>  </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
@@ -70,7 +70,7 @@
     function exportPDFFromVisibleStyledContent() {
       const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
       applyPrintStyles(mode);
-      const element = document.getElementById("print-area");
+      const element = document.getElementById("export-target");
       if (!element) return;
 
       // Force background color for PDF rendering
@@ -105,7 +105,7 @@
           const parsed = JSON.parse(ev.target.result);
           const survey = parsed.survey || parsed;
           const scores = calculateRoleScores({ all: flattenSurvey(survey) });
-          const container = document.getElementById('print-area');
+          const container = document.getElementById('export-target');
           if (!scores.length) {
             container.textContent = 'No role data found.';
             return;
@@ -139,7 +139,7 @@
           setTimeout(() => {
             exportPDFFromVisibleStyledContent();          }, 0);
         } catch (err) {
-          document.getElementById('print-area').textContent = 'Invalid file.';
+          document.getElementById('export-target').textContent = 'Invalid file.';
         }
       };
       reader.readAsText(file);

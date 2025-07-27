@@ -9,7 +9,7 @@ body {
 }
 
 /* === 2. Centered Survey Layout with Dark Container === */
-#results {
+#export-target {
   max-width: 1000px;
   width: 95%;
   margin: 2rem auto;

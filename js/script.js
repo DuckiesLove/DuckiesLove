@@ -860,8 +860,10 @@ function downloadPDF() {
   document.body.classList.add('dark-mode');
   applyPrintStyles('dark');
 
-  const element = document.getElementById('surveyContainer');
+  const element = document.getElementById('export-target') || document.getElementById('surveyContainer');
   if (!element) return;
+  window.scrollTo(0, 0);
+  element.style.paddingBottom = '100px';
 
   // Inject minimal styles to ensure full-width dark export
   const style = document.createElement('style');
