@@ -859,8 +859,21 @@ if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);
 function downloadPDF() {
   document.body.classList.add('dark-mode');
   applyPrintStyles('dark');
+
   const element = document.getElementById('surveyContainer');
   if (!element) return;
+
+  // Inject minimal styles to ensure full-width dark export
+  const style = document.createElement('style');
+  style.textContent = `
+    body { margin: 0; background-color: #000 !important; }
+    .pdf-wrapper { background-color: #000 !important; color: #fff; width: 100%; padding: 20px; box-sizing: border-box; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  `;
+  document.head.appendChild(style);
+
+  element.classList.add('pdf-wrapper');
+
   const opt = {
     margin: 0,
     filename: 'survey.pdf',
@@ -869,21 +882,14 @@ function downloadPDF() {
       scale: 4,
       backgroundColor: '#000',
       useCORS: true,
-      logging: true,
       scrollY: 0,
-      windowWidth: document.documentElement.scrollWidth,
-      windowHeight: document.documentElement.scrollHeight,
+      scrollX: 0,
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight,
     },
     jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
   };
-  element.style.backgroundColor = '#000';
-  element.style.color = '#f0f0f0';
-  element.querySelectorAll('*').forEach(el => {
-    const computed = getComputedStyle(el);
-    el.style.backgroundColor = computed.backgroundColor;
-    el.style.color = computed.color;
-    el.style.fontFamily = computed.fontFamily;
-  });
+
   html2pdf().set(opt).from(element).save();
 }
 
