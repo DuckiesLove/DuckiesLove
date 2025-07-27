@@ -9,9 +9,16 @@
   <script src="js/auto-pdf.js" defer></script>
 </head>
 <body>
-  <button class="manual-export" onclick="downloadPDF()">Download Results as PDF</button>
-  <div id="export-target">
-    <!-- Compatibility results go here -->
+  <div id="button-section">
+    <button>Upload Your Survey</button>
+    <button>Upload Partner’s Survey</button>
+    <button id="download" type="button">Download PDF</button>
+  </div>
+
+  <div id="pdf-container">
+    <div id="compatibility-wrapper">
+      <!-- Compatibility results go here -->
+    </div>
   </div>
 </body>
 </html>
