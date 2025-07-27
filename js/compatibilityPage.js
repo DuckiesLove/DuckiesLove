@@ -407,6 +407,19 @@ function updateComparison() {
     if (cardList) cardList.appendChild(card);
   });
 
+  if (cardList) {
+    cardList.querySelectorAll('.comparison-card').forEach(card => {
+      const percents = Array.from(card.querySelectorAll('.percentage-label')).map(label => parseInt(label.textContent));
+      const [a, b] = percents;
+      const icon = document.createElement('div');
+      icon.className = 'match-icon';
+      if (a >= 90 && b >= 90) icon.textContent = '⭐';
+      else if (a <= 30 || b <= 30) icon.textContent = '🚩';
+      else if (Math.abs(a - b) === 5 && (a === 5 || b === 5)) icon.textContent = '🟨';
+      card.appendChild(icon);
+    });
+  }
+
   setTimeout(() => {
     generateComparisonPDF();
   }, 0);
