@@ -2311,21 +2311,31 @@ body {
   overflow: hidden;
 }
 
-/* 🖨️ Styles applied only during PDF export */
+/* 🖨️ PDF Export Fix */
+.exporting body,
+.exporting html {
+  margin: 0;
+  padding: 0;
+  background: #000 !important;
+  color: #fff;
+  height: 100%;
+  width: 100%;
+}
+
 .exporting #compatibility-wrapper {
   display: block;
-  width: 1200px;
-  max-width: none;
+  width: 100%;
+  max-width: 1160px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 0;
   text-align: left;
-  overflow: hidden; /* Prevent overflow clipping */
+  overflow: hidden;
 }
 
 .exporting .results-table {
-  margin: 0;
   width: 100%;
-  max-width: 1160px; /* Fit within padding */
+  max-width: 1160px;
+  margin: 0 auto;
 }
 
 
@@ -2338,11 +2348,6 @@ body {
   text-align: center;
 }
 
-.exporting .results-table {
-  width: 100%;
-  max-width: 1160px; /* Accounts for 20px padding on each side */
-  margin: 0;
-}
 
 @page {
   margin: 0;
