@@ -53,7 +53,7 @@ th, td {
 }
 
 /* === EXPORT FIXES FOR PDF === */
-.exporting body {
+body.exporting {
   margin: 0;
   padding: 0;
   background: #000 !important;
@@ -70,8 +70,9 @@ th, td {
   width: 100% !important;
   max-width: 1160px !important;
   margin: 0 auto !important;
-  padding: 0;
+  padding: 0 !important;
   background-color: #000 !important;
+  overflow: hidden;
 }
 
 /* Make the section headers black */
@@ -88,10 +89,10 @@ th, td {
 /* Ensure full table width and text wrapping */
 .exporting .results-table {
   width: 100% !important;
+  max-width: 100% !important;
   margin: 0 auto !important;
-  table-layout: fixed;
   border-collapse: collapse;
-  word-wrap: break-word;
+  table-layout: fixed;
   background-color: #000 !important;
 }
 
@@ -102,16 +103,22 @@ th, td {
   white-space: normal !important;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  padding: 8px 6px;
   page-break-inside: avoid;
   break-inside: avoid;
-  padding: 8px;
-  border: none;
+  text-align: left;
   background-color: #000 !important;
 }
 
 /* Hide nav and other UI during print/export */
 @media print {
-  nav, header, footer, .no-print {
+  nav, header, footer, aside, .no-print {
     display: none !important;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000 !important;
   }
 }
