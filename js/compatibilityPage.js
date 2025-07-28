@@ -268,7 +268,7 @@ async function generateComparisonPDF() {
   const pdf = new jsPDF({
     unit: 'px',
     format: [width, height],
-    orientation: 'portrait'
+    orientation: 'landscape'
   });
 
   // fill the first page background with pure black
