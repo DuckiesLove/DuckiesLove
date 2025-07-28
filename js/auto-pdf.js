@@ -1,7 +1,5 @@
 const exportToPDF = () => {
-  const element = document.getElementById('compatibility-wrapper');
-  const width = element.offsetWidth;
-  const height = element.scrollHeight;
+  const element = document.getElementById('pdf-container');
 
   const opt = {
     margin: 0,
@@ -11,15 +9,12 @@ const exportToPDF = () => {
       scale: 2,
       useCORS: true,
       backgroundColor: '#000',
-      scrollY: 0,
-      width: width,
-      windowWidth: width,
-      windowHeight: height
+      scrollY: 0
     },
     jsPDF: {
-      unit: 'px',
-      format: [width, height],
-      orientation: 'portrait'
+      unit: 'mm',
+      format: 'a3',
+      orientation: 'landscape'
     },
     pagebreak: {
       mode: ['css', 'legacy'],
