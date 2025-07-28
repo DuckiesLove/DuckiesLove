@@ -365,52 +365,68 @@ function updateComparison() {
   container.innerHTML = '';
 
   const allItems = [];
-  Object.values(kinkBreakdown).forEach(list => {
-    list.forEach(it => allItems.push(it));
-  });
+  Object.entries(kinkBreakdown).forEach(([category, list]) => {
+    const section = document.createElement('div');
+    section.className = 'category-wrapper';
+    if (PAGE_BREAK_CATEGORIES.has(category)) section.classList.add('page-break');
 
-  const items = allItems
-    .filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
-    .sort((a, b) => {
-      const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
-      const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
-      return bP - aP;
+    const header = document.createElement('h2');
+    header.className = 'category-header';
+    header.textContent = category;
+    section.appendChild(header);
+
+    const table = document.createElement('table');
+    table.className = 'results-table';
+    table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Partner B</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+
+    const items = list
+      .filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
+      .sort((a, b) => {
+        const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
+        const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
+        return bP - aP;
+      });
+
+    items.forEach(item => {
+      const ratingA = maxRating(item.you);
+      const ratingB = maxRating(item.partner);
+      const youP = toPercent(ratingA);
+      const partnerP = toPercent(ratingB);
+      const row = document.createElement('tr');
+      row.className = 'row';
+
+      const nameTd = document.createElement('td');
+      nameTd.className = 'kink-name';
+      nameTd.textContent = item.name;
+      row.appendChild(nameTd);
+
+      const makeTd = percent => {
+        const td = document.createElement('td');
+        const pct = percent === null ? 0 : percent;
+        const cls = colorClass(percent ?? 0);
+        td.innerHTML = `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
+          `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
+        return td;
+      };
+
+      row.appendChild(makeTd(youP));
+      row.appendChild(makeTd(partnerP));
+      tbody.appendChild(row);
+
+      allItems.push({ ...item, category });
     });
 
-  const table = document.createElement('table');
-  table.className = 'results-table';
-  table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Partner B</th></tr></thead>';
-  const tbody = document.createElement('tbody');
-
-  items.forEach(item => {
-    const ratingA = maxRating(item.you);
-    const ratingB = maxRating(item.partner);
-    const youP = toPercent(ratingA);
-    const partnerP = toPercent(ratingB);
-    const row = document.createElement('tr');
-    row.className = 'row';
-
-    const nameTd = document.createElement('td');
-    nameTd.className = 'kink-name';
-    nameTd.textContent = item.name;
-    row.appendChild(nameTd);
-
-    const makeTd = percent => {
-      const td = document.createElement('td');
-      const pct = percent === null ? 0 : percent;
-      const cls = colorClass(percent ?? 0);
-      td.innerHTML = `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
-        `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
-      return td;
-    };
-
-    row.appendChild(makeTd(youP));
-    row.appendChild(makeTd(partnerP));
-    tbody.appendChild(row);
+    table.appendChild(tbody);
+    section.appendChild(table);
+    container.appendChild(section);
   });
 
-  table.appendChild(tbody);
-  container.appendChild(table);
+  const items = allItems.sort((a, b) => {
+    const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
+    const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
+    return bP - aP;
+  });
 
   const cardList = document.getElementById('print-card-list');
   if (cardList) cardList.innerHTML = '';
