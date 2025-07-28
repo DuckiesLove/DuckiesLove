@@ -902,11 +902,11 @@ function downloadPDF() {
     html2canvas: {
       scale: 2,
       useCORS: true,
-      scrollY: 0,
-      scrollX: 0,
       backgroundColor: '#000',
-      windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight,
+      scrollX: -20, // Extra buffer on left
+      scrollY: -20, // Extra buffer on top
+      windowWidth: element.scrollWidth + 40, // Add padding
+      windowHeight: element.scrollHeight + 40 // Add padding
     },
     jsPDF: {
       unit: 'px',
