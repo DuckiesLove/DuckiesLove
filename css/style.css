@@ -2304,8 +2304,8 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  width: 800px;
-  max-width: 90vw;
+  width: 1200px;
+  max-width: none;
   margin: 0 auto;
 }
 
