@@ -2546,3 +2546,54 @@ body {
   }
 }
 /* If using a PDF generator like wkhtmltopdf, enable print media styles (e.g., use the --print-media-type flag):contentReference[oaicite:7]{index=7} */
+
+/* === PDF EXPORT FIXES === */
+.exporting body {
+  margin: 0;
+  padding: 0;
+  background: #000 !important;
+  color: #fff !important;
+}
+
+.exporting .compatibility-wrapper {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: left !important;
+  width: 100% !important;
+  max-width: 1160px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  background: #000 !important;
+}
+
+.exporting .results-table {
+  width: 100% !important;
+  margin: 0 auto !important;
+  border-collapse: collapse;
+  word-wrap: break-word;
+  table-layout: fixed;
+}
+
+.exporting .results-table th,
+.exporting .results-table td {
+  word-wrap: break-word;
+  white-space: normal !important;
+  overflow-wrap: break-word;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Remove dark blue header if any */
+.exporting .category-header {
+  background: transparent !important;
+  color: #f00;
+}
+
+/* Hide non-essential export elements */
+@media print {
+  nav, header, footer, .no-print {
+    display: none !important;
+  }
+}

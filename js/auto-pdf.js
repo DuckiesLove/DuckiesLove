@@ -1,5 +1,6 @@
 const exportToPDF = () => {
   const element = document.getElementById('pdf-container');
+  document.body.classList.add('exporting');
 
   const opt = {
     margin: 0,
@@ -21,5 +22,11 @@ const exportToPDF = () => {
       avoid: ['.avoid-break']
     }
   };
-  html2pdf().set(opt).from(element).save();
+  html2pdf()
+    .set(opt)
+    .from(element)
+    .save()
+    .then(() => {
+      document.body.classList.remove('exporting');
+    });
 };
