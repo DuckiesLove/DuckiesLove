@@ -24,7 +24,7 @@ body {
 
 #compatibility-wrapper {
   background-color: #111;
-  width: 1000px; /* fixed width for consistency */
+  width: 1200px; /* fixed wide layout */
   padding: 20px;
   box-sizing: border-box;
 }
