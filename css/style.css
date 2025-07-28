@@ -2547,7 +2547,7 @@ body {
 }
 /* If using a PDF generator like wkhtmltopdf, enable print media styles (e.g., use the --print-media-type flag):contentReference[oaicite:7]{index=7} */
 
-/* === PDF EXPORT FIXES === */
+/* === EXPORT FIXES FOR PDF === */
 .exporting body {
   margin: 0;
   padding: 0;
@@ -2583,12 +2583,13 @@ body {
   overflow-wrap: break-word;
   page-break-inside: avoid;
   break-inside: avoid;
+  padding: 6px 8px;
 }
 
-/* Remove dark blue header if any */
+/* Make the section headers black */
 .exporting .category-header {
-  background: transparent !important;
-  color: #f00;
+  background-color: #000 !important;
+  color: #f00 !important; /* Change to #fff for white text if preferred */
 }
 
 /* Hide non-essential export elements */
