@@ -2297,17 +2297,34 @@ body {
   }
 }
 
-/* Center exported content only during PDF generation */
+/* Layout tweaks applied only while generating the PDF */
 .exporting #compatibility-wrapper {
+.compatibility-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  width: 800px;
-  max-width: 90vw;
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
-  overflow: hidden; /* Contain overflows */
+  padding: 20px;
+}
+
+  width: 1200px;
+  max-width: none;
+  margin: 0 auto;
+.compatibility-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  overflow: hidden;
 }
 
 .exporting #compatibility-wrapper h1,
@@ -2319,12 +2336,43 @@ body {
   text-align: center;
 }
 
-/* Adjust table layout during PDF generation */
 .exporting .results-table {
   width: 100%;
-  max-width: 1160px; /* Account for 20px padding on each side */
+  max-width: 1160px; /* Accounts for 20px padding on each side */
   margin: 0;
 }
+
+@page {
+  margin: 0;
+  size: auto;
+}
+
+@media print {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000 !important;
+    color: white;
+  }
+
+  .compatibility-wrapper, .results-table {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  .results-table td, .results-table th {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    word-wrap: break-word;
+  }
+
+  nav, header, footer, aside, .no-print {
+    display: none !important;
+  }
+}
+
 
 /* Loading spinner displayed during PDF generation */
 .loading-overlay {
