@@ -2297,8 +2297,53 @@ body {
   }
 }
 
-/* Center exported content only during PDF generation */
+/* Layout tweaks applied only while generating the PDF */
 .exporting #compatibility-wrapper {
+.compatibility-wrapper {
+  display: block;
+  width: 1200px;
+  max-width: none;
+  margin: 0 auto;
+  padding: 20px;
+  text-align: left;
+}
+
+.exporting .results-table {
+  margin: 0;
+  width: 100%;
+  max-width: none;
+}
+
+@page {
+  margin: 0;
+  size: auto;
+}
+
+@media print {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000 !important;
+    color: white;
+  }
+
+  .compatibility-wrapper, .results-table {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  .results-table td, .results-table th {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    word-wrap: break-word;
+  }
+
+  nav, header, footer, aside, .no-print {
+    display: none !important;
+  }
+}
 
 }
 
