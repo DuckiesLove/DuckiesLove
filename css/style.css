@@ -2422,3 +2422,58 @@ body {
   }
 }
 
+/* 
+ * Instructions: Add the following CSS (e.g., in your stylesheet or a <style> tag) to fix PDF alignment.
+ * - Defines print styles to center content and use full page width.
+ * - Ensures content is not cut off (tables, graphs) and supports multi-page output.
+ * Copy-paste this entire block into your codebase (after any existing CSS so it can override as needed).
+ */
+@page {
+  margin: 0.5in; /* Use smaller margins (e.g. 0.5") for more printable width:contentReference[oaicite:0]{index=0} */
+  size: auto;    /* Auto page size (use default like A4/Letter) */
+}
+@media print {
+  /* Hide unnecessary elements (nav, sidebars) to allow main content full width */
+  nav, aside, .sidebar, .side-column, .no-print { 
+    display: none !important; 
+  } /* Hiding side sections for print:contentReference[oaicite:1]{index=1} */
+
+  /* Reset body/HTML margin to avoid any additional whitespace */
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Make main content container span full width and remove padding/margins */
+  #mainContent, .container, main, article {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  } /* Force content container to full width:contentReference[oaicite:2]{index=2}:contentReference[oaicite:3]{index=3} */
+
+  /* Flatten multi-column layouts: ensure no flex/grid limiting width */
+  .row, .col, .flex-container, .grid-container {
+    display: block !important;
+    width: 100% !important;
+  } /* Make flex/grid containers full width:contentReference[oaicite:4]{index=4} 
+       (Ensure parent elements aren’t inline-block/flex to allow page breaks:contentReference[oaicite:5]{index=5}) */
+
+  /* Prevent content overflow: tables, images, graphs scale to fit page */
+  table, img, canvas, svg {
+    max-width: 100% !important;  /* no element wider than page */
+  }
+  img, canvas, svg {
+    height: auto !important;     /* keep aspect ratio for images/canvases */
+  }
+  td, th {
+    word-wrap: break-word;       /* break long text in tables to avoid overflow */
+  }
+
+  /* Avoid cutting off content between pages */
+  tr, img, .chart, .graph { 
+    page-break-inside: avoid;    /* do not break table rows or images across pages */
+    break-inside: avoid;         /* modern equivalent for avoiding breaks inside element:contentReference[oaicite:6]{index=6} */
+  }
+}
+/* If using a PDF generator like wkhtmltopdf, enable print media styles (e.g., use the --print-media-type flag):contentReference[oaicite:7]{index=7} */
