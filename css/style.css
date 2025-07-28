@@ -2304,9 +2304,9 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  width: 800px;
-  max-width: 90vw;
-  margin: 0 auto;
+  width: 1200px; /* Match auto-pdf.css */
+  max-width: none;
+  margin: 0; /* Remove centering */
 }
 
 .exporting #compatibility-wrapper h1,
