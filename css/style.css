@@ -2324,18 +2324,18 @@ body {
 
 .exporting #compatibility-wrapper {
   display: block;
-  width: 100%;
-  max-width: 1160px;
+  width: 1200px;
+  max-width: none;
   margin: 0 auto;
-  padding: 0;
+  padding: 20px;
   text-align: left;
   overflow: hidden;
 }
 
 .exporting .results-table {
+  margin: 0;
   width: 100%;
-  max-width: 1160px;
-  margin: 0 auto;
+  max-width: 1160px; /* Adjust for 20px padding */
 }
 
 
