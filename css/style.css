@@ -2299,11 +2299,12 @@ body {
 
 /* Layout tweaks applied only while generating the PDF */
 .exporting #compatibility-wrapper {
+.compatibility-wrapper {
   display: block;
   width: 1200px;
   max-width: none;
-  margin: 0;
-  padding: 20px; /* Consistent with auto-pdf.css */
+  margin: 0 auto;
+  padding: 20px;
   text-align: left;
 }
 
@@ -2313,6 +2314,39 @@ body {
   max-width: none;
 }
 
+@page {
+  margin: 0;
+  size: auto;
+}
+
+@media print {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000 !important;
+    color: white;
+  }
+
+  .compatibility-wrapper, .results-table {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  .results-table td, .results-table th {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    word-wrap: break-word;
+  }
+
+  nav, header, footer, aside, .no-print {
+    display: none !important;
+  }
+}
+
+}
+
 .exporting #compatibility-wrapper h1,
 .exporting #compatibility-wrapper h2,
 .exporting #compatibility-wrapper h3,
@@ -2320,6 +2354,13 @@ body {
 .exporting #compatibility-wrapper h5,
 .exporting #compatibility-wrapper h6 {
   text-align: center;
+}
+
+/* Ensure exported results table spans full width */
+.exporting .results-table {
+  margin: 0; /* Remove auto margins */
+  width: 100%; /* Use full width of wrapper */
+  max-width: none; /* Remove max-width constraint */
 }
 
 /* Loading spinner displayed during PDF generation */
