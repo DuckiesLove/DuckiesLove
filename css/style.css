@@ -2307,6 +2307,7 @@ body {
   width: 800px;
   max-width: 90vw;
   margin: 0 auto;
+  overflow: hidden; /* Contain overflows */
 }
 
 .exporting #compatibility-wrapper h1,
@@ -2316,6 +2317,13 @@ body {
 .exporting #compatibility-wrapper h5,
 .exporting #compatibility-wrapper h6 {
   text-align: center;
+}
+
+/* Adjust table layout during PDF generation */
+.exporting .results-table {
+  width: 100%;
+  max-width: 1160px; /* Account for 20px padding on each side */
+  margin: 0;
 }
 
 /* Loading spinner displayed during PDF generation */
