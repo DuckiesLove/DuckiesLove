@@ -2300,7 +2300,17 @@ body {
 /* Layout tweaks applied only while generating the PDF */
 .exporting #compatibility-wrapper {
 .compatibility-wrapper {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
   width: 1200px;
   max-width: none;
   margin: 0 auto;
