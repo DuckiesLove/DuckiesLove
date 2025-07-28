@@ -2297,16 +2297,21 @@ body {
   }
 }
 
-/* Center exported content only during PDF generation */
+/* Styles used when generating the PDF */
 .exporting #compatibility-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  width: 800px;
-  max-width: 90vw;
-  margin: 0 auto;
+  display: block;
+  width: 1200px;
+  max-width: none;
+  margin: 0;
+  padding: 20px;
+  text-align: left;
+  overflow: hidden; /* Prevent overflow clipping */
+}
+
+.exporting .results-table {
+  margin: 0;
+  width: 100%;
+  max-width: 1160px; /* Fit within padding */
 }
 
 .exporting #compatibility-wrapper h1,
