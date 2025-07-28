@@ -2318,6 +2318,13 @@ body {
   text-align: center;
 }
 
+/* Ensure exported results table spans full width */
+.exporting .results-table {
+  margin: 0; /* Remove auto margins */
+  width: 100%; /* Use full width of wrapper */
+  max-width: none; /* Remove max-width constraint */
+}
+
 /* Loading spinner displayed during PDF generation */
 .loading-overlay {
   position: fixed;
