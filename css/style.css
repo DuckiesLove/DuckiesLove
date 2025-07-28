@@ -2326,7 +2326,7 @@ body {
   display: block;
   width: 1200px;
   max-width: none;
-  margin: 0 auto;
+  margin: 0;
   padding: 20px;
   text-align: left;
   overflow: hidden;
@@ -2335,7 +2335,13 @@ body {
 .exporting .results-table {
   margin: 0;
   width: 100%;
-  max-width: 1160px; /* Adjust for 20px padding */
+  max-width: 1160px;
+}
+
+.exporting .kink-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 
@@ -2438,7 +2444,7 @@ body {
   #pdf-container {
     margin: 0 auto !important;
     padding: 0 !important;
-    background-color: #121212 !important;
+    background-color: #000 !important;
     width: 100% !important;
     display: flex;
     justify-content: center;
