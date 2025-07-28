@@ -2297,23 +2297,7 @@ body {
   }
 }
 
-/* Layout tweaks applied only while generating the PDF */
-.exporting #compatibility-wrapper {
-.compatibility-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-  width: 1200px;
-  max-width: none;
-  margin: 0 auto;
+/* 📄 Web layout */
 .compatibility-wrapper {
   display: flex;
   flex-direction: column;
@@ -2326,6 +2310,24 @@ body {
   padding: 20px;
   overflow: hidden;
 }
+
+/* 🖨️ Styles applied only during PDF export */
+.exporting #compatibility-wrapper {
+  display: block;
+  width: 1200px;
+  max-width: none;
+  margin: 0 auto;
+  padding: 20px;
+  text-align: left;
+  overflow: hidden; /* Prevent overflow clipping */
+}
+
+.exporting .results-table {
+  margin: 0;
+  width: 100%;
+  max-width: 1160px; /* Fit within padding */
+}
+
 
 .exporting #compatibility-wrapper h1,
 .exporting #compatibility-wrapper h2,
