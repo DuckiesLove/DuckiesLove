@@ -283,10 +283,10 @@ async function generateComparisonPDF() {
       scale: 2,
       useCORS: true,
       backgroundColor: '#000000',
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: width,
-      windowHeight: height,
+      scrollX: -20, // Extra buffer on left
+      scrollY: -20, // Extra buffer on top
+      windowWidth: width + 40, // Add padding
+      windowHeight: height + 40, // Add padding
       logging: false,
       allowTaint: true,
       crossOrigin: 'anonymous'
