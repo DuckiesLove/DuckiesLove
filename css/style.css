@@ -2299,14 +2299,7 @@ body {
 
 /* Center exported content only during PDF generation */
 .exporting #compatibility-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  width: 1200px; /* Match auto-pdf.css */
-  max-width: none;
-  margin: 0; /* Remove centering */
+
 }
 
 .exporting #compatibility-wrapper h1,
