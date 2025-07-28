@@ -2299,8 +2299,7 @@ body {
 
 /* Center exported content only during PDF generation */
 .exporting #compatibility-wrapper {
-  display: block; /* Revert to block layout */
-  text-align: left; /* Ensure text aligns left */
+
 }
 
 .exporting #compatibility-wrapper h1,
@@ -2310,6 +2309,13 @@ body {
 .exporting #compatibility-wrapper h5,
 .exporting #compatibility-wrapper h6 {
   text-align: center;
+}
+
+/* Ensure exported results table spans full width */
+.exporting .results-table {
+  margin: 0; /* Remove auto margins */
+  width: 100%; /* Use full width of wrapper */
+  max-width: none; /* Remove max-width constraint */
 }
 
 /* Loading spinner displayed during PDF generation */
