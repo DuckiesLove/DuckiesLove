@@ -1,5 +1,14 @@
 export function setTheme(theme) {
-  document.body.className = '';
+  if (document.body.classList.contains('exporting')) {
+    localStorage.setItem('theme', theme);
+    return;
+  }
+
+  const current = Array.from(document.body.classList);
+  current
+    .filter(cls => cls.startsWith('theme-'))
+    .forEach(cls => document.body.classList.remove(cls));
+
   document.body.classList.add(`theme-${theme}`);
   localStorage.setItem('theme', theme);
   applyThemeColors(theme);
