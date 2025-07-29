@@ -1976,8 +1976,16 @@ body {
   .pdf-container h2,
   .pdf-container h3,
   .pdf-container .category-title {
-    color: #ff5c5c !important;
-  }
+  text-align: center;
+  color: red;
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 40px;
+  margin-bottom: 10px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
 
   .pdf-container .bar-label {
     color: #9ef0a7 !important;
@@ -2062,14 +2070,13 @@ body {
   padding: 1rem;
   border-radius: 8px;
 }
-
 .category-title {
   text-align: center;
-  font-weight: bold;
-  font-size: 1.3em;
   color: red;
-  margin-top: 2em;
-  margin-bottom: 0.5em;
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 40px;
+  margin-bottom: 10px;
   margin-left: auto;
   margin-right: auto;
   display: block;
@@ -2649,11 +2656,11 @@ body {
 
   .category-title {
     text-align: center;
-    font-weight: bold;
-    font-size: 1.3em;
     color: red;
-    margin-top: 2em;
-    margin-bottom: 0.5em;
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-top: 40px;
+    margin-bottom: 10px;
     margin-left: auto;
     margin-right: auto;
     display: block;
