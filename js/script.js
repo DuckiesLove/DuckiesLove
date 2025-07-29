@@ -903,10 +903,10 @@ function downloadPDF() {
       scale: 2,
       useCORS: true,
       backgroundColor: '#000',
-      scrollX: -20, // Extra buffer on left
-      scrollY: -20, // Extra buffer on top
-      windowWidth: element.scrollWidth + 40, // Add padding
-      windowHeight: element.scrollHeight + 40 // Add padding
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight
     },
     jsPDF: {
       unit: 'px',
