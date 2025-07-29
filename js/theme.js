@@ -1,16 +1,21 @@
+export function setTheme(theme) {
+  document.body.className = '';
+  document.body.classList.add(`theme-${theme}`);
+  localStorage.setItem('theme', theme);
+  applyThemeColors(theme);
+}
+// Expose for inline handlers
+window.setTheme = setTheme;
+
 export function initTheme() {
   const themeSelector = document.getElementById('themeSelector');
-  const savedTheme =
-    localStorage.getItem('selectedTheme') || document.body.className || 'dark-mode';
-  document.body.className = savedTheme;
-  applyThemeColors(savedTheme);
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  setTheme(savedTheme);
   if (themeSelector) {
     themeSelector.value = savedTheme;
     themeSelector.addEventListener('change', () => {
       const selectedTheme = themeSelector.value;
-      document.body.className = selectedTheme;
-      localStorage.setItem('selectedTheme', selectedTheme);
-      applyThemeColors(selectedTheme);
+      setTheme(selectedTheme);
     });
   }
 }
@@ -19,6 +24,27 @@ export function applyThemeColors(theme) {
   const surveyContent = document.querySelector('#survey-section');
   const categoryPanel = document.querySelector('#categoryPanel');
   const themeStyles = {
+    dark: {
+      fontColor: '#f2f2f2',
+      bgColor: '#0d0d0d',
+      inputBg: '#1a1a1a',
+      inputText: '#f2f2f2',
+      borderColor: '#444'
+    },
+    lipstick: {
+      fontColor: '#fceaff',
+      bgColor: '#1a001f',
+      inputBg: '#300030',
+      inputText: '#fceaff',
+      borderColor: '#ff91f0'
+    },
+    forest: {
+      fontColor: '#1d3b1d',
+      bgColor: '#f0f7f1',
+      inputBg: '#e6f3ea',
+      inputText: '#1d3b1d',
+      borderColor: '#81b89b'
+    },
     'light-mode': {
       fontColor: '#111',
       bgColor: '#939e93',
@@ -71,7 +97,7 @@ export function applyThemeColors(theme) {
   };
 
   const normalized = (theme || '').toLowerCase().replace(/\s+/g, '-');
-  const selected = themeStyles[normalized] || themeStyles['dark-mode'];
+  const selected = themeStyles[normalized] || themeStyles['dark'];
 
   if (surveyContent) {
     surveyContent.style.color = selected.fontColor;
