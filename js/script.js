@@ -420,9 +420,9 @@ function loadSavedSurvey() {
 
 
 
-roleDefinitionsBtn.addEventListener('click', showRolePanel);
-closeRoleDefinitionsBtn.addEventListener('click', hideRolePanel);
-roleDefinitionsOverlay.addEventListener('click', hideRolePanel);
+if (roleDefinitionsBtn) roleDefinitionsBtn.addEventListener('click', showRolePanel);
+if (closeRoleDefinitionsBtn) closeRoleDefinitionsBtn.addEventListener('click', hideRolePanel);
+if (roleDefinitionsOverlay) roleDefinitionsOverlay.addEventListener('click', hideRolePanel);
 
 function startNewSurvey() {
   guidedMode = true;
@@ -465,14 +465,16 @@ function startNewSurvey() {
   }
 }
 
-startSurveyBtn.addEventListener('click', () => {
-  guidedMode = true;
-  if (surveyIntro) surveyIntro.style.display = 'none';
-  if (themeSelector) {
-    setTheme(themeSelector.value);
-  }
-  startNewSurvey();
-});
+if (startSurveyBtn) {
+  startSurveyBtn.addEventListener('click', () => {
+    guidedMode = true;
+    if (surveyIntro) surveyIntro.style.display = 'none';
+    if (themeSelector) {
+      setTheme(themeSelector.value);
+    }
+    startNewSurvey();
+  });
+}
 
 if (newSurveyBtn) {
   newSurveyBtn.addEventListener('click', startNewSurvey);
@@ -985,9 +987,7 @@ function init() {
   if (saved) {
     initializeSurvey(saved);
   }
-  if (surveyIntro) {
-    surveyIntro.style.display = 'flex';
-  }
+  startNewSurvey();
 }
 
 if (document.readyState !== 'loading') {

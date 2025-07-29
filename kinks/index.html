@@ -11,20 +11,9 @@
 
   <h1>Talk Kink</h1>
 
-  <p class="instruction-banner">
-    💡 “After completing the survey, click ‘Export My List’ to download your answers. You can then view or compare your data by uploading it. Your data is never saved — everything happens on your device.”
-  </p>
-  <!-- Theme Selector -->
-  <div id="themeControl">
-    <label for="themeSelector">🎨 Select Theme:</label>
-    <select id="themeSelector" onchange="setTheme(this.value)">
-      <option value="dark">Dark</option>
-      <option value="lipstick">Lipstick</option>
-      <option value="forest">Forest</option>
-    </select>
-  </div>
+  <!-- Instruction banner and theme selector removed -->
 
-  <div id="progressBanner" class="progress-container" style="display:block">
+  <div id="progressBanner" class="progress-container" style="display:none">
     <div class="progress-bar">
       <span id="progressLabel" class="progress-bar-text"></span>
       <div id="progressFill" class="progress-fill"></div>
@@ -33,7 +22,7 @@
 
 
   <!-- Rating Legend -->
-  <div id="ratingLegend">
+  <div id="ratingLegend" style="display:none">
     <ul>
       <li>0 — Hard No</li>
       <li>1 — Dislike / Haven’t Considered</li>
@@ -54,9 +43,7 @@
           <div id="survey-section">
           <div id="export-target">
           <div id="surveyContainer">
-          <div class="export-button-container">
-            <button id="downloadBtn" class="survey-button">Export My List</button>
-          </div>
+          <!-- Export button removed -->
           <div id="categoryTitle" class="category-title"></div>
           <p id="categoryDescription" style="display:none;"></p>
           <div id="kinkList"></div>
@@ -178,13 +165,6 @@
     </div>
   </div>
 
-  <!-- Survey Intro Overlay -->
-  <div id="surveyIntro" class="overlay">
-    <div class="intro-modal">
-      <p>Follow the prompts to rate each category in order.</p>
-      <button id="startSurveyBtn">Start Survey</button>
-    </div>
-  </div>
 
   <!-- Category Selection Panel -->
   <div id="categoryOverlay" class="overlay category-sidebar" style="display:none">
@@ -201,22 +181,7 @@
 
   <!-- Buttons -->
   <div class="menu-container">
-  <div class="button-group">
-    <!-- Top two buttons -->
-    <button id="newSurveyBtn" class="survey-button">Start New Survey</button>
-
-    <!-- Spacer -->
-    <div class="section-spacing"></div>
-
-    <!-- Compatibility button -->
-    <div class="main-nav-buttons">
-      <button id="compatibilityBtn" class="survey-button" onclick="location.href='../compatibility.html'">See Our Compatibility</button>
-      <button id="roleDefinitionsBtn" class="survey-button">Role Definitions</button>
-      <button id="roleResultsBtn" class="survey-button" onclick="location.href='../your-roles.html'">View Role Results</button>
-      <button id="kinkListBtn" class="survey-button" onclick="location.href='../kink-list.html'">View Kink List</button>
-    </div>
-  </div>
-  <button id="homeBtn" class="survey-button" style="display:none;">Home</button>
+    <button id="compatibilityBtn" class="survey-button" onclick="location.href='../compatibility.html'">See Our Compatibility</button>
   </div>
 
   <!-- Script -->
