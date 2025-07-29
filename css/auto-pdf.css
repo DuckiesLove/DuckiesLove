@@ -122,3 +122,65 @@ body.exporting {
     background: #000 !important;
   }
 }
+/* Set universal black background and text color for PDF */
+@media print {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000 !important;
+    color: white !important;
+  }
+
+  .compatibility-wrapper {
+    background: #000 !important;
+    color: white !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 20px !important;
+    box-sizing: border-box;
+  }
+
+  .results-table {
+    width: 100% !important;
+    table-layout: fixed;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .results-table th,
+  .results-table td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 200px;
+    white-space: normal;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  nav, header, footer, aside, .no-print {
+    display: none !important;
+  }
+}
+
+/* Web display (non-print) */
+.compatibility-wrapper {
+  background: #000 !important;
+  color: white;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.results-table {
+  width: 100%;
+  table-layout: fixed;
+  word-wrap: break-word;
+}
+
+.results-table th,
+.results-table td {
+  white-space: normal;
+}
