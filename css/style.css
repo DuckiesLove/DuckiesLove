@@ -2600,6 +2600,34 @@ body {
   font-size: 12px;
 }
 
+/* === Print/PDF layout fixes === */
+@media print {
+  /* Center the exported table within the page */
+  #pdf-container {
+    justify-content: center;
+    overflow: visible !important;
+  }
+  #compatibility-wrapper {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    transform: scale(0.9);
+    transform-origin: top center;
+  }
+
+  /* Ensure table width fits page and long names wrap */
+  .results-table {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .results-table th,
+  .results-table td {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+}
+
 /* Make the section headers black */
 .exporting .category-header {
   background-color: #000 !important;
