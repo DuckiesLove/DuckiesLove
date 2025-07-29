@@ -1852,7 +1852,7 @@ body {
 .category-header {
   font-size: 20px;
   font-weight: 700;
-  text-align: left;
+  text-align: center;
   border-bottom: 1px solid #555;
   padding: 4px 0;
   margin: 12px 0 4px;
@@ -2229,6 +2229,7 @@ body {
   .category-header {
     font-weight: bold;
     font-size: 0.85rem;
+    text-align: center;
     padding: 0.25rem 0;
     border-bottom: 1px solid #ccc;
   }
@@ -2671,6 +2672,7 @@ body {
 .exporting .category-header {
   background-color: #000 !important;
   color: #ff4444 !important;
+  text-align: center;
 }
 
 /* Hide non-essential export elements */
@@ -2767,6 +2769,7 @@ body {
 .exporting .category-header {
   background-color: #000 !important;
   color: #f00 !important; /* Or #fff if you'd rather use white text */
+  text-align: center;
 }
 
 /* Ensure table fits, wraps long text, and doesn't overflow */
