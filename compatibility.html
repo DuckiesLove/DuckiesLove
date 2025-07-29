@@ -59,6 +59,28 @@
       background-color: #000;
     }
   </style>
+  <style>
+    /* Styling for the PDF layout */
+    .compatibility-wrapper.print-mode {
+      margin: 0 auto;
+      width: 90%;
+      transform: scale(0.9);
+      transform-origin: top center;
+    }
+
+    @media print {
+      body {
+        background: black !important;
+        color: white !important;
+      }
+
+      table {
+        width: 100%;
+        table-layout: fixed;
+        word-wrap: break-word;
+      }
+    }
+  </style>
 </head>
 <body class="dark-mode">
   <div class="scroll-container scrollable-panel">
@@ -77,11 +99,11 @@
           <input type="file" id="fileB" hidden />
         </label>
       </div>
-      <button id="download-pdf" class="download-btn">Download PDF</button>
+        <button onclick="exportCompatibilityPDF()" class="download-btn">Download PDF</button>
     </div>
     <div id="loading-spinner" class="loading-overlay"><div class="spinner"></div></div>
     <div id="pdf-container">
-      <div id="compatibility-wrapper">
+      <div id="compatibility-wrapper" class="compatibility-wrapper">
         <div id="comparisonResult"></div>
         <div id="compatibility-report" class="pdf-export-area"></div>
         <div id="print-card-list" class="print-only"></div>
@@ -92,5 +114,23 @@
   <script src="js/template-survey.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script type="module" src="js/compatibilityPage.js"></script>
+  <script>
+    function exportCompatibilityPDF() {
+      const element = document.querySelector('.compatibility-wrapper');
+      element.classList.add('print-mode');
+
+      const opt = {
+        margin: 0,
+        filename: 'kink-compatibility.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, backgroundColor: '#000' },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save().then(() => {
+        element.classList.remove('print-mode');
+      });
+    }
+  </script>
 </body>
 </html>
