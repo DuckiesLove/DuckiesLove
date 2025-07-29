@@ -2324,15 +2324,16 @@ body {
 }
 
 .exporting {
-  zoom: 0.95;
+  zoom: 0.9;
 }
 
 .exporting #compatibility-wrapper {
   width: 100% !important;
   max-width: 100% !important;
-  padding: 0 !important;
+  padding: 10px !important;
   margin: 0 auto !important;
   overflow-x: hidden !important;
+  box-sizing: border-box;
 }
 
 .exporting .results-table {
@@ -2342,12 +2343,18 @@ body {
   border-collapse: collapse;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  font-size: 13px;
 }
 
 .exporting .kink-label {
   white-space: normal;
   overflow: visible;
   text-overflow: unset;
+}
+
+.exporting .progress-bar {
+  height: 12px;
+  margin: 2px 0;
 }
 
 
@@ -2580,6 +2587,7 @@ body {
   border-collapse: collapse;
   word-wrap: break-word;
   table-layout: fixed;
+  font-size: 13px;
 }
 
 .exporting .results-table td,
@@ -2587,8 +2595,8 @@ body {
   white-space: normal !important;
   word-break: break-word !important;
   overflow-wrap: break-word !important;
-  padding: 6px;
-  font-size: 13px;
+  padding: 6px 4px;
+  font-size: 12px;
 }
 
 /* Make the section headers black */
@@ -2700,6 +2708,7 @@ body {
   table-layout: fixed;
   border-collapse: collapse;
   word-wrap: break-word;
+  font-size: 13px;
 }
 
 .exporting .results-table td,
@@ -2707,8 +2716,8 @@ body {
   white-space: normal !important;
   word-break: break-word !important;
   overflow-wrap: break-word !important;
-  padding: 6px;
-  font-size: 13px;
+  padding: 6px 4px;
+  font-size: 12px;
 }
 
 /* Hide UI elements during export */
