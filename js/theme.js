@@ -102,7 +102,7 @@ export const pdfStyles = `
     :root {
       --bg-color: #000000 !important;
       --text-color: #ffffff !important;
-      --panel-color: #292b3d !important;
+      --panel-color: #000 !important;
     }
 
     html, body, #compatibility-wrapper {
@@ -267,7 +267,7 @@ export function applyPrintStyles(mode = 'dark') {
         gap: 10px;
         padding: 6px 0;
         border-bottom: 1px solid #ccc;
-        background-color: var(--panel-color, #292b3d) !important;
+        background-color: var(--panel-color, #000) !important;
       }
 
       .compare-label {
@@ -403,7 +403,7 @@ export function applyPrintStyles(mode = 'dark') {
         margin-bottom: 24px;
         padding: 6px;
         border-bottom: 1px solid #ddd;
-        background-color: var(--panel-color, #292b3d) !important;
+        background-color: var(--panel-color, #000) !important;
       }
 
       .print-footer {
@@ -462,7 +462,7 @@ export function applyPrintStyles(mode = 'dark') {
         }
 
         .discord-button, .dark-button {
-          background-color: var(--panel-color, #292b3d) !important;
+          background-color: var(--panel-color, #000) !important;
           color: var(--text-color, #ffffff) !important;
           border: 1px solid #cccccc;
           padding: 0.5rem 1rem;
@@ -470,7 +470,7 @@ export function applyPrintStyles(mode = 'dark') {
         }
 
         .category-wrapper {
-          background-color: var(--panel-color, #292b3d) !important;
+          background-color: var(--panel-color, #000) !important;
           color: var(--text-color, #ffffff) !important;
           border: 1px solid #cccccc;
           padding: 1rem;
