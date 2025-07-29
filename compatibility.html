@@ -117,22 +117,19 @@
   </div>
   <script src="js/template-survey.js"></script>
   <script type="module" src="js/compatibilityPage.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script>
     function exportCompatibilityPDF() {
-      const body = document.body;
-      body.classList.add('print-mode');
-
-      const cleanup = () => {
-        body.classList.remove('print-mode');
-        window.removeEventListener('afterprint', cleanup);
+      const element = document.querySelector('#compatibility-wrapper');
+      const opt = {
+        margin: 0,
+        filename: 'kink-compatibility.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, backgroundColor: '#000000' },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all'] }
       };
-      window.addEventListener('afterprint', cleanup);
-
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          window.print();
-        }, 300);
-      });
+      html2pdf().set(opt).from(element).save();
     }
   </script>
 </body>
