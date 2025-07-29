@@ -197,7 +197,7 @@
         y += 8;
         doc.setFont('helvetica', 'normal');
         categories.forEach(cat => {
-          doc.text(cat.name, 10, y);
+          doc.text(cat.name, pageWidth / 2, y, { align: 'center' });
           doc.text(`${cat.percent}%`, pageWidth - 10, y, { align: 'right' });
           y += 6;
           if (y > 280) { doc.addPage(); y = 20; }
