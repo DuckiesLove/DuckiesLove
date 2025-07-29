@@ -2324,7 +2324,7 @@ body {
 }
 
 .exporting {
-  zoom: 0.9;
+  zoom: 0.8;
 }
 
 .exporting #compatibility-wrapper {
@@ -2483,7 +2483,8 @@ body {
 }
 
 #compatibility-wrapper {
-  width: 1000px;
+  width: 100%;
+  max-width: 1000px;
   background: #000;
   margin: 0 auto;
 }
@@ -2575,7 +2576,7 @@ body {
   justify-content: center;
   text-align: left !important;
   width: 100% !important;
-  max-width: 1160px !important;
+  max-width: 100% !important;
   margin: 0 auto !important;
   padding: 0 !important;
   background: #000 !important;
@@ -2689,7 +2690,7 @@ body {
   justify-content: center;
   text-align: left !important;
   width: 100% !important;
-  max-width: 1160px !important;
+  max-width: 100% !important;
   margin: 0 auto !important;
   padding: 0 !important;
   background: #000 !important;
