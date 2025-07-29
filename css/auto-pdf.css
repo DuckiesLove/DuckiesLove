@@ -184,3 +184,68 @@ body.exporting {
 .results-table td {
   white-space: normal;
 }
+
+/* Additional print adjustments */
+@media print {
+  html, body {
+    background: #000 !important;
+    color: #fff !important;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  nav, header, footer, aside, .no-print {
+    display: none !important;
+  }
+
+  .compatibility-wrapper,
+  #compatibility-wrapper {
+    background-color: #000 !important;
+    color: #fff !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    text-align: center;
+    overflow: hidden !important;
+  }
+
+  .results-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    margin: 0 auto !important;
+    background-color: #000 !important;
+  }
+
+  .results-table th,
+  .results-table td {
+    color: #fff !important;
+    background-color: #000 !important;
+    word-wrap: break-word !important;
+    white-space: normal !important;
+    overflow-wrap: break-word;
+    padding: 8px;
+    text-align: left;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .category-header {
+    background-color: #000 !important;
+    color: red !important;
+    font-weight: bold;
+    padding: 12px 16px;
+    font-size: 1.2em;
+    text-align: center;
+    border-bottom: 1px solid #333;
+  }
+
+  @page {
+    margin: 0;
+    size: auto;
+  }
+}
