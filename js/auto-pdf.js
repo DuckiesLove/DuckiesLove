@@ -7,7 +7,7 @@ const exportToPDF = () => {
     filename: 'Kink_Compatibility_Report.pdf',
     image: { type: 'jpeg', quality: 1 },
     html2canvas: {
-      scale: 2,
+      scale: 1.6,
       useCORS: true,
       backgroundColor: '#000',
       scrollY: 0
