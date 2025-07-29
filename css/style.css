@@ -15,7 +15,6 @@ body {
 }
 
 .card,
-.category-box,
 .survey-section,
 .result-card {
   background-color: #1a1a1a !important;
@@ -337,6 +336,37 @@ body.theme-rainbow .category-panel {
   background-color: #fff;
   color: #000;
   border-right-color: #603636;
+}
+
+/* === CATEGORY BOX BORDER PER THEME (WEB ONLY) === */
+
+/* Base styling for all category panels */
+.category-box {
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  transition: border-color 0.3s ease;
+}
+
+/* Dark Theme: subtle muted charcoal */
+body.theme-dark:not(.exporting) .category-box {
+  border-color: #444;
+}
+
+/* Lipstick Theme: bold pink-magenta like Monster Prom */
+body.theme-lipstick:not(.exporting) .category-box {
+  border-color: #ff4fa2;
+}
+
+/* Forest Theme: calm pine green */
+body.theme-forest:not(.exporting) .category-box {
+  border-color: #5daa75;
+}
+
+/* Optional: hover highlight */
+.category-box:hover {
+  background-color: rgba(255, 255, 255, 0.04);
 }
 
 
