@@ -17,20 +17,21 @@
       html, body {
         margin: 0;
         padding: 0;
-        background: black;
-        color: white;
         width: 100%;
         height: 100%;
-        overflow: hidden;
+        background: black;
+        color: white;
       }
 
       .compatibility-wrapper {
         width: 100%;
         max-width: 100%;
         display: flex;
-        justify-content: center; /* Center the table horizontally */
-        transform: scale(0.88) translateX(20px); /* Shift right */
+        justify-content: center; /* Center the table */
+        align-items: flex-start;
+        transform: scale(0.85); /* Slight zoom out to fit page */
         transform-origin: top center;
+        padding: 20px 0;
       }
 
       .results-table {
