@@ -6,7 +6,6 @@
   <title>See Our Compatibility</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/theme.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     @media print {
       @page {
@@ -60,10 +59,12 @@
     }
   </style>
   <style>
-    /* Styling for the PDF layout */
-    .compatibility-wrapper.print-mode {
+    /* Styling used when printing */
+    body.print-mode .compatibility-wrapper {
       margin: 0 auto;
-      width: 90%;
+      padding: 0;
+      width: 100%;
+      max-width: 100%;
       transform: scale(0.9);
       transform-origin: top center;
     }
@@ -72,6 +73,9 @@
       body {
         background: black !important;
         color: white !important;
+        display: block;
+        width: 100vw;
+        margin: auto;
       }
 
       table {
@@ -112,23 +116,22 @@
     <div class="print-footer"></div>
   </div>
   <script src="js/template-survey.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script type="module" src="js/compatibilityPage.js"></script>
   <script>
     function exportCompatibilityPDF() {
-      const element = document.querySelector('.compatibility-wrapper');
-      element.classList.add('print-mode');
+      const body = document.body;
+      body.classList.add('print-mode');
 
-      const opt = {
-        margin: 0,
-        filename: 'kink-compatibility.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, backgroundColor: '#000' },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      const cleanup = () => {
+        body.classList.remove('print-mode');
+        window.removeEventListener('afterprint', cleanup);
       };
+      window.addEventListener('afterprint', cleanup);
 
-      html2pdf().set(opt).from(element).save().then(() => {
-        element.classList.remove('print-mode');
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          window.print();
+        }, 250);
       });
     }
   </script>
