@@ -1925,7 +1925,7 @@ body {
 .page-break { display: none; }
 
 @page {
-  size: landscape;
+  size: A4 landscape;
   margin: 0;
 }
 
@@ -2323,23 +2323,25 @@ body {
   width: 100%;
 }
 
+.exporting {
+  zoom: 0.95;
+}
+
 .exporting #compatibility-wrapper {
-  display: block;
   width: 100% !important;
   max-width: 100% !important;
-  margin: 0 auto !important;
   padding: 0 !important;
-  text-align: left;
-  overflow: hidden;
+  margin: 0 auto !important;
+  overflow-x: hidden !important;
 }
 
 .exporting .results-table {
-  margin: 0;
   width: 100% !important;
   max-width: 100% !important;
   table-layout: fixed !important;
-  word-wrap: break-word !important;
-  overflow-wrap: break-word !important;
+  border-collapse: collapse;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .exporting .kink-label {
@@ -2360,7 +2362,7 @@ body {
 
 
 @page {
-  size: landscape;
+  size: A4 landscape;
   margin: 0;
 }
 
@@ -2503,7 +2505,7 @@ body {
  */
 @page {
   margin: 0;
-  size: landscape;
+  size: A4 landscape;
 }
 @media print {
   /* Hide unnecessary elements (nav, sidebars) to allow main content full width */
@@ -2580,14 +2582,13 @@ body {
   table-layout: fixed;
 }
 
-.exporting .results-table th,
-.exporting .results-table td {
-  word-wrap: break-word;
+.exporting .results-table td,
+.exporting .results-table th {
   white-space: normal !important;
-  overflow-wrap: break-word;
-  page-break-inside: avoid;
-  break-inside: avoid;
-  padding: 6px 8px;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  padding: 6px;
+  font-size: 13px;
 }
 
 /* Make the section headers black */
@@ -2701,14 +2702,13 @@ body {
   word-wrap: break-word;
 }
 
-.exporting .results-table th,
-.exporting .results-table td {
+.exporting .results-table td,
+.exporting .results-table th {
   white-space: normal !important;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  page-break-inside: avoid;
-  break-inside: avoid;
-  padding: 6px 8px;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  padding: 6px;
+  font-size: 13px;
 }
 
 /* Hide UI elements during export */
