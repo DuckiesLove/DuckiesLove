@@ -2805,3 +2805,45 @@ body {
     background: #000;
   }
 }
+
+.print-mode {
+  background: black !important;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  transform: scale(0.94);
+  transform-origin: top center;
+  overflow: hidden;
+}
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html, body {
+    background: black !important;
+    color: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden;
+  }
+
+  .container, .print-mode {
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+
+  @page {
+    margin: 0;
+    size: auto;
+  }
+}
