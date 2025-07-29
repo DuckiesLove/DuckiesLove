@@ -208,8 +208,8 @@ body.exporting {
     padding: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    text-align: center;
-    overflow: hidden !important;
+    text-align: left;
+    overflow: hidden;
   }
 
   .results-table {
