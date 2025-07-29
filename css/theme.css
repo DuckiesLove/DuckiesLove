@@ -79,3 +79,96 @@
   --button-hover-bg: rgba(255, 255, 255, 0.7);
   --progress-fill-color: #603636;
 }
+
+/* New simplified themes */
+.theme-dark {
+  --bg-color: #0d0d0d;
+  --text-color: #f2f2f2;
+  --accent-color: #333;
+  --button-bg: #1a1a1a;
+  --button-text: #f2f2f2;
+  --border-color: #444;
+  --link-color: #66ccff;
+  --hover-bg: #333;
+  --hover-text: #ffffff;
+  --panel-bg: #1a1a1a;
+  --card-bg: #222;
+}
+.theme-lipstick {
+  --bg-color: #1a001f;
+  --text-color: #fceaff;
+  --accent-color: #ff4ecb;
+  --highlight-color: #a200ff;
+  --button-bg: #ff4ecb;
+  --button-text: #1a001f;
+  --border-color: #ff91f0;
+  --link-color: #ffb3ec;
+  --hover-bg: #a200ff;
+  --hover-text: #ffffff;
+  --panel-bg: #300030;
+  --card-bg: #2a002a;
+}
+.theme-forest {
+  --bg-color: #f0f7f1;
+  --text-color: #1d3b1d;
+  --accent-color: #3d6651;
+  --button-bg: #a6d5b5;
+  --button-text: #1d3b1d;
+  --border-color: #81b89b;
+  --link-color: #297c58;
+  --hover-bg: #82c8a0;
+  --hover-text: #fff;
+  --panel-bg: #e6f3ea;
+  --card-bg: #d9efe1;
+}
+
+body.theme-dark {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+body.theme-dark button,
+body.theme-dark .start-button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: 1px solid var(--border-color);
+}
+body.theme-dark a {
+  color: var(--link-color);
+}
+body.theme-dark .panel,
+body.theme-dark .card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.theme-lipstick {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+body.theme-lipstick button,
+body.theme-lipstick .start-button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: 2px solid var(--border-color);
+}
+body.theme-lipstick .panel,
+body.theme-lipstick .card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.theme-forest {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+body.theme-forest button,
+body.theme-forest .start-button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: 1px solid var(--border-color);
+}
+body.theme-forest .panel,
+body.theme-forest .card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}

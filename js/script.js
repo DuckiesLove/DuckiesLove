@@ -1,6 +1,6 @@
 import { calculateCompatibility } from './compatibility.js';
 import { pruneSurvey } from './pruneSurvey.js';
-import { initTheme, applyThemeColors, applyPrintStyles } from './theme.js';
+import { initTheme, setTheme, applyPrintStyles } from './theme.js';
 
 // ================== Password Protection ==================
 const PASSWORD = 'toopoortosue';
@@ -432,7 +432,7 @@ function startNewSurvey() {
   if (mainNavButtons) mainNavButtons.style.display = 'none';
 
   if (themeSelector) {
-    applyThemeColors(themeSelector.value);
+    setTheme(themeSelector.value);
   }
 
   categoryOverlay.style.display = 'flex';
@@ -469,7 +469,7 @@ startSurveyBtn.addEventListener('click', () => {
   guidedMode = true;
   if (surveyIntro) surveyIntro.style.display = 'none';
   if (themeSelector) {
-    applyThemeColors(themeSelector.value);
+    setTheme(themeSelector.value);
   }
   startNewSurvey();
 });
@@ -506,7 +506,7 @@ if (deselectAllBtn) {
 
 beginSurveyBtn.addEventListener('click', () => {
   if (themeSelector) {
-    applyThemeColors(themeSelector.value);
+    setTheme(themeSelector.value);
   }
   categoryOrder = Array.from(previewList.querySelectorAll('input[type="checkbox"]'))
     .filter(cb => cb.checked)
