@@ -2070,6 +2070,9 @@ body {
   color: red;
   margin-top: 2em;
   margin-bottom: 0.5em;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
 }
 
 .category-empty {
@@ -2651,6 +2654,9 @@ body {
     color: red;
     margin-top: 2em;
     margin-bottom: 0.5em;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
   }
 }
 
