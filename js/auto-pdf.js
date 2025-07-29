@@ -1,5 +1,5 @@
 const exportToPDF = () => {
-  const element = document.getElementById('pdf-container');
+  const element = document.getElementById('compatibility-wrapper');
   document.body.classList.add('exporting');
 
   const opt = {
