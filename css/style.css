@@ -1925,6 +1925,7 @@ body {
 .page-break { display: none; }
 
 @page {
+  size: landscape;
   margin: 0;
 }
 
@@ -2324,18 +2325,21 @@ body {
 
 .exporting #compatibility-wrapper {
   display: block;
-  width: 1200px;
-  max-width: none;
-  margin: 0;
-  padding: 20px;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
   text-align: left;
   overflow: hidden;
 }
 
 .exporting .results-table {
   margin: 0;
-  width: 100%;
-  max-width: 1160px;
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 .exporting .kink-label {
@@ -2356,8 +2360,8 @@ body {
 
 
 @page {
+  size: landscape;
   margin: 0;
-  size: auto;
 }
 
 @media print {
@@ -2498,8 +2502,8 @@ body {
  * Copy-paste this entire block into your codebase (after any existing CSS so it can override as needed).
  */
 @page {
-  margin: 0.5in; /* Use smaller margins (e.g. 0.5") for more printable width:contentReference[oaicite:0]{index=0} */
-  size: auto;    /* Auto page size (use default like A4/Letter) */
+  margin: 0;
+  size: landscape;
 }
 @media print {
   /* Hide unnecessary elements (nav, sidebars) to allow main content full width */
@@ -2589,7 +2593,7 @@ body {
 /* Make the section headers black */
 .exporting .category-header {
   background-color: #000 !important;
-  color: #f00 !important; /* Change to #fff for white text if preferred */
+  color: #ff4444 !important;
 }
 
 /* Hide non-essential export elements */
