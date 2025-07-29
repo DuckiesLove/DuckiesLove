@@ -987,7 +987,10 @@ function init() {
   if (saved) {
     initializeSurvey(saved);
   }
-  startNewSurvey();
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('start')) {
+    startNewSurvey();
+  }
 }
 
 if (document.readyState !== 'loading') {
