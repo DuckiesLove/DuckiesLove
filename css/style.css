@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&display=swap');
 
 /* Base Page Layout */
@@ -749,6 +750,17 @@ body.theme-rainbow #comparisonResult {
   border-radius: 12px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
   text-align: center;
+}
+
+/* Dedicated block for villain quotes displayed on pages */
+.villain-block {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.villain-block .villain-quote {
+  border: 2px solid var(--accent-text, #ff66b2);
 }
 
 /* Overlay displayed for password entry */

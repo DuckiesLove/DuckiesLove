@@ -144,6 +144,21 @@ body.theme-dark .card {
   border: 1px solid var(--border-color);
 }
 
+.theme-lipstick .villain-block .villain-quote {
+  color: #ff4da6;
+  border-color: #ff4da6;
+}
+
+.theme-dark .villain-block .villain-quote {
+  color: #ffffff;
+  border-color: #666666;
+}
+
+.theme-forest .villain-block .villain-quote {
+  color: #a8ff8a;
+  border-color: #a8ff8a;
+}
+
 body.theme-lipstick {
   background-color: var(--bg-color);
   color: var(--text-color);
