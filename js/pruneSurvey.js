@@ -2,7 +2,9 @@ export function pruneSurvey(survey) {
   const result = {};
   if (!survey || typeof survey !== 'object') return result;
 
-  for (const [category, data] of Object.entries(survey)) {
+  const sortedCategories = Object.keys(survey).sort((a, b) => a.localeCompare(b));
+  for (const category of sortedCategories) {
+    const data = survey[category];
     const cat = {};
     ['Giving', 'Receiving', 'General'].forEach(role => {
       const items = Array.isArray(data[role]) ? data[role] : [];
