@@ -732,7 +732,8 @@ body.theme-rainbow #comparisonResult {
   flex-wrap: wrap;
 }
 
-.villain-image {
+.villain-image,
+.villain-img {
   max-width: 240px;
   border-radius: 12px;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.7);
