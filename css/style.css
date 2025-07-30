@@ -721,6 +721,36 @@ body.theme-rainbow #comparisonResult {
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
 }
 
+/* General villain panel styling used outside the intro overlay */
+.villain-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.villain-image {
+  max-width: 240px;
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.7);
+}
+
+.villain-quote {
+  font-family: 'UnifrakturCook', cursive;
+  font-size: 1.6rem;
+  color: var(--accent-text, #ff4dd2);
+  border: 2px solid currentColor;
+  padding: 1rem;
+  max-width: 500px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+  text-align: center;
+}
+
 /* Overlay displayed for password entry */
 #passwordOverlay {
   position: fixed;
