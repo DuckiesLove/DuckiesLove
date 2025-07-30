@@ -6,38 +6,56 @@
   <title>Villain Quote</title>
   <link rel="stylesheet" href="css/theme.css">
   <style>
-@import url('https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&display=swap');
-
-.villain-quote {
-  font-family: 'UnifrakturCook', cursive;
-  font-size: 1.6rem;
-  color: var(--accent-text, #ff4dd2); /* Fallback to bright pink */
-  text-align: center;
-  max-width: 800px;
-  margin: 2rem auto;
-  padding: 1rem;
-  border: 2px solid currentColor;
-  border-radius: 12px;
-  background-color: rgba(0, 0, 0, 0.6);
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
-}
-
-body.theme-lipstick {
-  --accent-text: #ff4dd2;
-}
-
-body.theme-dark {
-  --accent-text: #dddddd;
-}
-
-body.theme-forest {
-  --accent-text: #8be49e;
-}
+    @import url('https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&display=swap');
+    .villain-panel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      padding: 2rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    .villain-image {
+      max-width: 240px;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.6);
+    }
+    .villain-quote {
+      font-family: 'UnifrakturCook', cursive;
+      font-size: 1.6rem;
+      color: var(--accent-text, #ff4dd2); /* fallback if theme variable not set */
+      border: 2px solid currentColor;
+      border-radius: 12px;
+      padding: 1rem;
+      max-width: 500px;
+      background-color: rgba(0, 0, 0, 0.6);
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+      text-align: center;
+    }
+    body.theme-lipstick {
+      --accent-text: #ff4dd2;
+    }
+    body.theme-dark {
+      --accent-text: #dddddd;
+    }
+    body.theme-forest {
+      --accent-text: #8be49e;
+    }
+    @media print {
+      .villain-panel {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body class="theme-lipstick">
-  <div class="villain-quote">
-    “They swear I’m the villain, but all I did was survive the exile—this cold, blackened heart forged in the hush they tried to make me swallow.”
+  <div class="villain-panel">
+    <img src="ChangeBL.png" alt="Villain Image" class="villain-image" />
+    <div class="villain-quote">
+      “They swear I’m the villain, but all I did was survive the exile—this cold, blackened heart forged in the hush they tried to make me swallow.”
+    </div>
   </div>
 </body>
 </html>
