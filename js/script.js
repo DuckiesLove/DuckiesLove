@@ -426,6 +426,7 @@ if (roleDefinitionsOverlay) roleDefinitionsOverlay.addEventListener('click', hid
 
 function startNewSurvey() {
   guidedMode = true;
+  if (surveyIntro) surveyIntro.style.display = 'none';
   if (newSurveyBtn) newSurveyBtn.style.display = 'none';
   if (downloadBtn) downloadBtn.style.display = 'none';
   if (homeBtn) homeBtn.style.display = 'block';
