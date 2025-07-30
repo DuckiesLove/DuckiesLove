@@ -3,7 +3,7 @@ import { pruneSurvey } from './pruneSurvey.js';
 import { initTheme, setTheme, applyPrintStyles } from './theme.js';
 
 // ================== Password Protection ==================
-const PASSWORD = 'toopoortosue';
+const PASSWORD = 'BLSUCKS';
 
 function setupPasswordProtection(callback) {
   const overlay = document.getElementById('passwordOverlay');
