@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Villain Quote</title>
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&display=swap');
+
+.villain-quote {
+  font-family: 'UnifrakturCook', cursive;
+  font-size: 1.6rem;
+  color: var(--accent-text, #ff4dd2); /* Fallback to bright pink */
+  text-align: center;
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 1rem;
+  border: 2px solid currentColor;
+  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+}
+
+body.theme-lipstick {
+  --accent-text: #ff4dd2;
+}
+
+body.theme-dark {
+  --accent-text: #dddddd;
+}
+
+body.theme-forest {
+  --accent-text: #8be49e;
+}
+  </style>
+</head>
+<body class="theme-lipstick">
+  <div class="villain-quote">
+    “They swear I’m the villain, but all I did was survive the exile—this cold, blackened heart forged in the hush they tried to make me swallow.”
+  </div>
+</body>
+</html>
