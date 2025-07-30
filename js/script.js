@@ -443,7 +443,7 @@ function startNewSurvey() {
   const initialize = data => initializeSurvey(data);
 
   if (location.protocol.startsWith('http')) {
-    fetch('template-survey.json', { cache: 'no-store' })
+    fetch('../template-survey.json', { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         window.templateSurvey = normalizeSurveyFormat(data);

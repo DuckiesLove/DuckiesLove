@@ -38,10 +38,10 @@ The website is built from the following files in this repository:
 - `js/script.js`
 - `template-survey.json`
 
-The **Start New Survey** button fetches `template-survey.json` when the page is
-served over HTTP so you always start with a fresh set of kinks. If you open
-`index.html` directly from your file system, the script falls back to an
-embedded copy of the template.
+The **Start New Survey** button fetches `../template-survey.json` so nested
+pages like `/kinks/` load the template correctly. If you open the pages
+directly from your file system, the script falls back to an embedded copy of
+the template.
 
 Running a local web server is still recommended while developing so the latest
 JSON is loaded and all paths behave consistently. See below for quick server
