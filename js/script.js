@@ -359,7 +359,8 @@ function initializeSurvey(data) {
   filterGeneralOptions(surveyA);
   updateTabsForCategory();
   previewList.innerHTML = '';
-  Object.keys(surveyA).forEach(cat => {
+  const categoryNames = Object.keys(surveyA).sort((a, b) => a.localeCompare(b));
+  categoryNames.forEach(cat => {
     const label = document.createElement('label');
     label.className = 'checkbox-item';
     const cb = document.createElement('input');
@@ -557,7 +558,7 @@ function loadSurveyAFile(file) {
       filterGeneralOptions(surveyA);
       updateTabsForCategory();
       if (guidedMode) {
-        categoryOrder = Object.keys(surveyA);
+        categoryOrder = Object.keys(surveyA).sort((a, b) => a.localeCompare(b));
         categoryIndex = 0;
         currentCategory = categoryOrder[0] || null;
         if (currentCategory) {
@@ -614,7 +615,7 @@ if (fileBInput) {
 
 function showCategories() {
   if (!surveyA) return [];
-  return Object.keys(surveyA);
+  return Object.keys(surveyA).sort((a, b) => a.localeCompare(b));
 }
 
 function showKinks(category) {

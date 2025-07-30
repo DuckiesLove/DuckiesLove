@@ -1,5 +1,5 @@
 export function calculateCompatibility(surveyA, surveyB) {
-  const categories = Object.keys(surveyA);
+  const categories = Object.keys(surveyA).sort((a, b) => a.localeCompare(b));
   let totalScore = 0;
   let count = 0;
   let redFlags = [];

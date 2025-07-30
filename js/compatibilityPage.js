@@ -210,7 +210,7 @@ function mergeSurveyWithTemplate(survey, template) {
 
 function buildKinkBreakdown(surveyA, surveyB) {
   const breakdown = {};
-  const categories = Object.keys(surveyA);
+  const categories = Object.keys(surveyA).sort((a, b) => a.localeCompare(b));
   categories.forEach(category => {
     if (!surveyB[category]) return;
     const catA = surveyA[category];
