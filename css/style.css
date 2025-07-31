@@ -762,7 +762,7 @@ body.theme-rainbow #comparisonResult {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   gap: 1rem;
 }
 
@@ -771,10 +771,8 @@ body.theme-rainbow #comparisonResult {
   max-width: 500px;
   padding: 1rem 1.5rem;
   font-size: 1.2rem;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
+  text-align: center;
+  line-height: 1.5;
 }
 
 .villain-toggle-btn {
@@ -3142,7 +3140,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   gap: 1rem;
 }
 
