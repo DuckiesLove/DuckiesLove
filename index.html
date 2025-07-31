@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Talk Kink</title>
   <link rel="stylesheet" href="css/theme.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=EB+Garamond&display=swap" rel="stylesheet">
   <style>
     /* Landing Page Wrapper */
     .tk-start-screen {
@@ -66,6 +67,55 @@
     .tk-start-button:hover {
       background-color: #146014;
     }
+
+    /* Villain mascot block */
+    .villain-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 2rem;
+    }
+
+    .villain-img {
+      width: 150px;
+      height: auto;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .villain-quote {
+      text-align: center;
+      max-width: 700px;
+      padding: 1.4rem;
+      border-radius: 12px;
+      border: 2px solid;
+      font-size: 1.1rem;
+      line-height: 1.6;
+      font-family: 'Fredoka One', cursive;
+    }
+
+    /* Themes */
+    .theme-dark .villain-quote {
+      color: #48a963;
+      border-color: #48a963;
+    }
+
+    .theme-forest .villain-quote {
+      color: #98d9aa;
+      border-color: #98d9aa;
+      font-family: 'EB Garamond', serif;
+    }
+
+    .theme-lipstick .villain-quote {
+      color: #ff66b2;
+      border-color: #ff66b2;
+    }
+
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -85,6 +135,15 @@
     <p class="tk-instructions">Follow the prompts to rate each category in order.</p>
 
   <button class="tk-start-button" onclick="startSurvey()">Start Survey</button>
+  </div>
+
+  <div class="villain-block no-print">
+    <img src="assets/images/BLChange.png" alt="Villain Mascot" class="villain-img" />
+    <div class="villain-quote">
+      “They swear I’m the villain, but all I did was survive the exile—<br>
+      this cold, blackened heart forged in the hush<br>
+      they tried to make me swallow.”
+    </div>
   </div>
 
 
