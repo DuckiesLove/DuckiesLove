@@ -200,17 +200,3 @@ body.theme-forest .card {
   border: 1px solid var(--border-color);
 }
 
-/* Shared title styling for the Talk Kink header */
-.talk-kink-title {
-  font-family: 'Fredoka One', sans-serif;
-  font-size: 3.2rem;
-  color: var(--accent-text);
-  text-align: center;
-  margin: 0 auto 0.8rem auto;
-  padding: 0.4rem 1.2rem;
-  border: 2px solid var(--accent-text);
-  border-radius: 10px;
-  background-color: rgba(0, 0, 0, 0.2);
-  box-shadow: 0 0 10px var(--accent-text);
-  display: inline-block;
-}
