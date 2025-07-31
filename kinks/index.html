@@ -6,6 +6,46 @@
   <title>Talk Kink</title>
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/theme.css" />
+  <style>
+  .villain-quote-box {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .villain-quote {
+    font-size: 1.15rem;
+    text-align: center;
+    padding: 1.5rem;
+    max-width: 700px;
+    line-height: 1.6;
+    color: var(--accent-text);
+    border: 2px solid var(--accent-text);
+    border-radius: 12px;
+    background-color: rgba(0, 0, 0, 0.6);
+    font-family: var(--villain-font, 'Fredoka One', sans-serif);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .theme-dark .villain-quote {
+    --villain-font: 'Fredoka One';
+  }
+
+  .theme-forest .villain-quote {
+    --villain-font: 'EB Garamond';
+  }
+
+  .theme-lipstick .villain-quote {
+    --villain-font: 'Fredoka One';
+  }
+
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
+  </style>
 </head>
 <body class="dark-mode">
 
@@ -196,6 +236,13 @@
   <!-- BL Change mascot below compatibility button -->
   <div class="no-print" style="text-align:center; margin-top:1.5rem;">
     <img src="../assets/images/BLChange.png" alt="BL Change" class="villain-img" />
+  </div>
+  <div class="villain-quote-box no-print">
+    <div class="villain-quote">
+      “They swear I’m the villain, but all I did was survive the exile—<br>
+      this cold, blackened heart forged in the hush<br>
+      they tried to make me swallow.”
+    </div>
   </div>
 
   <!-- Script -->
