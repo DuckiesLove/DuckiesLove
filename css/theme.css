@@ -146,12 +146,23 @@ body.theme-dark .card {
 }
 
 
-.theme-lipstick .villain-block .villain-quote,
-.theme-dark .villain-block .villain-quote,
-.theme-forest .villain-block .villain-quote {
+.theme-dark .villain-quote,
+.theme-forest .villain-quote,
+.theme-lipstick .villain-quote {
   color: var(--accent-text);
   border-color: var(--accent-text);
-  font-family: 'Fredoka One', sans-serif;
+}
+
+.theme-dark .villain-quote {
+  --villain-font: 'Fredoka One';
+}
+
+.theme-forest .villain-quote {
+  --villain-font: 'EB Garamond';
+}
+
+.theme-lipstick .villain-quote {
+  --villain-font: 'Fredoka One';
 }
 
 body.theme-lipstick {

@@ -738,22 +738,25 @@ body.theme-rainbow #comparisonResult {
 .villain-image,
 .villain-img {
   width: 160px;
+  max-width: 90%;
   height: auto;
   margin-bottom: 1rem;
-  max-width: 90%;
   border-radius: 12px;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.7);
 }
 
 .villain-quote {
   text-align: center;
-  max-width: 700px;
-  background-color: rgba(0, 0, 0, 0.6);
-  padding: 1.25rem 1.5rem;
-  border-radius: 12px;
-  border: 2px solid;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+  font-size: 1.15rem;
   line-height: 1.6;
+  max-width: 720px;
+  padding: 1.5rem;
+  border: 2px solid var(--accent-text);
+  color: var(--accent-text);
+  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.6);
+  font-family: var(--villain-font, 'Fredoka One', sans-serif);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Dedicated block for villain quotes displayed on pages */
@@ -3104,15 +3107,17 @@ body {
 }
 
 .villain-quote {
-  font-family: 'Fredoka One', sans-serif;
-  font-size: 1.2rem;
-  color: var(--accent-text);
-  border: 2px solid var(--accent-text);
-  padding: 1rem 1.5rem;
-  border-radius: 10px;
-  max-width: 500px;
   text-align: center;
-  line-height: 1.5;
+  font-size: 1.15rem;
+  line-height: 1.6;
+  max-width: 720px;
+  padding: 1.5rem;
+  border: 2px solid var(--accent-text);
+  color: var(--accent-text);
+  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.6);
+  font-family: var(--villain-font, 'Fredoka One', sans-serif);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
 }
 
 .villain-image {
@@ -3124,8 +3129,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   margin-top: 2rem;
-  gap: 1rem;
+  margin-bottom: 2rem;
 }
 
 .no-print {
