@@ -2,7 +2,7 @@
   --bg-color: #0f0f0f;
   --panel-color: #000;
   --text-color: #f0f0f0;
-  --accent-text: #00ff99;
+  --accent-text: #00ffff;
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
@@ -86,7 +86,7 @@
   --bg-color: #0d0d0d;
   --text-color: #f2f2f2;
   --accent-color: #333;
-  --accent-text: #00ff99;
+  --accent-text: #00ffff;
   --button-bg: #1a1a1a;
   --button-text: #f2f2f2;
   --border-color: #444;
@@ -115,7 +115,7 @@
   --bg-color: #f0f7f1;
   --text-color: #1d3b1d;
   --accent-color: #3d6651;
-  --accent-text: #66ff66;
+  --accent-text: #228B22;
   --button-bg: #a6d5b5;
   --button-text: #1d3b1d;
   --border-color: #81b89b;
