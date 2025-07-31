@@ -62,7 +62,7 @@ body {
   --bg-color: #0f0f0f;
   --panel-color: #000;
   --text-color: #f0f0f0;
-  --accent-text: #00ffff; /* fallback default for dark mode */
+  --accent-text: #00bfff; /* fallback default for dark mode */
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
@@ -3085,7 +3085,7 @@ body {
 
 /* Theme-specific overrides */
 .theme-dark {
-  --accent-text: #00ffff; /* neon blue */
+  --accent-text: #00bfff; /* deep electric blue */
 }
 
 .theme-forest {
@@ -3106,7 +3106,8 @@ body {
   margin-bottom: 1rem;
 }
 
-.themed-button {
+.themed-button,
+.select-toggle-button {
   background: transparent;
   border: 2px solid var(--accent-text);
   color: var(--accent-text);
@@ -3115,9 +3116,11 @@ body {
   font-family: 'Fredoka One', sans-serif;
   border-radius: 8px;
   transition: all 0.3s ease;
+  margin: 0.2rem;
 }
 
-.themed-button:hover {
+.themed-button:hover,
+.select-toggle-button:hover {
   background: var(--accent-text);
   color: #000;
 }
