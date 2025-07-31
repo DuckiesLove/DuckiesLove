@@ -3095,7 +3095,7 @@ body {
 /* MAIN TALK KINK HEADER */
 .themed-header {
   font-family: 'Fredoka One', sans-serif;
-  font-size: 3.2rem;
+  font-size: 3.5rem;
   text-align: center;
   color: var(--accent-text);
   margin-top: 2rem;
@@ -3107,10 +3107,11 @@ body {
   background: transparent;
   border: 2px solid var(--accent-text);
   color: var(--accent-text);
-  padding: 0.6rem 1.2rem;
+  padding: 0.8rem 1.6rem;
+  font-size: 1.2rem;
   font-weight: bold;
   font-family: 'Fredoka One', sans-serif;
-  border-radius: 8px;
+  border-radius: 10px;
   transition: all 0.3s ease;
   margin: 0.2rem;
 }
@@ -3169,4 +3170,50 @@ body {
   .no-print {
     display: none !important;
   }
+}
+/* Hide all other landing page elements */
+#villain-image,
+.villain-quote,
+.nav-buttons,
+.extra-elements,
+.sidebar,
+.footer,
+#mascot-left,
+#quote-box {
+  display: none !important;
+}
+
+/* Only center Talk Kink + Start Survey */
+.landing-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 90vh;
+  text-align: center;
+  gap: 2rem;
+}
+
+/* Talk Kink text */
+.themed-header {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 3.5rem;
+  color: var(--accent-text);
+}
+
+/* Start Survey button */
+.themed-button {
+  font-family: 'Fredoka One', sans-serif;
+  padding: 0.8rem 1.6rem;
+  font-size: 1.2rem;
+  background: transparent;
+  border: 2px solid var(--accent-text);
+  color: var(--accent-text);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.themed-button:hover {
+  background-color: var(--accent-text);
+  color: #000;
 }
