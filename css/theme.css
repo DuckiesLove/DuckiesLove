@@ -144,19 +144,25 @@ body.theme-dark .card {
   border: 1px solid var(--border-color);
 }
 
+
 .theme-lipstick .villain-block .villain-quote {
-  color: #ff4da6;
-  border-color: #ff4da6;
+  color: #ff66b2;
+  border-color: #ff66b2;
+  font-family: 'Fredoka One', cursive;
 }
+
 
 .theme-dark .villain-block .villain-quote {
-  color: #ffffff;
-  border-color: #666666;
+  color: #8dfc8d;
+  border-color: #8dfc8d;
+  font-family: 'Fredoka One', cursive;
 }
 
+
 .theme-forest .villain-block .villain-quote {
-  color: #a8ff8a;
-  border-color: #a8ff8a;
+  color: #98d9aa;
+  border-color: #98d9aa;
+  font-family: 'EB Garamond', serif;
 }
 
 body.theme-lipstick {
