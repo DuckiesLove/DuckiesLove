@@ -746,17 +746,15 @@ body.theme-rainbow #comparisonResult {
 }
 
 .villain-quote {
-  text-align: center;
-  font-size: 1.15rem;
-  line-height: 1.6;
-  max-width: 720px;
-  padding: 1.5rem;
-  border: 2px solid var(--accent-text);
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 1.2rem;
   color: var(--accent-text);
-  border-radius: 12px;
-  background-color: rgba(0, 0, 0, 0.6);
-  font-family: var(--villain-font, 'Fredoka One', sans-serif);
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--accent-text);
+  padding: 1rem 1.5rem;
+  border-radius: 10px;
+  max-width: 500px;
+  text-align: center;
+  line-height: 1.5;
 }
 
 /* Dedicated block for villain quotes displayed on pages */
@@ -764,16 +762,15 @@ body.theme-rainbow #comparisonResult {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   margin-top: 2rem;
-  margin-bottom: 2rem;
+  gap: 1rem;
 }
 
 .villain-block .villain-quote {
-  border: 2px solid var(--accent-text, #ff66b2);
-  max-width: 720px;
-  padding: 1.5rem;
-  font-size: 1.15rem;
+  border: 2px solid var(--accent-text);
+  max-width: 500px;
+  padding: 1rem 1.5rem;
+  font-size: 1.2rem;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -3068,6 +3065,24 @@ body {
 }
 
 /* === Theme-Compatible Elements for /kinks/ page === */
+:root {
+  --accent-text: #00ff99; /* default (dark) */
+}
+
+/* Theme-specific overrides */
+.theme-dark {
+  --accent-text: #00ff99;
+}
+
+.theme-forest {
+  --accent-text: #66ff66;
+}
+
+.theme-lipstick {
+  --accent-text: #ff3399;
+}
+
+/* MAIN TALK KINK HEADER */
 .themed-header {
   font-family: 'Fredoka One', sans-serif;
   font-size: 3.2rem;
@@ -3107,17 +3122,15 @@ body {
 }
 
 .villain-quote {
-  text-align: center;
-  font-size: 1.15rem;
-  line-height: 1.6;
-  max-width: 720px;
-  padding: 1.5rem;
-  border: 2px solid var(--accent-text);
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 1.2rem;
   color: var(--accent-text);
-  border-radius: 12px;
-  background-color: rgba(0, 0, 0, 0.6);
-  font-family: var(--villain-font, 'Fredoka One', sans-serif);
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--accent-text);
+  padding: 1rem 1.5rem;
+  border-radius: 10px;
+  max-width: 500px;
+  text-align: center;
+  line-height: 1.5;
 }
 
 .villain-image {
@@ -3129,9 +3142,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   margin-top: 2rem;
-  margin-bottom: 2rem;
+  gap: 1rem;
 }
 
 .no-print {
