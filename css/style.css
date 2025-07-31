@@ -763,8 +763,10 @@ body.theme-rainbow #comparisonResult {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   margin-top: 1.5rem;
   gap: 1rem;
+  width: 100%;
 }
 
 .villain-block .villain-quote {
@@ -3141,8 +3143,10 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   margin-top: 1.5rem;
   gap: 1rem;
+  width: 100%;
 }
 
 .no-print {
