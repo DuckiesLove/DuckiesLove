@@ -7,6 +7,39 @@
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/theme.css" />
   <style>
+  .villain-quote-box {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .villain-quote {
+    font-size: 1.15rem;
+    text-align: center;
+    padding: 1.5rem;
+    max-width: 700px;
+    line-height: 1.6;
+    color: var(--accent-text);
+    border: 2px solid var(--accent-text);
+    border-radius: 12px;
+    background-color: rgba(0, 0, 0, 0.6);
+    font-family: var(--villain-font, 'Fredoka One', sans-serif);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .theme-dark .villain-quote {
+    --villain-font: 'Fredoka One';
+  }
+
+  .theme-forest .villain-quote {
+    --villain-font: 'EB Garamond';
+  }
+
+  .theme-lipstick .villain-quote {
+    --villain-font: 'Fredoka One';
+  }
+
   @media print {
     .no-print {
       display: none !important;
@@ -18,24 +51,12 @@
 
   <div id="surveyIntro" class="overlay">
     <div class="intro-modal">
-      <h1 class="themed-header no-print">Talk Kink</h1>
+      <h1 class="talk-kink-title no-print">Talk Kink</h1>
       <button id="startSurveyBtn" class="start-btn">Start Survey</button>
     </div>
   </div>
 
-  <div class="header-wrapper no-print">
-    <h1 class="themed-header">Talk Kink</h1>
-  </div>
-
-  <div class="center-block no-print">
-    <button class="see-compatibility themed-button" onclick="location.href='../compatibility.html'">See Our Compatibility</button>
-    <img src="../assets/images/BLChange.png" alt="Villain Mascot" class="villain-image" />
-    <div class="villain-quote themed-border themed-font">
-      “They swear I’m the villain, but all I did was survive the exile—
-      this cold, blackened heart forged in the hush
-      they tried to make me swallow.”
-    </div>
-  </div>
+  <h1 class="talk-kink-title no-print">Talk Kink</h1>
 
   <!-- Instruction banner and theme selector removed -->
 
@@ -74,8 +95,8 @@
           <p id="categoryDescription" style="display:none;"></p>
           <div id="kinkList"></div>
           <div class="nav-buttons">
-            <button id="nextCategoryBtn" class="themed-button">Next Category</button>
-            <button id="skipCategoryBtn" class="themed-button">Skip</button>
+            <button id="nextCategoryBtn">Next Category</button>
+            <button id="skipCategoryBtn">Skip</button>
           </div>
         </div>
           </div>
@@ -208,7 +229,22 @@
     </div>
   </div>
 
-  <!-- Buttons removed: replaced by themed header block above -->
+  <!-- Buttons -->
+  <div class="menu-container">
+    <button id="compatibilityBtn" class="survey-button compatibility-button" onclick="location.href='../compatibility.html'">See Our Compatibility</button>
+  </div>
+
+  <!-- BL Change mascot below compatibility button -->
+  <div class="no-print" style="text-align:center; margin-top:1.5rem;">
+    <img src="../assets/images/BLChange.png" alt="BL Change" class="villain-img" />
+  </div>
+  <div class="villain-quote-box no-print">
+    <div class="villain-quote">
+      “They swear I’m the villain, but all I did was survive the exile—<br>
+      this cold, blackened heart forged in the hush<br>
+      they tried to make me swallow.”
+    </div>
+  </div>
 
   <!-- Script -->
   <script src="../js/template-survey.js"></script>
