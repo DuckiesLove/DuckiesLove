@@ -3189,7 +3189,7 @@ body {
   justify-content: center;
   min-height: 90vh;
   text-align: center;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
 /* Talk Kink title */
@@ -3217,4 +3217,17 @@ body {
 .themed-start-btn:hover {
   background-color: var(--theme-accent);
   color: #000;
+}
+
+/* Theme Selector */
+.theme-selector {
+  font-family: 'Fredoka One', sans-serif;
+  margin-top: 0.75rem;
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 2px solid var(--theme-accent);
+  background-color: transparent;
+  color: var(--theme-accent);
+  cursor: pointer;
 }
