@@ -3213,11 +3213,13 @@ body {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s ease;
+  box-shadow: 0 0 12px var(--accent-text);
 }
 
 .themed-start-btn:hover {
   background-color: var(--accent-text);
   color: #000;
+  box-shadow: 0 0 20px var(--accent-text);
 }
 
 /* Theme Selector */
@@ -3227,8 +3229,9 @@ body {
   font-size: 1rem;
   padding: 0.5rem 1rem;
   border-radius: 8px;
-  border: 2px solid var(--theme-accent);
+  border: 2px solid var(--accent-text);
   background-color: transparent;
-  color: var(--theme-accent);
+  color: var(--accent-text);
+  box-shadow: 0 0 12px var(--accent-text);
   cursor: pointer;
 }
