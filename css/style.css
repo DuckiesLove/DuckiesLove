@@ -3171,19 +3171,17 @@ body {
     display: none !important;
   }
 }
-/* Hide all other landing page elements */
-#villain-image,
-.villain-quote,
+/* Hide all extra UI elements */
 .nav-buttons,
-.extra-elements,
-.sidebar,
-.footer,
+#villain-image,
 #mascot-left,
-#quote-box {
+.footer,
+.extra-elements,
+.villain-quote {
   display: none !important;
 }
 
-/* Only center Talk Kink + Start Survey */
+/* Base layout */
 .landing-wrapper {
   display: flex;
   flex-direction: column;
@@ -3194,26 +3192,29 @@ body {
   gap: 2rem;
 }
 
-/* Talk Kink text */
-.themed-header {
+/* Talk Kink title */
+.themed-title {
   font-family: 'Fredoka One', sans-serif;
-  font-size: 3.5rem;
-  color: var(--accent-text);
+  font-size: 4rem;
+  font-weight: bold;
+  color: var(--theme-accent);
+  margin: 0;
 }
 
-/* Start Survey button */
-.themed-button {
+/* Start Survey Button */
+.themed-start-btn {
   font-family: 'Fredoka One', sans-serif;
-  padding: 0.8rem 1.6rem;
-  font-size: 1.2rem;
-  background: transparent;
-  border: 2px solid var(--accent-text);
-  color: var(--accent-text);
-  border-radius: 10px;
-  transition: all 0.3s ease;
+  font-size: 1.5rem;
+  padding: 0.9rem 2.2rem;
+  background-color: transparent;
+  border: 3px solid var(--theme-accent);
+  color: var(--theme-accent);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s ease;
 }
 
-.themed-button:hover {
-  background-color: var(--accent-text);
+.themed-start-btn:hover {
+  background-color: var(--theme-accent);
   color: #000;
 }
