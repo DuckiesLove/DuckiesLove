@@ -3235,3 +3235,9 @@ body {
   box-shadow: 0 0 12px var(--accent-text);
   cursor: pointer;
 }
+.compatibility-link {
+  margin-top: 1.5rem;
+  padding: 0.8rem 2rem;
+  font-size: 1.3rem;
+}
+
