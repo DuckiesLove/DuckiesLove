@@ -873,7 +873,7 @@ body.theme-rainbow #comparisonResult {
   font-size: 20px;
   font-weight: bold;
   margin: 0 0 16px;
-  color: var(--text-color, #2c442e);
+  color: var(--accent-text);
 }
 
 #category-header {
@@ -911,10 +911,10 @@ body.theme-rainbow #comparisonResult {
   align-items: flex-start;
   gap: 12px;
   padding: 8px 12px;
-  border: 1px solid #444;
+  border: 1px solid var(--accent-text);
   border-radius: 6px;
   background-color: var(--panel-color, #fff);
-  color: var(--text-color, #2c442e);
+  color: var(--accent-text);
   font-size: 18px;
   font-weight: 500;
   cursor: pointer;
@@ -941,10 +941,10 @@ body.theme-rainbow #comparisonResult {
 .select-btn {
   padding: 6px 12px;
   cursor: pointer;
-  border: none;
+  border: 2px solid var(--accent-text);
   border-radius: 4px;
   background-color: #444;
-  color: #fff;
+  color: var(--accent-text);
 }
 .select-btn:hover {
   background-color: #666;
@@ -3061,5 +3061,79 @@ body {
   @page {
     margin: 0;
     size: auto;
+  }
+}
+
+/* === Theme-Compatible Elements for /kinks/ page === */
+.themed-header {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 3.2rem;
+  text-align: center;
+  color: var(--accent-text);
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.themed-button {
+  background: transparent;
+  border: 2px solid var(--accent-text);
+  color: var(--accent-text);
+  padding: 0.6rem 1.2rem;
+  font-weight: bold;
+  font-family: 'Fredoka One', sans-serif;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.themed-button:hover {
+  background: var(--accent-text);
+  color: #000;
+}
+
+.category-panel,
+.category-panel button {
+  color: var(--accent-text);
+  border-color: var(--accent-text);
+  font-family: 'Fredoka One', sans-serif;
+}
+
+.category-panel h2,
+.category-panel label {
+  color: var(--accent-text);
+  font-family: 'Fredoka One', sans-serif;
+}
+
+.villain-quote {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 1.2rem;
+  color: var(--accent-text);
+  border: 2px solid var(--accent-text);
+  padding: 1rem 1.5rem;
+  border-radius: 10px;
+  max-width: 500px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.villain-image {
+  max-width: 180px;
+  height: auto;
+}
+
+.villain-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 2rem;
+  gap: 1rem;
+}
+
+.no-print {
+  display: block;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
   }
 }

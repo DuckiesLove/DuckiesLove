@@ -2,6 +2,7 @@
   --bg-color: #0f0f0f;
   --panel-color: #000;
   --text-color: #f0f0f0;
+  --accent-text: #00ff99;
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
@@ -85,7 +86,7 @@
   --bg-color: #0d0d0d;
   --text-color: #f2f2f2;
   --accent-color: #333;
-  --accent-text: #dddddd;
+  --accent-text: #00ff99;
   --button-bg: #1a1a1a;
   --button-text: #f2f2f2;
   --border-color: #444;
@@ -99,7 +100,7 @@
   --bg-color: #1a001f;
   --text-color: #fceaff;
   --accent-color: #ff4ecb;
-  --accent-text: #ff4dd2;
+  --accent-text: #ff3399;
   --highlight-color: #a200ff;
   --button-bg: #ff4ecb;
   --button-text: #1a001f;
@@ -114,7 +115,7 @@
   --bg-color: #f0f7f1;
   --text-color: #1d3b1d;
   --accent-color: #3d6651;
-  --accent-text: #8be49e;
+  --accent-text: #66ff66;
   --button-bg: #a6d5b5;
   --button-text: #1d3b1d;
   --border-color: #81b89b;
@@ -145,24 +146,12 @@ body.theme-dark .card {
 }
 
 
-.theme-lipstick .villain-block .villain-quote {
-  color: #ff66b2;
-  border-color: #ff66b2;
-  font-family: 'Fredoka One', cursive;
-}
-
-
-.theme-dark .villain-block .villain-quote {
-  color: #8dfc8d;
-  border-color: #8dfc8d;
-  font-family: 'Fredoka One', cursive;
-}
-
-
+.theme-lipstick .villain-block .villain-quote,
+.theme-dark .villain-block .villain-quote,
 .theme-forest .villain-block .villain-quote {
-  color: #98d9aa;
-  border-color: #98d9aa;
-  font-family: 'EB Garamond', serif;
+  color: var(--accent-text);
+  border-color: var(--accent-text);
+  font-family: 'Fredoka One', sans-serif;
 }
 
 body.theme-lipstick {

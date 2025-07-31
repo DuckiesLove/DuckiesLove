@@ -7,78 +7,16 @@
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/theme.css" />
   <style>
-  .villain-quote {
-    font-size: 1.15rem;
-    text-align: center;
-    padding: 1.5rem;
-    max-width: 700px;
-    line-height: 1.6;
-    color: var(--accent-text);
-    border: 2px solid var(--accent-text);
-    border-radius: 12px;
-    background-color: rgba(0, 0, 0, 0.6);
-    font-family: var(--villain-font, 'Fredoka One', sans-serif);
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
-  }
-
-  .theme-dark .villain-quote {
-    --villain-font: 'Fredoka One';
-  }
-
-  .theme-forest .villain-quote {
-    --villain-font: 'EB Garamond';
-  }
-
-  .theme-lipstick .villain-quote {
-    --villain-font: 'Fredoka One';
-  }
-
-  /* New themed elements */
   .top-section {
     text-align: center;
     margin-top: 1rem;
   }
-
-  .themed-header {
-    font-family: 'Fredoka One', sans-serif;
-    font-size: 3.2rem;
-    color: var(--accent-text);
-    display: inline-block;
-    padding: 0.4rem 1.2rem;
-    border: 2px solid var(--accent-text);
-    border-radius: 10px;
-    background-color: rgba(0, 0, 0, 0.2);
-    box-shadow: 0 0 10px var(--accent-text);
-  }
-
-  .themed-button {
-    background: transparent;
-    color: var(--accent-text);
-    border: 2px solid var(--accent-text);
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-  }
-
-  .themed-button:hover {
-    background: var(--accent-text);
-    color: var(--bg-color);
-  }
-
   .themed-border {
     border: 2px solid var(--accent-text);
     color: var(--accent-text);
   }
-
   .themed-font {
     font-family: 'Fredoka One', sans-serif;
-  }
-
-  @media print {
-    .no-print {
-      display: none !important;
-    }
   }
   </style>
 </head>
@@ -271,7 +209,7 @@
   <div class="villain-block no-print">
     <button id="compatibilityBtn" class="see-compatibility themed-button" onclick="location.href='../compatibility.html'">See Our Compatibility</button>
     <img src="../assets/images/BLChange.png" alt="Villain Mascot" class="villain-image" />
-    <div class="villain-quote themed-border themed-font">
+    <div class="villain-quote">
       “They swear I’m the villain, but all I did was survive the exile—<br>
       this cold, blackened heart forged in the hush<br>
       they tried to make me swallow.”
