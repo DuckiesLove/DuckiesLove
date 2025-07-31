@@ -81,8 +81,6 @@
         </div>
 
         <div class="button-group" id="mainButtons">
-          <button onclick="startSurvey()">Start New Survey</button>
-          <button onclick="exportList()">Export My List</button>
           <button class="compatibility-button" onclick="seeCompatibility()">See Our Compatibility</button>
         </div>
     </div>
@@ -226,15 +224,6 @@
   <script src="../js/template-survey.js"></script>
   <script type="module" src="../js/script.js"></script>
   <script>
-    function startSurvey() {
-      const url = new URL(window.location.href);
-      url.searchParams.set('start', '1');
-      window.location.href = url.toString();
-    }
-    function exportList() {
-      const btn = document.getElementById('saveSurveyBtn');
-      if (btn) btn.click();
-    }
     function seeCompatibility() {
       window.location.href = '/compatibility.html';
     }
