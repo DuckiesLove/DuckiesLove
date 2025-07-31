@@ -409,6 +409,7 @@ body.theme-forest:not(.exporting) .category-box {
 
 /* Header */
 h1 {
+  font-family: 'Fredoka One', cursive;
   text-align: center;
   margin-bottom: 30px;
 }
@@ -1221,6 +1222,7 @@ body.light-mode .static-rating-legend {
 }
 
 .compatibility-button {
+  font-family: 'Fredoka One', cursive;
   width: 260px;
   height: 50px;
   font-size: 16px;
