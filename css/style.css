@@ -3202,6 +3202,14 @@ body {
   color: var(--text-color);
 }
 
+/* Container for landing page actions */
+.landing-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+}
+
 /* Talk Kink title */
 .themed-title {
   font-family: 'Fredoka One', sans-serif;
