@@ -3208,15 +3208,15 @@ body {
   font-size: 1.5rem;
   padding: 0.9rem 2.2rem;
   background-color: transparent;
-  border: 3px solid var(--theme-accent);
-  color: var(--theme-accent);
+  border: 3px solid var(--accent-text);
+  color: var(--accent-text);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s ease;
 }
 
 .themed-start-btn:hover {
-  background-color: var(--theme-accent);
+  background-color: var(--accent-text);
   color: #000;
 }
 
