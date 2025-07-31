@@ -13,7 +13,7 @@ body {
 html,
 body {
   background-color: #0f0f0f;
-  color: #f0f0f0;
+  color: var(--text-color);
   font-family: 'Inter', 'Open Sans', system-ui, sans-serif;
 }
 
@@ -21,7 +21,7 @@ body {
 .survey-section,
 .result-card {
   background-color: #1a1a1a !important;
-  color: #f0f0f0 !important;
+  color: var(--text-color) !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   box-shadow: none !important;
   padding: 16px;
@@ -42,7 +42,7 @@ body {
 .bar-label,
 .item-label,
 .item-name {
-  color: #9ef0a7 !important;
+  color: var(--text-color) !important;
 }
 
 .match-bar {
@@ -53,7 +53,7 @@ body {
 .top-bar,
 .partner-labels {
   background-color: #0a0a0a !important;
-  color: #ffffff !important;
+  color: var(--text-color) !important;
   border: none;
 }
 
@@ -261,7 +261,7 @@ body.theme-rainbow #mainCategoryList button.active {
 /* Theme Styling */
 body.dark-mode {
   background-color: #0f0f0f;
-  color: #f0f0f0;
+  color: var(--text-color);
   --panel-color: #000;
   --text-color: #f0f0f0;
   --button-bg: #444;
@@ -1283,7 +1283,7 @@ body.light-mode .static-rating-legend {
   font-size: 1.05rem;
   margin-bottom: 6px;
   font-weight: bold;
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .role-card p {
@@ -1422,7 +1422,7 @@ body.light-mode .static-rating-legend {
   box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.5);
 }
 .progress-bar-text {
-  color: #ffffff;
+  color: var(--text-color);
   font-weight: bold;
 }
 .progress-fill {
@@ -1834,7 +1834,7 @@ body {
 .pdf-container {
   position: relative;
   background-color: #000000;
-  color: #f0f0f0;
+  color: var(--text-color);
   font-family: 'Segoe UI', Arial, 'Helvetica Neue', sans-serif;
   max-width: 700px;
   margin: 20px auto;
@@ -1856,7 +1856,7 @@ body {
   border-bottom: 2px solid rgba(255, 255, 255, 0.15);
   margin-bottom: 18px;
   padding-bottom: 6px;
-  color: #f0f0f0;
+  color: var(--text-color);
 }
 
 .result-entry {
@@ -2032,7 +2032,7 @@ body {
   font-weight: 700;
   font-size: 14px;
   margin-bottom: 4px;
-  color: #f0f0f0;
+  color: var(--text-color);
 }
 .col-labels .label-col {
   flex: 2;
@@ -2100,11 +2100,11 @@ body {
   font-size: 16px;
   text-align: center;
   pointer-events: none;
-  color: #ffffff;
+  color: var(--text-color);
 }
-.partner-text.green { color: #ffffff; }
-.partner-text.yellow { color: #ffffff; }
-.partner-text.red { color: #ffffff; }
+.partner-text.green { color: var(--text-color); }
+.partner-text.yellow { color: var(--text-color); }
+.partner-text.red { color: var(--text-color); }
 .compare-icons {
   width: 40px;
   text-align: right;
@@ -2164,14 +2164,14 @@ body {
   }
 
   .item-label {
-    color: #c0ffc7 !important;
+    color: var(--text-color) !important;
   }
 
   .pdf-container h2,
   .pdf-container h3,
   .pdf-container .category-title {
   text-align: center;
-  color: red;
+  color: var(--accent-text);
   font-size: 1.5em;
   font-weight: bold;
   margin-top: 40px;
@@ -2182,7 +2182,7 @@ body {
 }
 
   .pdf-container .bar-label {
-    color: #9ef0a7 !important;
+    color: var(--text-color) !important;
   }
 
   .pdf-container .match-bar {
@@ -2210,7 +2210,7 @@ html, body {
 
 .section-header,
 .category-header {
-  color: #ff4444 !important;
+  color: var(--accent-text) !important;
   font-weight: 600;
 }
 
@@ -2219,7 +2219,7 @@ html, body {
 span,
 p,
 li {
-  color: #f0f0f0 !important;
+  color: var(--text-color) !important;
 }
 
 .progress-bar-container {
@@ -2348,7 +2348,7 @@ body {
   margin-bottom: 8px;
   font-size: 12px;
   box-shadow: 0 0 3px rgba(0,0,0,0.2);
-  color: #f0f0f0;
+  color: var(--text-color);
   max-width: 100%;
 }
 
@@ -2625,7 +2625,7 @@ body {
 .loading-overlay .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #ffffff;
+  border: 4px solid var(--text-color);
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -2653,7 +2653,7 @@ body {
   html,
   body {
     background: #000 !important;
-    color: #ffffff !important;
+    color: var(--text-color) !important;
     width: 100% !important;
     height: auto !important;
     margin: 0 !important;
