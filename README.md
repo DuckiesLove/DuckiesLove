@@ -31,12 +31,13 @@ After the DNS records resolve, go to the repository’s **Settings** → **Pages
 
 ## Site Files
 
-The website is built from the following files in this repository:
-
 - `index.html` (main survey page linking to `/greenlight/` and other tools)
+- `compatibility.html` (compare two survey results; includes the villain mascot with a toggleable quote)
 - `css/style.css`
 - `js/script.js`
 - `template-survey.json`
+
+The compatibility page hides the villain quote when printing. Use the **Toggle Villain Quote** button beneath the comparison area to reveal or collapse the text.
 
 The **Start New Survey** button fetches `../template-survey.json` so nested
 pages like `/kinks/` load the template correctly. If you open the pages
