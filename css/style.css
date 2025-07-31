@@ -763,6 +763,20 @@ body.theme-rainbow #comparisonResult {
   border: 2px solid var(--accent-text, #ff66b2);
 }
 
+.villain-toggle-btn {
+  margin-top: 1rem;
+  padding: 8px 16px;
+  background-color: #444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.villain-toggle-btn:hover {
+  background-color: #666;
+}
+
 /* Overlay displayed for password entry */
 #passwordOverlay {
   position: fixed;
