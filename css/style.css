@@ -62,7 +62,7 @@ body {
   --bg-color: #0f0f0f;
   --panel-color: #000;
   --text-color: #f0f0f0;
-  --accent-text: #00bfff; /* fallback default for dark mode */
+  --accent-text: #00ff99; /* fallback default for dark mode */
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
@@ -738,7 +738,7 @@ body.theme-rainbow #comparisonResult {
 
 .villain-image,
 .villain-img {
-  width: 180px;
+  width: 160px;
   max-width: 90%;
   height: auto;
   margin-bottom: 1rem;
@@ -756,7 +756,6 @@ body.theme-rainbow #comparisonResult {
   max-width: 500px;
   text-align: center;
   line-height: 1.5;
-  background-color: rgba(0, 0, 0, 0.4);
 }
 
 /* Dedicated block for villain quotes displayed on pages */
@@ -766,7 +765,7 @@ body.theme-rainbow #comparisonResult {
   align-items: center;
   justify-content: center;
   margin-top: 1.5rem;
-  gap: 1.2rem;
+  gap: 1rem;
   width: 100%;
 }
 
@@ -775,7 +774,7 @@ body.theme-rainbow #comparisonResult {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.2rem;
+  gap: 1rem;
   margin-top: 1.5rem;
 }
 
@@ -786,7 +785,6 @@ body.theme-rainbow #comparisonResult {
   font-size: 1.2rem;
   text-align: center;
   line-height: 1.5;
-  background-color: rgba(0, 0, 0, 0.4);
 }
 
 .villain-toggle-btn {
@@ -1240,21 +1238,19 @@ body.light-mode .static-rating-legend {
   height: 50px;
   font-size: 16px;
   font-weight: bold;
+  border: none;
   border-radius: 6px;
-  background: transparent;
-  border: 2px solid var(--accent-text);
-  color: var(--accent-text);
+  background-color: #444;
+  color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  transition: all 0.3s ease;
 }
 
 .compatibility-button:hover {
-  background: var(--accent-text);
-  color: #000;
+  background-color: #666;
 }
 
 .file-upload input[type="file"] {
@@ -1755,7 +1751,7 @@ body {
 #cr-results-container h2 {
   font-size: 20px;
   margin-bottom: 10px;
-  color: var(--accent-text);
+  color: #00ff99;
   text-align: center;
 }
 
@@ -3080,20 +3076,20 @@ body {
 
 /* === Theme-Compatible Elements for /kinks/ page === */
 :root {
-  --accent-text: #00ffff; /* fallback: neon blue */
+  --accent-text: #00ff99; /* default (dark) */
 }
 
 /* Theme-specific overrides */
 .theme-dark {
-  --accent-text: #00bfff; /* deep electric blue */
+  --accent-text: #00ff99;
 }
 
 .theme-forest {
-  --accent-text: #228B22; /* forest green */
+  --accent-text: #66ff66;
 }
 
 .theme-lipstick {
-  --accent-text: #ff3399; /* hot pink */
+  --accent-text: #ff3399;
 }
 
 /* MAIN TALK KINK HEADER */
@@ -3103,7 +3099,7 @@ body {
   text-align: center;
   color: var(--accent-text);
   margin-top: 2rem;
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
 }
 
 .themed-button,
@@ -3148,7 +3144,6 @@ body {
   max-width: 500px;
   text-align: center;
   line-height: 1.5;
-  background-color: rgba(0, 0, 0, 0.4);
 }
 
 .villain-image {
@@ -3162,7 +3157,7 @@ body {
   align-items: center;
   justify-content: center;
   margin-top: 1.5rem;
-  gap: 1.2rem;
+  gap: 1rem;
   width: 100%;
 }
 
