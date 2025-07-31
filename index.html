@@ -11,14 +11,15 @@
 <body class="theme-dark">
   <div class="landing-wrapper">
     <h1 class="themed-header">Talk Kink Survey</h1>
+    <select id="themeSelector" class="theme-selector highlighted-box" onchange="changeTheme(this.value)">
+      <option value="dark">Dark Theme</option>
+      <option value="forest">Forest Theme</option>
+      <option value="lipstick">Lipstick Theme</option>
+    </select>
     <div class="landing-buttons">
-      <a href="/kinks/" class="themed-button themed-start-btn">Start Survey</a>
-      <select id="themeSelector" class="theme-selector" onchange="changeTheme(this.value)">
-        <option value="dark">Dark Theme</option>
-        <option value="forest">Forest Theme</option>
-        <option value="lipstick">Lipstick Theme</option>
-      </select>
-      <a href="/compare" id="compatibilityLink" class="themed-button compatibility-link">See Our Compatibility</a>
+      <a href="/survey/" class="themed-button highlighted-box">Start Survey</a>
+      <a href="/compare/" class="themed-button highlighted-box">CR Compatibility</a>
+      <a href="/results/" class="themed-button highlighted-box">See Our Compatibility</a>
     </div>
   </div>
 
