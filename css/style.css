@@ -3190,6 +3190,7 @@ body {
   min-height: 90vh;
   text-align: center;
   gap: 1.5rem;
+  color: var(--text-color);
 }
 
 /* Talk Kink title */
