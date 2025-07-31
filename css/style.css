@@ -759,11 +759,20 @@ body.theme-rainbow #comparisonResult {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   margin-top: 2rem;
+  margin-bottom: 2rem;
 }
 
 .villain-block .villain-quote {
   border: 2px solid var(--accent-text, #ff66b2);
+  max-width: 720px;
+  padding: 1.5rem;
+  font-size: 1.15rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 
 .villain-toggle-btn {
