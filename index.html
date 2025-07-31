@@ -10,18 +10,34 @@
 </head>
 <body class="theme-dark">
   <div class="landing-wrapper">
-    <div class="themed-header">Talk Kink</div>
-    <button id="startSurveyBtn" class="themed-start-btn">Start Survey</button>
+    <div class="header themed-header">Talk Kink Survey</div>
 
-    <select id="themeSelector" class="theme-selector">
-      <option value="dark">Dark Theme</option>
-      <option value="forest">Forest Theme</option>
-      <option value="lipstick">Lipstick Theme</option>
-    </select>
-    <a href="/compare" class="themed-button compatibility-link">See Our Compatibility</a>
+    <div class="theme-selector-wrap themed-border">
+      <label for="themeSelector">Select Theme:</label>
+      <select id="themeSelector" onchange="changeTheme(this.value)">
+        <option value="dark">Dark</option>
+        <option value="forest">Forest</option>
+        <option value="lipstick">Lipstick</option>
+      </select>
+    </div>
+
+    <div class="intro-panel themed-border">
+      <a href="/kinks/" class="themed-button">Start Survey</a>
+      <a href="/compare" id="compatibilityLink" class="themed-button">See Our Compatibility</a>
+    </div>
   </div>
 
-  <script src="js/template-survey.js"></script>
-  <script type="module" src="js/script.js"></script>
+  <script>
+  function changeTheme(theme) {
+    document.body.className = 'theme-' + theme;
+    localStorage.setItem('theme', theme);
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    changeTheme(savedTheme);
+    document.getElementById('themeSelector').value = savedTheme;
+  });
+  </script>
 </body>
 </html>
