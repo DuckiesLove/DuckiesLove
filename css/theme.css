@@ -85,7 +85,7 @@
   --bg-color: #0d0d0d;
   --text-color: #f2f2f2;
   --accent-color: #333;
-  --accent-text: #dddddd;
+  --accent-text: #00ff99;
   --button-bg: #1a1a1a;
   --button-text: #f2f2f2;
   --border-color: #444;
@@ -99,7 +99,7 @@
   --bg-color: #1a001f;
   --text-color: #fceaff;
   --accent-color: #ff4ecb;
-  --accent-text: #ff4dd2;
+  --accent-text: #ff3399;
   --highlight-color: #a200ff;
   --button-bg: #ff4ecb;
   --button-text: #1a001f;
@@ -114,7 +114,7 @@
   --bg-color: #f0f7f1;
   --text-color: #1d3b1d;
   --accent-color: #3d6651;
-  --accent-text: #8be49e;
+  --accent-text: #66ff66;
   --button-bg: #a6d5b5;
   --button-text: #1d3b1d;
   --border-color: #81b89b;
@@ -210,4 +210,69 @@ body.theme-forest .card {
   background-color: rgba(0, 0, 0, 0.2);
   box-shadow: 0 0 10px var(--accent-text);
   display: inline-block;
+}
+
+/* Utility wrapper for themed headers */
+.header-wrapper {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+/* Unified block for image + quote */
+.center-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.villain-image {
+  max-width: 200px;
+  height: auto;
+}
+
+.villain-quote {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 1.2rem;
+  text-align: center;
+  padding: 1rem 1.5rem;
+  border: 2px solid var(--accent-text);
+  color: var(--accent-text);
+  border-radius: 12px;
+  max-width: 500px;
+  line-height: 1.5;
+}
+
+.themed-button {
+  background: transparent;
+  color: var(--accent-text);
+  border: 2px solid var(--accent-text);
+  padding: 0.6rem 1.2rem;
+  font-weight: bold;
+  border-radius: 10px;
+  font-family: 'Fredoka One', sans-serif;
+  transition: background 0.3s;
+}
+
+.themed-button:hover {
+  background: var(--accent-text);
+  color: black;
+}
+
+.themed-header {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 3rem;
+  color: var(--accent-text);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.themed-border {
+  border: 2px solid var(--accent-text);
+  color: var(--accent-text);
+}
+
+.themed-font {
+  font-family: 'Fredoka One', sans-serif;
 }
