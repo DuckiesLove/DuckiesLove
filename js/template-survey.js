@@ -3067,5 +3067,48 @@ window.templateSurvey =
       { "name": "Attitude toward funishment vs serious correction", "rating": null },
       { "name": "Use of behavior contracts or rule agreements", "rating": null }
     ]
+  },
+  "Appearance Play": {
+    "Giving": [
+      { "name": "Choosing my partner’s outfit for the day or a scene", "rating": null },
+      { "name": "Selecting their underwear, lingerie, or base layers", "rating": null },
+      { "name": "Styling their hair (braiding, brushing, tying, etc.)", "rating": null },
+      { "name": "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol", "rating": null },
+      { "name": "Offering makeup, polish, or accessories as part of ritual or play", "rating": null },
+      { "name": "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)", "rating": null },
+      { "name": "Dressing them in role-specific costumes (maid, bunny, doll, etc.)", "rating": null },
+      { "name": "Curating time-period or historical outfits (e.g., Victorian, 50s)", "rating": null },
+      { "name": "Helping them present more femme, masc, or androgynous by request", "rating": null },
+      { "name": "Coordinating their look with mine for public or private scenes", "rating": null },
+      { "name": "Implementing a \u201Cdress ritual\u201D or aesthetic preparation", "rating": null },
+      { "name": "Enforcing a visual protocol (e.g., no bra, heels required, tied hair)", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Having my outfit selected for me by a partner", "rating": null },
+      { "name": "Wearing the underwear or lingerie they choose", "rating": null },
+      { "name": "Having my hair brushed, braided, tied, or styled for them", "rating": null },
+      { "name": "Putting on a head covering (e.g., bonnet, veil, hood) they chose", "rating": null },
+      { "name": "Following visual appearance rules as part of submission", "rating": null },
+      { "name": "Wearing makeup, polish, or accessories they request", "rating": null },
+      { "name": "Dressing to please their vision (cute, filthy, classy, etc.)", "rating": null },
+      { "name": "Wearing roleplay costumes or character looks", "rating": null },
+      { "name": "Presenting in a way that matches their chosen aesthetic", "rating": null },
+      { "name": "Participating in dressing rituals or undressing ceremonies", "rating": null },
+      { "name": "Being admired for the way I look under their direction", "rating": null },
+      { "name": "Receiving praise or gentle teasing about my appearance", "rating": null }
+    ],
+    "General": [
+      { "name": "Cosplay or fantasy looks (anime, game, fairytale, etc.)", "rating": null },
+      { "name": "Time-period dress-up (regency, gothic, 1920s, etc.)", "rating": null },
+      { "name": "Dollification or polished/presented object aesthetics", "rating": null },
+      { "name": "Uniforms (schoolgirl, military, clerical, nurse, etc.)", "rating": null },
+      { "name": "Hair-based play (forced brushing, ribbons, or tied styles)", "rating": null },
+      { "name": "Head coverings or symbolic hoods in ritualized dynamics", "rating": null },
+      { "name": "Matching looks or coordinated dress codes", "rating": null },
+      { "name": "Ritualized grooming before scenes", "rating": null },
+      { "name": "Praise or positive attention for pleasing visual display", "rating": null },
+      { "name": "Formal appearance protocols for scenes or dynamics", "rating": null },
+      { "name": "Using clothing or style to embody emotional or power roles", "rating": null }
+    ]
   }
 };

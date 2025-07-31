@@ -319,33 +319,33 @@ body.theme-rainbow {
 /* Theme-specific panel colors */
 body.light-mode .category-panel {
   background-color: #a9b8a9;
-  color: #2f4f2f;
+  color: var(--accent-text);
   border-right-color: #9fb49f;
 }
 body.theme-blue .category-panel {
   background-color: #000000;
-  color: #fff;
+  color: var(--accent-text);
   border-right-color: #003366;
 }
 body.theme-blue-sky .category-panel {
   background-color: #cde6ff;
-  color: #002244;
+  color: var(--accent-text);
   border-right-color: #99c9f2;
 }
 body.theme-echoes-beyond .category-panel {
   background-color: #1b263b;
-  color: #fca311;
+  color: var(--accent-text);
   border-right-color: #fca311;
 }
 body.theme-love-notes-lipstick .category-panel {
   background-color: #3f206b;
-  color: #ff6bd6;
+  color: var(--accent-text);
   border-right-color: #20c997;
 }
 body.theme-rainbow .category-panel {
   /* Fully opaque panel to avoid text bleeding through */
   background-color: #fff;
-  color: #000;
+  color: var(--accent-text);
   border-right-color: #603636;
 }
 body.theme-dark .category-panel {
