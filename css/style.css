@@ -62,6 +62,7 @@ body {
   --bg-color: #0f0f0f;
   --panel-color: #000;
   --text-color: #f0f0f0;
+  --accent-text: #00ff99; /* fallback default for dark mode */
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
