@@ -104,24 +104,14 @@
       const deselectAllBtn = document.getElementById('deselectAll');
       if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllCategories);
       if (deselectAllBtn) deselectAllBtn.addEventListener('click', deselectAllCategories);
-      showCategoryPanelIfStart();
+      showCategoryPanel();
     });
 
-    function getQueryParam(name) {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(name);
-    }
-
-    function showCategoryPanelIfStart() {
+    function showCategoryPanel() {
       const panel = document.getElementById('categoryPanel');
       const overlay = document.getElementById('categoryOverlay');
-      if (getQueryParam('start') === '1') {
-        if (overlay) overlay.style.display = 'flex';
-        if (panel) panel.style.display = 'block';
-      } else {
-        if (overlay) overlay.style.display = 'none';
-        if (panel) panel.style.display = 'none';
-      }
+      if (overlay) overlay.style.display = 'flex';
+      if (panel) panel.style.display = 'block';
     }
   </script>
 </body>
