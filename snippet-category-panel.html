@@ -2,80 +2,117 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Category Panel Snippet</title>
 <link rel="stylesheet" href="css/theme.css">
 <style>
+/* THEME COLOR ROOTS */
 :root {
   --accent-text: #00ffff;
 }
-
 .theme-dark {
   --accent-text: #00ffff;
 }
-
 .theme-forest {
   --accent-text: #66ff66;
 }
-
 .theme-lipstick {
   --accent-text: #ff3399;
 }
 
+/* OUTLINE TITLE HEADER */
+#page-title,
+.page-title {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 2.5rem;
+  color: white;
+  text-shadow: 0 0 5px var(--accent-text), 0 0 10px var(--accent-text);
+  text-align: center;
+  padding-bottom: 1rem;
+}
+
+/* CATEGORY PANEL CONTAINER */
 .category-panel {
-  color: var(--accent-text);
-  border: 2px solid var(--accent-text);
-  font-family: 'Fredoka One', sans-serif;
-  padding: 1rem;
-  border-radius: 10px;
-  width: 280px;
-  height: 85vh;
+  max-height: 80vh;
   overflow-y: auto;
-}
-
-.category-panel h2 {
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-  color: var(--accent-text);
-}
-
-.category-buttons button {
-  background: transparent;
   border: 2px solid var(--accent-text);
-  color: var(--accent-text);
-  font-size: 0.8rem;
-  padding: 0.4rem 0.6rem;
-  margin-right: 0.5rem;
-  margin-bottom: 1rem;
-  border-radius: 6px;
+  padding: 1rem;
+  border-radius: 12px;
   font-family: 'Fredoka One', sans-serif;
+  background: #000;
+  color: white;
+  scrollbar-color: var(--accent-text) #000;
 }
 
-.category-list label {
-  display: block;
-  margin-bottom: 0.4rem;
+.category-panel::-webkit-scrollbar {
+  width: 8px;
+}
+.category-panel::-webkit-scrollbar-thumb {
+  background-color: var(--accent-text);
+  border-radius: 4px;
+}
+
+/* HEADER TEXT */
+.category-panel h2 {
   font-size: 1rem;
   color: var(--accent-text);
+  margin-bottom: 0.5rem;
+  line-height: 1.2rem;
 }
 
-.category-list input[type="checkbox"] {
-  margin-right: 0.5rem;
+/* SELECT/DESELECT BUTTONS */
+.category-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
 }
-
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: var(--accent-text);
+.category-panel button {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  background-color: #111;
+  border: 2px solid var(--accent-text);
+  color: white;
   border-radius: 6px;
+  margin: 0.3rem 0.5rem 0.7rem 0;
+  transition: 0.2s ease;
+}
+.category-panel button:hover {
+  background-color: var(--accent-text);
+  color: #000;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+/* UNIFORM CATEGORY BOXES */
+.category-panel label {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  border: 2px solid var(--accent-text);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.1rem;
+  color: white;
+  background-color: transparent;
+  min-height: 45px;
+  transition: 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.category-panel label:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
-#start-survey-button {
-  display: none;
+/* CHECKBOX STYLE */
+.category-panel input[type="checkbox"] {
+  margin-right: 0.75rem;
+  transform: scale(1.2);
+}
+
+/* HIDE ANY START SURVEY BUTTON ON PAGE */
+#start-actual-button, .start-actual-button, .main-start-survey {
+  display: none !important;
 }
 </style>
 </head>
