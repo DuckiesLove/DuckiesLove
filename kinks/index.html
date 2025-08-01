@@ -19,9 +19,25 @@
   <script type="module">
     document.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('start') === '1') {
-        const btn = document.getElementById('startSurveyBtn');
-        if (btn) btn.click();
+      const startSurvey = params.get('start');
+
+      if (startSurvey === '1') {
+        const categoryPanel = document.querySelector('.category-panel');
+        if (categoryPanel && categoryPanel.classList.contains('hidden')) {
+          categoryPanel.classList.remove('hidden');
+        }
+
+        const toggleBtn = document.querySelector('.open-categories, .start-button');
+        if (toggleBtn) {
+          toggleBtn.click();
+        } else {
+          const btn = document.getElementById('startSurveyBtn');
+          if (btn) btn.click();
+        }
+
+        if (categoryPanel) {
+          categoryPanel.scrollIntoView({ behavior: 'smooth' });
+        }
       }
     });
   </script>
