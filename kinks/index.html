@@ -14,6 +14,18 @@
     <button id="startSurveyBtn" class="themed-start-btn">Start Survey</button>
   </div>
 
+  <!-- Category selection panel shown when using ?start=1 -->
+  <div id="categorySurveyPanel" style="display: none;">
+    <h2>Select the categories you want to include:</h2>
+    <div class="category-panel">
+      <!-- Example categories -->
+      <label><input type="checkbox" name="kink" value="bondage"> Bondage</label>
+      <label><input type="checkbox" name="kink" value="impact"> Impact Play</label>
+      <!-- Add the rest of your categories here -->
+    </div>
+    <button class="themed-button" onclick="startActualSurvey()">Start Actual Survey</button>
+  </div>
+
   <div id="categoryOverlay" class="category-sidebar">
     <div id="categoryPanel" class="category-panel hidden">
       <h2>Select Categories</h2>
@@ -49,6 +61,26 @@
         }
       }
     });
+  </script>
+
+  <!-- Automatically display the category survey panel when '?start=1' -->
+  <script>
+    function showCategorySurveyPanel() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shouldStart = urlParams.get("start") === "1";
+      if (shouldStart) {
+        const panel = document.getElementById("categorySurveyPanel");
+        if (panel) panel.style.display = "block";
+      }
+    }
+
+    function startActualSurvey() {
+      const selected = [...document.querySelectorAll('input[name="kink"]:checked')].map(i => i.value);
+      localStorage.setItem("selectedKinks", JSON.stringify(selected));
+      window.location.href = "/survey/";
+    }
+
+    document.addEventListener("DOMContentLoaded", showCategorySurveyPanel);
   </script>
 </body>
 </html>

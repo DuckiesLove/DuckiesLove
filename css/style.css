@@ -3277,3 +3277,20 @@ body {
   font-size: 1.3rem;
 }
 
+/* Panel shown when starting the survey with '?start=1' */
+#categorySurveyPanel {
+  padding: 2rem;
+  border: 2px solid var(--accent-text, #00ff99);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--accent-text, #00ff99);
+  font-family: 'Fredoka One', sans-serif;
+  margin-top: 2rem;
+  text-align: center;
+}
+
+#categorySurveyPanel label {
+  display: block;
+  margin: 0.5rem 0;
+}
+
