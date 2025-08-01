@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Category Panel Snippet</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+:root {
+  --accent-text: #00ffff;
+}
+
+.theme-dark {
+  --accent-text: #00ffff;
+}
+
+.theme-forest {
+  --accent-text: #66ff66;
+}
+
+.theme-lipstick {
+  --accent-text: #ff3399;
+}
+
+.category-panel {
+  color: var(--accent-text);
+  border: 2px solid var(--accent-text);
+  font-family: 'Fredoka One', sans-serif;
+  padding: 1rem;
+  border-radius: 10px;
+  width: 280px;
+  height: 85vh;
+  overflow-y: auto;
+}
+
+.category-panel h2 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: var(--accent-text);
+}
+
+.category-buttons button {
+  background: transparent;
+  border: 2px solid var(--accent-text);
+  color: var(--accent-text);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  margin-right: 0.5rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  font-family: 'Fredoka One', sans-serif;
+}
+
+.category-list label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 1rem;
+  color: var(--accent-text);
+}
+
+.category-list input[type="checkbox"] {
+  margin-right: 0.5rem;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--accent-text);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#start-survey-button {
+  display: none;
+}
+</style>
+</head>
+<body class="theme-dark">
+<div class="category-panel">
+  <h2>Select the categories you want to include:</h2>
+  <div class="category-buttons">
+    <button id="selectAll">Select All</button>
+    <button id="deselectAll">Deselect All</button>
+  </div>
+  <div class="category-list">
+    <label><input type="checkbox" name="category" value="Behavioral Play"> Behavioral Play</label>
+    <label><input type="checkbox" name="category" value="Body Fluids and Functions"> Body Fluids and Functions</label>
+    <label><input type="checkbox" name="category" value="Body Modification"> Body Modification</label>
+    <label><input type="checkbox" name="category" value="Body Part / Fetish Play"> Body Part / Fetish Play</label>
+    <label><input type="checkbox" name="category" value="Body Part Torture"> Body Part Torture</label>
+    <label><input type="checkbox" name="category" value="Bondage and Suspension"> Bondage and Suspension</label>
+    <label><input type="checkbox" name="category" value="Breath Play"> Breath Play</label>
+    <label><input type="checkbox" name="category" value="Chastity Devices"> Chastity Devices</label>
+    <label><input type="checkbox" name="category" value="Clothing Play"> Clothing Play</label>
+    <label><input type="checkbox" name="category" value="Consensual Non-Consent"> Consensual Non-Consent</label>
+    <label><input type="checkbox" name="category" value="Control & Ownership"> Control & Ownership</label>
+    <label><input type="checkbox" name="category" value="Degradation & Humiliation"> Degradation & Humiliation</label>
+    <label><input type="checkbox" name="category" value="Digital & Long Distance"> Digital & Long Distance</label>
+    <label><input type="checkbox" name="category" value="Edgeplay & Risk"> Edgeplay & Risk</label>
+    <label><input type="checkbox" name="category" value="Electricity & Sensation"> Electricity & Sensation</label>
+    <label><input type="checkbox" name="category" value="Emotional & Psychological"> Emotional & Psychological</label>
+    <label><input type="checkbox" name="category" value="Exhibition & Voyeurism"> Exhibition & Voyeurism</label>
+    <label><input type="checkbox" name="category" value="Impact Play"> Impact Play</label>
+    <label><input type="checkbox" name="category" value="Pet Play"> Pet Play</label>
+    <label><input type="checkbox" name="category" value="Primal Play"> Primal Play</label>
+    <label><input type="checkbox" name="category" value="Rituals & Protocol"> Rituals & Protocol</label>
+    <label><input type="checkbox" name="category" value="Roleplay & Fantasy"> Roleplay & Fantasy</label>
+    <label><input type="checkbox" name="category" value="Sadism & Masochism"> Sadism & Masochism</label>
+    <label><input type="checkbox" name="category" value="Sensory Play"> Sensory Play</label>
+    <label><input type="checkbox" name="category" value="Service & Domestic"> Service & Domestic</label>
+    <label><input type="checkbox" name="category" value="Spiritual & Energetic"> Spiritual & Energetic</label>
+    <label><input type="checkbox" name="category" value="Structure & Discipline"> Structure & Discipline</label>
+    <label><input type="checkbox" name="category" value="Taboo Play"> Taboo Play</label>
+    <label><input type="checkbox" name="category" value="Temperature Play"> Temperature Play</label>
+    <label><input type="checkbox" name="category" value="Verbal Play"> Verbal Play</label>
+    <label><input type="checkbox" name="category" value="Watersports & Mess"> Watersports & Mess</label>
+    <label><input type="checkbox" name="category" value="Worship & Objectification"> Worship & Objectification</label>
+  </div>
+</div>
+<script>
+document.getElementById('selectAll').addEventListener('click', () => {
+  document.querySelectorAll('.category-list input[type="checkbox"]').forEach(cb => cb.checked = true);
+});
+
+document.getElementById('deselectAll').addEventListener('click', () => {
+  document.querySelectorAll('.category-list input[type="checkbox"]').forEach(cb => cb.checked = false);
+});
+</script>
+</body>
+</html>
