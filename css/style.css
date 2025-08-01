@@ -3317,7 +3317,8 @@ body {
   padding: 1rem;
   border-radius: 12px;
   font-family: 'Fredoka One', sans-serif;
-  color: var(--accent-text);
+  color: white;
+  scrollbar-color: var(--accent-text) #000;
 }
 
 /* Shrink Header */
@@ -3329,14 +3330,14 @@ body {
 
 /* Styled Buttons */
 .category-panel button {
-  background: transparent;
+  background-color: #111;
   border: 2px solid var(--accent-text);
-  color: var(--accent-text);
-  padding: 0.4rem 0.8rem;
-  font-size: 0.9rem;
+  color: white;
+  font-size: 0.85rem;
   font-family: 'Fredoka One', sans-serif;
+  padding: 0.3rem 0.7rem;
   border-radius: 8px;
-  margin-right: 0.5rem;
+  margin: 0.3rem 0.5rem 0.5rem 0;
   transition: 0.3s ease;
 }
 
@@ -3347,13 +3348,24 @@ body {
 
 /* Make checkbox categories uniform */
 .category-panel label {
-  display: block;
-  padding: 0.4rem 0.6rem;
-  margin: 0.3rem 0;
-  border: 1px solid var(--accent-text);
-  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  margin: 0.4rem 0;
+  border: 2px solid var(--accent-text);
+  border-radius: 8px;
   font-size: 1rem;
-  color: var(--accent-text);
+  color: white;
+  background-color: transparent;
+  cursor: pointer;
+  transition: 0.2s ease;
+  min-height: 48px;
+}
+
+/* Checkbox Styling */
+.category-panel input[type="checkbox"] {
+  margin-right: 0.7rem;
+  transform: scale(1.2);
 }
 
 /* Hide unwanted "Start Actual Survey" button */
@@ -3363,10 +3375,10 @@ body {
 
 /* Optional scrollbar style */
 .category-panel::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 .category-panel::-webkit-scrollbar-thumb {
   background-color: var(--accent-text);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
