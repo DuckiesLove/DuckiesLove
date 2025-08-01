@@ -16,14 +16,48 @@
 
   <!-- Category selection panel shown when using ?start=1 -->
   <div id="categorySurveyPanel" style="display: none;">
-    <h2>Select the categories you want to include:</h2>
     <div class="category-panel">
-      <!-- Example categories -->
-      <label><input type="checkbox" name="kink" value="bondage"> Bondage</label>
-      <label><input type="checkbox" name="kink" value="impact"> Impact Play</label>
-      <!-- Add the rest of your categories here -->
+      <h2>Select the categories you want to include:</h2>
+      <div class="category-buttons">
+        <button id="selectAll" class="themed-button">Select All</button>
+        <button id="deselectAll" class="themed-button">Deselect All</button>
+      </div>
+      <div class="category-list">
+        <label><input type="checkbox" name="category" value="Behavioral Play"> Behavioral Play</label>
+        <label><input type="checkbox" name="category" value="Body Fluids and Functions"> Body Fluids and Functions</label>
+        <label><input type="checkbox" name="category" value="Body Modification"> Body Modification</label>
+        <label><input type="checkbox" name="category" value="Body Part / Fetish Play"> Body Part / Fetish Play</label>
+        <label><input type="checkbox" name="category" value="Body Part Torture"> Body Part Torture</label>
+        <label><input type="checkbox" name="category" value="Bondage and Suspension"> Bondage and Suspension</label>
+        <label><input type="checkbox" name="category" value="Breath Play"> Breath Play</label>
+        <label><input type="checkbox" name="category" value="Chastity Devices"> Chastity Devices</label>
+        <label><input type="checkbox" name="category" value="Clothing Play"> Clothing Play</label>
+        <label><input type="checkbox" name="category" value="Consensual Non-Consent"> Consensual Non-Consent</label>
+        <label><input type="checkbox" name="category" value="Control & Ownership"> Control & Ownership</label>
+        <label><input type="checkbox" name="category" value="Degradation & Humiliation"> Degradation & Humiliation</label>
+        <label><input type="checkbox" name="category" value="Digital & Long Distance"> Digital & Long Distance</label>
+        <label><input type="checkbox" name="category" value="Edgeplay & Risk"> Edgeplay & Risk</label>
+        <label><input type="checkbox" name="category" value="Electricity & Sensation"> Electricity & Sensation</label>
+        <label><input type="checkbox" name="category" value="Emotional & Psychological"> Emotional & Psychological</label>
+        <label><input type="checkbox" name="category" value="Exhibition & Voyeurism"> Exhibition & Voyeurism</label>
+        <label><input type="checkbox" name="category" value="Impact Play"> Impact Play</label>
+        <label><input type="checkbox" name="category" value="Pet Play"> Pet Play</label>
+        <label><input type="checkbox" name="category" value="Primal Play"> Primal Play</label>
+        <label><input type="checkbox" name="category" value="Rituals & Protocol"> Rituals & Protocol</label>
+        <label><input type="checkbox" name="category" value="Roleplay & Fantasy"> Roleplay & Fantasy</label>
+        <label><input type="checkbox" name="category" value="Sadism & Masochism"> Sadism & Masochism</label>
+        <label><input type="checkbox" name="category" value="Sensory Play"> Sensory Play</label>
+        <label><input type="checkbox" name="category" value="Service & Domestic"> Service & Domestic</label>
+        <label><input type="checkbox" name="category" value="Spiritual & Energetic"> Spiritual & Energetic</label>
+        <label><input type="checkbox" name="category" value="Structure & Discipline"> Structure & Discipline</label>
+        <label><input type="checkbox" name="category" value="Taboo Play"> Taboo Play</label>
+        <label><input type="checkbox" name="category" value="Temperature Play"> Temperature Play</label>
+        <label><input type="checkbox" name="category" value="Verbal Play"> Verbal Play</label>
+        <label><input type="checkbox" name="category" value="Watersports & Mess"> Watersports & Mess</label>
+        <label><input type="checkbox" name="category" value="Worship & Objectification"> Worship & Objectification</label>
+      </div>
+      <button class="themed-button" onclick="startActualSurvey()">Start Actual Survey</button>
     </div>
-    <button class="themed-button" onclick="startActualSurvey()">Start Actual Survey</button>
   </div>
 
   <div id="categoryOverlay" class="category-sidebar">
@@ -75,12 +109,30 @@
     }
 
     function startActualSurvey() {
-      const selected = [...document.querySelectorAll('input[name="kink"]:checked')].map(i => i.value);
+      const selected = [...document.querySelectorAll('input[name="category"]:checked')].map(i => i.value);
       localStorage.setItem("selectedKinks", JSON.stringify(selected));
       window.location.href = "/survey/";
     }
 
-    document.addEventListener("DOMContentLoaded", showCategorySurveyPanel);
+    function selectAllCategories() {
+      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
+        cb.checked = true;
+      });
+    }
+
+    function deselectAllCategories() {
+      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      showCategorySurveyPanel();
+      const selectAllBtn = document.getElementById('selectAll');
+      const deselectAllBtn = document.getElementById('deselectAll');
+      if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllCategories);
+      if (deselectAllBtn) deselectAllBtn.addEventListener('click', deselectAllCategories);
+    });
   </script>
 </body>
 </html>
