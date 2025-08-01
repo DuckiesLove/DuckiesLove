@@ -3123,6 +3123,7 @@ body {
   background: transparent;
   border: 2px solid var(--accent-text);
   color: var(--accent-text);
+  text-decoration: none;
   padding: 0.8rem 1.6rem;
   font-size: 1.2rem;
   font-weight: bold;
@@ -3136,6 +3137,7 @@ body {
 .select-toggle-button:hover {
   background: var(--accent-text);
   color: #000;
+  text-decoration: none;
 }
 
 .category-panel,
@@ -3215,6 +3217,12 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 1.2rem;
+}
+
+.landing-buttons .themed-button {
+  width: 260px;
+  text-align: center;
+  display: inline-block;
 }
 
 /* Talk Kink title */
