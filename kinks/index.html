@@ -12,6 +12,11 @@
   <div class="landing-wrapper">
     <h1 class="themed-title">Talk Kink</h1>
     <button id="startSurveyBtn" class="themed-start-btn">Start Survey</button>
+    <select id="themeSelector" onchange="setTheme(this.value)">
+      <option value="lipstick">Lipstick</option>
+      <option value="dark">Dark</option>
+      <option value="forest">Forest</option>
+    </select>
   </div>
 
   <!-- Category selection panel shown when using ?start=1 -->
@@ -99,7 +104,31 @@
       const deselectAllBtn = document.getElementById('deselectAll');
       if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllCategories);
       if (deselectAllBtn) deselectAllBtn.addEventListener('click', deselectAllCategories);
+      showCategoryPanelIfStart();
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      setTheme(savedTheme);
+      document.getElementById('themeSelector').value = savedTheme;
     });
+
+    function setTheme(theme) {
+      document.body.className = '';
+      document.body.classList.add(`theme-${theme}`);
+      localStorage.setItem('theme', theme);
+    }
+
+    function getQueryParam(name) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(name);
+    }
+
+    function showCategoryPanelIfStart() {
+      const panel = document.getElementById('categoryPanel');
+      if (getQueryParam('start') === '1') {
+        panel.style.display = 'block';
+      } else {
+        panel.style.display = 'none';
+      }
+    }
   </script>
 </body>
 </html>
