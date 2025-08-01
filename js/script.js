@@ -7,22 +7,35 @@ const PASSWORD = 'BLSUCKS';
 
 function setupPasswordProtection(callback) {
   const overlay = document.getElementById('passwordOverlay');
-  if (sessionStorage.getItem('authenticated') === 'true') {
-    if (overlay) overlay.style.display = 'none';
+
+  // If there's no overlay on the page, authentication isn't required.
+  if (!overlay) {
     if (typeof callback === 'function') callback();
     return;
   }
+
+  if (sessionStorage.getItem('authenticated') === 'true') {
+    overlay.style.display = 'none';
+    if (typeof callback === 'function') callback();
+    return;
+  }
+
   overlay.style.display = 'flex';
-  document.getElementById('passwordSubmit').onclick = () => {
-    const val = document.getElementById('passwordInput').value;
-    if (val === PASSWORD) {
-      sessionStorage.setItem('authenticated', 'true');
-      overlay.style.display = 'none';
-      if (typeof callback === 'function') callback();
-    } else {
-      alert('Incorrect password');
-    }
-  };
+
+  const submitBtn = document.getElementById('passwordSubmit');
+  if (submitBtn) {
+    submitBtn.onclick = () => {
+      const input = document.getElementById('passwordInput');
+      const val = input ? input.value : '';
+      if (val === PASSWORD) {
+        sessionStorage.setItem('authenticated', 'true');
+        overlay.style.display = 'none';
+        if (typeof callback === 'function') callback();
+      } else {
+        alert('Incorrect password');
+      }
+    };
+  }
 }
 
 // ================== Theme Setup (handled in theme.js) ==================
