@@ -3294,3 +3294,79 @@ body {
   margin: 0.5rem 0;
 }
 
+/* === Category Panel Scrollable Styling === */
+:root {
+  --accent-text: #00ffff; /* default */
+}
+
+/* Theme Colors */
+.theme-dark {
+  --accent-text: #00ffff;
+}
+.theme-forest {
+  --accent-text: #66ff66;
+}
+.theme-lipstick {
+  --accent-text: #ff3399;
+}
+
+.category-panel {
+  max-height: 80vh;
+  overflow-y: auto;
+  border: 2px solid var(--accent-text);
+  padding: 1rem;
+  border-radius: 12px;
+  font-family: 'Fredoka One', sans-serif;
+  color: var(--accent-text);
+}
+
+/* Shrink Header */
+.category-panel h2 {
+  font-size: 1.3rem;
+  color: var(--accent-text);
+  margin-bottom: 1rem;
+}
+
+/* Styled Buttons */
+.category-panel button {
+  background: transparent;
+  border: 2px solid var(--accent-text);
+  color: var(--accent-text);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  font-family: 'Fredoka One', sans-serif;
+  border-radius: 8px;
+  margin-right: 0.5rem;
+  transition: 0.3s ease;
+}
+
+.category-panel button:hover {
+  background: var(--accent-text);
+  color: #000;
+}
+
+/* Make checkbox categories uniform */
+.category-panel label {
+  display: block;
+  padding: 0.4rem 0.6rem;
+  margin: 0.3rem 0;
+  border: 1px solid var(--accent-text);
+  border-radius: 6px;
+  font-size: 1rem;
+  color: var(--accent-text);
+}
+
+/* Hide unwanted "Start Actual Survey" button */
+#start-actual-button {
+  display: none !important;
+}
+
+/* Optional scrollbar style */
+.category-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.category-panel::-webkit-scrollbar-thumb {
+  background-color: var(--accent-text);
+  border-radius: 3px;
+}
+
