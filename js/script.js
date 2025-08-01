@@ -438,6 +438,8 @@ function startNewSurvey() {
   }
 
   categoryOverlay.style.display = 'flex';
+  // Ensure the category selection panel is visible
+  if (categoryPanel) categoryPanel.classList.remove('hidden');
   if (panelContainer) panelContainer.style.display = 'none';
   surveyContainer.style.display = 'none';
   finalScreen.style.display = 'none';
