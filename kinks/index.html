@@ -15,7 +15,7 @@
   </div>
 
   <!-- Category selection panel shown when using ?start=1 -->
-  <div id="categorySurveyPanel" style="display: none;">
+  <div id="categorySurveyPanel">
     <div class="category-panel">
       <h2>Select the categories you want to include:</h2>
       <div class="category-buttons">
@@ -75,41 +75,9 @@
   <script src="../js/template-survey.js"></script>
   <script type="module" src="../js/script.js"></script>
   <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const urlParams = new URLSearchParams(window.location.search);
-      const shouldStart = urlParams.get("start") === "1";
-
-      if (shouldStart) {
-        const introOverlay = document.getElementById("surveyIntro");
-        if (introOverlay) {
-          introOverlay.style.display = "none";
-        }
-
-        const categoryPanel = document.querySelector(".category-panel");
-        if (categoryPanel) {
-          categoryPanel.style.display = "block";
-        }
-
-        if (typeof startSurveyFlow === "function") {
-          startSurveyFlow();
-        }
-      }
-    });
-  </script>
-
-  <!-- Automatically display the category survey panel when '?start=1' -->
-  <script>
-    function showCategorySurveyPanel() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const shouldStart = urlParams.get("start") === "1";
-      if (shouldStart) {
-        const panel = document.getElementById("categorySurveyPanel");
-        if (panel) panel.style.display = "block";
-      }
-    }
-
     function startActualSurvey() {
-      const selected = [...document.querySelectorAll('input[name="category"]:checked')].map(i => i.value);
+      const selected = [...document.querySelectorAll('input[name="category"]:checked')]
+        .map(i => i.value);
       localStorage.setItem("selectedKinks", JSON.stringify(selected));
       window.location.href = "/survey/";
     }
@@ -127,7 +95,6 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      showCategorySurveyPanel();
       const selectAllBtn = document.getElementById('selectAll');
       const deselectAllBtn = document.getElementById('deselectAll');
       if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllCategories);
