@@ -3146,9 +3146,15 @@ body {
 
 .category-panel,
 .category-panel button {
-  color: var(--accent-text);
-  border-color: var(--accent-text);
   font-family: 'Fredoka One', sans-serif;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  background-color: #111;
+  border: 2px solid var(--accent-text);
+  color: white;
+  border-radius: 6px;
+  margin: 0.3rem 0.5rem 0.7rem 0;
+  transition: 0.2s ease;
 }
 
 .category-panel h2,
@@ -3310,6 +3316,17 @@ body {
   --accent-text: #ff3399;
 }
 
+/* Outline title header */
+#page-title,
+.page-title {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 2.5rem;
+  color: white;
+  text-shadow: 0 0 5px var(--accent-text), 0 0 10px var(--accent-text);
+  text-align: center;
+  padding-bottom: 1rem;
+}
+
 .category-panel {
   max-height: 80vh;
   overflow-y: auto;
@@ -3323,26 +3340,33 @@ body {
 
 /* Shrink Header */
 .category-panel h2 {
-  font-size: 1.3rem;
+  font-size: 1rem;
   color: var(--accent-text);
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.2rem;
+}
+
+.category-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
 }
 
 /* Styled Buttons */
 .category-panel button {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
   background-color: #111;
   border: 2px solid var(--accent-text);
   color: white;
-  font-size: 0.85rem;
-  font-family: 'Fredoka One', sans-serif;
-  padding: 0.3rem 0.7rem;
-  border-radius: 8px;
-  margin: 0.3rem 0.5rem 0.5rem 0;
-  transition: 0.3s ease;
+  border-radius: 6px;
+  margin: 0.3rem 0.5rem 0.7rem 0;
+  transition: 0.2s ease;
 }
 
 .category-panel button:hover {
-  background: var(--accent-text);
+  background-color: var(--accent-text);
   color: #000;
 }
 
@@ -3351,25 +3375,35 @@ body {
   display: flex;
   align-items: center;
   padding: 0.5rem 1rem;
-  margin: 0.4rem 0;
+  margin-bottom: 0.5rem;
   border: 2px solid var(--accent-text);
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.1rem;
   color: white;
   background-color: transparent;
   cursor: pointer;
   transition: 0.2s ease;
-  min-height: 48px;
+  min-height: 45px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.category-panel label:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 /* Checkbox Styling */
 .category-panel input[type="checkbox"] {
-  margin-right: 0.7rem;
+  margin-right: 0.75rem;
   transform: scale(1.2);
 }
 
 /* Hide unwanted "Start Actual Survey" button */
-#start-actual-button {
+#start-actual-button,
+.start-actual-button,
+.main-start-survey {
   display: none !important;
 }
 
