@@ -863,9 +863,9 @@ function exportSurvey() {
 if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);
 
 function downloadPDF() {
-  document.body.classList.add('dark-mode');
   document.body.classList.add('exporting');
-  applyPrintStyles('dark');
+  const current = localStorage.getItem('theme') || 'dark';
+  applyPrintStyles(current);
 
   const element = document.getElementById('export-target') || document.getElementById('surveyContainer');
   if (!element) return;

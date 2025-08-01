@@ -249,7 +249,9 @@ function buildKinkBreakdown(surveyA, surveyB) {
 
 async function generateComparisonPDF() {
   document.body.classList.add('exporting');
-  const mode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+  let mode = 'dark';
+  if (document.body.classList.contains('theme-lipstick')) mode = 'lipstick';
+  else if (document.body.classList.contains('theme-forest')) mode = 'forest';
   applyPrintStyles(mode);
   const container = document.getElementById('pdf-container');
   const element = document.getElementById('compatibility-wrapper');

@@ -1,3 +1,27 @@
+const themeStyles = {
+  dark: {
+    fontColor: '#f2f2f2',
+    bgColor: '#0d0d0d',
+    inputBg: '#1a1a1a',
+    inputText: '#f2f2f2',
+    borderColor: '#444'
+  },
+  lipstick: {
+    fontColor: '#fceaff',
+    bgColor: '#1a001f',
+    inputBg: '#300030',
+    inputText: '#fceaff',
+    borderColor: '#ff91f0'
+  },
+  forest: {
+    fontColor: '#1d3b1d',
+    bgColor: '#f0f7f1',
+    inputBg: '#e6f3ea',
+    inputText: '#1d3b1d',
+    borderColor: '#81b89b'
+  }
+};
+
 export function setTheme(theme) {
   if (document.body.classList.contains('exporting')) {
     localStorage.setItem('theme', theme);
@@ -18,10 +42,13 @@ window.setTheme = setTheme;
 
 export function initTheme() {
   const themeSelector = document.getElementById('themeSelector');
-  const savedTheme = localStorage.getItem('theme') || 'dark';
-  setTheme(savedTheme);
+  window.addEventListener('load', () => {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    setTheme(savedTheme);
+    if (themeSelector) themeSelector.value = savedTheme;
+  });
+
   if (themeSelector) {
-    themeSelector.value = savedTheme;
     themeSelector.addEventListener('change', () => {
       const selectedTheme = themeSelector.value;
       setTheme(selectedTheme);
@@ -32,78 +59,6 @@ export function initTheme() {
 export function applyThemeColors(theme) {
   const surveyContent = document.querySelector('#survey-section');
   const categoryPanel = document.querySelector('#categoryPanel');
-  const themeStyles = {
-    dark: {
-      fontColor: '#f2f2f2',
-      bgColor: '#0d0d0d',
-      inputBg: '#1a1a1a',
-      inputText: '#f2f2f2',
-      borderColor: '#444'
-    },
-    lipstick: {
-      fontColor: '#fceaff',
-      bgColor: '#1a001f',
-      inputBg: '#300030',
-      inputText: '#fceaff',
-      borderColor: '#ff91f0'
-    },
-    forest: {
-      fontColor: '#1d3b1d',
-      bgColor: '#f0f7f1',
-      inputBg: '#e6f3ea',
-      inputText: '#1d3b1d',
-      borderColor: '#81b89b'
-    },
-    'light-mode': {
-      fontColor: '#111',
-      bgColor: '#939e93',
-      inputBg: '#f7f7f7',
-      inputText: '#111',
-      borderColor: '#ccc'
-    },
-    'dark-mode': {
-      fontColor: '#f2f2f2',
-      bgColor: '#121212',
-      inputBg: '#2a2a2a',
-      inputText: '#ffffff',
-      borderColor: '#666'
-    },
-    'theme-blue': {
-      fontColor: '#ffffff',
-      bgColor: '#000000',
-      inputBg: '#000000',
-      inputText: '#ffffff',
-      borderColor: '#444444'
-    },
-    'theme-blue-sky': {
-      fontColor: '#002244',
-      bgColor: '#b2bfcc',
-      inputBg: '#c9e0ff',
-      inputText: '#002244',
-      borderColor: '#a9c9e6'
-    },
-    'theme-echoes-beyond': {
-      fontColor: '#ffcc66',
-      bgColor: '#101a31',
-      inputBg: '#f9d7a5',
-      inputText: '#003366',
-      borderColor: '#cc7a00'
-    },
-    'theme-love-notes-lipstick': {
-      fontColor: '#ffe0f5',
-      bgColor: '#3b0a3b',
-      inputBg: '#dca0d7',
-      inputText: '#3b0a3b',
-      borderColor: '#c286c2'
-    },
-    'theme-rainbow': {
-      fontColor: '#222',
-      bgColor: '#ccc0c4',
-      inputBg: '#f8e6ff',
-      inputText: '#222',
-      borderColor: '#d8b0e6'
-    }
-  };
 
   const normalized = (theme || '').toLowerCase().replace(/\s+/g, '-');
   const selected = themeStyles[normalized] || themeStyles['dark'];
@@ -266,8 +221,15 @@ export function applyPrintStyles(mode = 'dark') {
   if (document.getElementById('pdf-print-style')) return;
   const style = document.createElement('style');
   style.id = 'pdf-print-style';
-  const base = mode === 'light' ? lightPdfStyles : pdfStyles;
-  style.textContent = base + `
+  const base = pdfStyles;
+  const vars = themeStyles[mode] || themeStyles.dark;
+  style.textContent = `
+    :root {
+      --bg-color: ${vars.bgColor} !important;
+      --text-color: ${vars.fontColor} !important;
+      --panel-color: ${vars.inputBg || vars.bgColor} !important;
+    }
+  ` + base + `
 
 
       #comparison-chart {
