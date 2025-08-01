@@ -910,7 +910,7 @@ body.theme-rainbow #comparisonResult {
 .scroll-container,
 .category-list {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 10px;
   padding-top: 20px;
@@ -923,16 +923,16 @@ body.theme-rainbow #comparisonResult {
 .checkbox-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 6px 8px;
   border: 1px solid var(--accent-text);
   border-radius: 6px;
   background-color: var(--panel-color, #fff);
   color: var(--accent-text);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  width: 100%;
+  width: 45%;
   box-sizing: border-box;
 }
 
@@ -3374,20 +3374,21 @@ body {
 .category-panel label {
   display: flex;
   align-items: center;
-  padding: 0.5rem 1rem;
-  margin-bottom: 0.5rem;
-  border: 2px solid var(--accent-text);
-  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  margin: 0.25rem;
+  border: 1px solid var(--accent-text);
+  border-radius: 6px;
   font-size: 0.9rem;
   line-height: 1.1rem;
   color: white;
   background-color: transparent;
   cursor: pointer;
   transition: 0.2s ease;
-  min-height: 45px;
+  min-height: 38px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: 45%;
 }
 
 .category-panel label:hover {
