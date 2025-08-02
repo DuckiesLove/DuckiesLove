@@ -80,14 +80,7 @@
       margin: 20px 0;
     }
 
-    .rating-scale label {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      font-size: 14px;
-    }
-
-    .rating-scale input[type="radio"] {
+    .rating-scale select {
       margin-top: 5px;
     }
   </style>
@@ -102,18 +95,22 @@
   <div id="categoryContainer">
     <div class="category-title" id="categoryTitle">Loading...</div>
     <div class="question" id="categoryQuestion">Please start the survey.</div>
-    <select id="roleSelector">
-      <option value="give">Give</option>
-      <option value="receive">Receive</option>
-      <option value="non-specific">Non-Specific Role</option>
-    </select>
-    <div class="rating-scale" id="ratingContainer">
-      <label>0<input type="radio" name="rating" value="0"></label>
-      <label>1<input type="radio" name="rating" value="1"></label>
-      <label>2<input type="radio" name="rating" value="2"></label>
-      <label>3<input type="radio" name="rating" value="3"></label>
-      <label>4<input type="radio" name="rating" value="4"></label>
-      <label>5<input type="radio" name="rating" value="5"></label>
+    <div class="rating-scale">
+      <select id="roleSelector">
+        <option value=""></option>
+        <option value="giving">Giving</option>
+        <option value="receiving">Receiving</option>
+        <option value="both">Both</option>
+      </select>
+      <select id="ratingSelector">
+        <option value=""></option>
+        <option value="0">0 - Not for Me / Hard Limit</option>
+        <option value="1">1 - Dislike / Haven&#8217;t Considered</option>
+        <option value="2">2 - Would Try for Partner</option>
+        <option value="3">3 - Curious / Might Enjoy</option>
+        <option value="4">4 - Like / Regular Interest</option>
+        <option value="5">5 - Love / Core Interest</option>
+      </select>
     </div>
   </div>
 
@@ -184,9 +181,8 @@
       if (index < categories.length) {
         document.getElementById("categoryTitle").textContent = categories[index].title;
         document.getElementById("categoryQuestion").textContent = categories[index].question;
-        document.querySelectorAll("input[name='rating']").forEach(input => {
-          input.checked = ratings[index] === Number(input.value);
-        });
+        const ratingSelect = document.getElementById("ratingSelector");
+        if (ratingSelect) ratingSelect.value = ratings[index] ?? "";
         const roleSelect = document.getElementById("roleSelector");
         if (roleSelect) roleSelect.value = roles[index] || "";
       } else {
@@ -227,10 +223,9 @@
     }
 
     function storeRating() {
-      const selected = document.querySelector("input[name='rating']:checked");
-      if (selected) {
-        ratings[currentCategory - 1] = Number(selected.value);
-      }
+      const ratingSelect = document.getElementById("ratingSelector");
+      const val = ratingSelect ? ratingSelect.value : "";
+      ratings[currentCategory - 1] = val === "" ? null : Number(val);
       const selectedRole = document.getElementById("roleSelector").value;
       roles[currentCategory - 1] = selectedRole;
     }
@@ -239,15 +234,20 @@
       const survey = {};
       categories.forEach((cat, i) => {
         const rating = ratings[i];
-        const role = roles[i] || 'non-specific';
+        const role = roles[i] || '';
         if (rating === null) return;
         if (!survey[cat.title]) {
           survey[cat.title] = { Giving: [], Receiving: [], General: [] };
         }
         const item = { name: cat.title, rating };
-        if (role === 'give') survey[cat.title].Giving.push(item);
-        else if (role === 'receive') survey[cat.title].Receiving.push(item);
-        else survey[cat.title].General.push(item);
+        if (role === 'giving') survey[cat.title].Giving.push(item);
+        else if (role === 'receiving') survey[cat.title].Receiving.push(item);
+        else if (role === 'both') {
+          survey[cat.title].Giving.push(item);
+          survey[cat.title].Receiving.push({ ...item });
+        } else {
+          survey[cat.title].General.push(item);
+        }
       });
 
       const exportObj = { survey };
