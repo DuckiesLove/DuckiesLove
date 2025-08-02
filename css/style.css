@@ -2158,6 +2158,8 @@ body {
 .category-header.green { color: #00cc66; }
 .category-header.yellow { color: #ffcc00; }
 .category-header.red { color: #ff4444; }
+.category-header.flag-high { color: #00cc66; }
+.category-header.flag-low { color: #ff4444; }
 
 .compare-row {
   display: flex;
@@ -2535,6 +2537,8 @@ body {
   .category-header.green { color: #00cc44; }
   .category-header.yellow { color: #cccc00; }
   .category-header.red { color: #cc0033; }
+  .category-header.flag-high { color: #00cc44; }
+  .category-header.flag-low { color: #cc0033; }
 
   .comparison-card {
     display: flex;
