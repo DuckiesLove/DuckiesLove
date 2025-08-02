@@ -77,6 +77,41 @@
     </div>
   </div>
 
+  <div id="ratingLegend" class="static-rating-legend" style="display:none;">
+    <ul>
+      <li>0 - Not for me / Hard Limit</li>
+      <li>1 - Dislike / Haven’t Considered</li>
+      <li>2 - Would Try for Partner</li>
+      <li>3 - Curious / Might Enjoy</li>
+      <li>4 - Like / Regular Interest</li>
+      <li>5 - Love / Core Interest</li>
+    </ul>
+  </div>
+
+  <div id="progressBanner" class="progress-container" style="display:none;">
+    <div class="progress-label" id="progressLabel"></div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <div id="surveyContainer" style="display:none;">
+    <h2 id="categoryTitle"></h2>
+    <p id="categoryDescription"></p>
+    <div id="kinkList"></div>
+    <div class="nav-buttons">
+      <button id="skipCategoryBtn" class="themed-button">Skip Category</button>
+      <button id="nextCategoryBtn" class="themed-button">Next Category</button>
+    </div>
+  </div>
+
+  <div id="panelContainer" class="panel-container" style="display:none;"></div>
+
+  <div id="finalScreen" class="final-screen" style="display:none;">
+    <button id="saveSurveyBtn" class="themed-button">Export My List</button>
+    <button id="returnHomeBtn" class="themed-button">Return Home</button>
+  </div>
+
   <script src="../js/template-survey.js"></script>
   <script type="module" src="../js/script.js"></script>
   <script>
