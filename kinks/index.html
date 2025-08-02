@@ -150,6 +150,7 @@
         const span = document.createElement('span');
         span.textContent = k.name;
         const select = document.createElement('select');
+        select.setAttribute('aria-label', `Rate ${k.name}`);
         for (let i = 0; i <= 5; i++) {
           const opt = document.createElement('option');
           opt.value = i;
