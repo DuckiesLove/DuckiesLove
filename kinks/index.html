@@ -143,27 +143,50 @@
         const span = document.createElement('span');
         span.textContent = k.name;
 
+        const selectWrapper = document.createElement('div');
+        selectWrapper.style.position = 'relative';
+        selectWrapper.style.display = 'inline-block';
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'rating-tooltip';
+        tooltip.innerHTML = `
+  0 - Not for me / Hard Limit<br>
+  1 - Dislike / Haven’t Considered<br>
+  2 - Would Try for Partner<br>
+  3 - Curious / Might Enjoy<br>
+  4 - Like / Regular Interest<br>
+  5 - Love / Core Interest
+`;
+        tooltip.style.position = 'absolute';
+        tooltip.style.left = '-260px';
+        tooltip.style.top = '50%';
+        tooltip.style.transform = 'translateY(-50%)';
+        tooltip.style.display = 'none';
+        tooltip.style.width = '240px';
+        tooltip.style.padding = '8px';
+        tooltip.style.background = 'var(--bg-color)';
+        tooltip.style.color = 'var(--text-color)';
+        tooltip.style.border = '1px solid var(--accent-color)';
+        tooltip.style.borderRadius = '6px';
+        tooltip.style.fontSize = '0.85rem';
+        tooltip.style.zIndex = '10';
+
         const select = document.createElement('select');
         select.setAttribute('aria-label', `Rate ${k.name}`);
         select.classList.add('rating-select');
-
         for (let i = 0; i <= 5; i++) {
           const opt = document.createElement('option');
           opt.value = i;
           opt.textContent = i;
           select.appendChild(opt);
         }
+        select.addEventListener('mouseenter', () => tooltip.style.display = 'block');
+        select.addEventListener('mouseleave', () => tooltip.style.display = 'none');
 
-        const tooltip = document.createElement('div');
-        tooltip.className = 'rating-tooltip';
-        tooltip.innerHTML = `0 - Not for me / Hard Limit<br>1 - Dislike / Haven’t Considered<br>2 - Would Try for Partner<br>3 - Curious / Might Enjoy<br>4 - Like / Regular Interest<br>5 - Love / Core Interest`;
-
-        select.addEventListener('mouseover', () => tooltip.style.display = 'block');
-        select.addEventListener('mouseout', () => tooltip.style.display = 'none');
-
+        selectWrapper.appendChild(tooltip);
+        selectWrapper.appendChild(select);
         row.appendChild(span);
-        row.appendChild(select);
-        row.appendChild(tooltip);
+        row.appendChild(selectWrapper);
         list.appendChild(row);
       });
 
@@ -309,7 +332,6 @@
     font-size: 12px;
     white-space: nowrap;
     z-index: 10;
-    margin-left: 10px;
   }
 
   .kink-row {
@@ -328,10 +350,6 @@
     color: var(--text-color, #fff);
   }
 
-  .rating-select:focus + .rating-tooltip,
-  .rating-select:hover + .rating-tooltip {
-    display: block;
-  }
 
   select.rating-select {
     flex: 0 0 120px;
