@@ -221,10 +221,6 @@
         });
       }
       updateStartButton();
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('start') === '1' && stored.length) {
-        startSurvey();
-      }
 
       document.getElementById('nextCategoryBtn').addEventListener('click', () => {
         currentCategoryIndex++;
