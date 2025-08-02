@@ -97,6 +97,10 @@
   --panel-bg: #1a1a1a;
   --card-bg: #222;
 }
+.theme-dark select,
+.theme-dark option {
+  color: #ffffff;
+}
 .theme-lipstick {
   --bg-color: #1a001f;
   --text-color: #fceaff;
@@ -113,6 +117,10 @@
   --panel-bg: #300030;
   --card-bg: #2a002a;
 }
+.theme-lipstick select,
+.theme-lipstick option {
+  color: #ff90cb;
+}
 .theme-forest {
   --bg-color: #f0f7f1;
   --text-color: #1d3b1d;
@@ -127,6 +135,10 @@
   --hover-text: #fff;
   --panel-bg: #e6f3ea;
   --card-bg: #d9efe1;
+}
+.theme-forest select,
+.theme-forest option {
+  color: #a8e6a3;
 }
 
 body.theme-dark {
