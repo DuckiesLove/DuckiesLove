@@ -103,12 +103,14 @@
     initTheme();
   </script>
   <script>
-    function startSurvey() {
+    function StartSurvey() {
       const selected = [...document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked')]
         .map(i => i.value);
       localStorage.setItem('selectedKinks', JSON.stringify(selected));
       collapsePanel();
-      window.location.href = '/survey/';
+      if (typeof startNewSurvey === 'function') {
+        startNewSurvey();
+      }
     }
 
     function selectAllCategories() {
@@ -141,7 +143,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('selectAll').addEventListener('click', selectAllCategories);
       document.getElementById('deselectAll').addEventListener('click', deselectAllCategories);
-      document.getElementById('startSurveyBtn').addEventListener('click', startSurvey);
+      document.getElementById('startSurveyBtn').addEventListener('click', StartSurvey);
       document.getElementById('panelToggle').addEventListener('click', togglePanel);
       document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
         label.setAttribute('title', label.textContent.trim());
