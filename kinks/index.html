@@ -16,7 +16,7 @@
       <option value="lipstick">Lipstick</option>
       <option value="forest">Forest</option>
     </select>
-    <button id="startSurveyBtn" class="themed-button start-survey-btn">Start Survey</button>
+    <button id="startSurveyBtn" class="themed-button start-survey-btn" disabled>Start Survey</button>
   </div>
   <button id="panelToggle" class="panel-toggle" aria-label="Toggle category panel" aria-controls="categorySurveyPanel" aria-expanded="true">☰</button>
 
@@ -103,30 +103,86 @@
     initTheme();
   </script>
   <script>
-    function StartSurvey() {
+    let surveyCategories = [];
+    let currentCategoryIndex = 0;
+
+    async function StartSurvey() {
       const selected = [...document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked')]
         .map(i => i.value);
       if (!selected.length) {
         alert('Please select at least one category.');
         return;
       }
+      const resp = await fetch('../template-survey.json');
+      const data = await resp.json();
+      surveyCategories = selected.map(cat => ({
+        name: cat,
+        kinks: [
+          ...(data[cat]?.Giving || []),
+          ...(data[cat]?.Receiving || []),
+          ...(data[cat]?.General || [])
+        ]
+      }));
+      currentCategoryIndex = 0;
       localStorage.setItem('selectedKinks', JSON.stringify(selected));
       collapsePanel();
-      if (typeof startNewSurvey === 'function') {
-        startNewSurvey();
+      showCategory();
+    }
+
+    function showCategory() {
+      const surveyContainer = document.getElementById('surveyContainer');
+      const finalScreen = document.getElementById('finalScreen');
+      if (currentCategoryIndex >= surveyCategories.length) {
+        surveyContainer.style.display = 'none';
+        finalScreen.style.display = 'block';
+        return;
       }
+      finalScreen.style.display = 'none';
+      const category = surveyCategories[currentCategoryIndex];
+      document.getElementById('categoryTitle').textContent = category.name;
+      const list = document.getElementById('kinkList');
+      list.innerHTML = '';
+      category.kinks.forEach(k => {
+        const row = document.createElement('div');
+        row.className = 'kink-row';
+        const span = document.createElement('span');
+        span.textContent = k.name;
+        const select = document.createElement('select');
+        for (let i = 0; i <= 5; i++) {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = i;
+          select.appendChild(opt);
+        }
+        row.appendChild(span);
+        row.appendChild(select);
+        list.appendChild(row);
+      });
+      document.getElementById('ratingLegend').style.display = 'block';
+      document.getElementById('progressBanner').style.display = 'flex';
+      document.getElementById('progressLabel').textContent = `Category ${currentCategoryIndex + 1} of ${surveyCategories.length}`;
+      document.getElementById('progressFill').style.width = `${(currentCategoryIndex / surveyCategories.length) * 100}%`;
+      surveyContainer.style.display = 'block';
     }
 
     function selectAllCategories() {
       document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
         cb.checked = true;
       });
+      updateStartButton();
     }
 
     function deselectAllCategories() {
       document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
         cb.checked = false;
       });
+      updateStartButton();
+    }
+
+    function updateStartButton() {
+      const btn = document.getElementById('startSurveyBtn');
+      const hasSelection = document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked').length > 0;
+      btn.disabled = !hasSelection;
     }
 
     function togglePanel() {
@@ -152,6 +208,9 @@
       document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
         label.setAttribute('title', label.textContent.trim());
       });
+      document.querySelectorAll('#categorySurveyPanel input[name="category"]').forEach(cb => {
+        cb.addEventListener('change', updateStartButton);
+      });
 
       const stored = JSON.parse(localStorage.getItem('selectedKinks') || '[]');
       if (stored.length) {
@@ -159,10 +218,20 @@
           cb.checked = stored.includes(cb.value);
         });
       }
+      updateStartButton();
       const params = new URLSearchParams(window.location.search);
       if (params.get('start') === '1' && stored.length) {
         StartSurvey();
       }
+
+      document.getElementById('nextCategoryBtn').addEventListener('click', () => {
+        currentCategoryIndex++;
+        showCategory();
+      });
+      document.getElementById('skipCategoryBtn').addEventListener('click', () => {
+        currentCategoryIndex++;
+        showCategory();
+      });
     });
   </script>
 </body>
