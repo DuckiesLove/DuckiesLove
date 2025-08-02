@@ -3211,7 +3211,23 @@ body {
   border-radius: 10px;
 }
 
-.themed-button,
+.themed-button {
+  background-color: var(--button-bg);
+  border: 2px solid var(--accent-color);
+  color: var(--button-text);
+  padding: 12px 24px;
+  font-size: 1rem;
+  border-radius: 8px;
+  font-family: 'Fredoka One', cursive;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.themed-button:hover {
+  background-color: var(--button-hover);
+  color: var(--bg-color);
+}
+
 .select-toggle-button {
   background: transparent;
   border: 2px solid var(--accent-color);
@@ -3226,7 +3242,6 @@ body {
   margin: 0.2rem;
 }
 
-.themed-button:hover,
 .select-toggle-button:hover {
   background: var(--accent-color);
   color: #000;

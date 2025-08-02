@@ -82,24 +82,34 @@
 }
 
 /* New simplified themes */
-.theme-dark {
-  --bg-color: #000;
-  --text-color: #f2f2f2;
-  --accent-color: #7df9ff;
-  --accent-text: #7df9ff;
-  --theme-accent: #7df9ff;
-  --button-bg: #1a1a1a;
-  --button-text: #f2f2f2;
+body.theme-dark {
+  --bg-color: #0d0d0d;
+  --text-color: #00ffff; /* electric blue */
+  --accent-color: #f47aff;
+  --accent-text: var(--accent-color);
+  --theme-accent: var(--accent-color);
   --border-color: #444;
-  --link-color: #7df9ff;
+  --button-bg: #1a1a1a;
+  --button-hover: #f47aff;
+  --button-text: #00ffff;
+  --link-color: var(--accent-color);
   --hover-bg: #333;
   --hover-text: #ffffff;
   --panel-bg: #1a1a1a;
   --card-bg: #222;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Fredoka One', cursive;
 }
-.theme-dark select,
-.theme-dark option {
-  color: #ffffff;
+body.theme-dark *,
+body.theme-dark *::before,
+body.theme-dark *::after {
+  text-shadow: none !important;
+  filter: none !important;
+}
+body.theme-dark select,
+body.theme-dark option {
+  color: var(--text-color);
 }
 .theme-lipstick {
   --bg-color: #1a001f;
@@ -141,10 +151,6 @@
   color: #a8e6a3;
 }
 
-body.theme-dark {
-  background-color: var(--bg-color);
-  color: var(--text-color);
-}
 body.theme-dark button,
 body.theme-dark .start-button {
   background-color: var(--button-bg);
