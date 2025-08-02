@@ -3211,17 +3211,17 @@ body {
   border-radius: 10px;
 }
 
-.themed-button {
-  background-color: var(--button-bg);
-  border: 2px solid var(--accent-color);
-  color: var(--button-text);
-  padding: 12px 24px;
-  font-size: 1rem;
-  border-radius: 8px;
-  font-family: 'Fredoka One', cursive;
-  cursor: pointer;
-  transition: 0.3s;
-}
+  .themed-button {
+    background-color: var(--button-bg);
+    border: 2px solid var(--accent-color);
+    color: var(--button-text);
+    padding: 12px 24px;
+    font-size: 1rem;
+    border-radius: 8px;
+    font-family: 'Fredoka One', cursive;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
 
 .themed-button:hover {
   background-color: var(--button-hover);
@@ -3392,14 +3392,14 @@ body {
 
 /* Theme Selector */
 .theme-selector {
-  font-family: 'Fredoka One', sans-serif;
+  font-family: 'Fredoka One', cursive;
   margin-top: 0.75rem;
   font-size: 1rem;
-  padding: 0.5rem 1rem;
+  padding: 10px;
   border-radius: 8px;
-  border: 2px solid var(--accent-text);
-  background-color: transparent;
-  color: var(--accent-text);
+  border: 2px solid var(--accent-color);
+  background-color: var(--button-bg);
+  color: var(--text-color);
   box-shadow: none;
   cursor: pointer;
 }
