@@ -3143,6 +3143,20 @@ body {
   text-decoration: none;
 }
 
+.start-survey-btn {
+  font-size: 1.25rem;
+  padding: 10px 18px;
+  min-width: 220px;
+  border-radius: 8px;
+}
+.start-survey-btn:hover {
+  box-shadow: 0 0 10px var(--accent-text);
+}
+.start-survey-btn:active {
+  box-shadow: 0 0 6px var(--accent-text);
+  transform: scale(0.98);
+}
+
  
 
 .villain-quote {
@@ -3420,14 +3434,16 @@ body {
   display: flex;
   flex-direction: column;
   margin: 0;
-  padding: 1rem;
+  padding: 0;
   box-sizing: border-box;
-  background-color: var(--panel-bg);
+  background-color: var(--bg-color);
   color: var(--text-color);
-  border-right: 2px solid var(--accent-text);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--accent-text) var(--panel-bg);
+  scrollbar-color: var(--accent-text) var(--accent-color);
   z-index: 1000;
 }
 #categorySurveyPanel::-webkit-scrollbar {
@@ -3435,27 +3451,38 @@ body {
 }
 #categorySurveyPanel::-webkit-scrollbar-thumb {
   background-color: var(--accent-text);
-  border-radius: 4px;
 }
 #categorySurveyPanel::-webkit-scrollbar-track {
-  background-color: var(--panel-bg);
+  background-color: var(--accent-color);
 }
 #categorySurveyPanel h2 {
   font-size: 1rem;
   color: var(--accent-text);
-  margin: 0 0 0.5rem 0;
+  margin: 0;
+  padding: 1rem 1rem 0.5rem 1rem;
   line-height: 1.2rem;
+}
+#categorySurveyPanel .category-buttons {
+  position: sticky;
+  top: 2.5rem;
+  z-index: 10;
+  background-color: inherit;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
 }
 #categorySurveyPanel .category-list {
   flex: 1 1 auto;
+  padding: 0 0 1rem 1rem;
 }
 #categorySurveyPanel .category-list label {
   width: 100%;
+  min-width: 260px;
   display: flex;
   align-items: center;
   padding: 0.4rem 0.6rem;
   margin: 0.25rem 0;
-  border: 1px solid var(--accent-text);
+  border: 2px solid var(--accent-text);
   border-radius: 6px;
   font-size: 0.9rem;
   font-weight: 600;
@@ -3485,21 +3512,6 @@ body {
   background-color: var(--accent-text);
   color: var(--bg-color);
   box-shadow: 0 0 4px var(--accent-text);
-}
-#categorySurveyPanel .panel-actions {
-  position: sticky;
-  bottom: 0;
-  background: var(--panel-bg);
-  padding-top: 0.5rem;
-}
-#categorySurveyPanel .category-buttons {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-#categorySurveyPanel .panel-actions #startSurveyPanelBtn {
-  width: 100%;
-  margin: 0;
 }
 .panel-toggle {
   display: none;
