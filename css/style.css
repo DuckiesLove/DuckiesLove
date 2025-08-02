@@ -3214,7 +3214,7 @@ body {
   .themed-button {
     background-color: var(--button-bg);
     border: 2px solid var(--accent-color);
-    color: var(--button-text);
+    color: var(--button-text) !important;
     padding: 12px 24px;
     font-size: 1rem;
     border-radius: 8px;
@@ -3224,8 +3224,8 @@ body {
   }
 
 .themed-button:hover {
-  background-color: var(--button-hover);
-  color: var(--bg-color);
+  background-color: var(--accent-color);
+  color: var(--bg-color) !important;
 }
 
 .select-toggle-button {
@@ -3402,6 +3402,17 @@ body {
   color: var(--text-color);
   box-shadow: none;
   cursor: pointer;
+}
+
+#themeSelector,
+select,
+input[type="file"] {
+  background-color: var(--button-bg);
+  border: 2px solid var(--accent-color);
+  color: var(--text-color) !important;
+  padding: 10px;
+  border-radius: 8px;
+  font-family: 'Fredoka One', cursive;
 }
 .compatibility-link {
   margin-top: 1.5rem;
