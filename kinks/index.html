@@ -11,69 +11,57 @@
 <body class="theme-dark">
   <div class="landing-wrapper">
     <h1 class="themed-title">Talk Kink</h1>
-    <button id="startSurveyBtn" class="themed-start-btn">Start Survey</button>
     <select id="themeSelector">
       <option value="dark">Dark</option>
       <option value="lipstick">Lipstick</option>
       <option value="forest">Forest</option>
     </select>
   </div>
+  <button id="panelToggle" class="panel-toggle" aria-label="Toggle category panel" aria-controls="categorySurveyPanel" aria-expanded="true">☰</button>
 
-  <!-- Category selection panel shown when using ?start=1 -->
-  <div id="categorySurveyPanel">
-    <div class="category-panel">
-      <h2>Select the categories you want to include:</h2>
+  <!-- Category selection panel -->
+  <div id="categorySurveyPanel" class="category-panel open" role="region" aria-label="Category selection">
+    <h2>Select the categories you want to include:</h2>
+    <div class="category-list" role="list">
+      <label role="listitem"><input type="checkbox" name="category" value="Behavioral Play"><span>Behavioral Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Body Fluids and Functions"><span>Body Fluids and Functions</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Body Modification"><span>Body Modification</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Body Part / Fetish Play"><span>Body Part / Fetish Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Body Part Torture"><span>Body Part Torture</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Bondage and Suspension"><span>Bondage and Suspension</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Breath Play"><span>Breath Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Chastity Devices"><span>Chastity Devices</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Clothing Play"><span>Clothing Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Consensual Non-Consent"><span>Consensual Non-Consent</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Control & Ownership"><span>Control & Ownership</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Degradation & Humiliation"><span>Degradation & Humiliation</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Digital & Long Distance"><span>Digital & Long Distance</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Edgeplay & Risk"><span>Edgeplay & Risk</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Electricity & Sensation"><span>Electricity & Sensation</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Emotional & Psychological"><span>Emotional & Psychological</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Exhibition & Voyeurism"><span>Exhibition & Voyeurism</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Impact Play"><span>Impact Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Pet Play"><span>Pet Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Primal Play"><span>Primal Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Rituals & Protocol"><span>Rituals & Protocol</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Roleplay & Fantasy"><span>Roleplay & Fantasy</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Sadism & Masochism"><span>Sadism & Masochism</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Sensory Play"><span>Sensory Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Service & Domestic"><span>Service & Domestic</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Spiritual & Energetic"><span>Spiritual & Energetic</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Structure & Discipline"><span>Structure & Discipline</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Taboo Play"><span>Taboo Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Temperature Play"><span>Temperature Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Verbal Play"><span>Verbal Play</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Watersports & Mess"><span>Watersports & Mess</span></label>
+      <label role="listitem"><input type="checkbox" name="category" value="Worship & Objectification"><span>Worship & Objectification</span></label>
+    </div>
+    <div class="panel-actions">
       <div class="category-buttons">
         <button id="selectAll" class="themed-button">Select All</button>
         <button id="deselectAll" class="themed-button">Deselect All</button>
       </div>
-      <div class="category-list category-panel-scroll">
-        <label><input type="checkbox" name="category" value="Behavioral Play"> Behavioral Play</label>
-        <label><input type="checkbox" name="category" value="Body Fluids and Functions"> Body Fluids and Functions</label>
-        <label><input type="checkbox" name="category" value="Body Modification"> Body Modification</label>
-        <label><input type="checkbox" name="category" value="Body Part / Fetish Play"> Body Part / Fetish Play</label>
-        <label><input type="checkbox" name="category" value="Body Part Torture"> Body Part Torture</label>
-        <label><input type="checkbox" name="category" value="Bondage and Suspension"> Bondage and Suspension</label>
-        <label><input type="checkbox" name="category" value="Breath Play"> Breath Play</label>
-        <label><input type="checkbox" name="category" value="Chastity Devices"> Chastity Devices</label>
-        <label><input type="checkbox" name="category" value="Clothing Play"> Clothing Play</label>
-        <label><input type="checkbox" name="category" value="Consensual Non-Consent"> Consensual Non-Consent</label>
-        <label><input type="checkbox" name="category" value="Control & Ownership"> Control & Ownership</label>
-        <label><input type="checkbox" name="category" value="Degradation & Humiliation"> Degradation & Humiliation</label>
-        <label><input type="checkbox" name="category" value="Digital & Long Distance"> Digital & Long Distance</label>
-        <label><input type="checkbox" name="category" value="Edgeplay & Risk"> Edgeplay & Risk</label>
-        <label><input type="checkbox" name="category" value="Electricity & Sensation"> Electricity & Sensation</label>
-        <label><input type="checkbox" name="category" value="Emotional & Psychological"> Emotional & Psychological</label>
-        <label><input type="checkbox" name="category" value="Exhibition & Voyeurism"> Exhibition & Voyeurism</label>
-        <label><input type="checkbox" name="category" value="Impact Play"> Impact Play</label>
-        <label><input type="checkbox" name="category" value="Pet Play"> Pet Play</label>
-        <label><input type="checkbox" name="category" value="Primal Play"> Primal Play</label>
-        <label><input type="checkbox" name="category" value="Rituals & Protocol"> Rituals & Protocol</label>
-        <label><input type="checkbox" name="category" value="Roleplay & Fantasy"> Roleplay & Fantasy</label>
-        <label><input type="checkbox" name="category" value="Sadism & Masochism"> Sadism & Masochism</label>
-        <label><input type="checkbox" name="category" value="Sensory Play"> Sensory Play</label>
-        <label><input type="checkbox" name="category" value="Service & Domestic"> Service & Domestic</label>
-        <label><input type="checkbox" name="category" value="Spiritual & Energetic"> Spiritual & Energetic</label>
-        <label><input type="checkbox" name="category" value="Structure & Discipline"> Structure & Discipline</label>
-        <label><input type="checkbox" name="category" value="Taboo Play"> Taboo Play</label>
-        <label><input type="checkbox" name="category" value="Temperature Play"> Temperature Play</label>
-        <label><input type="checkbox" name="category" value="Verbal Play"> Verbal Play</label>
-        <label><input type="checkbox" name="category" value="Watersports & Mess"> Watersports & Mess</label>
-        <label><input type="checkbox" name="category" value="Worship & Objectification"> Worship & Objectification</label>
-      </div>
-      <button id="start-actual-button" class="themed-button" onclick="startActualSurvey()">Start Actual Survey</button>
-    </div>
-  </div>
-
-  <div id="categoryOverlay" class="category-sidebar">
-    <div id="categoryPanel" class="category-panel hidden">
-      <h2>Select Categories</h2>
-      <div id="previewList"></div>
-      <div class="button-group">
-        <button id="selectAllBtn" class="select-toggle-button">Select All</button>
-        <button id="deselectAllBtn" class="select-toggle-button">Deselect All</button>
-      </div>
-      <button id="beginSurveyBtn" class="themed-button">Begin Survey</button>
+      <button id="startSurveyPanelBtn" class="themed-button">Start Survey</button>
     </div>
   </div>
 
@@ -112,14 +100,17 @@
     <button id="returnHomeBtn" class="themed-button">Return Home</button>
   </div>
 
-  <script src="../js/template-survey.js"></script>
-  <script type="module" src="../js/script.js"></script>
+  <script type="module">
+    import { initTheme } from '../js/theme.js';
+    initTheme();
+  </script>
   <script>
-    function startActualSurvey() {
-      const selected = [...document.querySelectorAll('input[name="category"]:checked')]
+    function startSurvey() {
+      const selected = [...document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked')]
         .map(i => i.value);
-      localStorage.setItem("selectedKinks", JSON.stringify(selected));
-      window.location.href = "/survey/";
+      localStorage.setItem('selectedKinks', JSON.stringify(selected));
+      collapsePanel();
+      window.location.href = '/survey/';
     }
 
     function selectAllCategories() {
@@ -134,26 +125,30 @@
       });
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const selectAllBtn = document.getElementById('selectAll');
-      const deselectAllBtn = document.getElementById('deselectAll');
-      if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllCategories);
-      if (deselectAllBtn) deselectAllBtn.addEventListener('click', deselectAllCategories);
+    function togglePanel() {
+      const panel = document.getElementById('categorySurveyPanel');
+      panel.classList.toggle('open');
+      const toggle = document.getElementById('panelToggle');
+      const expanded = panel.classList.contains('open');
+      toggle.setAttribute('aria-expanded', expanded);
+    }
+
+    function collapsePanel() {
+      const panel = document.getElementById('categorySurveyPanel');
+      panel.classList.remove('open');
+      const toggle = document.getElementById('panelToggle');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('selectAll').addEventListener('click', selectAllCategories);
+      document.getElementById('deselectAll').addEventListener('click', deselectAllCategories);
+      document.getElementById('startSurveyPanelBtn').addEventListener('click', startSurvey);
+      document.getElementById('panelToggle').addEventListener('click', togglePanel);
       document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
         label.setAttribute('title', label.textContent.trim());
       });
-      showCategoryPanel();
     });
-
-    function showCategoryPanel() {
-      const panel = document.getElementById('categoryPanel');
-      const overlay = document.getElementById('categoryOverlay');
-      if (overlay) overlay.style.display = 'flex';
-      if (panel) {
-        panel.classList.remove('hidden');
-        panel.style.display = 'block';
-      }
-    }
   </script>
 </body>
 </html>
