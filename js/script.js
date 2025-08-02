@@ -41,11 +41,11 @@ function setupPasswordProtection(callback) {
 // ================== Theme Setup (handled in theme.js) ==================
 const RATING_MAX = 5;
 const RATING_LABELS = {
-  0: 'Hard No',
+  0: 'Not for me / Hard Limit',
   1: 'Dislike / Haven\u2019t Considered',
   2: 'Would Try for Partner',
-  3: 'Okay / Neutral',
-  4: 'Like',
+  3: 'Curious / Might Enjoy',
+  4: 'Like / Regular Interest',
   5: 'Love / Core Interest'
 };
 const HIGH_INTENSITY_CATEGORY = 'High-Intensity Kinks (SSC-Aware)';
