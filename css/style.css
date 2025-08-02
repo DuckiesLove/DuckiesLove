@@ -3411,3 +3411,119 @@ body {
   background-color: var(--panel-bg);
 }
 
+#categorySurveyPanel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 1rem;
+  box-sizing: border-box;
+  background-color: var(--panel-bg);
+  color: var(--text-color);
+  border-right: 2px solid var(--accent-text);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-text) var(--panel-bg);
+  z-index: 1000;
+}
+#categorySurveyPanel::-webkit-scrollbar {
+  width: 8px;
+}
+#categorySurveyPanel::-webkit-scrollbar-thumb {
+  background-color: var(--accent-text);
+  border-radius: 4px;
+}
+#categorySurveyPanel::-webkit-scrollbar-track {
+  background-color: var(--panel-bg);
+}
+#categorySurveyPanel h2 {
+  font-size: 1rem;
+  color: var(--accent-text);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.2rem;
+}
+#categorySurveyPanel .category-list {
+  flex: 1 1 auto;
+}
+#categorySurveyPanel .category-list label {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  margin: 0.25rem 0;
+  border: 1px solid var(--accent-text);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.1rem;
+  color: var(--text-color);
+  background-color: transparent;
+  cursor: pointer;
+  transition: 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#categorySurveyPanel .category-list label span {
+  flex: 1;
+  text-align: left;
+}
+#categorySurveyPanel .category-list input[type="checkbox"] {
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+  transform: scale(1.2);
+}
+#categorySurveyPanel .category-list label:hover,
+#categorySurveyPanel .category-list input[type="checkbox"]:focus + span {
+  background-color: var(--hover-bg);
+}
+#categorySurveyPanel .category-list input[type="checkbox"]:checked + span {
+  background-color: var(--accent-text);
+  color: var(--bg-color);
+  box-shadow: 0 0 4px var(--accent-text);
+}
+#categorySurveyPanel .panel-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel-bg);
+  padding-top: 0.5rem;
+}
+#categorySurveyPanel .category-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+#categorySurveyPanel .panel-actions #startSurveyPanelBtn {
+  width: 100%;
+  margin: 0;
+}
+.panel-toggle {
+  display: none;
+}
+@media (max-width: 768px) {
+  #categorySurveyPanel {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  #categorySurveyPanel.open {
+    transform: translateX(0);
+  }
+  .panel-toggle {
+    display: block;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 1100;
+    width: 40px;
+    height: 40px;
+    background: var(--button-bg);
+    color: var(--button-text);
+    border: 2px solid var(--accent-text);
+    border-radius: 4px;
+  }
+}
+
