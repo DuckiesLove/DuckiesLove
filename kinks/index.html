@@ -27,7 +27,7 @@
         <button id="selectAll" class="themed-button">Select All</button>
         <button id="deselectAll" class="themed-button">Deselect All</button>
       </div>
-      <div class="category-list">
+      <div class="category-list category-panel-scroll">
         <label><input type="checkbox" name="category" value="Behavioral Play"> Behavioral Play</label>
         <label><input type="checkbox" name="category" value="Body Fluids and Functions"> Body Fluids and Functions</label>
         <label><input type="checkbox" name="category" value="Body Modification"> Body Modification</label>
@@ -139,6 +139,9 @@
       const deselectAllBtn = document.getElementById('deselectAll');
       if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllCategories);
       if (deselectAllBtn) deselectAllBtn.addEventListener('click', deselectAllCategories);
+      document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
+        label.setAttribute('title', label.textContent.trim());
+      });
       showCategoryPanel();
     });
 
