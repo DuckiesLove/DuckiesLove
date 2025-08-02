@@ -6,6 +6,10 @@ body {
   font-family: sans-serif;
 }
 
+.icon-star { color: #ffd700; }
+.icon-red-flag { color: #e60000; }
+.icon-yellow-flag { color: #f1c40f; }
+
 #button-section {
   display: flex;
   flex-direction: column;

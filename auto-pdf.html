@@ -6,31 +6,28 @@
   <title>Kink Compatibility PDF</title>
   <link rel="stylesheet" href="css/auto-pdf.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="js/template-survey.js"></script>
   <script src="js/auto-pdf.js" defer></script>
 </head>
 <body>
   <!-- ✅ BUTTONS AT THE TOP -->
   <div id="button-section">
-    <button>Upload Your Survey</button>
-    <button>Upload Partner’s Survey</button>
+    <label class="file-upload">
+      <span>Upload Your Survey</span>
+      <input type="file" id="fileA" hidden />
+    </label>
+    <label class="file-upload">
+      <span>Upload Partner’s Survey</span>
+      <input type="file" id="fileB" hidden />
+    </label>
     <button onclick="exportToPDF()">Download PDF</button>
   </div>
 
   <!-- ✅ COMPATIBILITY RESULTS WRAPPER -->
   <div id="pdf-container">
-    <div id="compatibility-wrapper">
-      <!-- Your compatibility table goes here -->
-      <table>
-        <thead>
-          <tr><th>Kink</th><th>Partner A</th><th>Partner B</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Nipple clips</td><td>100%</td><td>100%</td></tr>
-          <tr><td>CBT</td><td>100%</td><td>100%</td></tr>
-          <tr><td>Hair pulling</td><td>100%</td><td>100%</td></tr>
-          <tr><td>Clit weights</td><td>40%</td><td>40%</td></tr>
-        </tbody>
-      </table>
+    <div id="compatibility-wrapper" class="compatibility-wrapper">
+      <div id="comparisonResult"></div>
+      <div id="compatibility-report"></div>
     </div>
   </div>
 </body>
