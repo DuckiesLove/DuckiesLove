@@ -57,34 +57,19 @@ export function initTheme() {
 }
 
 export function applyThemeColors(theme) {
-  const surveyContent = document.querySelector('#survey-section');
-  const categoryPanel = document.querySelector('#categoryPanel');
-
   const normalized = (theme || '').toLowerCase().replace(/\s+/g, '-');
   const selected = themeStyles[normalized] || themeStyles['dark'];
 
-  if (surveyContent) {
-    surveyContent.style.color = selected.fontColor;
-    surveyContent.style.backgroundColor = selected.bgColor;
-
-    surveyContent.querySelectorAll('*').forEach(el => {
-      el.style.color = selected.fontColor;
-    });
-
-    surveyContent.querySelectorAll('select, input[type="text"]').forEach(input => {
-      input.style.backgroundColor = selected.inputBg;
-      input.style.color = selected.inputText;
-      input.style.borderColor = selected.borderColor;
-      input.style.borderRadius = '6px';
-      input.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-    });
-  }
-
-  if (categoryPanel) {
-    categoryPanel.style.color = selected.fontColor;
-  }
+  document.querySelectorAll('select, input[type="text"]').forEach(input => {
+    input.style.backgroundColor = selected.inputBg;
+    input.style.color = selected.inputText;
+    input.style.borderColor = selected.borderColor;
+    input.style.borderRadius = '6px';
+    input.style.boxShadow = 'none';
+  });
 
   document.body.style.backgroundColor = selected.bgColor;
+  document.body.style.color = selected.fontColor;
 }
 
 export const pdfStyles = `

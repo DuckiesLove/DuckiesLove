@@ -11,7 +11,7 @@ body {
 }
 
 body.has-category-panel {
-  padding-left: 300px;
+  padding-left: 320px;
 }
 
 @media (max-width: 768px) {
@@ -87,11 +87,11 @@ body {
   left: 0;
   top: 0;
   height: 100vh;
-  width: 360px;
+  width: 320px;
   overflow-y: auto;
   background-color: #000000;
   color: var(--text-color);
-  padding: 10px 12px 0 10px;
+  padding: 10px 10px 20px 10px;
   z-index: 200;
   box-shadow: none;
   -webkit-font-smoothing: antialiased;
@@ -197,6 +197,82 @@ body.light-mode #closeRoleDefinitionsBtn {
 
 #categoryContainer button:hover {
   background-color: #444;
+}
+
+/* Custom styles for kinks survey */
+.category-panel button,
+.category-panel label,
+.category-panel input[type="checkbox"],
+.start-survey-btn {
+  box-shadow: none;
+}
+
+.category-panel button {
+  border: 1px solid var(--accent-color);
+}
+
+.category-panel .category-list {
+  padding-bottom: 40px;
+}
+
+.category-panel .category-list label {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--accent-color);
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  background: transparent;
+}
+
+.start-survey-btn {
+  margin-top: 10px;
+  padding: 12px 24px;
+  font-size: 1.2rem;
+  border: 2px solid var(--accent-color);
+}
+
+.warning {
+  margin-top: 8px;
+  color: var(--accent-text, var(--accent-color));
+}
+
+.panel-container {
+  margin-left: 340px;
+  padding: 20px;
+}
+
+.survey-category {
+  margin-bottom: 24px;
+  border: 1px solid var(--accent-text, var(--accent-color));
+  padding: 16px;
+  background-color: var(--panel-bg, #111);
+}
+
+.kink-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.kink-row select {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+}
+
+.rating-tooltip {
+  display: none;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  background-color: var(--panel-bg, #111);
+  border: 1px solid var(--border-color);
+  padding: 6px;
+}
+
+.rating-select:focus + .rating-tooltip {
+  display: block;
 }
 
 #categoryContainer button.active {
