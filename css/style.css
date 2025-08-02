@@ -91,7 +91,7 @@ body {
   overflow-y: auto;
   background-color: var(--bg-color);
   color: var(--text-color);
-  border: 2px solid var(--accent-color);
+  border-right: 2px solid var(--accent-color);
   padding: 10px;
   z-index: 200;
   box-shadow: none;
@@ -3145,6 +3145,8 @@ body {
   color: var(--accent-color);
   min-width: 220px;
   border-radius: 8px;
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }
 
 .start-survey-btn:hover {
@@ -3290,15 +3292,15 @@ body {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  background-color: var(--bg-color);
+  background-color: #000000;
   color: var(--text-color);
-  border: 2px solid var(--accent-color);
+  border-right: 2px solid var(--accent-color);
   border-radius: 0;
   box-shadow: none;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--accent-color) transparent;
-  z-index: 1000;
+  z-index: 10;
 }
 #categorySurveyPanel::-webkit-scrollbar {
   width: 10px;
@@ -3319,13 +3321,13 @@ body {
   position: sticky;
   top: 0;
   z-index: 20;
-  background-color: var(--bg-color);
+  background-color: #000000;
 }
 #categorySurveyPanel .category-buttons {
   position: sticky;
   top: 2.5rem;
   z-index: 10;
-  background-color: var(--bg-color);
+  background-color: #000000;
   display: flex;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
@@ -3337,6 +3339,7 @@ body {
 #categorySurveyPanel .category-list label {
   width: 100%;
   min-width: 260px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   padding: 0.75rem 1rem;

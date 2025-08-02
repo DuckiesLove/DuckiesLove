@@ -106,6 +106,10 @@
     function StartSurvey() {
       const selected = [...document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked')]
         .map(i => i.value);
+      if (!selected.length) {
+        alert('Please select at least one category.');
+        return;
+      }
       localStorage.setItem('selectedKinks', JSON.stringify(selected));
       collapsePanel();
       if (typeof startNewSurvey === 'function') {
@@ -148,6 +152,17 @@
       document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
         label.setAttribute('title', label.textContent.trim());
       });
+
+      const stored = JSON.parse(localStorage.getItem('selectedKinks') || '[]');
+      if (stored.length) {
+        document.querySelectorAll('#categorySurveyPanel input[name="category"]').forEach(cb => {
+          cb.checked = stored.includes(cb.value);
+        });
+      }
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('start') === '1' && stored.length) {
+        StartSurvey();
+      }
     });
   </script>
 </body>
