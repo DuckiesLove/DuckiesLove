@@ -115,6 +115,43 @@ npm test
 
 This command executes all files under `test/` using `node --test`.
 
+## One-Time Token Login
+
+Some development features use a one-time token that is bound to your current
+IP address. After you authenticate, the server remembers your session until you
+close the browser or the session expires.
+
+### Generate a Token
+
+Create a token with:
+
+```bash
+npm run generate-token
+```
+
+Copy the printed token and share it only through secure channels.
+
+### Start the Server and Log In
+
+Start the server:
+
+```bash
+npm start
+```
+
+Open the server URL in your browser and enter the token on the login page.
+Once accepted, the token is tied to your IP and you will remain logged in for
+the duration of that session.
+
+### Caveats
+
+- Tokens are single-use. Generate a new token whenever you need to log in
+  again.
+- If your IP address changes, the server will reject the token and you must
+  authenticate with a new one.
+- Treat tokens like passwords; never share them publicly or commit them to
+  source control.
+
 ## Troubleshooting
 
 If you encounter a browser warning that the site is not secure or it reports an invalid response, verify that your DNS records point to GitHub. After the records have propagated, enable **Enforce HTTPS** in the Pages settings so GitHub can serve a valid certificate.
