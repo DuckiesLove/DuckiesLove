@@ -3216,21 +3216,30 @@ body {
 }
 
   .themed-button {
-    background-color: var(--button-bg);
-    border: 2px solid var(--accent-color);
-    color: var(--button-text) !important;
-    padding: 12px 24px;
     font-size: 1rem;
-    border-radius: 8px;
-    font-family: 'Fredoka One', cursive;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    border: 2px solid var(--accent-color, #00ffff);
+    background-color: #111;
+    color: var(--accent-color, #00ffff);
+    font-weight: 700;
+    text-align: center;
+    white-space: normal;
+    max-width: 280px;
+    margin: 0.5rem auto;
+    transition: background 0.2s, transform 0.1s;
     cursor: pointer;
-    transition: all 0.3s ease;
     text-decoration: none;
   }
 
 .themed-button:hover {
-  background-color: var(--accent-color);
-  color: var(--bg-color) !important;
+  background-color: #0e0e0e;
+  transform: scale(1.02);
+}
+
+.themed-button:active {
+  background-color: #1a1a1a;
+  transform: scale(0.98);
 }
 
 .select-toggle-button {
