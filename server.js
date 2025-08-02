@@ -1,12 +1,21 @@
 import express from 'express';
 import crypto from 'crypto';
 import path from 'path';
+import fs from 'fs';
+import https from 'https';
 import { readFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = Number.isNaN(parseInt(process.env.PORT, 10))
+  ? 3000
+  : parseInt(process.env.PORT, 10);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // In-memory stores
 const tokenStore = new Map();
@@ -14,10 +23,12 @@ const sessionStore = new Map();
 const submitTokenAttempts = new Map();
 
 // Session timing
-const SESSION_IDLE_TIMEOUT_MS =
-  parseInt(process.env.SESSION_IDLE_TIMEOUT_MS, 10) || 10 * 60 * 1000;
-const SESSION_MAX_LIFETIME_MS =
-  parseInt(process.env.SESSION_MAX_LIFETIME_MS, 10) || 6 * 60 * 60 * 1000;
+const SESSION_IDLE_TIMEOUT =
+  parseInt(process.env.SESSION_IDLE_TIMEOUT, 10) || 10 * 60 * 1000;
+const SESSION_MAX_LIFETIME =
+  parseInt(process.env.SESSION_MAX_LIFETIME, 10) || 6 * 60 * 60 * 1000;
+const TOKEN_EXPIRATION_MS =
+  parseInt(process.env.TOKEN_EXPIRATION_MS, 10) || 10 * 60 * 1000;
 
 // Utils
 function generateToken() {
@@ -79,9 +90,11 @@ app.use((req, res, next) => {
   if (req.method === 'POST' && req.url === '/admin/generate-token') {
     const ip = getIp(req);
     const token = generateToken();
-    const expiresAt = Date.now() + 10 * 60 * 1000;
-    tokenStore.set(token, { ip, expiresAt, used: false });
-    json(res, 200, { token, expiresAt });
+    const now = Date.now();
+    const ttl = TOKEN_EXPIRATION_MS;
+    tokenStore.set(token, { ip, createdAt: now, ttl, used: false });
+    json(res, 200, { token, expiresAt: now + ttl });
+    console.log(`[${new Date().toISOString()}] Token ${token} created for IP ${ip}`);
   } else {
     next();
   }
@@ -113,7 +126,8 @@ app.use((req, res, next) => {
           json(res, 403, { error: 'Token already used' });
           return;
         }
-        if (Date.now() > record.expiresAt) {
+        const now = Date.now();
+        if (now > record.createdAt + record.ttl) {
           json(res, 403, { error: 'Token expired' });
           return;
         }
@@ -123,19 +137,23 @@ app.use((req, res, next) => {
         }
         record.used = true;
         const sessionId = generateSessionId();
-        const now = Date.now();
         sessionStore.set(sessionId, {
-          ip: clientIp,
-          expiresAt: now + SESSION_IDLE_TIMEOUT_MS,
-          maxExpiresAt: now + SESSION_MAX_LIFETIME_MS,
+          originalIp: clientIp,
+          currentIp: clientIp,
+          ipChangeAllowed: true,
+          expiresAt: now + SESSION_IDLE_TIMEOUT,
+          maxExpiresAt: now + SESSION_MAX_LIFETIME,
         });
         res.setHeader(
           'Set-Cookie',
           `session_id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.floor(
-            SESSION_IDLE_TIMEOUT_MS / 1000
-          )}`
+            SESSION_IDLE_TIMEOUT / 1000
+          )}${COOKIE_DOMAIN ? `; Domain=${COOKIE_DOMAIN}` : ''}`
         );
         json(res, 200, { success: true });
+        console.log(
+          `[${new Date().toISOString()}] Session ${sessionId} created for IP ${clientIp}`
+        );
       });
     });
   } else {
@@ -157,14 +175,51 @@ app.use((req, res, next) => {
   if (req.method === 'POST' && req.url === '/logout') {
     const sessionId = req.cookies.session_id;
     if (sessionId && sessionStore.has(sessionId)) {
+      const { currentIp } = sessionStore.get(sessionId);
       sessionStore.delete(sessionId);
-      console.log(`Session ${sessionId} logged out`);
+      console.log(
+        `[${new Date().toISOString()}] Session ${sessionId} for IP ${currentIp} logged out`
+      );
     }
     res.setHeader(
       'Set-Cookie',
-      'session_id=; HttpOnly; Secure; SameSite=Strict; Max-Age=0'
+      `session_id=; HttpOnly; Secure; SameSite=Strict; Max-Age=0${
+        COOKIE_DOMAIN ? '; Domain=' + COOKIE_DOMAIN : ''
+      }`
     );
     json(res, 200, { success: true });
+  } else {
+    next();
+  }
+});
+
+// Debug routes
+app.use((req, res, next) => {
+  if (
+    req.method === 'GET' &&
+    (req.url === '/debug/sessions' || req.url === '/debug/tokens')
+  ) {
+    const allowed =
+      NODE_ENV !== 'production' ||
+      req.headers['x-debug-secret'] === process.env.DEBUG_SECRET;
+    if (!allowed) {
+      json(res, 403, { error: 'Forbidden' });
+      return;
+    }
+    if (req.url === '/debug/sessions') {
+      const sessions = Array.from(sessionStore.entries()).map(([id, data]) => ({
+        id,
+        ...data,
+      }));
+      json(res, 200, { sessions });
+    } else {
+      const tokens = Array.from(tokenStore.entries()).map(([token, data]) => ({
+        token,
+        ...data,
+        expiresAt: data.createdAt + data.ttl,
+      }));
+      json(res, 200, { tokens });
+    }
   } else {
     next();
   }
@@ -181,26 +236,36 @@ function validateSession(req, res, next) {
   const now = Date.now();
   if (now > session.maxExpiresAt) {
     sessionStore.delete(sessionId);
-    console.log(`Session ${sessionId} expired (max)`);
+    console.log(
+      `[${new Date().toISOString()}] Session ${sessionId} expired (max) for IP ${session.currentIp}`
+    );
     json(res, 403, { error: 'Session expired' });
     return;
   }
   if (now > session.expiresAt) {
     sessionStore.delete(sessionId);
-    console.log(`Session ${sessionId} expired (idle)`);
+    console.log(
+      `[${new Date().toISOString()}] Session ${sessionId} expired (idle) for IP ${session.currentIp}`
+    );
     json(res, 403, { error: 'Session expired' });
     return;
   }
-  if (session.ip !== getIp(req)) {
-    json(res, 403, { error: 'IP mismatch' });
-    return;
+  const clientIp = getIp(req);
+  if (clientIp !== session.currentIp) {
+    if (session.ipChangeAllowed) {
+      session.currentIp = clientIp;
+      session.ipChangeAllowed = false;
+    } else {
+      json(res, 403, { error: 'IP mismatch' });
+      return;
+    }
   }
-  session.expiresAt = now + SESSION_IDLE_TIMEOUT_MS;
+  session.expiresAt = now + SESSION_IDLE_TIMEOUT;
   res.setHeader(
     'Set-Cookie',
     `session_id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.floor(
-      SESSION_IDLE_TIMEOUT_MS / 1000
-    )}`
+      SESSION_IDLE_TIMEOUT / 1000
+    )}${COOKIE_DOMAIN ? `; Domain=${COOKIE_DOMAIN}` : ''}`
   );
   next();
 }
@@ -243,12 +308,19 @@ app.use((_req, res) => {
 const cleanup = setInterval(() => {
   const now = Date.now();
   for (const [token, data] of tokenStore) {
-    if (data.used || data.expiresAt < now) tokenStore.delete(token);
+    if (data.used || data.createdAt + data.ttl < now) {
+      tokenStore.delete(token);
+      console.log(
+        `[${new Date().toISOString()}] Token ${token} expired for IP ${data.ip}`
+      );
+    }
   }
   for (const [sid, data] of sessionStore) {
     if (data.expiresAt < now || data.maxExpiresAt < now) {
       sessionStore.delete(sid);
-      console.log(`Session ${sid} expired during cleanup`);
+      console.log(
+        `[${new Date().toISOString()}] Session ${sid} for IP ${data.currentIp} expired during cleanup`
+      );
     }
   }
   for (const [ip, data] of submitTokenAttempts) {
@@ -256,8 +328,39 @@ const cleanup = setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
-const server = app.listen(port, () => {
-  console.log(`Auth server running on http://localhost:${port}`);
-});
+let server;
+if (NODE_ENV !== 'production') {
+  try {
+    const key = fs.readFileSync(
+      process.env.TLS_KEY_PATH || path.join(__dirname, 'localhost-key.pem')
+    );
+    const cert = fs.readFileSync(
+      process.env.TLS_CERT_PATH || path.join(__dirname, 'localhost-cert.pem')
+    );
+    server = await new Promise(resolve => {
+      const s = https.createServer({ key, cert }, app).listen(port, () =>
+        resolve(s)
+      );
+    });
+    console.log(
+      `Auth server running on https://localhost:${server.address().port}`
+    );
+  } catch {
+    console.warn('TLS certificates not found, falling back to HTTP');
+    server = await new Promise(resolve => {
+      const s = app.listen(port, () => resolve(s));
+    });
+    console.log(
+      `Auth server running on http://localhost:${server.address().port}`
+    );
+  }
+} else {
+  server = await new Promise(resolve => {
+    const s = app.listen(port, () => resolve(s));
+  });
+  console.log(
+    `Auth server running on http://localhost:${server.address().port}`
+  );
+}
 
 export { app, server, cleanup };
