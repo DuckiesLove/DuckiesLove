@@ -4,198 +4,42 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>See Our Compatibility</title>
-  <link rel="stylesheet" href="css/style.css" />
-  <link rel="stylesheet" href="css/theme.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=EB+Garamond&display=swap" rel="stylesheet">
-  <style>
-    @media print {
-      @page {
-        size: A4;
-        margin: 0;
-      }
-
-      html, body {
-        margin: 0;
-        padding: 0;
-        background: black;
-        color: white;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
-
-      .compatibility-wrapper {
-        width: 100%;
-        max-width: 100%;
-        display: flex;
-        justify-content: center; /* Center the table horizontally */
-        transform: scale(0.88) translateX(20px); /* Shift right */
-        transform-origin: top center;
-      }
-
-      .results-table {
-        width: 100%;
-        max-width: none;
-        table-layout: fixed;
-        word-wrap: break-word;
-      }
-
-      th, td {
-        white-space: normal;
-        overflow-wrap: break-word;
-        word-break: break-word;
-      }
-
-      .category-title {
-        white-space: normal;
-        word-break: break-word;
-        text-align: center;
-      }
-    }
-
-    body, html {
-      margin: 0;
-      padding: 0;
-      background-color: #000;
-    }
-  </style>
-  <style>
-    /* Styling used when printing */
-    body.print-mode .compatibility-wrapper {
-      margin: 0 auto;
-      padding: 0;
-      width: 100%;
-      max-width: 100%;
-      transform: scale(0.9);
-      transform-origin: top center;
-    }
-
-    @media print {
-      body {
-        background: black !important;
-        color: white !important;
-        display: block;
-        width: 100vw;
-        margin: auto;
-      }
-
-      table {
-        width: 100%;
-        table-layout: fixed;
-        word-wrap: break-word;
-      }
-    }
-  </style>
-  <style>
-    body.theme-dark {
-      background-color: #0d0d0d;
-      color: #f2f2f2;
-    }
-
-    table {
-      background-color: transparent;
-      color: inherit;
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th, td {
-      padding: 12px 16px;
-      border-bottom: 1px solid #444;
-    }
-
-    th {
-      font-size: 1rem;
-      font-weight: bold;
-      text-align: left;
-    }
-
-    tr:nth-child(even) {
-      background-color: rgba(255, 255, 255, 0.03);
-    }
-
-    .comparison-bar {
-      background-color: #333;
-      border-radius: 5px;
-      height: 8px;
-      overflow: hidden;
-    }
-
-    .comparison-fill {
-      background-color: #f47aff;
-      height: 100%;
-    }
-  </style>
+  <!-- Import theme and global layout styles -->
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
 </head>
 <body class="theme-dark">
   <div class="main-container themed">
-    <div class="scroll-container scrollable-panel">
-    <h1 class="themed-header">See Our Compatibility</h1>
-    <div class="back-button-container">
-      <button onclick="window.location.href='https://www.talkkink.org'">&larr; Back</button>
-    </div>
-    <div class="compatibility-button-container">
-      <div class="button-group">
-        <label class="compatibility-button file-upload">
-          <span>Upload Your Survey</span>
-          <input type="file" id="fileA" hidden />
-        </label>
-        <label class="compatibility-button file-upload">
-          <span>Upload Partner's Survey</span>
-          <input type="file" id="fileB" hidden />
-        </label>
-      </div>
-        <button onclick="exportCompatibilityPDF()" class="download-btn">Download PDF</button>
-    </div>
-    <div id="loading-spinner" class="loading-overlay"><div class="spinner"></div></div>
-    <div id="pdf-container">
-      <div id="compatibility-wrapper" class="compatibility-wrapper">
-        <div id="comparisonResult"></div>
-        <div id="compatibility-report" class="pdf-export-area"></div>
-        <div id="print-card-list" class="print-only"></div>
-      </div>
-    </div>
-    <div class="print-footer"></div>
+    <h1 class="page-title">See Our Compatibility</h1>
 
-    <div class="villain-block no-print">
-      <img src="/assets/images/BLChange.png" alt="Villain Mascot" class="villain-image" />
-      <div class="villain-quote" id="villainQuote">
-        “They swear I’m the villain, but all I did was survive the exile—<br>
-        this cold, blackened heart forged in the hush<br>
-        they tried to make me swallow.”
-      </div>
-      <button id="toggleVillainQuote" class="villain-toggle-btn">Toggle Villain Quote</button>
+    <div class="button-group">
+      <button class="themed-button" onclick="window.history.back()">&larr; Back</button>
+      <input type="file" id="uploadUser" class="themed-button" />
+      <input type="file" id="uploadPartner" class="themed-button" />
+      <button class="themed-button" id="downloadPdfBtn">Download PDF</button>
     </div>
+
+    <div id="comparisonResults">
+      <div id="loading-spinner" class="loading-overlay"><div class="spinner"></div></div>
+      <div id="pdf-container">
+        <div id="compatibility-wrapper" class="compatibility-wrapper">
+          <div id="comparisonResult"></div>
+          <div id="compatibility-report" class="pdf-export-area"></div>
+          <div id="print-card-list" class="print-only"></div>
+        </div>
+      </div>
+      <div class="print-footer"></div>
     </div>
   </div>
+
   <script src="js/template-survey.js"></script>
   <script type="module" src="js/compatibilityPage.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script>
-    function exportCompatibilityPDF() {
-      const element = document.querySelector('#compatibility-wrapper');
-      const opt = {
-        margin: 0,
-        filename: 'kink-compatibility.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, backgroundColor: '#000000' },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all'] }
-      };
-      html2pdf().set(opt).from(element).save();
-    }
-
-    const toggleBtn = document.getElementById('toggleVillainQuote');
-    const quoteEl = document.getElementById('villainQuote');
-    if (toggleBtn && quoteEl) {
-      toggleBtn.addEventListener('click', () => {
-        quoteEl.style.display = quoteEl.style.display === 'none' ? 'block' : 'none';
-      });
-    }
-  </script>
   <script type="module">
     import { initTheme, applyThemeColors } from './js/theme.js';
     initTheme();
+    window.applyThemeColors = applyThemeColors;
   </script>
 </body>
 </html>
