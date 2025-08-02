@@ -85,6 +85,9 @@
     <button id="skipCategoryBtn" class="themed-button">Skip Category</button>
     <button id="nextCategoryBtn" class="themed-button">Next Category</button>
   </div>
+  <div id="exportControls" style="display:none; margin-top: 30px; text-align: center;">
+    <button id="exportAndCompareBtn" class="themed-button">Download & Compare</button>
+  </div>
 </div>
 
 <!-- Panel Container (still hidden until needed) -->
@@ -264,6 +267,8 @@
     }
     surveyContainer.style.display = 'block';
     surveyContainer.scrollIntoView({ behavior: 'smooth' });
+    const exportControls = document.getElementById('exportControls');
+    exportControls.style.display = (currentCategoryIndex === surveyCategories.length - 1) ? 'block' : 'none';
   }
 
   async function renderSurvey(selectedIds) {
@@ -339,6 +344,29 @@
       currentCategoryIndex++;
       showCategory();
     });
+
+    const exportBtn = document.getElementById('exportAndCompareBtn');
+    exportBtn.addEventListener('click', () => {
+      const responses = {};
+      const categories = surveyCategories;
+
+      categories.forEach(cat => {
+        cat.kinks.forEach(kink => {
+          const selector = document.querySelector(`select[aria-label="Rate ${kink.name}"]`);
+          responses[kink.name] = parseInt(selector.value || 0);
+        });
+      });
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(responses, null, 2));
+      const dl = document.createElement('a');
+      dl.setAttribute('href', dataStr);
+      dl.setAttribute('download', 'kink-survey.json');
+      dl.click();
+
+      setTimeout(() => {
+        window.location.href = '/compare/';
+      }, 300);
+    });
   });
 </script>
 
@@ -362,6 +390,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    justify-content: space-between;
   }
 
   .rating-select:focus + .rating-tooltip,
