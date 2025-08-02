@@ -283,11 +283,13 @@
   function selectAllCategories() {
     document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => cb.checked = true);
     document.getElementById('warning').textContent = '';
+    document.getElementById('startSurveyBtn').disabled = false;
   }
 
   function deselectAllCategories() {
     document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => cb.checked = false);
     document.getElementById('warning').textContent = '';
+    document.getElementById('startSurveyBtn').disabled = true;
   }
 
   function togglePanel() {
@@ -304,30 +306,26 @@
     if (toggle) toggle.setAttribute('aria-expanded', 'false');
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('selectAll').addEventListener('click', selectAllCategories);
-    document.getElementById('deselectAll').addEventListener('click', deselectAllCategories);
-    document.getElementById('panelToggle').addEventListener('click', togglePanel);
+    document.addEventListener('DOMContentLoaded', () => {
+      const startBtn = document.getElementById('startSurveyBtn');
+      document.getElementById('selectAll').addEventListener('click', selectAllCategories);
+      document.getElementById('deselectAll').addEventListener('click', deselectAllCategories);
+      document.getElementById('panelToggle').addEventListener('click', togglePanel);
 
-    document.getElementById('startSurvey').addEventListener('click', () => {
-      const selected = Array.from(document.querySelectorAll('.category-checkbox:checked')).map(cb => cb.value);
-      if (!selected.length) {
-        document.getElementById('warning').textContent = 'Please select at least one category.';
-        return;
-      }
-      document.getElementById('warning').textContent = '';
-      renderSurvey(selected);
-    });
+      startBtn.addEventListener('click', startSurvey);
 
-    document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
-      label.setAttribute('title', label.textContent.trim());
-    });
-
-    document.querySelectorAll('.category-checkbox').forEach(cb => {
-      cb.addEventListener('change', () => {
-        document.getElementById('warning').textContent = '';
+      document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
+        label.setAttribute('title', label.textContent.trim());
       });
-    });
+
+      document.querySelectorAll('.category-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+          document.getElementById('warning').textContent = '';
+          startBtn.disabled = !document.querySelector('.category-checkbox:checked');
+        });
+      });
+
+      startBtn.disabled = !document.querySelector('.category-checkbox:checked');
 
     document.getElementById('trackCategoryBtn').addEventListener('click', () => {
       const remaining = surveyCategories.length - currentCategoryIndex;
