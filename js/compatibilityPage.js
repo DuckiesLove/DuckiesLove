@@ -423,19 +423,18 @@ function updateComparison() {
   if (cardList) cardList.innerHTML = '';
 }
 
-const fileAInput = document.getElementById('uploadUser');
-if (fileAInput) {
-  fileAInput.addEventListener('change', e => {
-    loadFileA(e.target.files[0]);
-  });
+
+function handleFileUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (input.id === 'uploadUser') {
+    loadFileA(file);
+  } else if (input.id === 'uploadPartner') {
+    loadFileB(file);
+  }
 }
 
-const fileBInput = document.getElementById('uploadPartner');
-if (fileBInput) {
-  fileBInput.addEventListener('change', e => {
-    loadFileB(e.target.files[0]);
-  });
-}
+window.handleFileUpload = handleFileUpload;
 
 
 
