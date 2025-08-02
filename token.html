@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Submit Token</title>
+</head>
+<body>
+  <form id="tokenForm">
+    <input type="text" id="token" placeholder="Enter your token" required />
+    <button type="submit">Submit Token</button>
+  </form>
+  <script>
+    document.getElementById('tokenForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = document.getElementById('token').value;
+      const res = await fetch('/submit-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+        credentials: 'include' // Needed to receive secure cookie
+      });
+      if (res.ok) location.href = '/protected';
+      else alert('Token rejected');
+    });
+  </script>
+</body>
+</html>
