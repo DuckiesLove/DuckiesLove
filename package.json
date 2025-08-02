@@ -12,5 +12,7 @@
   "author": "",
   "license": "ISC",
   "type": "module",
-  "dependencies": {}
+  "dependencies": {
+    "dotenv": "^0.0.0"
+  }
 }

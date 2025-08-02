@@ -115,6 +115,21 @@ npm test
 
 This command executes all files under `test/` using `node --test`.
 
+## Environment Configuration
+
+Runtime settings are loaded from a `.env` file. Copy `.env.example` to `.env`
+and adjust as needed:
+
+- `PORT` – Port number to listen on.
+- `SESSION_IDLE_TIMEOUT` – Time in ms before an idle session expires.
+- `SESSION_MAX_LIFETIME` – Maximum lifetime of a session in ms.
+- `TOKEN_EXPIRATION_MS` – Time in ms before a token expires.
+- `COOKIE_DOMAIN` – Optional domain attribute for cookies.
+- `NODE_ENV` – Set to `production` to disable debug routes and HTTPS fallbacks.
+
+Optional values include `TLS_KEY_PATH` and `TLS_CERT_PATH` for local HTTPS and
+`DEBUG_SECRET` to protect debug routes in production.
+
 ## One-Time Token Login
 
 Some development features use a one-time token that is bound to your current

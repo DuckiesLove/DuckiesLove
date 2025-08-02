@@ -14,16 +14,16 @@ function getCookie(res) {
 test('session controls', async t => {
   await t.test('logout clears session', async () => {
     process.env.PORT = 0;
-    process.env.SESSION_IDLE_TIMEOUT_MS = 1000;
-    process.env.SESSION_MAX_LIFETIME_MS = 5000;
+    process.env.SESSION_IDLE_TIMEOUT = 1000;
+    process.env.SESSION_MAX_LIFETIME = 5000;
     const { server, cleanup } = await import(`../server.js?${Math.random()}`);
     const port = server.address().port;
     const base = `http://localhost:${port}`;
     t.after(() => {
       server.close();
       clearInterval(cleanup);
-      delete process.env.SESSION_IDLE_TIMEOUT_MS;
-      delete process.env.SESSION_MAX_LIFETIME_MS;
+      delete process.env.SESSION_IDLE_TIMEOUT;
+      delete process.env.SESSION_MAX_LIFETIME;
     });
     const token = await getToken(base);
     const submitRes = await fetch(`${base}/submit-token`, {
@@ -47,16 +47,16 @@ test('session controls', async t => {
 
   await t.test('session expires after idle timeout', async () => {
     process.env.PORT = 0;
-    process.env.SESSION_IDLE_TIMEOUT_MS = 100;
-    process.env.SESSION_MAX_LIFETIME_MS = 1000;
+    process.env.SESSION_IDLE_TIMEOUT = 100;
+    process.env.SESSION_MAX_LIFETIME = 1000;
     const { server, cleanup } = await import(`../server.js?${Math.random()}`);
     const port = server.address().port;
     const base = `http://localhost:${port}`;
     t.after(() => {
       server.close();
       clearInterval(cleanup);
-      delete process.env.SESSION_IDLE_TIMEOUT_MS;
-      delete process.env.SESSION_MAX_LIFETIME_MS;
+      delete process.env.SESSION_IDLE_TIMEOUT;
+      delete process.env.SESSION_MAX_LIFETIME;
     });
     const token = await getToken(base);
     const submitRes = await fetch(`${base}/submit-token`, {
@@ -76,16 +76,16 @@ test('session controls', async t => {
 
   await t.test('session expires after max lifetime', async () => {
     process.env.PORT = 0;
-    process.env.SESSION_IDLE_TIMEOUT_MS = 1000;
-    process.env.SESSION_MAX_LIFETIME_MS = 200;
+    process.env.SESSION_IDLE_TIMEOUT = 1000;
+    process.env.SESSION_MAX_LIFETIME = 200;
     const { server, cleanup } = await import(`../server.js?${Math.random()}`);
     const port = server.address().port;
     const base = `http://localhost:${port}`;
     t.after(() => {
       server.close();
       clearInterval(cleanup);
-      delete process.env.SESSION_IDLE_TIMEOUT_MS;
-      delete process.env.SESSION_MAX_LIFETIME_MS;
+      delete process.env.SESSION_IDLE_TIMEOUT;
+      delete process.env.SESSION_MAX_LIFETIME;
     });
     const token = await getToken(base);
     const submitRes = await fetch(`${base}/submit-token`, {

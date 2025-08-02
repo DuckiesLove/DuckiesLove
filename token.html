@@ -3,24 +3,55 @@
 <head>
   <meta charset="utf-8" />
   <title>Submit Token</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    form {
+      display: flex;
+      gap: 0.5rem;
+    }
+    #error {
+      color: red;
+      margin-top: 1rem;
+    }
+  </style>
 </head>
 <body>
   <form id="tokenForm">
     <input type="text" id="token" placeholder="Enter your token" required />
     <button type="submit">Submit Token</button>
   </form>
+  <div id="error"></div>
   <script>
+    const errorEl = document.getElementById('error');
     document.getElementById('tokenForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      errorEl.textContent = '';
       const token = document.getElementById('token').value;
-      const res = await fetch('/submit-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-        credentials: 'include' // Needed to receive secure cookie
-      });
-      if (res.ok) location.href = '/protected';
-      else alert('Token rejected');
+      try {
+        const res = await fetch('/submit-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+          credentials: 'include' // Needed to receive secure cookie
+        });
+        if (res.ok) {
+          location.href = '/protected';
+        } else {
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 429) errorEl.textContent = 'Too many requests. Please try again later.';
+          else errorEl.textContent = data.error || 'Token rejected';
+        }
+      } catch {
+        errorEl.textContent = 'Network error';
+      }
     });
   </script>
 </body>
