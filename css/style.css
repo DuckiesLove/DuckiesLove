@@ -915,7 +915,6 @@ body.theme-rainbow #comparisonResult {
   gap: 10px;
   padding-top: 20px;
   padding-bottom: 20px;
-  overflow-y: auto;
   flex: 1 1 auto;
 }
 
@@ -3144,24 +3143,7 @@ body {
   text-decoration: none;
 }
 
-.category-panel,
-.category-panel button {
-  font-family: 'Fredoka One', sans-serif;
-  font-size: 0.75rem;
-  padding: 0.3rem 0.7rem;
-  background-color: #111;
-  border: 2px solid var(--accent-text);
-  color: white;
-  border-radius: 6px;
-  margin: 0.3rem 0.5rem 0.7rem 0;
-  transition: 0.2s ease;
-}
-
-.category-panel h2,
-.category-panel label {
-  color: var(--accent-text);
-  font-family: 'Fredoka One', sans-serif;
-}
+ 
 
 .villain-quote {
   font-family: 'Fredoka One', sans-serif;
@@ -3328,14 +3310,16 @@ body {
 }
 
 .category-panel {
-  max-height: 80vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
+  max-width: 320px;
   border: 2px solid var(--accent-text);
   padding: 1rem;
   border-radius: 12px;
   font-family: 'Fredoka One', sans-serif;
-  color: white;
-  scrollbar-color: var(--accent-text) #000;
+  background-color: var(--panel-bg, #000);
+  color: var(--text-color);
 }
 
 /* Shrink Header */
@@ -3357,9 +3341,9 @@ body {
   font-family: 'Fredoka One', sans-serif;
   font-size: 0.75rem;
   padding: 0.3rem 0.7rem;
-  background-color: #111;
+  background-color: var(--button-bg);
   border: 2px solid var(--accent-text);
-  color: white;
+  color: var(--button-text);
   border-radius: 6px;
   margin: 0.3rem 0.5rem 0.7rem 0;
   transition: 0.2s ease;
@@ -3380,7 +3364,7 @@ body {
   border-radius: 6px;
   font-size: 0.9rem;
   line-height: 1.1rem;
-  color: white;
+  color: var(--text-color);
   background-color: transparent;
   cursor: pointer;
   transition: 0.2s ease;
@@ -3388,7 +3372,8 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: 45%;
+  flex: 1 1 240px;
+  min-width: 240px;
 }
 
 .category-panel label:hover {
@@ -3408,12 +3393,21 @@ body {
   display: none !important;
 }
 
-/* Optional scrollbar style */
-.category-panel::-webkit-scrollbar {
+/* Scroll container */
+.category-panel-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-text) var(--panel-bg);
+}
+.category-panel-scroll::-webkit-scrollbar {
   width: 8px;
 }
-.category-panel::-webkit-scrollbar-thumb {
+.category-panel-scroll::-webkit-scrollbar-thumb {
   background-color: var(--accent-text);
   border-radius: 4px;
+}
+.category-panel-scroll::-webkit-scrollbar-track {
+  background-color: var(--panel-bg);
 }
 
