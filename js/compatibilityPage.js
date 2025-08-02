@@ -1,6 +1,7 @@
 // Dark mode PDF export styling script using html2canvas and jsPDF
 import { initTheme, applyPrintStyles } from './theme.js';
 import { loadJsPDF } from './loadJsPDF.js';
+import { calculateCategoryScores } from './categoryScores.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -87,7 +88,7 @@ function buildIcons(ratingA, ratingB) {
   const partnerP = toPercent(ratingB);
   const symbols = [];
   if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
-    symbols.push('<span class="icon-star">⭐</span>');
+    symbols.push('<span class="icon-green-flag">✅</span>');
   }
   if (
     (youP !== null && youP <= 30) ||
@@ -247,6 +248,27 @@ function buildKinkBreakdown(surveyA, surveyB) {
   return breakdown;
 }
 
+function buildCategoryIcons(youPercent, partnerPercent) {
+  const symbols = [];
+  if (youPercent >= 90 && partnerPercent >= 90) {
+    symbols.push('<span class="icon-green-flag">✅</span>');
+  }
+  if (youPercent <= 30 || partnerPercent <= 30) {
+    symbols.push('<span class="icon-red-flag">🚩</span>');
+  }
+  return symbols.join(' ');
+}
+
+function buildCategoryComparison(surveyA, surveyB) {
+  const scoresA = calculateCategoryScores(surveyA);
+  const scoresB = calculateCategoryScores(surveyB);
+  const mapB = new Map(scoresB.map(s => [s.name, s.percent]));
+  return scoresA
+    .filter(s => mapB.has(s.name))
+    .map(s => ({ name: s.name, you: s.percent, partner: mapB.get(s.name) }))
+    .sort((a, b) => avgPercent(b.you, b.partner) - avgPercent(a.you, a.partner));
+}
+
 async function generateComparisonPDF() {
   document.body.classList.add('exporting');
   let mode = 'dark';
@@ -362,130 +384,43 @@ function updateComparison() {
     return;
   }
   msg.textContent = '';
-  const kinkBreakdown = buildKinkBreakdown(surveyA, surveyB);
-  lastResult = kinkBreakdown;
+  lastResult = buildKinkBreakdown(surveyA, surveyB);
   container.innerHTML = '';
 
-  const allItems = [];
-  Object.entries(kinkBreakdown).forEach(([category, list]) => {
-    const section = document.createElement('div');
-    section.className = 'category-wrapper';
-    if (PAGE_BREAK_CATEGORIES.has(category)) section.classList.add('page-break');
+  const categories = buildCategoryComparison(surveyA, surveyB);
 
-    const header = document.createElement('h2');
-    header.className = 'category-header';
-    header.textContent = category;
-    section.appendChild(header);
+  const table = document.createElement('table');
+  table.className = 'results-table';
+  table.innerHTML = '<thead><tr><th>Category</th><th>Partner A</th><th>Partner B</th></tr></thead>';
+  const tbody = document.createElement('tbody');
 
-    const table = document.createElement('table');
-    table.className = 'results-table';
-    table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Partner B</th></tr></thead>';
-    const tbody = document.createElement('tbody');
+  const makeTd = percent => {
+    const td = document.createElement('td');
+    const pct = percent === null ? 0 : percent;
+    const cls = colorClass(percent ?? 0);
+    td.innerHTML = `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
+      `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
+    return td;
+  };
 
-    const items = list
-      .filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
-      .sort((a, b) => {
-        const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
-        const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
-        return bP - aP;
-      });
-
-    items.forEach(item => {
-      const ratingA = maxRating(item.you);
-      const ratingB = maxRating(item.partner);
-      const youP = toPercent(ratingA);
-      const partnerP = toPercent(ratingB);
-      const row = document.createElement('tr');
-      row.className = 'row';
-
-      const nameTd = document.createElement('td');
-      nameTd.className = 'kink-name';
-      nameTd.textContent = item.name;
-      row.appendChild(nameTd);
-
-      const makeTd = percent => {
-        const td = document.createElement('td');
-        const pct = percent === null ? 0 : percent;
-        const cls = colorClass(percent ?? 0);
-        td.innerHTML = `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
-          `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
-        return td;
-      };
-
-      row.appendChild(makeTd(youP));
-      row.appendChild(makeTd(partnerP));
-      tbody.appendChild(row);
-
-      allItems.push({ ...item, category });
-    });
-
-    table.appendChild(tbody);
-    section.appendChild(table);
-    container.appendChild(section);
+  categories.forEach(cat => {
+    const row = document.createElement('tr');
+    row.className = 'row';
+    const nameTd = document.createElement('td');
+    nameTd.className = 'kink-name';
+    const icons = buildCategoryIcons(cat.you, cat.partner);
+    nameTd.innerHTML = icons ? `${cat.name} ${icons}` : cat.name;
+    row.appendChild(nameTd);
+    row.appendChild(makeTd(cat.you));
+    row.appendChild(makeTd(cat.partner));
+    tbody.appendChild(row);
   });
 
-  const items = allItems.sort((a, b) => {
-    const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
-    const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
-    return bP - aP;
-  });
+  table.appendChild(tbody);
+  container.appendChild(table);
 
   const cardList = document.getElementById('print-card-list');
   if (cardList) cardList.innerHTML = '';
-  items.forEach(item => {
-    const ratingA = maxRating(item.you);
-    const ratingB = maxRating(item.partner);
-    const youP = toPercent(ratingA);
-    const partnerP = toPercent(ratingB);
-
-    const card = document.createElement('div');
-    card.className = 'comparison-card';
-
-    const label = document.createElement('div');
-    label.className = 'kink-label';
-    label.textContent = item.name;
-    card.appendChild(label);
-
-    const makeScore = percent => {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'partner-score';
-      const bar = document.createElement('div');
-      bar.className = 'bar';
-      const fill = document.createElement('div');
-      const pct = percent === null ? 0 : percent;
-      const color = barFillColor(pct);
-      fill.className = 'bar-fill';
-      fill.style.setProperty('--color', color);
-      fill.style.setProperty('--width', pct + '%');
-      bar.appendChild(fill);
-      wrapper.appendChild(bar);
-      const pctLabel = document.createElement('div');
-      pctLabel.className = 'percentage-label';
-      pctLabel.style.setProperty('--color', color);
-      pctLabel.textContent = percent === null ? '-' : pct + '%';
-      wrapper.appendChild(pctLabel);
-      return wrapper;
-    };
-
-    card.appendChild(makeScore(youP));
-    card.appendChild(makeScore(partnerP));
-
-    if (cardList) cardList.appendChild(card);
-  });
-
-  if (cardList) {
-    cardList.querySelectorAll('.comparison-card').forEach(card => {
-      const percents = Array.from(card.querySelectorAll('.percentage-label')).map(label => parseInt(label.textContent));
-      const [a, b] = percents;
-      const icon = document.createElement('div');
-      icon.className = 'match-icon';
-      if (a >= 90 && b >= 90) icon.textContent = '⭐';
-      else if (a <= 30 || b <= 30) icon.textContent = '🚩';
-      else if (Math.abs(a - b) === 5 && (a === 5 || b === 5)) icon.textContent = '🟨';
-      card.appendChild(icon);
-    });
-  }
-
 }
 
 const fileAInput = document.getElementById('fileA');

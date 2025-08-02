@@ -111,6 +111,27 @@ function filterGeneralOptions(survey) {
   });
 }
 
+function calculateCategoryScores(survey, maxRating = 5) {
+  if (!survey || typeof survey !== 'object') return [];
+  const results = [];
+  Object.entries(survey).forEach(([category, data]) => {
+    let total = 0;
+    let count = 0;
+    ['Giving', 'Receiving', 'General'].forEach(role => {
+      const items = Array.isArray(data[role]) ? data[role] : [];
+      items.forEach(item => {
+        if (typeof item.rating === 'number') {
+          total += item.rating;
+          count += maxRating;
+        }
+      });
+    });
+    const percent = count > 0 ? Math.round((total / count) * 100) : 0;
+    results.push({ name: category, percent });
+  });
+  return results.sort((a, b) => b.percent - a.percent);
+}
+
 function toPercent(val) {
   return typeof val === 'number' ? Math.round((val / 5) * 100) : null;
 }
@@ -142,7 +163,7 @@ function buildIcons(ratingA, ratingB) {
   const partnerP = toPercent(ratingB);
   const symbols = [];
   if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
-    symbols.push('<span class="icon-star">⭐</span>');
+    symbols.push('<span class="icon-green-flag">✅</span>');
   }
   if (
     (youP !== null && youP <= 30) ||
@@ -157,6 +178,27 @@ function buildIcons(ratingA, ratingB) {
     symbols.push('<span class="icon-yellow-flag">🟨</span>');
   }
   return symbols.join(' ');
+}
+
+function buildCategoryIcons(youPercent, partnerPercent) {
+  const symbols = [];
+  if (youPercent >= 90 && partnerPercent >= 90) {
+    symbols.push('<span class="icon-green-flag">✅</span>');
+  }
+  if (youPercent <= 30 || partnerPercent <= 30) {
+    symbols.push('<span class="icon-red-flag">🚩</span>');
+  }
+  return symbols.join(' ');
+}
+
+function buildCategoryComparison(surveyA, surveyB) {
+  const scoresA = calculateCategoryScores(surveyA);
+  const scoresB = calculateCategoryScores(surveyB);
+  const mapB = new Map(scoresB.map(s => [s.name, s.percent]));
+  return scoresA
+    .filter(s => mapB.has(s.name))
+    .map(s => ({ name: s.name, you: s.percent, partner: mapB.get(s.name) }))
+    .sort((a, b) => avgPercent(b.you, b.partner) - avgPercent(a.you, a.partner));
 }
 
 function buildKinkBreakdown(surveyA, surveyB) {
@@ -255,67 +297,41 @@ function updateComparison() {
     return;
   }
   msg.textContent = '';
-  const kinkBreakdown = buildKinkBreakdown(surveyA, surveyB);
   if (!container) return;
+
+  const categories = buildCategoryComparison(surveyA, surveyB);
   container.innerHTML = '';
 
-  Object.entries(kinkBreakdown).forEach(([category, list]) => {
-    const section = document.createElement('div');
-    section.className = 'category-wrapper';
-    if (PAGE_BREAK_CATEGORIES.has(category)) section.classList.add('page-break');
+  const table = document.createElement('table');
+  table.className = 'results-table';
+  table.innerHTML = '<thead><tr><th>Category</th><th>Partner A</th><th>Partner B</th></tr></thead>';
+  const tbody = document.createElement('tbody');
 
-    const header = document.createElement('h2');
-    header.className = 'category-header';
-    header.textContent = category;
-    section.appendChild(header);
+  const makeTd = percent => {
+    const td = document.createElement('td');
+    const pct = percent === null ? 0 : percent;
+    const cls = colorClass(percent ?? 0);
+    td.innerHTML =
+      `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
+      `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
+    return td;
+  };
 
-    const table = document.createElement('table');
-    table.className = 'results-table';
-    table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Partner B</th></tr></thead>';
-    const tbody = document.createElement('tbody');
-
-    const items = list
-      .filter(it => maxRating(it.you) !== null || maxRating(it.partner) !== null)
-      .sort((a, b) => {
-        const aP = avgPercent(toPercent(maxRating(a.you)), toPercent(maxRating(a.partner)));
-        const bP = avgPercent(toPercent(maxRating(b.you)), toPercent(maxRating(b.partner)));
-        return bP - aP;
-      });
-
-    items.forEach(item => {
-      const ratingA = maxRating(item.you);
-      const ratingB = maxRating(item.partner);
-      const youP = toPercent(ratingA);
-      const partnerP = toPercent(ratingB);
-
-      const row = document.createElement('tr');
-      row.className = 'row';
-
-      const nameTd = document.createElement('td');
-      nameTd.className = 'kink-name';
-      const icons = buildIcons(ratingA, ratingB);
-      nameTd.innerHTML = icons ? `${item.name} ${icons}` : item.name;
-      row.appendChild(nameTd);
-
-      const makeTd = percent => {
-        const td = document.createElement('td');
-        const pct = percent === null ? 0 : percent;
-        const cls = colorClass(percent ?? 0);
-        td.innerHTML =
-          `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
-          `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
-        return td;
-      };
-
-      row.appendChild(makeTd(youP));
-      row.appendChild(makeTd(partnerP));
-      tbody.appendChild(row);
-    });
-
-    table.appendChild(tbody);
-    section.appendChild(table);
-    container.appendChild(section);
+  categories.forEach(cat => {
+    const row = document.createElement('tr');
+    row.className = 'row';
+    const nameTd = document.createElement('td');
+    nameTd.className = 'kink-name';
+    const icons = buildCategoryIcons(cat.you, cat.partner);
+    nameTd.innerHTML = icons ? `${cat.name} ${icons}` : cat.name;
+    row.appendChild(nameTd);
+    row.appendChild(makeTd(cat.you));
+    row.appendChild(makeTd(cat.partner));
+    tbody.appendChild(row);
   });
+
+  table.appendChild(tbody);
+  container.appendChild(table);
 }
 
 function exportToPDF() {
