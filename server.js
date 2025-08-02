@@ -38,6 +38,11 @@ function generateSessionId() {
   return crypto.randomBytes(24).toString('hex');
 }
 function getIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const ip = forwarded.split(',')[0].trim();
+    if (ip) return ip;
+  }
   const raw = req.socket.remoteAddress;
   return raw === '::1' ? '127.0.0.1' : raw?.replace(/^::ffff:/, '');
 }
