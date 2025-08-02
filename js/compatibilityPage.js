@@ -391,7 +391,7 @@ function updateComparison() {
 
   const table = document.createElement('table');
   table.className = 'results-table';
-  table.innerHTML = '<thead><tr><th>Category</th><th>Partner A</th><th>Partner B</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Partner B</th></tr></thead>';
   const tbody = document.createElement('tbody');
 
   const makeTd = percent => {
