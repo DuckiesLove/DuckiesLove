@@ -72,6 +72,9 @@
   <div class="progress-bar">
     <div class="progress-fill" id="progressFill"></div>
   </div>
+  <button id="trackCategoryBtn" class="themed-button category-button">
+    Categories Left: <span id="categoriesLeft">0</span>
+  </button>
 </div>
 
 <div id="surveyContainer" style="display:none;">
@@ -211,6 +214,8 @@
     if (currentCategoryIndex >= surveyCategories.length) {
       surveyContainer.style.display = 'none';
       if (finalScreen) finalScreen.style.display = 'block';
+      const leftBtn = document.getElementById('categoriesLeft');
+      if (leftBtn) leftBtn.textContent = 0;
       return;
     }
 
@@ -253,6 +258,10 @@
     document.getElementById('progressBanner').style.display = 'flex';
     document.getElementById('progressLabel').textContent = `Category ${currentCategoryIndex + 1} of ${surveyCategories.length}`;
     document.getElementById('progressFill').style.width = `${(currentCategoryIndex / surveyCategories.length) * 100}%`;
+    const leftBtn = document.getElementById('categoriesLeft');
+    if (leftBtn) {
+      leftBtn.textContent = surveyCategories.length - currentCategoryIndex;
+    }
     surveyContainer.style.display = 'block';
     surveyContainer.scrollIntoView({ behavior: 'smooth' });
   }
@@ -314,6 +323,11 @@
       cb.addEventListener('change', () => {
         document.getElementById('warning').textContent = '';
       });
+    });
+
+    document.getElementById('trackCategoryBtn').addEventListener('click', () => {
+      const remaining = surveyCategories.length - currentCategoryIndex;
+      alert(`${remaining} categories left`);
     });
 
     document.getElementById('nextCategoryBtn').addEventListener('click', () => {
