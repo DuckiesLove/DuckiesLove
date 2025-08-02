@@ -84,11 +84,11 @@
 /* New simplified themes */
 body.theme-dark {
   --bg-color: #0d0d0d;
-  --text-color: #00ffff; /* electric blue */
-  --accent-color: #00ffff;
+  --text-color: #00ffff !important; /* electric blue */
+  --accent-color: #00ffff !important;
   --accent-text: var(--accent-color);
   --theme-accent: var(--accent-color);
-  --border-color: #00ffff;
+  --border-color: #00ffff !important;
   --button-bg: #0d0d0d;
   --button-hover: #00ffff;
   --button-text: #00ffff;
@@ -98,7 +98,7 @@ body.theme-dark {
   --panel-bg: #1a1a1a;
   --card-bg: #222;
   background-color: var(--bg-color);
-  color: var(--text-color);
+  color: var(--text-color) !important;
   font-family: 'Fredoka One', cursive;
 }
 body.theme-dark *,
