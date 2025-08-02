@@ -66,149 +66,221 @@
     </div>
   </div>
 
-<!-- Progress and Survey Display -->
-<div id="progressBanner" class="progress-container" style="display:none;">
-  <div class="progress-label" id="progressLabel"></div>
-  <div class="progress-bar">
-    <div class="progress-fill" id="progressFill"></div>
+  <!-- Progress and Survey Display -->
+  <div id="progressBanner" class="progress-container" style="display:none;">
+    <div class="progress-label" id="progressLabel"></div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <button id="trackCategoryBtn" class="themed-button category-button">
+      Categories Left: <span id="categoriesLeft">0</span>
+    </button>
   </div>
-  <button id="trackCategoryBtn" class="themed-button category-button">
-    Categories Left: <span id="categoriesLeft">0</span>
-  </button>
-</div>
 
-<div id="surveyContainer" style="display:none;">
-  <h2 id="categoryTitle"></h2>
-  <p id="categoryDescription"></p>
-  <div id="kinkList"></div>
-  <div class="nav-buttons">
-    <button id="skipCategoryBtn" class="themed-button">Skip Category</button>
-    <button id="nextCategoryBtn" class="themed-button">Next Category</button>
+  <div id="surveyContainer" style="display:none;">
+    <h2 id="categoryTitle"></h2>
+    <p id="categoryDescription"></p>
+    <div id="kinkList"></div>
+    <div class="nav-buttons">
+      <button id="skipCategoryBtn" class="themed-button">Skip Category</button>
+      <button id="nextCategoryBtn" class="themed-button">Next Category</button>
+    </div>
+    <div id="exportControls" style="display:none; margin-top: 30px; text-align: center;">
+      <button id="exportAndCompareBtn" class="themed-button">Download & Compare</button>
+    </div>
   </div>
-  <div id="exportControls" style="display:none; margin-top: 30px; text-align: center;">
-    <button id="exportAndCompareBtn" class="themed-button">Download & Compare</button>
-  </div>
-</div>
 
-<!-- Panel Container (still hidden until needed) -->
-<div id="panelContainer" class="panel-container" style="display:none;"></div>
+  <!-- Panel Container (still hidden until needed) -->
+  <div id="panelContainer" class="panel-container" style="display:none;"></div>
 
-<!-- Theme Handling -->
-<script type="module">
-  import { initTheme, applyThemeColors } from '../js/theme.js';
-  initTheme();
-  window.applyThemeColors = applyThemeColors;
-</script>
+  <!-- Theme Handling -->
+  <script type="module">
+    import { initTheme, applyThemeColors } from '../js/theme.js';
+    initTheme();
+    window.applyThemeColors = applyThemeColors;
+  </script>
 
-<!-- Survey Logic -->
-<script>
-  let surveyCategories = [];
-  let currentCategoryIndex = 0;
+  <!-- Survey Logic -->
+  <script>
+    let surveyCategories = [];
+    let currentCategoryIndex = 0;
 
-  async function startSurvey() {
-    const warning = document.getElementById('warning');
-    const selected = [...document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked')]
-      .map(i => i.value);
+    async function startSurvey() {
+      const warning = document.getElementById('warning');
+      const selected = [...document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked')]
+        .map(i => i.value);
 
-    if (!selected.length) {
-      warning.textContent = 'Please select at least one category.';
-      return;
-    }
-    warning.textContent = '';
-
-    await renderSurvey(selected); // Assuming renderSurvey exists below
-  }
-
-  async function renderSurvey(selected) {
-    // Logic to load/render survey questions by category
-    surveyCategories = selected;
-    currentCategoryIndex = 0;
-
-    document.getElementById('surveyContainer').style.display = 'block';
-    document.getElementById('panelContainer').style.display = 'none';
-    document.getElementById('progressBanner').style.display = 'block';
-
-    // Call your category-rendering logic here
-    renderCategory(surveyCategories[currentCategoryIndex]);
-  }
-      const resp = await fetch('../template-survey.json');
-      const data = await resp.json();
-      const container = document.getElementById('panelContainer');
-      container.innerHTML = '';
-      selected.forEach(cat => {
-        const block = document.createElement('section');
-        block.className = 'survey-category';
-        const title = document.createElement('h3');
-        title.textContent = cat;
-        block.appendChild(title);
-        const kinks = [
-          ...(data[cat]?.Giving || []),
-          ...(data[cat]?.Receiving || []),
-          ...(data[cat]?.General || [])
-        ];
-        kinks.forEach(k => {
-          const row = document.createElement('div');
-          row.className = 'kink-row';
-          const span = document.createElement('span');
-          span.textContent = k.name;
-          const select = document.createElement('select');
-          select.className = 'rating-select';
-          for (let i = 0; i <= 5; i++) {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = i;
-            select.appendChild(opt);
-          }
-          const tooltip = document.createElement('div');
-          tooltip.className = 'rating-tooltip';
-          tooltip.innerHTML = `
-            <ul>
-              <li>0 - Not for me / Hard Limit</li>
-              <li>1 - Dislike / Haven’t Considered</li>
-              <li>2 - Would Try for Partner</li>
-              <li>3 - Curious / Might Enjoy</li>
-              <li>4 - Like / Regular Interest</li>
-              <li>5 - Love / Core Interest</li>
-            </ul>`;
-          row.appendChild(span);
-          row.appendChild(select);
-          row.appendChild(tooltip);
-          block.appendChild(row);
-        });
-        container.appendChild(block);
-      });
+      if (!selected.length) {
+        warning.textContent = 'Please select at least one category.';
+        return;
+      }
+      warning.textContent = '';
       localStorage.setItem('selectedKinks', JSON.stringify(selected));
+      await renderSurvey(selected);
       collapsePanel();
-</script>
-<!-- Survey Display + Progress -->
-<div id="progressBanner" class="progress-container" style="display:none;">
-  <div class="progress-label" id="progressLabel"></div>
-  <div class="progress-bar">
-    <div class="progress-fill" id="progressFill"></div>
-  </div>
-</div>
+    }
 
-<div id="surveyContainer" style="display:none;">
-  <h2 id="categoryTitle"></h2>
-  <p id="categoryDescription"></p>
-  <div id="kinkList"></div>
-  <div class="nav-buttons">
-    <button id="skipCategoryBtn" class="themed-button">Skip Category</button>
-    <button id="nextCategoryBtn" class="themed-button">Next Category</button>
-  </div>
-</div>
+    function showCategory() {
+      const surveyContainer = document.getElementById('surveyContainer');
+      const finalScreen = document.getElementById('finalScreen');
+      if (currentCategoryIndex >= surveyCategories.length) {
+        surveyContainer.style.display = 'none';
+        if (finalScreen) finalScreen.style.display = 'block';
+        const leftBtn = document.getElementById('categoriesLeft');
+        if (leftBtn) leftBtn.textContent = 0;
+        return;
+      }
 
-<div id="panelContainer" class="panel-container" style="display:none;"></div>
+      if (finalScreen) finalScreen.style.display = 'none';
+      const category = surveyCategories[currentCategoryIndex];
+      document.getElementById('categoryTitle').textContent = category.name;
+      const list = document.getElementById('kinkList');
+      list.innerHTML = '';
 
-<script type="module">
-  import { initTheme, applyThemeColors } from '../js/theme.js';
-  initTheme();
-  window.applyThemeColors = applyThemeColors;
-</script>
+      category.kinks.forEach(k => {
+        const row = document.createElement('div');
+        row.className = 'kink-row';
+        const span = document.createElement('span');
+        span.textContent = k.name;
 
-<script>
-  let surveyCategories = [];
-  let currentCategoryIndex = 0;
+        const select = document.createElement('select');
+        select.setAttribute('aria-label', `Rate ${k.name}`);
+        select.classList.add('rating-select');
+
+        for (let i = 0; i <= 5; i++) {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = i;
+          select.appendChild(opt);
+        }
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'rating-tooltip';
+        tooltip.innerHTML = `0 - Not for me / Hard Limit<br>1 - Dislike / Haven’t Considered<br>2 - Would Try for Partner<br>3 - Curious / Might Enjoy<br>4 - Like / Regular Interest<br>5 - Love / Core Interest`;
+
+        select.addEventListener('mouseover', () => tooltip.style.display = 'block');
+        select.addEventListener('mouseout', () => tooltip.style.display = 'none');
+
+        row.appendChild(span);
+        row.appendChild(select);
+        row.appendChild(tooltip);
+        list.appendChild(row);
+      });
+
+      document.getElementById('progressBanner').style.display = 'flex';
+      document.getElementById('progressLabel').textContent = `Category ${currentCategoryIndex + 1} of ${surveyCategories.length}`;
+      document.getElementById('progressFill').style.width = `${(currentCategoryIndex / surveyCategories.length) * 100}%`;
+      const leftBtn = document.getElementById('categoriesLeft');
+      if (leftBtn) {
+        leftBtn.textContent = surveyCategories.length - currentCategoryIndex;
+      }
+      surveyContainer.style.display = 'block';
+      surveyContainer.scrollIntoView({ behavior: 'smooth' });
+      const exportControls = document.getElementById('exportControls');
+      exportControls.style.display = (currentCategoryIndex === surveyCategories.length - 1) ? 'block' : 'none';
+    }
+
+    async function renderSurvey(selectedNames) {
+      const allData = await fetch('../template-survey.json').then(res => res.json());
+      surveyCategories = selectedNames.map(name => ({
+        name,
+        kinks: [
+          ...(allData[name]?.Giving || []),
+          ...(allData[name]?.Receiving || []),
+          ...(allData[name]?.General || [])
+        ]
+      }));
+      currentCategoryIndex = 0;
+      document.getElementById('panelContainer').style.display = 'none';
+      showCategory();
+    }
+
+    function selectAllCategories() {
+      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => cb.checked = true);
+      document.getElementById('warning').textContent = '';
+      document.getElementById('startSurveyBtn').disabled = false;
+    }
+
+    function deselectAllCategories() {
+      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => cb.checked = false);
+      document.getElementById('warning').textContent = '';
+      document.getElementById('startSurveyBtn').disabled = true;
+    }
+
+    function togglePanel() {
+      const panel = document.getElementById('categorySurveyPanel');
+      panel.classList.toggle('open');
+      const toggle = document.getElementById('panelToggle');
+      toggle.setAttribute('aria-expanded', panel.classList.contains('open'));
+    }
+
+    function collapsePanel() {
+      const panel = document.getElementById('categorySurveyPanel');
+      panel.classList.remove('open');
+      const toggle = document.getElementById('panelToggle');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const startBtn = document.getElementById('startSurveyBtn');
+      document.getElementById('selectAll').addEventListener('click', selectAllCategories);
+      document.getElementById('deselectAll').addEventListener('click', deselectAllCategories);
+      document.getElementById('panelToggle').addEventListener('click', togglePanel);
+
+      startBtn.addEventListener('click', startSurvey);
+
+      document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
+        label.setAttribute('title', label.textContent.trim());
+      });
+
+      document.querySelectorAll('.category-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+          document.getElementById('warning').textContent = '';
+          startBtn.disabled = !document.querySelector('.category-checkbox:checked');
+        });
+      });
+
+      startBtn.disabled = !document.querySelector('.category-checkbox:checked');
+
+      document.getElementById('trackCategoryBtn').addEventListener('click', () => {
+        const remaining = surveyCategories.length - currentCategoryIndex;
+        alert(`${remaining} categories left`);
+      });
+
+      document.getElementById('nextCategoryBtn').addEventListener('click', () => {
+        currentCategoryIndex++;
+        showCategory();
+      });
+
+      document.getElementById('skipCategoryBtn').addEventListener('click', () => {
+        currentCategoryIndex++;
+        showCategory();
+      });
+
+      const exportBtn = document.getElementById('exportAndCompareBtn');
+      exportBtn.addEventListener('click', () => {
+        const responses = {};
+        const categories = surveyCategories;
+
+        categories.forEach(cat => {
+          cat.kinks.forEach(kink => {
+            const selector = document.querySelector(`select[aria-label="Rate ${kink.name}"]`);
+            responses[kink.name] = parseInt(selector.value || 0);
+          });
+        });
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(responses, null, 2));
+        const dl = document.createElement('a');
+        dl.setAttribute('href', dataStr);
+        dl.setAttribute('download', 'kink-survey.json');
+        dl.click();
+
+        setTimeout(() => {
+          window.location.href = '/compare/';
+        }, 300);
+      });
+    });
+  </script>
 
   function showCategory() {
     const surveyContainer = document.getElementById('surveyContainer');
