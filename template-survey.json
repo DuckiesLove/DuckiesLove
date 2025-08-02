@@ -3117,30 +3117,23 @@
   },
   "High-Intensity Kinks (SSC-Aware)": {
     "Giving": [
-      { "name": "Intense breath play (e.g., smothering or pressure)", "rating": null },
-      { "name": "Knife play or blade play (without injury)", "rating": null },
-      { "name": "Fear play using known or negotiated triggers", "rating": null },
-      { "name": "Abduction or home-invasion style roleplay (negotiated)", "rating": null },
-      { "name": "Medical-themed scenes with sharp objects (not bloodletting)", "rating": null },
-      { "name": "Sensory deprivation with added disorientation or helplessness", "rating": null },
-      { "name": "Scenes involving heavy objectification or emotional manipulation (with care)", "rating": null },
-      { "name": "Mock interrogation or intense role pressure", "rating": null },
-      { "name": "Consensual threats without follow-through (e.g. 'If you don’t...')", "rating": null },
-      { "name": "High-intensity primal scenes involving struggle or fear", "rating": null }
+      { "name": "Knife Play", "rating": null },
+      { "name": "Breath Control / Choking", "rating": null },
+      { "name": "Needle Play", "rating": null }
     ],
     "Receiving": [
-      { "name": "Intense breath play (e.g., smothering or pressure)", "rating": null },
-      { "name": "Knife play or blade play (without injury)", "rating": null },
-      { "name": "Fear play using known or negotiated triggers", "rating": null },
-      { "name": "Abduction or home-invasion style roleplay (negotiated)", "rating": null },
-      { "name": "Medical-themed scenes with sharp objects (not bloodletting)", "rating": null },
-      { "name": "Sensory deprivation with added disorientation or helplessness", "rating": null },
-      { "name": "Scenes involving heavy objectification or emotional manipulation (with care)", "rating": null },
-      { "name": "Mock interrogation or intense role pressure", "rating": null },
-      { "name": "Consensual threats without follow-through (e.g. 'If you don’t...')", "rating": null },
-      { "name": "High-intensity primal scenes involving struggle or fear", "rating": null }
+      { "name": "Knife Play", "rating": null },
+      { "name": "Breath Control / Choking", "rating": null },
+      { "name": "Needle Play", "rating": null }
     ],
-    "General": []
+    "General": [
+      { "name": "Consensual Non-Consent (CNC)", "rating": null },
+      { "name": "Fear Play", "rating": null },
+      { "name": "Interrogation / Torture Roleplay", "rating": null },
+      { "name": "Medical / Surgical Roleplay", "rating": null },
+      { "name": "Total Power Exchange (TPE)", "rating": null },
+      { "name": "Abandonment / Betrayal Scenes (consensual)", "rating": null }
+    ]
   },
   "Behavioral Play": {
     "Giving": [

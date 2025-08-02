@@ -638,7 +638,7 @@ function showKinks(category) {
   kinkList.innerHTML = '';
   categoryTitle.textContent = category;
   if (category === 'High-Intensity Kinks (SSC-Aware)') {
-    categoryDescription.textContent = 'This category includes intense but SSC-aware kink options. These scenes require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.';
+    categoryDescription.textContent = 'This category includes intense physical and emotional kinks that require strong negotiation, preparation, and aftercare. Please proceed only if you feel informed, safe, and emotionally ready.';
     categoryDescription.style.display = 'block';
   } else {
     categoryDescription.textContent = '';
