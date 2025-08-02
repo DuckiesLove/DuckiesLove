@@ -1,8 +1,12 @@
 import express from 'express';
 import crypto from 'crypto';
+import path from 'path';
+import { readFile } from 'fs/promises';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3000;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // In-memory stores
 const tokenStore = new Map();
@@ -102,32 +106,62 @@ app.use((req, res, next) => {
   }
 });
 
-// Validate session
-function validateSession(req) {
-  const sessionId = req.cookies.session_id;
-  const session = sessionStore.get(sessionId);
-  if (!session) return { ok: false, status: 401, error: 'No session' };
-  if (Date.now() > session.expiresAt) {
-    sessionStore.delete(sessionId);
-    return { ok: false, status: 403, error: 'Session expired' };
-  }
-  if (session.ip !== getIp(req)) return { ok: false, status: 403, error: 'IP mismatch' };
-  return { ok: true };
-}
-
-// Protected route
+// Serve token submission page
 app.use((req, res, next) => {
-  if (req.method === 'GET' && req.url === '/protected') {
-    const check = validateSession(req);
-    if (!check.ok) {
-      json(res, check.status, { error: check.error });
-      return;
-    }
-    json(res, 200, { message: 'You have access 🎉' });
+  if (req.method === 'GET' && req.url === '/token.html') {
+    sendFile(res, path.join(__dirname, 'token.html'));
   } else {
     next();
   }
 });
+
+// Validate session middleware
+function validateSession(req, res, next) {
+  const sessionId = req.cookies.session_id;
+  const session = sessionStore.get(sessionId);
+  if (!session) {
+    json(res, 401, { error: 'No session' });
+    return;
+  }
+  if (Date.now() > session.expiresAt) {
+    sessionStore.delete(sessionId);
+    json(res, 403, { error: 'Session expired' });
+    return;
+  }
+  if (session.ip !== getIp(req)) {
+    json(res, 403, { error: 'IP mismatch' });
+    return;
+  }
+  next();
+}
+
+// Protected routes
+app.use((req, res, next) => {
+  if (req.method === 'GET' && req.url === '/protected') {
+    validateSession(req, res, () => {
+      json(res, 200, { message: 'You have access 🎉' });
+    });
+  } else if (req.method === 'GET' && req.url === '/dashboard') {
+    validateSession(req, res, () => {
+      sendFile(res, path.join(__dirname, 'protected', 'dashboard.html'));
+    });
+  } else {
+    next();
+  }
+});
+
+function sendFile(res, filePath) {
+  readFile(filePath)
+    .then(data => {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.end(data);
+    })
+    .catch(() => {
+      res.statusCode = 404;
+      res.end();
+    });
+}
 
 // Fallback
 app.use((_req, res) => {

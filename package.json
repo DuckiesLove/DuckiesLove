@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "generate-token": "node scripts/generate-token.js"
+    "generate-token": "node scripts/generateToken.js"
   },
   "keywords": [],
   "author": "",
