@@ -3225,6 +3225,7 @@ body {
     font-family: 'Fredoka One', cursive;
     cursor: pointer;
     transition: all 0.3s ease;
+    text-decoration: none;
   }
 
 .themed-button:hover {
