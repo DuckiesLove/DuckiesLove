@@ -85,12 +85,12 @@
 body.theme-dark {
   --bg-color: #0d0d0d;
   --text-color: #00ffff; /* electric blue */
-  --accent-color: #f47aff;
+  --accent-color: #00ffff;
   --accent-text: var(--accent-color);
   --theme-accent: var(--accent-color);
-  --border-color: #444;
-  --button-bg: #1a1a1a;
-  --button-hover: #f47aff;
+  --border-color: #00ffff;
+  --button-bg: #0d0d0d;
+  --button-hover: #00ffff;
   --button-text: #00ffff;
   --link-color: var(--accent-color);
   --hover-bg: #333;
