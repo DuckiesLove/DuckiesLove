@@ -33,19 +33,6 @@
     changeTheme(savedTheme);
     document.getElementById('themeSelector').value = savedTheme;
 
-    const startBtn = document.getElementById('startSurvey');
-    if (startBtn) {
-      startBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const link = document.createElement('a');
-        link.href = 'template-survey.json';
-        link.download = 'template-survey.json';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.location.href = 'https://www.talkkink.org/kinks/?start=1';
-      });
-    }
   });
   </script>
 </body>
