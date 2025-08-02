@@ -423,14 +423,14 @@ function updateComparison() {
   if (cardList) cardList.innerHTML = '';
 }
 
-const fileAInput = document.getElementById('fileA');
+const fileAInput = document.getElementById('uploadUser');
 if (fileAInput) {
   fileAInput.addEventListener('change', e => {
     loadFileA(e.target.files[0]);
   });
 }
 
-const fileBInput = document.getElementById('fileB');
+const fileBInput = document.getElementById('uploadPartner');
 if (fileBInput) {
   fileBInput.addEventListener('change', e => {
     loadFileB(e.target.files[0]);
@@ -530,11 +530,9 @@ function exportJSON() {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadSavedSurvey();
-  const btns = document.querySelectorAll('#download-pdf');
-  btns.forEach((b, i) => { if (i > 0) b.remove(); });
-  const btn = btns[0];
+  const btn = document.getElementById('downloadPdfBtn');
   if (btn) {
-    btn.addEventListener('click', async function () {
+    btn.addEventListener('click', async () => {
       const spinner = document.getElementById('loading-spinner');
       if (spinner) spinner.style.display = 'flex';
       try {
