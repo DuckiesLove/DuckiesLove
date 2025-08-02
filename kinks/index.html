@@ -111,7 +111,10 @@
       const panel = document.getElementById('categoryPanel');
       const overlay = document.getElementById('categoryOverlay');
       if (overlay) overlay.style.display = 'flex';
-      if (panel) panel.style.display = 'block';
+      if (panel) {
+        panel.classList.remove('hidden');
+        panel.style.display = 'block';
+      }
     }
   </script>
 </body>
