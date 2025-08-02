@@ -17,22 +17,22 @@
       margin-top: 3rem;
     }
 
-    .upload-button,
-    .themed-button {
-      position: relative;
-      display: inline-block;
-      background-color: #1a1a1a;
-      color: white;
-      font-family: 'Fredoka One', cursive;
-      font-size: 1.1rem;
-      padding: 18px 28px;
-      border: 2px solid #f47aff;
-      border-radius: 10px;
-      cursor: pointer;
-      text-align: center;
-      transition: background-color 0.3s ease;
-      height: 60px;
-    }
+      .upload-button,
+      .themed-button {
+        position: relative;
+        display: inline-block;
+        background-color: var(--button-bg);
+        color: var(--button-text);
+        font-family: 'Fredoka One', cursive;
+        font-size: 1.1rem;
+        padding: 18px 28px;
+        border: 2px solid var(--accent-color);
+        border-radius: 8px;
+        cursor: pointer;
+        text-align: center;
+        transition: background-color 0.3s ease;
+        height: 60px;
+      }
 
     .upload-button input[type="file"] {
       position: absolute;
@@ -44,11 +44,11 @@
       cursor: pointer;
     }
 
-    .upload-button:hover,
-    .themed-button:hover {
-      background-color: #f47aff;
-      color: #0d0d0d;
-    }
+      .upload-button:hover,
+      .themed-button:hover {
+        background-color: var(--button-hover);
+        color: var(--bg-color);
+      }
 
     .wide-button {
       min-width: 260px;
