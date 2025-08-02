@@ -16,12 +16,17 @@
       <option value="lipstick">Lipstick</option>
       <option value="forest">Forest</option>
     </select>
+    <button id="startSurveyBtn" class="themed-button start-survey-btn">Start Survey</button>
   </div>
   <button id="panelToggle" class="panel-toggle" aria-label="Toggle category panel" aria-controls="categorySurveyPanel" aria-expanded="true">☰</button>
 
   <!-- Category selection panel -->
   <div id="categorySurveyPanel" class="category-panel open" role="region" aria-label="Category selection">
     <h2>Select the categories you want to include:</h2>
+    <div class="category-buttons">
+      <button id="selectAll" class="themed-button">Select All</button>
+      <button id="deselectAll" class="themed-button">Deselect All</button>
+    </div>
     <div class="category-list" role="list">
       <label role="listitem"><input type="checkbox" name="category" value="Behavioral Play"><span>Behavioral Play</span></label>
       <label role="listitem"><input type="checkbox" name="category" value="Body Fluids and Functions"><span>Body Fluids and Functions</span></label>
@@ -55,13 +60,6 @@
       <label role="listitem"><input type="checkbox" name="category" value="Verbal Play"><span>Verbal Play</span></label>
       <label role="listitem"><input type="checkbox" name="category" value="Watersports & Mess"><span>Watersports & Mess</span></label>
       <label role="listitem"><input type="checkbox" name="category" value="Worship & Objectification"><span>Worship & Objectification</span></label>
-    </div>
-    <div class="panel-actions">
-      <div class="category-buttons">
-        <button id="selectAll" class="themed-button">Select All</button>
-        <button id="deselectAll" class="themed-button">Deselect All</button>
-      </div>
-      <button id="startSurveyPanelBtn" class="themed-button">Start Survey</button>
     </div>
   </div>
 
@@ -143,7 +141,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('selectAll').addEventListener('click', selectAllCategories);
       document.getElementById('deselectAll').addEventListener('click', deselectAllCategories);
-      document.getElementById('startSurveyPanelBtn').addEventListener('click', startSurvey);
+      document.getElementById('startSurveyBtn').addEventListener('click', startSurvey);
       document.getElementById('panelToggle').addEventListener('click', togglePanel);
       document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
         label.setAttribute('title', label.textContent.trim());
