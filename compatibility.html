@@ -13,23 +13,25 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1rem;
-      margin-top: 2rem;
+      gap: 1.5rem;
+      margin-top: 3rem;
     }
 
-    .upload-button {
+    .upload-button,
+    .themed-button {
       position: relative;
       display: inline-block;
       background-color: #1a1a1a;
       color: white;
       font-family: 'Fredoka One', cursive;
-      font-size: 1rem;
-      padding: 12px 24px;
+      font-size: 1.1rem;
+      padding: 18px 28px;
       border: 2px solid #f47aff;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
-      transition: 0.3s;
       text-align: center;
+      transition: background-color 0.3s ease;
+      height: 60px;
     }
 
     .upload-button input[type="file"] {
@@ -42,26 +44,16 @@
       cursor: pointer;
     }
 
-    .upload-button:hover {
-      background-color: #f47aff;
-      color: #0d0d0d;
-    }
-
-    .themed-button {
-      background-color: #1a1a1a;
-      border: 2px solid #f47aff;
-      color: white;
-      padding: 12px 24px;
-      font-size: 1rem;
-      font-family: 'Fredoka One', cursive;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-
+    .upload-button:hover,
     .themed-button:hover {
       background-color: #f47aff;
       color: #0d0d0d;
+    }
+
+    .wide-button {
+      min-width: 260px;
+      max-width: 300px;
+      width: 100%;
     }
   </style>
 </head>
@@ -69,19 +61,19 @@
   <div class="main-container themed">
     <h1 class="page-title">See Our Compatibility</h1>
     <div class="upload-container">
-      <button class="themed-button" onclick="window.history.back()">← Back</button>
+      <button class="themed-button wide-button" onclick="window.history.back()">← Back</button>
 
-      <label class="upload-button">
+      <label class="upload-button wide-button">
         <input type="file" id="uploadUser" onchange="handleFileUpload(this)" />
         Upload Your Survey
       </label>
 
-      <label class="upload-button">
+      <label class="upload-button wide-button">
         <input type="file" id="uploadPartner" onchange="handleFileUpload(this)" />
         Upload Partner’s Survey
       </label>
 
-      <button class="themed-button" id="downloadPdfBtn">Download PDF</button>
+      <button class="themed-button wide-button" id="downloadPdfBtn">Download PDF</button>
     </div>
 
     <div id="comparisonResults">
