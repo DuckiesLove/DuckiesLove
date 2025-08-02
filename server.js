@@ -13,6 +13,12 @@ const tokenStore = new Map();
 const sessionStore = new Map();
 const submitTokenAttempts = new Map();
 
+// Session timing
+const SESSION_IDLE_TIMEOUT_MS =
+  parseInt(process.env.SESSION_IDLE_TIMEOUT_MS, 10) || 10 * 60 * 1000;
+const SESSION_MAX_LIFETIME_MS =
+  parseInt(process.env.SESSION_MAX_LIFETIME_MS, 10) || 6 * 60 * 60 * 1000;
+
 // Utils
 function generateToken() {
   return crypto.randomBytes(24).toString('hex');
@@ -117,11 +123,17 @@ app.use((req, res, next) => {
         }
         record.used = true;
         const sessionId = generateSessionId();
-        const sessionExpiry = Date.now() + 60 * 60 * 1000;
-        sessionStore.set(sessionId, { ip: clientIp, expiresAt: sessionExpiry });
+        const now = Date.now();
+        sessionStore.set(sessionId, {
+          ip: clientIp,
+          expiresAt: now + SESSION_IDLE_TIMEOUT_MS,
+          maxExpiresAt: now + SESSION_MAX_LIFETIME_MS,
+        });
         res.setHeader(
           'Set-Cookie',
-          `session_id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600`
+          `session_id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.floor(
+            SESSION_IDLE_TIMEOUT_MS / 1000
+          )}`
         );
         json(res, 200, { success: true });
       });
@@ -140,6 +152,24 @@ app.use((req, res, next) => {
   }
 });
 
+// Route: logout
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.url === '/logout') {
+    const sessionId = req.cookies.session_id;
+    if (sessionId && sessionStore.has(sessionId)) {
+      sessionStore.delete(sessionId);
+      console.log(`Session ${sessionId} logged out`);
+    }
+    res.setHeader(
+      'Set-Cookie',
+      'session_id=; HttpOnly; Secure; SameSite=Strict; Max-Age=0'
+    );
+    json(res, 200, { success: true });
+  } else {
+    next();
+  }
+});
+
 // Validate session middleware
 function validateSession(req, res, next) {
   const sessionId = req.cookies.session_id;
@@ -148,8 +178,16 @@ function validateSession(req, res, next) {
     json(res, 401, { error: 'No session' });
     return;
   }
-  if (Date.now() > session.expiresAt) {
+  const now = Date.now();
+  if (now > session.maxExpiresAt) {
     sessionStore.delete(sessionId);
+    console.log(`Session ${sessionId} expired (max)`);
+    json(res, 403, { error: 'Session expired' });
+    return;
+  }
+  if (now > session.expiresAt) {
+    sessionStore.delete(sessionId);
+    console.log(`Session ${sessionId} expired (idle)`);
     json(res, 403, { error: 'Session expired' });
     return;
   }
@@ -157,6 +195,13 @@ function validateSession(req, res, next) {
     json(res, 403, { error: 'IP mismatch' });
     return;
   }
+  session.expiresAt = now + SESSION_IDLE_TIMEOUT_MS;
+  res.setHeader(
+    'Set-Cookie',
+    `session_id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.floor(
+      SESSION_IDLE_TIMEOUT_MS / 1000
+    )}`
+  );
   next();
 }
 
@@ -201,7 +246,10 @@ const cleanup = setInterval(() => {
     if (data.used || data.expiresAt < now) tokenStore.delete(token);
   }
   for (const [sid, data] of sessionStore) {
-    if (data.expiresAt < now) sessionStore.delete(sid);
+    if (data.expiresAt < now || data.maxExpiresAt < now) {
+      sessionStore.delete(sid);
+      console.log(`Session ${sid} expired during cleanup`);
+    }
   }
   for (const [ip, data] of submitTokenAttempts) {
     if (data.reset < now) submitTokenAttempts.delete(ip);
