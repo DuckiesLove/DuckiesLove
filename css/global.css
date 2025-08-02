@@ -16,3 +16,16 @@
   margin-bottom: 1rem;
 }
 
+/* 🔧 Adjust font sizing and wrapping so long button labels fit */
+#uploadYourSurvey,
+#uploadPartnerSurvey {
+  font-size: 1.1rem;
+  padding: 1.2rem;
+  line-height: 1.3;
+  white-space: normal;
+  word-break: break-word;
+  text-align: center;
+  max-width: 300px;
+  height: auto;
+}
+
