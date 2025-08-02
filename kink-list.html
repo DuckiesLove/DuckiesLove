@@ -105,10 +105,22 @@
     function showList(survey) {
       const container = document.getElementById('listOutput');
       container.innerHTML = '';
+      const scores = calculateCategoryScores(survey);
+      const scoreMap = new Map(scores.map(s => [s.name, s.percent]));
       Object.entries(survey).forEach(([category, actions]) => {
         const section = document.createElement('section');
         const h2 = document.createElement('h2');
-        h2.textContent = category;
+        h2.className = 'category-header';
+        const score = scoreMap.get(category) ?? 0;
+        if (score <= 40) {
+          h2.append('🚩 ', category);
+          h2.classList.add('flag-low');
+        } else if (score >= 85) {
+          h2.append('✅ ', category);
+          h2.classList.add('flag-high');
+        } else {
+          h2.textContent = category;
+        }
         section.appendChild(h2);
         ['Giving','Receiving','General'].forEach(role => {
           const items = Array.isArray(actions[role]) ? actions[role] : [];
