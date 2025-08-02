@@ -1,7 +1,6 @@
 // Dark mode PDF export styling script using html2canvas and jsPDF
 import { initTheme, applyPrintStyles } from './theme.js';
 import { loadJsPDF } from './loadJsPDF.js';
-import { calculateCategoryScores } from './categoryScores.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -63,11 +62,6 @@ function barFillColor(percent) {
 }
 
 
-function avgPercent(a, b) {
-  const av = (a ?? 0) + (b ?? 0);
-  return av / 2;
-}
-
 function makeBar(percent) {
   const outer = document.createElement('div');
   outer.className = 'partner-bar';
@@ -103,6 +97,16 @@ function buildIcons(ratingA, ratingB) {
     symbols.push('<span class="icon-yellow-flag">🟨</span>');
   }
   return symbols.join(' ');
+}
+
+function groupKinksByCategory(data) {
+  const grouped = {};
+  data.forEach(item => {
+    const category = item.category || 'Uncategorized';
+    if (!grouped[category]) grouped[category] = [];
+    grouped[category].push(item);
+  });
+  return grouped;
 }
 function loadSavedSurvey() {
   const saved = localStorage.getItem('savedSurvey');
@@ -248,26 +252,6 @@ function buildKinkBreakdown(surveyA, surveyB) {
   return breakdown;
 }
 
-function buildCategoryIcons(youPercent, partnerPercent) {
-  const symbols = [];
-  if (youPercent >= 90 && partnerPercent >= 90) {
-    symbols.push('<span class="icon-green-flag">✅</span>');
-  }
-  if (youPercent <= 30 || partnerPercent <= 30) {
-    symbols.push('<span class="icon-red-flag">🚩</span>');
-  }
-  return symbols.join(' ');
-}
-
-function buildCategoryComparison(surveyA, surveyB) {
-  const scoresA = calculateCategoryScores(surveyA);
-  const scoresB = calculateCategoryScores(surveyB);
-  const mapB = new Map(scoresB.map(s => [s.name, s.percent]));
-  return scoresA
-    .filter(s => mapB.has(s.name))
-    .map(s => ({ name: s.name, you: s.percent, partner: mapB.get(s.name) }))
-    .sort((a, b) => avgPercent(b.you, b.partner) - avgPercent(a.you, a.partner));
-}
 
 async function generateComparisonPDF() {
   document.body.classList.add('exporting');
@@ -387,34 +371,52 @@ function updateComparison() {
   lastResult = buildKinkBreakdown(surveyA, surveyB);
   container.innerHTML = '';
 
-  const categories = buildCategoryComparison(surveyA, surveyB);
+  const mergedKinkData = [];
+  Object.entries(lastResult).forEach(([category, items]) => {
+    items.forEach(it => {
+      mergedKinkData.push({
+        category,
+        name: it.name,
+        partnerA: maxRating(it.you),
+        partnerB: maxRating(it.partner)
+      });
+    });
+  });
+
+  const groupedData = groupKinksByCategory(mergedKinkData);
 
   const table = document.createElement('table');
   table.className = 'results-table';
   table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Partner B</th></tr></thead>';
   const tbody = document.createElement('tbody');
 
-  const makeTd = percent => {
-    const td = document.createElement('td');
+  const renderCell = rating => {
+    const percent = toPercent(rating);
     const pct = percent === null ? 0 : percent;
     const cls = colorClass(percent ?? 0);
+    const td = document.createElement('td');
     td.innerHTML = `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
       `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
     return td;
   };
 
-  categories.forEach(cat => {
-    const row = document.createElement('tr');
-    row.className = 'row';
-    const nameTd = document.createElement('td');
-    nameTd.className = 'kink-name';
-    const icons = buildCategoryIcons(cat.you, cat.partner);
-    nameTd.innerHTML = icons ? `${cat.name} ${icons}` : cat.name;
-    row.appendChild(nameTd);
-    row.appendChild(makeTd(cat.you));
-    row.appendChild(makeTd(cat.partner));
-    tbody.appendChild(row);
-  });
+  for (const [category, kinks] of Object.entries(groupedData)) {
+    const catRow = document.createElement('tr');
+    catRow.innerHTML = `
+      <td colspan="3" class="category-header"><strong>${category}</strong></td>
+    `;
+    tbody.appendChild(catRow);
+
+    kinks.forEach(kink => {
+      const row = document.createElement('tr');
+      const nameTd = document.createElement('td');
+      nameTd.textContent = kink.name;
+      row.appendChild(nameTd);
+      row.appendChild(renderCell(kink.partnerA));
+      row.appendChild(renderCell(kink.partnerB));
+      tbody.appendChild(row);
+    });
+  }
 
   table.appendChild(tbody);
   container.appendChild(table);
