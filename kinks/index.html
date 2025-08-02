@@ -131,8 +131,6 @@
     // Call your category-rendering logic here
     renderCategory(surveyCategories[currentCategoryIndex]);
   }
-</script>
-
       const resp = await fetch('../template-survey.json');
       const data = await resp.json();
       const container = document.getElementById('panelContainer');
@@ -181,6 +179,7 @@
       });
       localStorage.setItem('selectedKinks', JSON.stringify(selected));
       collapsePanel();
+</script>
 <!-- Survey Display + Progress -->
 <div id="progressBanner" class="progress-container" style="display:none;">
   <div class="progress-label" id="progressLabel"></div>
@@ -407,8 +406,11 @@
   }
 
   /* Fix dropdown background on theme switch */
-  select option {
-    background-color: var(--bg-color, #000);
-    color: var(--text-color, #fff);
-  }
-</style>
+    select option {
+      background-color: var(--bg-color, #000);
+      color: var(--text-color, #fff);
+    }
+  </style>
+
+  </body>
+</html>
