@@ -3152,8 +3152,9 @@ body {
   text-decoration: none;
 }
 
+
 .start-survey-btn {
-  margin-top: 1.5rem;
+  margin: 1.5rem auto 0;
   padding: 12px 32px;
   font-size: 1.25rem;
   border: 2px solid var(--accent-color);
@@ -3161,16 +3162,13 @@ body {
   color: var(--text-color);
   min-width: 220px;
   border-radius: 8px;
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
-  box-shadow: 0 0 6px var(--accent-color);
-  transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
+  box-shadow: none;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 .start-survey-btn:hover:not(:disabled) {
   background-color: var(--accent-color);
   color: #000;
-  box-shadow: 0 0 10px var(--accent-color);
 }
 
 .start-survey-btn:active:not(:disabled) {
@@ -3326,7 +3324,7 @@ body {
   display: flex;
   flex-direction: column;
   margin: 0;
-  padding: 0 10px 0 0;
+  padding: 0 12px 0 0;
   box-sizing: border-box;
   background-color: #000000;
   color: var(--text-color);
@@ -3392,7 +3390,7 @@ body {
 }
 #categorySurveyPanel .category-list {
   flex: 1 1 auto;
-  padding: 0 0 2rem 1rem;
+  padding: 0 0 3rem 1rem;
 }
 #categorySurveyPanel .category-list label {
   width: 100%;
@@ -3443,16 +3441,60 @@ button {
   box-shadow: none;
 }
 
-input,
-select {
+input {
   border: 2px solid var(--accent-color);
   background-color: transparent;
   color: var(--text-color);
 }
 
+select {
+  background-color: #000000 !important;
+  color: var(--accent-color) !important;
+  border: 1px solid var(--accent-color);
+}
+
+select option {
+  background-color: #000000 !important;
+  color: var(--accent-color) !important;
+}
+
 input:focus,
 select:focus {
-  outline: none;
+  outline: 1px solid var(--accent-color);
+  box-shadow: none;
+}
+
+.kink-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.rating-tooltip {
+  display: none;
+  background-color: #000000;
+  border: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+select:focus + .rating-tooltip,
+select:hover + .rating-tooltip {
+  display: block;
+}
+
+.warning {
+  color: var(--accent-color);
+  margin-top: 0.5rem;
+  min-height: 1rem;
+}
+
+.category-button {
+  border: 1px solid var(--accent-color);
   box-shadow: none;
 }
 

@@ -16,7 +16,8 @@
       <option value="lipstick">Lipstick</option>
       <option value="forest">Forest</option>
     </select>
-    <button id="startSurveyBtn" class="themed-button start-survey-btn" disabled>Start Survey</button>
+    <button id="startSurvey" class="themed-button start-survey-btn">Start Survey</button>
+    <div id="warning" class="warning"></div>
   </div>
   <button id="panelToggle" class="panel-toggle" aria-label="Toggle category panel" aria-controls="categorySurveyPanel" aria-expanded="true">☰</button>
 
@@ -24,55 +25,44 @@
   <div id="categorySurveyPanel" class="category-panel open" role="region" aria-label="Category selection">
     <h2>Select the categories you want to include:</h2>
     <div class="category-buttons top-buttons">
-      <button id="selectAll" class="themed-button">Select All</button>
-      <button id="deselectAll" class="themed-button">Deselect All</button>
+      <button id="selectAll" class="themed-button category-button">Select All</button>
+      <button id="deselectAll" class="themed-button category-button">Deselect All</button>
     </div>
     <div class="category-list" role="list">
-      <label role="listitem"><input type="checkbox" name="category" value="Appearance Play"><span>Appearance Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Behavioral Play"><span>Behavioral Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Body Fluids and Functions"><span>Body Fluids and Functions</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Body Modification"><span>Body Modification</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Body Part / Fetish Play"><span>Body Part / Fetish Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Body Part Torture"><span>Body Part Torture</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Bondage and Suspension"><span>Bondage and Suspension</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Breath Play"><span>Breath Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Chastity Devices"><span>Chastity Devices</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Communication"><span>Communication</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Cosplay &amp; Identity Play"><span>Cosplay &amp; Identity Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Gender Play &amp; Transformation"><span>Gender Play &amp; Transformation</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Headspace &amp; Regression"><span>Headspace &amp; Regression</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="High-Intensity Kinks (SSC-Aware)"><span>High-Intensity Kinks (SSC-Aware)</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Impact Play"><span>Impact Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Medical Play"><span>Medical Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Mindfuck &amp; Manipulation"><span>Mindfuck &amp; Manipulation</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Mouth Play"><span>Mouth Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Orgasm Control &amp; Sexual Manipulation"><span>Orgasm Control &amp; Sexual Manipulation</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Other"><span>Other</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Performance &amp; Internal Struggle"><span>Performance &amp; Internal Struggle</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Pet Play"><span>Pet Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Primal &amp; Bratting"><span>Primal &amp; Bratting</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Protocol and Ritual"><span>Protocol and Ritual</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Psychological Primal / Prey"><span>Psychological Primal / Prey</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Relationship Preferences"><span>Relationship Preferences</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Roleplaying"><span>Roleplaying</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Sensation Play"><span>Sensation Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Service and Restrictive Behaviour"><span>Service and Restrictive Behaviour</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Sexual Activity"><span>Sexual Activity</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Shibari &amp; Rope Bondage"><span>Shibari &amp; Rope Bondage</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Virtual &amp; Long-Distance Play"><span>Virtual &amp; Long-Distance Play</span></label>
-      <label role="listitem"><input type="checkbox" name="category" value="Voyeurism/Exhibitionism"><span>Voyeurism/Exhibitionism</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Appearance Play"><span>Appearance Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Behavioral Play"><span>Behavioral Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Body Fluids and Functions"><span>Body Fluids and Functions</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Body Modification"><span>Body Modification</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Body Part / Fetish Play"><span>Body Part / Fetish Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Body Part Torture"><span>Body Part Torture</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Bondage and Suspension"><span>Bondage and Suspension</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Breath Play"><span>Breath Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Chastity Devices"><span>Chastity Devices</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Communication"><span>Communication</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Cosplay &amp; Identity Play"><span>Cosplay &amp; Identity Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Gender Play &amp; Transformation"><span>Gender Play &amp; Transformation</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Headspace &amp; Regression"><span>Headspace &amp; Regression</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="High-Intensity Kinks (SSC-Aware)"><span>High-Intensity Kinks (SSC-Aware)</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Impact Play"><span>Impact Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Medical Play"><span>Medical Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Mindfuck &amp; Manipulation"><span>Mindfuck &amp; Manipulation</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Mouth Play"><span>Mouth Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Orgasm Control &amp; Sexual Manipulation"><span>Orgasm Control &amp; Sexual Manipulation</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Other"><span>Other</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Performance &amp; Internal Struggle"><span>Performance &amp; Internal Struggle</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Pet Play"><span>Pet Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Primal &amp; Bratting"><span>Primal &amp; Bratting</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Protocol and Ritual"><span>Protocol and Ritual</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Psychological Primal / Prey"><span>Psychological Primal / Prey</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Relationship Preferences"><span>Relationship Preferences</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Roleplaying"><span>Roleplaying</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Sensation Play"><span>Sensation Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Service and Restrictive Behaviour"><span>Service and Restrictive Behaviour</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Sexual Activity"><span>Sexual Activity</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Shibari &amp; Rope Bondage"><span>Shibari &amp; Rope Bondage</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Virtual &amp; Long-Distance Play"><span>Virtual &amp; Long-Distance Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Voyeurism/Exhibitionism"><span>Voyeurism/Exhibitionism</span></label>
     </div>
-  </div>
-
-  <div id="ratingLegend" class="static-rating-legend" style="display:none;">
-    <ul>
-      <li>0 - Not for me / Hard Limit</li>
-      <li>1 - Dislike / Haven’t Considered</li>
-      <li>2 - Would Try for Partner</li>
-      <li>3 - Curious / Might Enjoy</li>
-      <li>4 - Like / Regular Interest</li>
-      <li>5 - Love / Core Interest</li>
-    </ul>
   </div>
 
   <div id="progressBanner" class="progress-container" style="display:none;">
@@ -107,15 +97,7 @@
     let surveyCategories = [];
     let currentCategoryIndex = 0;
 
-    async function startSurvey() {
-      const startBtn = document.getElementById('startSurveyBtn');
-      const selected = [...document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked')]
-        .map(i => i.value);
-      if (!selected.length) {
-        startBtn.classList.add('shake');
-        setTimeout(() => startBtn.classList.remove('shake'), 500);
-        return;
-      }
+    async function renderSurvey(selected) {
       const resp = await fetch('../template-survey.json');
       const data = await resp.json();
       surveyCategories = selected.map(cat => ({
@@ -158,35 +140,33 @@
           opt.textContent = i;
           select.appendChild(opt);
         }
+        const tooltip = document.createElement('div');
+        tooltip.className = 'rating-tooltip';
+        tooltip.innerHTML = `0 - Not for me / Hard Limit<br>1 - Dislike / Haven’t Considered<br>2 - Would Try for Partner<br>3 - Curious / Might Enjoy<br>4 - Like / Regular Interest<br>5 - Love / Core Interest`;
         row.appendChild(span);
         row.appendChild(select);
+        row.appendChild(tooltip);
         list.appendChild(row);
       });
-      document.getElementById('ratingLegend').style.display = 'block';
       document.getElementById('progressBanner').style.display = 'flex';
       document.getElementById('progressLabel').textContent = `Category ${currentCategoryIndex + 1} of ${surveyCategories.length}`;
       document.getElementById('progressFill').style.width = `${(currentCategoryIndex / surveyCategories.length) * 100}%`;
       surveyContainer.style.display = 'block';
+      surveyContainer.scrollIntoView({ behavior: 'smooth' });
     }
 
     function selectAllCategories() {
       document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
         cb.checked = true;
       });
-      updateStartButton();
+      document.getElementById('warning').textContent = '';
     }
 
     function deselectAllCategories() {
       document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
         cb.checked = false;
       });
-      updateStartButton();
-    }
-
-    function updateStartButton() {
-      const btn = document.getElementById('startSurveyBtn');
-      const hasSelection = document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked').length > 0;
-      btn.disabled = !hasSelection;
+      document.getElementById('warning').textContent = '';
     }
 
     function togglePanel() {
@@ -207,23 +187,32 @@
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('selectAll').addEventListener('click', selectAllCategories);
       document.getElementById('deselectAll').addEventListener('click', deselectAllCategories);
-      document.getElementById('startSurveyBtn').addEventListener('click', startSurvey);
       document.getElementById('panelToggle').addEventListener('click', togglePanel);
+      document.getElementById('startSurvey').addEventListener('click', () => {
+        const selected = Array.from(document.querySelectorAll('.category-checkbox:checked')).map(cb => cb.value);
+        if (!selected.length) {
+          document.getElementById('warning').textContent = 'Please select at least one category.';
+          return;
+        }
+        document.getElementById('warning').textContent = '';
+        renderSurvey(selected);
+      });
       document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
         label.setAttribute('title', label.textContent.trim());
       });
-      document.querySelectorAll('#categorySurveyPanel input[name="category"]').forEach(cb => {
-        cb.addEventListener('change', updateStartButton);
+      document.querySelectorAll('.category-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+          document.getElementById('warning').textContent = '';
+        });
       });
 
       const stored = JSON.parse(localStorage.getItem('selectedKinks') || '[]');
       if (stored.length) {
-        document.querySelectorAll('#categorySurveyPanel input[name="category"]').forEach(cb => {
+        document.querySelectorAll('.category-checkbox').forEach(cb => {
           cb.checked = stored.includes(cb.value);
         });
       }
-      updateStartButton();
-
+    
       document.getElementById('nextCategoryBtn').addEventListener('click', () => {
         currentCategoryIndex++;
         showCategory();

@@ -85,9 +85,9 @@
 .theme-dark {
   --bg-color: #000;
   --text-color: #f2f2f2;
-  --accent-color: #00ffff;
-  --accent-text: #00ffff;
-  --theme-accent: #00ffff; /* Electric blue */
+  --accent-color: #ffffff;
+  --accent-text: #ffffff;
+  --theme-accent: #ffffff;
   --button-bg: #1a1a1a;
   --button-text: #f2f2f2;
   --border-color: #444;
@@ -100,9 +100,9 @@
 .theme-lipstick {
   --bg-color: #1a001f;
   --text-color: #fceaff;
-  --accent-color: #ff4ecb;
-  --accent-text: #ff3399;
-  --theme-accent: #ff3399; /* Bold pink */
+  --accent-color: #ff90cb;
+  --accent-text: #ff90cb;
+  --theme-accent: #ff90cb;
   --highlight-color: #a200ff;
   --button-bg: #ff4ecb;
   --button-text: #1a001f;
@@ -116,9 +116,9 @@
 .theme-forest {
   --bg-color: #f0f7f1;
   --text-color: #1d3b1d;
-  --accent-color: #3d6651;
-  --accent-text: #66ff66;
-  --theme-accent: #228b22; /* Forest green */
+  --accent-color: #a8e6a3;
+  --accent-text: #a8e6a3;
+  --theme-accent: #a8e6a3;
   --button-bg: #a6d5b5;
   --button-text: #1d3b1d;
   --border-color: #81b89b;
