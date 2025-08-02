@@ -11,6 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // In-memory stores
 const tokenStore = new Map();
 const sessionStore = new Map();
+const submitTokenAttempts = new Map();
 
 // Utils
 function generateToken() {
@@ -28,6 +29,28 @@ function json(res, status, obj) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(obj));
+}
+
+// Simple rate limiter for /submit-token
+function submitTokenRateLimiter(req, res, next) {
+  const ip = getIp(req);
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const limit = 5;
+  let record = submitTokenAttempts.get(ip);
+  if (!record || now > record.reset) {
+    record = { count: 1, reset: now + windowMs };
+    submitTokenAttempts.set(ip, record);
+    next();
+    return;
+  }
+  if (record.count >= limit) {
+    res.setHeader('Retry-After', Math.ceil((record.reset - now) / 1000));
+    json(res, 429, { error: 'Too many requests' });
+    return;
+  }
+  record.count += 1;
+  next();
 }
 
 // Middleware: parse cookies
@@ -58,48 +81,50 @@ app.use((req, res, next) => {
   }
 });
 
-// Route: submit token
+// Route: submit token with rate limiting
 app.use((req, res, next) => {
   if (req.method === 'POST' && req.url === '/submit-token') {
-    let body = '';
-    req.on('data', chunk => {
-      body += chunk;
-    });
-    req.on('end', () => {
-      let token;
-      try {
-        ({ token } = JSON.parse(body || '{}'));
-      } catch {
-        json(res, 400, { error: 'Invalid request' });
-        return;
-      }
-      const clientIp = getIp(req);
-      const record = tokenStore.get(token);
-      if (!record) {
-        json(res, 401, { error: 'Invalid token' });
-        return;
-      }
-      if (record.used) {
-        json(res, 403, { error: 'Token already used' });
-        return;
-      }
-      if (Date.now() > record.expiresAt) {
-        json(res, 403, { error: 'Token expired' });
-        return;
-      }
-      if (record.ip !== clientIp) {
-        json(res, 403, { error: 'IP mismatch' });
-        return;
-      }
-      record.used = true;
-      const sessionId = generateSessionId();
-      const sessionExpiry = Date.now() + 60 * 60 * 1000;
-      sessionStore.set(sessionId, { ip: clientIp, expiresAt: sessionExpiry });
-      res.setHeader(
-        'Set-Cookie',
-        `session_id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600`
-      );
-      json(res, 200, { success: true });
+    submitTokenRateLimiter(req, res, () => {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        let token;
+        try {
+          ({ token } = JSON.parse(body || '{}'));
+        } catch {
+          json(res, 400, { error: 'Invalid request' });
+          return;
+        }
+        const clientIp = getIp(req);
+        const record = tokenStore.get(token);
+        if (!record) {
+          json(res, 401, { error: 'Invalid token' });
+          return;
+        }
+        if (record.used) {
+          json(res, 403, { error: 'Token already used' });
+          return;
+        }
+        if (Date.now() > record.expiresAt) {
+          json(res, 403, { error: 'Token expired' });
+          return;
+        }
+        if (record.ip !== clientIp) {
+          json(res, 403, { error: 'IP mismatch' });
+          return;
+        }
+        record.used = true;
+        const sessionId = generateSessionId();
+        const sessionExpiry = Date.now() + 60 * 60 * 1000;
+        sessionStore.set(sessionId, { ip: clientIp, expiresAt: sessionExpiry });
+        res.setHeader(
+          'Set-Cookie',
+          `session_id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600`
+        );
+        json(res, 200, { success: true });
+      });
     });
   } else {
     next();
@@ -170,7 +195,7 @@ app.use((_req, res) => {
 });
 
 // Cleanup expired tokens and sessions
-setInterval(() => {
+const cleanup = setInterval(() => {
   const now = Date.now();
   for (const [token, data] of tokenStore) {
     if (data.used || data.expiresAt < now) tokenStore.delete(token);
@@ -178,10 +203,13 @@ setInterval(() => {
   for (const [sid, data] of sessionStore) {
     if (data.expiresAt < now) sessionStore.delete(sid);
   }
+  for (const [ip, data] of submitTokenAttempts) {
+    if (data.reset < now) submitTokenAttempts.delete(ip);
+  }
 }, 10 * 60 * 1000);
 
 const server = app.listen(port, () => {
   console.log(`Auth server running on http://localhost:${port}`);
 });
 
-export { app, server };
+export { app, server, cleanup };
