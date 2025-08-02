@@ -284,6 +284,21 @@
   </script>
 
 <style>
+  #surveyContainer {
+    display: block;
+    margin: 0 auto;
+    max-width: 1000px;
+    padding: 20px;
+  }
+
+  #categoryTitle {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text-color, #fff);
+    text-align: left;
+  }
+
   .rating-tooltip {
     display: none;
     position: absolute;
@@ -299,11 +314,18 @@
 
   .kink-row {
     position: relative;
-    margin-bottom: 12px;
     display: flex;
-    align-items: center;
-    gap: 12px;
     justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .kink-row span {
+    flex: 1 1 70%;
+    font-size: 1rem;
+    color: var(--text-color, #fff);
   }
 
   .rating-select:focus + .rating-tooltip,
@@ -312,18 +334,20 @@
   }
 
   select.rating-select {
+    flex: 0 0 120px;
     background-color: var(--bg-color, #000);
     color: var(--text-color, #fff);
-    border: 1px solid var(--accent-color, #888);
+    border: 1px solid var(--accent-color, #ff3399);
     border-radius: 6px;
     padding: 4px 8px;
+    font-size: 1rem;
   }
 
   /* Fix dropdown background on theme switch */
-    select option {
-      background-color: var(--bg-color, #000);
-      color: var(--text-color, #fff);
-    }
+  select option {
+    background-color: var(--bg-color, #000);
+    color: var(--text-color, #fff);
+  }
   </style>
 
   </body>
