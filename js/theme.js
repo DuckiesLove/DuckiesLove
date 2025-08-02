@@ -315,6 +315,10 @@ export function applyPrintStyles(mode = 'dark') {
       .results-table .kink-name {
         color: #ccc;
         font-weight: bold;
+        white-space: normal;
+        word-break: break-word;
+        line-height: 1.4;
+        max-width: 220px;
       }
       .results-table .row {
         border-bottom: 1px solid #333;
