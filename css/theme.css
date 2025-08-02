@@ -2,7 +2,7 @@
   --bg-color: #0f0f0f;
   --panel-color: #000;
   --text-color: #f0f0f0;
-  --accent-text: #00ccff;
+  --accent-text: #7df9ff;
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
@@ -85,13 +85,13 @@
 .theme-dark {
   --bg-color: #000;
   --text-color: #f2f2f2;
-  --accent-color: #ffffff;
-  --accent-text: #ffffff;
-  --theme-accent: #ffffff;
+  --accent-color: #7df9ff;
+  --accent-text: #7df9ff;
+  --theme-accent: #7df9ff;
   --button-bg: #1a1a1a;
   --button-text: #f2f2f2;
   --border-color: #444;
-  --link-color: #66ccff;
+  --link-color: #7df9ff;
   --hover-bg: #333;
   --hover-text: #ffffff;
   --panel-bg: #1a1a1a;
