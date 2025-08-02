@@ -10,6 +10,16 @@ body {
   color: var(--text-color);
 }
 
+body.has-category-panel {
+  padding-left: 300px;
+}
+
+@media (max-width: 768px) {
+  body.has-category-panel {
+    padding-left: 0;
+  }
+}
+
 .hidden {
   display: none !important;
 }
@@ -3124,8 +3134,8 @@ body {
 .themed-button,
 .select-toggle-button {
   background: transparent;
-  border: 2px solid var(--accent-text);
-  color: var(--accent-text);
+  border: 2px solid var(--accent-color);
+  color: var(--accent-color);
   text-decoration: none;
   padding: 0.8rem 1.6rem;
   font-size: 1.2rem;
@@ -3138,7 +3148,7 @@ body {
 
 .themed-button:hover,
 .select-toggle-button:hover {
-  background: var(--accent-text);
+  background: var(--accent-color);
   color: #000;
   text-decoration: none;
 }
@@ -3150,10 +3160,10 @@ body {
   border-radius: 8px;
 }
 .start-survey-btn:hover {
-  box-shadow: 0 0 10px var(--accent-text);
+  box-shadow: 0 0 10px var(--accent-color);
 }
 .start-survey-btn:active {
-  box-shadow: 0 0 6px var(--accent-text);
+  box-shadow: 0 0 6px var(--accent-color);
   transform: scale(0.98);
 }
 
@@ -3436,28 +3446,28 @@ body {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  background-color: var(--bg-color);
+  background-color: #000;
   color: var(--text-color);
   border: none;
   border-radius: 0;
   box-shadow: none;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--accent-text) var(--accent-color);
+  scrollbar-color: var(--accent-color) #000;
   z-index: 1000;
 }
 #categorySurveyPanel::-webkit-scrollbar {
   width: 8px;
 }
 #categorySurveyPanel::-webkit-scrollbar-thumb {
-  background-color: var(--accent-text);
+  background-color: var(--accent-color);
 }
 #categorySurveyPanel::-webkit-scrollbar-track {
-  background-color: var(--accent-color);
+  background-color: #000;
 }
 #categorySurveyPanel h2 {
   font-size: 1rem;
-  color: var(--accent-text);
+  color: var(--accent-color);
   margin: 0;
   padding: 1rem 1rem 0.5rem 1rem;
   line-height: 1.2rem;
@@ -3482,10 +3492,13 @@ body {
   align-items: center;
   padding: 0.4rem 0.6rem;
   margin: 0.25rem 0;
-  border: 2px solid var(--accent-text);
+  border: 2px solid var(--accent-color);
   border-radius: 6px;
   font-size: 0.9rem;
   font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   line-height: 1.1rem;
   color: var(--text-color);
   background-color: transparent;
@@ -3509,9 +3522,9 @@ body {
   background-color: var(--hover-bg);
 }
 #categorySurveyPanel .category-list input[type="checkbox"]:checked + span {
-  background-color: var(--accent-text);
+  background-color: var(--accent-color);
   color: var(--bg-color);
-  box-shadow: 0 0 4px var(--accent-text);
+  box-shadow: 0 0 4px var(--accent-color);
 }
 .panel-toggle {
   display: none;
