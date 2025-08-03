@@ -7,9 +7,9 @@ body {
 }
 
 .icon-star { color: #ffd700; }
-.icon-red-flag { color: #e60000; }
-.icon-yellow-flag { color: #f1c40f; }
-.icon-green-flag { color: #00c853; }
+.icon-red-flag { color: #ff4444; }
+.icon-yellow-flag { color: #ffcc00; }
+.icon-green-flag { color: #00cc66; }
 
 #button-section {
   display: flex;
@@ -49,6 +49,23 @@ th, td {
   white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+.bar-container {
+  width: 100%;
+  background-color: #222;
+  border-radius: 4px;
+  overflow: hidden;
+  height: 12px;
+}
+
+.bar {
+  height: 12px;
+}
+
+.percent-label {
+  font-size: 0.85rem;
+  color: #aaa;
 }
 
 @page {
