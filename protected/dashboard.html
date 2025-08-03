@@ -7,5 +7,13 @@
 <body>
   <h1>Protected Dashboard</h1>
   <p>You have access to this protected content.</p>
+  <script>
+    fetch("/check-session", { credentials: "include" })
+      .then(res => {
+        if (res.status === 401) {
+          window.location.href = "/token.html";
+        }
+      });
+  </script>
 </body>
 </html>
