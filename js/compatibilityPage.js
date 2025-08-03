@@ -1,6 +1,7 @@
 // Dark mode PDF export styling script using html2canvas and jsPDF
 import { initTheme, applyPrintStyles } from './theme.js';
 import { loadJsPDF } from './loadJsPDF.js';
+import { getMatchFlag, calculateCategoryMatch } from './matchFlag.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -107,6 +108,28 @@ function groupKinksByCategory(data) {
     grouped[category].push(item);
   });
   return grouped;
+}
+
+function renderCategoryTitleRow(categoryName, categoryData) {
+  const matchPercent = calculateCategoryMatch(categoryData);
+  const flag = getMatchFlag(matchPercent);
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td colspan="3" class="category-title">
+      <span class="category-label">${categoryName}</span>
+      <span class="category-flag">${flag}</span>
+    </td>`;
+  return row;
+}
+
+function renderCategoryHeaderPDF(doc, categoryName, categoryData) {
+  const matchPercent = calculateCategoryMatch(categoryData);
+  const flag = getMatchFlag(matchPercent);
+  doc.font('Helvetica-Bold')
+    .fontSize(14)
+    .text(`${categoryName} ${flag}`, { align: 'left' })
+    .moveDown(0.2);
+  doc.fontSize(12).text('Partner A', { continued: true }).text('Partner B');
 }
 function loadSavedSurvey() {
   const saved = localStorage.getItem('savedSurvey');
@@ -401,12 +424,7 @@ function updateComparison() {
   };
 
   for (const [category, kinks] of Object.entries(groupedData)) {
-    const catRow = document.createElement('tr');
-    catRow.innerHTML = `
-      <td colspan="3" class="category-header"><strong>${category}</strong></td>
-    `;
-    tbody.appendChild(catRow);
-
+    tbody.appendChild(renderCategoryTitleRow(category, kinks));
     kinks.forEach(kink => {
       const row = document.createElement('tr');
       const nameTd = document.createElement('td');
