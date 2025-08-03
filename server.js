@@ -23,6 +23,10 @@ const tokenStore = new Map();
 const sessionStore = new Map();
 const submitTokenAttempts = new Map();
 
+// Clear any existing sessions on boot
+sessionStore.clear();
+console.log('Session store cleared on boot to enforce fresh logins');
+
 // Session timing
 const SESSION_IDLE_TIMEOUT =
   parseInt(process.env.SESSION_IDLE_TIMEOUT, 10) || 10 * 60 * 1000;
@@ -315,7 +319,14 @@ function validateSession(req, res, next) {
 }
 
 app.use((req, res, next) => {
-  const exemptPaths = ['/submit-token', '/token.html', '/admin', '/debug'];
+  const exemptPaths = [
+    '/submit-token',
+    '/token.html',
+    '/admin',
+    '/debug',
+    '/check-session',
+    '/favicon.ico',
+  ];
   if (exemptPaths.some(path => req.url.startsWith(path))) {
     return next();
   }
