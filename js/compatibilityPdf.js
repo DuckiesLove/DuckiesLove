@@ -9,15 +9,15 @@ export async function generateCompatibilityPDF(data) {
     format: 'a4'
   });
 
-  const margin = 10;
-  const pageWidth = 210 - margin * 2;
-  const kinkWidth = pageWidth * 0.55;
-  const partnerWidth = pageWidth * 0.2;
+  const pageMargin = 10;
+  const pageWidth = 210 - pageMargin * 2;
+  const kinkColWidth = 110;
+  const partnerColWidth = (pageWidth - kinkColWidth) / 2;
   let y = 20;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text('Kink Compatibility Report', 105, 15, { align: 'center' });
+  doc.text('Kink Compatibility Report', 105, 15, null, null, 'center');
 
   data.categories.forEach(category => {
     const flag = getMatchFlag(category.matchPercent);
@@ -26,9 +26,9 @@ export async function generateCompatibilityPDF(data) {
     // Header
     doc.setFillColor(30, 30, 30);
     doc.setTextColor(255, 255, 255);
-    doc.rect(margin, y, pageWidth, 10, 'F');
+    doc.rect(pageMargin, y, pageWidth, 10, 'F');
     doc.setFontSize(13);
-    doc.text(headerText, margin + 2, y + 7);
+    doc.text(headerText, pageMargin + 2, y + 7);
     y += 12;
 
     doc.setFontSize(10);
@@ -36,12 +36,12 @@ export async function generateCompatibilityPDF(data) {
     doc.setFont('helvetica', 'normal');
 
     category.items.forEach(kink => {
-      const kinkLines = doc.splitTextToSize(kink.kink, kinkWidth);
+      const kinkLines = doc.splitTextToSize(kink.kink, kinkColWidth);
       const rowHeight = kinkLines.length * 5;
 
-      doc.text(kinkLines, margin, y);
-      doc.text(`${kink.partnerA}`, margin + kinkWidth + 5, y);
-      doc.text(`${kink.partnerB}`, margin + kinkWidth + partnerWidth + 10, y);
+      doc.text(kinkLines, pageMargin, y);
+      doc.text(`${kink.partnerA}`, pageMargin + kinkColWidth + 5, y);
+      doc.text(`${kink.partnerB}`, pageMargin + kinkColWidth + partnerColWidth + 10, y);
       y += rowHeight;
 
       if (y > 270) {
