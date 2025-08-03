@@ -10,14 +10,17 @@ export async function generateCompatibilityPDF(data) {
   });
 
   const pageMargin = 10;
-  const pageWidth = 210 - pageMargin * 2;
-  const kinkColWidth = 110;
+  const pageWidth = doc.internal.pageSize.getWidth() - pageMargin * 2;
+  const pageHeight = doc.internal.pageSize.getHeight() - pageMargin * 2;
+  const kinkColWidth = pageWidth * 0.55;
   const partnerColWidth = (pageWidth - kinkColWidth) / 2;
   let y = 20;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text('Kink Compatibility Report', 105, 15, null, null, 'center');
+  doc.text('Kink Compatibility Report', doc.internal.pageSize.getWidth() / 2, 15, {
+    align: 'center'
+  });
 
   data.categories.forEach(category => {
     const flag = getMatchFlag(category.matchPercent);
@@ -37,14 +40,19 @@ export async function generateCompatibilityPDF(data) {
 
     category.items.forEach(kink => {
       const kinkLines = doc.splitTextToSize(kink.kink, kinkColWidth);
-      const rowHeight = kinkLines.length * 5;
+      const rowHeight = Math.max(kinkLines.length * 5, 5);
 
       doc.text(kinkLines, pageMargin, y);
-      doc.text(`${kink.partnerA}`, pageMargin + kinkColWidth + 5, y);
-      doc.text(`${kink.partnerB}`, pageMargin + kinkColWidth + partnerColWidth + 10, y);
-      y += rowHeight;
+      const midY = y + rowHeight / 2;
+      doc.text(`${kink.partnerA}`, pageMargin + kinkColWidth + 5, midY, {
+        baseline: 'middle'
+      });
+      doc.text(`${kink.partnerB}`, pageMargin + kinkColWidth + partnerColWidth + 10, midY, {
+        baseline: 'middle'
+      });
+      y += rowHeight + 2;
 
-      if (y > 270) {
+      if (y > pageHeight) {
         doc.addPage();
         y = 20;
       }
@@ -53,5 +61,6 @@ export async function generateCompatibilityPDF(data) {
     y += 6;
   });
 
-  doc.save('compatibility_report.pdf');
+  doc.autoPrint();
+  window.open(doc.output('bloburl'), '_blank');
 }
