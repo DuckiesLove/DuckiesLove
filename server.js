@@ -16,6 +16,7 @@ const port = Number.isNaN(parseInt(process.env.PORT, 10))
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN;
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const TOKEN_PAGE = path.join(__dirname, 'token.html');
 
 // In-memory stores
 const tokenStore = new Map();
@@ -230,12 +231,35 @@ app.use((req, res, next) => {
   }
 });
 
+app.use((req, res, next) => {
+  if (req.method === 'GET' && req.url === '/check-session') {
+    const sessionId = req.cookies.session_id;
+    const session = sessionStore.get(sessionId);
+    const now = Date.now();
+    const ip = getIp(req);
+    if (
+      !session ||
+      session.currentIp !== ip ||
+      now > session.expiresAt ||
+      now > session.maxExpiresAt
+    ) {
+      res.statusCode = 401;
+      res.end();
+      return;
+    }
+    res.statusCode = 200;
+    res.end();
+  } else {
+    next();
+  }
+});
+
 // Validate session middleware
 function validateSession(req, res, next) {
   const sessionId = req.cookies.session_id;
   const session = sessionStore.get(sessionId);
   if (!session) {
-    json(res, 401, { error: 'No session' });
+    sendFile(res, TOKEN_PAGE, 401);
     return;
   }
   const now = Date.now();
@@ -244,7 +268,7 @@ function validateSession(req, res, next) {
     console.log(
       `[${new Date().toISOString()}] Session ${sessionId} expired (max) for IP ${session.currentIp}`
     );
-    json(res, 403, { error: 'Session expired' });
+    sendFile(res, TOKEN_PAGE, 403);
     return;
   }
   if (now > session.expiresAt) {
@@ -252,7 +276,7 @@ function validateSession(req, res, next) {
     console.log(
       `[${new Date().toISOString()}] Session ${sessionId} expired (idle) for IP ${session.currentIp}`
     );
-    json(res, 403, { error: 'Session expired' });
+    sendFile(res, TOKEN_PAGE, 403);
     return;
   }
   const clientIp = getIp(req);
@@ -261,7 +285,7 @@ function validateSession(req, res, next) {
       session.currentIp = clientIp;
       session.ipChangeAllowed = false;
     } else {
-      json(res, 403, { error: 'IP mismatch' });
+      sendFile(res, TOKEN_PAGE, 403);
       return;
     }
   }
@@ -275,25 +299,29 @@ function validateSession(req, res, next) {
   next();
 }
 
+app.use((req, res, next) => {
+  const exemptPaths = ['/submit-token', '/token.html', '/admin', '/debug'];
+  if (exemptPaths.some(path => req.url.startsWith(path))) {
+    return next();
+  }
+  return validateSession(req, res, next);
+});
+
 // Protected routes
 app.use((req, res, next) => {
   if (req.method === 'GET' && req.url === '/protected') {
-    validateSession(req, res, () => {
-      json(res, 200, { message: 'You have access 🎉' });
-    });
+    json(res, 200, { message: 'You have access 🎉' });
   } else if (req.method === 'GET' && req.url === '/dashboard') {
-    validateSession(req, res, () => {
-      sendFile(res, path.join(__dirname, 'protected', 'dashboard.html'));
-    });
+    sendFile(res, path.join(__dirname, 'protected', 'dashboard.html'));
   } else {
     next();
   }
 });
 
-function sendFile(res, filePath) {
+function sendFile(res, filePath, status = 200) {
   readFile(filePath)
     .then(data => {
-      res.statusCode = 200;
+      res.statusCode = status;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.end(data);
     })

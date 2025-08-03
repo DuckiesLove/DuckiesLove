@@ -79,5 +79,13 @@
     initTheme();
     window.applyThemeColors = applyThemeColors;
   </script>
+  <script>
+    fetch("/check-session", { credentials: "include" })
+      .then(res => {
+        if (res.status === 401) {
+          window.location.href = "/token.html";
+        }
+      });
+  </script>
 </body>
 </html>

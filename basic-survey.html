@@ -284,5 +284,13 @@
       alert("Your average interest score is: " + average.toFixed(2));
     }
   </script>
+  <script>
+    fetch("/check-session", { credentials: "include" })
+      .then(res => {
+        if (res.status === 401) {
+          window.location.href = "/token.html";
+        }
+      });
+  </script>
 </body>
 </html>

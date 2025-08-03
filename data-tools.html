@@ -143,5 +143,13 @@
     document.getElementById('closeRoleDefinitionsBtn').addEventListener('click', hidePanel);
     overlay.addEventListener('click', hidePanel);
   </script>
+  <script>
+    fetch("/check-session", { credentials: "include" })
+      .then(res => {
+        if (res.status === 401) {
+          window.location.href = "/token.html";
+        }
+      });
+  </script>
 </body>
 </html>

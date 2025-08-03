@@ -17,5 +17,13 @@
     <li>Document updates in the README and verify pages locally using a simple web server.</li>
     <li>Open a pull request so changes can be reviewed and deployed to GitHub Pages.</li>
   </ol>
+  <script>
+    fetch("/check-session", { credentials: "include" })
+      .then(res => {
+        if (res.status === 401) {
+          window.location.href = "/token.html";
+        }
+      });
+  </script>
 </body>
 </html>
