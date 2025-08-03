@@ -80,7 +80,7 @@ body {
   --button-bg: #444;
   --button-text: #ffffff;
   --button-hover-bg: #666;
-  --progress-fill-color: #00cc66;
+  --progress-fill-color: #00e676;
 }
 .category-panel {
   position: fixed;
@@ -1527,7 +1527,7 @@ body.light-mode .static-rating-legend {
 .progress-fill {
   height: 100%;
   width: 0;
-  background-color: #00cc66;
+  background-color: #00e676;
   transition: width 0.4s ease;
   border-radius: 4px 0 0 4px;
 }
@@ -2214,8 +2214,8 @@ body {
 
 .icon-star { color: #ffd700; }
 .icon-red-flag { color: #e60000; }
-.icon-yellow-flag { color: #ffcc00; }
-.icon-green-flag { color: #00cc66; }
+.icon-yellow-flag { color: #f1c40f; }
+.icon-green-flag { color: #00c853; }
 
 
 .page-break { display: none; }
@@ -2329,7 +2329,7 @@ li {
 }
 
 .progress-bar-fill {
-  background-color: #00cc66 !important;
+  background-color: #00e676 !important;
 }
 
 table,
@@ -2385,7 +2385,7 @@ body {
 }
 
 .score-bar {
-  background-color: #00cc66;
+  background-color: #00c853;
   color: #000;
   border-radius: 4px;
   padding: 2px 6px;
@@ -2438,9 +2438,9 @@ body {
 .results-table .bar {
   height: 12px;
 }
-.results-table .green { background-color: #00cc66; }
-.results-table .yellow { background-color: #ffcc00; }
-.results-table .red { background-color: #ff4444; }
+.results-table .green { background-color: #00e676; }
+.results-table .yellow { background-color: #ffee58; }
+.results-table .red { background-color: #f44336; }
 .results-table .percent-label {
   font-size: 0.85rem;
   color: #aaa;
@@ -2643,31 +2643,24 @@ body {
   zoom: 0.8;
 }
 
-
 .exporting #compatibility-wrapper {
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow-x: hidden !important;
-    box-sizing: border-box;
-  }
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 10px !important;
+  margin: 0 auto !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box;
+}
 
 .exporting .results-table {
-    width: 100% !important;
-    max-width: 100% !important;
-    table-layout: fixed !important;
-    border-collapse: collapse;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    font-size: 13px;
-    margin: 0 !important;
-  }
-  .exporting .results-table th,
-  .exporting .results-table td {
-    width: 33.33%;
-    padding: 4px 6px;
-  }
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-size: 13px;
+}
 
 .exporting .kink-label {
   white-space: normal;
