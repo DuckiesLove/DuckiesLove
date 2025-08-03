@@ -7,17 +7,24 @@ export function getMatchFlag(percent) {
 }
 
 // Calculate the percentage of items where both partners match on a rating
+// Ignoring entries that are missing or marked with '-' for either partner
 export function calculateCategoryMatch(categoryData) {
-  const total = categoryData.length;
+  let total = 0;
   let matched = 0;
   for (const item of categoryData) {
+    const a = item.partnerA;
+    const b = item.partnerB;
     if (
-      item.partnerA !== null &&
-      item.partnerA !== undefined &&
-      item.partnerA === item.partnerB
+      a !== null &&
+      a !== undefined &&
+      a !== '-' &&
+      b !== null &&
+      b !== undefined &&
+      b !== '-'
     ) {
-      matched++;
+      total++;
+      if (a === b) matched++;
     }
   }
-  return total === 0 ? 0 : Math.round((matched / total) * 100);
+  return total > 0 ? Math.round((matched / total) * 100) : 0;
 }

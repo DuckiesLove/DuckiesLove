@@ -29,16 +29,22 @@
   height: auto;
 }
 
-.results-table .category-title {
-  font-weight: bold;
-  font-size: 1.1rem;
+.results-table .category-cell {
+  padding: 0.6rem 1rem;
+  background-color: #111;
+}
+
+.results-table .category-banner {
+  width: 100%;
   display: flex;
-  justify-content: space-between;
-  padding: 0.4rem 0;
+  align-items: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: red;
+  gap: 0.5rem;
 }
 
 .results-table .category-flag {
-  margin-left: auto;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
 }
 
