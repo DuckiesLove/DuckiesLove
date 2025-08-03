@@ -14,13 +14,16 @@ export function getProgressBarColor(percent) {
 }
 
 // Calculate the percentage of items where both partners match on a rating
-// Ignoring entries that are missing or marked with '-' for either partner
-export function calculateCategoryMatch(categoryData) {
+// Accepts two parallel arrays representing ratings for Partner A and Partner B
+// Ignores entries that are missing or marked with '-' for either partner
+export function calculateCategoryMatch(partnerA, partnerB) {
+  if (!Array.isArray(partnerA) || !Array.isArray(partnerB)) return 0;
+  const len = Math.min(partnerA.length, partnerB.length);
   let total = 0;
   let matched = 0;
-  for (const item of categoryData) {
-    const a = item.partnerA;
-    const b = item.partnerB;
+  for (let i = 0; i < len; i++) {
+    const a = partnerA[i];
+    const b = partnerB[i];
     if (
       a !== null &&
       a !== undefined &&

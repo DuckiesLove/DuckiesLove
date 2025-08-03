@@ -104,7 +104,9 @@ function groupKinksByCategory(data) {
 }
 
 function renderCategoryRow(categoryName, categoryData) {
-  const percent = calculateCategoryMatch(categoryData);
+  const partnerA = categoryData.map(k => k.partnerA);
+  const partnerB = categoryData.map(k => k.partnerB);
+  const percent = calculateCategoryMatch(partnerA, partnerB);
   const flag = getMatchFlag(percent);
   const tr = document.createElement('tr');
   tr.classList.add('category-header');
@@ -119,7 +121,9 @@ function renderCategoryRow(categoryName, categoryData) {
 }
 
 function renderCategoryHeaderPDF(doc, categoryName, categoryData) {
-  const percent = calculateCategoryMatch(categoryData);
+  const partnerA = categoryData.map(k => k.partnerA);
+  const partnerB = categoryData.map(k => k.partnerB);
+  const percent = calculateCategoryMatch(partnerA, partnerB);
   const flag = getMatchFlag(percent);
   doc.moveDown(0.4);
   doc
@@ -287,7 +291,7 @@ async function generateComparisonPDF() {
   window.scrollTo(0, 0);
 
   // ensure the export container has no margin or padding and a black background
-  container.style.margin = '0 auto';
+  container.style.margin = '0';
   container.style.padding = '0';
   container.style.background = '#000';
   container.style.paddingBottom = '0';

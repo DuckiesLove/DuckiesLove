@@ -141,16 +141,10 @@ function maxRating(obj) {
   return vals.length ? Math.max(...vals) : null;
 }
 
-function colorClass(percent) {
-  if (percent >= 80) return 'green';
-  if (percent >= 60) return 'yellow';
-  return 'red';
-}
-
 function barFillColor(percent) {
-  if (percent >= 80) return '#00c853';
-  if (percent >= 60) return '#fbc02d';
-  return '#d32f2f';
+  if (percent >= 80) return '#00cc66';
+  if (percent >= 60) return '#ffcc00';
+  return '#ff4444';
 }
 
 function avgPercent(a, b) {
@@ -310,9 +304,9 @@ function updateComparison() {
   const makeTd = percent => {
     const td = document.createElement('td');
     const pct = percent === null ? 0 : percent;
-    const cls = colorClass(percent ?? 0);
+    const color = barFillColor(percent ?? 0);
     td.innerHTML =
-      `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
+      `<div class="bar-container"><div class="bar" style="width: ${pct}%; background-color: ${color}"></div></div>` +
       `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
     return td;
   };
