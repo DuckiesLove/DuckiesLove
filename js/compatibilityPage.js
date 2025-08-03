@@ -1,7 +1,7 @@
-// Dark mode PDF export styling script using html2canvas and jsPDF
-import { initTheme, applyPrintStyles } from './theme.js';
-import { loadJsPDF } from './loadJsPDF.js';
+// Compatibility results page logic and PDF export helpers
+import { initTheme } from './theme.js';
 import { getMatchFlag, calculateCategoryMatch, getProgressBarColor } from './matchFlag.js';
+import { generateCompatibilityPDF } from './compatibilityPdf.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -274,72 +274,6 @@ function buildKinkBreakdown(surveyA, surveyB) {
   return breakdown;
 }
 
-
-async function generateComparisonPDF() {
-  document.body.classList.add('exporting');
-  let mode = 'dark';
-  if (document.body.classList.contains('theme-lipstick')) mode = 'lipstick';
-  else if (document.body.classList.contains('theme-forest')) mode = 'forest';
-  applyPrintStyles(mode);
-  const container = document.getElementById('pdf-container');
-  const element = document.getElementById('compatibility-wrapper');
-  if (!container || !element) return;
-  window.scrollTo(0, 0);
-
-  // ensure the export container has no margin or padding and a black background
-  container.style.margin = '0 auto';
-  container.style.padding = '0';
-  container.style.background = '#000';
-  container.style.paddingBottom = '0';
-
-  const jsPDF = await loadJsPDF();
-  const width = element.scrollWidth;
-  const height = element.scrollHeight;
-  const pdf = new jsPDF({
-    unit: 'px',
-    format: [width, height],
-    orientation: 'landscape'
-  });
-
-  // fill the first page background with pure black
-  pdf.setFillColor(0, 0, 0);
-  pdf.rect(0, 0, width, height, 'F');
-
-  const opt = {
-    margin: 0,
-    filename: 'kink-compatibility-results.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#000000',
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: width,
-      windowHeight: height,
-      logging: false,
-      allowTaint: true,
-      crossOrigin: 'anonymous'
-    },
-    pagebreak: { mode: ['avoid-all'] },
-    jsPDF: pdf
-  };
-
-  const worker = html2pdf().set(opt).from(element).toPdf();
-  await worker.get('pdf');
-
-  const totalPages = pdf.internal.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    pdf.setPage(i);
-    // ensure each page background is pure black
-    pdf.setFillColor(0, 0, 0);
-    pdf.rect(0, 0, width, height, 'F');
-  }
-
-  await worker.save();
-  document.body.classList.remove('exporting');
-}
-
 function loadFileA(file) {
   if (!file) return;
   const reader = new FileReader();
@@ -554,7 +488,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const spinner = document.getElementById('loading-spinner');
       if (spinner) spinner.style.display = 'flex';
       try {
-        await generateComparisonPDF();
+        if (!surveyA || !surveyB) {
+          alert('Please upload both surveys first.');
+          return;
+        }
+        const breakdown = buildKinkBreakdown(surveyA, surveyB);
+        const categories = Object.entries(breakdown).map(([name, items]) => {
+          const formatted = items.map(it => ({
+            kink: it.name,
+            partnerA: maxRating(it.you),
+            partnerB: maxRating(it.partner)
+          }));
+          return {
+            name,
+            matchPercent: calculateCategoryMatch(formatted),
+            items: formatted
+          };
+        });
+        await generateCompatibilityPDF({ categories });
       } finally {
         if (spinner) spinner.style.display = 'none';
       }
