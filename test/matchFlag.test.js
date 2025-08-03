@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import test from 'node:test';
-import { getMatchFlag, calculateCategoryMatch } from '../js/matchFlag.js';
+import { getMatchFlag, calculateCategoryMatch, getProgressBarColor } from '../js/matchFlag.js';
 
 test('returns star for 100 percent', () => {
   assert.strictEqual(getMatchFlag(100), '⭐');
@@ -42,4 +42,10 @@ test('calculateCategoryMatch ignores missing values', () => {
     { partnerA: 4, partnerB: 0 }
   ];
   assert.strictEqual(calculateCategoryMatch(data), 50);
+});
+
+test('getProgressBarColor returns expected hex codes', () => {
+  assert.strictEqual(getProgressBarColor(85), '#00cc66');
+  assert.strictEqual(getProgressBarColor(70), '#ffcc00');
+  assert.strictEqual(getProgressBarColor(50), '#ff4444');
 });
