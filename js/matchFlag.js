@@ -6,6 +6,13 @@ export function getMatchFlag(percent) {
   return '';                        // No flag
 }
 
+// Determine progress bar color based on percentage
+export function getProgressBarColor(percent) {
+  if (percent >= 80) return '#00cc66';   // Green for 80% and above
+  if (percent >= 60) return '#ffcc00';   // Yellow for 60-79%
+  return '#ff4444';                     // Red for below 60%
+}
+
 // Calculate the percentage of items where both partners match on a rating
 // Ignoring entries that are missing or marked with '-' for either partner
 export function calculateCategoryMatch(categoryData) {

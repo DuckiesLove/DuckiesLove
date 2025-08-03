@@ -1,7 +1,7 @@
 // Dark mode PDF export styling script using html2canvas and jsPDF
 import { initTheme, applyPrintStyles } from './theme.js';
 import { loadJsPDF } from './loadJsPDF.js';
-import { getMatchFlag, calculateCategoryMatch } from './matchFlag.js';
+import { getMatchFlag, calculateCategoryMatch, getProgressBarColor } from './matchFlag.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -56,20 +56,13 @@ function colorClass(percent) {
   return 'red';
 }
 
-function barFillColor(percent) {
-  if (percent >= 80) return '#00c853';
-  if (percent >= 60) return '#fbc02d';
-  return '#d32f2f';
-}
-
-
 function makeBar(percent) {
   const outer = document.createElement('div');
   outer.className = 'partner-bar';
   const fill = document.createElement('div');
   fill.className = 'partner-fill ' + colorClass(percent ?? 0);
   fill.style.width = percent === null ? '0%' : percent + '%';
-  fill.style.backgroundColor = barFillColor(percent ?? 0);
+  fill.style.backgroundColor = getProgressBarColor(percent ?? 0);
   outer.appendChild(fill);
   const text = document.createElement('span');
   text.className = 'partner-text ' + colorClass(percent ?? 0);
@@ -422,9 +415,9 @@ function updateComparison() {
   const renderCell = rating => {
     const percent = toPercent(rating);
     const pct = percent === null ? 0 : percent;
-    const cls = colorClass(percent ?? 0);
+    const color = getProgressBarColor(percent ?? 0);
     const td = document.createElement('td');
-    td.innerHTML = `<div class="bar-container"><div class="bar ${cls}" style="width: ${pct}%"></div></div>` +
+    td.innerHTML = `<div class="bar-container"><div class="bar" style="width: ${pct}%; background-color: ${color}"></div></div>` +
       `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
     return td;
   };
