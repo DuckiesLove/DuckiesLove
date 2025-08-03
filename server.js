@@ -199,6 +199,21 @@ app.use((req, res, next) => {
   }
 });
 
+// Admin route to flush all sessions
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.url === '/admin/flush-sessions') {
+    if (req.headers['x-debug-secret'] !== process.env.DEBUG_SECRET) {
+      json(res, 403, { error: 'Forbidden' });
+      return;
+    }
+    sessionStore.clear();
+    console.log(`[${new Date().toISOString()}] All sessions flushed`);
+    json(res, 200, { success: true });
+  } else {
+    next();
+  }
+});
+
 // Debug routes
 app.use((req, res, next) => {
   if (
