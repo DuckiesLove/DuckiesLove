@@ -29,3 +29,16 @@
   height: auto;
 }
 
+.results-table .category-title {
+  font-weight: bold;
+  font-size: 1.1rem;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+}
+
+.results-table .category-flag {
+  margin-left: auto;
+  font-size: 1.4rem;
+}
+
