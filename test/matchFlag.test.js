@@ -22,19 +22,26 @@ test('returns empty string for other values', () => {
 });
 
 test('calculateCategoryMatch returns 0 for empty data', () => {
-  assert.strictEqual(calculateCategoryMatch([], []), 0);
+  assert.strictEqual(calculateCategoryMatch([]), 0);
 });
 
 test('calculateCategoryMatch computes percentage of matching ratings', () => {
-  const a = [5, 3, 2];
-  const b = [5, 3, 1];
-  assert.strictEqual(calculateCategoryMatch(a, b), 67);
+  const data = [
+    { partnerA: 5, partnerB: 5 },
+    { partnerA: 3, partnerB: 3 },
+    { partnerA: 2, partnerB: 1 }
+  ];
+  assert.strictEqual(calculateCategoryMatch(data), 67);
 });
 
 test('calculateCategoryMatch ignores missing values', () => {
-  const a = [null, '-', 2, 4];
-  const b = [null, '-', 2, 0];
-  assert.strictEqual(calculateCategoryMatch(a, b), 50);
+  const data = [
+    { partnerA: null, partnerB: null },
+    { partnerA: '-', partnerB: '-' },
+    { partnerA: 2, partnerB: 2 },
+    { partnerA: 4, partnerB: 0 }
+  ];
+  assert.strictEqual(calculateCategoryMatch(data), 50);
 });
 
 test('getProgressBarColor returns expected hex codes', () => {
