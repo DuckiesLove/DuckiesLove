@@ -7,7 +7,8 @@
     "start": "node server.js",
     "test": "node --test",
     "test:coverage": "node --test --experimental-test-coverage",
-    "generate-token": "node scripts/generateToken.js"
+    "generate-token": "node scripts/generateToken.js",
+    "generate:tokens": "node generateTokens.js"
   },
   "keywords": [],
   "author": "",
