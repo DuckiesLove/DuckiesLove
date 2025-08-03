@@ -34,11 +34,12 @@ test('calculateCategoryMatch computes percentage of matching ratings', () => {
   assert.strictEqual(calculateCategoryMatch(data), 67);
 });
 
-test('calculateCategoryMatch ignores null values', () => {
+test('calculateCategoryMatch ignores missing values', () => {
   const data = [
     { partnerA: null, partnerB: null },
+    { partnerA: '-', partnerB: '-' },
     { partnerA: 2, partnerB: 2 },
     { partnerA: 4, partnerB: 0 }
   ];
-  assert.strictEqual(calculateCategoryMatch(data), 33);
+  assert.strictEqual(calculateCategoryMatch(data), 50);
 });

@@ -110,26 +110,32 @@ function groupKinksByCategory(data) {
   return grouped;
 }
 
-function renderCategoryTitleRow(categoryName, categoryData) {
-  const matchPercent = calculateCategoryMatch(categoryData);
-  const flag = getMatchFlag(matchPercent);
-  const row = document.createElement('tr');
-  row.innerHTML = `
-    <td colspan="3" class="category-title">
-      <span class="category-label">${categoryName}</span>
-      <span class="category-flag">${flag}</span>
+function renderCategoryRow(categoryName, categoryData) {
+  const percent = calculateCategoryMatch(categoryData);
+  const flag = getMatchFlag(percent);
+  const tr = document.createElement('tr');
+  tr.classList.add('category-header');
+  tr.innerHTML = `
+    <td colspan="3" class="category-cell">
+      <div class="category-banner">
+        <span class="category-flag">${flag}</span>
+        <span class="category-name">${categoryName}</span>
+      </div>
     </td>`;
-  return row;
+  return tr;
 }
 
 function renderCategoryHeaderPDF(doc, categoryName, categoryData) {
-  const matchPercent = calculateCategoryMatch(categoryData);
-  const flag = getMatchFlag(matchPercent);
-  doc.font('Helvetica-Bold')
+  const percent = calculateCategoryMatch(categoryData);
+  const flag = getMatchFlag(percent);
+  doc.moveDown(0.4);
+  doc
     .fontSize(14)
-    .text(`${categoryName} ${flag}`, { align: 'left' })
+    .font('Helvetica-Bold')
+    .fillColor('red')
+    .text(`${flag} ${categoryName}`, { align: 'left' })
     .moveDown(0.2);
-  doc.fontSize(12).text('Partner A', { continued: true }).text('Partner B');
+  doc.fillColor('white');
 }
 function loadSavedSurvey() {
   const saved = localStorage.getItem('savedSurvey');
@@ -424,7 +430,7 @@ function updateComparison() {
   };
 
   for (const [category, kinks] of Object.entries(groupedData)) {
-    tbody.appendChild(renderCategoryTitleRow(category, kinks));
+    tbody.appendChild(renderCategoryRow(category, kinks));
     kinks.forEach(kink => {
       const row = document.createElement('tr');
       const nameTd = document.createElement('td');
