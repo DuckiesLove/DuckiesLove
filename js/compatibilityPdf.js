@@ -113,18 +113,17 @@ export async function generateCompatibilityPDF(data) {
         y = 20;
       }
 
-      const kinkLabel = formatLabel(kink.kink);
-      doc.text(kinkLabel, margin, y);
-
+      const label = formatLabel(kink.kink);
       const percentA = kink.partnerA ?? 0;
       const percentB = kink.partnerB ?? 0;
+      const flag = getMatchFlag(percentA, percentB);
+
+      doc.setTextColor(255, 255, 255);
+      doc.text(label, margin, y);
 
       drawBar(105, y - 3, percentA, getBarColor(percentA));
       doc.text(`${percentA}%`, 138, y);
-
-      const matchFlag = getMatchFlag(percentA, percentB);
-      doc.text(matchFlag, 145, y, { align: 'center' });
-
+      doc.text(flag, 145, y);
       drawBar(150, y - 3, percentB, getBarColor(percentB));
       doc.text(`${percentB}%`, 183, y);
 
