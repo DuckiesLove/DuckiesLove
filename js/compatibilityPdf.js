@@ -6,37 +6,33 @@ export function generateCompatibilityPDF() {
     margin: 10,
     rowHeight: 10,
     colA: 60,
-    colB: 250,
-    barWidth: 50,
-    centerBarX: 140,
-    partnerBoxWidth: 14,
-    partnerBoxHeight: 8,
-    flagOffset: 5,
-    maxY: 190,
-    fontSize: 10,
-    labelWidth: 70
+    colB: 240,
+    centerX: 150,
+    barWidth: 40,
+    boxWidth: 12,
+    boxHeight: 8,
+    maxY: 190
   };
 
   const shortenLabel = (label) => {
     const map = {
-      "Choosing my partner's outfit for the day": "Choosing outfit",
-      "Selecting their underwear, lingerie": "Picking underwear",
-      "Styling their hair (braiding, brushing)": "Styling hair",
-      "Picking head coverings (bonnets, veils, etc)": "Head coverings",
+      "Choosing my partner's outfit for the day or a scene": "Choosing outfit",
+      "Selecting their underwear, lingerie or base layers": "Picking underwear",
+      "Styling their hair (braiding, brushing, tying, etc.)": "Styling hair",
+      "Picking head coverings (veils, hoods, hats)": "Headwear",
       "Offering makeup, polish, or accessories": "Makeup/accessories",
-      "Creating themed looks (slutty, innocent)": "Themed looks",
+      "Creating themed looks (slutty, innocent, etc)": "Themed looks",
       "Dressing them in role-specific costumes": "Roleplay outfits",
       "Curating time-period or historical outfits": "Historical outfits",
       "Helping them present more femme/masc": "Femme/masc styling",
-      "Coordinating their look with mine for outings": "Coordinated outfits",
-      "Implementing a 'dress ritual' or aesthetic": "Dress ritual",
-      "Enforcing a visual protocol (e.g., no pants)": "Visual protocol",
+      "Coordinating their look with mine": "Matching outfits",
+      "Implementing a 'dress ritual' or aesthetic preparation": "Dress ritual",
+      "Enforcing a visual protocol (e.g. no bra, pigtails)": "Visual protocol",
       "Having my outfit selected for me by partner": "Partner-picked outfit",
-      "Wearing the underwear or lingerie they pick": "Chosen lingerie",
-      "Having my hair brushed, braided, or styled": "Hair styled for partner",
-      "Partner-selected headwear (bonnet, etc)": "Partner-selected headwear"
+      "Wearing chosen lingerie/underwear": "Chosen lingerie",
+      "Having my hair brushed, braided, styled": "Hair styled by partner"
     };
-    return map[label] || label.slice(0, config.labelWidth);
+    return map[label] || label.slice(0, 40);
   };
 
   const drawBackground = () => {
@@ -48,17 +44,16 @@ export function generateCompatibilityPDF() {
   const drawScoreBox = (x, y, score) => {
     doc.setDrawColor(255);
     doc.setFillColor(0);
-    doc.rect(x, y, config.partnerBoxWidth, config.partnerBoxHeight);
-    doc.setTextColor(255, 255, 255);
+    doc.rect(x, y, config.boxWidth, config.boxHeight);
     doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
     doc.text(`${score ?? 0}%`, x + 1.5, y + 6);
   };
 
   const drawMatchBar = (x, y, match) => {
-    const barColor =
-      match >= 80 ? [0, 255, 0] : match >= 60 ? [255, 255, 0] : [255, 0, 0];
-    doc.setFillColor(...barColor);
-    doc.rect(x, y, config.barWidth, config.partnerBoxHeight, 'F');
+    const color = match >= 80 ? [0, 255, 0] : match >= 60 ? [255, 255, 0] : [255, 0, 0];
+    doc.setFillColor(...color);
+    doc.rect(x, y, config.barWidth, config.boxHeight, 'F');
   };
 
   const getFlag = (match, a, b) => {
@@ -74,11 +69,10 @@ export function generateCompatibilityPDF() {
 
   drawBackground();
   doc.setFontSize(18);
-  doc.setTextColor(255, 255, 255);
   doc.text('Kink Compatibility Report', 105, y);
   y += 10;
 
-  compatibilityData.categories.forEach((category) => {
+  compatibilityData.categories.forEach(category => {
     if (y > config.maxY) {
       doc.addPage();
       drawBackground();
@@ -86,13 +80,13 @@ export function generateCompatibilityPDF() {
     }
 
     doc.setFontSize(12);
-    doc.setTextColor(255, 255, 255);
     doc.text(category.name, config.margin, y);
+    doc.setFontSize(10);
     doc.text('Partner A', config.colA, y);
-    doc.text('Partner B', config.colB + config.barWidth + 25, y);
+    doc.text('Partner B', config.colB, y);
     y += 6;
 
-    category.items.forEach((item) => {
+    category.items.forEach(item => {
       if (y > config.maxY) {
         doc.addPage();
         drawBackground();
@@ -104,17 +98,14 @@ export function generateCompatibilityPDF() {
       const match = 100 - Math.abs(a - b);
       const flag = getFlag(match, a, b);
 
-      doc.setFontSize(config.fontSize);
-      doc.setTextColor(255, 255, 255);
-      doc.text(shortenLabel(item.label || item.kink), config.margin, y + 6);
+      doc.setFontSize(9);
+      doc.text(shortenLabel(item.label), config.margin, y + 6);
 
       drawScoreBox(config.colA, y, a);
-      drawMatchBar(config.centerBarX, y, match);
-
+      drawMatchBar(config.centerX, y, match);
       doc.setFontSize(12);
-      doc.text(flag, config.centerBarX + config.barWidth + config.flagOffset, y + 6);
-
-      drawScoreBox(config.colB + config.barWidth + 20, y, b);
+      doc.text(flag, config.centerX + config.barWidth + 2, y + 6);
+      drawScoreBox(config.colB, y, b);
 
       y += config.rowHeight;
     });
