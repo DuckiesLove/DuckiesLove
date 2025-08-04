@@ -1,142 +1,90 @@
-import { loadJsPDF } from './loadJsPDF.js';
-
-const shortenedLabels = {
-  "Choosing my partner’s outfit for the day or a scene": "Choosing outfit",
-  "Selecting their underwear, lingerie, or base layers": "Picking underwear",
-  "Styling their hair (braiding, brushing, tying, etc.)": "Styling hair",
-  "Picking head coverings (bonnets, veils, hoods, hats)": "Head coverings",
-  "Offering makeup, polish, or accessories as part of ritual or protocol": "Makeup/accessories",
-  "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)": "Themed looks",
-  "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "Roleplay outfits",
-  "Curating time-period or historical outfits (e.g., Victorian, 50s, etc.)": "Historical outfits",
-  "Helping them present more femme, masc, or androgynous by request": "Femme/masc styling",
-  "Coordinating their look with mine for public or private scenes": "Coordinated outfits",
-  "Implementing a “dress ritual” or aesthetic preparation": "Dress ritual",
-  "Enforcing a visual protocol (e.g., no bra, heels required, tied hair)": "Visual protocol",
-  "Having my outfit selected for me by a partner": "Partner-picked outfit",
-  "Wearing the underwear or lingerie they choose": "Chosen lingerie",
-  "Having my hair brushed, braided, tied, or styled for them": "Hair styled for partner",
-  "Putting on a head covering (e.g., bonnet, veil, hood) they chose": "Partner-selected headwear",
-  "Following visual appearance rules as part of submission": "Visual submission rule",
-  "Wearing makeup, polish, or accessories they request": "Requested appearance",
-  "Dressing to please their vision (cute, filthy, classy, etc.)": "Dressing for vision",
-  "Wearing roleplay costumes or character looks": "Costumes",
-  "Presenting in a way that matches their chosen aesthetic": "Aesthetic presentation",
-  "Participating in dressing rituals or undressing ceremonies": "Dressing rituals",
-  "Being admired for the way I look under their direction": "Being admired",
-  "Receiving praise or gentle teasing about my appearance": "Appearance praise",
-  "Cosplay or fantasy looks (anime, game, fairytale, etc.)": "Cosplay/fantasy",
-  "Time-period dress-up (regency, gothic, 1920s, etc.)": "Vintage looks",
-  "Dollification or polished/presented object aesthetics": "Dollification",
-  "Uniforms (schoolgirl, military, clerical, nurse, etc.)": "Uniforms",
-  "Hair-based play (forced brushing, ribbons, or tied styles)": "Hair-based play"
-};
-
-const formatLabel = (text) => shortenedLabels[text] || text;
-
-export async function generateCompatibilityPDF(data) {
-  const jsPDF = await loadJsPDF();
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+export function generateCompatibilityPDF(data) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 10;
+  const pageHeight = doc.internal.pageSize.getHeight();
   let y = 20;
 
-  const drawBar = (x, y, percent, color) => {
-    const width = 30;
-    const height = 4;
-    doc.setFillColor(60, 60, 60);
+  const margin = 10;
+  const colA = pageWidth / 2 - 55;
+  const colB = pageWidth / 2 + 45;
+
+  const drawBackground = () => {
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  };
+
+  const drawBar = (x, y, percent) => {
+    const width = 40;
+    const height = 6;
+    let color = [255, 0, 0];
+    if (percent === 100) color = [0, 255, 0];
+    else if (percent >= 80) color = [0, 255, 0];
+    else if (percent >= 60) color = [255, 255, 0];
+
+    doc.setFillColor(64, 64, 64);
     doc.rect(x, y, width, height, 'F');
-    if (percent > 0) {
-      const barColor = color === 'green' ? [0, 200, 0] : [200, 0, 0];
-      doc.setFillColor(...barColor);
-      doc.rect(x, y, (percent / 100) * width, height, 'F');
-    }
+    doc.setFillColor(...color);
+    doc.rect(x, y, (percent / 100) * width, height, 'F');
   };
 
-  const getBarColor = (percent) => {
-    if (percent >= 60) return 'green';
-    if (percent > 0) return 'red';
-    return 'gray';
-  };
-
-  const getMatchFlag = (a, b) => {
-    const avg = (a + b) / 2;
-    const diff = Math.abs(a - b);
-    if (a === 100 && b === 100) return '⭐';
-    if (avg >= 80 && diff <= 10) return '🟩';
-    if (avg <= 50) return '🚩';
+  const getFlag = (match) => {
+    if (match === 100) return '⭐';
+    if (match >= 80) return '🟩';
+    if (match <= 50) return '🚩';
     return '';
   };
 
-  const fillBlackBackground = () => {
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, pageWidth, doc.internal.pageSize.getHeight(), 'F');
+  const addPage = () => {
+    doc.addPage();
+    drawBackground();
+    y = 20;
   };
 
-  // Begin PDF rendering
-  fillBlackBackground();
+  drawBackground();
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('Kink Compatibility Report', pageWidth / 2, 15, { align: 'center' });
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(20);
+  doc.text('Kink Compatibility Report', pageWidth / 2, y, { align: 'center' });
+  y += 12;
+  doc.setFontSize(14);
 
-  data.categories.forEach(category => {
-    if (y > 260) {
-      doc.addPage();
-      fillBlackBackground();
-      y = 20;
-    }
-
-    // Category header: white, bold, left-aligned
-    doc.setFontSize(12);
+  data.categories.forEach((cat) => {
+    if (y > pageHeight - 30) addPage();
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text(category.name, margin, y);
+    doc.text(cat.name, margin, y);
     y += 8;
 
-    // Column headers
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Partner A', 110, y);
-    doc.text('Partner B', 160, y);
-    y += 6;
+    cat.items.forEach((item) => {
+      if (y > pageHeight - 20) addPage();
 
-    // Render items
-    doc.setFont('helvetica', 'normal');
-    category.items.forEach(kink => {
-      if (y > 265) {
-        doc.addPage();
-        fillBlackBackground();
-        y = 20;
-      }
+      const label = item.kink.length > 45 ? item.kink.slice(0, 42) + '…' : item.kink;
 
-      const label = formatLabel(kink.kink);
-      const percentA = kink.partnerA ?? 0;
-      const percentB = kink.partnerB ?? 0;
-      const flag = getMatchFlag(percentA, percentB);
-
-      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'normal');
       doc.text(label, margin, y);
 
-      drawBar(105, y - 3, percentA, getBarColor(percentA));
-      doc.text(`${percentA}%`, 138, y);
-      doc.text(flag, 145, y);
-      drawBar(150, y - 3, percentB, getBarColor(percentB));
-      doc.text(`${percentB}%`, 183, y);
+      doc.setDrawColor(200);
+      doc.rect(colA, y - 4, 12, 6);
+      doc.text(`${item.partnerA}%`, colA + 2, y);
+
+      doc.rect(colB, y - 4, 12, 6);
+      doc.text(`${item.partnerB}%`, colB + 2, y);
+
+      const compatibility = 100 - Math.abs(item.partnerA - item.partnerB);
+      drawBar(pageWidth / 2 - 20, y - 4, compatibility);
+      doc.text(getFlag(compatibility), pageWidth / 2 + 24, y);
 
       y += 8;
     });
 
-    y += 5;
+    y += 6;
   });
 
   doc.save('compatibility_report.pdf');
 }
 
-export async function generateCompatibilityPDFLandscape(data) {
-  const jsPDF = await loadJsPDF();
+export function generateCompatibilityPDFLandscape(data) {
+  const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -193,4 +141,3 @@ function combinedScore(a, b) {
   const avg = (aNum + bNum) / 2;
   return Number.isInteger(avg) ? String(avg) : avg.toFixed(1);
 }
-
