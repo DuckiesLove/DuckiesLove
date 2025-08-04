@@ -59,20 +59,29 @@ export function generateCompatibilityPDF(data) {
       if (y > pageHeight - 20) addPage();
 
       const label = item.kink.length > 45 ? item.kink.slice(0, 42) + '…' : item.kink;
+      const partnerA = typeof item.partnerA === 'number' ? item.partnerA : 0;
+      const partnerB = typeof item.partnerB === 'number' ? item.partnerB : 0;
+      const compatibility = 100 - Math.abs(partnerA - partnerB);
+      const flag = getFlag(compatibility);
 
       doc.setFont('helvetica', 'normal');
       doc.text(label, margin, y);
 
-      doc.setDrawColor(200);
+      // Partner A score box
+      doc.setDrawColor(255);
       doc.rect(colA, y - 4, 12, 6);
-      doc.text(`${item.partnerA}%`, colA + 2, y);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`${partnerA}%`, colA + 1.5, y);
 
-      doc.rect(colB, y - 4, 12, 6);
-      doc.text(`${item.partnerB}%`, colB + 2, y);
-
-      const compatibility = 100 - Math.abs(item.partnerA - item.partnerB);
+      // Compatibility bar and flag
       drawBar(pageWidth / 2 - 20, y - 4, compatibility);
-      doc.text(getFlag(compatibility), pageWidth / 2 + 24, y);
+      doc.text(flag, pageWidth / 2 + 24, y);
+
+      // Partner B score box
+      doc.setDrawColor(255);
+      doc.rect(colB, y - 4, 12, 6);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`${partnerB}%`, colB + 1.5, y);
 
       y += 8;
     });
