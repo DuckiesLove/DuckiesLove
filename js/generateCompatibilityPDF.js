@@ -1,146 +1,142 @@
-// 📄 generateCompatibilityPDF.js
-// This code modifies the existing generateCompatibilityPDF function to:
-/// - Use a black background
-/// - Shorten kink labels
-/// - Show individual partner scores (1–5 scale) in boxes
-/// - Show compatibility percentage as a single center-aligned progress bar with color rules
-/// - Include flags: ⭐ for 100%, 🟩 for 80–99%, 🚩 for ≤50%
-/// - Align category headers with left edge (not inside a box)
+// generateCompatibilityPDF.js
+// Builds a styled compatibility report PDF using jspdf.
 
-document.getElementById("downloadPDF").addEventListener("click", generateCompatibilityPDF);
+// Step 1: Define shortened labels
+const shortenLabel = (label) => {
+  const map = {
+    "Choosing my partner's outfit for the day": "Choosing outfit",
+    "Selecting their underwear, lingerie, etc.": "Picking underwear",
+    "Styling their hair (braiding, brushing, etc.)": "Styling hair",
+    "Picking head coverings (bonnets, veils, hoods, hats)": "Head coverings",
+    "Offering makeup, polish, or accessories": "Makeup/accessories",
+    "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)": "Themed looks",
+    "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "Roleplay outfits",
+    "Curating time-period or historical outfits": "Historical outfits",
+    "Helping them present more femme, masc, or androgynous by request": "Femme/masc styling",
+    "Coordinating their look with mine for public or private scenes": "Coordinated outfits",
+    "Implementing a \"dress ritual\" or aesthetic preparation": "Dress ritual",
+    "Enforcing a visual protocol (e.g., no bra, heels required, tied hair)": "Visual protocol",
+    "Having my outfit selected for me by partner": "Partner-picked outfit",
+    "Wearing the underwear or lingerie they chose": "Chosen lingerie",
+    "Having my hair brushed, braided, tied, or styled for them": "Hair styled for partner",
+    "Putting on a head covering (e.g., bonnet, veil, hood) they chose": "Partner-selected headwear",
+    "Following visual appearance rules as part of submission": "Visual appearance rules"
+  };
+  return map[label] || label;
+};
 
+// Step 2: Get emoji flag for compatibility
+const getFlag = (pct) => {
+  if (pct >= 90) return "⭐";
+  if (pct >= 80) return "🟩";
+  if (pct <= 30) return "🚩";
+  return "";
+};
+
+// Step 3: Generate the PDF
 function generateCompatibilityPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF("p", "pt", "a4");
+  const doc = new window.jspdf.jsPDF({
+    orientation: "landscape",
+    unit: "pt",
+    format: "letter",
+  });
+
+  // Layout constants
   const margin = 40;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const maxY = pageHeight - margin;
-  let y = 60;
+  let y = 40;
+  const lineHeight = 26;
+  const colA = margin + 30;
+  const colB = 720;
+  const centerX = 440;
+  const barWidth = 160;
+  const barHeight = 14;
 
-  // Column positions
-  const colA = margin + 150;
-  const colB = pageWidth - margin - 60;
-  const centerBarX = (colA + colB) / 2 - 60;
-
-  // Font & styling
-  doc.setFont("helvetica", "normal");
+  // Draw background
   doc.setFillColor(0, 0, 0);
-  doc.rect(0, 0, pageWidth, pageHeight, "F");
+  doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), "F");
 
   // Title
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
-  doc.text("Kink Compatibility Report", pageWidth / 2, 30, { align: "center" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text(
+    "Kink Compatibility Report",
+    doc.internal.pageSize.getWidth() / 2,
+    y,
+    { align: "center" }
+  );
+  y += 40;
 
-  // Drawing helpers
-  function drawScoreBox(x, y, score) {
-    doc.setDrawColor(255);
-    doc.setLineWidth(0.8);
-    doc.rect(x, y - 10, 30, 16);
-    doc.setFontSize(10);
-    doc.setTextColor(255, 255, 255);
-    doc.text(score !== null ? String(score) : "", x + 7, y + 2);
-  }
+  const data = window.compatibilityData || { categories: [] };
 
-  function drawBar(x, y, percent) {
-    let barColor;
-    if (percent === 100) barColor = [255, 215, 0]; // gold ⭐
-    else if (percent >= 80) barColor = [0, 255, 0]; // 🟩 green
-    else if (percent <= 50) barColor = [255, 0, 0]; // 🚩 red
-    else barColor = [200, 200, 200]; // neutral gray
+  for (const category of data.categories) {
+    // Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(category.name, colA, y);
+    doc.setFontSize(12);
+    doc.text("Partner A", colA + 210, y);
+    doc.text("Partner B", colB + 70, y);
+    y += 24;
 
-    doc.setDrawColor(255);
-    doc.setFillColor(...barColor);
-    doc.rect(x, y - 10, 120 * (percent / 100), 16, "F");
-  }
+    const items = category.items || category.kinks || [];
 
-  function getFlag(percent) {
-    if (percent === 100) return "⭐";
-    if (percent >= 80) return "🟩";
-    if (percent <= 50) return "🚩";
-    return "";
-  }
-
-  function shortenLabel(label) {
-    const map = {
-      "Choosing my partner’s outfit for the day or a scene": "Choosing outfit",
-      "Selecting their underwear, lingerie, or base layers": "Picking underwear",
-      "Styling their hair (braiding, brushing, tying, etc.)": "Styling hair",
-      "Picking head coverings (bonnets, veils, hoods, hats)": "Head coverings",
-      "Offering makeup, polish, or accessories as part of ritual or play": "Makeup/accessories",
-      "Creating themed looks (slutty, innocent, doll-like, etc.)": "Themed looks",
-      "Dressing them in role-specific costumes (maid, teacher, pet, etc.)": "Roleplay outfits",
-      "Curating time-period or historical outfits (e.g., Victorian, 50s)": "Historical outfits",
-      "Helping them present more femme, masc, or androgynous": "Femme/masc styling",
-      "Coordinating their look with mine for public or private use": "Coordinated outfits",
-      "Implementing a “dress ritual” or aesthetic prep rule": "Dress ritual",
-      "Enforcing a visual protocol (e.g., no bra, heels, etc.)": "Visual protocol",
-      "Having my outfit selected for me by a partner": "Partner-picked outfit",
-      "Wearing the underwear or lingerie they choose": "Chosen lingerie",
-      "Having my hair brushed, braided, tied, or styled": "Hair styled for partner",
-      "Partner-selected headwear (bonnets, veils, hoods, hats)": "Partner-selected headwear",
-    };
-    return map[label] || label;
-  }
-
-  const data = window.compatibilityData;
-  if (!data?.categories) return;
-
-  doc.setFontSize(14);
-
-  data.categories.forEach((category) => {
-    if (y > maxY - 100) {
-      doc.addPage();
-      doc.setFillColor(0, 0, 0);
-      doc.rect(0, 0, pageWidth, pageHeight, "F");
-      y = 60;
-    }
-
-    // Category Title
-    doc.setTextColor(255, 255, 255);
-    doc.setFont(undefined, "bold");
-    doc.text(category.name, margin, y);
-    y += 20;
-
-    doc.setFont(undefined, "normal");
-
-    category.items.forEach((item) => {
-      if (y > maxY - 40) {
+    for (const kink of items) {
+      if (y > 500) {
         doc.addPage();
         doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, pageWidth, pageHeight, "F");
-        y = 60;
+        doc.rect(
+          0,
+          0,
+          doc.internal.pageSize.getWidth(),
+          doc.internal.pageSize.getHeight(),
+          "F"
+        );
+        y = 40;
       }
 
-      const shortLabel = shortenLabel(item.label || item.name || item.kink || "");
-      const scoreA = item.partnerA ?? null;
-      const scoreB = item.partnerB ?? null;
-      const percent = scoreA !== null && scoreB !== null ? 100 - Math.abs(scoreA - scoreB) * 25 : null;
-      const flag = percent !== null ? getFlag(percent) : "";
+      const label = shortenLabel(kink.label || kink.kink || kink.name || "");
+      const aScore = kink.partnerA ?? 0;
+      const bScore = kink.partnerB ?? 0;
+      const pct = 100 - Math.abs(aScore - bScore);
+      const flag = getFlag(pct);
 
-      // Kink label
+      // Label
+      doc.setFont("helvetica", "normal");
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(11);
-      doc.text(shortLabel, margin, y);
+      doc.text(label, colA, y);
 
-      // Partner A score box
-      drawScoreBox(colA, y, scoreA);
+      // Partner A box
+      doc.setDrawColor(255);
+      doc.rect(colA + 200, y - 14, 30, 18);
+      doc.text(String(aScore), colA + 208, y);
 
-      // Compatibility bar in center
-      if (percent !== null) drawBar(centerBarX, y, percent);
+      // Center compatibility bar
+      const fillColor =
+        pct >= 80 ? [0, 255, 0] : pct >= 60 ? [255, 255, 0] : [255, 0, 0];
+      doc.setFillColor(...fillColor);
+      doc.rect(centerX, y - 12, barWidth, barHeight, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(`${pct}% ${flag}`, centerX + barWidth / 2, y + 5, {
+        align: "center",
+      });
 
-      // Partner B score box
-      drawScoreBox(colB, y, scoreB);
+      // Partner B box
+      doc.setDrawColor(255);
+      doc.rect(colB + 60, y - 14, 30, 18);
+      doc.text(String(bScore), colB + 68, y);
 
-      // Flag
-      if (flag) doc.text(flag, centerBarX + 130, y);
+      y += lineHeight;
+    }
 
-      y += 22;
-    });
+    y += 24;
+  }
 
-    y += 10;
-  });
-
-  doc.save("compatibility_report.pdf");
+  doc.save("kink_compatibility_report.pdf");
 }
+
+// Step 4: Hook it to your button
+document
+  .getElementById("downloadPDF")
+  .addEventListener("click", generateCompatibilityPDF);
+
