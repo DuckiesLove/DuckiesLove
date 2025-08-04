@@ -113,7 +113,7 @@ function generateCompatibilityPDF() {
         y = 60;
       }
 
-      const shortLabel = shortenLabel(item.name);
+      const shortLabel = shortenLabel(item.label || item.name || item.kink || "");
       const scoreA = item.partnerA ?? null;
       const scoreB = item.partnerB ?? null;
       const percent = scoreA !== null && scoreB !== null ? 100 - Math.abs(scoreA - scoreB) * 25 : null;
