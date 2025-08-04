@@ -3,23 +3,30 @@ export function generateCompatibilityPDF(data) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 10;
   let y = 20;
 
-  const margin = 10;
-  const colA = pageWidth / 2 - 55;
-  const colB = pageWidth / 2 + 45;
+  const colA = margin + 90;
+  const colB = pageWidth - margin - 20;
+  const centerBarX = pageWidth / 2 - 20;
 
   const drawBackground = () => {
-    doc.setFillColor(0, 0, 0);
+    doc.setFillColor(0, 0, 0); // black background
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  };
+
+  const getFlag = (percent) => {
+    if (percent === 100) return '⭐';
+    if (percent >= 80) return '🟩';
+    if (percent <= 50) return '🚩';
+    return '';
   };
 
   const drawBar = (x, y, percent) => {
     const width = 40;
     const height = 6;
     let color = [255, 0, 0];
-    if (percent === 100) color = [0, 255, 0];
-    else if (percent >= 80) color = [0, 255, 0];
+    if (percent >= 80) color = [0, 255, 0];
     else if (percent >= 60) color = [255, 255, 0];
 
     doc.setFillColor(64, 64, 64);
@@ -28,11 +35,35 @@ export function generateCompatibilityPDF(data) {
     doc.rect(x, y, (percent / 100) * width, height, 'F');
   };
 
-  const getFlag = (match) => {
-    if (match === 100) return '⭐';
-    if (match >= 80) return '🟩';
-    if (match <= 50) return '🚩';
-    return '';
+  const drawScoreBox = (x, y, score) => {
+    doc.setDrawColor(255);
+    doc.setFillColor(0, 0, 0);
+    doc.rect(x, y - 4, 14, 6, 'FD');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.text(`${score}%`, x + 1.5, y);
+  };
+
+  const shortenLabel = (text) => {
+    const map = {
+      'Choosing my partner’s outfit for the day or a scene': 'Choosing outfit',
+      'Selecting their underwear, lingerie, or base layers': 'Picking underwear',
+      'Styling their hair (braiding, brushing, tying, etc.)': 'Styling hair',
+      'Picking head coverings (bonnets, veils, hoods, hats) for mood or ritual': 'Head coverings',
+      'Offering makeup, polish, or accessories as part of ritual or play': 'Makeup/accessories',
+      'Creating themed looks (slutty, innocent, doll-like, sharp, etc.)': 'Themed looks',
+      'Dressing them in role-specific costumes (maid, bunny, doll, etc.)': 'Roleplay outfits',
+      'Curating time-period or historical outfits (e.g., Victorian, 50s)': 'Historical outfits',
+      'Helping them present more femme, masc, or androgynous': 'Femme/masc styling',
+      'Coordinating their look with mine for public or private scenes': 'Coordinated outfits',
+      'Implementing a “dress ritual” or aesthetic preparation': 'Dress ritual',
+      'Enforcing a visual protocol (e.g., no bra, heels required, tied hair)': 'Visual protocol',
+      'Having my outfit selected for me by a partner': 'Partner-picked outfit',
+      'Wearing the underwear or lingerie they choose': 'Chosen lingerie',
+      'Having my hair brushed, braided, tied, or styled for them': 'Hair styled for partner',
+      'Putting on a head covering (e.g., bonnet, veil, hood) they request': 'Partner-selected headwear',
+    };
+    return map[text] || (text.length > 40 ? text.slice(0, 37) + '…' : text);
   };
 
   const addPage = () => {
@@ -49,39 +80,31 @@ export function generateCompatibilityPDF(data) {
   y += 12;
   doc.setFontSize(14);
 
-  data.categories.forEach((cat) => {
-    if (y > pageHeight - 30) addPage();
+  data.categories.forEach((category) => {
+    if (y > pageHeight - 40) addPage();
     doc.setFont('helvetica', 'bold');
-    doc.text(cat.name, margin, y);
+    doc.setTextColor(255, 255, 255);
+    doc.text(category.name, margin, y);
     y += 8;
 
-    cat.items.forEach((item) => {
+    category.items.forEach((item) => {
       if (y > pageHeight - 20) addPage();
 
-      const label = item.kink.length > 45 ? item.kink.slice(0, 42) + '…' : item.kink;
-      const partnerA = typeof item.partnerA === 'number' ? item.partnerA : 0;
-      const partnerB = typeof item.partnerB === 'number' ? item.partnerB : 0;
-      const compatibility = 100 - Math.abs(partnerA - partnerB);
-      const flag = getFlag(compatibility);
+      const label = shortenLabel(item.kink);
+      const a = typeof item.partnerA === 'number' ? item.partnerA : 0;
+      const b = typeof item.partnerB === 'number' ? item.partnerB : 0;
+      const match = 100 - Math.abs(a - b);
+      const flag = getFlag(match);
 
       doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
       doc.text(label, margin, y);
 
-      // Partner A score box
-      doc.setDrawColor(255);
-      doc.rect(colA, y - 4, 12, 6);
-      doc.setTextColor(255, 255, 255);
-      doc.text(`${partnerA}%`, colA + 1.5, y);
-
-      // Compatibility bar and flag
-      drawBar(pageWidth / 2 - 20, y - 4, compatibility);
-      doc.text(flag, pageWidth / 2 + 24, y);
-
-      // Partner B score box
-      doc.setDrawColor(255);
-      doc.rect(colB, y - 4, 12, 6);
-      doc.setTextColor(255, 255, 255);
-      doc.text(`${partnerB}%`, colB + 1.5, y);
+      drawScoreBox(colA, y, a);
+      drawBar(centerBarX, y - 4, match);
+      doc.text(flag, centerBarX + 45, y);
+      drawScoreBox(colB, y, b);
 
       y += 8;
     });
