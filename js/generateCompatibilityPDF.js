@@ -4,23 +4,23 @@
 // Step 1: Define shortened labels
 const shortenLabel = (label) => {
   const map = {
-    "Choosing my partner's outfit for the day": "Choosing outfit",
-    "Selecting their underwear, lingerie, etc.": "Picking underwear",
-    "Styling their hair (braiding, brushing, etc.)": "Styling hair",
-    "Picking head coverings (bonnets, veils, hoods, hats)": "Head coverings",
-    "Offering makeup, polish, or accessories": "Makeup/accessories",
+    "Choosing my partner's outfit for the day or a scene": "Choosing outfit",
+    "Selecting their underwear, lingerie, or base layers": "Picking underwear",
+    "Styling their hair (braiding, brushing, tying, etc.)": "Styling hair",
+    "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": "Head coverings",
+    "Offering makeup, polish, or accessories as part of ritual or play": "Makeup/accessories",
     "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)": "Themed looks",
     "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "Roleplay outfits",
-    "Curating time-period or historical outfits": "Historical outfits",
+    "Curating time-period or historical outfits (e.g., Victorian, 50s)": "Historical outfits",
     "Helping them present more femme, masc, or androgynous by request": "Femme/masc styling",
     "Coordinating their look with mine for public or private scenes": "Coordinated outfits",
     "Implementing a \"dress ritual\" or aesthetic preparation": "Dress ritual",
     "Enforcing a visual protocol (e.g., no bra, heels required, tied hair)": "Visual protocol",
     "Having my outfit selected for me by partner": "Partner-picked outfit",
     "Wearing the underwear or lingerie they chose": "Chosen lingerie",
-    "Having my hair brushed, braided, tied, or styled for them": "Hair styled for partner",
+    "Having my hair brushed, braided, tied, or styled for them": "Hair styled for them",
     "Putting on a head covering (e.g., bonnet, veil, hood) they chose": "Partner-selected headwear",
-    "Following visual appearance rules as part of submission": "Visual appearance rules"
+    "Following visual appearance rules as part of submission": "Visual rules"
   };
   return map[label] || label;
 };
@@ -47,8 +47,8 @@ function generateCompatibilityPDF() {
   const lineHeight = 26;
   const colA = margin + 30;
   const colB = 720;
-  const centerX = 440;
-  const barWidth = 160;
+  const centerX = 450;
+  const barWidth = 150;
   const barHeight = 14;
 
   // Draw background
@@ -75,8 +75,8 @@ function generateCompatibilityPDF() {
     doc.setFontSize(16);
     doc.text(category.name, colA, y);
     doc.setFontSize(12);
-    doc.text("Partner A", colA + 210, y);
-    doc.text("Partner B", colB + 70, y);
+    doc.text("Partner A", colA + 200, y);
+    doc.text("Partner B", colB + 65, y);
     y += 24;
 
     const items = category.items || category.kinks || [];
@@ -108,8 +108,8 @@ function generateCompatibilityPDF() {
 
       // Partner A box
       doc.setDrawColor(255);
-      doc.rect(colA + 200, y - 14, 30, 18);
-      doc.text(String(aScore), colA + 208, y);
+      doc.rect(colA + 180, y - 14, 30, 18);
+      doc.text(String(aScore), colA + 190, y);
 
       // Center compatibility bar
       const fillColor =
@@ -117,7 +117,7 @@ function generateCompatibilityPDF() {
       doc.setFillColor(...fillColor);
       doc.rect(centerX, y - 12, barWidth, barHeight, "F");
       doc.setTextColor(255, 255, 255);
-      doc.text(`${pct}% ${flag}`, centerX + barWidth / 2, y + 5, {
+      doc.text(`${pct}% ${flag} +P`, centerX + barWidth / 2, y + 5, {
         align: "center",
       });
 
