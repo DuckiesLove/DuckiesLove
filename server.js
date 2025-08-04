@@ -327,6 +327,9 @@ app.use((req, res, next) => {
     '/check-session',
     '/favicon.ico',
   ];
+  if (req.url === '/' || req.url === '/index.html') {
+    return next();
+  }
   if (exemptPaths.some(path => req.url.startsWith(path))) {
     return next();
   }
