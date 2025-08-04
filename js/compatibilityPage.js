@@ -1,7 +1,7 @@
 // Compatibility results page logic and PDF export helpers
 import { initTheme } from './theme.js';
 import { getMatchFlag, calculateCategoryMatch, getProgressBarColor } from './matchFlag.js';
-import { generateCompatibilityPDF } from './compatibilityPdf.js';
+import './compatibilityPdf.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -372,6 +372,20 @@ function updateComparison() {
   table.appendChild(tbody);
   container.appendChild(table);
 
+  const categories = Object.entries(lastResult).map(([name, items]) => {
+    const formatted = items.map(it => ({
+      kink: it.name,
+      partnerA: maxRating(it.you),
+      partnerB: maxRating(it.partner)
+    }));
+    return {
+      name,
+      matchPercent: calculateCategoryMatch(formatted),
+      items: formatted
+    };
+  });
+  window.compatibilityData = { categories };
+
   const cardList = document.getElementById('print-card-list');
   if (cardList) cardList.innerHTML = '';
 }
@@ -482,34 +496,4 @@ function exportJSON() {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadSavedSurvey();
-  const btn = document.getElementById('downloadPDF');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const spinner = document.getElementById('loading-spinner');
-      if (spinner) spinner.style.display = 'flex';
-      try {
-        if (!surveyA || !surveyB) {
-          alert('Please upload both surveys first.');
-          return;
-        }
-        const breakdown = buildKinkBreakdown(surveyA, surveyB);
-        const categories = Object.entries(breakdown).map(([name, items]) => {
-          const formatted = items.map(it => ({
-            kink: it.name,
-            partnerA: maxRating(it.you),
-            partnerB: maxRating(it.partner)
-          }));
-          return {
-            name,
-            matchPercent: calculateCategoryMatch(formatted),
-            items: formatted
-          };
-        });
-        window.compatibilityData = { categories };
-        generateCompatibilityPDF(window.compatibilityData);
-      } finally {
-        if (spinner) spinner.style.display = 'none';
-      }
-    });
-  }
 });
