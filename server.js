@@ -422,4 +422,4 @@ if (NODE_ENV !== 'production') {
   );
 }
 
-export { app, server, cleanup };
+export { app, server, cleanup, tokenStore, sessionStore };
