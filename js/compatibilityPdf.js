@@ -1,4 +1,8 @@
 export function generateCompatibilityPDF() {
+  if (!window.jspdf?.jsPDF) {
+    console.error('jsPDF is not loaded');
+    return;
+  }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
@@ -89,7 +93,10 @@ export function generateCompatibilityPDF() {
   y += 40;
 
   const data = window.compatibilityData;
-  if (!data || !Array.isArray(data.categories)) return;
+  if (!data || !Array.isArray(data.categories)) {
+    console.error('window.compatibilityData must be an object with a categories array');
+    return;
+  }
 
   for (const cat of data.categories) {
     if (y > pageHeight - 120) addPage();
@@ -133,6 +140,10 @@ export function generateCompatibilityPDF() {
 
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
+    if (!window.jspdf?.jsPDF) {
+      console.error('jsPDF library failed to load.');
+      return;
+    }
     const button = document.getElementById('downloadPDF');
     if (button) button.addEventListener('click', generateCompatibilityPDF);
   });
