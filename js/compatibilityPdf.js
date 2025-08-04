@@ -1,60 +1,78 @@
 import { loadJsPDF } from './loadJsPDF.js';
-import { getMatchFlag } from './matchFlag.js';
 
-// Generate a PDF summarizing kink compatibility with match bars and column headers
-// `data` structure:
-// {
-//   categories: [
-//     {
-//       name: "Category Name",
-//       matchPercent: 92,
-//       items: [
-//         { kink: "Bondage", partnerA: 5, partnerB: 5 },
-//         ...
-//       ]
-//     },
-//     ...
-//   ]
-// }
 export async function generateCompatibilityPDF(data) {
   const jsPDF = await loadJsPDF();
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 15;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 10;
+  const usableWidth = pageWidth - margin * 2;
+
+  // Fill the background black
+  doc.setFillColor(0, 0, 0);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
   let y = 20;
 
-  drawTitle(doc, pageWidth);
-  y += 15;
+  // Title
+  doc.setTextColor(255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Kink Compatibility Report', pageWidth / 2, y, { align: 'center' });
+  y += 10;
 
   data.categories.forEach(category => {
-    const flag = getMatchFlag(category.matchPercent);
-    const header = `${category.name} ${flag}`;
+    if (y > 250) {
+      doc.addPage();
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      doc.setTextColor(255);
+      y = 20;
+    }
 
-    drawSectionHeader(doc, header, y, pageWidth, margin);
+    // Category Header
+    const flag = getMatchFlag(category.matchPercent);
+    doc.setFillColor(20, 20, 20);
+    doc.setTextColor(255, 0, 0);
+    doc.setFontSize(14);
+    doc.rect(margin, y, usableWidth, 10, 'F');
+    doc.text(`${flag} ${category.name}`, pageWidth / 2, y + 7, { align: 'center' });
     y += 12;
 
-    drawBar(doc, margin + 2, y, pageWidth - margin * 2 - 4, category.matchPercent);
-    y += 8;
+    // Column Headers
+    doc.setFontSize(10);
+    doc.setTextColor(255);
+    doc.setFillColor(40, 40, 40);
+    doc.rect(margin, y, usableWidth, 8, 'F');
+    doc.text('Kink', margin + 2, y + 6);
+    doc.text('Partner A', pageWidth / 2 - 15, y + 6);
+    doc.text('Partner B', pageWidth / 2 + 35, y + 6);
+    y += 9;
 
-    drawColumnHeaders(doc, y);
-    y += 6;
-
+    // Kinks
     category.items.forEach(kink => {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(0);
-      doc.text(kink.kink, margin, y, { maxWidth: 90 });
-      doc.text(String(kink.partnerA ?? '-'), 115, y);
-      doc.text(String(kink.partnerB ?? '-'), 160, y);
-      y += 6;
-
+      const rowHeight = 7;
       if (y > 270) {
         doc.addPage();
         y = 20;
       }
+
+      doc.setTextColor(255);
+      doc.setFontSize(9);
+      doc.text(kink.kink, margin + 2, y + 5);
+
+      drawBar(doc, kink.partnerA, pageWidth / 2 - 35, y + 1, 30);
+      drawBar(doc, kink.partnerB, pageWidth / 2 + 15, y + 1, 30);
+
+      y += rowHeight;
     });
 
-    y += 8;
+    y += 6;
   });
 
   doc.save('compatibility_report.pdf');
@@ -69,6 +87,11 @@ export async function generateCompatibilityPDFLandscape(data) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
+
+  doc.setFillColor(0, 0, 0);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  doc.setTextColor(255);
+
   let y = 20;
 
   drawTitle(doc, pageWidth);
@@ -76,7 +99,6 @@ export async function generateCompatibilityPDFLandscape(data) {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.setTextColor(100);
   doc.text('Kink', margin, y);
   doc.text('Combined Score', pageWidth - margin, y, { align: 'right' });
   y += 6;
@@ -86,12 +108,15 @@ export async function generateCompatibilityPDFLandscape(data) {
     const score = combinedScore(kink.partnerA, kink.partnerB);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(0);
+    doc.setTextColor(255);
     doc.text(kink.kink, margin, y, { maxWidth: pageWidth - margin * 2 - 30 });
     doc.text(score, pageWidth - margin, y, { align: 'right' });
     y += 6;
     if (y > pageHeight - 20) {
       doc.addPage();
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      doc.setTextColor(255);
       y = 20;
     }
   });
@@ -106,38 +131,34 @@ function drawTitle(doc, pageWidth) {
   doc.text('Kink Compatibility Report', pageWidth / 2, 15, { align: 'center' });
 }
 
-// Helper: Section Header
-function drawSectionHeader(doc, text, y, pageWidth, margin) {
-  doc.setFillColor(40, 40, 40);
-  doc.setTextColor(255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.rect(margin, y, pageWidth - margin * 2, 10, 'F');
-  doc.text(text, pageWidth / 2, y + 7, { align: 'center' });
-}
-
-// Helper: Bar Graph
-function drawBar(doc, x, y, width, percent) {
-  let color;
-  if (percent >= 85) color = [0, 200, 0]; // Green
-  else if (percent >= 60) color = [255, 165, 0]; // Orange
-  else color = [255, 0, 0]; // Red
-
-  doc.setDrawColor(200);
+// Draws a color-coded bar
+function drawBar(doc, percent, x, y, width) {
+  const height = 5;
+  const color = getBarColor(percent);
   doc.setFillColor(...color);
-  doc.rect(x, y, width * (percent / 100), 5, 'F');
-  doc.setDrawColor(0);
-  doc.rect(x, y, width, 5); // border
+  const fillWidth = (percent / 100) * width;
+  doc.roundedRect(x, y, width, height, 1, 1);
+  if (percent > 0) {
+    doc.roundedRect(x, y, fillWidth, height, 1, 1, 'F');
+  }
+  doc.setTextColor(255);
+  doc.setFontSize(8);
+  doc.text(`${percent}%`, x + width + 2, y + 4);
 }
 
-// Helper: Table Headings
-function drawColumnHeaders(doc, y) {
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text('Kink', 15, y);
-  doc.text('Partner A', 115, y);
-  doc.text('Partner B', 160, y);
+// Returns RGB based on match %
+function getBarColor(percent) {
+  if (percent >= 80) return [0, 255, 0];     // Green
+  if (percent >= 40) return [255, 80, 80];   // Red
+  return [100, 100, 100];                    // Gray
+}
+
+// Adds flag based on compatibility level
+function getMatchFlag(percent) {
+  if (percent >= 90) return '⭐';
+  if (percent >= 80) return '🟩';
+  if (percent <= 30) return '🚩';
+  return '';
 }
 
 // Helper: Combined score calculation

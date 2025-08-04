@@ -1,5 +1,4 @@
 import { calculateCategoryMatch } from './matchFlag.js';
-import { generateCompatibilityPDF } from './compatibilityPdf.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -335,16 +334,9 @@ function updateComparison() {
 
   table.appendChild(tbody);
   container.appendChild(table);
-}
-
-async function exportToPDF() {
-  if (!surveyA || !surveyB) {
-    alert('Please upload both surveys first.');
-    return;
-  }
 
   const breakdown = buildKinkBreakdown(surveyA, surveyB);
-  const categories = Object.entries(breakdown).map(([name, items]) => {
+  const pdfCategories = Object.entries(breakdown).map(([name, items]) => {
     const formatted = items.map(it => ({
       kink: it.name,
       partnerA: maxRating(it.you),
@@ -356,9 +348,6 @@ async function exportToPDF() {
       items: formatted
     };
   });
-
-  await generateCompatibilityPDF({ categories });
+  window.data = { categories: pdfCategories };
 }
-
-window.exportToPDF = exportToPDF;
 
