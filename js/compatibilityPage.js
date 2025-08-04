@@ -482,9 +482,9 @@ function exportJSON() {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadSavedSurvey();
-  const btn = document.getElementById('downloadPdfBtn');
+  const btn = document.getElementById('downloadPDF');
   if (btn) {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       const spinner = document.getElementById('loading-spinner');
       if (spinner) spinner.style.display = 'flex';
       try {
@@ -505,7 +505,8 @@ document.addEventListener('DOMContentLoaded', () => {
             items: formatted
           };
         });
-        await generateCompatibilityPDF({ categories });
+        window.compatibilityData = { categories };
+        generateCompatibilityPDF(window.compatibilityData);
       } finally {
         if (spinner) spinner.style.display = 'none';
       }
