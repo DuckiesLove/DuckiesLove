@@ -1,3 +1,6 @@
+import { calculateCategoryMatch } from './matchFlag.js';
+import { generateCompatibilityPDF } from './compatibilityPdf.js';
+
 let surveyA = null;
 let surveyB = null;
 
@@ -334,41 +337,28 @@ function updateComparison() {
   container.appendChild(table);
 }
 
-function exportToPDF() {
-  updateComparison();
-  const element = document.getElementById('compatibility-wrapper');
-  if (!element) return;
-  document.body.classList.add('exporting');
+async function exportToPDF() {
+  if (!surveyA || !surveyB) {
+    alert('Please upload both surveys first.');
+    return;
+  }
 
-  const opt = {
-    margin: 0,
-    filename: 'Kink_Compatibility_Report.pdf',
-    image: { type: 'jpeg', quality: 1 },
-    html2canvas: {
-      scale: 1.6,
-      useCORS: true,
-      backgroundColor: '#000',
-      scrollY: 0
-    },
-    jsPDF: {
-      unit: 'mm',
-      format: 'a3',
-      orientation: 'landscape'
-    },
-    pagebreak: {
-      mode: ['css', 'legacy'],
-      avoid: ['.avoid-break']
-    }
-  };
+  const breakdown = buildKinkBreakdown(surveyA, surveyB);
+  const categories = Object.entries(breakdown).map(([name, items]) => {
+    const formatted = items.map(it => ({
+      kink: it.name,
+      partnerA: maxRating(it.you),
+      partnerB: maxRating(it.partner)
+    }));
+    return {
+      name,
+      matchPercent: calculateCategoryMatch(formatted),
+      items: formatted
+    };
+  });
 
-  setTimeout(() => {
-    html2pdf()
-      .set(opt)
-      .from(element)
-      .save()
-      .then(() => {
-        document.body.classList.remove('exporting');
-      });
-  }, 0);
+  await generateCompatibilityPDF({ categories });
 }
+
+window.exportToPDF = exportToPDF;
 
