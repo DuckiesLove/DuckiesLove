@@ -32,6 +32,7 @@ export function generateCompatibilityPDF() {
       "Wearing chosen lingerie/underwear": "Chosen lingerie",
       "Having my hair brushed, braided, styled": "Hair styled by partner"
     };
+    if (!label) return '';
     return map[label] || label.slice(0, 40);
   };
 
@@ -97,9 +98,10 @@ export function generateCompatibilityPDF() {
       const b = item.partnerB ?? 0;
       const match = 100 - Math.abs(a - b);
       const flag = getFlag(match, a, b);
+      const label = item.label || item.kink || '';
 
       doc.setFontSize(9);
-      doc.text(shortenLabel(item.label), config.margin, y + 6);
+      doc.text(shortenLabel(label), config.margin, y + 6);
 
       drawScoreBox(config.colA, y, a);
       drawMatchBar(config.centerX, y, match);
