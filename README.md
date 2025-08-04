@@ -138,21 +138,17 @@ close the browser or the session expires.
 
 ### Generate a Token
 
-Create a token with:
+Start the server (for example, `npm start`) in another terminal and request a token:
 
 ```bash
 npm run generate-token
 ```
 
-Copy the printed token and share it only through secure channels.
+The script calls the running server's `/admin/generate-token` endpoint so the
+token is registered for your IP address. Copy the printed token and share it
+only through secure channels.
 
-### Start the Server and Log In
-
-Start the server:
-
-```bash
-npm start
-```
+### Log In
 
 Open the server URL in your browser and enter the token on the login page.
 Once accepted, the token is tied to your IP and you will remain logged in for
