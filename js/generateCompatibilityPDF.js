@@ -8,7 +8,7 @@ const shortenLabel = (label) => {
     "Selecting their underwear, lingerie, or base layers": "Picking underwear",
     "Styling their hair (braiding, brushing, tying, etc.)": "Styling hair",
     "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": "Head coverings",
-    "Offering makeup, polish, or accessories as part of ritual or play": "Makeup/accessories",
+    "Offering makeup, polish, or accessories as part of ritual or play": "Makeup / accessories",
     "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)": "Themed looks",
     "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "Roleplay outfits",
     "Curating time-period or historical outfits (e.g., Victorian, 50s)": "Historical outfits",
@@ -19,8 +19,8 @@ const shortenLabel = (label) => {
     "Having my outfit selected for me by partner": "Partner-picked outfit",
     "Wearing the underwear or lingerie they chose": "Chosen lingerie",
     "Having my hair brushed, braided, tied, or styled for them": "Hair styled for them",
-    "Putting on a head covering (e.g., bonnet, veil, hood) they chose": "Partner-selected headwear",
-    "Following visual appearance rules as part of submission": "Visual rules"
+    "Putting on a head covering (e.g., bonnet, veil, hood) they chose": "Headwear by partner",
+    "Following visual appearance rules as part of submission": "Visual rules",
   };
   return map[label] || label;
 };
@@ -41,102 +41,83 @@ function generateCompatibilityPDF() {
     format: "letter",
   });
 
-  // Layout constants
   const margin = 40;
-  let y = 40;
-  const lineHeight = 26;
-  const colA = margin + 30;
-  const colB = 720;
-  const centerX = 450;
-  const barWidth = 150;
+  let y = 50;
+  const rowSpacing = 32;
+  const colA = margin + 20;
+  const colAScore = colA + 220;
+  const colCenter = 420;
+  const colBScore = 700;
+  const barWidth = 160;
   const barHeight = 14;
 
-  // Draw background
+  // Background
   doc.setFillColor(0, 0, 0);
   doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), "F");
 
   // Title
-  doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
-  doc.text(
-    "Kink Compatibility Report",
-    doc.internal.pageSize.getWidth() / 2,
-    y,
-    { align: "center" }
-  );
+  doc.setTextColor(255, 255, 255);
+  doc.text("Kink Compatibility Report", doc.internal.pageSize.getWidth() / 2, y, { align: "center" });
   y += 40;
 
   const data = window.compatibilityData || { categories: [] };
 
   for (const category of data.categories) {
-    // Header
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
     doc.text(category.name, colA, y);
     doc.setFontSize(12);
-    doc.text("Partner A", colA + 200, y);
-    doc.text("Partner B", colB + 65, y);
-    y += 24;
+    doc.text("Partner A", colAScore, y);
+    doc.text("Partner B", colBScore + 35, y);
+    y += 28;
 
-    const items = category.items || category.kinks || [];
-
-    for (const kink of items) {
+    for (const kink of category.kinks) {
       if (y > 500) {
         doc.addPage();
         doc.setFillColor(0, 0, 0);
-        doc.rect(
-          0,
-          0,
-          doc.internal.pageSize.getWidth(),
-          doc.internal.pageSize.getHeight(),
-          "F"
-        );
+        doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), "F");
         y = 40;
       }
 
-      const label = shortenLabel(kink.label || kink.kink || kink.name || "");
+      const label = shortenLabel(kink.label);
       const aScore = kink.partnerA ?? 0;
       const bScore = kink.partnerB ?? 0;
       const pct = 100 - Math.abs(aScore - bScore);
       const flag = getFlag(pct);
 
-      // Label
       doc.setFont("helvetica", "normal");
       doc.setTextColor(255, 255, 255);
       doc.text(label, colA, y);
 
-      // Partner A box
+      // Partner A score box
       doc.setDrawColor(255);
-      doc.rect(colA + 180, y - 14, 30, 18);
-      doc.text(String(aScore), colA + 190, y);
+      doc.rect(colAScore, y - 12, 30, 18);
+      doc.text(String(aScore), colAScore + 10, y);
 
       // Center compatibility bar
-      const fillColor =
-        pct >= 80 ? [0, 255, 0] : pct >= 60 ? [255, 255, 0] : [255, 0, 0];
+      const fillColor = pct >= 80 ? [0, 255, 0] : pct >= 60 ? [255, 255, 0] : [255, 0, 0];
       doc.setFillColor(...fillColor);
-      doc.rect(centerX, y - 12, barWidth, barHeight, "F");
+      doc.rect(colCenter, y - 10, barWidth, barHeight, "F");
       doc.setTextColor(255, 255, 255);
-      doc.text(`${pct}% ${flag} +P`, centerX + barWidth / 2, y + 5, {
-        align: "center",
-      });
+      doc.text(`${pct}% ${flag} +P`, colCenter + barWidth / 2, y + 5, { align: "center" });
 
-      // Partner B box
+      // Partner B score box
       doc.setDrawColor(255);
-      doc.rect(colB + 60, y - 14, 30, 18);
-      doc.text(String(bScore), colB + 68, y);
+      doc.rect(colBScore, y - 12, 30, 18);
+      doc.text(String(bScore), colBScore + 10, y);
 
-      y += lineHeight;
+      y += rowSpacing;
     }
 
-    y += 24;
+    y += 20;
   }
 
   doc.save("kink_compatibility_report.pdf");
 }
 
 // Step 4: Hook it to your button
-document
-  .getElementById("downloadPDF")
-  .addEventListener("click", generateCompatibilityPDF);
+document.getElementById("downloadPDF").addEventListener("click", generateCompatibilityPDF);
 
