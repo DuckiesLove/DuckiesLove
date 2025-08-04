@@ -1,7 +1,6 @@
 // Compatibility results page logic and PDF export helpers
 import { initTheme } from './theme.js';
 import { getMatchFlag, calculateCategoryMatch, getProgressBarColor } from './matchFlag.js';
-import './compatibilityPdf.js';
 
 let surveyA = null;
 let surveyB = null;
