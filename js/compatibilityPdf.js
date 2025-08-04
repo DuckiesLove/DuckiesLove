@@ -1,6 +1,38 @@
 import { loadJsPDF } from './loadJsPDF.js';
 import { getMatchFlag } from './matchFlag.js';
 
+const kinkShortLabels = {
+  "Choosing my partner’s outfit for the day or a scene": "Choosing outfit",
+  "Selecting their underwear, lingerie, or base layers": "Picking underwear",
+  "Styling their hair (braiding, brushing, tying, etc.)": "Styling hair",
+  "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": "Head coverings",
+  "Offering makeup, polish, or accessories as part of ritual or play": "Makeup/accessories",
+  "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)": "Themed looks",
+  "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "Roleplay outfits",
+  "Curating time-period or historical outfits (e.g., Victorian, 50s)": "Historical outfits",
+  "Helping them present more femme, masc, or androgynous by request": "Femme/masc styling",
+  "Coordinating their look with mine for public or private scenes": "Coordinated outfits",
+  "Implementing a “dress ritual” or aesthetic preparation": "Dress ritual",
+  "Enforcing a visual protocol (e.g., no bra, heels required, tied hair)": "Visual protocol",
+  "Having my outfit selected for me by a partner": "Partner-picked outfit",
+  "Wearing the underwear or lingerie they choose": "Chosen lingerie",
+  "Having my hair brushed, braided, tied, or styled for them": "Hair styled for partner",
+  "Putting on a head covering (e.g., bonnet, veil, hood) they request": "Requested covering",
+  "Following visual appearance rules as part of submission": "Visual rules",
+  "Wearing makeup, polish, or accessories they request": "Requested makeup",
+  "Dressing to please their vision (cute, filthy, classy, etc.)": "Dressing to please",
+  "Wearing roleplay costumes or character looks": "Roleplay costumes",
+  "Presenting in a way that matches their chosen aesthetic": "Aesthetic match",
+  "Participating in dressing rituals or undressing ceremonies": "Dressing ritual",
+  "Being admired for the way I look under their direction": "Admired look",
+  "Receiving praise or gentle teasing about my appearance": "Appearance praise",
+  "Cosplay or fantasy looks (anime, game, fairytale, etc.)": "Cosplay/fantasy",
+  "Time-period dress-up (regency, gothic, 1920s, etc.)": "Period dress-up",
+  "Dollification or polished/presented object aesthetics": "Dollification",
+  "Uniforms (schoolgirl, military, clerical, nurse, etc.)": "Uniforms",
+  "Hair-based play (forced brushing, ribbons, or tied styles)": "Hair play"
+};
+
 export async function generateCompatibilityPDF(data) {
   const jsPDF = await loadJsPDF();
   const doc = new jsPDF({
@@ -56,7 +88,7 @@ export async function generateCompatibilityPDF(data) {
       }
 
       doc.setTextColor(255);
-      const label = kink.kink.length > 50 ? kink.kink.slice(0, 47) + '…' : kink.kink;
+      const label = getKinkLabel(kink.kink);
       doc.text(label, labelX, y);
 
       const percentA = toPercent(kink.partnerA);
@@ -78,6 +110,12 @@ export async function generateCompatibilityPDF(data) {
   });
 
   doc.save('compatibility_report.pdf');
+}
+
+function getKinkLabel(name) {
+  const mapped = kinkShortLabels[name];
+  const label = mapped || name;
+  return label.length > 50 ? label.slice(0, 47) + '…' : label;
 }
 
 function drawBar(doc, x, y, percent) {
