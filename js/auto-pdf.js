@@ -348,6 +348,6 @@ function updateComparison() {
       items: formatted
     };
   });
-  window.data = { categories: pdfCategories };
+  window.compatibilityData = { categories: pdfCategories };
 }
 
