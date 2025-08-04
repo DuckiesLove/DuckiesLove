@@ -2,8 +2,9 @@
 // Builds a standalone PDF using jsPDF when the "Download PDF" button is clicked.
 
 (function() {
-  const { jsPDF } = window.jspdf || {};
-  if (!jsPDF) return;
+  // Lazily access jsPDF so the button still responds even if the library fails
+  // to load. We'll notify the user instead of silently doing nothing.
+  const getJsPDF = () => window.jspdf?.jsPDF;
 
   // Map of long kink labels to shortened versions used in the PDF
   const shortenedLabels = {
@@ -91,6 +92,12 @@
   };
 
   function generateCompatibilityPDF() {
+    const jsPDF = getJsPDF();
+    if (!jsPDF) {
+      alert('Unable to load PDF generator. Please try again later.');
+      return;
+    }
+
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
