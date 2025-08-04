@@ -89,17 +89,16 @@ export async function generateCompatibilityPDF(data) {
       y = 20;
     }
 
-    // Render category title in red
+    // Category header: white, bold, left-aligned
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 0, 0);
+    doc.setTextColor(255, 255, 255);
     doc.text(category.name, margin, y);
     y += 8;
 
-    // Render header row
+    // Column headers
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
     doc.text('Partner A', 110, y);
     doc.text('Partner B', 160, y);
     y += 6;
