@@ -1,123 +1,132 @@
 export function generateCompatibilityPDF() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+  const margin = 40;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+  const colA = margin + 20;
+  const centerBarX = pageWidth / 2 - 40;
+  const colB = pageWidth - margin - 60;
+  let y = margin;
 
-  // Layout
-  const margin = 10;
-  const barHeight = 6;
-  const barWidth = 40;
-  const colA = margin + 50;
-  const colB = pageWidth - margin - 30;
-  const centerBarX = pageWidth / 2 - 20;
+  const theme = {
+    background: '#000000',
+    textColor: '#FFFFFF',
+    bar: '#AAAAAA',
+    green: '#00FF00',
+    yellow: '#FFFF00',
+    red: '#FF0000',
+    font: 'helvetica',
+  };
 
-  const shortenLabel = (text) => {
+  const shortenLabel = (label) => {
     const map = {
       'Choosing my partner’s outfit for the day or a scene': 'Choosing outfit',
-      'Selecting their underwear, lingerie, or base layers': 'Picking underwear',
+      'Selecting their underwear, lingerie, or base layer': 'Picking underwear',
       'Styling their hair (braiding, brushing, tying, etc.)': 'Styling hair',
-      'Picking head coverings (bonnets, veils, hoods, hats) for mood/ritual': 'Head coverings',
+      'Picking head coverings (bonnets, veils, hoods, hats)': 'Head coverings',
       'Offering makeup, polish, or accessories as part of ritual or play': 'Makeup/accessories',
       'Creating themed looks (slutty, innocent, doll-like, etc.)': 'Themed looks',
-      'Dressing them in role-specific costumes (maid, schoolgirl, etc.)': 'Roleplay outfits',
+      'Dressing them in role-specific costumes (maid, pet, etc.)': 'Roleplay outfits',
       'Curating time-period or historical outfits (e.g., Victorian, 50s)': 'Historical outfits',
       'Helping them present more femme, masc, or androgynous': 'Femme/masc styling',
-      'Coordinating their look with mine for public or private play': 'Coordinated outfits',
-      'Implementing a “dress ritual” or aesthetic preparation ritual': 'Dress ritual',
-      'Enforcing a visual protocol (e.g., no bra, heels required)': 'Visual protocol',
+      'Coordinating their look with mine for public or partner appearances': 'Coordinated outfits',
+      'Implementing a “dress ritual” or aesthetic preparation rule': 'Dress ritual',
+      'Enforcing a visual protocol (e.g., no bra, heels only)': 'Visual protocol',
       'Having my outfit selected for me by a partner': 'Partner-picked outfit',
       'Wearing the underwear or lingerie they choose': 'Chosen lingerie',
       'Having my hair brushed, braided, tied, or styled': 'Hair styled for partner',
-      'Partner-selected headwear': 'Partner-selected headwear',
+      'Putting on a head covering selected by partner': 'Partner-selected headwear',
     };
-    return map[text] || (text.length > 35 ? text.slice(0, 32) + '…' : text);
+    return map[label] || label.split(' ').slice(0, 3).join(' ') + '...';
   };
 
-  const getFlag = (percent) => {
-    if (percent === 100) return '⭐';
-    if (percent >= 80) return '🟩';
-    if (percent <= 50) return '🚩';
+  const drawScoreBox = (x, y, value) => {
+    doc.setFillColor(theme.background);
+    doc.rect(x, y, 26, 18);
+    doc.setTextColor(theme.textColor);
+    doc.setFontSize(9);
+    doc.text(`${value}%`, x + 4, y + 13);
+  };
+
+  const drawBar = (x, y, value) => {
+    const width = 80;
+    const height = 16;
+    const color =
+      value >= 100 ? theme.textColor :
+      value >= 80 ? theme.green :
+      value <= 50 ? theme.red :
+      theme.bar;
+
+    doc.setFillColor('#444444');
+    doc.rect(x, y, width, height, 'F');
+
+    doc.setFillColor(color);
+    doc.rect(x, y, (width * value) / 100, height, 'F');
+  };
+
+  const getFlag = (match) => {
+    if (match === 100) return '⭐';
+    if (match >= 80) return '🟩';
+    if (match <= 50) return '🚩';
     return '';
   };
 
-  const drawScoreBox = (x, y, score) => {
-    doc.setDrawColor(255);
-    doc.setFillColor(0, 0, 0);
-    doc.rect(x, y - 5, 14, barHeight, 'FD');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.text(typeof score === 'number' ? `${score}%` : '–', x + 2.5, y);
-  };
-
-  const drawBar = (x, y, percent) => {
-    doc.setFillColor(64, 64, 64);
-    doc.rect(x, y - 4, barWidth, barHeight, 'F');
-    if (percent >= 80) doc.setFillColor(0, 255, 0);
-    else if (percent >= 60) doc.setFillColor(255, 255, 0);
-    else doc.setFillColor(255, 0, 0);
-    doc.rect(x, y - 4, (percent / 100) * barWidth, barHeight, 'F');
-  };
-
-  const drawBackground = () => {
-    doc.setFillColor(0, 0, 0);
+  const addPage = () => {
+    doc.addPage();
+    y = margin;
+    doc.setFillColor(theme.background);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
   };
 
-  // Begin rendering
-  let y = 20;
-  drawBackground();
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
+  doc.setFillColor(theme.background);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  doc.setTextColor(theme.textColor);
+  doc.setFont(theme.font, 'bold');
   doc.setFontSize(20);
   doc.text('Kink Compatibility Report', pageWidth / 2, y, { align: 'center' });
-  y += 12;
+  y += 40;
 
   const data = window.compatibilityData;
-  if (!data || !Array.isArray(data.categories)) {
-    alert('Missing or invalid compatibility data.');
-    return;
-  }
+  if (!data || !Array.isArray(data.categories)) return;
 
-  data.categories.forEach(category => {
-    if (y > pageHeight - 20) {
-      doc.addPage();
-      drawBackground();
-      y = 20;
-    }
+  for (const cat of data.categories) {
+    if (y > pageHeight - 120) addPage();
+    doc.setFontSize(13);
+    doc.setFont(undefined, 'bold');
+    const catName = cat.category || cat.name;
+    doc.text(catName, colA, y);
+    y += 18;
 
-    doc.setFontSize(14);
-    doc.text(category.name, margin, y);
-    y += 8;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
+    doc.text('Partner A', colA, y);
+    doc.text('Partner B', colB, y);
+    y += 10;
 
-    category.items?.forEach(item => {
-      if (y > pageHeight - 20) {
-        doc.addPage();
-        drawBackground();
-        y = 20;
-      }
+    for (const kink of cat.items) {
+      if (y > pageHeight - 60) addPage();
 
-      const label = shortenLabel(item.kink);
-      const a = typeof item.partnerA === 'number' ? item.partnerA : null;
-      const b = typeof item.partnerB === 'number' ? item.partnerB : null;
-      const match = a !== null && b !== null ? 100 - Math.abs(a - b) : 0;
+      const label = shortenLabel(kink.kink);
+      const a = kink.partnerA ?? 0;
+      const b = kink.partnerB ?? 0;
+      const match = 100 - Math.abs(a - b);
       const flag = getFlag(match);
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(255, 255, 255);
-      doc.text(label, margin, y);
+      doc.setTextColor(theme.textColor);
+      doc.text(label, colA, y + 15);
 
       drawScoreBox(colA, y, a);
       drawBar(centerBarX, y, match);
-      doc.text(flag, centerBarX + barWidth + 4, y);
+      doc.setFontSize(12);
+      doc.text(flag, centerBarX + 90, y + 14);
       drawScoreBox(colB, y, b);
 
-      y += 8;
-    });
-
-    y += 6;
-  });
+      y += 26;
+    }
+    y += 10;
+  }
 
   doc.save('compatibility_report.pdf');
 }
@@ -187,3 +196,4 @@ function combinedScore(a, b) {
   const avg = (aNum + bNum) / 2;
   return Number.isInteger(avg) ? String(avg) : avg.toFixed(1);
 }
+
