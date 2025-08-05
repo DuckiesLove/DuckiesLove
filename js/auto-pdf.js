@@ -2,6 +2,16 @@ import { calculateCategoryMatch } from './matchFlag.js';
 
 let surveyA = null;
 let surveyB = null;
+let pdfGenerated = false;
+
+async function generatePDF() {
+  if (pdfGenerated) return;
+  pdfGenerated = true;
+  const { loadJsPDF } = await import('./loadJsPDF.js');
+  await loadJsPDF();
+  const { generateCompatibilityPDF } = await import('./compatibilityPdf.js');
+  generateCompatibilityPDF();
+}
 
 const PAGE_BREAK_CATEGORIES = new Set([
   'Communication',
@@ -349,5 +359,6 @@ function updateComparison() {
     };
   });
   window.compatibilityData = { categories: pdfCategories };
+  generatePDF();
 }
 
