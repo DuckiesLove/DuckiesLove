@@ -1,19 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const downloadBtn = document.getElementById('downloadPdfBtn');
-  if (!downloadBtn) return;
-
-  downloadBtn.addEventListener('click', () => {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert("PDF library failed to load. Printing the page instead—choose 'Save as PDF' in your browser.");
-      window.print();
-      return;
-    }
-
-    generateCompatibilityPDF(window.compatibilityData);
-  });
-});
-
-function generateCompatibilityPDF(data) {
+export function generateCompatibilityPDF(data) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -22,108 +7,89 @@ function generateCompatibilityPDF(data) {
   const margin = 10;
   let y = 20;
 
-  const colKink = margin + 2;
-  const colA = 110;
-  const colFlag = 135;
-  const colB = 160;
-  const barX = 80;
   const barWidth = 40;
   const maxY = pageHeight - 20;
+  const colA = 120;
+  const colB = 160;
 
   function drawBackground() {
     doc.setFillColor(0, 0, 0);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
   }
 
-  function shortenLabel(label) {
-    const map = {
-      "Forced Feminization / Sissification": "Feminization",
-      "Objectification / Dollification": "Objectification",
-      "Power Exchange / Control": "Power Play",
-      "Medical / Clinical Play": "Medical Play",
-      "Appearance Play": "Appearance",
-      "Verbal Degradation / Name Calling": "Degradation",
-      "Obedience / Discipline Training": "Discipline",
-      "Reluctance / Resistance Play": "Resistance",
-      "Ownership / Collaring": "Collaring",
-    };
-    return map[label] || (label.length > 28 ? label.slice(0, 25) + "…" : label);
-  }
-
-  function getMatchFlag(percent) {
-    if (percent === 100) return '⭐';
-    if (percent >= 80) return '🟩';
-    if (percent <= 50) return '🚩';
-    return '';
-  }
-
-  function drawScoreBox(x, y, score) {
-    doc.setDrawColor(255);
-    doc.setFillColor(20, 20, 20);
-    doc.rect(x, y - 4, 10, 6, 'FD');
-    doc.setTextColor(255);
-    doc.setFontSize(10);
-    doc.text(String(score), x + 2.5, y);
-  }
-
-  function drawBar(x, y, percent) {
-    const fillColor = percent >= 80 ? [0, 200, 0] : percent <= 50 ? [255, 0, 0] : [255, 204, 0];
+  function drawBar(x, y, percent, color) {
     doc.setDrawColor(255);
     doc.setFillColor(40, 40, 40);
-    doc.rect(x, y - 3, barWidth, 5, 'F');
-    doc.setFillColor(...fillColor);
-    doc.rect(x, y - 3, (barWidth * percent) / 100, 5, 'F');
+    doc.rect(x, y, barWidth, 4, 'F');
+    doc.setFillColor(...color);
+    doc.rect(x, y, (barWidth * percent) / 100, 4, 'F');
   }
 
-  function checkSpaceAndAddPage() {
+  function getColor(percent) {
+    if (percent >= 80) return [0, 200, 0];
+    if (percent <= 50) return [255, 0, 0];
+    return [255, 204, 0];
+  }
+
+  function drawCategoryHeader(name) {
+    doc.setTextColor(255);
+    doc.setFillColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
+    doc.text(name, margin + 2, y + 6);
+    y += 10;
+  }
+
+  function drawItem(kink, a, b) {
+    doc.setTextColor(255);
+    doc.setFontSize(10);
+    doc.text(kink, margin + 2, y);
+    drawBar(colA, y - 3, a * 20, getColor(a * 20));
+    drawBar(colB, y - 3, b * 20, getColor(b * 20));
+    y += 8;
+  }
+
+  drawBackground();
+  doc.setTextColor(255);
+  doc.setFillColor(0, 0, 0);
+  doc.setFontSize(16);
+  doc.text('Kink Compatibility Report', pageWidth / 2, 15, { align: 'center' });
+  y = 25;
+
+  data.categories.forEach(category => {
     if (y > maxY) {
       doc.addPage();
       drawBackground();
       y = 20;
     }
-  }
-
-  drawBackground();
-  doc.setTextColor(255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('Kink Compatibility Report', pageWidth / 2, 15, { align: 'center' });
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-
-  data.categories.forEach(category => {
-    checkSpaceAndAddPage();
-
-    doc.setTextColor(255);
-    doc.setFontSize(12);
-    doc.text(shortenLabel(category.name), colKink, y);
-    y += 8;
-
-    category.items.sort((a, b) => {
-      const matchA = 100 - Math.abs(a.partnerA - a.partnerB);
-      const matchB = 100 - Math.abs(b.partnerA - b.partnerB);
-      return matchB - matchA;
+    drawCategoryHeader(category.name);
+    category.items.forEach(item => {
+      if (y > maxY) {
+        doc.addPage();
+        drawBackground();
+        y = 20;
+      }
+      drawItem(item.kink, item.partnerA, item.partnerB);
     });
-
-    category.items.forEach(kink => {
-      checkSpaceAndAddPage();
-      const match = 100 - Math.abs(kink.partnerA - kink.partnerB);
-      const label = shortenLabel(kink.kink);
-      const flag = getMatchFlag(match);
-
-      doc.setTextColor(255);
-      doc.setFontSize(10);
-      doc.text(label, colKink, y);
-      drawScoreBox(colA, y, kink.partnerA);
-      doc.text(flag, colFlag + 2, y);
-      drawScoreBox(colB, y, kink.partnerB);
-      drawBar(barX, y + 6, match);
-
-      y += 12;
-    });
-
-    y += 6;
+    y += 5;
   });
 
   doc.save('compatibility_report.pdf');
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    const downloadBtn = document.getElementById('downloadPdfBtn');
+    if (!downloadBtn) return;
+
+    downloadBtn.addEventListener('click', () => {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert("PDF library failed to load. Printing the page instead—choose 'Save as PDF' in your browser.");
+        window.print();
+        return;
+      }
+
+      generateCompatibilityPDF(window.compatibilityData);
+    });
+  });
 }
