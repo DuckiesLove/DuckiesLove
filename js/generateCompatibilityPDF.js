@@ -31,6 +31,12 @@ function getMatchFlag(percent, a, b) {
   return "";
 }
 
+function drawBar(doc, x, y, width, percent) {
+  const color = percent >= 90 ? [0, 255, 0] : percent <= 30 ? [255, 0, 0] : [200, 200, 200];
+  doc.setFillColor(...color);
+  doc.rect(x, y - 3, width * (percent / 100), 4, "F");
+}
+
 // Main function to build the PDF
 export function generateCompatibilityPDF(data) {
   const { jsPDF } = window.jspdf;
@@ -52,9 +58,9 @@ export function generateCompatibilityPDF(data) {
 
   doc.setFontSize(12);
   doc.text("Kink", margin, y);
-  doc.text("A", pageWidth - 70, y);
-  doc.text("B", pageWidth - 50, y);
-  doc.text("%", pageWidth - 30, y);
+  doc.text("A", pageWidth - 80, y);
+  doc.text("B", pageWidth - 65, y);
+  doc.text("%", pageWidth - 20, y);
   y += 7;
 
   for (const category of data.categories) {
@@ -69,13 +75,16 @@ export function generateCompatibilityPDF(data) {
       const b = item.partnerB ?? 0;
       const percent = 100 - Math.abs(a - b) * 20;
       const flag = getMatchFlag(percent, a, b);
+      const marker = item.marker ?? "";
+      const barX = pageWidth - 55;
 
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(11);
+      doc.setFontSize(10);
       doc.text(label, margin, y);
-      doc.text(String(a), pageWidth - 70, y);
-      doc.text(String(b), pageWidth - 50, y);
-      doc.text(`${percent}% ${flag}`, pageWidth - 30, y);
+      doc.text(String(a), pageWidth - 80, y);
+      doc.text(String(b), pageWidth - 65, y);
+      doc.text(`${percent}% ${flag} ${marker}`.trim(), pageWidth - 10, y, { align: "right" });
+      drawBar(doc, barX, y + 1, 30, percent);
       y += 6;
 
       if (y > pageHeight - 20) {
