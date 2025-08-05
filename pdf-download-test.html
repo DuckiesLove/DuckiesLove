@@ -5,33 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDF Download Test</title>
   <!-- 1. Include jsPDF from CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+          integrity="sha512-jQcGc+9A0El+oSRTGHxiNoD4ZRU4QwnfQYFgHH1A2phz7qPQk1V6JEFc6NKjqhAIv+xwUWyEr0QU8I96DJ+lZg=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer"></script>
 </head>
 <body>
   <!-- 2. Button (already present in HTML) -->
   <button id="downloadPdfBtn">Download PDF</button>
 
-  <!-- 3. Full JavaScript with working download logic -->
-  <script>
-    const { jsPDF } = window.jspdf;
-
-    function generateCompatibilityPDF() {
-      console.log('Download PDF clicked');
-      const doc = new jsPDF();
-      doc.setFontSize(18);
-      doc.text('✅ Kink Compatibility PDF', 20, 20);
-      doc.text("This is a test PDF to confirm it's working.", 20, 30);
-      doc.save('compatibility.pdf');
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const downloadBtn = document.getElementById('downloadPdfBtn');
-      if (!downloadBtn) {
-        console.error('❌ Download PDF button not found');
-        return;
-      }
-      downloadBtn.addEventListener('click', generateCompatibilityPDF);
-    });
-  </script>
+  <!-- 3. Load script to handle PDF generation -->
+  <script src="js/generateCompatibilityPDF.js"></script>
 </body>
 </html>
