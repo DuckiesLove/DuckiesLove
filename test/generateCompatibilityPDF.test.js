@@ -1,16 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert';
 
-// Test that PDF generator creates match bars and flags
+// Test that PDF generator renders scores and match flags
 
-test('generates portrait PDF with match bar and flag', async () => {
+test('generates PDF with score columns and flag', async () => {
   const rectCalls = [];
   const textCalls = [];
-  let options;
 
   class JsPDFMock {
-    constructor(opts) {
-      options = opts;
+    constructor() {
       this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
     }
     setFillColor() {}
@@ -36,10 +34,10 @@ test('generates portrait PDF with match bar and flag', async () => {
 
   generateCompatibilityPDF(data);
 
-  assert.strictEqual(options.orientation, 'portrait');
+  assert.ok(rectCalls.length > 0);
   assert.ok(textCalls.some(c => c[0] === 'Kink Compatibility Report'));
-  // For a match of 20%, width should be 10 when barWidth is 50
-  assert.ok(rectCalls.some(c => c[2] === 10 && c[3] === 6));
-  // Match percentage with flag should be rendered
+  assert.ok(textCalls.some(c => c[0] === 'Bondage'));
+  assert.ok(textCalls.some(c => c[0] === '5'));
+  assert.ok(textCalls.some(c => c[0] === '1'));
   assert.ok(textCalls.some(c => c[0] === '20% 🚩'));
 });

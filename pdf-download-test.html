@@ -15,9 +15,30 @@
 </head>
 <body>
   <!-- 2. Button (already present in HTML) -->
-  <button id="downloadPdfBtn">Download PDF</button>
+    <button id="downloadPdfBtn">Download PDF</button>
+    <script>
+      window.compatibilityData = {
+        categories: [
+          {
+            name: "Appearance Play",
+            items: [
+              {
+                label: "Choosing my partner’s outfit for the day or a scene",
+                partnerA: 5,
+                partnerB: 5
+              },
+              {
+                label: "Styling their hair (braiding, brushing, tying, etc.)",
+                partnerA: 4,
+                partnerB: 3
+              }
+            ]
+          }
+        ]
+      };
+    </script>
 
-  <!-- 3. Load script to handle PDF generation -->
-  <script type="module" src="js/generateCompatibilityPDF.js"></script>
-</body>
-</html>
+    <!-- 3. Load script to handle PDF generation -->
+    <script type="module" src="js/generateCompatibilityPDF.js"></script>
+  </body>
+  </html>

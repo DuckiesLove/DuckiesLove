@@ -1,13 +1,13 @@
-// PDF generation utility for compatibility report with shortened labels and match flags
+// Generate a compatibility PDF with score columns and match flags
 
 // Map verbose kink labels to shorter versions for PDF output
 export function shortenLabel(label) {
   const map = {
-    "Choosing my partner’s outfit for the day or a scene": "Choose their outfit",
-    "Selecting their underwear, lingerie, or base layers": "Pick their underwear",
-    "Styling their hair (braiding, brushing, tying, etc.)": "Style their hair",
-    "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": "Head coverings",
-    "Offering makeup, polish, or accessories as part of ritual or play": "Makeup or accessories",
+    "Choosing my partner’s outfit for the day or a scene": "Choose outfit",
+    "Selecting their underwear, lingerie, or base layers": "Underwear",
+    "Styling their hair (braiding, brushing, tying, etc.)": "Style hair",
+    "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": "Headwear",
+    "Offering makeup, polish, or accessories as part of ritual or play": "Makeup/accessories",
     "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)": "Themed looks",
     "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "Roleplay outfits",
     "Curating time-period or historical outfits (e.g., Victorian, 50s)": "Historical outfits",
@@ -15,101 +15,101 @@ export function shortenLabel(label) {
     "Coordinating their look with mine for public or private scenes": "Coordinated looks",
     "Implementing a “dress ritual” or aesthetic preparation": "Dress ritual",
     "Enforcing a visual protocol (e.g., no bra, heels required, tied hair)": "Visual protocol",
-    "Having my outfit selected for me by a partner": "They choose my outfit",
+    "Having my outfit selected for me by a partner": "They pick my outfit",
     "Wearing the underwear or lingerie they choose": "They pick my lingerie",
-    "Having my hair brushed, braided, tied, or styled for them": "Hair styling for them"
+    "Having my hair brushed, braided, tied, or styled for them": "Hair for them",
   };
   return map[label] || label;
 }
 
 // Determine match flags based on overall percentage and individual scores
-function getMatchFlag(percent, scoreA, scoreB) {
-  if (percent >= 90) return "⭐"; // star
-  if (percent >= 85) return "🟩"; // green square
-  if (percent <= 30) return "🚩"; // red flag
-  if (scoreA === 5 && scoreB < 5) return "🟨"; // yellow square
+function getMatchFlag(percent, a, b) {
+  if (percent >= 90) return "⭐";
+  if (percent >= 85) return "🟩";
+  if (percent <= 30) return "🚩";
+  if (a === 5 && b < 5) return "🟨";
   return "";
 }
 
 // Main function to build the PDF
 export function generateCompatibilityPDF(data) {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait' });
+  const doc = new jsPDF();
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 15;
-  let y = 20;
+  const margin = 10;
+  let y = 15;
 
   // black background
   doc.setFillColor(0, 0, 0);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  doc.rect(0, 0, pageWidth, pageHeight, "F");
 
-  // title
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
-  doc.text('Kink Compatibility Report', pageWidth / 2, y, { align: 'center' });
+  doc.text("Kink Compatibility Report", pageWidth / 2, y, { align: "center" });
   y += 10;
 
+  doc.setFontSize(12);
+  doc.text("Kink", margin, y);
+  doc.text("A", pageWidth - 70, y);
+  doc.text("B", pageWidth - 50, y);
+  doc.text("%", pageWidth - 30, y);
+  y += 7;
+
   for (const category of data.categories) {
-    doc.setFontSize(14);
+    doc.setTextColor(100, 150, 255);
+    doc.setFontSize(13);
     doc.text(category.name, margin, y);
-    y += 8;
+    y += 6;
 
     for (const item of category.items) {
-      const shortLabel = shortenLabel(item.label || item.kink);
-      const scoreA = item.partnerA;
-      const scoreB = item.partnerB;
-      const match = 100 - Math.abs(scoreA - scoreB) * 20;
-      const flag = getMatchFlag(match, scoreA, scoreB);
+      const label = shortenLabel(item.label || item.kink || "");
+      const a = item.partnerA ?? 0;
+      const b = item.partnerB ?? 0;
+      const percent = 100 - Math.abs(a - b) * 20;
+      const flag = getMatchFlag(percent, a, b);
 
-      // label
-      doc.setFontSize(11);
-      doc.text(shortLabel, margin, y);
-
-      // match bar
-      const barX = pageWidth - 80;
-      const barWidth = 50;
-      const barHeight = 6;
-      const fillColor = match >= 80 ? [0, 255, 0] : match >= 60 ? [255, 255, 0] : [255, 0, 0];
-      doc.setFillColor(...fillColor);
-      doc.rect(barX, y - 5, barWidth * (match / 100), barHeight, 'F');
-
-      // percent and flag
       doc.setTextColor(255, 255, 255);
-      doc.text(`${match.toFixed(0)}% ${flag}`, barX + barWidth + 5, y);
-
-      y += 10;
+      doc.setFontSize(11);
+      doc.text(label, margin, y);
+      doc.text(String(a), pageWidth - 70, y);
+      doc.text(String(b), pageWidth - 50, y);
+      doc.text(`${percent}% ${flag}`, pageWidth - 30, y);
+      y += 6;
 
       if (y > pageHeight - 20) {
         doc.addPage();
         doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, pageWidth, pageHeight, 'F');
-        y = 20;
+        doc.rect(0, 0, pageWidth, pageHeight, "F");
+        y = 15;
       }
     }
-
-    y += 5;
+    y += 4;
   }
 
-  doc.save('kink-compatibility.pdf');
+  doc.save("kink-compatibility.pdf");
 }
 
 // Attach click handler to trigger PDF generation
-if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('downloadPdfBtn');
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("downloadPdfBtn");
     if (btn) {
-      btn.addEventListener('click', () => {
+      btn.addEventListener("click", () => {
         if (!window.jspdf?.jsPDF) {
-          alert("PDF library failed to load. Printing the page instead—choose 'Save as PDF' in your browser.");
+          alert(
+            "PDF library failed to load. Printing the page instead—choose 'Save as PDF' in your browser."
+          );
           window.print();
           return;
         }
+
         if (!window.compatibilityData) {
-          alert('No compatibility data found.');
+          alert("No compatibility data found.");
           return;
         }
+
         generateCompatibilityPDF(window.compatibilityData);
       });
     }
