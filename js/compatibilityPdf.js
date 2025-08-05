@@ -112,14 +112,21 @@ export function generateCompatibilityPDF() {
 }
 
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
+  const attachHandler = () => {
     const button = document.getElementById('downloadPdfBtn');
     if (button) {
       button.addEventListener('click', generateCompatibilityPDF);
     } else {
       console.error('Download button not found');
     }
-  });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachHandler);
+  } else {
+    // DOM already parsed when script loaded
+    attachHandler();
+  }
 }
 
 export function generateCompatibilityPDFLandscape(data) {

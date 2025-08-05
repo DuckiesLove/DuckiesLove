@@ -102,26 +102,33 @@ export function generateCompatibilityPDF(data) {
 
 // Attach click handler to trigger PDF generation
 if (typeof document !== "undefined") {
-  document.addEventListener("DOMContentLoaded", () => {
+  const attachHandler = () => {
     const btn = document.getElementById("downloadPdfBtn");
-    if (btn) {
-      btn.addEventListener("click", () => {
-        if (!window.jspdf?.jsPDF) {
-          alert(
-            "PDF library failed to load. Printing the page instead—choose 'Save as PDF' in your browser."
-          );
-          window.print();
-          return;
-        }
+    if (!btn) return;
 
-        if (!window.compatibilityData) {
-          alert("No compatibility data found.");
-          return;
-        }
+    btn.addEventListener("click", () => {
+      if (!window.jspdf?.jsPDF) {
+        alert(
+          "PDF library failed to load. Printing the page instead—choose 'Save as PDF' in your browser."
+        );
+        window.print();
+        return;
+      }
 
-        generateCompatibilityPDF(window.compatibilityData);
-      });
-    }
-  });
+      if (!window.compatibilityData) {
+        alert("No compatibility data found.");
+        return;
+      }
+
+      generateCompatibilityPDF(window.compatibilityData);
+    });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", attachHandler);
+  } else {
+    // DOM is already ready (script loaded late); attach immediately
+    attachHandler();
+  }
 }
 
