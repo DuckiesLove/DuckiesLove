@@ -6,19 +6,19 @@ test('returns star for 100 percent', () => {
   assert.strictEqual(getMatchFlag(100), '⭐');
 });
 
-test('returns green flag for values between 85 and 99', () => {
+test('returns green flag for values between 80 and 99', () => {
   assert.strictEqual(getMatchFlag(90), '🟩');
-  assert.strictEqual(getMatchFlag(85), '🟩');
+  assert.strictEqual(getMatchFlag(80), '🟩');
 });
 
-test('returns red flag for values 40 or below', () => {
-  assert.strictEqual(getMatchFlag(40), '🚩');
+test('returns red flag for values 50 or below', () => {
+  assert.strictEqual(getMatchFlag(50), '🚩');
   assert.strictEqual(getMatchFlag(0), '🚩');
 });
 
 test('returns empty string for other values', () => {
   assert.strictEqual(getMatchFlag(70), '');
-  assert.strictEqual(getMatchFlag(41), '');
+  assert.strictEqual(getMatchFlag(51), '');
 });
 
 test('calculateCategoryMatch returns 0 for empty data', () => {

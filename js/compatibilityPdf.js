@@ -1,3 +1,5 @@
+import { getMatchFlag } from './matchFlag.js';
+
 export function generateCompatibilityPDF() {
   console.log('PDF function triggered');
   const { jsPDF } = window.jspdf;
@@ -49,21 +51,13 @@ export function generateCompatibilityPDF() {
     doc.rect(x, y, config.boxWidth, config.boxHeight);
     doc.setFontSize(8);
     doc.setTextColor(255, 255, 255);
-    doc.text(`${score ?? 0}%`, x + 1.5, y + 6);
+    doc.text(String(score ?? 0), x + 1.5, y + 6);
   };
 
   const drawMatchBar = (x, y, match) => {
     const color = match >= 80 ? [0, 255, 0] : match >= 60 ? [255, 255, 0] : [255, 0, 0];
     doc.setFillColor(...color);
-    doc.rect(x, y, config.barWidth, config.boxHeight, 'F');
-  };
-
-  const getFlag = (match, a, b) => {
-    if (match >= 90) return '⭐';
-    if (match >= 85) return '🟩';
-    if (match <= 40) return '🚩';
-    if ((a === 5 && b < 5) || (b === 5 && a < 5)) return '🟨';
-    return '';
+    doc.rect(x, y, config.barWidth * (match / 100), config.boxHeight, 'F');
   };
 
   const compatibilityData = window.compatibilityData;
@@ -97,8 +91,8 @@ export function generateCompatibilityPDF() {
 
       const a = item.partnerA ?? 0;
       const b = item.partnerB ?? 0;
-      const match = 100 - Math.abs(a - b);
-      const flag = getFlag(match, a, b);
+      const match = Math.max(0, 100 - Math.abs(a - b) * 25);
+      const flag = getMatchFlag(match);
       const label = item.label || item.kink || '';
 
       doc.setFontSize(9);
