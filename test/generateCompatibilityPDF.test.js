@@ -30,7 +30,7 @@ test('generates portrait PDF with partner progress bars', async () => {
     categories: [
       {
         name: 'Test',
-        items: [ { kink: 'Bondage', partnerA: 5, partnerB: 3 } ]
+        items: [ { kink: 'Bondage', partnerA: 5, partnerB: 1 } ]
       }
     ]
   };
@@ -39,6 +39,11 @@ test('generates portrait PDF with partner progress bars', async () => {
 
   assert.strictEqual(options.orientation, 'portrait');
   assert.ok(textCalls.some(c => c[0] === 'Kink Compatibility Report'));
-  // Expect a progress bar width corresponding to partnerB score (3 -> 60% of 40 = 24)
-  assert.ok(rectCalls.some(c => c[2] === 24 && c[3] === 4));
+  // Expect a progress bar width corresponding to partnerB score (1 -> 20% of 30 = 6)
+  assert.ok(rectCalls.some(c => c[2] === 6 && c[3] === 4));
+  // Numeric scores should be written for both partners
+  assert.ok(textCalls.some(c => c[0] === '5'));
+  assert.ok(textCalls.some(c => c[0] === '1'));
+  // Match percentage with flag should be rendered
+  assert.ok(textCalls.some(c => c[0] === '20% 🚩'));
 });
