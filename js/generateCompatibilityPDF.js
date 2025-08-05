@@ -2,8 +2,7 @@
 // Builds a standalone PDF using jsPDF when the "Download PDF" button is clicked.
 
 (function() {
-  // Initialize jsPDF from the global window object
-  const { jsPDF } = window.jspdf || {};
+  // jsPDF is loaded on demand inside generateCompatibilityPDF()
 
   // Map of long kink labels to shortened versions used in the PDF
   const shortenedLabels = {
@@ -90,8 +89,17 @@
     return symbol;
   };
 
-  function generateCompatibilityPDF() {
+  async function generateCompatibilityPDF() {
     console.log('PDF function triggered');
+    let jsPDF = window.jspdf?.jsPDF;
+    if (!jsPDF || window.jspdf?.isStub) {
+      try {
+        const { loadJsPDF } = await import('./loadJsPDF.js');
+        jsPDF = await loadJsPDF();
+      } catch (err) {
+        console.error('Failed to load jsPDF', err);
+      }
+    }
     if (!jsPDF || window.jspdf?.isStub) {
       alert('Unable to load PDF generator. Please try again later.');
       return;
