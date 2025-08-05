@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert';
 
-// Test that PDF generator renders scores and match flags
+// Test that PDF generator renders scores and match percentage
 
-test('generates PDF with score columns and flag', async () => {
+test('generates PDF with score columns and percent', async () => {
   const rectCalls = [];
   const textCalls = [];
 
@@ -12,6 +12,7 @@ test('generates PDF with score columns and flag', async () => {
       this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
     }
     setFillColor() {}
+    setDrawColor() {}
     rect(...args) { rectCalls.push(args); }
     setTextColor() {}
     setFontSize() {}
@@ -26,8 +27,8 @@ test('generates PDF with score columns and flag', async () => {
   const data = {
     categories: [
       {
-        name: 'Test',
-        items: [ { label: 'Bondage', partnerA: 5, partnerB: 1 } ]
+        category: 'Test',
+        items: [ { label: 'Bondage', partnerA: 5, partnerB: 1, match: 20 } ]
       }
     ]
   };
@@ -39,5 +40,5 @@ test('generates PDF with score columns and flag', async () => {
   assert.ok(textCalls.some(c => c[0] === 'Bondage'));
   assert.ok(textCalls.some(c => c[0] === '5'));
   assert.ok(textCalls.some(c => c[0] === '1'));
-  assert.ok(textCalls.some(c => c[0] === '20% 🚩'));
+  assert.ok(textCalls.some(c => c[0] === '20%'));
 });
