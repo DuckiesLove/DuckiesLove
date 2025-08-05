@@ -1,4 +1,5 @@
 export function generateCompatibilityPDF() {
+  console.log('PDF function triggered');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape' });
 
@@ -117,8 +118,14 @@ export function generateCompatibilityPDF() {
 }
 
 if (typeof document !== 'undefined') {
-  const button = document.getElementById('downloadPDF');
-  if (button) button.addEventListener('click', generateCompatibilityPDF);
+  document.addEventListener('DOMContentLoaded', () => {
+    const button = document.getElementById('downloadPdfBtn');
+    if (button) {
+      button.addEventListener('click', generateCompatibilityPDF);
+    } else {
+      console.error('Download button not found');
+    }
+  });
 }
 
 export function generateCompatibilityPDFLandscape(data) {
