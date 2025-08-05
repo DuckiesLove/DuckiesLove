@@ -17,28 +17,42 @@
   <!-- 2. Button (already present in HTML) -->
     <button id="downloadPdfBtn">Download PDF</button>
     <script>
-      window.compatibilityData = {
-        categories: [
-          {
-            name: "Appearance Play",
-            items: [
-              {
-                label: "Choosing my partner’s outfit for the day or a scene",
-                partnerA: 5,
-                partnerB: 5
-              },
-              {
-                label: "Styling their hair (braiding, brushing, tying, etc.)",
-                partnerA: 4,
-                partnerB: 3
-              }
-            ]
-          }
-        ]
+      window.partnerASurvey = {
+        "Appearance Play": {
+          Giving: [
+            {
+              name: "Choosing my partner’s outfit for the day or a scene",
+              rating: 5
+            },
+            {
+              name: "Styling their hair (braiding, brushing, tying, etc.)",
+              rating: 4
+            }
+          ],
+          Receiving: [],
+          General: []
+        }
+      };
+
+      window.partnerBSurvey = {
+        "Appearance Play": {
+          Giving: [],
+          Receiving: [
+            {
+              name: "Choosing my partner’s outfit for the day or a scene",
+              rating: 5
+            },
+            {
+              name: "Styling their hair (braiding, brushing, tying, etc.)",
+              rating: 3
+            }
+          ],
+          General: []
+        }
       };
     </script>
 
     <!-- 3. Load script to handle PDF generation -->
-    <script type="module" src="js/generateCompatibilityPDF.js"></script>
+    <script type="module" src="js/pdfDownload.js"></script>
   </body>
   </html>
