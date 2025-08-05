@@ -1,154 +1,101 @@
 // File: js/generateCompatibilityPDF.js
+// Full fix for "null" values, layout, and emoji flags.
+// Assumes jsPDF is loaded on window.jspdf.
 
 function generateCompatibilityPDF(data) {
-  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 10;
-  const lineHeight = 7;
-  const boxSize = 8;
-  const colA = margin + 5;
-  const colB = pageWidth - margin - 5 - boxSize;
-  const centerBarX = (colA + colB) / 2;
   let y = 20;
 
-  // Draw full black background
+  // Black background
   doc.setFillColor(0, 0, 0);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  doc.rect(0, 0, pageWidth, 297, 'F');
+
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(255);
-  doc.setFontSize(16);
-  doc.text('Kink Compatibility Report', pageWidth / 2, 15, { align: 'center' });
+  doc.setFontSize(18);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Kink Compatibility Report', pageWidth / 2, y, { align: 'center' });
+  y += 10;
 
-  doc.setFontSize(12);
+  // Column positions
+  const leftColX = 10;
+  const middleFlagX = 100;
+  const partnerAX = 120;
+  const partnerBX = 160;
 
-  data.categories.forEach(category => {
-    const match = category.matchPercent;
-    const flag = getFlag(match);
-    const headerText = shortenLabel(category.name) + ' ' + flag;
+  // Category header styling
+  const drawCategoryHeader = (title) => {
+    y += 10;
+    doc.setFontSize(14);
+    doc.setTextColor(0, 255, 255);
+    doc.text(title, leftColX, y);
+    y += 5;
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+  };
 
-    if (y > pageHeight - 40) {
-      doc.addPage();
-      doc.setFillColor(0, 0, 0);
-      doc.rect(0, 0, pageWidth, pageHeight, 'F');
-      y = 20;
-    }
+  const categories = Array.isArray(data?.categories)
+    ? data.categories
+    : Array.isArray(data)
+    ? data
+    : [];
 
-    doc.setTextColor(255);
-    doc.setFontSize(13);
-    doc.text(headerText, margin, y);
-    y += 8;
+  categories.forEach(category => {
+    drawCategoryHeader(category.name);
 
-    category.items.forEach(kink => {
-      if (y > pageHeight - 20) {
+    const items = category.items || category.kinks || [];
+    items.forEach(item => {
+      const label = item.labelShortened || item.label || item.kink || '—';
+      const wrappedLabel = doc.splitTextToSize(label, 85);
+
+      const partnerA = typeof item.partnerA === 'number' ? String(item.partnerA) : '–';
+      const partnerB = typeof item.partnerB === 'number' ? String(item.partnerB) : '–';
+      const match = typeof item.matchPercentage === 'number' ? item.matchPercentage : 0;
+
+      let flag = '';
+      if (match >= 90) flag = '⭐';
+      else if (match >= 80) flag = '🟩';
+      else if (match <= 40) flag = '🚩';
+
+      doc.text(wrappedLabel, leftColX, y);
+      doc.text(flag, middleFlagX, y);
+      doc.text(partnerA, partnerAX, y);
+      doc.text(partnerB, partnerBX, y);
+
+      y += wrappedLabel.length * 5 + 2;
+
+      // Page break
+      if (y > 280) {
         doc.addPage();
         doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+        doc.rect(0, 0, pageWidth, 297, 'F');
+        doc.setTextColor(255, 255, 255);
         y = 20;
       }
-
-      const shortLabel = shortenLabel(kink.kink);
-      const wrappedLabel = doc.splitTextToSize(shortLabel, 65);
-
-      const rawScoreA = kink.partnerA;
-      const rawScoreB = kink.partnerB;
-      const scoreA = rawScoreA ?? '–';
-      const scoreB = rawScoreB ?? '–';
-      const matchScore = kink.matchPercentage ?? (rawScoreA != null && rawScoreB != null ? 100 - Math.abs(rawScoreA - rawScoreB) : 0);
-      const barColor = getBarColor(matchScore);
-      const flagIcon = getFlag(matchScore);
-
-      doc.setFontSize(10);
-      doc.setTextColor(200);
-      doc.text(wrappedLabel, margin, y + 6);
-
-      drawScoreBox(doc, scoreA, colA, y, boxSize);
-      drawScoreBox(doc, scoreB, colB, y, boxSize);
-
-      drawBar(doc, matchScore, centerBarX, y, 25, 6, barColor);
-
-      if (flagIcon) {
-        doc.setFontSize(12);
-        doc.text(flagIcon, centerBarX + 30, y + 6);
-      }
-
-      y += Math.max(15, wrappedLabel.length * 5);
     });
-
-    y += 5;
   });
 
   doc.save('compatibility_report.pdf');
-
-  function drawScoreBox(doc, score, x, y, size) {
-    doc.setDrawColor(255);
-    doc.rect(x, y, size, size);
-    doc.setTextColor(255);
-    doc.setFontSize(10);
-    doc.text(`${score}`, x + size / 2, y + size - 2, { align: 'center' });
-  }
-
-  function drawBar(doc, percent, x, y, width, height, color) {
-    doc.setDrawColor(200);
-    doc.setFillColor(50);
-    doc.rect(x, y, width, height, 'F');
-
-    const fillWidth = (percent / 100) * width;
-    const [r, g, b] = color;
-    doc.setFillColor(r, g, b);
-    doc.rect(x, y, fillWidth, height, 'F');
-
-    doc.setTextColor(255);
-    doc.setFontSize(8);
-    doc.text(`${percent}%`, x + width / 2, y + height - 1, { align: 'center' });
-  }
-
-  function getFlag(percent) {
-    if (percent >= 90) return '⭐';
-    if (percent >= 80) return '🟩';
-    if (percent <= 40) return '🚩';
-    return '';
-  }
-
-  function getBarColor(percent) {
-    if (percent >= 80) return [0, 255, 0]; // Green
-    if (percent >= 60) return [255, 255, 0]; // Yellow
-    return [255, 0, 0]; // Red
-  }
-
-  function shortenLabel(label) {
-    const map = {
-      "Face Slapping / Slap Play": "Slap Play",
-      "Pet Play (General)": "Pet Play",
-      "Humiliation / Degradation": "Humiliation",
-      "Roleplay: Caregiver/little": "CG/little",
-      "Rope Bondage": "Rope",
-      "Service Submission": "Service Sub",
-      "Appearance Play": "Appearance",
-      "Verbal Teasing / Degradation": "Verbal Tease",
-    };
-    return map[label] || (label.length > 20 ? label.slice(0, 18) + '…' : label);
-  }
 }
 
-// Hook up button
-document.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('downloadPdfBtn');
-  if (!btn) return;
+// Hook up button if running in browser
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('downloadPdfBtn');
+    if (!btn) return;
 
-  btn.addEventListener('click', () => {
-    if (!window.jspdf?.jsPDF) {
-      alert('PDF library failed to load. Printing the page instead—choose Save as PDF in your browser.');
-      return;
-    }
-
-    if (!window.compatibilityData) {
-      alert('No compatibility data found.');
-      return;
-    }
-
-    generateCompatibilityPDF(window.compatibilityData);
+    btn.addEventListener('click', () => {
+      if (!window.jspdf?.jsPDF) {
+        alert('PDF library failed to load. Printing the page instead—choose Save as PDF in your browser.');
+        return;
+      }
+      const data = window.compatibilityData?.categories || [];
+      generateCompatibilityPDF(data);
+    });
   });
-});
+}
 
+// Export for module usage
+export { generateCompatibilityPDF };
