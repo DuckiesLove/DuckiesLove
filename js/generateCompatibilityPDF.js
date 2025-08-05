@@ -1,82 +1,4 @@
-export function generateCompatibilityPDF(data) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 10;
-  let y = 20;
-
-  const barWidth = 40;
-  const maxY = pageHeight - 20;
-  const colA = 120;
-  const colB = 160;
-
-  function drawBackground() {
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
-  }
-
-  function drawBar(x, y, percent, color) {
-    doc.setDrawColor(255);
-    doc.setFillColor(40, 40, 40);
-    doc.rect(x, y, barWidth, 4, 'F');
-    doc.setFillColor(...color);
-    doc.rect(x, y, (barWidth * percent) / 100, 4, 'F');
-  }
-
-  function getColor(percent) {
-    if (percent >= 80) return [0, 200, 0];
-    if (percent <= 50) return [255, 0, 0];
-    return [255, 204, 0];
-  }
-
-  function drawCategoryHeader(name) {
-    doc.setTextColor(255);
-    doc.setFillColor(0, 0, 0);
-    doc.setFontSize(12);
-    doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
-    doc.text(name, margin + 2, y + 6);
-    y += 10;
-  }
-
-  function drawItem(kink, a, b) {
-    doc.setTextColor(255);
-    doc.setFontSize(10);
-    doc.text(kink, margin + 2, y);
-    drawBar(colA, y - 3, a * 20, getColor(a * 20));
-    drawBar(colB, y - 3, b * 20, getColor(b * 20));
-    y += 8;
-  }
-
-  drawBackground();
-  doc.setTextColor(255);
-  doc.setFillColor(0, 0, 0);
-  doc.setFontSize(16);
-  doc.text('Kink Compatibility Report', pageWidth / 2, 15, { align: 'center' });
-  y = 25;
-
-  data.categories.forEach(category => {
-    if (y > maxY) {
-      doc.addPage();
-      drawBackground();
-      y = 20;
-    }
-    drawCategoryHeader(category.name);
-    category.items.forEach(item => {
-      if (y > maxY) {
-        doc.addPage();
-        drawBackground();
-        y = 20;
-      }
-      drawItem(item.kink, item.partnerA, item.partnerB);
-    });
-    y += 5;
-  });
-
-  doc.save('compatibility_report.pdf');
-}
-
+// Portrait PDF generator with two partner bars, numeric values, and match flags
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     const downloadBtn = document.getElementById('downloadPdfBtn');
@@ -93,3 +15,101 @@ if (typeof document !== 'undefined') {
     });
   });
 }
+
+export function generateCompatibilityPDF(data) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 10;
+  let y = 20;
+  const maxY = 270;
+  const barWidth = 30;
+
+  doc.setTextColor(255);
+  doc.setFontSize(16);
+  doc.setFillColor(0, 0, 0);
+  doc.rect(0, 0, pageWidth, 297, 'F');
+  doc.text('Kink Compatibility Report', pageWidth / 2, y, { align: 'center' });
+  y += 10;
+
+  function drawHeaderRow() {
+    doc.setFontSize(12);
+    doc.text('Kink', margin, y);
+    doc.text('A', 100, y);
+    doc.text('B', 130, y);
+    doc.text('%', 160, y);
+    y += 5;
+  }
+
+  function drawCategoryTitle(title) {
+    doc.setFontSize(12);
+    doc.setTextColor(200, 200, 255);
+    doc.text(title, margin, y);
+    y += 6;
+  }
+
+  function drawBar(x, y, percent, color) {
+    doc.setDrawColor(255);
+    doc.setFillColor(60, 60, 60);
+    doc.rect(x, y, barWidth, 4, 'F');
+    doc.setFillColor(...color);
+    doc.rect(x, y, (barWidth * percent) / 100, 4, 'F');
+  }
+
+  function getColor(p) {
+    if (p >= 80) return [0, 200, 0];
+    if (p <= 40) return [200, 0, 0];
+    return [255, 204, 0];
+  }
+
+  function getMatchFlag(pA, pB) {
+    const diff = Math.abs(pA - pB);
+    const max = Math.max(pA, pB);
+    if (pA === pB && pA >= 4) return '⭐';
+    if (diff <= 1 && max >= 4) return '🟩';
+    if (diff >= 3 && max >= 3) return '🚩';
+    return '';
+  }
+
+  function drawRow(item) {
+    const { kink, partnerA, partnerB } = item;
+    const pctA = partnerA * 20;
+    const pctB = partnerB * 20;
+
+    const match = 100 - Math.abs(pctA - pctB);
+    const flag = getMatchFlag(partnerA, partnerB);
+
+    doc.setTextColor(255);
+    doc.setFontSize(10);
+    doc.text(kink.substring(0, 40), margin, y);
+
+    drawBar(95, y - 3, pctA, getColor(pctA));
+    drawBar(125, y - 3, pctB, getColor(pctB));
+
+    doc.setTextColor(200);
+    doc.text(`${partnerA}`, 93, y);
+    doc.text(`${partnerB}`, 123, y);
+
+    doc.text(`${match}% ${flag}`, 165, y);
+    y += 6;
+
+    if (y > maxY) {
+      doc.addPage();
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageWidth, 297, 'F');
+      y = 20;
+    }
+  }
+
+  drawHeaderRow();
+
+  data.categories.forEach(category => {
+    drawCategoryTitle(category.name);
+    category.items.forEach(drawRow);
+    y += 4;
+  });
+
+  doc.save('compatibility_report.pdf');
+}
+
