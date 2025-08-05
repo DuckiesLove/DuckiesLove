@@ -94,7 +94,7 @@
     let jsPDF = window.jspdf?.jsPDF;
     if (!jsPDF || window.jspdf?.isStub) {
       try {
-        const { loadJsPDF } = await import('./loadJsPDF.js');
+        const { loadJsPDF } = await import('/js/loadJsPDF.js');
         jsPDF = await loadJsPDF();
       } catch (err) {
         console.error('Failed to load jsPDF', err);
