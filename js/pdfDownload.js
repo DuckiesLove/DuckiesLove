@@ -100,9 +100,12 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     try {
-      const surveyDataA = window.partnerASurvey || {};
-      const surveyDataB = window.partnerBSurvey || {};
-      if (!surveyDataA || !surveyDataB) {
+      const surveyDataA = window.partnerASurvey;
+      const surveyDataB = window.partnerBSurvey;
+      if (
+        Object.keys(surveyDataA || {}).length === 0 ||
+        Object.keys(surveyDataB || {}).length === 0
+      ) {
         alert("Both surveys must be uploaded before generating PDF.");
         return;
       }
