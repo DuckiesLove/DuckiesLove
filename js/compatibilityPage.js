@@ -283,6 +283,7 @@ function loadFileA(file) {
       mergeSurveyWithTemplate(surveyA, window.templateSurvey);
       normalizeRatings(surveyA);
       filterGeneralOptions(surveyA);
+      window.partnerASurvey = surveyA;
       updateComparison();
     } catch (err) {
       console.warn('Failed to load Survey A:', err);
@@ -305,6 +306,7 @@ function loadFileB(file) {
       mergeSurveyWithTemplate(surveyB, window.templateSurvey);
       normalizeRatings(surveyB);
       filterGeneralOptions(surveyB);
+      window.partnerBSurvey = surveyB;
       updateComparison();
     } catch (err) {
       console.warn('Failed to load Survey B:', err);
