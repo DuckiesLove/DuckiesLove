@@ -2,20 +2,8 @@
 // Builds a standalone PDF using jsPDF when the "Download PDF" button is clicked.
 
 (function() {
-  // Lazily load jsPDF so the button still responds even if the library must
-  // be fetched at click time. Falls back to a CDN if the bundled stub is loaded.
-  const getJsPDF = async () => {
-    if (window.jspdf?.jsPDF && !window.jspdf.isStub) {
-      return window.jspdf.jsPDF;
-    }
-    try {
-      const { loadJsPDF } = await import('./loadJsPDF.js');
-      return await loadJsPDF();
-    } catch (err) {
-      console.warn('Unable to load jsPDF library', err);
-      return null;
-    }
-  };
+  // Initialize jsPDF from the global window object
+  const { jsPDF } = window.jspdf || {};
 
   // Map of long kink labels to shortened versions used in the PDF
   const shortenedLabels = {
@@ -102,8 +90,8 @@
     return symbol;
   };
 
-  async function generateCompatibilityPDF() {
-    const jsPDF = await getJsPDF();
+  function generateCompatibilityPDF() {
+    console.log('PDF function triggered');
     if (!jsPDF || window.jspdf?.isStub) {
       alert('Unable to load PDF generator. Please try again later.');
       return;
@@ -197,7 +185,11 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('downloadPDF');
-    if (btn) btn.addEventListener('click', generateCompatibilityPDF);
+    const btn = document.getElementById('downloadPdfBtn');
+    if (btn) {
+      btn.addEventListener('click', generateCompatibilityPDF);
+    } else {
+      console.error('Download button not found');
+    }
   });
 })();
