@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert';
 
-// Test that PDF generator draws separate progress bars for partners
+// Test that PDF generator creates match bars and flags
 
-test('generates portrait PDF with partner progress bars', async () => {
+test('generates portrait PDF with match bar and flag', async () => {
   const rectCalls = [];
   const textCalls = [];
   let options;
@@ -13,7 +13,6 @@ test('generates portrait PDF with partner progress bars', async () => {
       options = opts;
       this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
     }
-    setDrawColor() {}
     setFillColor() {}
     rect(...args) { rectCalls.push(args); }
     setTextColor() {}
@@ -30,7 +29,7 @@ test('generates portrait PDF with partner progress bars', async () => {
     categories: [
       {
         name: 'Test',
-        items: [ { kink: 'Bondage', partnerA: 5, partnerB: 1 } ]
+        items: [ { label: 'Bondage', partnerA: 5, partnerB: 1 } ]
       }
     ]
   };
@@ -39,11 +38,8 @@ test('generates portrait PDF with partner progress bars', async () => {
 
   assert.strictEqual(options.orientation, 'portrait');
   assert.ok(textCalls.some(c => c[0] === 'Kink Compatibility Report'));
-  // Expect a progress bar width corresponding to partnerB score (1 -> 20% of 30 = 6)
-  assert.ok(rectCalls.some(c => c[2] === 6 && c[3] === 4));
-  // Numeric scores should be written for both partners
-  assert.ok(textCalls.some(c => c[0] === '5'));
-  assert.ok(textCalls.some(c => c[0] === '1'));
+  // For a match of 20%, width should be 10 when barWidth is 50
+  assert.ok(rectCalls.some(c => c[2] === 10 && c[3] === 6));
   // Match percentage with flag should be rendered
   assert.ok(textCalls.some(c => c[0] === '20% 🚩'));
 });
