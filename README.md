@@ -22,6 +22,13 @@ To serve the site at **www.talkkink.org** using GitHub Pages, configure your DNS
 
 2. **CNAME record**
    - Create a CNAME record for `www` pointing to `<your-github-username>.github.io` (or the domain shown in your Pages settings).
+   
+To support the apex domain **talkkink.org**, either:
+
+- Add `A` records for `talkkink.org` using the same IP addresses listed above, or
+- Use an `ALIAS`/`ANAME` record that points `talkkink.org` to `<your-github-username>.github.io` if your DNS provider offers it.
+
+After the apex records resolve, GitHub can serve the site on both `talkkink.org` and `www.talkkink.org`. If you want the apex to redirect to `www`, keep `www.talkkink.org` as the custom domain in the repository's Pages settings and either rely on GitHub's automatic redirect or configure a URL redirect with your DNS provider.
 
 A `CNAME` file already exists in this repository with the line `www.talkkink.org` so GitHub knows which domain to expect.
 
