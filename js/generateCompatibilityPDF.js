@@ -6,22 +6,21 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  btn.addEventListener("click", () => {
-    // Fail-safe check
-    if (!window.jspdf || !window.jspdf.jsPDF) {
+  btn.addEventListener("click", async () => {
+    try {
+      const { loadJsPDF } = await import("./loadJsPDF.js");
+      const jsPDF = await loadJsPDF();
+      const doc = new jsPDF();
+
+      // Replace this with actual report content generation
+      doc.setFontSize(18);
+      doc.text("✅ Kink Compatibility PDF Test", 20, 20);
+      doc.text("If you see this, jsPDF loaded and click event worked.", 20, 30);
+
+      doc.save("test-compatibility.pdf");
+    } catch (err) {
       alert("❌ jsPDF failed to load. Check your internet or CDN blocking.");
-      console.error("❌ jsPDF not available:", window.jspdf);
-      return;
+      console.error("❌ jsPDF load error:", err);
     }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    // Replace this with actual report content generation
-    doc.setFontSize(18);
-    doc.text("✅ Kink Compatibility PDF Test", 20, 20);
-    doc.text("If you see this, jsPDF loaded and click event worked.", 20, 30);
-
-    doc.save("test-compatibility.pdf");
   });
 });
