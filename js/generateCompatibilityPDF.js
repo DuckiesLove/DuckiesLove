@@ -2,9 +2,20 @@
 // Builds a standalone PDF using jsPDF when the "Download PDF" button is clicked.
 
 (function() {
-  // Lazily access jsPDF so the button still responds even if the library fails
-  // to load. We'll notify the user instead of silently doing nothing.
-  const getJsPDF = () => window.jspdf?.jsPDF;
+  // Lazily load jsPDF so the button still responds even if the library must
+  // be fetched at click time. Falls back to a CDN if the bundled stub is loaded.
+  const getJsPDF = async () => {
+    if (window.jspdf?.jsPDF && !window.jspdf.isStub) {
+      return window.jspdf.jsPDF;
+    }
+    try {
+      const { loadJsPDF } = await import('./loadJsPDF.js');
+      return await loadJsPDF();
+    } catch (err) {
+      console.warn('Unable to load jsPDF library', err);
+      return null;
+    }
+  };
 
   // Map of long kink labels to shortened versions used in the PDF
   const shortenedLabels = {
@@ -91,9 +102,9 @@
     return symbol;
   };
 
-  function generateCompatibilityPDF() {
-    const jsPDF = getJsPDF();
-    if (!jsPDF) {
+  async function generateCompatibilityPDF() {
+    const jsPDF = await getJsPDF();
+    if (!jsPDF || window.jspdf?.isStub) {
       alert('Unable to load PDF generator. Please try again later.');
       return;
     }
