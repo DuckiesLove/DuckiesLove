@@ -131,15 +131,18 @@ function generateCompatibilityPDF(data) {
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('downloadPdfBtn');
   if (!btn) return;
+
   btn.addEventListener('click', () => {
+    if (!window.jspdf?.jsPDF) {
+      alert('PDF library failed to load. Printing the page instead—choose Save as PDF in your browser.');
+      return;
+    }
+
     if (!window.compatibilityData) {
       alert('No compatibility data found.');
       return;
     }
-    if (!window.jspdf?.jsPDF) {
-      alert('PDF library failed to load.');
-      return;
-    }
+
     generateCompatibilityPDF(window.compatibilityData);
   });
 });
