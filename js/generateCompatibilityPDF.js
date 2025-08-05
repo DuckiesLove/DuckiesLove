@@ -1,11 +1,16 @@
-document.getElementById('downloadPdfBtn')?.addEventListener('click', () => {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    alert("PDF library failed to load. Printing the page instead—choose 'Save as PDF' in your browser.");
-    window.print();
-    return;
-  }
+document.addEventListener('DOMContentLoaded', () => {
+  const downloadBtn = document.getElementById('downloadPdfBtn');
+  if (!downloadBtn) return;
 
-  generateCompatibilityPDF(window.compatibilityData);
+  downloadBtn.addEventListener('click', () => {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      alert("PDF library failed to load. Printing the page instead—choose 'Save as PDF' in your browser.");
+      window.print();
+      return;
+    }
+
+    generateCompatibilityPDF(window.compatibilityData);
+  });
 });
 
 function generateCompatibilityPDF(data) {
@@ -25,7 +30,6 @@ function generateCompatibilityPDF(data) {
   const barWidth = 40;
   const maxY = pageHeight - 20;
 
-  // Draw full black page background
   function drawBackground() {
     doc.setFillColor(0, 0, 0);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
@@ -43,7 +47,7 @@ function generateCompatibilityPDF(data) {
       "Reluctance / Resistance Play": "Resistance",
       "Ownership / Collaring": "Collaring",
     };
-    return map[label] || label.length > 28 ? label.slice(0, 25) + "…" : label;
+    return map[label] || (label.length > 28 ? label.slice(0, 25) + "…" : label);
   }
 
   function getMatchFlag(percent) {
@@ -66,9 +70,9 @@ function generateCompatibilityPDF(data) {
     const fillColor = percent >= 80 ? [0, 200, 0] : percent <= 50 ? [255, 0, 0] : [255, 204, 0];
     doc.setDrawColor(255);
     doc.setFillColor(40, 40, 40);
-    doc.rect(x, y - 3, barWidth, 5, 'F'); // Background bar
+    doc.rect(x, y - 3, barWidth, 5, 'F');
     doc.setFillColor(...fillColor);
-    doc.rect(x, y - 3, (barWidth * percent) / 100, 5, 'F'); // Fill bar
+    doc.rect(x, y - 3, (barWidth * percent) / 100, 5, 'F');
   }
 
   function checkSpaceAndAddPage() {
@@ -90,7 +94,6 @@ function generateCompatibilityPDF(data) {
   data.categories.forEach(category => {
     checkSpaceAndAddPage();
 
-    // Category Title
     doc.setTextColor(255);
     doc.setFontSize(12);
     doc.text(shortenLabel(category.name), colKink, y);
@@ -124,4 +127,3 @@ function generateCompatibilityPDF(data) {
 
   doc.save('compatibility_report.pdf');
 }
-
