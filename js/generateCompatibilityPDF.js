@@ -19,7 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       doc.save("test-compatibility.pdf");
     } catch (err) {
-      alert("❌ jsPDF failed to load. Check your internet or CDN blocking.");
       console.error("❌ jsPDF load error:", err);
     }
   });
