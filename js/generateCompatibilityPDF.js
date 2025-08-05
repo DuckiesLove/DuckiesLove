@@ -154,7 +154,8 @@
 
       for (const item of items) {
         addPageIfNeeded(doc, { y, pageHeight, margin });
-        const label = shortenedLabels[item.kink] || item.kink;
+        const rawLabel = item.kink || item.label || item.name;
+        const label = shortenedLabels[rawLabel] || rawLabel;
         const a = item.partnerA ?? '-';
         const b = item.partnerB ?? '-';
         const match = 100 - Math.abs((a ?? 0) - (b ?? 0)) * 20;
@@ -163,7 +164,7 @@
 
         doc.setFontSize(config.fontSize);
         doc.setTextColor(255, 255, 255);
-        doc.text(String(label), config.colA, y);
+        doc.text(String(label ?? ''), config.colA, y);
 
         drawScoreBox(doc, a, config.colA + 80, y - 6, config);
         drawBar(doc, match, config.centerBarX - config.barWidth / 2, y - 6, barColor, config);
