@@ -1,101 +1,74 @@
-// File: js/generateCompatibilityPDF.js
-// Full fix for "null" values, layout, and emoji flags.
-// Assumes jsPDF is loaded on window.jspdf.
+import jsPDF from 'jspdf';
 
-function generateCompatibilityPDF(data) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+export function generateCompatibilityPDF(data) {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    putOnlyUsedFonts: true,
+  });
 
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
   let y = 20;
+  const margin = 10;
+  const columnA = 110;
+  const columnB = 170;
+  const flagCol = 145;
 
-  // Black background
+  // Fill black background
   doc.setFillColor(0, 0, 0);
-  doc.rect(0, 0, pageWidth, 297, 'F');
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(18);
+  // Title
   doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
   doc.text('Kink Compatibility Report', pageWidth / 2, y, { align: 'center' });
   y += 10;
 
-  // Column positions
-  const leftColX = 10;
-  const middleFlagX = 100;
-  const partnerAX = 120;
-  const partnerBX = 160;
-
-  // Category header styling
-  const drawCategoryHeader = (title) => {
-    y += 10;
+  data.forEach(category => {
+    // Section Header
     doc.setFontSize(14);
     doc.setTextColor(0, 255, 255);
-    doc.text(title, leftColX, y);
-    y += 5;
+    doc.text(category.name || 'Untitled Section', margin, y);
+    y += 6;
     doc.setFontSize(10);
     doc.setTextColor(255, 255, 255);
-  };
 
-  const categories = Array.isArray(data?.categories)
-    ? data.categories
-    : Array.isArray(data)
-    ? data
-    : [];
+    category.items.forEach(item => {
+      if (y > 270) {
+        doc.addPage();
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+        y = 20;
+      }
 
-  categories.forEach(category => {
-    drawCategoryHeader(category.name);
+      const label = item.labelShortened || item.label || '—';
+      const labelLines = doc.splitTextToSize(label, 90);
 
-    const items = category.items || category.kinks || [];
-    items.forEach(item => {
-      const label = item.labelShortened || item.label || item.kink || '—';
-      const wrappedLabel = doc.splitTextToSize(label, 85);
+      const partnerA = typeof item.partnerA === 'number' ? `${item.partnerA}` : '–';
+      const partnerB = typeof item.partnerB === 'number' ? `${item.partnerB}` : '–';
+      const match = item.matchPercentage ?? 0;
 
-      const partnerA = typeof item.partnerA === 'number' ? String(item.partnerA) : '–';
-      const partnerB = typeof item.partnerB === 'number' ? String(item.partnerB) : '–';
-      const match = typeof item.matchPercentage === 'number' ? item.matchPercentage : 0;
-
+      // Match flag
       let flag = '';
       if (match >= 90) flag = '⭐';
       else if (match >= 80) flag = '🟩';
       else if (match <= 40) flag = '🚩';
 
-      doc.text(wrappedLabel, leftColX, y);
-      doc.text(flag, middleFlagX, y);
-      doc.text(partnerA, partnerAX, y);
-      doc.text(partnerB, partnerBX, y);
+      doc.text(labelLines, margin, y);
+      doc.text(flag, flagCol, y);
+      doc.text(partnerA, columnA, y);
+      doc.text(partnerB, columnB, y);
 
-      y += wrappedLabel.length * 5 + 2;
-
-      // Page break
-      if (y > 280) {
-        doc.addPage();
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, pageWidth, 297, 'F');
-        doc.setTextColor(255, 255, 255);
-        y = 20;
-      }
+      y += labelLines.length * 5 + 2;
     });
+
+    y += 3; // Space between categories
   });
 
   doc.save('compatibility_report.pdf');
 }
 
-// Hook up button if running in browser
-if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('downloadPdfBtn');
-    if (!btn) return;
-
-    btn.addEventListener('click', () => {
-      if (!window.jspdf?.jsPDF) {
-        alert('PDF library failed to load. Printing the page instead—choose Save as PDF in your browser.');
-        return;
-      }
-      const data = window.compatibilityData?.categories || [];
-      generateCompatibilityPDF(data);
-    });
-  });
-}
-
-// Export for module usage
-export { generateCompatibilityPDF };
