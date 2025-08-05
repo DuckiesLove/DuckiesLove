@@ -15,7 +15,8 @@ function generateCompatibilityPDF(data) {
   // Draw full black background
   doc.setFillColor(0, 0, 0);
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
-
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
   doc.setTextColor(255);
   doc.setFontSize(16);
   doc.text('Kink Compatibility Report', pageWidth / 2, 15, { align: 'center' });
@@ -48,15 +49,19 @@ function generateCompatibilityPDF(data) {
       }
 
       const shortLabel = shortenLabel(kink.kink);
-      const scoreA = kink.partnerA;
-      const scoreB = kink.partnerB;
-      const matchScore = 100 - Math.abs(scoreA - scoreB);
+      const wrappedLabel = doc.splitTextToSize(shortLabel, 65);
+
+      const rawScoreA = kink.partnerA;
+      const rawScoreB = kink.partnerB;
+      const scoreA = rawScoreA ?? '–';
+      const scoreB = rawScoreB ?? '–';
+      const matchScore = kink.matchPercentage ?? (rawScoreA != null && rawScoreB != null ? 100 - Math.abs(rawScoreA - rawScoreB) : 0);
       const barColor = getBarColor(matchScore);
       const flagIcon = getFlag(matchScore);
 
       doc.setFontSize(10);
       doc.setTextColor(200);
-      doc.text(shortLabel, margin, y + 6);
+      doc.text(wrappedLabel, margin, y + 6);
 
       drawScoreBox(doc, scoreA, colA, y, boxSize);
       drawScoreBox(doc, scoreB, colB, y, boxSize);
@@ -68,7 +73,7 @@ function generateCompatibilityPDF(data) {
         doc.text(flagIcon, centerBarX + 30, y + 6);
       }
 
-      y += 10;
+      y += Math.max(15, wrappedLabel.length * 5);
     });
 
     y += 5;
@@ -100,9 +105,9 @@ function generateCompatibilityPDF(data) {
   }
 
   function getFlag(percent) {
-    if (percent === 100) return '⭐';
+    if (percent >= 90) return '⭐';
     if (percent >= 80) return '🟩';
-    if (percent <= 50) return '🚩';
+    if (percent <= 40) return '🚩';
     return '';
   }
 
