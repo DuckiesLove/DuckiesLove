@@ -53,7 +53,7 @@ export function generateCompatibilityPDF(partnerAData, partnerBData, doc) {
 // 📍 Draw category title (left-aligned)
 function renderCategoryHeaderPDF(doc, title) {
   doc.setFontSize(16);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0);
   doc.text(title, 50, doc.y);
   doc.y += 10;
 
@@ -70,7 +70,7 @@ function renderCategoryHeaderPDF(doc, title) {
 function renderRowPDF(doc, { label, scoreA, match, flag, scoreB }) {
   const y = doc.y;
   doc.setFontSize(10);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0);
 
   doc.text(label, 50, y);       // Kink subcategory
   doc.text(scoreA, 250, y);     // Partner A
