@@ -1,5 +1,24 @@
 import { getMatchFlag } from './matchFlag.js';
 
+// Shortened label lookup for verbose subcategory names
+const shortenedLabels = {
+  "Choosing my partner's outfit for the day or a scene": 'Choosing outfit',
+  "Selecting their underwear, lingerie or base layers": 'Picking underwear',
+  "Styling their hair (braiding, brushing, tying, etc.)": 'Styling hair',
+  "Picking head coverings (veils, hoods, hats)": 'Headwear',
+  "Offering makeup, polish, or accessories": 'Makeup/accessories',
+  "Creating themed looks (slutty, innocent, etc)": 'Themed looks',
+  "Dressing them in role-specific costumes": 'Roleplay outfits',
+  "Curating time-period or historical outfits": 'Historical outfits',
+  "Helping them present more femme/masc": 'Femme/masc styling',
+  "Coordinating their look with mine": 'Matching outfits',
+  "Implementing a 'dress ritual' or aesthetic preparation": 'Dress ritual',
+  "Enforcing a visual protocol (e.g. no bra, pigtails)": 'Visual protocol',
+  "Having my outfit selected for me by partner": 'Partner-picked outfit',
+  "Wearing chosen lingerie/underwear": 'Chosen lingerie',
+  "Having my hair brushed, braided, styled": 'Hair styled by partner'
+};
+
 // Thresholds for bar colors
 function getBarColor(matchPercentage) {
   if (matchPercentage === null) return 'black';
@@ -10,6 +29,7 @@ function getBarColor(matchPercentage) {
 
 // Subcategory label shortening (1–4 words)
 function shortenLabel(text = '') {
+  if (shortenedLabels[text]) return shortenedLabels[text];
   return text.split(/\s+/).slice(0, 4).join(' ');
 }
 
@@ -31,20 +51,22 @@ const pdfStyles = {
 
 function drawBar(doc, x, y, matchPercentage) {
   const width = 50;
-  const barColor = pdfStyles.barColors[getBarColor(matchPercentage)];
-  const filledWidth = matchPercentage === null ? 0 : (matchPercentage / 100) * width;
 
   // Bar background
   doc.setFillColor(pdfStyles.barColors.black);
   doc.rect(x, y, width, pdfStyles.barHeight, 'F');
 
-  if (filledWidth > 0) {
-    doc.setFillColor(barColor);
-    doc.rect(x, y, filledWidth, pdfStyles.barHeight, 'F');
+  if (matchPercentage !== null) {
+    const barColor = pdfStyles.barColors[getBarColor(matchPercentage)];
+    const filledWidth = (matchPercentage / 100) * width;
+    if (filledWidth > 0) {
+      doc.setFillColor(barColor);
+      doc.rect(x, y, filledWidth, pdfStyles.barHeight, 'F');
+    }
     doc.setFont(pdfStyles.bodyFont, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(pdfStyles.textColor);
-    doc.text(`${matchPercentage}%`, x + width + 5, y + pdfStyles.barHeight - 3);
+    doc.text(`${matchPercentage}%`, x - 5, y + pdfStyles.barHeight - 3, { align: 'right' });
   } else {
     doc.setFont(pdfStyles.bodyFont, 'normal');
     doc.setFontSize(9);
@@ -101,13 +123,14 @@ export function generateCompatibilityPDF(compatibilityData) {
     doc.text(category.category || category.name, margin, y);
     y += lineHeight;
 
-    category.items.forEach((item, index) => {
-      const label = shortenLabel(item.label || item.name || `Item ${index + 1}`);
+    category.items.forEach((item) => {
+      const fullLabel = item.label || item.kink || item.name || '';
+      const label = shortenLabel(fullLabel);
       const a = typeof item.partnerA === 'number' ? item.partnerA :
         typeof item.scoreA === 'number' ? item.scoreA : null;
       const b = typeof item.partnerB === 'number' ? item.partnerB :
         typeof item.scoreB === 'number' ? item.scoreB : null;
-      const match = (a === 0 && b === 0) || a === null || b === null
+      const match = a === null || b === null
         ? null
         : Math.max(0, 100 - Math.abs(a - b) * 20);
 
@@ -116,9 +139,11 @@ export function generateCompatibilityPDF(compatibilityData) {
       doc.text(label, margin, y + boxSize - 2, { maxWidth: barX - margin - gap });
       drawScoreBox(boxAX, y, a);
       drawBar(doc, barX, y, match);
-      const flag = getMatchFlag(match, a, b);
-      if (flag) {
-        doc.text(flag, flagX, y + boxSize - 2);
+      if (match !== null) {
+        const flag = getMatchFlag(match);
+        if (flag) {
+          doc.text(flag, flagX, y + boxSize - 2);
+        }
       }
       drawScoreBox(boxBX, y, b);
 
