@@ -82,3 +82,30 @@ test('shows N/A bar when scores missing', async () => {
   assert.ok(!textCalls.some(c => /\d+%/.test(c[0])));
   assert.ok(!textCalls.some(c => c[0] === '⭐' || c[0] === '🚩'));
 });
+
+// New test to verify history section rendering
+test('renders compatibility history section when history data present', async () => {
+  const textCalls = [];
+  class JsPDFMock {
+    constructor() {
+      this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+    }
+    setFillColor() {}
+    setFont() {}
+    setDrawColor() {}
+    rect() {}
+    setTextColor() {}
+    setFontSize() {}
+    text(...args) { textCalls.push(args); }
+    addPage() {}
+    save() {}
+  }
+  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
+  const { generateCompatibilityPDF } = await import('../js/generateCompatibilityPDF.js');
+  const data = {
+    categories: [],
+    history: [{ score: 85, date: '2024-01-01T00:00:00Z' }]
+  };
+  generateCompatibilityPDF(data);
+  assert.ok(textCalls.some(c => c[0] === 'Compatibility History'));
+});
