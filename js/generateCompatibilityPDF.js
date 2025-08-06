@@ -1,7 +1,7 @@
 import { getMatchFlag } from './matchFlag.js';
 
 // Shortened label lookup for verbose subcategory names
-const shortenedLabels = {
+const shortLabels = {
   "Choosing my partner's outfit for the day or a scene": 'Choosing outfit',
   "Selecting their underwear, lingerie or base layers": 'Picking underwear',
   "Styling their hair (braiding, brushing, tying, etc.)": 'Styling hair',
@@ -29,7 +29,7 @@ function getBarColor(matchPercentage) {
 
 // Subcategory label shortening (1–4 words)
 function shortenLabel(text = '') {
-  if (shortenedLabels[text]) return shortenedLabels[text];
+  if (shortLabels[text]) return shortLabels[text];
   return text.split(/\s+/).slice(0, 4).join(' ');
 }
 
@@ -97,11 +97,13 @@ export function generateCompatibilityPDF(compatibilityData) {
   const boxSize = pdfStyles.barHeight;
   const barWidth = 50;
   const gap = 10;
+  const flagWidth = 10;
   const lineHeight = boxSize + pdfStyles.barSpacing;
 
   const barX = pageWidth / 2 - barWidth / 2;
   const boxAX = barX - gap - boxSize;
-  const boxBX = barX + barWidth + gap;
+  const flagX = barX + barWidth + gap;
+  const boxBX = flagX + flagWidth + gap;
 
   const drawBackground = () => {
     doc.setFillColor(pdfStyles.backgroundColor);
@@ -137,6 +139,13 @@ export function generateCompatibilityPDF(compatibilityData) {
     });
     y += pdfStyles.barSpacing * 2;
 
+    doc.setFont(pdfStyles.bodyFont, 'bold');
+    doc.setFontSize(9);
+    doc.text('A', boxAX + boxSize / 2, y, { align: 'center' });
+    doc.text('Flag', flagX + flagWidth / 2, y, { align: 'center' });
+    doc.text('B', boxBX + boxSize / 2, y, { align: 'center' });
+    y += pdfStyles.barSpacing;
+
     category.items.forEach((item) => {
       const fullLabel = item.label || item.kink || item.name || '';
       const label = shortenLabel(fullLabel);
@@ -154,11 +163,9 @@ export function generateCompatibilityPDF(compatibilityData) {
       doc.text(label, margin, y + boxSize - 2, { maxWidth: barX - margin - gap });
       drawScoreBox(boxAX, y, a);
       drawBar(doc, barX, y, match);
-      if (match !== null) {
-        const flag = getMatchFlag(match);
-        if (flag) {
-          doc.text(flag, barX + barWidth / 2, y - 2, { align: 'center' });
-        }
+      const flag = match === null ? '' : getMatchFlag(match);
+      if (flag) {
+        doc.text(flag, flagX + flagWidth / 2, y + boxSize - 2, { align: 'center' });
       }
       drawScoreBox(boxBX, y, b);
 
