@@ -373,19 +373,15 @@ function updateComparison() {
   table.appendChild(tbody);
   container.appendChild(table);
 
-  const categories = Object.entries(lastResult).map(([name, items]) => {
-    const formatted = items.map(it => ({
-      kink: it.name,
-      partnerA: maxRating(it.you),
-      partnerB: maxRating(it.partner)
-    }));
-    return {
-      name,
-      matchPercent: calculateCategoryMatch(formatted),
-      items: formatted
-    };
-  });
-  window.compatibilityData = { categories };
+  const categories = Object.entries(lastResult).map(([category, items]) => ({
+    category,
+    items: items.map(it => ({
+      label: it.name,
+      a: maxRating(it.you),
+      b: maxRating(it.partner)
+    }))
+  }));
+  window.compatibilityData = categories;
 
   const cardList = document.getElementById('print-card-list');
   if (cardList) cardList.innerHTML = '';

@@ -11,13 +11,14 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const compatibilityData = window.compatibilityData;
-    if (!compatibilityData || !compatibilityData.categories) {
+    const data = window.compatibilityData;
+    const categories = Array.isArray(data) ? data : data?.categories;
+    if (!categories || categories.length === 0) {
       alert('Both surveys must be uploaded before generating PDF.');
       return;
     }
 
-    generateCompatibilityPDF(compatibilityData);
+    generateCompatibilityPDF(data);
   });
 });
 

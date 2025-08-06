@@ -60,7 +60,8 @@ export function generateCompatibilityPDF() {
     doc.rect(x, y, config.barWidth * (match / 100), config.boxHeight, 'F');
   };
 
-  const compatibilityData = window.compatibilityData;
+  const data = window.compatibilityData;
+  const categories = Array.isArray(data) ? data : data?.categories || [];
   let y = 20;
 
   drawBackground();
@@ -68,7 +69,7 @@ export function generateCompatibilityPDF() {
   doc.text('Kink Compatibility Report', 105, y);
   y += 10;
 
-  compatibilityData.categories.forEach(category => {
+  categories.forEach(category => {
     if (y > config.maxY) {
       doc.addPage();
       drawBackground();
@@ -76,7 +77,7 @@ export function generateCompatibilityPDF() {
     }
 
     doc.setFontSize(12);
-    doc.text(category.name, config.margin, y);
+    doc.text(category.category || category.name, config.margin, y);
     doc.setFontSize(10);
     doc.text('Partner A', config.colA, y);
     doc.text('Partner B', config.colB, y);
@@ -89,8 +90,8 @@ export function generateCompatibilityPDF() {
         y = 20;
       }
 
-      const a = item.partnerA ?? 0;
-      const b = item.partnerB ?? 0;
+      const a = item.a ?? item.partnerA ?? 0;
+      const b = item.b ?? item.partnerB ?? 0;
       const match = Math.max(0, 100 - Math.abs(a - b) * 25);
       const flag = getMatchFlag(match);
       const label = item.label || item.kink || '';
@@ -130,6 +131,7 @@ if (typeof document !== 'undefined') {
 }
 
 export function generateCompatibilityPDFLandscape(data) {
+  const categories = Array.isArray(data) ? data : data?.categories || [];
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -151,13 +153,13 @@ export function generateCompatibilityPDFLandscape(data) {
   doc.text('Combined Score', pageWidth - margin, y, { align: 'right' });
   y += 6;
 
-  const allItems = data.categories.flatMap(cat => cat.items);
+  const allItems = categories.flatMap(cat => cat.items);
   allItems.forEach(kink => {
-    const score = combinedScore(kink.partnerA, kink.partnerB);
+    const score = combinedScore(kink.a ?? kink.partnerA, kink.b ?? kink.partnerB);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(255);
-    doc.text(kink.kink, margin, y, { maxWidth: pageWidth - margin * 2 - 30 });
+    doc.text(kink.label || kink.kink, margin, y, { maxWidth: pageWidth - margin * 2 - 30 });
     doc.text(score, pageWidth - margin, y, { align: 'right' });
     y += 6;
     if (y > pageHeight - 20) {
