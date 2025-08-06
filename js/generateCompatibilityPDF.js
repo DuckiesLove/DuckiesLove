@@ -60,6 +60,7 @@ export function generateCompatibilityPDF(compatibilityData) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 40;
+  const usableWidth = pageWidth - margin * 2;
   const lineHeight = pdfStyles.barHeight + pdfStyles.barSpacing;
 
   const drawBackground = () => {
@@ -94,7 +95,14 @@ export function generateCompatibilityPDF(compatibilityData) {
       };
     });
 
-    y = renderCategorySection(doc, margin, y, category.category || category.name, items);
+    y = renderCategorySection(
+      doc,
+      margin,
+      y,
+      category.category || category.name,
+      items,
+      usableWidth
+    );
     y += pdfStyles.barSpacing;
     if (y + lineHeight > pageHeight - margin) {
       doc.addPage();
