@@ -56,6 +56,14 @@ function renderCategoryHeaderPDF(doc, title) {
   doc.setTextColor(255, 255, 255);
   doc.text(title, 50, doc.y);
   doc.y += 10;
+
+  // Column headers so we know which scores belong to which partner
+  doc.setFontSize(10);
+  doc.text('Partner A', 250, doc.y);
+  doc.text('Match', 300, doc.y);
+  doc.text('Flag', 350, doc.y);
+  doc.text('Partner B', 400, doc.y);
+  doc.y += 8;
 }
 
 // 🧾 Render a row: Label | A | Match | Flag | B
