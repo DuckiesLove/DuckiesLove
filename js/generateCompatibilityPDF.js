@@ -8,40 +8,9 @@ function getBarColor(matchPercentage) {
   return 'green';
 }
 
-// Subcategory label shortening (2–4 words max)
+// Subcategory label shortening (1–4 words)
 function shortenLabel(text = '') {
-  return text
-    .replace(/Choosing my partner.+?scene/, 'Choose outfit')
-    .replace(/Selecting.+?layers/, 'Underwear')
-    .replace(/Styling.+?etc\./, 'Style hair')
-    .replace(/Picking head coverings.+?protection/, 'Headwear')
-    .replace(/Offering makeup.+?play/, 'Makeup/accessories')
-    .replace(/Creating themed looks.+?etc\./, 'Themed looks')
-    .replace(/Dressing them.+?etc\./, 'Roleplay outfits')
-    .replace(/Curating time-period.+?50s\)/, 'Historical outfits')
-    .replace(/Helping them present.+?request/, 'Femme/masc styling')
-    .replace(/Coordinating.+?scenes/, 'Coordinated looks')
-    .replace(/Implementing.+?preparation/, 'Dress ritual')
-    .replace(/Enforcing.+?tied hair\)/, 'Visual protocol')
-    .replace(/Having my outfit.+?partner/, 'They pick my outfit')
-    .replace(/Wearing the underwear.+?choose/, 'They pick my lingerie')
-    .replace(/Having my hair.+?them/, 'Hair for them')
-    .replace(/Putting on.+?they chose/, 'Headwear (by request)')
-    .replace(/Following visual.+?submission/, 'Visual protocol (rules)')
-    .replace(/Wearing makeup.+?request/, 'Requested makeup')
-    .replace(/Dressing to please.+?etc\./, 'Dress to please')
-    .replace(/Wearing roleplay.+?looks/, 'Roleplay costumes')
-    .replace(/Presenting.+?aesthetic/, 'Match their aesthetic')
-    .replace(/Participating in.+?ceremonies/, 'Dressing rituals')
-    .replace(/Being admired.+?direction/, 'Admired by them')
-    .replace(/Receiving praise.+?appearance/, 'Appearance praise')
-    .replace(/Cosplay.+?etc\./, 'Cosplay looks')
-    .replace(/Time-period dress-up.+?etc\./, 'Historic dress-up')
-    .replace(/Dollification.+?aesthetics/, 'Dollification')
-    .replace(/Uniforms.+?etc\./, 'Uniforms')
-    .replace(/Hair-based play.+?styles\)/, 'Hair-based play')
-    .replace(/Head coverings.+?dynamics/, 'Ritual headwear')
-    .replace(/Matching dress.+?codes/, 'Matching dress codes');
+  return text.split(/\s+/).slice(0, 4).join(' ');
 }
 
 // PDF layout settings
@@ -72,23 +41,22 @@ function drawBar(doc, x, y, matchPercentage) {
   if (filledWidth > 0) {
     doc.setFillColor(barColor);
     doc.rect(x, y, filledWidth, pdfStyles.barHeight, 'F');
-  }
-
-  doc.setFont(pdfStyles.bodyFont, 'normal');
-  doc.setFontSize(10);
-  if (matchPercentage === null) {
-    doc.setTextColor('#888888');
-    doc.text('N/A', x + width + 5, y + pdfStyles.barHeight - 3);
-  } else {
+    doc.setFont(pdfStyles.bodyFont, 'normal');
+    doc.setFontSize(10);
     doc.setTextColor(pdfStyles.textColor);
     doc.text(`${matchPercentage}%`, x + width + 5, y + pdfStyles.barHeight - 3);
+  } else {
+    doc.setFont(pdfStyles.bodyFont, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor('#CCCCCC');
+    doc.text('N/A', x + width / 2, y + pdfStyles.barHeight - 3, { align: 'center' });
   }
   doc.setTextColor(pdfStyles.textColor);
 }
 
 export function generateCompatibilityPDF(compatibilityData) {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -139,11 +107,13 @@ export function generateCompatibilityPDF(compatibilityData) {
         typeof item.scoreA === 'number' ? item.scoreA : null;
       const b = typeof item.partnerB === 'number' ? item.partnerB :
         typeof item.scoreB === 'number' ? item.scoreB : null;
-      const match = a === null || b === null ? null : Math.max(0, 100 - Math.abs(a - b) * 20);
+      const match = (a === 0 && b === 0) || a === null || b === null
+        ? null
+        : Math.max(0, 100 - Math.abs(a - b) * 20);
 
       doc.setFont(pdfStyles.bodyFont, 'normal');
       doc.setFontSize(10);
-      doc.text(label, margin, y + boxSize - 2);
+      doc.text(label, margin, y + boxSize - 2, { maxWidth: barX - margin - gap });
       drawScoreBox(boxAX, y, a);
       drawBar(doc, barX, y, match);
       const flag = getMatchFlag(match, a, b);
@@ -168,7 +138,7 @@ export function generateCompatibilityPDF(compatibilityData) {
     }
   });
 
-  doc.save('TalkKink-Compatibility.pdf');
+  doc.save('kink-compatibility.pdf');
   return doc;
 }
 
