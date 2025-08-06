@@ -6,14 +6,18 @@ test('returns star for 100 percent', () => {
   assert.strictEqual(getMatchFlag(100), '⭐');
 });
 
-test('returns green flag for values between 80 and 99', () => {
+test('returns green flag for values 85 and above', () => {
   assert.strictEqual(getMatchFlag(90), '🟩');
-  assert.strictEqual(getMatchFlag(80), '🟩');
+  assert.strictEqual(getMatchFlag(85), '🟩');
 });
 
 test('returns red flag for values 50 or below', () => {
   assert.strictEqual(getMatchFlag(50), '🚩');
   assert.strictEqual(getMatchFlag(0), '🚩');
+});
+
+test('returns yellow flag for priority mismatches', () => {
+  assert.strictEqual(getMatchFlag(60, 5, 3), '🟨');
 });
 
 test('returns empty string for other values', () => {
