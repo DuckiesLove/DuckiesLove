@@ -1,75 +1,75 @@
-export function generateCompatibilityPDF(partnerAData, partnerBData, doc) {
-  const categories = Object.keys(partnerAData);
+// 💾 INSTRUCTIONS FOR CODEX:
+// This script powers the kink compatibility PDF on https://talkkink.org/compatibility.html
+// Partner A = "Upload Your Survey"
+// Partner B = "Upload Partner’s Survey"
+// The goal is to display both scores, compare them, generate a match %, and assign flags.
+// This function is called when "Download PDF" is clicked.
 
-  categories.forEach(category => {
+export function generateCompatibilityPDF(partnerAData, partnerBData, doc) {
+  const categories = Object.keys(partnerAData); // Same keys assumed in partnerBData
+
+  categories.forEach((category) => {
     const items = Object.keys(partnerAData[category]);
 
+    // 🧠 Render category header (e.g., "Appearance Play")
     renderCategoryHeaderPDF(doc, category);
 
-    items.forEach(label => {
-      const scoreA = partnerAData?.[category]?.[label];
-      const scoreB = partnerBData?.[category]?.[label];
+    items.forEach((item) => {
+      // 1️⃣ Get scores
+      const scoreA = partnerAData?.[category]?.[item];
+      const scoreB = partnerBData?.[category]?.[item];
 
-      const hasA = typeof scoreA === 'number';
-      const hasB = typeof scoreB === 'number';
+      // 2️⃣ Default fallback
+      const scoreAText = scoreA !== undefined ? String(scoreA) : "N/A";
+      const scoreBText = scoreB !== undefined ? String(scoreB) : "N/A";
 
-      let matchText = 'N/A';
-      let matchVal = null;
-      let flag = '';
+      // 3️⃣ Match %
+      let matchText = "N/A";
+      let flag = "";
 
-      if (hasA && hasB) {
+      if (typeof scoreA === "number" && typeof scoreB === "number") {
         const diff = Math.abs(scoreA - scoreB);
-        const match = 100 - diff * 20;
+        const match = 100 - diff * 20; // 5-point scale
         matchText = `${match}%`;
-        matchVal = match;
 
-        if (match >= 90) flag = '⭐';
-        else if (match >= 80) flag = '🟩';
-        else if (match <= 30) flag = '🚩';
+        // 4️⃣ Flag logic
+        if (match >= 90) flag = "⭐";
+        else if (match >= 80) flag = "🟩";
+        else if (match <= 40) flag = "🚩";
       }
 
-      const renderScore = score => (typeof score === 'number' ? score : 'N/A');
-
-      renderSubcategoryRowPDF(doc, {
-        label,
-        scoreA: renderScore(scoreA),
-        matchText,
-        matchVal,
-        flag,
-        scoreB: renderScore(scoreB)
+      // 5️⃣ Render row
+      renderRowPDF(doc, {
+        label: item,
+        scoreA: scoreAText,
+        match: matchText,
+        flag: flag,
+        scoreB: scoreBText,
       });
     });
   });
 }
 
-function renderCategoryHeaderPDF(doc, category) {
-  doc.setFontSize?.(14);
-  doc.setTextColor?.(255, 255, 255);
-  doc.text(category, 50, doc.y);
+// 📍 Draw category title (left-aligned)
+function renderCategoryHeaderPDF(doc, title) {
+  doc.setFontSize(16);
+  doc.setTextColor(255, 255, 255);
+  doc.text(title, 50, doc.y);
   doc.y += 10;
 }
 
-function renderSubcategoryRowPDF(doc, { label, scoreA, matchText, matchVal, flag, scoreB }) {
+// 🧾 Render a row: Label | A | Match | Flag | B
+function renderRowPDF(doc, { label, scoreA, match, flag, scoreB }) {
   const y = doc.y;
-  doc.setFontSize?.(10);
-  doc.text(label, 50, y);
-  doc.text(String(scoreA), 250, y);
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
 
-  if (typeof doc.rect === 'function') {
-    doc.setDrawColor?.(255, 255, 255);
-    doc.setFillColor?.(0, 0, 0);
-    doc.rect(300, y - 6, 40, 8);
-    if (typeof matchVal === 'number') {
-      doc.setFillColor?.(255, 255, 255);
-      doc.rect(300, y - 6, (40 * matchVal) / 100, 8, 'F');
-    }
-    doc.text(matchText, 320, y);
-  } else {
-    doc.text(matchText, 300, y);
-  }
+  doc.text(label, 50, y);       // Kink subcategory
+  doc.text(scoreA, 250, y);     // Partner A
+  doc.text(match, 300, y);      // Match %
+  doc.text(flag, 350, y);       // Flag
+  doc.text(scoreB, 400, y);     // Partner B
 
-  doc.text(String(flag), 350, y);
-  doc.text(String(scoreB), 400, y);
   doc.y += 8;
 }
 
