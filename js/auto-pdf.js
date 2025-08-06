@@ -346,19 +346,15 @@ function updateComparison() {
   container.appendChild(table);
 
   const breakdown = buildKinkBreakdown(surveyA, surveyB);
-  const pdfCategories = Object.entries(breakdown).map(([name, items]) => {
-    const formatted = items.map(it => ({
-      kink: it.name,
-      partnerA: maxRating(it.you),
-      partnerB: maxRating(it.partner)
-    }));
-    return {
-      name,
-      matchPercent: calculateCategoryMatch(formatted),
-      items: formatted
-    };
-  });
-  window.compatibilityData = { categories: pdfCategories };
+  const pdfCategories = Object.entries(breakdown).map(([category, items]) => ({
+    category,
+    items: items.map(it => ({
+      label: it.name,
+      a: maxRating(it.you),
+      b: maxRating(it.partner)
+    }))
+  }));
+  window.compatibilityData = pdfCategories;
   generatePDF();
 }
 

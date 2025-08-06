@@ -85,6 +85,9 @@ function drawBar(doc, x, y, matchPercentage) {
 }
 
 export function generateCompatibilityPDF(compatibilityData) {
+  const categories = Array.isArray(compatibilityData)
+    ? compatibilityData
+    : compatibilityData?.categories || [];
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
@@ -126,7 +129,7 @@ export function generateCompatibilityPDF(compatibilityData) {
 
   let y = 80;
 
-  compatibilityData.categories.forEach(category => {
+  categories.forEach(category => {
     doc.setFont(pdfStyles.headingFont, 'bold');
     doc.setFontSize(14);
     doc.text(category.category || category.name, pageWidth / 2, y, {
@@ -137,9 +140,11 @@ export function generateCompatibilityPDF(compatibilityData) {
     category.items.forEach((item) => {
       const fullLabel = item.label || item.kink || item.name || '';
       const label = shortenLabel(fullLabel);
-      const a = typeof item.partnerA === 'number' ? item.partnerA :
+      const a = typeof item.a === 'number' ? item.a :
+        typeof item.partnerA === 'number' ? item.partnerA :
         typeof item.scoreA === 'number' ? item.scoreA : null;
-      const b = typeof item.partnerB === 'number' ? item.partnerB :
+      const b = typeof item.b === 'number' ? item.b :
+        typeof item.partnerB === 'number' ? item.partnerB :
         typeof item.scoreB === 'number' ? item.scoreB : null;
       const match =
         a === null || b === null ? null : Math.max(0, 100 - Math.abs(a - b) * 20);
