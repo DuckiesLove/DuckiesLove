@@ -1,4 +1,4 @@
-import { getFlagEmoji, getMatchColor } from './matchFlag.js';
+import { renderCategorySection } from './compatibilityReportHelpers.js';
 
 // Shortened label lookup for verbose subcategory names
 const shortLabels = {
@@ -49,49 +49,6 @@ function getHistoryIcon(score) {
   return '🔴';
 }
 
-function drawMatchBar(doc, x, y, width, percent) {
-  const height = pdfStyles.barHeight;
-
-  // Draw full bar background
-  doc.setFillColor(pdfStyles.barColors.black);
-  doc.rect(x, y, width, height, 'F');
-
-  // Draw filled portion if we have a percentage
-  if (percent !== null && percent !== undefined) {
-    const barColor = getMatchColor(percent);
-    const filledWidth = (percent / 100) * width;
-    if (filledWidth > 0) {
-      doc.setFillColor(barColor);
-      doc.rect(x, y, filledWidth, height, 'F');
-    }
-
-    // Percentage text centered within bar
-    doc.setFont(pdfStyles.bodyFont, 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(pdfStyles.textColor);
-    doc.text(`${percent}%`, x + width / 2, y + height / 2, {
-      align: 'center',
-      baseline: 'middle'
-    });
-  } else {
-    // "N/A" text centered when no percentage
-    doc.setFont(pdfStyles.bodyFont, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(pdfStyles.textColor);
-    doc.text('N/A', x + width / 2, y + height / 2, {
-      align: 'center',
-      baseline: 'middle'
-    });
-  }
-
-  // Outline around the bar
-  doc.setDrawColor(pdfStyles.textColor);
-  doc.rect(x, y, width, height, 'S');
-
-  // Reset text color for subsequent calls
-  doc.setTextColor(pdfStyles.textColor);
-}
-
 export function generateCompatibilityPDF(compatibilityData) {
   const categories = Array.isArray(compatibilityData)
     ? compatibilityData
@@ -103,34 +60,12 @@ export function generateCompatibilityPDF(compatibilityData) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 40;
-  const boxSize = pdfStyles.barHeight;
-  const barWidth = 50;
-  const gap = 10;
-  const flagWidth = 10;
-  const lineHeight = boxSize + pdfStyles.barSpacing;
-
-  const barX = pageWidth / 2 - barWidth / 2;
-  const boxAX = barX - gap - boxSize;
-  const flagX = barX + barWidth + gap;
-  const boxBX = flagX + flagWidth + gap;
+  const lineHeight = pdfStyles.barHeight + pdfStyles.barSpacing;
 
   const drawBackground = () => {
     doc.setFillColor(pdfStyles.backgroundColor);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
     doc.setTextColor(pdfStyles.textColor);
-  };
-
-  const drawScoreBox = (x, y, score) => {
-    doc.setDrawColor(pdfStyles.textColor);
-    doc.rect(x, y, boxSize, boxSize);
-    doc.setFont(pdfStyles.bodyFont, 'normal');
-    doc.setFontSize(8);
-    const display =
-      score === null || score === undefined ? 'N/A' : String(score);
-    doc.text(display, x + boxSize / 2, y + boxSize / 2, {
-      align: 'center',
-      baseline: 'middle'
-    });
   };
 
   drawBackground();
@@ -141,50 +76,25 @@ export function generateCompatibilityPDF(compatibilityData) {
   let y = 80;
 
   categories.forEach(category => {
-    doc.setFont(pdfStyles.headingFont, 'bold');
-    doc.setFontSize(14);
-    doc.text(category.category || category.name, margin, y, { align: 'left' });
-    y += pdfStyles.barSpacing * 2;
-
-    doc.setFont(pdfStyles.bodyFont, 'bold');
-    doc.setFontSize(9);
-    doc.text('Partner A', boxAX + boxSize / 2, y, { align: 'center' });
-    doc.text('Match', barX + barWidth / 2, y, { align: 'center' });
-    doc.text('Flag', flagX + flagWidth / 2, y, { align: 'center' });
-    doc.text('Partner B', boxBX + boxSize / 2, y, { align: 'center' });
-    y += pdfStyles.barSpacing;
-
-    category.items.forEach((item) => {
-      const fullLabel = item.label || item.kink || item.name || '';
-      const label = shortenLabel(fullLabel);
-      const a = typeof item.a === 'number' ? item.a :
+    const items = category.items.map(item => {
+      const partnerA = typeof item.a === 'number' ? item.a :
         typeof item.partnerA === 'number' ? item.partnerA :
         typeof item.scoreA === 'number' ? item.scoreA : null;
-      const b = typeof item.b === 'number' ? item.b :
+      const partnerB = typeof item.b === 'number' ? item.b :
         typeof item.partnerB === 'number' ? item.partnerB :
         typeof item.scoreB === 'number' ? item.scoreB : null;
-      const match =
-        a === null || b === null ? null : Math.max(0, 100 - Math.abs(a - b) * 20);
-
-      doc.setFont(pdfStyles.bodyFont, 'normal');
-      doc.setFontSize(10);
-      doc.text(label, margin, y + boxSize - 2, { maxWidth: barX - margin - gap });
-      drawScoreBox(boxAX, y, a);
-      drawMatchBar(doc, barX, y, barWidth, match);
-      const flag = match === null ? '' : getFlagEmoji(match);
-      if (flag) {
-        doc.text(flag, flagX + flagWidth / 2, y + boxSize - 2, { align: 'center' });
-      }
-      drawScoreBox(boxBX, y, b);
-
-      y += lineHeight;
-      if (y + lineHeight > pageHeight - margin) {
-        doc.addPage();
-        drawBackground();
-        y = margin;
-      }
+      const match = item.match !== undefined ? item.match :
+        (partnerA === null || partnerB === null ? null : Math.max(0, 100 - Math.abs(partnerA - partnerB) * 20));
+      const fullLabel = item.label || item.kink || item.name || '';
+      return {
+        label: shortenLabel(fullLabel),
+        partnerA,
+        partnerB,
+        match
+      };
     });
 
+    y = renderCategorySection(doc, margin, y, category.category || category.name, items);
     y += pdfStyles.barSpacing;
     if (y + lineHeight > pageHeight - margin) {
       doc.addPage();

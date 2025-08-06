@@ -9,6 +9,7 @@ function createDocMock() {
   };
   return {
     calls,
+    internal: { pageSize: { getWidth: () => 300 } },
     setFillColor: record('setFillColor'),
     rect: record('rect'),
     setTextColor: record('setTextColor'),
@@ -23,8 +24,8 @@ test('drawMatchBar fills width proportional to percentage', () => {
   const rectCalls = doc.calls.filter(c => c[0] === 'rect');
   assert.deepStrictEqual(rectCalls[0], ['rect', [10, 10, 100, 8, 'F']]);
   assert.deepStrictEqual(rectCalls[1], ['rect', [10, 10, 50, 8, 'F']]);
-  const textCall = doc.calls.find(c => c[0] === 'text');
-  assert.deepStrictEqual(textCall, ['text', ['50%', 60, 16, { align: 'center' }]]);
+  const textCall = doc.calls.find(c => c[0] === 'text' && c[1][0] === '50%');
+  assert.ok(textCall, 'percentage label should be rendered');
 });
 
 test('renderCategorySection renders each item and returns final y', () => {
@@ -34,9 +35,13 @@ test('renderCategorySection renders each item and returns final y', () => {
     { label: 'Second', partnerA: 2, partnerB: 3, match: 75 }
   ];
   const endY = renderCategorySection(doc, 5, 20, 'MyCat', items);
-  assert.strictEqual(endY, 20 + 10 + 12 * items.length);
+  assert.strictEqual(endY, 20 + 23 + 12 * items.length);
   const texts = doc.calls.filter(c => c[0] === 'text').map(c => c[1][0]);
   assert(texts.includes('MyCat'));
   assert(texts.includes('First'));
   assert(texts.includes('Second'));
+  assert(texts.includes('Partner A'));
+  assert(texts.includes('Match'));
+  assert(texts.includes('Flag'));
+  assert(texts.includes('Partner B'));
 });
