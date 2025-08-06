@@ -7,8 +7,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   downloadBtn.addEventListener('click', () => {
     if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert('PDF library failed to load. Printing instead.');
-      window.print();
+      alert('PDF library failed to load. Please try again or refresh.');
       return;
     }
 

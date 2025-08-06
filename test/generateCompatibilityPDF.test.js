@@ -41,5 +41,6 @@ test('generates PDF with score columns and percent', async () => {
   assert.ok(textCalls.some(c => c[0] === 'Bondage'));
   assert.ok(textCalls.some(c => c[0] === '5'));
   assert.ok(textCalls.some(c => c[0] === '1'));
-  assert.ok(textCalls.some(c => c[0] === '20%'));
+  // For low match scores, a red flag indicator should be shown
+  assert.ok(textCalls.some(c => c[0] === '🚩'));
 });

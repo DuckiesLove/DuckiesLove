@@ -2,46 +2,98 @@ export function generateCompatibilityPDF(compatibilityData) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
-  // Black background and white text
-  doc.setFillColor(0, 0, 0);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Kink Compatibility Report', 200, 40);
-
-  let y = 80;
   const margin = 40;
+  const boxSize = 16;
+  const barWidth = 100;
+  const gap = 10;
+  const barX = pageWidth / 2 - barWidth / 2;
+  const boxAX = barX - gap - boxSize;
+  const boxBX = barX + barWidth + gap;
+  const lineHeight = 24;
 
-  const drawBar = (x, y, width, percent) => {
-    let color = [255, 0, 0];
-    if (percent >= 90) color = [255, 215, 0]; // gold for star
-    else if (percent >= 80) color = [0, 255, 0]; // green
-    doc.setFillColor(...color);
-    doc.rect(x, y, (width * percent) / 100, 8, 'F');
+  // Map for explicit shortened labels and generic shortening fallback
+  const shortenLabel = (label = '') => {
+    const map = {
+      "Choosing my partner’s outfit for the day or a scene": "Partner’s outfit choice",
+      "Selecting their underwear, lingerie, or base layers": "Select their underwear",
+      "Styling their hair (braiding, brushing, tying, etc.)": "Style their hair",
+      "Picking head coverings (bonnets, veils, hoods, hats)": "Choose head covering",
+      "Offering makeup, polish, or accessories as part of ritual or play": "Apply ritual makeup",
+      "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)": "Create themed looks",
+      "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "Dress in roleplay",
+      "Curating time-period or historical outfits (e.g., Victorian, 50s)": "Time-period outfits",
+      "Helping them present more femme, masc, or androgynous by request": "Support gender styling",
+      "Coordinating their look with mine for public or private scenes": "Coordinate our looks",
+      "Implementing a “dress ritual” or aesthetic preparation": "Dress ritual prep",
+      "Enforcing a visual protocol (e.g., no bra, heels required)": "Visual protocol rules",
+      "Having my outfit selected for me by a partner": "Partner picks outfit",
+      "Wearing the underwear or lingerie they choose": "Partner picks lingerie",
+      "Having my hair brushed, braided, tied, or styled for them": "Style hair for them",
+      "Putting on a head covering they chose": "Partner’s headwear choice",
+      "Following visual appearance rules as part of submission": "Follow appearance rules",
+      "Wearing makeup, polish, or accessories they request": "Partner's makeup request",
+      "Dressing to please their vision (cute, filthy, classy, etc.)": "Dress to please them",
+      "Wearing roleplay costumes or character looks": "Wear roleplay costume",
+      "Presenting in a way that matches their chosen aesthetic": "Match their aesthetic",
+      "Participating in dressing rituals or undressing ceremonies": "Participate in rituals",
+      "Being admired for the way I look under their direction": "Admired by partner",
+      "Receiving praise or teasing about my appearance": "Appearance praise/teasing",
+      "Cosplay or fantasy looks (anime, game, fairytale, etc.)": "Fantasy or cosplay",
+      "Time-period dress-up (regency, gothic, 1920s, etc.)": "Dress in era style",
+      "Dollification or polished/presented object aesthetics": "Dollification play style",
+      "Uniforms (schoolgirl, military, clerical, nurse, etc.)": "Wear uniform looks",
+      "Hair-based play (forced brushing, ribbons, or tied styles)": "Hair-focused play",
+      "Head coverings or symbolic hoods in ritualized dynamics": "Symbolic headwear",
+      "Matching outfits or dress codes": "Matching dress codes"
+    };
+
+    return map[label] || label.split(' ').slice(0, 4).join(' ');
   };
 
-  const shorten = str => (str.length > 40 ? str.slice(0, 37) + '…' : str);
+  const drawBackground = () => {
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    doc.setTextColor(255, 255, 255);
+  };
 
-  // Table headers
-  doc.setFontSize(12);
-  doc.setTextColor(200, 200, 255);
-  doc.text('Kink', margin, y);
-  doc.text('A', 320, y);
-  doc.text('B', 350, y);
-  doc.text('%', 380, y);
-  y += 20;
+  const drawScoreBox = (x, y, score) => {
+    doc.setDrawColor(255, 255, 255);
+    doc.rect(x, y, boxSize, boxSize);
+    doc.setFontSize(12);
+    doc.text(String(score ?? ''), x + boxSize / 2, y + boxSize - 4, { align: 'center' });
+  };
+
+  const drawMatchIndicator = (match, x, y) => {
+    if (match === 100) {
+      doc.setFontSize(14);
+      doc.text('⭐', x + barWidth / 2, y + boxSize - 4, { align: 'center' });
+    } else if (match <= 50) {
+      doc.setFontSize(14);
+      doc.text('🚩', x + barWidth / 2, y + boxSize - 4, { align: 'center' });
+    } else {
+      const color = match >= 80 ? [0, 255, 0] : [160, 160, 160];
+      doc.setFillColor(...color);
+      doc.rect(x, y, (barWidth * match) / 100, boxSize, 'F');
+    }
+  };
+
+  drawBackground();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Kink Compatibility Report', pageWidth / 2, 40, { align: 'center' });
+
+  let y = 80;
 
   compatibilityData.categories.forEach(category => {
-    doc.setTextColor(173, 216, 230);
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
     doc.text(category.category || category.name, margin, y);
-    y += 16;
+    y += lineHeight;
 
     category.items.forEach((item, index) => {
-      const name = shorten(item.label || item.name || `Item ${index + 1}`);
+      const label = shortenLabel(item.label || item.name || `Item ${index + 1}`);
       const a = typeof item.partnerA === 'number' ? item.partnerA :
         typeof item.scoreA === 'number' ? item.scoreA : 0;
       const b = typeof item.partnerB === 'number' ? item.partnerB :
@@ -49,33 +101,27 @@ export function generateCompatibilityPDF(compatibilityData) {
       const match = typeof item.match === 'number' ? item.match :
         Math.max(0, 100 - Math.abs(a - b) * 20);
 
-      let flag = '';
-      if (match >= 90) flag = '⭐';
-      else if (match >= 80) flag = '🟩';
-      else if (match <= 30) flag = '🚩';
-
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(255, 255, 255);
       doc.setFontSize(10);
-      doc.text(name, margin, y);
-      doc.text(`${a}`, 320, y);
-      doc.text(`${b}`, 350, y);
-      doc.text(`${match}%`, 380, y);
-      doc.text(flag, 410, y);
+      doc.text(label, margin, y + boxSize - 4);
+      drawScoreBox(boxAX, y, a);
+      drawMatchIndicator(match, barX, y);
+      drawScoreBox(boxBX, y, b);
 
-      drawBar(440, y - 6, 100, match);
-
-      y += 14;
-      if (y > 740) {
+      y += lineHeight;
+      if (y + lineHeight > pageHeight - margin) {
         doc.addPage();
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, pageWidth, pageHeight, 'F');
-        doc.setTextColor(255, 255, 255);
-        y = 40;
+        drawBackground();
+        y = margin;
       }
     });
 
-    y += 12;
+    y += lineHeight / 2;
+    if (y + lineHeight > pageHeight - margin) {
+      doc.addPage();
+      drawBackground();
+      y = margin;
+    }
   });
 
   doc.save('TalkKink-Compatibility.pdf');
@@ -83,3 +129,4 @@ export function generateCompatibilityPDF(compatibilityData) {
 }
 
 export default generateCompatibilityPDF;
+
