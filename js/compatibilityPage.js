@@ -1,6 +1,6 @@
 // Compatibility results page logic and PDF export helpers
 import { initTheme } from './theme.js';
-import { getMatchFlag, calculateCategoryMatch, getProgressBarColor } from './matchFlag.js';
+import { getFlagEmoji, calculateCategoryMatch, getMatchColor } from './matchFlag.js';
 import { calculateCompatibility } from './compatibility.js';
 
 let surveyA = null;
@@ -74,8 +74,9 @@ function maxRating(obj) {
 }
 
 function colorClass(percent) {
+  if (percent === null || percent === undefined) return 'black';
   if (percent >= 80) return 'green';
-  if (percent >= 60) return 'yellow';
+  if (percent >= 51) return 'yellow';
   return 'red';
 }
 
@@ -83,12 +84,12 @@ function makeBar(percent) {
   const outer = document.createElement('div');
   outer.className = 'partner-bar';
   const fill = document.createElement('div');
-  fill.className = 'partner-fill ' + colorClass(percent ?? 0);
+  fill.className = 'partner-fill ' + colorClass(percent);
   fill.style.width = percent === null ? '0%' : percent + '%';
-  fill.style.backgroundColor = getProgressBarColor(percent ?? 0);
+  fill.style.backgroundColor = getMatchColor(percent);
   outer.appendChild(fill);
   const text = document.createElement('span');
-  text.className = 'partner-text ' + colorClass(percent ?? 0);
+  text.className = 'partner-text ' + colorClass(percent);
   text.textContent = percent === null ? '-' : percent + '%';
   outer.appendChild(text);
   return outer;
@@ -128,7 +129,7 @@ function groupKinksByCategory(data) {
 
 function renderCategoryRow(categoryName, categoryData) {
   const percent = calculateCategoryMatch(categoryData);
-  const flag = getMatchFlag(percent);
+  const flag = getFlagEmoji(percent);
   const tr = document.createElement('tr');
   tr.classList.add('category-header');
   tr.innerHTML = `
@@ -143,7 +144,7 @@ function renderCategoryRow(categoryName, categoryData) {
 
 function renderCategoryHeaderPDF(doc, categoryName, categoryData) {
   const percent = calculateCategoryMatch(categoryData);
-  const flag = getMatchFlag(percent);
+  const flag = getFlagEmoji(percent);
   doc.moveDown(0.4);
   doc
     .fontSize(14)
@@ -378,7 +379,7 @@ function updateComparison() {
   const renderCell = rating => {
     const percent = toPercent(rating);
     const pct = percent === null ? 0 : percent;
-    const color = getProgressBarColor(percent ?? 0);
+    const color = getMatchColor(percent);
     const td = document.createElement('td');
     td.innerHTML = `<div class="bar-container"><div class="bar" style="width: ${pct}%; background-color: ${color}"></div></div>` +
       `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
