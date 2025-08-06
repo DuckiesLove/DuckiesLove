@@ -51,7 +51,8 @@ export function generateCompatibilityPDF() {
     doc.rect(x, y, config.boxWidth, config.boxHeight);
     doc.setFontSize(8);
     doc.setTextColor(255, 255, 255);
-    doc.text(String(score ?? 0), x + 1.5, y + 6);
+    const display = typeof score === 'number' ? String(score) : 'N/A';
+    doc.text(display, x + 1.5, y + 6);
   };
 
   const drawMatchBar = (x, y, match) => {
@@ -109,20 +110,34 @@ export function generateCompatibilityPDF() {
         y = 20;
       }
 
-      const a = item.a ?? item.partnerA ?? 0;
-      const b = item.b ?? item.partnerB ?? 0;
-      const match = Math.max(0, 100 - Math.abs(a - b) * 25);
-      const flag = getFlagEmoji(match);
+      const aScore = typeof item.a === 'number'
+        ? item.a
+        : typeof item.partnerA === 'number'
+          ? item.partnerA
+          : 'N/A';
+      const bScore = typeof item.b === 'number'
+        ? item.b
+        : typeof item.partnerB === 'number'
+          ? item.partnerB
+          : 'N/A';
+      const match =
+        typeof aScore === 'number' && typeof bScore === 'number'
+          ? Math.max(0, 100 - Math.abs(aScore - bScore) * 25)
+          : null;
+      const flag = match === null ? '' : getFlagEmoji(match);
       const label = item.label || item.kink || '';
+
+      // Debug output to verify values are pulled correctly
+      console.log('Rendering:', label, 'A:', aScore, 'B:', bScore);
 
       doc.setFontSize(9);
       doc.text(shortenLabel(label), config.margin, y + 6);
 
-      drawScoreBox(config.colA, y, a);
+      drawScoreBox(config.colA, y, aScore);
       drawMatchBar(config.centerX, y, match);
       doc.setFontSize(12);
-      doc.text(flag, config.centerX + config.barWidth + 2, y + 6);
-      drawScoreBox(config.colB, y, b);
+      if (flag) doc.text(flag, config.centerX + config.barWidth + 2, y + 6);
+      drawScoreBox(config.colB, y, bScore);
 
       y += config.rowHeight;
     });
