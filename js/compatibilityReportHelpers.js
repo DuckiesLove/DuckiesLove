@@ -10,10 +10,16 @@ function getMatchColor(percentage) {
 }
 
 // Determine which flag emoji to show
-function getFlagEmoji(percentage) {
+function getFlagEmoji(percentage, a, b) {
   if (percentage === null || percentage === undefined) return '';
   if (percentage >= 90) return '⭐';
-  if (percentage <= 50) return '🚩';
+  if (percentage >= 80) return '🟩';
+  if (percentage <= 40) return '🚩';
+  if (
+    (a === 5 && typeof b === 'number' && b < 5) ||
+    (b === 5 && typeof a === 'number' && a < 5)
+  )
+    return '🟨';
   return '';
 }
 
@@ -61,7 +67,7 @@ function renderItemRow(doc, layout, y, label, partnerA, partnerB, match) {
   drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, match);
 
   doc.setFontSize(9);
-  doc.text(getFlagEmoji(match), colFlag, y);
+  doc.text(getFlagEmoji(match, partnerA, partnerB), colFlag, y);
 
   doc.text(partnerB ?? 'N/A', colB, y);
 }

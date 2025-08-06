@@ -29,7 +29,12 @@ test('generates PDF with score columns and percent', async () => {
     categories: [
       {
         category: 'Test',
-        items: [ { label: 'Bondage', partnerA: 5, partnerB: 1, match: 20 } ]
+        items: [
+          { label: 'Star', partnerA: 5, partnerB: 5 },
+          { label: 'Green', partnerA: 5, partnerB: 4 },
+          { label: 'Yellow', partnerA: 5, partnerB: 3 },
+          { label: 'Red', partnerA: 5, partnerB: 1 }
+        ]
       }
     ]
   };
@@ -38,13 +43,17 @@ test('generates PDF with score columns and percent', async () => {
 
   assert.ok(rectCalls.length > 0);
   assert.ok(textCalls.some(c => c[0] === 'Kink Compatibility Report'));
-  assert.ok(textCalls.some(c => c[0] === 'Bondage'));
-  assert.ok(textCalls.some(c => String(c[0]) === '5'));
-  assert.ok(textCalls.some(c => String(c[0]) === '1'));
+  assert.ok(textCalls.some(c => c[0] === 'Star'));
+  assert.ok(textCalls.some(c => c[0] === 'Green'));
+  assert.ok(textCalls.some(c => c[0] === 'Yellow'));
+  assert.ok(textCalls.some(c => c[0] === 'Red'));
   assert.ok(textCalls.some(c => c[0] === 'Partner A'));
   assert.ok(textCalls.some(c => c[0] === 'Partner B'));
   assert.ok(textCalls.some(c => c[0] === 'Flag'));
-  // For low match scores, a red flag indicator should be shown
+  // Indicators for various match scenarios
+  assert.ok(textCalls.some(c => c[0] === '⭐'));
+  assert.ok(textCalls.some(c => c[0] === '🟩'));
+  assert.ok(textCalls.some(c => c[0] === '🟨'));
   assert.ok(textCalls.some(c => c[0] === '🚩'));
 });
 

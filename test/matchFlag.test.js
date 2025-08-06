@@ -7,14 +7,23 @@ test('returns star for 90 percent and above', () => {
   assert.strictEqual(getFlagEmoji(90), '⭐');
 });
 
-test('returns red flag for values 50 or below', () => {
-  assert.strictEqual(getFlagEmoji(50), '🚩');
+test('returns green square for values 80-89', () => {
+  assert.strictEqual(getFlagEmoji(85), '🟩');
+});
+
+test('returns red flag for values 40 or below', () => {
+  assert.strictEqual(getFlagEmoji(40), '🚩');
   assert.strictEqual(getFlagEmoji(0), '🚩');
+});
+
+test('returns yellow flag when one partner loves it and the other does not', () => {
+  assert.strictEqual(getFlagEmoji(60, 5, 3), '🟨');
+  assert.strictEqual(getFlagEmoji(60, 3, 5), '🟨');
 });
 
 test('returns empty string for other values', () => {
   assert.strictEqual(getFlagEmoji(75), '');
-  assert.strictEqual(getFlagEmoji(51), '');
+  assert.strictEqual(getFlagEmoji(41), '');
 });
 
 test('calculateCategoryMatch returns 0 for empty data', () => {
@@ -42,7 +51,7 @@ test('calculateCategoryMatch ignores missing values', () => {
 
 test('getMatchColor returns expected color names', () => {
   assert.strictEqual(getMatchColor(85), 'green');
-  assert.strictEqual(getMatchColor(70), 'yellow');
-  assert.strictEqual(getMatchColor(50), 'red');
+  assert.strictEqual(getMatchColor(60), 'yellow');
+  assert.strictEqual(getMatchColor(59), 'red');
   assert.strictEqual(getMatchColor(null), 'black');
 });

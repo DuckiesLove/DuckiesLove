@@ -125,7 +125,8 @@ export function generateCompatibilityPDF() {
         typeof aScore === 'number' && typeof bScore === 'number'
           ? Math.max(0, 100 - Math.abs(aScore - bScore) * 25)
           : null;
-      const flag = match === null ? '' : getFlagEmoji(match);
+      const flag =
+        match === null ? '' : getFlagEmoji(match, aScore, bScore);
       const label = item.label || item.kink || '';
 
       // Debug output to verify values are pulled correctly
