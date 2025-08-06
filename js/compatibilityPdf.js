@@ -99,6 +99,7 @@ export function generateCompatibilityPDF() {
     doc.text(category.category || category.name, config.margin, y);
     doc.setFontSize(10);
     doc.text('Partner A', config.colA, y);
+    doc.text('Match', config.centerX + config.barWidth / 2, y, { align: 'center' });
     doc.text('Flag', config.centerX + config.barWidth + 2, y);
     doc.text('Partner B', config.colB, y);
     y += 6;

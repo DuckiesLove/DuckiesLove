@@ -40,9 +40,9 @@ test('calculateCategoryMatch ignores missing values', () => {
   assert.strictEqual(calculateCategoryMatch(data), 50);
 });
 
-test('getMatchColor returns expected hex codes', () => {
-  assert.strictEqual(getMatchColor(85), '#00cc66');
-  assert.strictEqual(getMatchColor(70), '#ffcc00');
-  assert.strictEqual(getMatchColor(50), '#ff4444');
-  assert.strictEqual(getMatchColor(null), '#000000');
+test('getMatchColor returns expected color names', () => {
+  assert.strictEqual(getMatchColor(85), 'green');
+  assert.strictEqual(getMatchColor(70), 'yellow');
+  assert.strictEqual(getMatchColor(50), 'red');
+  assert.strictEqual(getMatchColor(null), 'black');
 });

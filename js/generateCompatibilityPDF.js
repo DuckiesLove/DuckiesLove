@@ -27,17 +27,17 @@ function shortenLabel(text = '') {
 
 // PDF layout settings
 const pdfStyles = {
-  backgroundColor: '#000000',
+  backgroundColor: 'black',
   textColor: '#FFFFFF',
   headingFont: 'helvetica',
   bodyFont: 'helvetica',
   barHeight: 10,
   barSpacing: 6,
   barColors: {
-    green: '#00FF00',
-    yellow: '#FFFF00',
-    red: '#FF0000',
-    black: '#000000'
+    green: 'green',
+    yellow: 'yellow',
+    red: 'red',
+    black: 'black'
   }
 };
 
@@ -136,6 +136,7 @@ export function generateCompatibilityPDF(compatibilityData) {
     doc.setFont(pdfStyles.bodyFont, 'bold');
     doc.setFontSize(9);
     doc.text('Partner A', boxAX + boxSize / 2, y, { align: 'center' });
+    doc.text('Match', barX + barWidth / 2, y, { align: 'center' });
     doc.text('Flag', flagX + flagWidth / 2, y, { align: 'center' });
     doc.text('Partner B', boxBX + boxSize / 2, y, { align: 'center' });
     y += pdfStyles.barSpacing;

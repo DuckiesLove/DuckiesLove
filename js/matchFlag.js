@@ -8,10 +8,10 @@ export function getFlagEmoji(percent) {
 
 // Determine bar color based on percentage
 export function getMatchColor(percent) {
-  if (percent === null || percent === undefined) return '#000000';
-  if (percent >= 80) return '#00cc66';   // Green for 80% and above
-  if (percent >= 51) return '#ffcc00';   // Yellow for 51-79%
-  return '#ff4444';                     // Red for 0-50%
+  if (percent === null || percent === undefined) return 'black';
+  if (percent >= 80) return 'green';
+  if (percent >= 51) return 'yellow';
+  return 'red'; // 50 or less
 }
 
 // Calculate the percentage of items where both partners match on a rating
