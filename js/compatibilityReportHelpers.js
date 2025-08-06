@@ -1,9 +1,25 @@
-import { getMatchColor, getFlagEmoji } from './matchFlag.js';
+// ---- Compatibility Report Rendering (Codex-ready) ----
 
-// Match Bar Renderer with label inside
+// Get match color
+function getMatchColor(percentage) {
+  if (percentage === null || percentage === undefined) return 'black';
+  if (percentage >= 80) return 'green';
+  if (percentage >= 51) return 'yellow';
+  return 'red';
+}
+
+// Get flag emoji
+function getFlagEmoji(percentage) {
+  if (percentage === null || percentage === undefined) return '';
+  if (percentage >= 90) return '⭐';
+  if (percentage <= 50) return '🚩';
+  return '';
+}
+
+// Draw match bar with label inside
 export function drawMatchBar(doc, x, y, width, height, percentage) {
-  const color = getMatchColor(percentage);
   const label = percentage !== null && percentage !== undefined ? `${percentage}%` : 'N/A';
+  const color = getMatchColor(percentage);
 
   // Bar background
   doc.setFillColor('black');
