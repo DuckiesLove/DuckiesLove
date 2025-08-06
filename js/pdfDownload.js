@@ -1,13 +1,20 @@
 import generateCompatibilityPDF from './generateCompatibilityPDF.js';
+import { loadJsPDF } from './loadJsPDF.js';
 
 // Attach click handler for the Download PDF button
 window.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('downloadPdfBtn');
   if (!downloadBtn) return;
 
-  downloadBtn.addEventListener('click', () => {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert('PDF library failed to load. Please try again or refresh.');
+  downloadBtn.addEventListener('click', async () => {
+    await loadJsPDF();
+    if (!window.jspdf || !window.jspdf.jsPDF || window.jspdf.isStub) {
+      alert(
+        "PDF library failed to load. Printing instead—choose 'Save as PDF'."
+      );
+      try {
+        window.print && window.print();
+      } catch {}
       return;
     }
 
