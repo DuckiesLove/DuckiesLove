@@ -44,3 +44,41 @@ test('generates PDF with score columns and percent', async () => {
   // For low match scores, a red flag indicator should be shown
   assert.ok(textCalls.some(c => c[0] === '🚩'));
 });
+
+test('shows N/A bar when scores missing', async () => {
+  const rectCalls = [];
+  const textCalls = [];
+
+  class JsPDFMock {
+    constructor() {
+      this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+    }
+    setFillColor() {}
+    setFont() {}
+    setDrawColor() {}
+    rect(...args) { rectCalls.push(args); }
+    setTextColor() {}
+    setFontSize() {}
+    text(...args) { textCalls.push(args); }
+    addPage() {}
+    save() {}
+  }
+
+  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
+  const { generateCompatibilityPDF } = await import('../js/generateCompatibilityPDF.js');
+
+  const data = {
+    categories: [
+      {
+        category: 'Test',
+        items: [ { label: 'No Data', partnerA: null, partnerB: null } ]
+      }
+    ]
+  };
+
+  generateCompatibilityPDF(data);
+
+  assert.ok(textCalls.some(c => c[0] === 'N/A'));
+  assert.ok(!textCalls.some(c => /\d+%/.test(c[0])));
+  assert.ok(!textCalls.some(c => c[0] === '⭐' || c[0] === '🚩'));
+});
