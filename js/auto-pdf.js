@@ -1,8 +1,32 @@
 import { calculateCategoryMatch } from './matchFlag.js';
+import { calculateCompatibility } from './compatibility.js';
 
 let surveyA = null;
 let surveyB = null;
 let pdfGenerated = false;
+
+function loadHistory() {
+  try {
+    return JSON.parse(localStorage.getItem('compatHistory')) || [];
+  } catch {
+    return [];
+  }
+}
+
+function addHistoryEntry(score) {
+  const history = loadHistory();
+  history.push({ score, date: new Date().toISOString() });
+  while (history.length > 5) history.shift();
+  localStorage.setItem('compatHistory', JSON.stringify(history));
+  if (typeof window !== 'undefined') {
+    window.compatibilityHistory = history;
+  }
+  return history;
+}
+
+if (typeof window !== 'undefined') {
+  window.compatibilityHistory = loadHistory();
+}
 
 async function generatePDF() {
   if (pdfGenerated) return;
@@ -354,7 +378,9 @@ function updateComparison() {
       b: maxRating(it.partner)
     }))
   }));
-  window.compatibilityData = pdfCategories;
+  const compat = calculateCompatibility(surveyA, surveyB);
+  const history = addHistoryEntry(compat.compatibilityScore);
+  window.compatibilityData = { categories: pdfCategories, history };
   generatePDF();
 }
 

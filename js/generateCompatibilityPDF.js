@@ -49,6 +49,14 @@ const pdfStyles = {
   }
 };
 
+// Icon used in history rows based on score percentage
+function getHistoryIcon(score) {
+  if (typeof score !== 'number') return '⚪';
+  if (score >= 80) return '🟢';
+  if (score >= 51) return '🟡';
+  return '🔴';
+}
+
 function drawBar(doc, x, y, matchPercentage) {
   const width = 50;
 
@@ -88,6 +96,7 @@ export function generateCompatibilityPDF(compatibilityData) {
   const categories = Array.isArray(compatibilityData)
     ? compatibilityData
     : compatibilityData?.categories || [];
+  const history = Array.isArray(compatibilityData) ? [] : compatibilityData?.history || [];
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
@@ -184,6 +193,42 @@ export function generateCompatibilityPDF(compatibilityData) {
       y = margin;
     }
   });
+
+  // Render compatibility history if available
+  const recentHistory = history.slice(-5).reverse();
+  if (recentHistory.length) {
+    if (y + lineHeight > pageHeight - margin) {
+      doc.addPage();
+      drawBackground();
+      y = margin;
+    }
+
+    doc.setFont(pdfStyles.headingFont, 'bold');
+    doc.setFontSize(14);
+    doc.text('Compatibility History', pageWidth / 2, y, { align: 'center' });
+    y += pdfStyles.barSpacing * 2;
+
+    doc.setFont(pdfStyles.bodyFont, 'normal');
+    doc.setFontSize(10);
+
+    recentHistory.forEach(entry => {
+      const date = new Date(entry.date || entry.timestamp || entry.time || Date.now());
+      const dateStr = date.toLocaleString();
+      const score = typeof entry.score === 'number' ? `${entry.score}%` : 'N/A';
+      const icon = getHistoryIcon(entry.score);
+
+      doc.text(icon, margin, y);
+      doc.text(dateStr, margin + 15, y);
+      doc.text(score, pageWidth - margin, y, { align: 'right' });
+
+      y += lineHeight;
+      if (y + lineHeight > pageHeight - margin) {
+        doc.addPage();
+        drawBackground();
+        y = margin;
+      }
+    });
+  }
 
   doc.save('kink-compatibility.pdf');
   return doc;

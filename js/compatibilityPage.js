@@ -1,6 +1,7 @@
 // Compatibility results page logic and PDF export helpers
 import { initTheme } from './theme.js';
 import { getMatchFlag, calculateCategoryMatch, getProgressBarColor } from './matchFlag.js';
+import { calculateCompatibility } from './compatibility.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -18,6 +19,29 @@ const RATING_LABELS = {
   4: 'Like / Regular Interest',
   5: 'Love / Core Interest'
 };
+
+// ----- Compatibility history helpers -----
+function loadHistory() {
+  try {
+    return JSON.parse(localStorage.getItem('compatHistory')) || [];
+  } catch {
+    return [];
+  }
+}
+
+function addHistoryEntry(score) {
+  const history = loadHistory();
+  history.push({ score, date: new Date().toISOString() });
+  while (history.length > 5) history.shift();
+  localStorage.setItem('compatHistory', JSON.stringify(history));
+  if (typeof window !== 'undefined') {
+    window.compatibilityHistory = history;
+  }
+  return history;
+}
+if (typeof window !== 'undefined') {
+  window.compatibilityHistory = loadHistory();
+}
 
 function parseSurveyJSON(text) {
   const clean = text.replace(/^\uFEFF/, '').trim();
@@ -328,6 +352,10 @@ function updateComparison() {
   lastResult = buildKinkBreakdown(surveyA, surveyB);
   container.innerHTML = '';
 
+  // Calculate overall compatibility score and update history
+  const compat = calculateCompatibility(surveyA, surveyB);
+  const history = addHistoryEntry(compat.compatibilityScore);
+
   const mergedKinkData = [];
   Object.entries(lastResult).forEach(([category, items]) => {
     items.forEach(it => {
@@ -381,7 +409,7 @@ function updateComparison() {
       b: maxRating(it.partner)
     }))
   }));
-  window.compatibilityData = categories;
+  window.compatibilityData = { categories, history };
 
   const cardList = document.getElementById('print-card-list');
   if (cardList) cardList.innerHTML = '';
