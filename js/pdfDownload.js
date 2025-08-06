@@ -54,7 +54,25 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape' });
-    doc.y = 50;
+
+    // Set black background
+    doc.setFillColor(0, 0, 0);
+    doc.rect(
+      0,
+      0,
+      doc.internal.pageSize.getWidth(),
+      doc.internal.pageSize.getHeight(),
+      'F'
+    );
+
+    // Set default text color to white
+    doc.setTextColor(255, 255, 255);
+
+    // Set default font and position
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.y = 50; // initial y position
+
     generateCompatibilityPDF(partnerAData, partnerBData, doc);
     doc.save('kink-compatibility.pdf');
   });
