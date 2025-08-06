@@ -39,8 +39,8 @@ test('generates PDF with score columns and percent', async () => {
   assert.ok(rectCalls.length > 0);
   assert.ok(textCalls.some(c => c[0] === 'Kink Compatibility Report'));
   assert.ok(textCalls.some(c => c[0] === 'Bondage'));
-  assert.ok(textCalls.some(c => c[0] === '5'));
-  assert.ok(textCalls.some(c => c[0] === '1'));
+  assert.ok(textCalls.some(c => String(c[0]) === '5'));
+  assert.ok(textCalls.some(c => String(c[0]) === '1'));
   assert.ok(textCalls.some(c => c[0] === 'Partner A'));
   assert.ok(textCalls.some(c => c[0] === 'Partner B'));
   assert.ok(textCalls.some(c => c[0] === 'Flag'));

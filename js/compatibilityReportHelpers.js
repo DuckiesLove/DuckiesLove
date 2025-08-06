@@ -39,12 +39,11 @@ export function drawMatchBar(doc, x, y, width, height, percentage) {
   doc.text(label, x + width / 2, y + height / 2 + 1.8, { align: 'center' });
 }
 
-// Render the category header centered on the page
-function renderCategoryHeader(doc, y, category) {
-  const pageWidth = doc.internal.pageSize.getWidth();
+// Render the category header at the provided coordinates
+function renderCategoryHeader(doc, x, y, category) {
   doc.setFontSize(13);
   doc.setTextColor('white');
-  doc.text(category, pageWidth / 2, y, { align: 'center' });
+  doc.text(category, x, y);
   doc.setFontSize(9);
 }
 
@@ -63,19 +62,19 @@ function renderItemRow(doc, x, y, label, partnerA, partnerB, match) {
   doc.setFontSize(8);
   doc.text(label, colLabel, y);
 
-  doc.text(partnerA === null || partnerA === undefined ? 'N/A' : String(partnerA), colA, y);
+  doc.text(partnerA ?? 'N/A', colA, y);
 
   drawMatchBar(doc, colBar, y - 6.5, barW, barH, match);
 
   doc.setFontSize(9);
   doc.text(getFlagEmoji(match), colFlag, y);
 
-  doc.text(partnerB === null || partnerB === undefined ? 'N/A' : String(partnerB), colB, y);
+  doc.text(partnerB ?? 'N/A', colB, y);
 }
 
 // Render an entire category section including column headers
 export function renderCategorySection(doc, startX, startY, categoryLabel, items) {
-  renderCategoryHeader(doc, startY, categoryLabel);
+  renderCategoryHeader(doc, startX, startY, categoryLabel);
   let currentY = startY + 13;
 
   // Column titles
