@@ -1,4 +1,4 @@
-import { getMatchFlag } from './matchFlag.js';
+import { getFlagEmoji, getMatchColor } from './matchFlag.js';
 
 export function generateCompatibilityPDF() {
   console.log('PDF function triggered');
@@ -55,9 +55,27 @@ export function generateCompatibilityPDF() {
   };
 
   const drawMatchBar = (x, y, match) => {
-    const color = match >= 80 ? [0, 255, 0] : match >= 60 ? [255, 255, 0] : [255, 0, 0];
-    doc.setFillColor(...color);
-    doc.rect(x, y, config.barWidth * (match / 100), config.boxHeight, 'F');
+    doc.setFillColor(0, 0, 0);
+    doc.rect(x, y, config.barWidth, config.boxHeight, 'F');
+    if (match !== null && match !== undefined) {
+      const color = getMatchColor(match);
+      doc.setFillColor(color);
+      doc.rect(x, y, config.barWidth * (match / 100), config.boxHeight, 'F');
+      doc.setTextColor(255);
+      doc.setFontSize(8);
+      doc.text(`${match}%`, x + config.barWidth / 2, y + config.boxHeight / 2, {
+        align: 'center',
+        baseline: 'middle'
+      });
+    } else {
+      doc.setTextColor(255);
+      doc.setFontSize(8);
+      doc.text('N/A', x + config.barWidth / 2, y + config.boxHeight / 2, {
+        align: 'center',
+        baseline: 'middle'
+      });
+    }
+    doc.setTextColor(255);
   };
 
   const data = window.compatibilityData;
@@ -80,6 +98,7 @@ export function generateCompatibilityPDF() {
     doc.text(category.category || category.name, config.margin, y);
     doc.setFontSize(10);
     doc.text('Partner A', config.colA, y);
+    doc.text('Flag', config.centerX + config.barWidth + 2, y);
     doc.text('Partner B', config.colB, y);
     y += 6;
 
@@ -93,7 +112,7 @@ export function generateCompatibilityPDF() {
       const a = item.a ?? item.partnerA ?? 0;
       const b = item.b ?? item.partnerB ?? 0;
       const match = Math.max(0, 100 - Math.abs(a - b) * 25);
-      const flag = getMatchFlag(match);
+      const flag = getFlagEmoji(match);
       const label = item.label || item.kink || '';
 
       doc.setFontSize(9);

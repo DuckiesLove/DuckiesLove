@@ -1,4 +1,4 @@
-import { getMatchFlag } from './matchFlag.js';
+import { getFlagEmoji, getMatchColor } from './matchFlag.js';
 
 // Shortened label lookup for verbose subcategory names
 const shortLabels = {
@@ -18,14 +18,6 @@ const shortLabels = {
   "Wearing chosen lingerie/underwear": 'Chosen lingerie',
   "Having my hair brushed, braided, styled": 'Hair styled by partner'
 };
-
-// Thresholds for bar colors
-function getBarColor(matchPercentage) {
-  if (matchPercentage === null) return 'black';
-  if (matchPercentage <= 50) return 'red';
-  if (matchPercentage <= 79) return 'yellow';
-  return 'green';
-}
 
 // Subcategory label shortening (1–4 words)
 function shortenLabel(text = '') {
@@ -57,16 +49,13 @@ function getHistoryIcon(score) {
   return '🔴';
 }
 
-function drawBar(doc, x, y, matchPercentage) {
-  const width = 50;
-
-  // Bar background
+function drawMatchBar(doc, x, y, width, percent) {
   doc.setFillColor(pdfStyles.barColors.black);
   doc.rect(x, y, width, pdfStyles.barHeight, 'F');
 
-  if (matchPercentage !== null) {
-    const barColor = pdfStyles.barColors[getBarColor(matchPercentage)];
-    const filledWidth = (matchPercentage / 100) * width;
+  if (percent !== null && percent !== undefined) {
+    const barColor = getMatchColor(percent);
+    const filledWidth = (percent / 100) * width;
     if (filledWidth > 0) {
       doc.setFillColor(barColor);
       doc.rect(x, y, filledWidth, pdfStyles.barHeight, 'F');
@@ -74,12 +63,10 @@ function drawBar(doc, x, y, matchPercentage) {
     doc.setFont(pdfStyles.bodyFont, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(pdfStyles.textColor);
-    doc.text(
-      `${matchPercentage}%`,
-      x + width / 2,
-      y + pdfStyles.barHeight / 2,
-      { align: 'center', baseline: 'middle' }
-    );
+    doc.text(`${percent}%`, x + width / 2, y + pdfStyles.barHeight / 2, {
+      align: 'center',
+      baseline: 'middle'
+    });
   } else {
     doc.setFont(pdfStyles.bodyFont, 'normal');
     doc.setFontSize(9);
@@ -143,16 +130,14 @@ export function generateCompatibilityPDF(compatibilityData) {
   categories.forEach(category => {
     doc.setFont(pdfStyles.headingFont, 'bold');
     doc.setFontSize(14);
-    doc.text(category.category || category.name, pageWidth / 2, y, {
-      align: 'center'
-    });
+    doc.text(category.category || category.name, margin, y, { align: 'left' });
     y += pdfStyles.barSpacing * 2;
 
     doc.setFont(pdfStyles.bodyFont, 'bold');
     doc.setFontSize(9);
-    doc.text('A', boxAX + boxSize / 2, y, { align: 'center' });
+    doc.text('Partner A', boxAX + boxSize / 2, y, { align: 'center' });
     doc.text('Flag', flagX + flagWidth / 2, y, { align: 'center' });
-    doc.text('B', boxBX + boxSize / 2, y, { align: 'center' });
+    doc.text('Partner B', boxBX + boxSize / 2, y, { align: 'center' });
     y += pdfStyles.barSpacing;
 
     category.items.forEach((item) => {
@@ -171,8 +156,8 @@ export function generateCompatibilityPDF(compatibilityData) {
       doc.setFontSize(10);
       doc.text(label, margin, y + boxSize - 2, { maxWidth: barX - margin - gap });
       drawScoreBox(boxAX, y, a);
-      drawBar(doc, barX, y, match);
-      const flag = match === null ? '' : getMatchFlag(match);
+      drawMatchBar(doc, barX, y, barWidth, match);
+      const flag = match === null ? '' : getFlagEmoji(match);
       if (flag) {
         doc.text(flag, flagX + flagWidth / 2, y + boxSize - 2, { align: 'center' });
       }
