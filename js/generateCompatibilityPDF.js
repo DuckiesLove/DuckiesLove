@@ -45,7 +45,7 @@ const pdfStyles = {
 function getHistoryIcon(score) {
   if (typeof score !== 'number') return '⚪';
   if (score >= 80) return '🟢';
-  if (score >= 51) return '🟡';
+  if (score >= 60) return '🟡';
   return '🔴';
 }
 
