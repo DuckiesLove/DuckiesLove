@@ -50,32 +50,45 @@ function getHistoryIcon(score) {
 }
 
 function drawMatchBar(doc, x, y, width, percent) {
-  doc.setFillColor(pdfStyles.barColors.black);
-  doc.rect(x, y, width, pdfStyles.barHeight, 'F');
+  const height = pdfStyles.barHeight;
 
+  // Draw full bar background
+  doc.setFillColor(pdfStyles.barColors.black);
+  doc.rect(x, y, width, height, 'F');
+
+  // Draw filled portion if we have a percentage
   if (percent !== null && percent !== undefined) {
     const barColor = getMatchColor(percent);
     const filledWidth = (percent / 100) * width;
     if (filledWidth > 0) {
       doc.setFillColor(barColor);
-      doc.rect(x, y, filledWidth, pdfStyles.barHeight, 'F');
+      doc.rect(x, y, filledWidth, height, 'F');
     }
+
+    // Percentage text centered within bar
     doc.setFont(pdfStyles.bodyFont, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(pdfStyles.textColor);
-    doc.text(`${percent}%`, x + width / 2, y + pdfStyles.barHeight / 2, {
+    doc.text(`${percent}%`, x + width / 2, y + height / 2, {
       align: 'center',
       baseline: 'middle'
     });
   } else {
+    // "N/A" text centered when no percentage
     doc.setFont(pdfStyles.bodyFont, 'normal');
     doc.setFontSize(9);
     doc.setTextColor(pdfStyles.textColor);
-    doc.text('N/A', x + width / 2, y + pdfStyles.barHeight / 2, {
+    doc.text('N/A', x + width / 2, y + height / 2, {
       align: 'center',
       baseline: 'middle'
     });
   }
+
+  // Outline around the bar
+  doc.setDrawColor(pdfStyles.textColor);
+  doc.rect(x, y, width, height, 'S');
+
+  // Reset text color for subsequent calls
   doc.setTextColor(pdfStyles.textColor);
 }
 
