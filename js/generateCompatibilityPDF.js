@@ -1,107 +1,85 @@
 export function generateCompatibilityPDF(compatibilityData) {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
+  // Black background and white text
+  doc.setFillColor(0, 0, 0);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Kink Compatibility Report', 200, 40);
+
+  let y = 80;
   const margin = 40;
-  const lineHeight = 22;
-  const boxSize = 22;
-  let y = margin;
 
-  const drawHeader = (text) => {
-    doc.setFontSize(20);
-    doc.setTextColor(0, 255, 255);
-    doc.text(text, margin, y);
-    y += lineHeight + 8;
-  };
-
-  const drawCategory = (category) => {
-    doc.setFontSize(16);
-    doc.setTextColor(255);
-    doc.setFillColor(60);
-    doc.rect(margin, y - 18, 515, 28, "F");
-    doc.text(category.category || category.name, margin + 5, y);
-    y += lineHeight;
-  };
-
-  const shortenLabel = (label) => {
-    return label.length > 60 ? label.slice(0, 57) + "..." : label;
-  };
-
-  const drawScoreBox = (x, y, score) => {
-    doc.setDrawColor(255);
-    doc.rect(x, y, boxSize, boxSize);
-    doc.setTextColor(255);
-    doc.text(String(score), x + 7, y + 15);
-  };
-
-  const drawBar = (x, y, match) => {
-    const width = 80;
+  const drawBar = (x, y, width, percent) => {
     let color = [255, 0, 0];
-    if (match >= 80) color = [0, 255, 0];
-    else if (match >= 60) color = [255, 255, 0];
+    if (percent >= 90) color = [255, 215, 0]; // gold for star
+    else if (percent >= 80) color = [0, 255, 0]; // green
     doc.setFillColor(...color);
-    doc.rect(x, y, width * (match / 100), 12, "F");
-    doc.setTextColor(255);
-    doc.text(`${match}%`, x + width / 2 - 10, y + 10);
+    doc.rect(x, y, (width * percent) / 100, 8, 'F');
   };
 
-  const drawItem = (label, a, b, match) => {
-    if (y > 780) {
-      doc.addPage();
-      y = margin;
-    }
-    doc.setFontSize(12);
-    doc.setTextColor(255);
-    doc.text(shortenLabel(label), margin, y);
-    drawScoreBox(350, y - boxSize + 2, a);
-    drawBar(420, y - boxSize + 5, match);
-    drawScoreBox(510, y - boxSize + 2, b);
-    y += lineHeight;
-  };
+  const shorten = str => (str.length > 40 ? str.slice(0, 37) + '…' : str);
 
-  drawHeader("Kink Compatibility Report");
+  // Table headers
+  doc.setFontSize(12);
+  doc.setTextColor(200, 200, 255);
+  doc.text('Kink', margin, y);
+  doc.text('A', 320, y);
+  doc.text('B', 350, y);
+  doc.text('%', 380, y);
+  y += 20;
 
-  for (const category of compatibilityData.categories) {
-    drawCategory(category);
-    for (const item of category.items) {
-      drawItem(item.label, item.partnerA, item.partnerB, item.match);
-    }
-  }
+  compatibilityData.categories.forEach(category => {
+    doc.setTextColor(173, 216, 230);
+    doc.setFont('helvetica', 'bold');
+    doc.text(category.category || category.name, margin, y);
+    y += 16;
 
-  doc.save("kink-compatibility-report.pdf");
-}
+    category.items.forEach((item, index) => {
+      const name = shorten(item.label || item.name || `Item ${index + 1}`);
+      const a = typeof item.partnerA === 'number' ? item.partnerA :
+        typeof item.scoreA === 'number' ? item.scoreA : 0;
+      const b = typeof item.partnerB === 'number' ? item.partnerB :
+        typeof item.scoreB === 'number' ? item.scoreB : 0;
+      const match = typeof item.match === 'number' ? item.match :
+        Math.max(0, 100 - Math.abs(a - b) * 20);
 
-if (typeof document !== "undefined") {
-  const attachHandler = () => {
-    const downloadBtn = document.getElementById("downloadPdfBtn");
-    if (!downloadBtn) {
-      console.error("❌ Download button not found");
-      return;
-    }
+      let flag = '';
+      if (match >= 90) flag = '⭐';
+      else if (match >= 80) flag = '🟩';
+      else if (match <= 30) flag = '🚩';
 
-    downloadBtn.addEventListener("click", async () => {
-      if (!window.jspdf || !window.jspdf.jsPDF) {
-        alert(
-          "PDF library failed to load. Printing the page instead—choose 'Save as PDF' in your browser."
-        );
-        window.print();
-        return;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.text(name, margin, y);
+      doc.text(`${a}`, 320, y);
+      doc.text(`${b}`, 350, y);
+      doc.text(`${match}%`, 380, y);
+      doc.text(flag, 410, y);
+
+      drawBar(440, y - 6, 100, match);
+
+      y += 14;
+      if (y > 740) {
+        doc.addPage();
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+        doc.setTextColor(255, 255, 255);
+        y = 40;
       }
-
-      const compatibilityData = window.compatibilityData;
-      if (!compatibilityData || !compatibilityData.categories) {
-        alert("Missing survey data. Please upload both surveys first.");
-        return;
-      }
-
-      generateCompatibilityPDF(compatibilityData);
     });
-  };
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", attachHandler);
-  } else {
-    attachHandler();
-  }
+    y += 12;
+  });
+
+  doc.save('TalkKink-Compatibility.pdf');
+  return doc;
 }
 
+export default generateCompatibilityPDF;

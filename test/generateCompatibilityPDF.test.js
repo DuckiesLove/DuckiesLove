@@ -12,6 +12,7 @@ test('generates PDF with score columns and percent', async () => {
       this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
     }
     setFillColor() {}
+    setFont() {}
     setDrawColor() {}
     rect(...args) { rectCalls.push(args); }
     setTextColor() {}
