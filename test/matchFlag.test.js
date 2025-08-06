@@ -2,13 +2,9 @@ import assert from 'node:assert';
 import test from 'node:test';
 import { getMatchFlag, calculateCategoryMatch, getProgressBarColor } from '../js/matchFlag.js';
 
-test('returns star for 100 percent', () => {
+test('returns star for 90 percent and above', () => {
   assert.strictEqual(getMatchFlag(100), '⭐');
-});
-
-test('returns green flag for values 85 and above', () => {
-  assert.strictEqual(getMatchFlag(90), '🟩');
-  assert.strictEqual(getMatchFlag(85), '🟩');
+  assert.strictEqual(getMatchFlag(90), '⭐');
 });
 
 test('returns red flag for values 50 or below', () => {
@@ -16,12 +12,8 @@ test('returns red flag for values 50 or below', () => {
   assert.strictEqual(getMatchFlag(0), '🚩');
 });
 
-test('returns yellow flag for priority mismatches', () => {
-  assert.strictEqual(getMatchFlag(60, 5, 3), '🟨');
-});
-
 test('returns empty string for other values', () => {
-  assert.strictEqual(getMatchFlag(70), '');
+  assert.strictEqual(getMatchFlag(75), '');
   assert.strictEqual(getMatchFlag(51), '');
 });
 

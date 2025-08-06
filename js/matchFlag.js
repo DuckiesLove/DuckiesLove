@@ -1,11 +1,9 @@
 // Shared utility for match flag generation
-export function getMatchFlag(percent, a, b) {
+export function getMatchFlag(percent) {
   if (percent === null || percent === undefined) return '';
-  if (percent === 100) return '⭐'; // Gold star for perfect match
-  if (percent <= 50) return '🚩';   // Red flag for low compatibility
-  if ((a === 5 || b === 5) && a !== b) return '🟨'; // Priority mismatch
-  if (percent >= 85) return '🟩';   // Green flag for strong compatibility
-  return '';                        // No flag
+  if (percent >= 90) return '⭐'; // Star for strong compatibility
+  if (percent <= 50) return '🚩'; // Red flag for low compatibility
+  return '';
 }
 
 // Determine progress bar color based on percentage
