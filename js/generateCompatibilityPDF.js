@@ -45,7 +45,7 @@ const pdfStyles = {
     green: '#00FF00',
     yellow: '#FFFF00',
     red: '#FF0000',
-    black: '#111111'
+    black: '#000000'
   }
 };
 
@@ -66,12 +66,20 @@ function drawBar(doc, x, y, matchPercentage) {
     doc.setFont(pdfStyles.bodyFont, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(pdfStyles.textColor);
-    doc.text(`${matchPercentage}%`, x - 5, y + pdfStyles.barHeight - 3, { align: 'right' });
+    doc.text(
+      `${matchPercentage}%`,
+      x + width / 2,
+      y + pdfStyles.barHeight / 2,
+      { align: 'center', baseline: 'middle' }
+    );
   } else {
     doc.setFont(pdfStyles.bodyFont, 'normal');
     doc.setFontSize(9);
-    doc.setTextColor('#CCCCCC');
-    doc.text('N/A', x + width / 2, y + pdfStyles.barHeight - 3, { align: 'center' });
+    doc.setTextColor(pdfStyles.textColor);
+    doc.text('N/A', x + width / 2, y + pdfStyles.barHeight / 2, {
+      align: 'center',
+      baseline: 'middle'
+    });
   }
   doc.setTextColor(pdfStyles.textColor);
 }
@@ -86,13 +94,11 @@ export function generateCompatibilityPDF(compatibilityData) {
   const boxSize = pdfStyles.barHeight;
   const barWidth = 50;
   const gap = 10;
-  const flagSpace = 10;
   const lineHeight = boxSize + pdfStyles.barSpacing;
 
   const barX = pageWidth / 2 - barWidth / 2;
   const boxAX = barX - gap - boxSize;
-  const flagX = barX + barWidth + gap;
-  const boxBX = barX + barWidth + gap * 2 + flagSpace;
+  const boxBX = barX + barWidth + gap;
 
   const drawBackground = () => {
     doc.setFillColor(pdfStyles.backgroundColor);
@@ -105,9 +111,12 @@ export function generateCompatibilityPDF(compatibilityData) {
     doc.rect(x, y, boxSize, boxSize);
     doc.setFont(pdfStyles.bodyFont, 'normal');
     doc.setFontSize(8);
-    if (score !== null && score !== undefined) {
-      doc.text(String(score), x + boxSize / 2, y + boxSize - 2, { align: 'center' });
-    }
+    const display =
+      score === null || score === undefined ? 'N/A' : String(score);
+    doc.text(display, x + boxSize / 2, y + boxSize / 2, {
+      align: 'center',
+      baseline: 'middle'
+    });
   };
 
   drawBackground();
@@ -120,8 +129,10 @@ export function generateCompatibilityPDF(compatibilityData) {
   compatibilityData.categories.forEach(category => {
     doc.setFont(pdfStyles.headingFont, 'bold');
     doc.setFontSize(14);
-    doc.text(category.category || category.name, margin, y);
-    y += lineHeight;
+    doc.text(category.category || category.name, pageWidth / 2, y, {
+      align: 'center'
+    });
+    y += pdfStyles.barSpacing * 2;
 
     category.items.forEach((item) => {
       const fullLabel = item.label || item.kink || item.name || '';
@@ -130,9 +141,8 @@ export function generateCompatibilityPDF(compatibilityData) {
         typeof item.scoreA === 'number' ? item.scoreA : null;
       const b = typeof item.partnerB === 'number' ? item.partnerB :
         typeof item.scoreB === 'number' ? item.scoreB : null;
-      const match = a === null || b === null
-        ? null
-        : Math.max(0, 100 - Math.abs(a - b) * 20);
+      const match =
+        a === null || b === null ? null : Math.max(0, 100 - Math.abs(a - b) * 20);
 
       doc.setFont(pdfStyles.bodyFont, 'normal');
       doc.setFontSize(10);
@@ -142,7 +152,7 @@ export function generateCompatibilityPDF(compatibilityData) {
       if (match !== null) {
         const flag = getMatchFlag(match);
         if (flag) {
-          doc.text(flag, flagX, y + boxSize - 2);
+          doc.text(flag, barX + barWidth / 2, y - 2, { align: 'center' });
         }
       }
       drawScoreBox(boxBX, y, b);
