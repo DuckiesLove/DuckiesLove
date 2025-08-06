@@ -7,14 +7,25 @@
 
 export function generateCompatibilityPDF(partnerAData, partnerBData, doc) {
   const categories = Object.keys(partnerAData); // Same keys assumed in partnerBData
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const ensureSpace = () => {
+    if (doc.y >= pageHeight - 20) {
+      doc.addPage();
+      applyDarkThemeBackground(doc);
+      doc.y = 50;
+    }
+  };
 
   categories.forEach((category) => {
+    ensureSpace();
     const items = Object.keys(partnerAData[category]);
 
     // 🧠 Render category header (e.g., "Appearance Play")
     renderCategoryHeaderPDF(doc, category);
 
     items.forEach((item) => {
+      ensureSpace();
       // 1️⃣ Get scores
       const scoreA = partnerAData?.[category]?.[item];
       const scoreB = partnerBData?.[category]?.[item];
@@ -79,6 +90,18 @@ function renderRowPDF(doc, { label, scoreA, match, flag, scoreB }) {
   doc.text(scoreB, 400, y);     // Partner B
 
   doc.y += 8;
+}
+
+function applyDarkThemeBackground(doc) {
+  doc.setFillColor(0, 0, 0);
+  doc.rect(
+    0,
+    0,
+    doc.internal.pageSize.getWidth(),
+    doc.internal.pageSize.getHeight(),
+    'F'
+  );
+  doc.setTextColor(255, 255, 255);
 }
 
 export default generateCompatibilityPDF;

@@ -7,6 +7,10 @@ function createDoc() {
     y: 20,
     setFontSize() {},
     setTextColor() {},
+    setFillColor() {},
+    rect() {},
+    addPage() {},
+    internal: { pageSize: { getHeight: () => 200, getWidth: () => 200 } },
     text(...args) { textCalls.push(args); }
   };
   return { doc, textCalls };
