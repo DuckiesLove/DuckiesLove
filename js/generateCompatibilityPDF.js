@@ -1,3 +1,91 @@
+import { getMatchFlag } from './matchFlag.js';
+
+// Thresholds for bar colors
+function getBarColor(matchPercentage) {
+  if (matchPercentage === null) return 'black';
+  if (matchPercentage <= 50) return 'red';
+  if (matchPercentage <= 79) return 'yellow';
+  return 'green';
+}
+
+// Subcategory label shortening (2–4 words max)
+function shortenLabel(text = '') {
+  return text
+    .replace(/Choosing my partner.+?scene/, 'Choose outfit')
+    .replace(/Selecting.+?layers/, 'Underwear')
+    .replace(/Styling.+?etc\./, 'Style hair')
+    .replace(/Picking head coverings.+?protection/, 'Headwear')
+    .replace(/Offering makeup.+?play/, 'Makeup/accessories')
+    .replace(/Creating themed looks.+?etc\./, 'Themed looks')
+    .replace(/Dressing them.+?etc\./, 'Roleplay outfits')
+    .replace(/Curating time-period.+?50s\)/, 'Historical outfits')
+    .replace(/Helping them present.+?request/, 'Femme/masc styling')
+    .replace(/Coordinating.+?scenes/, 'Coordinated looks')
+    .replace(/Implementing.+?preparation/, 'Dress ritual')
+    .replace(/Enforcing.+?tied hair\)/, 'Visual protocol')
+    .replace(/Having my outfit.+?partner/, 'They pick my outfit')
+    .replace(/Wearing the underwear.+?choose/, 'They pick my lingerie')
+    .replace(/Having my hair.+?them/, 'Hair for them')
+    .replace(/Putting on.+?they chose/, 'Headwear (by request)')
+    .replace(/Following visual.+?submission/, 'Visual protocol (rules)')
+    .replace(/Wearing makeup.+?request/, 'Requested makeup')
+    .replace(/Dressing to please.+?etc\./, 'Dress to please')
+    .replace(/Wearing roleplay.+?looks/, 'Roleplay costumes')
+    .replace(/Presenting.+?aesthetic/, 'Match their aesthetic')
+    .replace(/Participating in.+?ceremonies/, 'Dressing rituals')
+    .replace(/Being admired.+?direction/, 'Admired by them')
+    .replace(/Receiving praise.+?appearance/, 'Appearance praise')
+    .replace(/Cosplay.+?etc\./, 'Cosplay looks')
+    .replace(/Time-period dress-up.+?etc\./, 'Historic dress-up')
+    .replace(/Dollification.+?aesthetics/, 'Dollification')
+    .replace(/Uniforms.+?etc\./, 'Uniforms')
+    .replace(/Hair-based play.+?styles\)/, 'Hair-based play')
+    .replace(/Head coverings.+?dynamics/, 'Ritual headwear')
+    .replace(/Matching dress.+?codes/, 'Matching dress codes');
+}
+
+// PDF layout settings
+const pdfStyles = {
+  backgroundColor: '#000000',
+  textColor: '#FFFFFF',
+  headingFont: 'helvetica',
+  bodyFont: 'helvetica',
+  barHeight: 10,
+  barSpacing: 6,
+  barColors: {
+    green: '#00FF00',
+    yellow: '#FFFF00',
+    red: '#FF0000',
+    black: '#111111'
+  }
+};
+
+function drawBar(doc, x, y, matchPercentage) {
+  const width = 50;
+  const barColor = pdfStyles.barColors[getBarColor(matchPercentage)];
+  const filledWidth = matchPercentage === null ? 0 : (matchPercentage / 100) * width;
+
+  // Bar background
+  doc.setFillColor(pdfStyles.barColors.black);
+  doc.rect(x, y, width, pdfStyles.barHeight, 'F');
+
+  if (filledWidth > 0) {
+    doc.setFillColor(barColor);
+    doc.rect(x, y, filledWidth, pdfStyles.barHeight, 'F');
+  }
+
+  doc.setFont(pdfStyles.bodyFont, 'normal');
+  doc.setFontSize(10);
+  if (matchPercentage === null) {
+    doc.setTextColor('#888888');
+    doc.text('N/A', x + width + 5, y + pdfStyles.barHeight - 3);
+  } else {
+    doc.setTextColor(pdfStyles.textColor);
+    doc.text(`${matchPercentage}%`, x + width + 5, y + pdfStyles.barHeight - 3);
+  }
+  doc.setTextColor(pdfStyles.textColor);
+}
+
 export function generateCompatibilityPDF(compatibilityData) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
@@ -5,89 +93,42 @@ export function generateCompatibilityPDF(compatibilityData) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 40;
-  const boxSize = 16;
-  const barWidth = 100;
+  const boxSize = pdfStyles.barHeight;
+  const barWidth = 50;
   const gap = 10;
+  const flagSpace = 10;
+  const lineHeight = boxSize + pdfStyles.barSpacing;
+
   const barX = pageWidth / 2 - barWidth / 2;
   const boxAX = barX - gap - boxSize;
-  const boxBX = barX + barWidth + gap;
-  const lineHeight = 24;
-
-  // Map for explicit shortened labels and generic shortening fallback
-  const shortenLabel = (label = '') => {
-    const map = {
-      "Choosing my partner’s outfit for the day or a scene": "Partner’s outfit choice",
-      "Selecting their underwear, lingerie, or base layers": "Select their underwear",
-      "Styling their hair (braiding, brushing, tying, etc.)": "Style their hair",
-      "Picking head coverings (bonnets, veils, hoods, hats)": "Choose head covering",
-      "Offering makeup, polish, or accessories as part of ritual or play": "Apply ritual makeup",
-      "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)": "Create themed looks",
-      "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "Dress in roleplay",
-      "Curating time-period or historical outfits (e.g., Victorian, 50s)": "Time-period outfits",
-      "Helping them present more femme, masc, or androgynous by request": "Support gender styling",
-      "Coordinating their look with mine for public or private scenes": "Coordinate our looks",
-      "Implementing a “dress ritual” or aesthetic preparation": "Dress ritual prep",
-      "Enforcing a visual protocol (e.g., no bra, heels required)": "Visual protocol rules",
-      "Having my outfit selected for me by a partner": "Partner picks outfit",
-      "Wearing the underwear or lingerie they choose": "Partner picks lingerie",
-      "Having my hair brushed, braided, tied, or styled for them": "Style hair for them",
-      "Putting on a head covering they chose": "Partner’s headwear choice",
-      "Following visual appearance rules as part of submission": "Follow appearance rules",
-      "Wearing makeup, polish, or accessories they request": "Partner's makeup request",
-      "Dressing to please their vision (cute, filthy, classy, etc.)": "Dress to please them",
-      "Wearing roleplay costumes or character looks": "Wear roleplay costume",
-      "Presenting in a way that matches their chosen aesthetic": "Match their aesthetic",
-      "Participating in dressing rituals or undressing ceremonies": "Participate in rituals",
-      "Being admired for the way I look under their direction": "Admired by partner",
-      "Receiving praise or teasing about my appearance": "Appearance praise/teasing",
-      "Cosplay or fantasy looks (anime, game, fairytale, etc.)": "Fantasy or cosplay",
-      "Time-period dress-up (regency, gothic, 1920s, etc.)": "Dress in era style",
-      "Dollification or polished/presented object aesthetics": "Dollification play style",
-      "Uniforms (schoolgirl, military, clerical, nurse, etc.)": "Wear uniform looks",
-      "Hair-based play (forced brushing, ribbons, or tied styles)": "Hair-focused play",
-      "Head coverings or symbolic hoods in ritualized dynamics": "Symbolic headwear",
-      "Matching outfits or dress codes": "Matching dress codes"
-    };
-
-    return map[label] || label.split(' ').slice(0, 4).join(' ');
-  };
+  const flagX = barX + barWidth + gap;
+  const boxBX = barX + barWidth + gap * 2 + flagSpace;
 
   const drawBackground = () => {
-    doc.setFillColor(0, 0, 0);
+    doc.setFillColor(pdfStyles.backgroundColor);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(pdfStyles.textColor);
   };
 
   const drawScoreBox = (x, y, score) => {
-    doc.setDrawColor(255, 255, 255);
+    doc.setDrawColor(pdfStyles.textColor);
     doc.rect(x, y, boxSize, boxSize);
-    doc.setFontSize(12);
-    doc.text(String(score ?? ''), x + boxSize / 2, y + boxSize - 4, { align: 'center' });
-  };
-
-  const drawMatchIndicator = (match, x, y) => {
-    if (match === 100) {
-      doc.setFontSize(14);
-      doc.text('⭐', x + barWidth / 2, y + boxSize - 4, { align: 'center' });
-    } else if (match <= 50) {
-      doc.setFontSize(14);
-      doc.text('🚩', x + barWidth / 2, y + boxSize - 4, { align: 'center' });
-    } else {
-      const color = match >= 80 ? [0, 255, 0] : [160, 160, 160];
-      doc.setFillColor(...color);
-      doc.rect(x, y, (barWidth * match) / 100, boxSize, 'F');
+    doc.setFont(pdfStyles.bodyFont, 'normal');
+    doc.setFontSize(8);
+    if (score !== null && score !== undefined) {
+      doc.text(String(score), x + boxSize / 2, y + boxSize - 2, { align: 'center' });
     }
   };
 
   drawBackground();
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(pdfStyles.headingFont, 'bold');
   doc.setFontSize(18);
   doc.text('Kink Compatibility Report', pageWidth / 2, 40, { align: 'center' });
 
   let y = 80;
 
   compatibilityData.categories.forEach(category => {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(pdfStyles.headingFont, 'bold');
     doc.setFontSize(14);
     doc.text(category.category || category.name, margin, y);
     y += lineHeight;
@@ -95,17 +136,20 @@ export function generateCompatibilityPDF(compatibilityData) {
     category.items.forEach((item, index) => {
       const label = shortenLabel(item.label || item.name || `Item ${index + 1}`);
       const a = typeof item.partnerA === 'number' ? item.partnerA :
-        typeof item.scoreA === 'number' ? item.scoreA : 0;
+        typeof item.scoreA === 'number' ? item.scoreA : null;
       const b = typeof item.partnerB === 'number' ? item.partnerB :
-        typeof item.scoreB === 'number' ? item.scoreB : 0;
-      const match = typeof item.match === 'number' ? item.match :
-        Math.max(0, 100 - Math.abs(a - b) * 20);
+        typeof item.scoreB === 'number' ? item.scoreB : null;
+      const match = a === null || b === null ? null : Math.max(0, 100 - Math.abs(a - b) * 20);
 
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(pdfStyles.bodyFont, 'normal');
       doc.setFontSize(10);
-      doc.text(label, margin, y + boxSize - 4);
+      doc.text(label, margin, y + boxSize - 2);
       drawScoreBox(boxAX, y, a);
-      drawMatchIndicator(match, barX, y);
+      drawBar(doc, barX, y, match);
+      const flag = getMatchFlag(match, a, b);
+      if (flag) {
+        doc.text(flag, flagX, y + boxSize - 2);
+      }
       drawScoreBox(boxBX, y, b);
 
       y += lineHeight;
@@ -116,7 +160,7 @@ export function generateCompatibilityPDF(compatibilityData) {
       }
     });
 
-    y += lineHeight / 2;
+    y += pdfStyles.barSpacing;
     if (y + lineHeight > pageHeight - margin) {
       doc.addPage();
       drawBackground();
@@ -129,4 +173,3 @@ export function generateCompatibilityPDF(compatibilityData) {
 }
 
 export default generateCompatibilityPDF;
-
