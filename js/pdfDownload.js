@@ -1,23 +1,11 @@
-import generateCompatibilityPDF from './rawSurveyPdf.js';
-import { loadJsPDF } from './loadJsPDF.js';
+import { applyPrintStyles } from './theme.js';
 
 // Attach click handler for the Download PDF button
 window.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('downloadPdfBtn');
   if (!downloadBtn) return;
 
-  downloadBtn.addEventListener('click', async () => {
-    await loadJsPDF();
-    if (!window.jspdf || !window.jspdf.jsPDF || window.jspdf.isStub) {
-      alert(
-        "PDF library failed to load. Printing instead—choose 'Save as PDF'."
-      );
-      try {
-        window.print && window.print();
-      } catch {}
-      return;
-    }
-
+  downloadBtn.addEventListener('click', () => {
     const data = window.compatibilityData;
     const categories = Array.isArray(data) ? data : data?.categories;
     if (!categories || categories.length === 0) {
@@ -25,56 +13,44 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const partnerAData = {};
-    const partnerBData = {};
-    categories.forEach(cat => {
-      const name = cat.category || cat.name;
-      partnerAData[name] = {};
-      partnerBData[name] = {};
-      (cat.items || []).forEach(item => {
-        const label = item.label || item.kink || item.name;
-        const scoreA = typeof item.a === 'number'
-          ? item.a
-          : typeof item.partnerA === 'number'
-            ? item.partnerA
-            : typeof item.scoreA === 'number'
-              ? item.scoreA
-              : undefined;
-        const scoreB = typeof item.b === 'number'
-          ? item.b
-          : typeof item.partnerB === 'number'
-            ? item.partnerB
-            : typeof item.scoreB === 'number'
-              ? item.scoreB
-              : undefined;
-        partnerAData[name][label] = scoreA;
-        partnerBData[name][label] = scoreB;
-      });
-    });
+    if (typeof window.html2pdf !== 'function') {
+      alert("PDF library failed to load. Printing instead—choose 'Save as PDF'.");
+      try {
+        window.print && window.print();
+      } catch {}
+      return;
+    }
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'landscape' });
+    const mode =
+      localStorage.getItem('theme') ||
+      [...document.body.classList]
+        .find(cls => cls.startsWith('theme-'))?.replace('theme-', '') ||
+      'dark';
+    applyPrintStyles(mode);
 
-    // Set black background
-    doc.setFillColor(0, 0, 0);
-    doc.rect(
-      0,
-      0,
-      doc.internal.pageSize.getWidth(),
-      doc.internal.pageSize.getHeight(),
-      'F'
-    );
+    const element = document.getElementById('pdf-container');
+    if (!element) {
+      alert('PDF content not found.');
+      return;
+    }
 
-    // Set default text color to white
-    doc.setTextColor(255, 255, 255);
-
-    // Set default font and position
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(12);
-    doc.y = 50; // initial y position
-
-    generateCompatibilityPDF(partnerAData, partnerBData, doc);
-    doc.save('kink-compatibility.pdf');
+    window.scrollTo(0, 0);
+    window.html2pdf()
+      .set({
+        margin: 0,
+        filename: 'kink-compatibility.pdf',
+        image: { type: 'jpeg', quality: 1 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#000',
+          scrollY: 0,
+        },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' },
+        pagebreak: { mode: ['avoid-all'] },
+      })
+      .from(element)
+      .save();
   });
 });
 
