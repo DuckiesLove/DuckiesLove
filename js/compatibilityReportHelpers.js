@@ -53,6 +53,18 @@ function renderCategoryHeader(doc, x, y, category) {
   doc.setFontSize(9);
 }
 
+// Compute column layout relative to the available width
+function buildLayout(startX, usableWidth) {
+  const colLabel = startX;
+  const colA = startX + usableWidth * 0.45;
+  const barWidth = usableWidth * 0.15;
+  const colBar = startX + usableWidth * 0.6;
+  const colFlag = colBar + barWidth + usableWidth * 0.02;
+  const colB = startX + usableWidth * 0.85;
+  const barHeight = 9;
+  return { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight };
+}
+
 // Render a single item row
 function renderItemRow(doc, layout, y, label, partnerA, partnerB, match) {
   const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
@@ -75,15 +87,22 @@ function renderItemRow(doc, layout, y, label, partnerA, partnerB, match) {
 // Render an entire category section including column headers
 export function renderCategorySection(doc, startX, startY, categoryLabel, items, usableWidth) {
   renderCategoryHeader(doc, startX, startY, categoryLabel);
-  let currentY = startY + 13;
+  let currentY = startY + 13
 
+const layout = buildLayout(startX, usableWidth);
+const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
+
+function buildLayout(startX, usableWidth) {
   const colLabel = startX;
   const colA = startX + usableWidth * 0.45;
   const barWidth = usableWidth * 0.15;
   const colBar = startX + usableWidth * 0.6;
   const colFlag = colBar + barWidth + usableWidth * 0.02;
   const colB = startX + usableWidth * 0.85;
-  const layout = { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight: 9 };
+  const barHeight = 9;
+  return { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight };
+}
+
 
   // Column titles
   doc.setFontSize(9);
