@@ -2418,19 +2418,23 @@ body {
 .results-table th:first-child,
 .results-table td:first-child {
   text-align: left;
-  width: 40%;
+  width: 45%;
 }
 .results-table th:nth-child(2),
-.results-table td:nth-child(2),
-.results-table th:nth-child(5),
-.results-table td:nth-child(5) {
-  width: 20%;
+.results-table td:nth-child(2) {
+  width: 13%;
 }
 .results-table th:nth-child(3),
-.results-table td:nth-child(3),
+.results-table td:nth-child(3) {
+  width: 10%;
+}
 .results-table th:nth-child(4),
 .results-table td:nth-child(4) {
-  width: 10%;
+  width: 7%;
+}
+.results-table th:nth-child(5),
+.results-table td:nth-child(5) {
+  width: 13%;
 }
 .results-table th {
   border-bottom: 2px solid #444;
