@@ -2408,11 +2408,21 @@ body {
   margin: 2rem auto;
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 .results-table th,
 .results-table td {
   padding: 8px 12px;
+  text-align: center;
+}
+.results-table th:first-child,
+.results-table td:first-child {
   text-align: left;
+  width: 40%;
+}
+.results-table th:not(:first-child),
+.results-table td:not(:first-child) {
+  width: 15%;
 }
 .results-table th {
   border-bottom: 2px solid #444;
