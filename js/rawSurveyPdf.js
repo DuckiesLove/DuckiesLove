@@ -21,14 +21,15 @@ function drawScore(doc, score, x, y) {
   drawText(doc, value, x, y);
 }
 
-function drawCompatibilityBar(doc, match, x, width, y) {
+function drawCompatibilityBar(doc, match, x, width, y, theme) {
   const barHeight = 9;
   const label = match === null || match === undefined ? 'N/A' : `${match}%`;
-  doc.setFillColor('black');
+  doc.setFillColor(theme.barFillColor);
   doc.rect(x, y - barHeight + 2.5, width, barHeight, 'F');
   doc.setFontSize(7);
-  doc.setTextColor('white');
+  doc.setTextColor(theme.barTextColor);
   doc.text(label, x + width / 2, y + 1, { align: 'center' });
+  doc.setTextColor(theme.textColor);
 }
 
 function drawFlagEmoji(doc, match, scoreA, scoreB, x, y) {
@@ -45,7 +46,7 @@ function drawFlagEmoji(doc, match, scoreA, scoreB, x, y) {
   drawText(doc, emoji, x, y);
 }
 
-function drawCategorySection(title, items, layout, startY, doc) {
+function drawCategorySection(title, items, layout, startY, doc, theme) {
   let y = startY;
   drawText(doc, title, layout.colLabel, y);
   y += 12;
@@ -53,7 +54,7 @@ function drawCategorySection(title, items, layout, startY, doc) {
   items.forEach(item => {
     drawText(doc, shortenLabel(item.label), layout.colLabel, y);
     drawScore(doc, item.scoreA, layout.colA, y);
-    drawCompatibilityBar(doc, item.match, layout.colBar, layout.barWidth, y);
+    drawCompatibilityBar(doc, item.match, layout.colBar, layout.barWidth, y, theme);
     drawFlagEmoji(doc, item.match, item.scoreA, item.scoreB, layout.colFlag, y);
     drawScore(doc, item.scoreB, layout.colB, y);
     y += 14;
@@ -64,7 +65,29 @@ function drawCategorySection(title, items, layout, startY, doc) {
 
 // ---- Main PDF generation ----
 
-export function generateCompatibilityPDF(partnerAData, partnerBData, doc) {
+export function generateCompatibilityPDF(partnerAData, partnerBData, doc, theme = {}) {
+  const {
+    bgColor = '#000000',
+    textColor = '#ffffff',
+    barFillColor = '#000000',
+    barTextColor = '#ffffff',
+    font = 'helvetica'
+  } = theme;
+
+  doc.setFillColor(bgColor);
+  doc.rect(
+    0,
+    0,
+    doc.internal.pageSize.getWidth(),
+    doc.internal.pageSize.getHeight(),
+    'F'
+  );
+
+  doc.setTextColor(textColor);
+  doc.setFont(font, 'normal');
+  doc.setFontSize(12);
+  doc.y = 50;
+
   const pageWidth = doc.internal.pageSize.getWidth();
   const startX = 40;
   const usableWidth = pageWidth - startX * 2;
@@ -73,6 +96,8 @@ export function generateCompatibilityPDF(partnerAData, partnerBData, doc) {
     ...Object.keys(partnerAData || {}),
     ...Object.keys(partnerBData || {})
   ]);
+
+  const themeOptions = { barFillColor, barTextColor, textColor };
 
   let y = doc.y || 20;
 
@@ -92,7 +117,7 @@ export function generateCompatibilityPDF(partnerAData, partnerBData, doc) {
       return { label, scoreA, scoreB, match };
     });
 
-    y = drawCategorySection(category, items, layout, y, doc) + 6;
+    y = drawCategorySection(category, items, layout, y, doc, themeOptions) + 6;
   }
 }
 
