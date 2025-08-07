@@ -15,6 +15,7 @@ if (typeof document !== 'undefined' && typeof document.createElement === 'functi
 
     #pdf-container table {
       width: 100%;
+      border-collapse: collapse;
       table-layout: fixed;
     }
 
@@ -22,6 +23,27 @@ if (typeof document !== 'undefined' && typeof document.createElement === 'functi
     #pdf-container th {
       word-wrap: break-word;
       white-space: normal;
+      padding: 4px 6px;
+    }
+
+    .results-table th:nth-child(1),
+    .results-table td:nth-child(1) {
+      text-align: left;
+      width: 40%;
+    }
+
+    .results-table th:nth-child(2),
+    .results-table td:nth-child(2),
+    .results-table th:nth-child(5),
+    .results-table td:nth-child(5) {
+      width: 20%;
+    }
+
+    .results-table th:nth-child(3),
+    .results-table td:nth-child(3),
+    .results-table th:nth-child(4),
+    .results-table td:nth-child(4) {
+      width: 10%;
     }
   `;
   document.head.appendChild(style);
@@ -55,15 +77,23 @@ export function exportToPDF() {
     element.style.color = '#1d3b1d';
   }
 
-  // Ensure layout has consistent column spacing
-  const allRows = element.querySelectorAll('.row');
-  allRows.forEach((row) => {
-    row.style.display = 'grid';
-    row.style.gridTemplateColumns = '2fr 1fr 1fr 1fr 1fr';
-    row.style.alignItems = 'center';
-    row.style.gap = '1em';
-    row.style.padding = '2px 0';
-  });
+  // Stretch inner wrapper and table to fill the page
+  const wrapper = document.getElementById('compatibility-wrapper');
+  if (wrapper) {
+    wrapper.style.width = '100%';
+    wrapper.style.maxWidth = '100%';
+    wrapper.style.margin = '0';
+  }
+
+  const table = element.querySelector('.results-table');
+  if (table) {
+    const widths = ['40%', '20%', '10%', '10%', '20%'];
+    Array.from(table.rows).forEach(row => {
+      widths.forEach((w, i) => {
+        if (row.cells[i]) row.cells[i].style.width = w;
+      });
+    });
+  }
 
   // Force layout to stretch across full page and generate PDF
   window.scrollTo(0, 0);
