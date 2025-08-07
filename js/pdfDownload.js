@@ -3,14 +3,19 @@
 
 // Apply global styles so the export fills the page and text wraps.
 if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
-  const style = document.createElement("style");
+  const style = document.createElement('style');
   style.innerHTML = `
-    #pdf-container, #print-area {
-      width: 100%;
+    /* Ensure the PDF export fills the entire landscape page */
+    #pdf-container, #print-area, #compatibility-wrapper {
+      width: 100vw;
       max-width: none;
       padding: 0;
       margin: 0;
       box-sizing: border-box;
+    }
+
+    #pdf-container {
+      display: block;
     }
 
     #pdf-container table {
@@ -37,6 +42,8 @@ if (typeof document !== 'undefined' && typeof document.createElement === 'functi
     .results-table th:nth-child(5),
     .results-table td:nth-child(5) {
       width: 20%;
+      min-width: 90px;
+      text-align: center;
     }
 
     .results-table th:nth-child(3),
@@ -44,6 +51,8 @@ if (typeof document !== 'undefined' && typeof document.createElement === 'functi
     .results-table th:nth-child(4),
     .results-table td:nth-child(4) {
       width: 10%;
+      min-width: 60px;
+      text-align: center;
     }
   `;
   document.head.appendChild(style);
@@ -62,9 +71,10 @@ export function exportToPDF() {
   element.style.fontSize = '13px';
   element.style.padding = '0';
   element.style.margin = '0';
-  element.style.width = '100%';
-  element.style.maxWidth = '100%';
+  element.style.width = '100vw';
+  element.style.maxWidth = '100vw';
   element.style.boxSizing = 'border-box';
+  element.style.display = 'block';
 
   if (mode === 'dark') {
     element.style.backgroundColor = '#000000';
@@ -80,9 +90,10 @@ export function exportToPDF() {
   // Stretch inner wrapper and table to fill the page
   const wrapper = document.getElementById('compatibility-wrapper');
   if (wrapper) {
-    wrapper.style.width = '100%';
-    wrapper.style.maxWidth = '100%';
+    wrapper.style.width = '100vw';
+    wrapper.style.maxWidth = 'none';
     wrapper.style.margin = '0';
+    wrapper.style.padding = '0';
   }
 
   const table = element.querySelector('.results-table');
@@ -92,6 +103,14 @@ export function exportToPDF() {
       widths.forEach((w, i) => {
         if (row.cells[i]) row.cells[i].style.width = w;
       });
+      if (row.cells[2]) {
+        row.cells[2].style.minWidth = '60px';
+        row.cells[2].style.textAlign = 'center';
+      }
+      if (row.cells[3]) {
+        row.cells[3].style.minWidth = '60px';
+        row.cells[3].style.textAlign = 'center';
+      }
     });
   }
 
