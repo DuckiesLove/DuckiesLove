@@ -21,18 +21,19 @@ body {
 
 #pdf-container {
   background-color: #000;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  padding: 20px;
+  display: block;
+  width: 100vw;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 #compatibility-wrapper {
   background-color: #000;
-  width: 100%;
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 20px;
+  width: 100vw;
+  max-width: none;
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 

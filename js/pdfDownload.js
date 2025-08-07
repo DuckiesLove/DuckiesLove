@@ -7,7 +7,7 @@ if (typeof document !== 'undefined' && typeof document.createElement === 'functi
   style.innerHTML = `
     /* Ensure the PDF export fills the entire landscape page */
     #pdf-container, #print-area, #compatibility-wrapper {
-      width: 100%;
+      width: 100vw;
       max-width: none;
       padding: 0;
       margin: 0;
@@ -53,7 +53,7 @@ if (typeof document !== 'undefined' && typeof document.createElement === 'functi
 
     .results-table th:nth-child(4),
     .results-table td:nth-child(4) {
-      width: 9%;
+      width: 7%;
       min-width: 50px;
       text-align: center;
     }
@@ -81,7 +81,7 @@ export function exportToPDF() {
   element.style.fontSize = '13px';
   element.style.padding = '0';
   element.style.margin = '0';
-  element.style.width = '100%';
+  element.style.width = '100vw';
   element.style.maxWidth = 'none';
   element.style.boxSizing = 'border-box';
   element.style.display = 'block';
@@ -100,7 +100,7 @@ export function exportToPDF() {
   // Stretch inner wrapper and table to fill the page
   const wrapper = document.getElementById('compatibility-wrapper');
   if (wrapper) {
-    wrapper.style.width = '100%';
+    wrapper.style.width = '100vw';
     wrapper.style.maxWidth = 'none';
     wrapper.style.margin = '0';
     wrapper.style.padding = '0';
@@ -108,7 +108,7 @@ export function exportToPDF() {
 
   const table = element.querySelector('.results-table');
   if (table) {
-    const widths = ['45%', '13%', '10%', '9%', '13%'];
+    const widths = ['45%', '13%', '10%', '7%', '13%'];
     Array.from(table.rows).forEach(row => {
       widths.forEach((w, i) => {
         if (row.cells[i]) row.cells[i].style.width = w;
@@ -129,21 +129,25 @@ export function exportToPDF() {
 
   const canvasWidth = element.scrollWidth;
   window.html2pdf()
+    .from(element)
     .set({
       margin: 0,
       filename: 'kink-compatibility.pdf',
-      image: { type: 'jpeg', quality: 1 },
       html2canvas: {
         scale: 2,
-        useCORS: true,
         backgroundColor: '#000',
-        scrollY: 0,
+        width: canvasWidth,
         windowWidth: canvasWidth
       },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      jsPDF: {
+        unit: 'in',
+        format: 'letter',
+        orientation: 'landscape'
+      },
+      pagebreak: {
+        mode: ['avoid-all', 'css', 'legacy']
+      }
     })
-    .from(element)
     .save();
 }
 
