@@ -74,7 +74,11 @@ export function generateCompatibilityPDF(compatibilityData) {
   doc.setFontSize(18);
   doc.text('Kink Compatibility Report', pageWidth / 2, 40, { align: 'center' });
 
-  let y = 80;
+  const columnGap = 20;
+  const columnWidth = (usableWidth - columnGap) / 2;
+  const columnX = [margin, margin + columnWidth + columnGap];
+  const columnY = [80, 80];
+  let currentColumn = 0;
 
   categories.forEach(category => {
     const items = category.items.map(item => {
@@ -95,21 +99,31 @@ export function generateCompatibilityPDF(compatibilityData) {
       };
     });
 
-    y = renderCategorySection(
+    const sectionHeight = 23 + items.length * 12 + pdfStyles.barSpacing;
+    while (columnY[currentColumn] + sectionHeight > pageHeight - margin) {
+      if (currentColumn === 0) {
+        currentColumn = 1;
+      } else {
+        doc.addPage();
+        drawBackground();
+        columnY[0] = margin;
+        columnY[1] = margin;
+        currentColumn = 0;
+      }
+    }
+
+    const endY = renderCategorySection(
       doc,
-      margin,
-      y,
+      columnX[currentColumn],
+      columnY[currentColumn],
       category.category || category.name,
       items,
-      usableWidth
+      columnWidth
     );
-    y += pdfStyles.barSpacing;
-    if (y + lineHeight > pageHeight - margin) {
-      doc.addPage();
-      drawBackground();
-      y = margin;
-    }
+    columnY[currentColumn] = endY + pdfStyles.barSpacing;
   });
+
+  let y = Math.max(columnY[0], columnY[1]);
 
   // Render compatibility history if available
   const recentHistory = history.slice(-5).reverse();
