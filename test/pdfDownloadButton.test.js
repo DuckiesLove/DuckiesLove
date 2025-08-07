@@ -24,8 +24,12 @@ test('PDF download button handler attaches on DOMContentLoaded', async () => {
       addEventListener: (evt, cb) => {
         if (evt === 'DOMContentLoaded') domReadyHandler = cb;
       },
-      jspdf: { jsPDF: function jsPDF() {} },
       compatibilityData: [],
+      html2pdf: () => ({
+        set: () => ({
+          from: () => ({ save: () => Promise.resolve() })
+        })
+      }),
     };
     globalThis.document = {
       getElementById: id => (id === 'downloadPdfBtn' ? button : null),
