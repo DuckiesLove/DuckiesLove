@@ -1,8 +1,8 @@
 const themeStyles = {
   dark: {
     fontColor: '#f2f2f2',
-    bgColor: '#0d0d0d',
-    inputBg: '#1a1a1a',
+    bgColor: '#000000',
+    inputBg: '#000000',
     inputText: '#f2f2f2',
     borderColor: '#444'
   },
@@ -362,7 +362,7 @@ export function applyPrintStyles(mode = 'dark') {
       }
       .results-table .bar-container {
         width: 100%;
-        background-color: #222;
+        background-color: #000000;
         border-radius: 4px;
         overflow: hidden;
         height: 12px;
@@ -401,7 +401,7 @@ export function applyPrintStyles(mode = 'dark') {
       }
       .bar-container {
         flex: 2;
-        background: #222;
+        background: #000000;
         border-radius: 4px;
         height: 10px;
         position: relative;
@@ -447,7 +447,7 @@ export function applyPrintStyles(mode = 'dark') {
       }
 
       .comparison-card {
-        background-color: #1a1a1a !important;
+        background-color: #000000 !important;
         color: #f1f1f1 !important;
         border-radius: 8px;
         margin: 0.5rem 0;
