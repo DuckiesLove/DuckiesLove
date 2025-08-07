@@ -47,15 +47,20 @@ function renderCategoryHeader(doc, x, y, category) {
   doc.setFontSize(9);
 }
 
+// Compute column layout relative to the available width
+function buildLayout(startX, usableWidth) {
+  const colLabel = startX;
+  const colA = startX + usableWidth * 0.45;
+  const barWidth = usableWidth * 0.15;
+  const colBar = startX + usableWidth * 0.6;
+  const colFlag = colBar + barWidth + usableWidth * 0.02;
+  const colB = startX + usableWidth * 0.85;
+  return { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight: 9 };
+}
+
 // Render a single item row
-function renderItemRow(doc, x, y, label, partnerA, partnerB, match) {
-  const colLabel = x;
-  const colA = x + 185;
-  const colBar = colA + 42;
-  const colFlag = colBar + 47;
-  const colB = colFlag + 20;
-  const barW = 45;
-  const barH = 9;
+function renderItemRow(doc, layout, y, label, partnerA, partnerB, match) {
+  const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
 
   doc.setTextColor('white');
 
@@ -64,7 +69,7 @@ function renderItemRow(doc, x, y, label, partnerA, partnerB, match) {
 
   doc.text(partnerA ?? 'N/A', colA, y);
 
-  drawMatchBar(doc, colBar, y - 6.5, barW, barH, match);
+  drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, match);
 
   doc.setFontSize(9);
   doc.text(getFlagEmoji(match), colFlag, y);
@@ -73,24 +78,27 @@ function renderItemRow(doc, x, y, label, partnerA, partnerB, match) {
 }
 
 // Render an entire category section including column headers
-export function renderCategorySection(doc, startX, startY, categoryLabel, items) {
+export function renderCategorySection(doc, startX, startY, categoryLabel, items, usableWidth) {
   renderCategoryHeader(doc, startX, startY, categoryLabel);
   let currentY = startY + 13;
+
+  const layout = buildLayout(startX, usableWidth);
+  const { colA, colBar, barWidth, colFlag, colB } = layout;
 
   // Column titles
   doc.setFontSize(9);
   doc.setTextColor('white');
-  doc.text('Partner A', startX + 185, currentY);
-  doc.text('Match', startX + 230, currentY);
-  doc.text('Flag', startX + 278, currentY);
-  doc.text('Partner B', startX + 298, currentY);
+  doc.text('Partner A', colA, currentY);
+  doc.text('Match', colBar + barWidth / 2, currentY, { align: 'center' });
+  doc.text('Flag', colFlag, currentY);
+  doc.text('Partner B', colB, currentY);
 
   currentY += 10;
 
   for (const item of items) {
     renderItemRow(
       doc,
-      startX,
+      layout,
       currentY,
       item.label,
       item.partnerA,

@@ -34,7 +34,9 @@ test('renderCategorySection renders each item and returns final y', () => {
     { label: 'First', partnerA: 1, partnerB: 1, match: 100 },
     { label: 'Second', partnerA: 2, partnerB: 3, match: 75 }
   ];
-  const endY = renderCategorySection(doc, 5, 20, 'MyCat', items);
+  const margin = 5;
+  const usableWidth = doc.internal.pageSize.getWidth() - margin * 2;
+  const endY = renderCategorySection(doc, margin, 20, 'MyCat', items, usableWidth);
   assert.strictEqual(endY, 20 + 23 + 12 * items.length);
   const texts = doc.calls.filter(c => c[0] === 'text').map(c => c[1][0]);
   assert(texts.includes('MyCat'));
