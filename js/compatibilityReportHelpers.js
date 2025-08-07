@@ -51,11 +51,11 @@ function renderCategoryHeader(doc, x, y, category) {
 // Column layout setup using full width
 function buildLayout(startX, usableWidth) {
   const colLabel = startX;
-  const colA = startX + usableWidth * 0.45;
-  const barWidth = usableWidth * 0.15;
-  const colBar = startX + usableWidth * 0.6;
-  const colFlag = colBar + barWidth + usableWidth * 0.02;
-  const colB = startX + usableWidth * 0.85;
+  const colA = startX + usableWidth * 0.53;
+  const barWidth = usableWidth * 0.13;
+  const colBar = colA + usableWidth * 0.09;
+  const colFlag = colBar + barWidth + 6;
+  const colB = startX + usableWidth * 0.88;
   const barHeight = 9;
   return { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight };
 }
@@ -94,11 +94,14 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match) {
 
   doc.setTextColor('white');
   doc.setFontSize(8);
-  doc.text(label, colLabel, y);
-  doc.text(formatScore(aNorm), colA, y);
+  doc.text(label, colLabel, y, {
+    width: colA - colLabel - 5,
+    align: 'left',
+  });
+  doc.text(formatScore(aNorm), colA, y, { align: 'left' });
   drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, resolvedMatch);
   doc.text(flag, colFlag, y, { align: 'center' });
-  doc.text(formatScore(bNorm), colB, y);
+  doc.text(formatScore(bNorm), colB, y, { align: 'left' });
 }
 
 // Render an entire category section including column headers
