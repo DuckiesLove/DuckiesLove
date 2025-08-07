@@ -134,6 +134,43 @@ export const pdfStyles = `
     .score-flag-mismatch {
       color: #fbc02d !important; /* yellow */
     }
+
+    #pdf-container {
+      font-size: 11pt;
+      line-height: 1.6;
+      padding: 1.5em;
+      color: var(--text-color);
+      background-color: var(--bg-color);
+    }
+
+    .category-section {
+      margin-bottom: 2em;
+      page-break-inside: avoid;
+    }
+
+    .category-title {
+      font-size: 14pt;
+      font-weight: bold;
+      margin-bottom: 0.5em;
+      page-break-inside: avoid;
+    }
+
+    .row {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 0.7em;
+      page-break-inside: avoid;
+    }
+
+    .row > div {
+      flex: 1;
+      min-width: 120px;
+      padding-right: 10px;
+      word-break: break-word;
+      white-space: normal;
+    }
   }
 `;
 
