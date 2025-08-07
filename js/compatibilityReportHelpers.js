@@ -55,7 +55,8 @@ function buildLayout(startX, usableWidth) {
   const colBar = startX + usableWidth * 0.6;
   const colFlag = colBar + barWidth + usableWidth * 0.02;
   const colB = startX + usableWidth * 0.85;
-  return { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight: 9 };
+  const barHeight = 9;
+  return { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight };
 }
 
 // Render a single item row
@@ -83,7 +84,7 @@ export function renderCategorySection(doc, startX, startY, categoryLabel, items,
   let currentY = startY + 13;
 
   const layout = buildLayout(startX, usableWidth);
-  const { colA, colBar, barWidth, colFlag, colB } = layout;
+  const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
 
   // Column titles
   doc.setFontSize(9);
