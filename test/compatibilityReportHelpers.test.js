@@ -1,6 +1,11 @@
 import assert from 'node:assert';
 import test from 'node:test';
-import { drawMatchBar, renderCategorySection } from '../js/compatibilityReportHelpers.js';
+import {
+  drawMatchBar,
+  renderCategorySection,
+  normalizeScore,
+  getMatchPercentage
+} from '../js/compatibilityReportHelpers.js';
 
 function createDocMock() {
   const calls = [];
@@ -46,4 +51,17 @@ test('renderCategorySection renders each item and returns final y', () => {
   assert(texts.includes('Match'));
   assert(texts.includes('Flag'));
   assert(texts.includes('Partner B'));
+});
+
+test('normalizeScore clamps values and handles invalid input', () => {
+  assert.strictEqual(normalizeScore(-2), 0);
+  assert.strictEqual(normalizeScore(3), 3);
+  assert.strictEqual(normalizeScore(9), 5);
+  assert.strictEqual(normalizeScore('foo'), null);
+});
+
+test('getMatchPercentage uses normalized scores', () => {
+  assert.strictEqual(getMatchPercentage(5, 5), 100);
+  assert.strictEqual(getMatchPercentage(6, 1), 20);
+  assert.strictEqual(getMatchPercentage('N/A', 3), null);
 });

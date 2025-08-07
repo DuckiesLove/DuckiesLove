@@ -66,27 +66,39 @@ function formatScore(value) {
   return value.toString();
 }
 
+// Normalize score to range 0-5; returns null if value is not a number
+export function normalizeScore(val) {
+  if (val === null || val === undefined) return null;
+  const num = Number(val);
+  if (Number.isNaN(num)) return null;
+  return Math.min(5, Math.max(0, num));
+}
+
 // Matching percentage logic
-function getMatchPercentage(a, b) {
-  if (a == null || b == null) return null;
-  if (a === 'N/A' || b === 'N/A') return null;
-  return Math.round(100 - Math.abs(a - b) * 20);
+export function getMatchPercentage(a, b) {
+  const aNorm = normalizeScore(a);
+  const bNorm = normalizeScore(b);
+  if (aNorm == null || bNorm == null) return null;
+  const diff = Math.min(5, Math.abs(aNorm - bNorm));
+  return Math.round(100 - diff * 20);
 }
 
 // Helper: draw one row of the kink table
 function drawKinkRow(doc, layout, y, label, aScore, bScore, match) {
   const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
+  const aNorm = normalizeScore(aScore);
+  const bNorm = normalizeScore(bScore);
   const resolvedMatch =
-    match !== undefined && match !== null ? match : getMatchPercentage(aScore, bScore);
-  const flag = getFlagIcon(aScore, bScore, resolvedMatch);
+    match !== undefined && match !== null ? match : getMatchPercentage(aNorm, bNorm);
+  const flag = getFlagIcon(aNorm, bNorm, resolvedMatch);
 
   doc.setTextColor('white');
   doc.setFontSize(8);
   doc.text(label, colLabel, y);
-  doc.text(formatScore(aScore), colA, y);
+  doc.text(formatScore(aNorm), colA, y);
   drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, resolvedMatch);
   doc.text(flag, colFlag, y, { align: 'center' });
-  doc.text(formatScore(bScore), colB, y);
+  doc.text(formatScore(bNorm), colB, y);
 }
 
 // Render an entire category section including column headers
