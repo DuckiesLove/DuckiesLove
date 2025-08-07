@@ -1,41 +1,39 @@
 export function exportToPDF() {
-  const target = document.getElementById("pdf-container");
-  if (!target) {
-    alert("PDF content not found.");
+  const element = document.getElementById('pdf-container');
+  if (!element) {
+    alert('PDF content not found.');
     return;
   }
 
-  // Force #pdf-container and all parents to fill the viewport
-  let current = target;
-  while (current) {
-    current.style.width = "100vw";
-    current.style.maxWidth = "none";
-    current.style.padding = "0";
-    current.style.margin = "0";
-    current = current.parentElement;
-  }
+  // Full bleed width enforcement
+  element.style.width = '100vw';
+  element.style.maxWidth = 'none';
+  element.style.margin = '0';
+  element.style.padding = '0';
+  element.style.overflow = 'visible';
 
-  const element = document.getElementById("pdf-container");
-
-  element.style.width = "100vw";
-  element.style.maxWidth = "none";
-  element.style.padding = "0";
-  element.style.margin = "0";
-
-  const tables = element.querySelectorAll("table");
+  // Force tables to obey
+  const tables = element.querySelectorAll('table');
   tables.forEach(table => {
-    table.style.width = "100%";
-    table.style.tableLayout = "fixed";
+    table.style.width = '100%';
+    table.style.tableLayout = 'fixed';
   });
 
+  // Force body to match
+  document.body.style.margin = '0';
+  document.body.style.padding = '0';
+  document.body.style.width = '100vw';
+  document.body.style.overflow = 'visible';
+
+  // PDF Settings
   html2pdf().from(element).set({
     margin: 0,
     filename: 'kink-compatibility.pdf',
     html2canvas: {
-      scale: 2,
-      backgroundColor: '#000',
+      scale: 3,
       scrollX: 0,
       scrollY: 0,
+      backgroundColor: '#000000',
       windowWidth: document.body.scrollWidth
     },
     jsPDF: {
