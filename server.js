@@ -86,8 +86,8 @@ function cookieParser(req, _res, next) {
   const cookies = {};
   if (header) {
     header.split(';').forEach(part => {
-      const [k, v] = part.trim().split('=');
-      if (k) cookies[k] = decodeURIComponent(v || '');
+      const [k, ...v] = part.trim().split('=');
+      if (k) cookies[k] = decodeURIComponent(v.join('=') || '');
     });
   }
   req.cookies = cookies;
@@ -425,4 +425,4 @@ if (NODE_ENV !== 'production') {
   );
 }
 
-export { app, server, cleanup, tokenStore, sessionStore };
+export { app, server, cleanup, tokenStore, sessionStore, cookieParser };
