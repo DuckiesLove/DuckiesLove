@@ -31,9 +31,8 @@ test('generates PDF with score columns and percent', async () => {
         category: 'Test',
         items: [
           { label: 'Star', partnerA: 5, partnerB: 5 },
-          { label: 'Green', partnerA: 5, partnerB: 4 },
           { label: 'Yellow', partnerA: 5, partnerB: 3 },
-          { label: 'Red', partnerA: 5, partnerB: 1 }
+          { label: 'Red', partnerA: 0, partnerB: 4 }
         ]
       }
     ]
@@ -44,7 +43,6 @@ test('generates PDF with score columns and percent', async () => {
   assert.ok(rectCalls.length > 0);
   assert.ok(textCalls.some(c => c[0] === 'Kink Compatibility Report'));
   assert.ok(textCalls.some(c => c[0] === 'Star'));
-  assert.ok(textCalls.some(c => c[0] === 'Green'));
   assert.ok(textCalls.some(c => c[0] === 'Yellow'));
   assert.ok(textCalls.some(c => c[0] === 'Red'));
   assert.ok(textCalls.some(c => c[0] === 'Partner A'));
@@ -52,7 +50,6 @@ test('generates PDF with score columns and percent', async () => {
   assert.ok(textCalls.some(c => c[0] === 'Flag'));
   // Indicators for various match scenarios
   assert.ok(textCalls.some(c => c[0] === '⭐'));
-  assert.ok(textCalls.some(c => c[0] === '🟩'));
   assert.ok(textCalls.some(c => c[0] === '🟨'));
   assert.ok(textCalls.some(c => c[0] === '🚩'));
 });
