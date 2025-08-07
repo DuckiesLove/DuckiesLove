@@ -2,20 +2,15 @@
 export function getFlagEmoji(percent, a, b) {
   if (percent === null || percent === undefined) return '';
   if (percent >= 90) return '⭐';
-  if (percent >= 80) return '🟩';
-  if (percent <= 40) return '🚩';
-  if (
-    (a === 5 && typeof b === 'number' && b < 5) ||
-    (b === 5 && typeof a === 'number' && a < 5)
-  )
-    return '🟨';
+  if ((a === 5 && typeof b === 'number' && b < 5) || (b === 5 && typeof a === 'number' && a < 5)) return '🟨';
+  if (percent < 30) return '🚩';
   return '';
 }
 
 // Determine bar color based on percentage
 export function getMatchColor(percent) {
   if (percent === null || percent === undefined) return 'black';
-  if (percent >= 80) return 'green';
+  if (percent >= 90) return 'green';
   if (percent >= 60) return 'yellow';
   return 'red';
 }

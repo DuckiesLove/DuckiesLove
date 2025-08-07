@@ -1,42 +1,35 @@
 // ---- Compatibility Report Rendering Helpers ----
 
-// Determine the color of the match bar
-function getMatchColor(percentage) {
-  if (percentage === null || percentage === undefined) return 'black';
-  if (percentage >= 80) return 'green';
+// Determine the font color used for the match percentage
+function getFontColor(percentage) {
+  if (percentage === null || percentage === undefined) return 'white';
+  if (percentage >= 90) return 'green';
   if (percentage >= 60) return 'yellow';
-  if (percentage > 0) return 'red';
-  return 'black';
+  return 'red';
 }
 
 // Flag logic
 function getFlagIcon(a, b, match) {
-  if (a === 5 && (b < 5 || b == null)) return '🟨';
-  if (match === null || match === undefined) return '';
+  if (a == null || b == null) return 'N/A';
+  if (match === null || match === undefined) return 'N/A';
   if (match >= 90) return '⭐';
-  if (match <= 30) return '🚩';
+  if ((a === 5 && b < 5) || (b === 5 && a < 5)) return '🟨';
+  if (match < 30) return '🚩';
   return '';
 }
 
 // Draw the colored match bar with percentage label (or N/A)
 export function drawMatchBar(doc, x, y, width, height, percentage) {
   const label = percentage !== null && percentage !== undefined ? `${percentage}%` : 'N/A';
-  const color = getMatchColor(percentage);
+  const textColor = getFontColor(percentage);
 
   // Black background
   doc.setFillColor('black');
   doc.rect(x, y, width, height, 'F');
 
-  // Colored fill if a percentage exists
-  if (percentage !== null && percentage !== undefined) {
-    const filled = Math.round((percentage / 100) * width);
-    doc.setFillColor(color);
-    doc.rect(x, y, filled, height, 'F');
-  }
-
   // Label centered inside the bar
   doc.setFontSize(7);
-  doc.setTextColor('white');
+  doc.setTextColor(textColor);
   doc.text(label, x + width / 2, y + height / 2 + 1.8, { align: 'center' });
 }
 
@@ -49,13 +42,13 @@ function renderCategoryHeader(doc, x, y, category) {
 }
 
 // Column layout setup using full width
-function buildLayout(startX, usableWidth) {
+export function buildLayout(startX, usableWidth) {
   const colLabel = startX;
-  const colA = startX + usableWidth * 0.53;
-  const barWidth = usableWidth * 0.13;
-  const colBar = colA + usableWidth * 0.09;
-  const colFlag = colBar + barWidth + 6;
-  const colB = startX + usableWidth * 0.88;
+  const colA = startX + usableWidth * 0.45;
+  const barWidth = usableWidth * 0.15;
+  const colBar = startX + usableWidth * 0.6;
+  const colFlag = colBar + barWidth + usableWidth * 0.02;
+  const colB = startX + usableWidth * 0.85;
   const barHeight = 9;
   return { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight };
 }
@@ -88,9 +81,6 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match) {
   const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
   const aNorm = normalizeScore(aScore);
   const bNorm = normalizeScore(bScore);
-  const resolvedMatch =
-    match !== undefined && match !== null ? match : getMatchPercentage(aNorm, bNorm);
-  const flag = getFlagIcon(aNorm, bNorm, resolvedMatch);
 
   doc.setTextColor('white');
   doc.setFontSize(8);
@@ -98,6 +88,19 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match) {
     width: colA - colLabel - 5,
     align: 'left',
   });
+
+  if (aNorm == null || bNorm == null) {
+    doc.text('N/A', colA, y, { align: 'left' });
+    drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, null);
+    doc.text('N/A', colFlag, y, { align: 'center' });
+    doc.text('N/A', colB, y, { align: 'left' });
+    return;
+  }
+
+  const resolvedMatch =
+    match !== undefined && match !== null ? match : getMatchPercentage(aNorm, bNorm);
+  const flag = getFlagIcon(aNorm, bNorm, resolvedMatch);
+
   doc.text(formatScore(aNorm), colA, y, { align: 'left' });
   drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, resolvedMatch);
   doc.text(flag, colFlag, y, { align: 'center' });
@@ -105,10 +108,10 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match) {
 }
 
 // Render an entire category section including column headers
-export function renderCategorySection(doc, startX, startY, categoryLabel, items, usableWidth) {
-  renderCategoryHeader(doc, startX, startY, categoryLabel);
-  const layout = buildLayout(startX, usableWidth);
-  const { colA, colBar, colFlag, colB, barWidth } = layout;
+export function renderCategorySection(doc, categoryLabel, items, layout, startY) {
+  const { colLabel, colA, colBar, colFlag, colB, barWidth } = layout;
+
+  renderCategoryHeader(doc, colLabel, startY, categoryLabel);
 
   let currentY = startY + 13;
 

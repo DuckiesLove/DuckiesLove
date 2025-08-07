@@ -4,7 +4,8 @@ import {
   drawMatchBar,
   renderCategorySection,
   normalizeScore,
-  getMatchPercentage
+  getMatchPercentage,
+  buildLayout
 } from '../js/compatibilityReportHelpers.js';
 
 function createDocMock() {
@@ -23,12 +24,13 @@ function createDocMock() {
   };
 }
 
-test('drawMatchBar fills width proportional to percentage', () => {
+test('drawMatchBar renders black bar with colored text', () => {
   const doc = createDocMock();
   drawMatchBar(doc, 10, 10, 100, 8, 50);
   const rectCalls = doc.calls.filter(c => c[0] === 'rect');
   assert.deepStrictEqual(rectCalls[0], ['rect', [10, 10, 100, 8, 'F']]);
-  assert.deepStrictEqual(rectCalls[1], ['rect', [10, 10, 50, 8, 'F']]);
+  const textColorCall = doc.calls.find(c => c[0] === 'setTextColor');
+  assert.deepStrictEqual(textColorCall, ['setTextColor', ['red']]);
   const textCall = doc.calls.find(c => c[0] === 'text' && c[1][0] === '50%');
   assert.ok(textCall, 'percentage label should be rendered');
 });
@@ -41,7 +43,8 @@ test('renderCategorySection renders each item and returns final y', () => {
   ];
   const margin = 5;
   const usableWidth = doc.internal.pageSize.getWidth() - margin * 2;
-  const endY = renderCategorySection(doc, margin, 20, 'MyCat', items, usableWidth);
+  const layout = buildLayout(margin, usableWidth);
+  const endY = renderCategorySection(doc, 'MyCat', items, layout, 20);
   assert.strictEqual(endY, 20 + 23 + 12 * items.length);
   const texts = doc.calls.filter(c => c[0] === 'text').map(c => c[1][0]);
   assert(texts.includes('MyCat'));
