@@ -29,7 +29,6 @@ test('renders categories, scores, matches and flags', async () => {
   assert.ok(texts.includes('100%'));
   assert.ok(texts.includes('⭐'));
   assert.ok(texts.includes('80%'));
-  assert.ok(texts.includes('🟩'));
 });
 
 test('handles missing scores as N/A', async () => {

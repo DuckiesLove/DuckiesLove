@@ -1,75 +1,99 @@
-// 🧾 Kink Compatibility PDF Generator
+// 🧠 Kink Compatibility PDF Generator using unified layout
 // Partner A = "Upload Your Survey"
 // Partner B = "Upload Partner's Survey"
-// Called when the user clicks "Download PDF" to compare both surveys
-// and display scores, matches and flags for each kink category.
+// Uses shared layout builder and category renderer for consistent formatting
+
+import { buildLayout } from './compatibilityReportHelpers.js';
+
+// ---- Helper functions ----
+
+function drawText(doc, text, x, y) {
+  doc.text(String(text), x, y);
+}
+
+function shortenLabel(label = '') {
+  if (label.length <= 40) return label;
+  return label.slice(0, 40);
+}
+
+function drawScore(doc, score, x, y) {
+  const value = score === null || score === undefined ? 'N/A' : String(score);
+  drawText(doc, value, x, y);
+}
+
+function drawCompatibilityBar(doc, match, x, width, y) {
+  const barHeight = 9;
+  const label = match === null || match === undefined ? 'N/A' : `${match}%`;
+  doc.setFillColor('black');
+  doc.rect(x, y - barHeight + 2.5, width, barHeight, 'F');
+  doc.setFontSize(7);
+  doc.setTextColor('white');
+  doc.text(label, x + width / 2, y + 1, { align: 'center' });
+}
+
+function drawFlagEmoji(doc, match, scoreA, scoreB, x, y) {
+  let emoji = '';
+  if (scoreA == null || scoreB == null || match == null) {
+    emoji = 'N/A';
+  } else if (match >= 90) {
+    emoji = '⭐';
+  } else if ((scoreA === 5 && scoreB < 5) || (scoreB === 5 && scoreA < 5)) {
+    emoji = '🟨';
+  } else if (match < 30) {
+    emoji = '🚩';
+  }
+  drawText(doc, emoji, x, y);
+}
+
+function drawCategorySection(title, items, layout, startY, doc) {
+  let y = startY;
+  drawText(doc, title, layout.colLabel, y);
+  y += 12;
+
+  items.forEach(item => {
+    drawText(doc, shortenLabel(item.label), layout.colLabel, y);
+    drawScore(doc, item.scoreA, layout.colA, y);
+    drawCompatibilityBar(doc, item.match, layout.colBar, layout.barWidth, y);
+    drawFlagEmoji(doc, item.match, item.scoreA, item.scoreB, layout.colFlag, y);
+    drawScore(doc, item.scoreB, layout.colB, y);
+    y += 14;
+  });
+
+  return y;
+}
+
+// ---- Main PDF generation ----
 
 export function generateCompatibilityPDF(partnerAData, partnerBData, doc) {
-  const categories = Object.keys(partnerAData); // Same keys assumed in partnerBData
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const startX = 40;
+  const usableWidth = pageWidth - startX * 2;
+  const layout = buildLayout(startX, usableWidth);
+  const categories = new Set([
+    ...Object.keys(partnerAData || {}),
+    ...Object.keys(partnerBData || {})
+  ]);
 
-  categories.forEach((category) => {
-    const items = Object.keys(partnerAData[category]);
+  let y = doc.y || 20;
 
-    // 🧠 Render category header (e.g., "Appearance Play")
-    renderCategoryHeaderPDF(doc, category);
+  for (const category of categories) {
+    const keys = new Set([
+      ...Object.keys(partnerAData?.[category] || {}),
+      ...Object.keys(partnerBData?.[category] || {})
+    ]);
 
-    items.forEach((item) => {
-      // 1️⃣ Get scores
-      const scoreA = partnerAData?.[category]?.[item];
-      const scoreB = partnerBData?.[category]?.[item];
-
-      // 2️⃣ Default fallback
-      const scoreAText = scoreA !== undefined ? String(scoreA) : "N/A";
-      const scoreBText = scoreB !== undefined ? String(scoreB) : "N/A";
-
-      // 3️⃣ Match %
-      let matchText = "N/A";
-      let flag = "";
-
-      if (typeof scoreA === "number" && typeof scoreB === "number") {
-        const diff = Math.abs(scoreA - scoreB);
-        const match = 100 - diff * 20; // 5-point scale
-        matchText = `${match}%`;
-
-        // 4️⃣ Flag logic
-        if (match >= 90) flag = "⭐";
-        else if (match >= 80) flag = "🟩";
-        else if (match <= 40) flag = "🚩";
-      }
-
-      // 5️⃣ Render row
-      renderRowPDF(doc, {
-        label: item,
-        scoreA: scoreAText,
-        match: matchText,
-        flag: flag,
-        scoreB: scoreBText,
-      });
+    const items = [...keys].map(label => {
+      const scoreA = partnerAData?.[category]?.[label];
+      const scoreB = partnerBData?.[category]?.[label];
+      const match =
+        typeof scoreA === 'number' && typeof scoreB === 'number'
+          ? Math.max(0, 100 - Math.abs(scoreA - scoreB) * 20)
+          : null;
+      return { label, scoreA, scoreB, match };
     });
-  });
-}
 
-// 📍 Draw category title (left-aligned)
-function renderCategoryHeaderPDF(doc, title) {
-  doc.setFontSize(16);
-  doc.setTextColor(255, 255, 255);
-  doc.text(title, 50, doc.y);
-  doc.y += 10;
-}
-
-// 🧾 Render a row: Label | A | Match | Flag | B
-function renderRowPDF(doc, { label, scoreA, match, flag, scoreB }) {
-  const y = doc.y;
-  doc.setFontSize(10);
-  doc.setTextColor(255, 255, 255);
-
-  doc.text(label, 50, y);       // Kink subcategory
-  doc.text(scoreA, 250, y);     // Partner A
-  doc.text(match, 300, y);      // Match %
-  doc.text(flag, 350, y);       // Flag
-  doc.text(scoreB, 400, y);     // Partner B
-
-  doc.y += 8;
+    y = drawCategorySection(category, items, layout, y, doc) + 6;
+  }
 }
 
 export default generateCompatibilityPDF;
