@@ -52,28 +52,37 @@ window.addEventListener('DOMContentLoaded', () => {
       });
     });
 
+    const activeTheme = localStorage.getItem('theme') || 'dark';
+    const themeOptions = {
+      dark: {
+        bgColor: '#000000',
+        textColor: '#ffffff',
+        barFillColor: '#000000',
+        barTextColor: '#ffffff',
+        font: 'helvetica'
+      },
+      lipstick: {
+        bgColor: '#1a001f',
+        textColor: '#fceaff',
+        barFillColor: '#ff90cb',
+        barTextColor: '#1a001f',
+        font: 'times'
+      },
+      forest: {
+        bgColor: '#f0f7f1',
+        textColor: '#1d3b1d',
+        barFillColor: '#81b89b',
+        barTextColor: '#1d3b1d',
+        font: 'courier'
+      }
+    };
+
+    const themeSettings = themeOptions[activeTheme] || themeOptions.dark;
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape' });
 
-    // Set black background
-    doc.setFillColor(0, 0, 0);
-    doc.rect(
-      0,
-      0,
-      doc.internal.pageSize.getWidth(),
-      doc.internal.pageSize.getHeight(),
-      'F'
-    );
-
-    // Set default text color to white
-    doc.setTextColor(255, 255, 255);
-
-    // Set default font and position
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(12);
-    doc.y = 50; // initial y position
-
-    generateCompatibilityPDF(partnerAData, partnerBData, doc);
+    generateCompatibilityPDF(partnerAData, partnerBData, doc, themeSettings);
     doc.save('kink-compatibility.pdf');
   });
 });

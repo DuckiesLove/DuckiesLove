@@ -9,6 +9,7 @@ function createDoc() {
     setTextColor() {},
     setFillColor() {},
     rect() {},
+    setFont() {},
     addPage() {},
     internal: { pageSize: { getHeight: () => 200, getWidth: () => 200 } },
     text(...args) { textCalls.push(args); }
