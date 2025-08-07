@@ -1,3 +1,5 @@
+// ✅ Codex PDF Layout Fix for 5-Column Report (Kink | Partner A | Match | Flag | Partner B)
+// Ensures consistent layout, styling, theme-aware rendering, and emoji flags in center.
 export function exportToPDF() {
   const element = document.getElementById('pdf-container');
   if (!element) {
@@ -5,12 +7,14 @@ export function exportToPDF() {
     return;
   }
 
+  // Apply layout styles directly to avoid blank renders
   const mode = localStorage.getItem('theme') || 'dark';
   element.style.fontFamily = 'sans-serif';
-  element.style.padding = '1in';
-  element.style.margin = '0';
+  element.style.fontSize = '13px';
+  element.style.padding = '0.75in';
   element.style.width = '100%';
   element.style.maxWidth = '100%';
+  element.style.boxSizing = 'border-box';
 
   if (mode === 'dark') {
     element.style.backgroundColor = '#000000';
@@ -23,10 +27,22 @@ export function exportToPDF() {
     element.style.color = '#1d3b1d';
   }
 
+  // Ensure layout has consistent column spacing
+  const allRows = element.querySelectorAll('.row');
+  allRows.forEach((row) => {
+    row.style.display = 'grid';
+    row.style.gridTemplateColumns = '2fr 1fr 1fr 1fr 1fr';
+    row.style.alignItems = 'center';
+    row.style.gap = '1em';
+    row.style.whiteSpace = 'nowrap';
+    row.style.padding = '2px 0';
+  });
+
+  // Prevent race condition or missing render
   requestAnimationFrame(() => {
     window.scrollTo(0, 0);
 
-    window.html2pdf()
+    html2pdf()
       .set({
         margin: [0, 0],
         filename: 'kink-compatibility.pdf',
