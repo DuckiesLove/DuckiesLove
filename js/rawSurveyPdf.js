@@ -4,61 +4,80 @@
 // Uses shared layout builder and category renderer for consistent formatting
 
 import { buildLayout } from './compatibilityReportHelpers.js';
+import { getFlagEmoji } from './matchFlag.js';
 
 // ---- Helper functions ----
-
-function drawText(doc, text, x, y) {
-  doc.text(String(text), x, y);
-}
 
 function shortenLabel(label = '') {
   if (label.length <= 40) return label;
   return label.slice(0, 40);
 }
 
-function drawScore(doc, score, x, y) {
-  const value = score === null || score === undefined ? 'N/A' : String(score);
-  drawText(doc, value, x, y);
+function formatScore(value) {
+  return typeof value === 'number' ? String(value) : 'N/A';
 }
 
-function drawCompatibilityBar(doc, match, x, width, y, theme) {
+function parseScore(value) {
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
+}
+
+function calculateMatch(aStr, bStr) {
+  const a = parseScore(aStr);
+  const b = parseScore(bStr);
+  if (a == null || b == null) return null;
+  return Math.max(0, 100 - Math.abs(a - b) * 20);
+}
+
+function getMatchFlag(aStr, bStr, match) {
+  const a = parseScore(aStr);
+  const b = parseScore(bStr);
+  if (a == null || b == null || match == null) return 'N/A';
+  return getFlagEmoji(match, a, b) || '';
+}
+
+function drawMatchBar(doc, layout, y, match, theme) {
+  const { colBar, barWidth } = layout;
   const barHeight = 9;
   const label = match === null || match === undefined ? 'N/A' : `${match}%`;
   doc.setFillColor(theme.barFillColor);
-  doc.rect(x, y - barHeight + 2.5, width, barHeight, 'F');
+  doc.rect(colBar, y - barHeight + 2.5, barWidth, barHeight, 'F');
   doc.setFontSize(7);
   doc.setTextColor(theme.barTextColor);
-  doc.text(label, x + width / 2, y + 1, { align: 'center' });
+  doc.text(label, colBar + barWidth / 2, y + 1, { align: 'center' });
   doc.setTextColor(theme.textColor);
 }
 
-function drawFlagEmoji(doc, match, scoreA, scoreB, x, y) {
-  let emoji = '';
-  if (scoreA == null || scoreB == null || match == null) {
-    emoji = 'N/A';
-  } else if (match >= 90) {
-    emoji = '⭐';
-  } else if ((scoreA === 5 && scoreB < 5) || (scoreB === 5 && scoreA < 5)) {
-    emoji = '🟨';
-  } else if (match < 30) {
-    emoji = '🚩';
+function drawCategoryItems(doc, items, layout, startY, theme) {
+  let y = startY;
+  const rowHeight = 14;
+
+  for (const item of items) {
+    const label = shortenLabel(item.label || item.name || '');
+    const scoreA = formatScore(item.a || item.partnerA);
+    const scoreB = formatScore(item.b || item.partnerB);
+    const match = calculateMatch(scoreA, scoreB);
+    const flag = getMatchFlag(scoreA, scoreB, match);
+
+    doc.text(label, layout.colLabel, y);
+    doc.text(scoreA, layout.colA, y);
+    doc.text(match === null ? 'N/A' : `${match}%`, layout.colBar, y, { align: 'center' });
+    doc.text(flag, layout.colFlag, y, { align: 'center' });
+    doc.text(scoreB, layout.colB, y);
+
+    drawMatchBar(doc, layout, y + 1, match, theme);
+    y += rowHeight;
   }
-  drawText(doc, emoji, x, y);
+
+  return y;
 }
 
 function drawCategorySection(title, items, layout, startY, doc, theme) {
   let y = startY;
-  drawText(doc, title, layout.colLabel, y);
+  doc.text(String(title), layout.colLabel, y);
   y += 12;
 
-  items.forEach(item => {
-    drawText(doc, shortenLabel(item.label), layout.colLabel, y);
-    drawScore(doc, item.scoreA, layout.colA, y);
-    drawCompatibilityBar(doc, item.match, layout.colBar, layout.barWidth, y, theme);
-    drawFlagEmoji(doc, item.match, item.scoreA, item.scoreB, layout.colFlag, y);
-    drawScore(doc, item.scoreB, layout.colB, y);
-    y += 14;
-  });
+  y = drawCategoryItems(doc, items, layout, y, theme);
 
   return y;
 }
@@ -110,11 +129,7 @@ export function generateCompatibilityPDF(partnerAData, partnerBData, doc, theme 
     const items = [...keys].map(label => {
       const scoreA = partnerAData?.[category]?.[label];
       const scoreB = partnerBData?.[category]?.[label];
-      const match =
-        typeof scoreA === 'number' && typeof scoreB === 'number'
-          ? Math.max(0, 100 - Math.abs(scoreA - scoreB) * 20)
-          : null;
-      return { label, scoreA, scoreB, match };
+      return { label, a: scoreA, b: scoreB };
     });
 
     y = drawCategorySection(category, items, layout, y, doc, themeOptions) + 6;
