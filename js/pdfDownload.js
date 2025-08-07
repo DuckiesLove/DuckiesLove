@@ -7,7 +7,7 @@ if (typeof document !== 'undefined' && typeof document.createElement === 'functi
   style.innerHTML = `
     /* Ensure the PDF export fills the entire landscape page */
     #pdf-container, #print-area, #compatibility-wrapper {
-      width: 100vw;
+      width: 100%;
       max-width: none;
       padding: 0;
       margin: 0;
@@ -34,24 +34,34 @@ if (typeof document !== 'undefined' && typeof document.createElement === 'functi
     .results-table th:nth-child(1),
     .results-table td:nth-child(1) {
       text-align: left;
-      width: 40%;
+      width: 45%;
     }
 
     .results-table th:nth-child(2),
-    .results-table td:nth-child(2),
-    .results-table th:nth-child(5),
-    .results-table td:nth-child(5) {
-      width: 20%;
-      min-width: 90px;
+    .results-table td:nth-child(2) {
+      width: 13%;
+      min-width: 80px;
       text-align: center;
     }
 
     .results-table th:nth-child(3),
-    .results-table td:nth-child(3),
-    .results-table th:nth-child(4),
-    .results-table td:nth-child(4) {
+    .results-table td:nth-child(3) {
       width: 10%;
       min-width: 60px;
+      text-align: center;
+    }
+
+    .results-table th:nth-child(4),
+    .results-table td:nth-child(4) {
+      width: 9%;
+      min-width: 50px;
+      text-align: center;
+    }
+
+    .results-table th:nth-child(5),
+    .results-table td:nth-child(5) {
+      width: 13%;
+      min-width: 80px;
       text-align: center;
     }
   `;
@@ -71,8 +81,8 @@ export function exportToPDF() {
   element.style.fontSize = '13px';
   element.style.padding = '0';
   element.style.margin = '0';
-  element.style.width = '100vw';
-  element.style.maxWidth = '100vw';
+  element.style.width = '100%';
+  element.style.maxWidth = 'none';
   element.style.boxSizing = 'border-box';
   element.style.display = 'block';
 
@@ -90,7 +100,7 @@ export function exportToPDF() {
   // Stretch inner wrapper and table to fill the page
   const wrapper = document.getElementById('compatibility-wrapper');
   if (wrapper) {
-    wrapper.style.width = '100vw';
+    wrapper.style.width = '100%';
     wrapper.style.maxWidth = 'none';
     wrapper.style.margin = '0';
     wrapper.style.padding = '0';
@@ -98,7 +108,7 @@ export function exportToPDF() {
 
   const table = element.querySelector('.results-table');
   if (table) {
-    const widths = ['40%', '20%', '10%', '10%', '20%'];
+    const widths = ['45%', '13%', '10%', '9%', '13%'];
     Array.from(table.rows).forEach(row => {
       widths.forEach((w, i) => {
         if (row.cells[i]) row.cells[i].style.width = w;
@@ -108,7 +118,7 @@ export function exportToPDF() {
         row.cells[2].style.textAlign = 'center';
       }
       if (row.cells[3]) {
-        row.cells[3].style.minWidth = '60px';
+        row.cells[3].style.minWidth = '50px';
         row.cells[3].style.textAlign = 'center';
       }
     });
@@ -117,6 +127,7 @@ export function exportToPDF() {
   // Force layout to stretch across full page and generate PDF
   window.scrollTo(0, 0);
 
+  const canvasWidth = element.scrollWidth;
   window.html2pdf()
     .set({
       margin: 0,
@@ -126,7 +137,8 @@ export function exportToPDF() {
         scale: 2,
         useCORS: true,
         backgroundColor: '#000',
-        scrollY: 0
+        scrollY: 0,
+        windowWidth: canvasWidth
       },
       jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
