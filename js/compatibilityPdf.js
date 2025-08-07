@@ -8,13 +8,29 @@ export function generateCompatibilityPDF() {
   const config = {
     margin: 10,
     rowHeight: 10,
-    colA: 60,
-    colB: 240,
-    centerX: 150,
-    barWidth: 40,
-    boxWidth: 12,
-    boxHeight: 8,
+    barHeight: 9,
     maxY: 190
+  };
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const startX = config.margin;
+  const usableWidth = pageWidth - startX * 2;
+
+  const colLabel = startX;
+  const colA = startX + usableWidth * 0.53;
+  const barWidth = usableWidth * 0.13;
+  const colBar = colA + usableWidth * 0.09;
+  const colFlag = colBar + barWidth + 6;
+  const colB = startX + usableWidth * 0.88;
+
+  const layout = {
+    colLabel,
+    colA,
+    barWidth,
+    colBar,
+    colFlag,
+    colB,
+    barHeight: config.barHeight,
   };
 
   const shortenLabel = (label) => {
@@ -45,35 +61,26 @@ export function generateCompatibilityPDF() {
     doc.setTextColor(255, 255, 255);
   };
 
-  const drawScoreBox = (x, y, score) => {
-    doc.setDrawColor(255);
-    doc.setFillColor(0);
-    doc.rect(x, y, config.boxWidth, config.boxHeight);
-    doc.setFontSize(8);
-    doc.setTextColor(255, 255, 255);
-    const display = typeof score === 'number' ? String(score) : 'N/A';
-    doc.text(display, x + 1.5, y + 6);
-  };
-
-  const drawMatchBar = (x, y, match) => {
+  const drawBar = (match, x, baselineY, layout) => {
+    const y = baselineY - layout.barHeight + 2.5;
     doc.setFillColor(0, 0, 0);
-    doc.rect(x, y, config.barWidth, config.boxHeight, 'F');
+    doc.rect(x, y, layout.barWidth, layout.barHeight, 'F');
     if (match !== null && match !== undefined) {
       const color = getMatchColor(match);
       doc.setFillColor(color);
-      doc.rect(x, y, config.barWidth * (match / 100), config.boxHeight, 'F');
+      doc.rect(x, y, layout.barWidth * (match / 100), layout.barHeight, 'F');
       doc.setTextColor(255);
       doc.setFontSize(8);
-      doc.text(`${match}%`, x + config.barWidth / 2, y + config.boxHeight / 2, {
+      doc.text(`${match}%`, x + layout.barWidth / 2, y + layout.barHeight / 2, {
         align: 'center',
-        baseline: 'middle'
+        baseline: 'middle',
       });
     } else {
       doc.setTextColor(255);
       doc.setFontSize(8);
-      doc.text('N/A', x + config.barWidth / 2, y + config.boxHeight / 2, {
+      doc.text('N/A', x + layout.barWidth / 2, y + layout.barHeight / 2, {
         align: 'center',
-        baseline: 'middle'
+        baseline: 'middle',
       });
     }
     doc.setTextColor(255);
@@ -96,12 +103,14 @@ export function generateCompatibilityPDF() {
     }
 
     doc.setFontSize(12);
-    doc.text(category.category || category.name, config.margin, y);
+    doc.text(category.category || category.name, layout.colLabel, y);
+    y += 6;
+
     doc.setFontSize(10);
-    doc.text('Partner A', config.colA, y);
-    doc.text('Match', config.centerX + config.barWidth / 2, y, { align: 'center' });
-    doc.text('Flag', config.centerX + config.barWidth + 2, y);
-    doc.text('Partner B', config.colB, y);
+    doc.text('Partner A', layout.colA, y);
+    doc.text('Match', layout.colBar, y);
+    doc.text('Flag', layout.colFlag, y);
+    doc.text('Partner B', layout.colB, y);
     y += 6;
 
     category.items.forEach(item => {
@@ -109,37 +118,46 @@ export function generateCompatibilityPDF() {
         doc.addPage();
         drawBackground();
         y = 20;
+
+        doc.setFontSize(12);
+        doc.text(category.category || category.name, layout.colLabel, y);
+        y += 6;
+        doc.setFontSize(10);
+        doc.text('Partner A', layout.colA, y);
+        doc.text('Match', layout.colBar, y);
+        doc.text('Flag', layout.colFlag, y);
+        doc.text('Partner B', layout.colB, y);
+        y += 6;
       }
 
-      const aScore = typeof item.a === 'number'
+      const aScoreRaw = typeof item.a === 'number'
         ? item.a
         : typeof item.partnerA === 'number'
           ? item.partnerA
-          : 'N/A';
-      const bScore = typeof item.b === 'number'
+          : null;
+      const bScoreRaw = typeof item.b === 'number'
         ? item.b
         : typeof item.partnerB === 'number'
           ? item.partnerB
-          : 'N/A';
-      const match =
-        typeof aScore === 'number' && typeof bScore === 'number'
-          ? Math.max(0, 100 - Math.abs(aScore - bScore) * 25)
           : null;
-      const flag =
-        match === null ? '' : getFlagEmoji(match, aScore, bScore);
+      const scoreA = aScoreRaw !== null ? String(aScoreRaw) : 'N/A';
+      const scoreB = bScoreRaw !== null ? String(bScoreRaw) : 'N/A';
+      const matchPercent =
+        aScoreRaw !== null && bScoreRaw !== null
+          ? Math.max(0, 100 - Math.abs(aScoreRaw - bScoreRaw) * 25)
+          : null;
+      const flagIcon =
+        matchPercent === null ? '' : getFlagEmoji(matchPercent, aScoreRaw, bScoreRaw);
       const label = item.label || item.kink || '';
 
-      // Debug output to verify values are pulled correctly
-      console.log('Rendering:', label, 'A:', aScore, 'B:', bScore);
+      console.log('Rendering:', label, 'A:', scoreA, 'B:', scoreB);
 
       doc.setFontSize(9);
-      doc.text(shortenLabel(label), config.margin, y + 6);
-
-      drawScoreBox(config.colA, y, aScore);
-      drawMatchBar(config.centerX, y, match);
-      doc.setFontSize(12);
-      if (flag) doc.text(flag, config.centerX + config.barWidth + 2, y + 6);
-      drawScoreBox(config.colB, y, bScore);
+      doc.text(shortenLabel(label), layout.colLabel, y);
+      doc.text(scoreA, layout.colA, y);
+      drawBar(matchPercent, layout.colBar, y, layout);
+      if (flagIcon) doc.text(flagIcon, layout.colFlag, y);
+      doc.text(scoreB, layout.colB, y);
 
       y += config.rowHeight;
     });
