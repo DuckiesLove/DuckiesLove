@@ -1,8 +1,14 @@
-// Generate flag emoji based on compatibility percentage
-export function getFlagEmoji(percent) {
+// Generate flag emoji based on compatibility percentage and individual scores
+export function getFlagEmoji(percent, a, b) {
   if (percent === null || percent === undefined) return '';
-  if (percent >= 90) return '⭐'; // Star for strong compatibility
-  if (percent <= 50) return '🚩'; // Red flag for low compatibility
+  if (percent >= 90) return '⭐';
+  if (percent >= 80) return '🟩';
+  if (percent <= 40) return '🚩';
+  if (
+    (a === 5 && typeof b === 'number' && b < 5) ||
+    (b === 5 && typeof a === 'number' && a < 5)
+  )
+    return '🟨';
   return '';
 }
 
@@ -10,8 +16,8 @@ export function getFlagEmoji(percent) {
 export function getMatchColor(percent) {
   if (percent === null || percent === undefined) return 'black';
   if (percent >= 80) return 'green';
-  if (percent >= 51) return 'yellow';
-  return 'red'; // 50 or less
+  if (percent >= 60) return 'yellow';
+  return 'red';
 }
 
 // Calculate the percentage of items where both partners match on a rating

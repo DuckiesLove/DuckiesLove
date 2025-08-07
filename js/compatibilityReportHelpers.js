@@ -10,10 +10,16 @@ function getMatchColor(percentage) {
 }
 
 // Determine which flag emoji to show
-function getFlagEmoji(percentage) {
+function getFlagEmoji(percentage, a, b) {
   if (percentage === null || percentage === undefined) return '';
   if (percentage >= 90) return '⭐';
-  if (percentage <= 50) return '🚩';
+  if (percentage >= 80) return '🟩';
+  if (percentage <= 40) return '🚩';
+  if (
+    (a === 5 && typeof b === 'number' && b < 5) ||
+    (b === 5 && typeof a === 'number' && a < 5)
+  )
+    return '🟨';
   return '';
 }
 
@@ -73,7 +79,7 @@ function renderItemRow(doc, layout, y, label, partnerA, partnerB, match) {
   drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, match);
 
   doc.setFontSize(9);
-  doc.text(getFlagEmoji(match), colFlag, y);
+  doc.text(getFlagEmoji(match, partnerA, partnerB), colFlag, y);
 
   doc.text(partnerB ?? 'N/A', colB, y);
 }
@@ -81,10 +87,22 @@ function renderItemRow(doc, layout, y, label, partnerA, partnerB, match) {
 // Render an entire category section including column headers
 export function renderCategorySection(doc, startX, startY, categoryLabel, items, usableWidth) {
   renderCategoryHeader(doc, startX, startY, categoryLabel);
-  let currentY = startY + 13;
+  let currentY = startY + 13
 
-  const layout = buildLayout(startX, usableWidth);
-  const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
+const layout = buildLayout(startX, usableWidth);
+const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
+
+function buildLayout(startX, usableWidth) {
+  const colLabel = startX;
+  const colA = startX + usableWidth * 0.45;
+  const barWidth = usableWidth * 0.15;
+  const colBar = startX + usableWidth * 0.6;
+  const colFlag = colBar + barWidth + usableWidth * 0.02;
+  const colB = startX + usableWidth * 0.85;
+  const barHeight = 9;
+  return { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight };
+}
+
 
   // Column titles
   doc.setFontSize(9);

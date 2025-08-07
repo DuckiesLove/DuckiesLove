@@ -76,7 +76,7 @@ function maxRating(obj) {
 function colorClass(percent) {
   if (percent === null || percent === undefined) return 'black';
   if (percent >= 80) return 'green';
-  if (percent >= 51) return 'yellow';
+  if (percent >= 60) return 'yellow';
   return 'red';
 }
 
