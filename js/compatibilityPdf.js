@@ -1,4 +1,5 @@
-import { getFlagEmoji, getMatchColor } from './matchFlag.js';
+import { getFlagEmoji } from './matchFlag.js';
+import { buildLayout, drawMatchBar, getMatchPercentage } from './compatibilityReportHelpers.js';
 
 export function generateCompatibilityPDF() {
   console.log('PDF function triggered');
@@ -16,22 +17,7 @@ export function generateCompatibilityPDF() {
   const startX = config.margin;
   const usableWidth = pageWidth - startX * 2;
 
-  const colLabel = startX;
-  const colA = startX + usableWidth * 0.53;
-  const barWidth = usableWidth * 0.13;
-  const colBar = colA + usableWidth * 0.09;
-  const colFlag = colBar + barWidth + 6;
-  const colB = startX + usableWidth * 0.88;
-
-  const layout = {
-    colLabel,
-    colA,
-    barWidth,
-    colBar,
-    colFlag,
-    colB,
-    barHeight: config.barHeight,
-  };
+  const layout = buildLayout(startX, usableWidth);
 
   const shortenLabel = (label) => {
     const map = {
@@ -63,27 +49,7 @@ export function generateCompatibilityPDF() {
 
   const drawBar = (match, x, baselineY, layout) => {
     const y = baselineY - layout.barHeight + 2.5;
-    doc.setFillColor(0, 0, 0);
-    doc.rect(x, y, layout.barWidth, layout.barHeight, 'F');
-    if (match !== null && match !== undefined) {
-      const color = getMatchColor(match);
-      doc.setFillColor(color);
-      doc.rect(x, y, layout.barWidth * (match / 100), layout.barHeight, 'F');
-      doc.setTextColor(255);
-      doc.setFontSize(8);
-      doc.text(`${match}%`, x + layout.barWidth / 2, y + layout.barHeight / 2, {
-        align: 'center',
-        baseline: 'middle',
-      });
-    } else {
-      doc.setTextColor(255);
-      doc.setFontSize(8);
-      doc.text('N/A', x + layout.barWidth / 2, y + layout.barHeight / 2, {
-        align: 'center',
-        baseline: 'middle',
-      });
-    }
-    doc.setTextColor(255);
+    drawMatchBar(doc, x, y, layout.barWidth, layout.barHeight, match);
   };
 
   const data = window.compatibilityData;
@@ -140,14 +106,19 @@ export function generateCompatibilityPDF() {
         : typeof item.partnerB === 'number'
           ? item.partnerB
           : null;
-      const scoreA = aScoreRaw !== null ? String(aScoreRaw) : 'N/A';
-      const scoreB = bScoreRaw !== null ? String(bScoreRaw) : 'N/A';
-      const matchPercent =
-        aScoreRaw !== null && bScoreRaw !== null
-          ? Math.max(0, 100 - Math.abs(aScoreRaw - bScoreRaw) * 25)
-          : null;
-      const flagIcon =
-        matchPercent === null ? '' : getFlagEmoji(matchPercent, aScoreRaw, bScoreRaw);
+
+      let scoreA = 'N/A';
+      let scoreB = 'N/A';
+      let matchPercent = null;
+      let flagIcon = 'N/A';
+
+      if (aScoreRaw !== null && bScoreRaw !== null) {
+        scoreA = String(aScoreRaw);
+        scoreB = String(bScoreRaw);
+        matchPercent = getMatchPercentage(aScoreRaw, bScoreRaw);
+        flagIcon = getFlagEmoji(matchPercent, aScoreRaw, bScoreRaw) || '';
+      }
+
       const label = item.label || item.kink || '';
 
       console.log('Rendering:', label, 'A:', scoreA, 'B:', scoreB);
@@ -156,7 +127,7 @@ export function generateCompatibilityPDF() {
       doc.text(shortenLabel(label), layout.colLabel, y);
       doc.text(scoreA, layout.colA, y);
       drawBar(matchPercent, layout.colBar, y, layout);
-      if (flagIcon) doc.text(flagIcon, layout.colFlag, y);
+      doc.text(flagIcon, layout.colFlag, y);
       doc.text(scoreB, layout.colB, y);
 
       y += config.rowHeight;

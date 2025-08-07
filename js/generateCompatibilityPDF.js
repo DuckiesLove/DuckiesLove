@@ -1,4 +1,4 @@
-import { renderCategorySection } from './compatibilityReportHelpers.js';
+import { renderCategorySection, buildLayout } from './compatibilityReportHelpers.js';
 
 // Shortened label lookup for verbose subcategory names
 const shortLabels = {
@@ -112,13 +112,13 @@ export function generateCompatibilityPDF(compatibilityData) {
       }
     }
 
+    const layout = buildLayout(columnX[currentColumn], columnWidth);
     const endY = renderCategorySection(
       doc,
-      columnX[currentColumn],
-      columnY[currentColumn],
       category.category || category.name,
       items,
-      columnWidth
+      layout,
+      columnY[currentColumn]
     );
     columnY[currentColumn] = endY + pdfStyles.barSpacing;
   });
