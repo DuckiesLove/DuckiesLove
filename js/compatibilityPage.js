@@ -133,7 +133,7 @@ function renderCategoryRow(categoryName, categoryData) {
   const tr = document.createElement('tr');
   tr.classList.add('category-header');
   tr.innerHTML = `
-    <td colspan="3" class="category-cell">
+    <td colspan="5" class="category-cell">
       <div class="category-banner">
         <span class="category-flag">${flag}</span>
         <span class="category-name">${categoryName}</span>
@@ -373,7 +373,7 @@ function updateComparison() {
 
   const table = document.createElement('table');
   table.className = 'results-table';
-  table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Partner B</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Match</th><th>Flag</th><th>Partner B</th></tr></thead>';
   const tbody = document.createElement('tbody');
 
   const renderCell = rating => {
@@ -393,8 +393,23 @@ function updateComparison() {
       const nameTd = document.createElement('td');
       nameTd.textContent = kink.name;
       row.appendChild(nameTd);
+
       row.appendChild(renderCell(kink.partnerA));
+
+      const matchPercent =
+        kink.partnerA != null && kink.partnerB != null
+          ? Math.round(100 - Math.abs(kink.partnerA - kink.partnerB) * 20)
+          : null;
+      const matchTd = document.createElement('td');
+      matchTd.textContent = matchPercent === null ? '-' : matchPercent + '%';
+      row.appendChild(matchTd);
+
+      const flagTd = document.createElement('td');
+      flagTd.textContent = getFlagEmoji(matchPercent, kink.partnerA, kink.partnerB);
+      row.appendChild(flagTd);
+
       row.appendChild(renderCell(kink.partnerB));
+
       tbody.appendChild(row);
     });
   }
