@@ -24,7 +24,7 @@ export function drawMatchBar(doc, x, y, width, height, percentage) {
   const textColor = getFontColor(percentage);
 
   // Black background
-  doc.setFillColor('black');
+  doc.setFillColor(0, 0, 0);
   doc.rect(x, y, width, height, 'F');
 
   // Label centered inside the bar

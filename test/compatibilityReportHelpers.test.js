@@ -29,6 +29,8 @@ test('drawMatchBar renders black bar with colored text', () => {
   drawMatchBar(doc, 10, 10, 100, 8, 50);
   const rectCalls = doc.calls.filter(c => c[0] === 'rect');
   assert.deepStrictEqual(rectCalls[0], ['rect', [10, 10, 100, 8, 'F']]);
+  const fillColorCall = doc.calls.find(c => c[0] === 'setFillColor');
+  assert.deepStrictEqual(fillColorCall, ['setFillColor', [0, 0, 0]]);
   const textColorCall = doc.calls.find(c => c[0] === 'setTextColor');
   assert.deepStrictEqual(textColorCall, ['setTextColor', ['red']]);
   const textCall = doc.calls.find(c => c[0] === 'text' && c[1][0] === '50%');
