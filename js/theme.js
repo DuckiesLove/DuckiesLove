@@ -425,8 +425,8 @@ export function applyPrintStyles(mode = 'dark') {
       .category-wrapper {
         margin-bottom: 24px;
         padding: 6px;
-        border-bottom: 1px solid #ddd;
-        background-color: var(--panel-color, #000) !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
 
       .print-footer {
@@ -493,12 +493,12 @@ export function applyPrintStyles(mode = 'dark') {
         }
 
         .category-wrapper {
-          background-color: var(--panel-color, #000) !important;
           color: var(--text-color, #ffffff) !important;
-          border: 1px solid #cccccc;
           padding: 1rem;
           border-radius: 6px;
           margin-bottom: 1rem;
+          break-inside: avoid;
+          page-break-inside: avoid;
         }
 
         .page-break {

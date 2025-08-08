@@ -2146,14 +2146,17 @@ body {
   font-size: 20px;
   font-weight: 700;
   text-align: center;
-  border-bottom: 1px solid #555;
   padding: 4px 0;
   margin: 12px 0 4px;
 }
 .category-wrapper {
   margin-bottom: 24px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #ddd;
+}
+
+#listOutput section {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 .category-header.green { color: #00cc66; }
 .category-header.yellow { color: #ffcc00; }
@@ -2555,7 +2558,11 @@ body {
     font-size: 0.85rem;
     text-align: center;
     padding: 0.25rem 0;
-    border-bottom: 1px solid #ccc;
+  }
+
+  #listOutput section {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .category-header.green { color: #00cc44; }
@@ -2996,7 +3003,6 @@ body {
 
 /* Make the section headers black */
 .exporting .category-header {
-  background-color: #000 !important;
   color: #ff4444 !important;
   text-align: center;
 }
@@ -3093,7 +3099,6 @@ body {
 
 /* Force black header background instead of dark blue */
 .exporting .category-header {
-  background-color: #000 !important;
   color: #f00 !important; /* Or #fff if you'd rather use white text */
   text-align: center;
 }
