@@ -31,10 +31,13 @@ test('drawMatchBar renders black bar with colored text and resets color', () => 
 
   const rectCalls = doc.calls.filter(c => c[0] === 'rect');
   assert.deepStrictEqual(rectCalls[0], ['rect', [10, 10, 100, 8, 'F']]);
+// ✅ Final merged version
+const fillColorCall = doc.calls.find(c => c[0] === 'setFillColor');
+assert.deepStrictEqual(fillColorCall, ['setFillColor', [0, 0, 0]]);
 
-  const colorCalls = doc.calls.filter(c => c[0] === 'setTextColor');
-  assert.deepStrictEqual(colorCalls[0], ['setTextColor', ['red']]);
-  assert.deepStrictEqual(colorCalls[colorCalls.length - 1], ['setTextColor', ['white']]);
+const colorCalls = doc.calls.filter(c => c[0] === 'setTextColor');
+assert.deepStrictEqual(colorCalls[0], ['setTextColor', ['red']]);
+assert.deepStrictEqual(colorCalls[colorCalls.length - 1], ['setTextColor', ['white']]);
 
   const textCall = doc.calls.find(c => c[0] === 'text' && c[1][0] === '50%');
   assert.ok(textCall, 'percentage label should be rendered');
