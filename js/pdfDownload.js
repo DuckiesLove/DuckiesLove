@@ -84,8 +84,11 @@ export async function exportCompatPDF() {
   clone.querySelectorAll('.pdf-page-break').forEach(n => n.style.display = 'none');
 
   // 4) (Optional) equalize row heights across side-by-side tables/sections
+  // The clone must be in the DOM for row measurements to be non-zero.
   (function equalizeRowHeights(root) {
-    const tables = Array.from(root.querySelectorAll('.compat-section table'));
+    // Target all compatibility tables directly; the previous selector relied on
+    // a `.compat-section` wrapper that isn't present in production markup.
+    const tables = Array.from(root.querySelectorAll('table.compat'));
     if (tables.length < 2) return;
     const maxRows = Math.max(...tables.map(t => t.rows.length));
     for (let i = 0; i < maxRows; i++) {
