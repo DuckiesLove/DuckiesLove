@@ -1,0 +1,82 @@
+/* Compatibility table styles */
+
+/* Left column (labels) and even spacing for the rest */
+table.compat {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  color: #fff;
+  background: #000;
+}
+
+table.compat col.label   { width: 52%; }
+table.compat col.pa      { width: 12%; }
+table.compat col.match   { width: 8%; }
+table.compat col.flag    { width: 8%; }
+table.compat col.pb      { width: 12%; }
+
+table.compat th,
+table.compat td {
+  padding: 10px 12px;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+/* Header row: blank label column */
+table.compat thead th {
+  font-weight: 700;
+  border-bottom: 2px solid #333;
+}
+table.compat thead th.label {}
+table.compat thead th.pa,
+table.compat thead th.match,
+table.compat thead th.flag,
+table.compat thead th.pb {
+  text-align: left;
+}
+
+/* Category title row */
+.category-title {
+  font-weight: 800;
+  font-size: 1.25rem;
+  border-top: 2px solid #333;
+  border-bottom: 2px solid #333;
+  padding: 14px 12px !important;
+}
+
+/* Keep each category block together */
+.category-block {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Label column */
+td.label { text-align: left; }
+
+/* Partner A / Match / Flag / Partner B cells */
+td.pa,
+td.match,
+td.flag,
+td.pb {
+  text-align: left;
+}
+
+/* The flag cell */
+.flag-cell { text-align: left; }
+.flag-cell .red-flag { color: #ff4d4f; }
+
+/* Optional: category icon styling */
+.category-icon { color: #ff4d4f; margin-right: 10px; }
+
+/* Print adjustments */
+@media print {
+  body {
+    background: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .category-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

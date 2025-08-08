@@ -340,6 +340,33 @@ function loadFileB(file) {
   };
   reader.readAsText(file);
 }
+
+const FLAG_DIFF_THRESHOLD = 0;
+
+function renderFlags(root = document) {
+  const rows = root.querySelectorAll('.item-row');
+  rows.forEach(row => {
+    const a = Number(row.dataset.a);
+    const b = Number(row.dataset.b);
+    const flagCell = row.querySelector('.flag-cell');
+    const matchCell = row.querySelector('.match');
+
+    flagCell.textContent = '';
+    matchCell.textContent = '-';
+
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      const diff = Math.abs(a - b);
+      matchCell.textContent = diff <= FLAG_DIFF_THRESHOLD ? '✓' : '—';
+      if (diff > FLAG_DIFF_THRESHOLD) {
+        const span = document.createElement('span');
+        span.className = 'red-flag';
+        span.textContent = '🚩';
+        flagCell.appendChild(span);
+      }
+    }
+  });
+}
+
 function updateComparison() {
   const container = document.getElementById('compatibility-report');
   const msg = document.getElementById('comparisonResult');
@@ -372,50 +399,55 @@ function updateComparison() {
   const groupedData = groupKinksByCategory(mergedKinkData);
 
   const table = document.createElement('table');
-  table.className = 'results-table';
-  table.innerHTML = '<thead><tr><th>Kink</th><th>Partner A</th><th>Match</th><th>Flag</th><th>Partner B</th></tr></thead>';
-  const tbody = document.createElement('tbody');
-
-  const renderCell = rating => {
-    const percent = toPercent(rating);
-    const pct = percent === null ? 0 : percent;
-    const color = getMatchColor(percent);
-    const td = document.createElement('td');
-    td.innerHTML = `<div class="bar-container"><div class="bar" style="width: ${pct}%; background-color: ${color}"></div></div>` +
-      `<div class="percent-label">${percent === null ? '-' : percent + '%'}</div>`;
-    return td;
-  };
+  table.className = 'results-table compat';
+  table.innerHTML = `
+    <colgroup>
+      <col class="label" />
+      <col class="pa" />
+      <col class="match" />
+      <col class="flag" />
+      <col class="pb" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="label"></th>
+        <th class="pa">Partner A</th>
+        <th class="match">Match</th>
+        <th class="flag">Flag</th>
+        <th class="pb">Partner B</th>
+      </tr>
+    </thead>
+  `;
 
   for (const [category, kinks] of Object.entries(groupedData)) {
-    tbody.appendChild(renderCategoryRow(category, kinks));
+    const block = document.createElement('tbody');
+    block.className = 'category-block';
+    block.dataset.category = category;
+
+    const titleRow = document.createElement('tr');
+    titleRow.innerHTML = `<td class="category-title" colspan="5"><span class="category-icon">🏳️‍🌈</span> ${category}</td>`;
+    block.appendChild(titleRow);
+
     kinks.forEach(kink => {
       const row = document.createElement('tr');
-      const nameTd = document.createElement('td');
-      nameTd.textContent = kink.name;
-      row.appendChild(nameTd);
-
-      row.appendChild(renderCell(kink.partnerA));
-
-      const matchPercent =
-        kink.partnerA != null && kink.partnerB != null
-          ? Math.round(100 - Math.abs(kink.partnerA - kink.partnerB) * 20)
-          : null;
-      const matchTd = document.createElement('td');
-      matchTd.textContent = matchPercent === null ? '-' : matchPercent + '%';
-      row.appendChild(matchTd);
-
-      const flagTd = document.createElement('td');
-      flagTd.textContent = getFlagEmoji(matchPercent, kink.partnerA, kink.partnerB);
-      row.appendChild(flagTd);
-
-      row.appendChild(renderCell(kink.partnerB));
-
-      tbody.appendChild(row);
+      row.className = 'item-row';
+      if (kink.partnerA != null) row.dataset.a = kink.partnerA;
+      if (kink.partnerB != null) row.dataset.b = kink.partnerB;
+      row.innerHTML = `
+        <td class="label">${kink.name}</td>
+        <td class="pa">${kink.partnerA ?? '-'}</td>
+        <td class="match">-</td>
+        <td class="flag flag-cell"></td>
+        <td class="pb">${kink.partnerB ?? '-'}</td>
+      `;
+      block.appendChild(row);
     });
+
+    table.appendChild(block);
   }
 
-  table.appendChild(tbody);
   container.appendChild(table);
+  renderFlags(table);
 
   const categories = Object.entries(lastResult).map(([category, items]) => ({
     category,
