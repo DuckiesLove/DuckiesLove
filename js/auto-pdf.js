@@ -33,6 +33,12 @@ async function generatePDF(data) {
   pdfGenerated = true;
   const { loadJsPDF } = await import('./loadJsPDF.js');
   await loadJsPDF();
+  const { jsPDF } = window.jspdf || {};
+  if (!jsPDF) {
+    const err = new Error('jsPDF failed to load');
+    console.error(err);
+    throw err;
+  }
   const { generateCompatibilityPDF } = await import('./compatibilityPdf.js');
   generateCompatibilityPDF(data);
 }
