@@ -19,23 +19,21 @@ test('renders zero scores for both partners', async () => {
     save() {}
   }
 
-  globalThis.window = {
-    jspdf: { jsPDF: JsPDFMock },
-    compatibilityData: {
-      categories: [
-        {
-          category: 'Appearance Play',
-          items: [
-            { label: 'Choosing my partner\'s outfit', partnerA: 0, partnerB: 4 },
-            { label: 'Selecting their underwear, lingerie', partnerA: 2, partnerB: 0 }
-          ]
-        }
-      ]
-    }
+  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
+  const data = {
+    categories: [
+      {
+        category: 'Appearance Play',
+        items: [
+          { label: 'Choosing my partner\'s outfit', partnerA: 0, partnerB: 4 },
+          { label: 'Selecting their underwear, lingerie', partnerA: 2, partnerB: 0 }
+        ]
+      }
+    ]
   };
 
   const { generateCompatibilityPDF } = await import('../js/compatibilityPdf.js');
-  generateCompatibilityPDF();
+  generateCompatibilityPDF(data);
 
   // Ensure zeros are printed and no N/A appears
   const texts = textCalls.map(c => c[0]);

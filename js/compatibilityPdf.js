@@ -1,7 +1,7 @@
 import { getFlagEmoji } from './matchFlag.js';
 import { buildLayout, drawMatchBar, getMatchPercentage } from './compatibilityReportHelpers.js';
 
-export function generateCompatibilityPDF() {
+export function generateCompatibilityPDF(data = { categories: [] }) {
   console.log('PDF function triggered');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape' });
@@ -52,8 +52,10 @@ export function generateCompatibilityPDF() {
     drawMatchBar(doc, x, y, layout.barWidth, layout.barHeight, match);
   };
 
-  const data = window.compatibilityData;
   const categories = Array.isArray(data) ? data : data?.categories || [];
+  if (categories.length === 0) {
+    console.warn('generateCompatibilityPDF called without data');
+  }
   let y = 20;
 
   drawBackground();
@@ -141,7 +143,7 @@ if (typeof document !== 'undefined') {
   const attachHandler = () => {
     const button = document.getElementById('downloadPdfBtn');
     if (button) {
-      button.addEventListener('click', generateCompatibilityPDF);
+      button.addEventListener('click', () => generateCompatibilityPDF(window.compatibilityData));
     } else {
       console.error('Download button not found');
     }
