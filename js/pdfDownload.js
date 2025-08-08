@@ -1,103 +1,167 @@
-export function exportToPDF() {
-  const source = document.getElementById('pdf-container');
-  if (!source) { alert('pdf-container not found'); return; }
-  if (!window.html2pdf) { alert('html2pdf not loaded'); return; }
+export async function downloadCompatibilityPDF() {
+  const src = document.getElementById('pdf-container');
+  if (!src) {
+    console.error('downloadCompatibilityPDF: #pdf-container not found');
+    return;
+  }
+  if (!window.html2pdf) {
+    console.error('downloadCompatibilityPDF: html2pdf not loaded');
+    return;
+  }
 
-  const clone = source.cloneNode(true);
+  // Wait for web fonts to load to avoid layout shifts during rendering
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch (_) {}
+  }
 
-  // ===== BASE STYLES =====
-  clone.style.margin = '0';
-  clone.style.padding = '0';
-  clone.style.backgroundColor = '#000';
-  clone.style.color = '#fff';
-  clone.style.fontSize = '12pt';
-  clone.style.width = '100%';
-  clone.style.overflow = 'visible';
+  // Clone the source so we don't mutate the live page
+  const clone = src.cloneNode(true);
 
-  // ===== REMOVE FLAGS + LINES FROM CATEGORY HEADERS =====
-  clone.querySelectorAll('th, .compat-category, .category-header').forEach(category => {
-    category.style.border = 'none';
-    category.style.background = 'transparent';
-    category.style.padding = '6px 0';
-    category.style.fontWeight = 'bold';
-    category.innerHTML = category.textContent
-      .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
-      .trim();
+  // Remove UI-only elements that shouldn't appear in the PDF
+  clone
+    .querySelectorAll(
+      '[data-hide-in-pdf], .download-btn, .print-btn, .nav, header, footer'
+    )
+    .forEach(el => el.remove());
+
+  // Build a shell to guarantee a true black background
+  const shell = document.createElement('div');
+  Object.assign(shell.style, {
+    background: '#000',
+    color: '#fff',
+    margin: '0',
+    padding: '0',
+    width: '100%',
+    overflow: 'visible',
   });
+  shell.appendChild(clone);
+  document.body.appendChild(shell);
 
-  // ===== PREVENT PAGE BREAKS INSIDE TABLES =====
+  // --- PDF-specific cleanup & normalization ---
+
+  // Remove emoji flags & decorative lines in category headers
+  clone
+    .querySelectorAll(
+      'th, .compat-category, .category-header, .section-title'
+    )
+    .forEach(n => {
+      n.querySelectorAll('hr, .line, .rule, .divider').forEach(el => el.remove());
+      n.style.border = 'none';
+      n.style.background = 'transparent';
+      n.style.boxShadow = 'none';
+      n.style.padding = '6px 0';
+      n.innerHTML = n.textContent
+        .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}]/gu, '')
+        .trim();
+    });
+
+  // Normalize tables
   clone.querySelectorAll('table').forEach(table => {
-    table.style.pageBreakInside = 'avoid';
-    table.style.breakInside = 'avoid';
-    table.style.width = '100%';
+    Object.assign(table.style, {
+      width: '100%',
+      tableLayout: 'fixed',
+      borderCollapse: 'collapse',
+      pageBreakInside: 'avoid',
+      breakInside: 'avoid',
+      background: '#000',
+      color: '#fff',
+    });
   });
 
+  // Normalize cells
+  clone.querySelectorAll('th, td').forEach(cell => {
+    Object.assign(cell.style, {
+      color: '#fff',
+      background: 'transparent',
+      border: 'none',
+      padding: '6px 8px',
+      lineHeight: '1.25',
+      boxSizing: 'border-box',
+      wordBreak: 'break-word',
+      whiteSpace: 'normal',
+      verticalAlign: 'top',
+      pageBreakInside: 'avoid',
+      breakInside: 'avoid',
+    });
+  });
+
+  // Ensure rows don't split across pages
   clone.querySelectorAll('tr').forEach(row => {
     row.style.pageBreakInside = 'avoid';
     row.style.breakInside = 'avoid';
   });
 
-  // ===== NORMALIZE ROW HEIGHT ACROSS TABLES =====
-  const tables = clone.querySelectorAll('.compat-section table');
-  const maxRows = Math.max(...Array.from(tables).map(t => t.rows.length));
+  // Optional: equalize row heights across side-by-side section tables
+  (function equalizeRowHeights() {
+    const sectTables = clone.querySelectorAll('.compat-section table');
+    if (!sectTables.length) return;
+    const maxRows = Math.max(...Array.from(sectTables).map(t => t.rows.length));
+    for (let i = 0; i < maxRows; i++) {
+      let maxH = 0;
+      sectTables.forEach(t => {
+        const r = t.rows[i];
+        if (r) {
+          r.style.height = 'auto';
+          const h = r.offsetHeight;
+          if (h > maxH) maxH = h;
+        }
+      });
+      sectTables.forEach(t => {
+        const r = t.rows[i];
+        if (r) r.style.height = `${maxH}px`;
+      });
+    }
+  })();
 
-  for (let rowIndex = 0; rowIndex < maxRows; rowIndex++) {
-    let maxHeight = 0;
-    tables.forEach(table => {
-      const row = table.rows[rowIndex];
-      if (row) {
-        row.style.height = 'auto';
-        const height = row.offsetHeight;
-        if (height > maxHeight) maxHeight = height;
-      }
-    });
-    tables.forEach(table => {
-      const row = table.rows[rowIndex];
-      if (row) row.style.height = `${maxHeight}px`;
-    });
-  }
+  // Compute real width so html2canvas captures the right edge
+  const fullWidth = Math.max(
+    clone.scrollWidth,
+    clone.getBoundingClientRect().width
+  );
 
-  // ===== GENERATE PDF =====
-  const tempContainer = document.createElement('div');
-  tempContainer.appendChild(clone);
-  document.body.appendChild(tempContainer);
+  // Remove default margins that create white borders in some viewers
+  document.documentElement.style.margin = '0';
+  document.body.style.margin = '0';
 
+  // html2pdf options: TRUE black canvas + capture at real width
   const opt = {
     margin: 0,
     filename: 'kink-compatibility.pdf',
     image: { type: 'jpeg', quality: 1 },
     html2canvas: {
+      backgroundColor: '#000',
       scale: 2,
       useCORS: true,
-      backgroundColor: '#000'
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: Math.ceil(fullWidth),
     },
-    jsPDF: {
-      unit: 'pt',
-      format: 'a4',
-      orientation: 'portrait'
+    jsPDF: { unit: 'pt', format: 'letter', orientation: 'portrait' },
+    pagebreak: {
+      mode: ['avoid-all', 'css', 'legacy'],
+      before: '.compat-section',
     },
-    pagebreak: { mode: ['avoid-all'], before: '.compat-section' }
   };
 
   try {
-    html2pdf().set(opt).from(clone).save().then(() => {
-      document.body.removeChild(tempContainer);
-    });
+    await html2pdf().set(opt).from(shell).save();
   } catch (err) {
-    console.error('PDF generation error:', err);
-    document.body.removeChild(tempContainer);
+    console.error('PDF generation failed:', err);
+  } finally {
+    document.body.removeChild(shell);
   }
 }
 
-export const exportCompatPDF = exportToPDF;
-export const exportKinkCompatibilityPDF = exportToPDF;
-export const generateCompatibilityPDF = exportToPDF;
+export const exportToPDF = downloadCompatibilityPDF;
+export const exportCompatPDF = downloadCompatibilityPDF;
+export const exportKinkCompatibilityPDF = downloadCompatibilityPDF;
+export const generateCompatibilityPDF = downloadCompatibilityPDF;
 
 if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', () => {
     const downloadBtn = document.getElementById('downloadPdfBtn');
     if (downloadBtn) {
-      downloadBtn.addEventListener('click', exportToPDF);
+      downloadBtn.addEventListener('click', downloadCompatibilityPDF);
     }
   });
 }
