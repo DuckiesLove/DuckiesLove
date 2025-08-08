@@ -1,42 +1,34 @@
 export function exportToPDF() {
-  const element = document.getElementById('pdf-container');
-  if (!element) {
+  const container = document.getElementById('pdf-container');
+  if (!container) {
     alert('PDF content not found.');
     return;
   }
 
-  // Enforce full width and visibility
-  element.style.width = '100%';
-  element.style.maxWidth = '100%';
-  element.style.margin = '0 auto';
-  element.style.padding = '0';
-  element.style.overflow = 'visible';
+  // 1. Set full-page black styling before PDF generation
+  container.style.width = '100%';
+  container.style.backgroundColor = '#000';
+  container.style.color = '#fff';
+  container.style.padding = '0';
+  container.style.margin = '0';
 
-  // Adjust table layout for PDF output
-  const tables = element.querySelectorAll('table');
+  // 2. Force all tables and their cells to use white text and proper box model
+  const tables = container.querySelectorAll('table');
   tables.forEach(table => {
-    table.style.border = 'none';
-    table.style.borderCollapse = 'collapse';
-    table.style.borderSpacing = '0';
-    table.style.width = '100%';
     table.style.backgroundColor = '#000';
+    table.style.width = '100%';
     table.style.tableLayout = 'fixed';
 
-    table.querySelectorAll('th, td').forEach(cell => {
-      Object.assign(cell.style, {
-        border: 'none',
-        backgroundColor: '#000',
-        color: '#fff',
-        padding: '4px 8px',
-        boxSizing: 'border-box',
-        textAlign: 'left',
-        width: 'auto'
-      });
+    const cells = table.querySelectorAll('th, td');
+    cells.forEach(cell => {
+      cell.style.color = '#fff';
+      cell.style.padding = '8px';
+      cell.style.boxSizing = 'border-box';
     });
   });
 
-  // Re-align column headers
-  element.querySelectorAll('tr').forEach(row => {
+  // Re-align column headers for better readability
+  container.querySelectorAll('tr').forEach(row => {
     const cells = row.children;
     if (cells.length >= 5) {
       cells[1].style.paddingLeft = '48px'; // Partner A
@@ -46,32 +38,47 @@ export function exportToPDF() {
     }
   });
 
-  // Set body + html width to avoid margin bleed
-  document.body.style.margin = '0';
-  document.body.style.padding = '0';
-  document.body.style.width = '100%';
-  document.documentElement.style.width = '100%';
+  // 3. Equalize row heights across all rows with same index
+  function equalizeRowHeights() {
+    const sectionTables = document.querySelectorAll('.compat-section table');
+    const maxRows = Math.max(0, ...Array.from(sectionTables).map(t => t.rows.length));
 
-  // PDF Settings
-  html2pdf().from(element).set({
+    for (let rowIndex = 0; rowIndex < maxRows; rowIndex++) {
+      let maxHeight = 0;
+      sectionTables.forEach(table => {
+        const row = table.rows[rowIndex];
+        if (row) {
+          row.style.height = 'auto';
+          const height = row.offsetHeight;
+          if (height > maxHeight) maxHeight = height;
+        }
+      });
+      sectionTables.forEach(table => {
+        const row = table.rows[rowIndex];
+        if (row) row.style.height = `${maxHeight}px`;
+      });
+    }
+  }
+  equalizeRowHeights();
+
+  // 4. Remove default body/html margin that creates unwanted white border
+  document.body.style.margin = '0';
+  document.documentElement.style.margin = '0';
+
+  // 5. Generate PDF using html2pdf with html2canvas preserving dark background
+  const opt = {
     margin: 0,
     filename: 'kink-compatibility.pdf',
+    image: { type: 'jpeg', quality: 1 },
     html2canvas: {
-      scale: 2.5,
-      backgroundColor: '#000000',
-      windowWidth: Math.min(document.body.scrollWidth, 1500),
-      scrollX: 0,
-      scrollY: 0
+      backgroundColor: '#000',
+      scale: 2,
+      useCORS: true
     },
-    jsPDF: {
-      unit: 'in',
-      format: 'letter',
-      orientation: 'landscape'
-    },
-    pagebreak: {
-      mode: ['avoid-all', 'css', 'legacy']
-    }
-  }).save();
+    jsPDF: { unit: 'pt', format: 'letter', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(container).save();
 }
 
 export const exportKinkCompatibilityPDF = exportToPDF;
