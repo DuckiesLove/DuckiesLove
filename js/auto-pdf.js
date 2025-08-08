@@ -28,13 +28,13 @@ if (typeof window !== 'undefined') {
   window.compatibilityHistory = loadHistory();
 }
 
-async function generatePDF() {
+async function generatePDF(data) {
   if (pdfGenerated) return;
   pdfGenerated = true;
   const { loadJsPDF } = await import('./loadJsPDF.js');
   await loadJsPDF();
   const { generateCompatibilityPDF } = await import('./compatibilityPdf.js');
-  generateCompatibilityPDF();
+  generateCompatibilityPDF(data);
 }
 
 const PAGE_BREAK_CATEGORIES = new Set([
@@ -380,7 +380,8 @@ function updateComparison() {
   }));
   const compat = calculateCompatibility(surveyA, surveyB);
   const history = addHistoryEntry(compat.compatibilityScore);
-  window.compatibilityData = { categories: pdfCategories, history };
-  generatePDF();
+  const compatData = { categories: pdfCategories, history };
+  window.compatibilityData = compatData;
+  generatePDF(compatData);
 }
 
