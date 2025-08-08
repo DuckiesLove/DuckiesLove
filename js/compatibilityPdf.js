@@ -1,8 +1,12 @@
 import { getFlagEmoji } from './matchFlag.js';
 import { buildLayout, drawMatchBar, getMatchPercentage } from './compatibilityReportHelpers.js';
 
+const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+
 export function generateCompatibilityPDF() {
-  console.log('PDF function triggered');
+  if (DEBUG) {
+    console.log('PDF function triggered');
+  }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape' });
 
@@ -121,7 +125,9 @@ export function generateCompatibilityPDF() {
 
       const label = item.label || item.kink || '';
 
-      console.log('Rendering:', label, 'A:', scoreA, 'B:', scoreB);
+      if (DEBUG) {
+        console.log('Rendering:', label, 'A:', scoreA, 'B:', scoreB);
+      }
 
       doc.setFontSize(9);
       doc.text(shortenLabel(label), layout.colLabel, y);
