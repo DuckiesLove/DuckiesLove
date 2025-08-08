@@ -15,10 +15,12 @@ export function exportToPDF() {
   // Adjust table layout for PDF output
   const tables = element.querySelectorAll('table');
   tables.forEach(table => {
-    table.style.borderCollapse = 'separate';
+    table.style.border = 'none';
+    table.style.borderCollapse = 'collapse';
     table.style.borderSpacing = '0';
     table.style.width = '100%';
     table.style.backgroundColor = '#000';
+    table.style.tableLayout = 'fixed';
 
     table.querySelectorAll('th, td').forEach(cell => {
       Object.assign(cell.style, {
@@ -27,19 +29,21 @@ export function exportToPDF() {
         color: '#fff',
         padding: '4px 8px',
         boxSizing: 'border-box',
-        textAlign: 'left'
+        textAlign: 'left',
+        width: 'auto'
       });
     });
+  });
 
-    table.querySelectorAll('tr').forEach(row => {
-      const cells = row.children;
-      if (cells.length >= 5) {
-        cells[1].style.paddingLeft = '32px'; // Partner A
-        cells[2].style.paddingLeft = '16px'; // Match
-        cells[3].style.paddingLeft = '16px'; // Flag
-        cells[4].style.paddingLeft = '16px'; // Partner B
-      }
-    });
+  // Re-align column headers
+  element.querySelectorAll('tr').forEach(row => {
+    const cells = row.children;
+    if (cells.length >= 5) {
+      cells[1].style.paddingLeft = '48px'; // Partner A
+      cells[2].style.paddingLeft = '24px'; // Match
+      cells[3].style.paddingLeft = '24px'; // Flag
+      cells[4].style.paddingLeft = '24px'; // Partner B
+    }
   });
 
   // Set body + html width to avoid margin bleed
