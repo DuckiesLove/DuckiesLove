@@ -1,3 +1,5 @@
+import { applyCompatLayoutAndFlags } from './compatPdfFixes.js';
+
 /* ======== ONE-COPY BLOCK: fix right-side cutoff + stop awkward breaks ========
 
 What this does
@@ -18,6 +20,8 @@ export async function exportCompatPDF() {
   const source = document.getElementById('pdf-container');
   if (!source) { alert('pdf-container not found'); return; }
   if (!window.html2pdf) { alert('html2pdf not loaded'); return; }
+
+  applyCompatLayoutAndFlags(source);
 
   // 1) Clone the content so we don’t mutate the live UI
   const fullWidth = source.scrollWidth || source.offsetWidth || 1920;
