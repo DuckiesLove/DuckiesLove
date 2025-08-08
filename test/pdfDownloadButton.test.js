@@ -32,7 +32,7 @@ test('PDF download button handler attaches on DOMContentLoaded', async () => {
       }),
     };
     globalThis.document = {
-      getElementById: id => (id === 'downloadPdfBtn' ? button : null),
+      getElementById: id => (id === 'downloadBtn' ? button : null),
     };
     globalThis.alert = () => {};
     globalThis.print = () => {};
@@ -40,6 +40,7 @@ test('PDF download button handler attaches on DOMContentLoaded', async () => {
     await import('../js/pdfDownload.js');
 
     assert.strictEqual(typeof domReadyHandler, 'function');
+    assert.strictEqual(typeof window.downloadCompatibilityPDF, 'function');
     domReadyHandler();
     assert.strictEqual(typeof clickHandler, 'function');
   } finally {

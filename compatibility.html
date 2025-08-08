@@ -9,6 +9,17 @@
   <link rel="stylesheet" href="/css/global.css" />
   <link rel="stylesheet" href="/css/compat-table.css" />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
+  <script>
+    (function ensureHtml2PdfLoaded() {
+      if (window.html2pdf) return;
+      var s = document.createElement('script');
+      s.src = "https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js";
+      s.async = true;
+      s.onload = function(){ console.log('[ok] html2pdf loaded'); };
+      s.onerror = function(){ console.error('[err] Failed to load html2pdf'); };
+      document.head.appendChild(s);
+    })();
+  </script>
   <style>
     .upload-container {
       display: flex;
@@ -39,6 +50,29 @@
       width: 100%;
     }
   </style>
+  <style>
+    /* Remove rainbow/emoji from headers in WEB immediately */
+    .category-emoji,
+    .category-header .emoji,
+    .section-title .emoji { display: none !important; }
+
+    /* Keep rows from splitting in both web and print */
+    .compat-section tr { break-inside: avoid; page-break-inside: avoid; }
+
+    /* Make sure tables are fixed-width to avoid right-side cutoff */
+    .compat-section table {
+      width: 100% !important;
+      table-layout: fixed !important;
+      border-collapse: collapse !important;
+    }
+
+    /* Optional: make header clean (no decorative lines/boxes) */
+    .section-title, .category-header, .compat-category {
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+    }
+  </style>
 </head>
 <body class="theme-dark">
   <div class="main-container themed">
@@ -56,7 +90,7 @@
         Upload Partner’s Survey
       </label>
 
-      <button class="themed-button wide-button" id="downloadPdfBtn">Download PDF</button>
+      <button class="themed-button wide-button" id="downloadBtn">Download PDF</button>
     </div>
 
     <div id="comparisonResults">
@@ -88,7 +122,58 @@
       });
   </script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script type="module" src="js/pdfDownload.js"></script>
+  <script type="module" src="js/pdfDownload.js"></script>
+  <script>
+    /* Strip inline emoji from headers in WEB (mirrors PDF behavior) */
+    (function stripHeaderEmojiInWeb() {
+      const emojiRe = /[\p{Extended_Pictographic}\p{Emoji_Presentation}]/gu;
+      const nodes = document.querySelectorAll('.section-title, .category-header, .compat-category, th');
+      nodes.forEach(n => {
+        const clean = (n.textContent || '').replace(emojiRe, '').trim();
+        if (clean) n.textContent = clean;
+      });
+    })();
+
+    /* Ensure the download button actually triggers PDF generation */
+    (function wireDownloadButton() {
+      const btn = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
+      if (!btn) {
+        console.warn('[warn] No download button found. Add id="downloadBtn" or data-download-pdf to your button.');
+        return;
+      }
+      btn.replaceWith(btn.cloneNode(true));
+      const liveBtn = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
+      liveBtn.addEventListener('click', async function () {
+        try {
+          if (!window.html2pdf) {
+            console.log('[info] Waiting for html2pdf to load…');
+            await new Promise((res, rej) => {
+              let t=0, h=setInterval(()=>{
+                if (window.html2pdf) { clearInterval(h); res(); }
+                else if ((t+=100) > 8000) { clearInterval(h); rej(new Error('html2pdf not loaded')); }
+              },100);
+            });
+          }
+          if (typeof downloadCompatibilityPDF !== 'function') {
+            console.error('[err] downloadCompatibilityPDF() is not defined on this page.');
+            alert('PDF function missing. Make sure the exporter function is included.');
+            return;
+          }
+          await downloadCompatibilityPDF();
+        } catch (e) {
+          console.error('[err] PDF click handler failed:', e);
+          alert('Could not generate PDF. See console for details.');
+        }
+      });
+    })();
+
+    /* Quick sanity checks to help you debug if it still doesn’t work */
+    (function sanityChecks(){
+      const container = document.getElementById('pdf-container');
+      if (!container) console.error('[err] #pdf-container not found — PDF has nothing to export.');
+      const tables = document.querySelectorAll('#pdf-container table');
+      if (!tables.length) console.warn('[warn] No tables under #pdf-container yet. The exporter will still run but result may be blank.');
+    })();
+  </script>
   </body>
 </html>

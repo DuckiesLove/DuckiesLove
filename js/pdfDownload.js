@@ -83,8 +83,9 @@ export const exportKinkCompatibilityPDF = downloadCompatibilityPDF;
 export const generateCompatibilityPDF = downloadCompatibilityPDF;
 
 if (typeof window !== 'undefined') {
+  window.downloadCompatibilityPDF = downloadCompatibilityPDF;
   window.addEventListener('DOMContentLoaded', () => {
-    const downloadBtn = document.getElementById('downloadPdfBtn');
+    const downloadBtn = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
     if (downloadBtn) {
       downloadBtn.addEventListener('click', downloadCompatibilityPDF);
     }
