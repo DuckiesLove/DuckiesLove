@@ -154,12 +154,12 @@
               },100);
             });
           }
-          if (typeof downloadCompatibilityPDF !== 'function') {
+          if (typeof window.downloadCompatibilityPDF !== 'function') {
             console.error('[err] downloadCompatibilityPDF() is not defined on this page.');
             alert('PDF function missing. Make sure the exporter function is included.');
             return;
           }
-          await downloadCompatibilityPDF();
+          await window.downloadCompatibilityPDF();
         } catch (e) {
           console.error('[err] PDF click handler failed:', e);
           alert('Could not generate PDF. See console for details.');

@@ -425,7 +425,8 @@ function updateComparison() {
     block.dataset.category = category;
 
     const titleRow = document.createElement('tr');
-    titleRow.innerHTML = `<td class="category-title" colspan="5"><span class="category-icon">🏳️‍🌈</span> ${category}</td>`;
+    // Remove decorative emoji from category headers in web view
+    titleRow.innerHTML = `<td class="category-title" colspan="5">${category}</td>`;
     block.appendChild(titleRow);
 
     kinks.forEach(kink => {

@@ -39,8 +39,9 @@ table.compat thead th.pb {
 .category-title {
   font-weight: 800;
   font-size: 1.25rem;
-  border-top: 2px solid #333;
-  border-bottom: 2px solid #333;
+  /* Remove top and bottom borders to eliminate box appearance */
+  border-top: none;
+  border-bottom: none;
   padding: 14px 12px !important;
 }
 
