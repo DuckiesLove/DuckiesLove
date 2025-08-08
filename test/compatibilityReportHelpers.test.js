@@ -24,15 +24,37 @@ function createDocMock() {
   };
 }
 
-test('drawMatchBar renders black bar with colored text', () => {
+test('drawMatchBar renders black bar with colored text and resets color', () => {
   const doc = createDocMock();
   drawMatchBar(doc, 10, 10, 100, 8, 50);
+  doc.text('after', 0, 0); // simulate subsequent drawing
+
   const rectCalls = doc.calls.filter(c => c[0] === 'rect');
   assert.deepStrictEqual(rectCalls[0], ['rect', [10, 10, 100, 8, 'F']]);
-  const textColorCall = doc.calls.find(c => c[0] === 'setTextColor');
-  assert.deepStrictEqual(textColorCall, ['setTextColor', ['red']]);
+
+  const colorCalls = doc.calls.filter(c => c[0] === 'setTextColor');
+  assert.deepStrictEqual(colorCalls[0], ['setTextColor', ['red']]);
+  assert.deepStrictEqual(colorCalls[colorCalls.length - 1], ['setTextColor', ['white']]);
+
   const textCall = doc.calls.find(c => c[0] === 'text' && c[1][0] === '50%');
   assert.ok(textCall, 'percentage label should be rendered');
+});
+
+test('flag and partner B columns render in white after drawMatchBar', () => {
+  const doc = createDocMock();
+  const items = [{ label: 'Test', partnerA: 4, partnerB: 0 }]; // results in a 🚩 flag
+  const margin = 5;
+  const usableWidth = doc.internal.pageSize.getWidth() - margin * 2;
+  const layout = buildLayout(margin, usableWidth);
+  renderCategorySection(doc, 'Cat', items, layout, 20);
+
+  const flagIndex = doc.calls.findIndex(c => c[0] === 'text' && c[1][0] === '🚩');
+  const lastColorBeforeFlag = doc.calls.slice(0, flagIndex).filter(c => c[0] === 'setTextColor').pop();
+  assert.deepStrictEqual(lastColorBeforeFlag, ['setTextColor', ['white']]);
+
+  const partnerBIndex = doc.calls.findIndex(c => c[0] === 'text' && c[1][0] === '0');
+  const lastColorBeforePartnerB = doc.calls.slice(0, partnerBIndex).filter(c => c[0] === 'setTextColor').pop();
+  assert.deepStrictEqual(lastColorBeforePartnerB, ['setTextColor', ['white']]);
 });
 
 test('renderCategorySection renders each item and returns final y', () => {

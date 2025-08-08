@@ -19,7 +19,15 @@ function getFlagIcon(a, b, match) {
 }
 
 // Draw the colored match bar with percentage label (or N/A)
-export function drawMatchBar(doc, x, y, width, height, percentage) {
+export function drawMatchBar(
+  doc,
+  x,
+  y,
+  width,
+  height,
+  percentage,
+  resetColor = 'white'
+) {
   const label = percentage !== null && percentage !== undefined ? `${percentage}%` : 'N/A';
   const textColor = getFontColor(percentage);
 
@@ -31,6 +39,9 @@ export function drawMatchBar(doc, x, y, width, height, percentage) {
   doc.setFontSize(7);
   doc.setTextColor(textColor);
   doc.text(label, x + width / 2, y + height / 2 + 1.8, { align: 'center' });
+
+  // Reset text color for subsequent drawing
+  doc.setTextColor(resetColor);
 }
 
 // Render the category header at the provided coordinates
