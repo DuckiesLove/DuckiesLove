@@ -12,16 +12,33 @@ export function exportToPDF() {
   element.style.padding = '0';
   element.style.overflow = 'visible';
 
-  // Normalize table layout
+  // Adjust table layout for PDF output
   const tables = element.querySelectorAll('table');
   tables.forEach(table => {
+    table.style.borderCollapse = 'separate';
+    table.style.borderSpacing = '0';
     table.style.width = '100%';
-    table.style.tableLayout = 'fixed';
-    table.style.borderCollapse = 'collapse';
-    const cells = table.querySelectorAll('td, th');
-    cells.forEach(cell => {
-      cell.style.padding = '2px';
-      cell.style.lineHeight = '1.2';
+    table.style.backgroundColor = '#000';
+
+    table.querySelectorAll('th, td').forEach(cell => {
+      Object.assign(cell.style, {
+        border: 'none',
+        backgroundColor: '#000',
+        color: '#fff',
+        padding: '4px 8px',
+        boxSizing: 'border-box',
+        textAlign: 'left'
+      });
+    });
+
+    table.querySelectorAll('tr').forEach(row => {
+      const cells = row.children;
+      if (cells.length >= 5) {
+        cells[1].style.paddingLeft = '32px'; // Partner A
+        cells[2].style.paddingLeft = '16px'; // Match
+        cells[3].style.paddingLeft = '16px'; // Flag
+        cells[4].style.paddingLeft = '16px'; // Partner B
+      }
     });
   });
 
