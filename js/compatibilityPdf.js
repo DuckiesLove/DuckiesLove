@@ -6,7 +6,6 @@ export function generateCompatibilityPDF(data = { categories: [] }) {
   if (DEBUG) {
     console.log('PDF function triggered');
   }
-}
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape' });
