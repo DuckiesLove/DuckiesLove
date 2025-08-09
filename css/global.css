@@ -29,22 +29,4 @@
   height: auto;
 }
 
-.results-table .category-cell {
-  padding: 0.6rem 1rem;
-  background-color: #000;
-}
-
-.results-table .category-banner {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: red;
-  gap: 0.5rem;
-}
-
-.results-table .category-flag {
-  font-size: 1.5rem;
-}
 
