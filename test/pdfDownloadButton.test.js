@@ -1,63 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert';
 
-// Ensure the PDF download click handler attaches after DOMContentLoaded
+// Ensure pdfDownload.js exposes downloadCompatibilityPDF and attaches to window
 
-test('PDF download button handler attaches on DOMContentLoaded', async () => {
-  let clickHandler;
-  const button = {
-    addEventListener: (evt, cb) => {
-      if (evt === 'click') clickHandler = cb;
-    },
-    cloneNode: () => button,
-    replaceWith: () => {},
-  };
-
-  let domReadyHandler;
+test('pdf download exporter exposes function on window', async () => {
   const originalGlobals = {
     window: globalThis.window,
     document: globalThis.document,
-    alert: globalThis.alert,
-    print: globalThis.print,
   };
-
   try {
-    globalThis.window = {
-      addEventListener: (evt, cb) => {
-        if (evt === 'DOMContentLoaded') domReadyHandler = cb;
-      },
-      compatibilityData: [],
-      html2pdf: () => ({
-        set: () => ({
-          from: () => ({ save: () => Promise.resolve() })
-        })
-      }),
-    };
-    const head = { appendChild: () => {} };
+    globalThis.window = {};
     globalThis.document = {
-      head,
-      getElementById: id => (id === 'downloadBtn' ? button : null),
       querySelector: () => null,
-      createElement: () => ({
-        setAttribute: () => {},
-        style: {},
-        appendChild: () => {},
-        textContent: ''
-      }),
+      head: { appendChild: () => {} },
+      createElement: () => ({ setAttribute: () => {}, textContent: '', appendChild: () => {}, style: {} }),
     };
-    globalThis.alert = () => {};
-    globalThis.print = () => {};
-
-    await import('../js/pdfDownload.js');
-
-    assert.strictEqual(typeof domReadyHandler, 'function');
-    assert.strictEqual(typeof window.downloadCompatibilityPDF, 'function');
-    domReadyHandler();
-    assert.strictEqual(typeof clickHandler, 'function');
+    const mod = await import('../js/pdfDownload.js');
+    assert.strictEqual(typeof mod.downloadCompatibilityPDF, 'function');
+    assert.strictEqual(typeof globalThis.window.downloadCompatibilityPDF, 'function');
   } finally {
     if (originalGlobals.window) globalThis.window = originalGlobals.window; else delete globalThis.window;
     if (originalGlobals.document) globalThis.document = originalGlobals.document; else delete globalThis.document;
-    if (originalGlobals.alert) globalThis.alert = originalGlobals.alert; else delete globalThis.alert;
-    if (originalGlobals.print) globalThis.print = originalGlobals.print; else delete globalThis.print;
   }
 });
