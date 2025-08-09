@@ -48,16 +48,20 @@ function logPdfEnv(tag = '[pdf]') {
   return { jsPDFCtor, hasH2P, hasH2C };
 }
 
-// --- Ensure html2pdf (bundles html2canvas + jsPDF) is available ---
-function ensureHtml2Pdf() {
-  if (typeof window !== 'undefined' && !window.html2pdf && document?.head) {
+// --- Ensure html2pdf + dependencies (html2canvas + jsPDF) are available ---
+function ensurePdfLibs() {
+  if (
+    typeof window !== 'undefined' &&
+    document?.head &&
+    (!window.html2pdf || !window.html2canvas || !(window.jspdf && window.jspdf.jsPDF))
+  ) {
     const s = document.createElement('script');
     s.src = 'https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js';
     s.defer = true;
     document.head.appendChild(s);
   }
 }
-ensureHtml2Pdf();
+ensurePdfLibs();
 
 // --- Inject minimal PDF styles (applied to the CLONE via .pdf-export) ---
 function injectPdfCSS() {
@@ -198,13 +202,16 @@ export async function downloadCompatibilityPDF(){
     forceTableDisplay(clone);
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
-    // Wait for library
-    if (!window.html2pdf) {
-      await new Promise((res,rej)=>{
-        let t=0, h=setInterval(()=>{
-          if(window.html2pdf){ clearInterval(h); res(); }
-          else if((t+=100)>8000){ clearInterval(h); rej(new Error('html2pdf not loaded')); }
-        },100);
+    // Wait for required libraries
+    if (!window.html2canvas || !(window.jspdf && window.jspdf.jsPDF)) {
+      await new Promise((res, rej) => {
+        let t = 0, h = setInterval(() => {
+          if (window.html2canvas && window.jspdf && window.jspdf.jsPDF) {
+            clearInterval(h); res();
+          } else if ((t += 100) > 8000) {
+            clearInterval(h); rej(new Error('PDF libs not loaded'));
+          }
+        }, 100);
       });
     }
 
