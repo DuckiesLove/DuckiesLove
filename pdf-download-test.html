@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDF Download Test</title>
+  <script src="https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js"></script>
 </head>
 <body>
   <button id="downloadBtn">Download PDF</button>
@@ -17,7 +18,25 @@
     </table>
   </div>
 
-  <script src="https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js"></script>
-  <script type="module" src="js/pdfDownloadDebug.js"></script>
+  <script type="module">
+    import { downloadCompatibilityPDF } from '/js/pdfDownload.js';
+    window.downloadCompatibilityPDF = downloadCompatibilityPDF;
+    function wire() {
+      const btn = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
+      if (!btn) { console.error('[pdf] No download button found'); return; }
+      const fresh = btn.cloneNode(true); btn.replaceWith(fresh);
+      fresh.addEventListener('click', async () => {
+        try { await downloadCompatibilityPDF(); }
+        catch (e) { console.error(e); alert('Could not generate PDF. See console.'); }
+      });
+    }
+    (document.readyState === 'loading') ? document.addEventListener('DOMContentLoaded', wire) : wire();
+    console.log('[pdf] env', {
+      html2pdf: !!window.html2pdf,
+      html2canvas: !!window.html2canvas,
+      jsPDF: !!(window.jspdf && window.jspdf.jsPDF),
+      fn: typeof window.downloadCompatibilityPDF
+    });
+  </script>
 </body>
 </html>
