@@ -118,6 +118,83 @@ function stripProblemImages(root){
   root.querySelectorAll('img').forEach(img => img.remove());
 }
 
+function materializeIndicators(root){
+  // A) Convert pseudo-element content to real text
+  root.querySelectorAll('*').forEach(el => {
+    const before = getComputedStyle(el, '::before').content;
+    const after = getComputedStyle(el, '::after').content;
+    const addTxt = (txt, cls) => {
+      if (!txt || txt === 'none' || txt === 'normal' || txt === '""') return;
+      const t = txt.replace(/^"(.*)"$/, '$1');
+      const span = document.createElement('span');
+      span.textContent = t;
+      if (cls) span.className = cls;
+      span.style.marginLeft = '4px';
+      el.appendChild(span);
+    };
+    addTxt(before, 'pseudo-before');
+    addTxt(after, 'pseudo-after');
+  });
+
+  // B) Replace class/data markers with textual symbols
+  root.querySelectorAll('td, th').forEach(td => {
+    if (td.textContent.trim()) return;
+    const c = td.classList;
+    if (c.contains('yes') || td.dataset.state === 'yes') {
+      td.textContent = '✓';
+      td.style.textAlign = 'center';
+    } else if (c.contains('no') || td.dataset.state === 'no') {
+      td.textContent = '✗';
+      td.style.textAlign = 'center';
+    } else if (c.contains('dash') || td.dataset.state === 'dash' || c.contains('empty')) {
+      td.textContent = '–';
+      td.style.textAlign = 'center';
+    }
+  });
+}
+
+function enhancePdfClone(root){
+  // 1) Style headers to avoid wrapping
+  const ths = root.querySelectorAll('th');
+  ths.forEach(th => {
+    th.style.whiteSpace = 'nowrap';
+    th.style.textOverflow = 'ellipsis';
+    th.style.overflow = 'hidden';
+    th.style.fontWeight = '600';
+    th.style.textAlign = 'center';
+    th.style.verticalAlign = 'middle';
+  });
+
+  // 2) Apply column width heuristics
+  root.querySelectorAll('table').forEach(table => {
+    const headerRow = table.querySelector('thead tr');
+    if (!headerRow) return;
+    const cols = Array.from(headerRow.children);
+    const n = cols.length;
+    if (n < 3) return;
+    const widths = n === 4 ? ['64%','12%','12%','12%'] :
+                   n === 5 ? ['55%','15%','10%','10%','10%'] :
+                             null;
+    if (widths) {
+      cols.forEach((th,i) => th.style.width = widths[i]);
+      Array.from(table.tBodies || []).forEach(tb => {
+        Array.from(tb.rows || []).forEach(tr => {
+          Array.from(tr.cells || []).forEach((td,i) => { if (widths[i]) td.style.width = widths[i]; });
+        });
+      });
+    }
+  });
+
+  // 3) Turn indicator styles into real text
+  materializeIndicators(root);
+
+  // 4) Prevent row splitting across pages
+  root.querySelectorAll('tr').forEach(tr => {
+    tr.style.pageBreakInside = 'avoid';
+    tr.style.breakInside = 'avoid';
+  });
+}
+
 function makeClone(){
   const src=document.getElementById('pdf-container');
   if(!src) throw new Error('#pdf-container not found');
@@ -201,6 +278,7 @@ export async function downloadCompatibilityPDF(){
     await waitUntilReady(container);
 
     const { shell, clone } = makeClone();
+    enhancePdfClone(clone);
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
     const { width, height } = measure(clone);
