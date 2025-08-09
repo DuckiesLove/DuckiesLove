@@ -1,73 +1,50 @@
 /*
-Black-background PDF exporter for compatibility report.
-- Clones #pdf-container
-- Forces black background and white text
-- Strips header emoji
-- Removes "Flag" column in clone only
-- Forces table/thead/tbody/tr/td display
-- Uses html2canvas + jsPDF with adaptive scale + tiling
-- Logs diagnostic messages with [pdf] DIAG
+================================================================================
+pdfDownload.js — Black PDF export (sections intact, NO "Flag" column)
+Fixes: header wrapping ("Partne r B") + placeholder "-" cells in PDF
+Requires (load these BEFORE this file in your HTML):
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+How it works
+- Clones #pdf-container (web stays untouched)
+- Forces true black background + white text on the clone
+- Removes header emoji/icons and the entire "Flag" column (header + cells)
+- Prevents header/cell wrapping (nowrap) so "Partner B" won't split
+- Materializes marks so html2canvas sees actual characters (✓ ✗ –) instead of CSS/pseudo
+- Locks table/row/cell display (no “single long line” bug)
+- Adaptive scale + vertical tiling for tall pages (avoids crashes)
+
+Call: downloadCompatibilityPDF()
+================================================================================
 */
 
-const PDF_DEBUG_SHOW_CLONE = false;   // set true to preview the clone overlay
-const STRIP_IMAGES_IN_PDF   = true;   // remove <img> in clone to avoid CORS/tainted canvas
+const PDF_DEBUG_SHOW_CLONE = false; // set true to preview the clone overlay instead of downloading
+const STRIP_IMAGES_IN_PDF = true;   // remove <img> in the clone (avoids CORS/taint)
 
-/* ---------- DIAG ---------- */
-const DIAG = (m,o)=>console.log('[pdf] DIAG:', m, o??'');
-
-// Load html2canvas and jsPDF if missing. Avoids relying on html2pdf bundle
-// which may not expose the globals we need.
-let __pdfLibsPromise;
-function loadScript(src){
-  return new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = () => res();
-    s.onerror = () => rej(new Error('Failed to load '+src));
-    document.head.appendChild(s);
-  });
-}
-async function ensurePdfLibs(){
-  const hasH2c = !!window.html2canvas;
-  const hasJsPDF = !!((window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF));
-  if (hasH2c && hasJsPDF) return;
-  if (!__pdfLibsPromise){
-    __pdfLibsPromise = (async()=>{
-      if (!document?.head) throw new Error('document.head missing');
-      const tasks=[];
-      if (!hasH2c) tasks.push(loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'));
-      if (!hasJsPDF) tasks.push(loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'));
-      await Promise.all(tasks);
-    })();
-  }
-  await __pdfLibsPromise;
-}
-
-(async function envCheck(){
-  try{ await ensurePdfLibs(); }catch(e){ DIAG('lib load failed', e); }
+function assertLibsOrThrow() {
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
-  DIAG('env', {
-    html2canvas: !!window.html2canvas,
-    jsPDF: !!jsPDFCtor
-  });
-})();
+  if (!window.html2canvas) throw new Error('html2canvas missing (load the CDN script before this file).');
+  if (!jsPDFCtor)         throw new Error('jsPDF missing (load the CDN script before this file).');
+  return jsPDFCtor;
+}
 
-/* ---------- PDF-only CSS applied to the CLONE via .pdf-export ---------- */
+/* ---------- PDF-only CSS (applies only to CLONE via .pdf-export) ---------- */
 (function injectPdfCSS(){
   if (document.querySelector('style[data-pdf-style]')) return;
   const css = `
   .pdf-export{background:#000!important;color:#fff!important;padding:24px!important;margin:0!important}
   .pdf-export .compat-section{break-inside: avoid-page!important; page-break-inside: avoid!important; margin: 0 0 18pt 0!important}
   .pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;background:transparent!important;color:#fff!important}
-  .pdf-export th,.pdf-export td{border:none!important;background:transparent!important;color:#fff!important;padding:6px 8px!important;line-height:1.25!important;vertical-align:top!important;word-break:break-word!important;white-space:normal!important;box-sizing:border-box!important;page-break-inside:avoid!important;break-inside:avoid!important}
+  .pdf-export th,.pdf-export td{border:none!important;background:transparent!important;color:#fff!important;padding:6px 8px!important;line-height:1.25!important;vertical-align:middle!important;word-break:break-word!important;white-space:normal!important;box-sizing:border-box!important;page-break-inside:avoid!important;break-inside:avoid!important}
   .pdf-export tr{page-break-inside:avoid!important;break-inside:avoid!important}
   .pdf-export .section-title,.pdf-export .category-header,.pdf-export .compat-category{border:none!important;box-shadow:none!important;background:transparent!important;padding:6px 0!important}
   .pdf-export .category-emoji,.pdf-export .category-header .emoji,.pdf-export .section-title .emoji{display:none!important}
   `;
-  const el = document.createElement('style');
-  el.setAttribute('data-pdf-style','true');
-  el.textContent = css;
-  document.head.appendChild(el);
+  const style = document.createElement('style');
+  style.setAttribute('data-pdf-style','true');
+  style.textContent = css;
+  document.head.appendChild(style);
 })();
 
 /* ---------- helpers ---------- */
@@ -78,19 +55,17 @@ function stripHeaderEmoji(root=document){
     if (t) n.textContent=t;
   });
 }
-
 async function waitUntilReady(container){
   if (document.fonts?.ready) { try{ await document.fonts.ready; }catch(_){} }
   const t0=Date.now();
   while(true){
     const hasRows=[...container.querySelectorAll('table tbody')].some(tb=>tb.children?.length>0);
     if (hasRows) break;
-    if (Date.now()-t0>6000) { DIAG('timeout waiting for table rows'); break; }
+    if (Date.now()-t0>6000) break;
     await new Promise(r=>setTimeout(r,100));
   }
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 }
-
 function forceTableDisplay(root){
   root.querySelectorAll('table').forEach(e=>e.style.display='table');
   root.querySelectorAll('thead').forEach(e=>e.style.display='table-header-group');
@@ -98,7 +73,6 @@ function forceTableDisplay(root){
   root.querySelectorAll('tr').forEach(e=>e.style.display='table-row');
   root.querySelectorAll('td,th').forEach(e=>e.style.display='table-cell');
 }
-
 function removeFlagColumn(root){
   root.querySelectorAll('table').forEach(table=>{
     const ths = Array.from(table.querySelectorAll('thead th'));
@@ -112,106 +86,111 @@ function removeFlagColumn(root){
     });
   });
 }
-
 function stripProblemImages(root){
   if (!STRIP_IMAGES_IN_PDF) return;
   root.querySelectorAll('img').forEach(img => img.remove());
 }
 
-function materializeIndicators(root){
-  // A) Convert pseudo-element content to real text
-  root.querySelectorAll('*').forEach(el => {
-    const before = getComputedStyle(el, '::before').content;
-    const after = getComputedStyle(el, '::after').content;
-    const addTxt = (txt, cls) => {
-      if (!txt || txt === 'none' || txt === 'normal' || txt === '""') return;
-      const t = txt.replace(/^"(.*)"$/, '$1');
-      const span = document.createElement('span');
-      span.textContent = t;
-      if (cls) span.className = cls;
-      span.style.marginLeft = '4px';
-      el.appendChild(span);
-    };
-    addTxt(before, 'pseudo-before');
-    addTxt(after, 'pseudo-after');
-  });
-
-  // B) Replace class/data markers with textual symbols
-  root.querySelectorAll('td, th').forEach(td => {
-    if (td.textContent.trim()) return;
-    const c = td.classList;
-    if (c.contains('yes') || td.dataset.state === 'yes') {
-      td.textContent = '✓';
-      td.style.textAlign = 'center';
-    } else if (c.contains('no') || td.dataset.state === 'no') {
-      td.textContent = '✗';
-      td.style.textAlign = 'center';
-    } else if (c.contains('dash') || td.dataset.state === 'dash' || c.contains('empty')) {
-      td.textContent = '–';
-      td.style.textAlign = 'center';
+/* ---------- NEW: make headers/cells no-wrap + materialize marks ---------- */
+function enhancePdfClone(root){
+  // A) Prevent header/cell wrapping like "Partne r B"
+  root.querySelectorAll('th, td').forEach(el=>{
+    // Only keep nowrap for short header/indicator cells; allow long descriptions to wrap
+    const isHeader = el.tagName === 'TH';
+    const isShort  = el.textContent.trim().length <= 14; // heuristic for indicator cols
+    if (isHeader || isShort) {
+      el.style.whiteSpace = 'nowrap';
+      el.style.textOverflow = 'ellipsis';
+      el.style.overflow = 'hidden';
     }
   });
-}
 
-function enhancePdfClone(root){
-  // 1) Style headers to avoid wrapping
-  const ths = root.querySelectorAll('th');
-  ths.forEach(th => {
-    th.style.whiteSpace = 'nowrap';
-    th.style.textOverflow = 'ellipsis';
-    th.style.overflow = 'hidden';
-    th.style.fontWeight = '600';
-    th.style.textAlign = 'center';
-    th.style.verticalAlign = 'middle';
-  });
-
-  // 2) Apply column width heuristics
-  root.querySelectorAll('table').forEach(table => {
-    const headerRow = table.querySelector('thead tr');
-    if (!headerRow) return;
-    const cols = Array.from(headerRow.children);
+  // Heuristic widths: first column wide; the rest equal narrow columns
+  root.querySelectorAll('table').forEach(table=>{
+    const headRow = table.querySelector('thead tr');
+    if (!headRow) return;
+    const cols = Array.from(headRow.children);
     const n = cols.length;
-    if (n < 3) return;
-    const widths = n === 4 ? ['64%','12%','12%','12%'] :
-                   n === 5 ? ['55%','15%','10%','10%','10%'] :
-                             null;
-    if (widths) {
-      cols.forEach((th,i) => th.style.width = widths[i]);
-      Array.from(table.tBodies || []).forEach(tb => {
-        Array.from(tb.rows || []).forEach(tr => {
-          Array.from(tr.cells || []).forEach((td,i) => { if (widths[i]) td.style.width = widths[i]; });
+    if (n >= 3) {
+      const first = Math.max(40, 100 - (n-1)*15); // e.g., for 4 cols => ~55%
+      cols.forEach((th,i)=>{
+        th.style.width = (i===0 ? `${first}%` : `${(100-first)/(n-1)}%`);
+        th.style.textAlign = i===0 ? 'left' : 'center';
+      });
+      table.querySelectorAll('tbody tr').forEach(tr=>{
+        Array.from(tr.cells).forEach((td,i)=>{
+          td.style.width = (i===0 ? `${first}%` : `${(100-first)/(n-1)}%`);
+          if (i>0) td.style.textAlign = 'center';
         });
       });
     }
   });
 
-  // 3) Turn indicator styles into real text
+  // B) Turn pseudo-content/background icons into real characters
   materializeIndicators(root);
+}
 
-  // 4) Prevent row splitting across pages
-  root.querySelectorAll('tr').forEach(tr => {
-    tr.style.pageBreakInside = 'avoid';
-    tr.style.breakInside = 'avoid';
+/* Convert empty/placeholder cells to real glyphs so html2canvas captures them. */
+function materializeIndicators(root){
+  // 1) If cells contain a single "-" (placeholder), convert to an en-dash centered
+  root.querySelectorAll('td, th').forEach(td=>{
+    const raw = td.textContent.trim();
+    if (raw === '-') {
+      td.textContent = '–'; // en-dash, more robust visually
+      td.style.textAlign = 'center';
+    }
+  });
+
+  // 2) If you use classes/data-state, convert to ✓ ✗ –
+  root.querySelectorAll('td, th').forEach(td=>{
+    if (td.textContent.trim()) return;
+    const st = td.dataset.state;
+    const c  = td.classList;
+    const yes = st==='yes' || c.contains('yes') || c.contains('true') || c.contains('checked');
+    const no  = st==='no'  || c.contains('no')  || c.contains('false') || c.contains('unchecked');
+    const dash= st==='dash'|| c.contains('dash')|| c.contains('empty')  || c.contains('na');
+    if (yes)  td.textContent = '✓';
+    if (no)   td.textContent = '✗';
+    if (dash) td.textContent = '–';
+    if (yes || no || dash) td.style.textAlign = 'center';
+  });
+
+  // 3) Copy pseudo-element text (if any) into the DOM
+  root.querySelectorAll('*').forEach(el=>{
+    const before = getComputedStyle(el, '::before').content;
+    const after  = getComputedStyle(el, '::after').content;
+    const inject = (txt)=>{
+      if (!txt || txt === 'none' || txt === 'normal' || txt === '""') return;
+      const t = txt.replace(/^"(.*)"$/,'$1'); // strip quotes
+      if (!t) return;
+      const s = document.createElement('span');
+      s.textContent = t;
+      s.style.marginLeft = '4px';
+      el.appendChild(s);
+    };
+    inject(before); inject(after);
   });
 }
 
+/* ---------- clone builder ---------- */
 function makeClone(){
   const src=document.getElementById('pdf-container');
   if(!src) throw new Error('#pdf-container not found');
-  const r=src.getBoundingClientRect();
-  DIAG('container', { width:r.width, height:r.height, scrollW:src.scrollWidth, scrollH:src.scrollHeight });
 
   const shell=document.createElement('div');
   Object.assign(shell.style,{background:'#000',color:'#fff',margin:'0',padding:'0',width:'100%',minHeight:'100vh',overflow:'auto'});
 
   const clone=src.cloneNode(true);
   clone.classList.add('pdf-export');
+  // remove UI-only bits
   clone.querySelectorAll('[data-hide-in-pdf], .download-btn, .print-btn, nav, header, footer').forEach(e=>e.remove());
 
+  // cleanup + layout hardening
   stripHeaderEmoji(clone);
   removeFlagColumn(clone);
   stripProblemImages(clone);
   forceTableDisplay(clone);
+  enhancePdfClone(clone);  // <-- key fixes for wrap + marks
 
   shell.appendChild(clone);
   document.body.appendChild(shell);
@@ -227,34 +206,28 @@ function makeClone(){
   return { shell, clone };
 }
 
+/* ---------- sizing/tiling plan ---------- */
 function measure(el){
   const r=el.getBoundingClientRect();
   const width  = Math.ceil(Math.max(el.scrollWidth, r.width, document.documentElement.clientWidth));
   const height = Math.ceil(Math.max(el.scrollHeight, r.height));
   if (width===0 || height===0) throw new Error('Zero-size clone (display:none or empty content)');
-  DIAG('clone size', { width, height });
   return { width, height };
 }
-
 function plan(width, height){
   const MAX_MP=16, defaultScale=2;
   let scale=defaultScale;
   let mp=(width*height*scale*scale)/1e6;
   if (mp>MAX_MP) scale=Math.max(1, Math.sqrt((MAX_MP*1e6)/(width*height)));
-  const targetSlicePx=2200;
+  const targetSlicePx=2200;                 // rendered pixels per vertical slice
   const renderedH=height*scale;
   const slices=Math.ceil(renderedH/targetSlicePx);
-  DIAG('render plan', { scale, slices });
   return { scale, slices, targetSlicePx };
 }
-
 async function renderTile(root, width, sliceCssHeight, yOffset, scale){
-  const h2c = window.html2canvas;
-  return await h2c(root, {
-    backgroundColor:'#000',
-    scale,
-    useCORS:true,
-    allowTaint:true,
+  return await html2canvas(root, {
+    backgroundColor:'#000', scale,
+    useCORS:true, allowTaint:true,
     scrollX:0, scrollY:0,
     windowWidth:width,
     windowHeight:sliceCssHeight,
@@ -263,22 +236,16 @@ async function renderTile(root, width, sliceCssHeight, yOffset, scale){
   });
 }
 
-/* =========================== MAIN EXPORTER =========================== */
+/* ============================== MAIN EXPORTER ============================== */
 export async function downloadCompatibilityPDF(){
+  const jsPDFCtor = assertLibsOrThrow();
   try{
-    await ensurePdfLibs();
-    const jsPDFCtor = window.jspdf?.jsPDF || window.jsPDF?.jsPDF;
-    if (!window.html2canvas) return alert('Could not generate PDF: html2canvas missing (bundle not loaded?).');
-    if (!jsPDFCtor)         return alert('Could not generate PDF: jsPDF missing (bundle not loaded?).');
-
     const container=document.getElementById('pdf-container');
-    if(!container){ alert('PDF container not found'); return; }
+    if(!container) throw new Error('PDF container (#pdf-container) not found.');
 
-    stripHeaderEmoji(document);
     await waitUntilReady(container);
 
     const { shell, clone } = makeClone();
-    enhancePdfClone(clone);
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
     const { width, height } = measure(clone);
@@ -311,17 +278,14 @@ export async function downloadCompatibilityPDF(){
     if (!PDF_DEBUG_SHOW_CLONE) document.body.removeChild(shell);
   }catch(err){
     console.error('[pdf] ERROR:', err);
-    alert('Could not generate PDF.\n' + (err?.message || err?.toString() || 'Unknown error') + '\nSee console for [pdf] DIAG lines.');
+    alert('Could not generate PDF.\n' + (err?.message || err) + '\nSee console for details.');
   }
 }
 
+/* Keep legacy names working + optional global for non-module callers */
 export const exportToPDF = downloadCompatibilityPDF;
 export const exportCompatPDF = downloadCompatibilityPDF;
 export const exportKinkCompatibilityPDF = downloadCompatibilityPDF;
 export const generateCompatibilityPDF = downloadCompatibilityPDF;
-export { downloadCompatibilityPDF as default };
-
-if (typeof window !== 'undefined') {
-  window.downloadCompatibilityPDF = downloadCompatibilityPDF;
-}
+if (typeof window !== 'undefined') window.downloadCompatibilityPDF = downloadCompatibilityPDF;
 
