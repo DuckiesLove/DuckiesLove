@@ -58,6 +58,127 @@ function forceTableDisplay(root){
 }
 function stripProblemImages(root){ if (!STRIP_IMAGES_IN_PDF) return; root.querySelectorAll('img').forEach(i=>i.remove()); }
 
+/* === PDF CLONE COLUMN FIX — move Description into Category, remove Flag, restore widths === */
+(function ensurePdfFixCSS(){
+  if (document.querySelector('style[data-pdf-column-fix]')) return;
+  const css = `
+    .pdf-export table{ table-layout:fixed !important; width:100% !important; border-collapse:collapse !important }
+    .pdf-export th,.pdf-export td{ padding:7px 10px !important; vertical-align:top !important; color:#fff !important; background:transparent !important }
+    /* final layout after merge: 1) Category  2) Partner A  3) Match  4) Partner B */
+    .pdf-export tr > *:nth-child(1){ width:64% !important; text-align:left !important; white-space:normal !important }
+    .pdf-export tr > *:nth-child(2){ width:12% !important; text-align:center !important; white-space:nowrap !important }
+    .pdf-export tr > *:nth-child(3){ width:12% !important; text-align:center !important; white-space:nowrap !important }
+    .pdf-export tr > *:nth-child(4){ width:12% !important; text-align:center !important; white-space:nowrap !important }
+  `;
+  const s=document.createElement('style');
+  s.setAttribute('data-pdf-column-fix','true');
+  s.textContent=css;
+  document.head.appendChild(s);
+})();
+
+/* call this on the CLONED tree (e.g., inside your makeClone() result) */
+function fixPdfTables(root){
+  root.querySelectorAll('table').forEach(table=>{
+    const headRow = table.querySelector('thead tr');
+    const bodyRows = table.querySelectorAll('tbody tr');
+    if (!headRow || !bodyRows.length) return;
+
+    const headers = Array.from(headRow.children).map(th => (th.textContent||'').trim().toLowerCase());
+
+    // indexes we want to keep by name
+    const idxCategory = headers.findIndex(h => h === 'category');
+    const idxA        = headers.findIndex(h => /partner\s*a\b/.test(h));
+    const idxMatch    = headers.findIndex(h => /\bmatch\b/.test(h));
+    const idxB        = headers.findIndex(h => /partner\s*b\b/.test(h));
+
+    // remove any "flag" header/column first (if present)
+    const idxFlag = headers.findIndex(h => /^flag(\/star)?$/.test(h));
+    if (idxFlag > -1){
+      headRow.children[idxFlag].remove();
+      bodyRows.forEach(tr => tr.children[idxFlag]?.remove());
+      headers.splice(idxFlag,1);
+    }
+
+    // determine a likely Description column (the leftmost column that:
+    //  - is not Category/Partner A/Match/Partner B,
+    //  - actually has text in body cells)
+    const disallowed = new Set([idxCategory, idxA, idxMatch, idxB].filter(i=>i>=0));
+    let idxDesc = -1;
+    for (let i=0;i<headers.length;i++){
+      if (disallowed.has(i)) continue;
+      // check if most rows have some text in this column
+      let hits = 0;
+      for (const tr of bodyRows){
+        const cell = tr.children[i];
+        if (cell && cell.textContent.trim()) { hits++; if (hits >= Math.ceil(bodyRows.length*0.15)) break; }
+      }
+      if (hits) { idxDesc = i; break; }
+    }
+
+    // fallbacks: assume first non-category column is description
+    if (idxDesc === -1) {
+      for (let i=0;i<headers.length;i++){
+        if (i !== idxCategory && !/partner\s*a|match|partner\s*b/i.test(headers[i]||'')) { idxDesc = i; break; }
+      }
+    }
+
+    // if we could not find a Category header, treat the leftmost column as Category
+    const catIndex = idxCategory >= 0 ? idxCategory : 0;
+
+    // if we found a description column different from Category, move its text into Category and remove that column
+    if (idxDesc >= 0 && idxDesc !== catIndex){
+      // header remove
+      headRow.children[idxDesc]?.remove();
+      // body: merge text
+      bodyRows.forEach(tr=>{
+        const catCell  = tr.children[catIndex];
+        const descCell = tr.children[idxDesc]; // note: after previous removes, indexes may shift; we removed only head so far
+        if (!catCell || !descCell) return;
+        const dText = descCell.textContent;
+        if (dText && dText.trim()){
+          if (!catCell.textContent.trim()) catCell.textContent = dText.trim();
+          else catCell.textContent = (catCell.textContent + ' — ' + dText.trim()).replace(/\s+/g,' ');
+        }
+        descCell.remove();
+      });
+    }
+
+    // After potential removal, re-evaluate remaining headers to ensure order becomes:
+    // Category | Partner A | Match | Partner B
+    function headerIndex(labelRegex){
+      const row = table.querySelector('thead tr');
+      const cells = Array.from(row.children).map(th => (th.textContent||'').trim().toLowerCase());
+      return cells.findIndex(h => labelRegex.test(h));
+    }
+    const want = [
+      headerIndex(/^category$/),
+      headerIndex(/partner\s*a\b/),
+      headerIndex(/\bmatch\b/),
+      headerIndex(/partner\s*b\b/)
+    ];
+    // if any of those are -1, we just leave the current order; the CSS widths use nth-child
+
+    // normalize alignment on the now-first column (Category)
+    const firstIdx = 0;
+    table.querySelectorAll('thead tr > *:nth-child('+(firstIdx+1)+')').forEach(el=>{
+      el.style.textAlign='left';
+      el.style.whiteSpace='normal';
+    });
+    table.querySelectorAll('tbody tr > *:nth-child('+(firstIdx+1)+')').forEach(el=>{
+      el.style.textAlign='left';
+      el.style.whiteSpace='normal';
+    });
+    // numeric cols centered
+    [2,3,4].forEach(n=>{
+      table.querySelectorAll(`thead tr > *:nth-child(${n}), tbody tr > *:nth-child(${n})`).forEach(el=>{
+        el.style.textAlign='center';
+        el.style.whiteSpace='nowrap';
+      });
+    });
+  });
+}
+
+
 /* ---------- value readers (text OR data-*) ---------- */
 function findCellByHeader(tr, re){
   const head = tr.closest('table')?.querySelector('thead tr'); if (!head) return null;
@@ -222,6 +343,7 @@ export async function downloadCompatibilityPDF(){
     await waitUntilReady(container);
 
     const { shell, clone } = makeClone();
+    fixPdfTables(clone);
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
     const { width, height } = measure(clone);
