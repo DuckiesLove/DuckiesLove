@@ -1,12 +1,8 @@
+/* pdfDownload.js — hardened capture (clone target + inline styles) */
 const PDF_DEBUG_SHOW_CLONE = false;
 
 function ensureHtml2Pdf() {
-  if (
-    typeof window !== 'undefined' &&
-    !window.html2pdf &&
-    typeof document !== 'undefined' &&
-    document.head
-  ) {
+  if (typeof window !== 'undefined' && !window.html2pdf && typeof document !== 'undefined' && document.head) {
     const s = document.createElement('script');
     s.src = 'https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js';
     s.defer = true;
@@ -16,12 +12,7 @@ function ensureHtml2Pdf() {
 ensureHtml2Pdf();
 
 function injectPdfCSS() {
-  if (
-    typeof document === 'undefined' ||
-    !document.head ||
-    document.querySelector('style[data-pdf-style]')
-  )
-    return;
+  if (typeof document === 'undefined' || !document.head || document.querySelector('style[data-pdf-style]')) return;
   const css = `
   .pdf-export{background:#000!important;color:#fff!important;padding:24px!important;margin:0!important}
   .pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;background:transparent!important;color:#fff!important}
@@ -39,47 +30,56 @@ injectPdfCSS();
 
 function stripHeaderEmoji(root = document) {
   const re = /[\p{Extended_Pictographic}\p{Emoji_Presentation}]/gu;
-  root
-    .querySelectorAll('.section-title,.category-header,.compat-category,th')
-    .forEach(n => {
-      const text = (n.textContent || '').replace(re, '').trim();
-      if (text) n.textContent = text;
-    });
+  root.querySelectorAll('.section-title,.category-header,.compat-category,th').forEach(n => {
+    const text = (n.textContent || '').replace(re, '').trim();
+    if (text) n.textContent = text;
+  });
 }
 
 async function waitUntilRenderReady(container) {
   if (document.fonts && document.fonts.ready) {
-    try {
-      await document.fonts.ready;
-    } catch (_) {}
+    try { await document.fonts.ready; } catch (_) {}
   }
   const t0 = Date.now();
   while (true) {
-    const hasRows = Array.from(
-      container.querySelectorAll('table tbody')
-    ).some(tb => tb.children && tb.children.length > 0);
+    const hasRows = Array.from(container.querySelectorAll('table tbody')).some(tb => tb.children && tb.children.length > 0);
     if (hasRows) break;
-    if (Date.now() - t0 > 6000) {
-      console.warn('[pdf] timeout waiting for table rows');
-      break;
-    }
+    if (Date.now() - t0 > 6000) { console.warn('[pdf] timeout waiting for table rows'); break; }
     await new Promise(r => setTimeout(r, 100));
   }
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 }
 
+/* Force proper table display (guards against CSS resets) */
 function forceTableDisplay(root) {
   root.querySelectorAll('table').forEach(el => (el.style.display = 'table'));
-  root
-    .querySelectorAll('thead')
-    .forEach(el => (el.style.display = 'table-header-group'));
-  root
-    .querySelectorAll('tbody')
-    .forEach(el => (el.style.display = 'table-row-group'));
+  root.querySelectorAll('thead').forEach(el => (el.style.display = 'table-header-group'));
+  root.querySelectorAll('tbody').forEach(el => (el.style.display = 'table-row-group'));
   root.querySelectorAll('tr').forEach(el => (el.style.display = 'table-row'));
-  root
-    .querySelectorAll('td,th')
-    .forEach(el => (el.style.display = 'table-cell'));
+  root.querySelectorAll('td,th').forEach(el => (el.style.display = 'table-cell'));
+}
+
+/* NEW: Inline critical computed styles so html2canvas snapshots exactly what you see */
+function inlineCriticalComputedStyles(root) {
+  const props = [
+    // layout & sizing
+    'display','position','boxSizing','width','height','maxWidth','minWidth','maxHeight','minHeight',
+    'padding','paddingTop','paddingRight','paddingBottom','paddingLeft',
+    'margin','marginTop','marginRight','marginBottom','marginLeft',
+    'border','borderTop','borderRight','borderBottom','borderLeft','borderRadius',
+    // text
+    'font','fontFamily','fontSize','fontWeight','lineHeight','letterSpacing','whiteSpace','wordBreak','textAlign',
+    'color','background','backgroundColor','opacity',
+    // tables
+    'tableLayout','borderCollapse','verticalAlign'
+  ];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+  let el = root;
+  while (el) {
+    const cs = getComputedStyle(el);
+    props.forEach(p => { el.style[p] = cs[p]; });
+    el = walker.nextNode();
+  }
 }
 
 function makePdfClone() {
@@ -88,48 +88,25 @@ function makePdfClone() {
 
   const shell = document.createElement('div');
   Object.assign(shell.style, {
-    background: '#000',
-    color: '#fff',
-    margin: '0',
-    padding: '0',
-    width: '100%',
-    minHeight: '100vh',
-    overflow: 'auto',
+    background: '#000', color: '#fff', margin: '0', padding: '0',
+    width: '100%', minHeight: '100vh', overflow: 'auto'
   });
 
   const clone = src.cloneNode(true);
   clone.classList.add('pdf-export');
-
-  clone
-    .querySelectorAll('[data-hide-in-pdf], .download-btn, .print-btn, nav, header, footer')
-    .forEach(el => el.remove());
-
+  clone.querySelectorAll('[data-hide-in-pdf], .download-btn, .print-btn, nav, header, footer').forEach(el => el.remove());
   stripHeaderEmoji(clone);
 
   shell.appendChild(clone);
   document.body.appendChild(shell);
 
   if (PDF_DEBUG_SHOW_CLONE) {
-    Object.assign(shell.style, {
-      position: 'fixed',
-      inset: '0',
-      zIndex: '999999',
-    });
+    Object.assign(shell.style, { position: 'fixed', inset: '0', zIndex: '999999' });
     const banner = document.createElement('div');
     banner.textContent = 'PDF CLONE PREVIEW — press ESC to close';
-    Object.assign(banner.style, {
-      position: 'sticky',
-      top: '0',
-      padding: '8px 12px',
-      background: '#111',
-      color: '#fff',
-      fontSize: '12px',
-      zIndex: '1000000',
-    });
+    Object.assign(banner.style, { position: 'sticky', top: '0', padding: '8px 12px', background: '#111', color: '#fff', fontSize: '12px', zIndex: '1000000' });
     shell.prepend(banner);
-    window.addEventListener('keydown', e => {
-      if (e.key === 'Escape') shell.remove();
-    });
+    window.addEventListener('keydown', e => { if (e.key === 'Escape') shell.remove(); });
   }
 
   return { shell, clone };
@@ -143,20 +120,20 @@ function computeCaptureWidth(el) {
 export async function downloadCompatibilityPDF() {
   try {
     const src = document.getElementById('pdf-container');
-    if (!src) {
-      alert('PDF container not found');
-      return;
-    }
+    if (!src) { alert('PDF container not found'); return; }
 
     stripHeaderEmoji(document);
     await waitUntilRenderReady(src);
 
     const { shell, clone } = makePdfClone();
 
+    // Critical: lock layout before capture
     forceTableDisplay(clone);
+    inlineCriticalComputedStyles(clone);
 
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+    // Guards
     clone.querySelectorAll('table').forEach(t => {
       t.style.width = '100%';
       t.style.tableLayout = 'fixed';
@@ -176,17 +153,12 @@ export async function downloadCompatibilityPDF() {
     document.documentElement.style.margin = '0';
     document.body.style.margin = '0';
 
+    // wait for html2pdf
     if (!window.html2pdf) {
       await new Promise((res, rej) => {
-        let t = 0;
-        const h = setInterval(() => {
-          if (window.html2pdf) {
-            clearInterval(h);
-            res();
-          } else if ((t += 100) > 8000) {
-            clearInterval(h);
-            rej(new Error('html2pdf not loaded'));
-          }
+        let t = 0, h = setInterval(() => {
+          if (window.html2pdf) { clearInterval(h); res(); }
+          else if ((t += 100) > 8000) { clearInterval(h); rej(new Error('html2pdf not loaded')); }
         }, 100);
       });
     }
@@ -199,16 +171,17 @@ export async function downloadCompatibilityPDF() {
         backgroundColor: '#000',
         scale: 2,
         useCORS: true,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: captureWidth,
+        scrollX: 0, scrollY: 0,
+        windowWidth: captureWidth
       },
       jsPDF: { unit: 'pt', format: 'letter', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.compat-section' },
+      pagebreak: { mode: ['avoid-all','css','legacy'], before: '.compat-section' }
     };
 
+    // IMPORTANT CHANGE: capture the CLONE, not the shell
+    console.log('[pdf] capturing node:', clone, 'width=', captureWidth);
     if (!PDF_DEBUG_SHOW_CLONE) {
-      await html2pdf().set(opt).from(shell).save();
+      await html2pdf().set(opt).from(clone).save();
       document.documentElement.style.margin = prevHtmlMargin;
       document.body.style.margin = prevBodyMargin;
       document.body.removeChild(shell);
@@ -227,19 +200,10 @@ export const exportKinkCompatibilityPDF = downloadCompatibilityPDF;
 export const generateCompatibilityPDF = downloadCompatibilityPDF;
 
 function wireBtn() {
-  const btn =
-    document.getElementById('downloadBtn') ||
-    document.querySelector('[data-download-pdf]');
-  if (!btn) {
-    console.warn(
-      '[pdf] No download button found. Add id="downloadBtn" or data-download-pdf.'
-    );
-    return;
-  }
+  const btn = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
+  if (!btn) { console.warn('[pdf] No download button found. Add id="downloadBtn" or data-download-pdf.'); return; }
   const fresh = typeof btn.cloneNode === 'function' ? btn.cloneNode(true) : btn;
-  if (fresh !== btn && btn.parentNode) {
-    btn.parentNode.replaceChild(fresh, btn);
-  }
+  if (fresh !== btn && btn.parentNode) btn.parentNode.replaceChild(fresh, btn);
   fresh.addEventListener('click', downloadCompatibilityPDF);
 }
 
