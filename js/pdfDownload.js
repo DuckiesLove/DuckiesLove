@@ -19,7 +19,7 @@ function assertLibsOrThrow(){
   .pdf-export{background:#000!important;color:#fff!important;padding:16px!important;margin:0!important}
   .pdf-export, .pdf-export * { max-width:none!important; }
   .pdf-export .compat-section{break-inside:avoid-page!important;page-break-inside:avoid!important;margin:0 0 12pt 0!important}
-  .pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:auto!important;background:transparent!important;color:#fff!important}
+  .pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;background:transparent!important;color:#fff!important}
   .pdf-export th,.pdf-export td{border:none!important;background:transparent!important;color:#fff!important;padding:6px 8px!important;line-height:1.25!important;vertical-align:middle!important;box-sizing:border-box!important;page-break-inside:avoid!important;break-inside:avoid!important}
   .pdf-export thead th{white-space:nowrap!important;text-align:center!important;font-weight:700!important}
   .pdf-export td:not(:first-child){text-align:center!important;white-space:nowrap!important}
@@ -102,6 +102,16 @@ function isRedFlagRow(tr){
   return false;
 }
 
+function getFlagOrStar(match, scoreA, scoreB){
+  if (match != null && match >= STAR_MIN) return '⭐';
+  const high = v => v != null && v >= 4;
+  const missing = v => v == null || v === '' || v === 0;
+  if (match != null && (match <= RED_FLAG_MAX || ((high(scoreA) || high(scoreB)) && (missing(scoreA) || missing(scoreB))))) {
+    return '🚩';
+  }
+  return '';
+}
+
 /* ----- Category + Flag/Star columns (clone-only) ----- */
 function nearestCategoryNameFor(table){
   let p=table.previousElementSibling;
@@ -146,9 +156,8 @@ function populateFlagsAndStars(table){
   table.querySelectorAll('tbody tr').forEach(tr=>{
     const flagCell = tr.querySelectorAll('td,th')[flagIdx]; if (!flagCell) return;
     const pct = getMatchPercent(tr);
-    const star = pct!=null && pct>=STAR_MIN;
-    const red  = isRedFlagRow(tr);
-    flagCell.textContent = red ? '🚩' : (star ? '⭐' : '');
+    const {a,b} = getPartnerScores(tr);
+    flagCell.textContent = getFlagOrStar(pct, a, b);
     flagCell.style.textAlign='center';
   });
 }

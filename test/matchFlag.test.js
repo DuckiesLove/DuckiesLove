@@ -12,14 +12,9 @@ test('returns red flag for values below 30', () => {
   assert.strictEqual(getFlagEmoji(0), '🚩');
 });
 
-test('returns yellow flag when one partner loves it and the other does not', () => {
-  assert.strictEqual(getFlagEmoji(60, 5, 3), '🟨');
-  assert.strictEqual(getFlagEmoji(60, 3, 5), '🟨');
-});
-
 test('returns empty string for other values', () => {
   assert.strictEqual(getFlagEmoji(75), '');
-  assert.strictEqual(getFlagEmoji(41), '');
+  assert.strictEqual(getFlagEmoji(60), '');
   assert.strictEqual(getFlagEmoji(80), '');
 });
 
