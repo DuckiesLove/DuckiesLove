@@ -127,5 +127,86 @@
       fn: typeof window.downloadCompatibilityPDF
     });
   </script>
+
+  <!-- ================= PDF DIAGNOSTIC HARNESS (paste at end of <body>) ================= -->
+  <style>
+    #pdf-diagnostics { position: fixed; right: 12px; bottom: 12px; z-index: 999999; }
+    #pdf-diagnostics button { padding: 8px 10px; border-radius: 8px; border: 0; cursor: pointer; }
+  </style>
+  <div id="pdf-diagnostics">
+    <button id="pdf-diag-btn">Diagnose PDF</button>
+  </div>
+
+  <script>
+  (function(){
+    const el = document.getElementById('pdf-diag-btn');
+    if (!el) return;
+
+    function exists(sel){ return !!document.querySelector(sel); }
+
+    el.addEventListener('click', async () => {
+      console.clear();
+      console.log('%c[pdf] DIAG START','color:#0af');
+
+      // 1) Environment check
+      const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
+      const env = {
+        html2pdf: !!window.html2pdf,
+        html2canvas: !!window.html2canvas,
+        jsPDF: !!jsPDFCtor,
+        exporterFn: typeof window.downloadCompatibilityPDF,
+        button: !!(document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]')),
+        container: !!document.getElementById('pdf-container')
+      };
+      console.table(env);
+
+      // 2) Inspect the container
+      let cont = document.getElementById('pdf-container');
+      if (!cont) {
+        alert('PDF FAIL: #pdf-container not found.\nMake sure your report is wrapped in <div id="pdf-container">…</div>.');
+        return;
+      }
+      const cr = cont.getBoundingClientRect();
+      const hasRows = Array.from(cont.querySelectorAll('table tbody')).some(tb => tb.children && tb.children.length > 0);
+      console.log('[pdf] container metrics:', { w: cr.width, h: cr.height, scrollW: cont.scrollWidth, scrollH: cont.scrollHeight, hasRows });
+
+      // 3) Verify the exporter function is callable
+      if (env.exporterFn !== 'function') {
+        alert('PDF FAIL: downloadCompatibilityPDF is not a function.\n\nFix: ensure your wiring exposes it:\nwindow.downloadCompatibilityPDF = downloadCompatibilityPDF;');
+        return;
+      }
+
+      // 4) Verify the libs (MUST be loaded BEFORE exporter)
+      if (!env.html2pdf || !env.html2canvas || !env.jsPDF) {
+        alert('PDF FAIL: Required libs missing.\n\nYou MUST load this BEFORE your exporter code:\n<script src="https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js"></script>');
+        return;
+      }
+
+      // 5) Run the exporter and catch the real error
+      try {
+        console.log('[pdf] calling downloadCompatibilityPDF()…');
+        await window.downloadCompatibilityPDF();
+        console.log('%c[pdf] success','color:#0a0');
+      } catch (err) {
+        console.error('[pdf] ERROR THROWN BY EXPORTER:', err);
+        alert('Could not generate PDF.\n\nReason: ' + (err?.message || err) + '\n\nOpen Console to see [pdf] logs.');
+      }
+    });
+
+    // Optional: simple SMOKE TEST to prove the libs work even if your container doesn’t.
+    // Call window.__pdfSmokeTest() in the console.
+    window.__pdfSmokeTest = async function(){
+      const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
+      if (!jsPDFCtor) return console.error('[pdf] jsPDF missing');
+      const pdf = new jsPDFCtor({ unit:'pt', format:'letter', orientation:'portrait' });
+      pdf.setFillColor(0,0,0); pdf.rect(0,0,612,792,'F'); // black page
+      pdf.setTextColor(255,255,255); pdf.setFontSize(14);
+      pdf.text('Smoke test OK — libs loaded and save works.', 40, 60);
+      pdf.save('smoke.pdf');
+      console.log('[pdf] smoke test saved smoke.pdf');
+    };
+  })();
+  </script>
+  <!-- ================================================================================ -->
   </body>
 </html>
