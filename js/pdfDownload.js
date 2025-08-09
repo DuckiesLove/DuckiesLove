@@ -275,5 +275,13 @@ function wireBtn(){
 }
 if (typeof window !== 'undefined') {
   window.downloadCompatibilityPDF = downloadCompatibilityPDF;
-  window.addEventListener('DOMContentLoaded', wireBtn);
+  window.addEventListener('DOMContentLoaded', () => {
+    wireBtn();
+    console.log('[pdf] env', {
+      html2pdf: !!window.html2pdf,
+      html2canvas: !!window.html2canvas,
+      jsPDF: !!(window.jspdf && window.jspdf.jsPDF),
+      fn: typeof window.downloadCompatibilityPDF,
+    });
+  });
 }
