@@ -109,24 +109,16 @@
   </script>
 
   <script type="module">
-    import { downloadCompatibilityPDF } from '/js/pdfDownload.js';
-    window.downloadCompatibilityPDF = downloadCompatibilityPDF;
-    function wire() {
-      const btn = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
-      if (!btn) { console.error('[pdf] No download button found'); return; }
-      const fresh = btn.cloneNode(true); btn.replaceWith(fresh);
-      fresh.addEventListener('click', async () => {
-        try { await downloadCompatibilityPDF(); }
-        catch (e) { console.error(e); alert('Could not generate PDF. See console.'); }
-      });
-    }
-    (document.readyState === 'loading') ? document.addEventListener('DOMContentLoaded', wire) : wire();
-    console.log('[pdf] env', {
-      html2canvas: !!window.html2canvas,
-      jsPDF: !!(window.jspdf && window.jspdf.jsPDF),
-      fn: typeof window.downloadCompatibilityPDF
-    });
-  </script>
+     import { downloadCompatibilityPDF } from '/js/pdfDownload.js';
+     window.downloadCompatibilityPDF = downloadCompatibilityPDF;
+     const wire = () => {
+       const b = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
+       if (!b) { console.error('[pdf] Missing download button'); return; }
+       const fresh = b.cloneNode(true); b.replaceWith(fresh);
+       fresh.addEventListener('click', () => downloadCompatibilityPDF().catch(e => (console.error(e), alert('Could not generate PDF. See console.'))));
+     };
+     document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', wire) : wire();
+   </script>
 
   <!-- ================= PDF DIAGNOSTIC HARNESS (paste at end of <body>) ================= -->
   <style>
