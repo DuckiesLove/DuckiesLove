@@ -157,6 +157,131 @@ function fixPdfTables(root){
   tables.forEach(fixOneTable);
 }
 
+/* ====== Shorten labels across all PDF tables ====== */
+const SHORT_LABEL_MAP = {
+  // --- Appearance Play (examples) ---
+  "Choosing my partner's outfit for the day or a scene": "Partner outfit choice",
+  "Selecting their underwear, lingerie, or base layers": "Underwear selection",
+  "Styling their hair (braiding, brushing, tying, etc.)": "Hair styling",
+  "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": "Headwear choice",
+  "Offering makeup, polish, or accessories as part of ritual or play": "Makeup/accessories",
+  "Creating themed looks (slutty, innocent, doll-like, sharp, etc.)": "Themed looks",
+  "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "Role costumes",
+  "Curating time-period or historical outfits (e.g., Victorian, 50s)": "Historical outfits",
+  "Helping them present more femme, masc, or androgynous by request": "Gender styling",
+  "Coordinating their look with mine for public or private scenes": "Coordinated looks",
+  "Implementing a \"dress ritual\" or aesthetic preparation": "Dress ritual",
+  "Enforcing a visual protocol (e.g., no bra, heels required, tied hair)": "Visual protocol",
+  "Having my outfit selected for me by a partner": "Outfit picked for me",
+  "Wearing the underwear or lingerie they choose": "Chosen lingerie",
+  "Having my hair brushed, braided, tied, or styled for them": "Hair grooming",
+  "Putting on a head covering (e.g., bonnet, veil, hood) they chose": "Chosen headwear"
+  // --- Add mappings for other sections as desired ---
+};
+
+const STOPWORDS = new Set([
+  "a","an","the","and","or","for","to","of","by","on","in","as","with","their","my","our","his","her","its",
+  "at","from","into","over","under","than","that","this","those","these","etc","e.g.","eg"
+]);
+
+const REPLACEMENTS = [
+  [/role[-\s]?specific/gi, "role"],
+  [/time[-\s]?period/gi, "era"],
+  [/historical/gi, "historic"],
+  [/outfits?/gi, "outfits"],
+  [/costumes?/gi, "costumes"],
+  [/head\s*cover(ing|ings)/gi, "headwear"],
+  [/underwear|lingerie/gi, "lingerie"],
+  [/preparation/gi, "prep"],
+  [/protocol/gi, "protocol"],
+  [/presentation/gi, "look"],
+  [/accessories?/gi, "accessories"],
+];
+
+function stripParentheticals(txt){
+  return txt.replace(/\([^)]*\)/g, " ").replace(/\[[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function compressWords(txt, targetChars=28, maxWords=4){
+  let s = stripParentheticals(txt);
+  REPLACEMENTS.forEach(([re, sub]) => { s = s.replace(re, sub); });
+
+  const words = s.split(/\s+/).filter(Boolean);
+  const kept = [];
+  for (const w of words){
+    const lw = w.toLowerCase();
+    if (STOPWORDS.has(lw)) continue;
+    kept.push(w);
+    if (kept.length >= maxWords) break;
+  }
+  if (kept.length === 0) kept.push(words.slice(0,2).join(" "));
+
+  let out = kept.join(" ");
+  if (out.length > targetChars){
+    out = out.slice(0, targetChars - 1).replace(/\s+\S*$/, "");
+  }
+  return out.length < s.length ? `${out}…` : out;
+}
+
+function shortenSurveyLabels(root, {
+  targetChars = 28,
+  maxWords = 4,
+  onlyFirstColumn = true
+} = {}){
+  root.querySelectorAll("table").forEach(table => {
+    const head = table.querySelector("thead tr");
+    const rows = table.querySelectorAll("tbody tr");
+    if (!head || !rows.length) return;
+
+    let labelIdx = 0;
+    if (!onlyFirstColumn){
+      const headers = Array.from(head.children).map(th => (th.textContent||"").trim().toLowerCase());
+      let guess = headers.findIndex(h => /^(description|item|activity|kink|category)$/i.test(h));
+      if (guess === -1) guess = 0;
+      labelIdx = guess;
+    }
+
+    rows.forEach(tr => {
+      const cells = tr.children;
+      const td = cells[labelIdx];
+      if (!td) return;
+
+      const full = (td.textContent || "").trim();
+      if (!full) return;
+
+      if (full.length <= 18) return;
+
+      if (SHORT_LABEL_MAP[full]) {
+        td.textContent = SHORT_LABEL_MAP[full];
+        return;
+      }
+
+      td.textContent = compressWords(full, targetChars, maxWords);
+    });
+  });
+}
+
+(function injectShortLabelCSS(){
+  if (document.querySelector('style[data-pdf-shortlabels]')) return;
+  const css = `
+    .pdf-export table{ table-layout:fixed; width:100%; }
+    .pdf-export tr > *:first-child{
+      text-align:left !important;
+      white-space:normal !important;
+      word-break:break-word !important;
+      hyphens:auto !important;
+    }
+    .pdf-export tr > *:nth-child(n+2){
+      text-align:center !important;
+      white-space:nowrap !important;
+    }
+  `;
+  const s = document.createElement('style');
+  s.setAttribute('data-pdf-shortlabels','true');
+  s.textContent = css;
+  document.head.appendChild(s);
+})();
+
 /* ---------- build the clone (PDF-only) ---------- */
 function makeClone(){
   const src=document.getElementById('pdf-container');
@@ -174,6 +299,7 @@ function makeClone(){
 
   // >>>>> THIS IS THE CRITICAL LINE <<<<<
   fixPdfTables(clone);
+  shortenSurveyLabels(clone, { targetChars: 28, maxWords: 4, onlyFirstColumn: true });
   console.log('[pdf-fix] applied');
 
   shell.appendChild(clone);
