@@ -9,6 +9,8 @@ test('PDF download button handler attaches on DOMContentLoaded', async () => {
     addEventListener: (evt, cb) => {
       if (evt === 'click') clickHandler = cb;
     },
+    cloneNode: () => button,
+    replaceWith: () => {},
   };
 
   let domReadyHandler;
@@ -31,8 +33,17 @@ test('PDF download button handler attaches on DOMContentLoaded', async () => {
         })
       }),
     };
+    const head = { appendChild: () => {} };
     globalThis.document = {
+      head,
       getElementById: id => (id === 'downloadBtn' ? button : null),
+      querySelector: () => null,
+      createElement: () => ({
+        setAttribute: () => {},
+        style: {},
+        appendChild: () => {},
+        textContent: ''
+      }),
     };
     globalThis.alert = () => {};
     globalThis.print = () => {};
