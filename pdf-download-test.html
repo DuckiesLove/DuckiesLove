@@ -4,49 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDF Download Test</title>
-  <!-- 1. Include html2pdf from CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-  <!-- 2. Button (already present in HTML) -->
-    <button id="downloadPdfBtn">Download PDF</button>
-    <script>
-      window.partnerASurvey = {
-        "Appearance Play": {
-          Giving: [
-            {
-              name: "Choosing my partner’s outfit for the day or a scene",
-              rating: 5
-            },
-            {
-              name: "Styling their hair (braiding, brushing, tying, etc.)",
-              rating: 4
-            }
-          ],
-          Receiving: [],
-          General: []
-        }
-      };
+  <button id="downloadBtn">Download PDF</button>
 
-      window.partnerBSurvey = {
-        "Appearance Play": {
-          Giving: [],
-          Receiving: [
-            {
-              name: "Choosing my partner’s outfit for the day or a scene",
-              rating: 5
-            },
-            {
-              name: "Styling their hair (braiding, brushing, tying, etc.)",
-              rating: 3
-            }
-          ],
-          General: []
-        }
-      };
-    </script>
+  <div id="pdf-container">
+    <h1>PDF Export Test</h1>
+    <table>
+      <tbody>
+        <tr><td>Cell 1</td><td>Cell 2</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-    <!-- 3. Load script to handle PDF generation -->
-    <script type="module" src="js/pdfDownload.js"></script>
-  </body>
-  </html>
+  <script type="module" src="js/pdfDownload.js"></script>
+</body>
+</html>
