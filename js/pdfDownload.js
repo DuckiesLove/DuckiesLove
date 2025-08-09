@@ -14,26 +14,37 @@ const STRIP_IMAGES_IN_PDF   = true;   // remove <img> in clone to avoid CORS/tai
 
 /* ---------- DIAG ---------- */
 const DIAG = (m,o)=>console.log('[pdf] DIAG:', m, o??'');
+
+// Load html2canvas and jsPDF if missing. Avoids relying on html2pdf bundle
+// which may not expose the globals we need.
 let __pdfLibsPromise;
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => res();
+    s.onerror = () => rej(new Error('Failed to load '+src));
+    document.head.appendChild(s);
+  });
+}
 async function ensurePdfLibs(){
   const hasH2c = !!window.html2canvas;
   const hasJsPDF = !!((window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF));
   if (hasH2c && hasJsPDF) return;
   if (!__pdfLibsPromise){
-    __pdfLibsPromise = new Promise((res, rej) => {
-      if (!document?.head){ rej(new Error('document.head missing')); return; }
-      const s = document.createElement('script');
-      s.src = 'https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js';
-      s.onload = () => res();
-      s.onerror = () => rej(new Error('Failed to load html2pdf bundle'));
-      document.head.appendChild(s);
-    });
+    __pdfLibsPromise = (async()=>{
+      if (!document?.head) throw new Error('document.head missing');
+      const tasks=[];
+      if (!hasH2c) tasks.push(loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'));
+      if (!hasJsPDF) tasks.push(loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'));
+      await Promise.all(tasks);
+    })();
   }
   await __pdfLibsPromise;
 }
 
 (async function envCheck(){
-  try{ await ensurePdfLibs(); }catch(e){ DIAG('bundle load failed', e); }
+  try{ await ensurePdfLibs(); }catch(e){ DIAG('lib load failed', e); }
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
   DIAG('env', {
     html2canvas: !!window.html2canvas,
