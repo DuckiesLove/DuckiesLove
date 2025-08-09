@@ -39,6 +39,8 @@ const STRIP_IMAGES_IN_PDF = true;
   .pdf-export tr{page-break-inside:avoid!important;break-inside:avoid!important}
   .pdf-export .section-title,.pdf-export .category-header,.pdf-export .compat-category{border:none!important;box-shadow:none!important;background:transparent!important;padding:6px 0!important}
   .pdf-export .category-emoji,.pdf-export .category-header .emoji,.pdf-export .section-title .emoji{display:none!important}
+  .pdf-export .col-category{text-align:left!important;white-space:normal!important}
+  .pdf-export .col-a,.pdf-export .col-match,.pdf-export .col-b{text-align:center!important;white-space:nowrap!important}
   `;
   const style = document.createElement('style');
   style.setAttribute('data-pdf-style','true');
@@ -91,6 +93,22 @@ function removeFlagColumn(root){
   });
 }
 
+function alignCategoryColumn(root){
+  root.querySelectorAll('table').forEach(table=>{
+    const head = table.querySelector('thead tr');
+    if(!head) return;
+    const headers = [...head.children];
+    const idx = headers.findIndex(th => /^category$/i.test((th.textContent || '').trim()));
+    if(idx > -1){
+      headers[idx].classList.add('col-category');
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = tr.children;
+        if(cells[idx]) cells[idx].classList.add('col-category');
+      });
+    }
+  });
+}
+
 function stripProblemImages(root){
   if (!STRIP_IMAGES_IN_PDF) return;
   root.querySelectorAll('img').forEach(img => img.remove());
@@ -111,6 +129,7 @@ function makeClone(){
 
   stripHeaderEmoji(clone);
   removeFlagColumn(clone);
+  alignCategoryColumn(clone);
   stripProblemImages(clone);
   forceTableDisplay(clone);
 
