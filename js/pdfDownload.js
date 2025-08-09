@@ -21,7 +21,7 @@ HOW TO USE (copy/paste these steps to Codex if needed)
    // or: <button data-download-pdf>Download PDF</button>
 
 3) Include this file as /js/pdfDownload.js and import it, OR paste this whole
-   script at the end of <body>. It auto-loads html2pdf if missing.
+   script at the end of <body>. Ensure the html2pdf bundle is loaded first.
 
 4) Click the button. If you want to SEE the clone overlay before saving, set
    PDF_DEBUG_SHOW_CLONE = true (below), click, verify, then set it back to false.
@@ -39,29 +39,13 @@ const STRIP_IMAGES_IN_PDF = true; // Toggle if remote images have no CORS header
 // Log availability of PDF-related libraries
 function logPdfEnv(tag = '[pdf]') {
   const hasH2P = !!window.html2pdf;
-  const jsPDFCtor =
-    (window.jspdf && window.jspdf.jsPDF) ||
-    (window.jsPDF && window.jsPDF.jsPDF) ||
-    window.jsPDF;
+  const jsPDFCtor = window.jspdf?.jsPDF || window.jsPDF?.jsPDF;
   const hasH2C = !!window.html2canvas;
   console.log(`${tag} libs: html2pdf=${hasH2P} html2canvas=${hasH2C} jsPDF=${!!jsPDFCtor}`);
   return { jsPDFCtor, hasH2P, hasH2C };
 }
 
-// --- Ensure html2pdf + dependencies (html2canvas + jsPDF) are available ---
-function ensurePdfLibs() {
-  if (
-    typeof window !== 'undefined' &&
-    document?.head &&
-    (!window.html2pdf || !window.html2canvas || !(window.jspdf && window.jspdf.jsPDF))
-  ) {
-    const s = document.createElement('script');
-    s.src = 'https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js';
-    s.defer = true;
-    document.head.appendChild(s);
-  }
-}
-ensurePdfLibs();
+// html2pdf, html2canvas, and jsPDF should be loaded globally before this script
 
 // --- Inject minimal PDF styles (applied to the CLONE via .pdf-export) ---
 function injectPdfCSS() {
@@ -203,10 +187,10 @@ export async function downloadCompatibilityPDF(){
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
     // Wait for required libraries
-    if (!window.html2canvas || !(window.jspdf && window.jspdf.jsPDF)) {
+    if (!window.html2canvas || !(window.jspdf?.jsPDF || window.jsPDF?.jsPDF)) {
       await new Promise((res, rej) => {
         let t = 0, h = setInterval(() => {
-          if (window.html2canvas && window.jspdf && window.jspdf.jsPDF) {
+          if (window.html2canvas && (window.jspdf?.jsPDF || window.jsPDF?.jsPDF)) {
             clearInterval(h); res();
           } else if ((t += 100) > 8000) {
             clearInterval(h); rej(new Error('PDF libs not loaded'));
@@ -221,7 +205,7 @@ export async function downloadCompatibilityPDF(){
 
     const { jsPDFCtor } = logPdfEnv();
     if (!jsPDFCtor) {
-      console.error('[pdf] jsPDF not found: window.jspdf.jsPDF OR window.jsPDF.jsPDF missing.');
+      console.error('[pdf] jsPDF constructor not found (expected window.jspdf.jsPDF or window.jsPDF.jsPDF).');
       alert('Could not generate PDF: jsPDF library missing.');
       return;
     }
