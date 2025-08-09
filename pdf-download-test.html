@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDF Download Test</title>
-  <script src="https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
   <button id="downloadBtn">Download PDF</button>
@@ -32,7 +33,6 @@
     }
     (document.readyState === 'loading') ? document.addEventListener('DOMContentLoaded', wire) : wire();
     console.log('[pdf] env', {
-      html2pdf: !!window.html2pdf,
       html2canvas: !!window.html2canvas,
       jsPDF: !!(window.jspdf && window.jspdf.jsPDF),
       fn: typeof window.downloadCompatibilityPDF
@@ -62,7 +62,6 @@
       // 1) Environment check
       const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
       const env = {
-        html2pdf: !!window.html2pdf,
         html2canvas: !!window.html2canvas,
         jsPDF: !!jsPDFCtor,
         exporterFn: typeof window.downloadCompatibilityPDF,
@@ -88,8 +87,8 @@
       }
 
       // 4) Verify the libs (MUST be loaded BEFORE exporter)
-      if (!env.html2pdf || !env.html2canvas || !env.jsPDF) {
-        alert('PDF FAIL: Required libs missing.\n\nYou MUST load this BEFORE your exporter code:\n<script src="https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js"></script>');
+      if (!env.html2canvas || !env.jsPDF) {
+        alert('PDF FAIL: Required libs missing.\n\nYou MUST load these BEFORE your exporter code:\n<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>\n<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>');
         return;
       }
 
