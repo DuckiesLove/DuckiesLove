@@ -1,14 +1,26 @@
-/* PDF Export Adjustments — Remove Flag + Left-align Category */
+/* Restore full-width column layout for PDF after removing Flag */
 (function(){
   if(document.querySelector('style[data-pdf-fix]')) return;
   const css = `
+    .pdf-export table {
+      table-layout: fixed;
+      width: 100%;
+    }
+    .pdf-export th, .pdf-export td {
+      padding: 6px;
+      vertical-align: top;
+    }
+    /* Category column wider for long text */
     .pdf-export .col-category {
+      width: 60% !important;
       text-align: left !important;
       white-space: normal !important;
     }
-    .pdf-export .col-a, 
-    .pdf-export .col-match, 
+    /* Partner A, Match, Partner B evenly spaced */
+    .pdf-export .col-a,
+    .pdf-export .col-match,
     .pdf-export .col-b {
+      width: 13.33% !important;
       text-align: center !important;
       white-space: nowrap !important;
     }
@@ -33,19 +45,24 @@ export function removeFlagColumn(table) {
   }
 }
 
-export function mergeCategoryColumn(table) {
+export function setColumnClasses(table) {
   const headerCells = [...table.querySelector('thead tr').children];
-  const categoryIndex = headerCells.findIndex(th => /^category$/i.test((th.textContent || '').trim()));
-  if(categoryIndex > -1) {
-    headerCells[categoryIndex].classList.add('col-category');
-    table.querySelectorAll('tbody tr').forEach(tr => {
-      const cells = [...tr.children];
-      if(cells[categoryIndex]) {
-        cells[categoryIndex].classList.add('col-category');
-        cells[categoryIndex].style.whiteSpace = 'normal';
-      }
+  headerCells.forEach((th, i) => {
+    const name = (th.textContent || '').trim().toLowerCase();
+    if(name === 'category') th.classList.add('col-category');
+    if(name === 'partner a') th.classList.add('col-a');
+    if(name === 'match') th.classList.add('col-match');
+    if(name === 'partner b') th.classList.add('col-b');
+  });
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    [...tr.children].forEach((td, i) => {
+      const name = (headerCells[i].textContent || '').trim().toLowerCase();
+      if(name === 'category') td.classList.add('col-category');
+      if(name === 'partner a') td.classList.add('col-a');
+      if(name === 'match') td.classList.add('col-match');
+      if(name === 'partner b') td.classList.add('col-b');
     });
-  }
+  });
 }
 
 export function preparePDFClone(){
@@ -54,11 +71,10 @@ export function preparePDFClone(){
   const clone = src.cloneNode(true);
   clone.classList.add('pdf-export');
 
-  // Remove Flag column
-  clone.querySelectorAll('table').forEach(removeFlagColumn);
-
-  // Merge and left-align category column
-  clone.querySelectorAll('table').forEach(mergeCategoryColumn);
+  clone.querySelectorAll('table').forEach(table => {
+    removeFlagColumn(table);
+    setColumnClasses(table);
+  });
 
   return clone;
 }
@@ -69,6 +85,6 @@ export async function generateCompatibilityPDF(){
   const clone = preparePDFClone();
 
   document.body.appendChild(clone);
-  // Your html2canvas + jsPDF export code here
+  // your html2canvas + jsPDF logic here
   document.body.removeChild(clone);
 }
