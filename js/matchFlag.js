@@ -2,8 +2,9 @@
 export function getFlagEmoji(percent, a, b) {
   if (percent === null || percent === undefined) return '';
   if (percent >= 90) return '⭐';
-  if ((a === 5 && typeof b === 'number' && b < 5) || (b === 5 && typeof a === 'number' && a < 5)) return '🟨';
-  if (percent < 30) return '🚩';
+  const high = val => typeof val === 'number' && val >= 4;
+  const missing = val => val === '' || val === null || val === undefined || val === 0;
+  if (percent <= 50 || ((high(a) || high(b)) && (missing(a) || missing(b)))) return '🚩';
   return '';
 }
 

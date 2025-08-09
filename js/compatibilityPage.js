@@ -313,7 +313,18 @@ function loadFileB(file) {
   reader.readAsText(file);
 }
 
-const FLAG_DIFF_THRESHOLD = 0;
+function calculateMatchPercent(a, b) {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Math.max(0, 100 - Math.abs(a - b) * 20);
+}
+
+function getFlagOrStar(match, scoreA, scoreB) {
+  if (match >= 90) return '⭐';
+  const high = val => Number.isFinite(val) && val >= 4;
+  const missing = val => val === null || val === undefined || val === '' || val === 0;
+  if (match <= 50 || ((high(scoreA) || high(scoreB)) && (missing(scoreA) || missing(scoreB)))) return '🚩';
+  return '';
+}
 
 function renderFlags(root = document) {
   const rows = root.querySelectorAll('.item-row');
@@ -326,15 +337,10 @@ function renderFlags(root = document) {
     flagCell.textContent = '';
     matchCell.textContent = '-';
 
-    if (Number.isFinite(a) && Number.isFinite(b)) {
-      const diff = Math.abs(a - b);
-      matchCell.textContent = diff <= FLAG_DIFF_THRESHOLD ? '✓' : '—';
-      if (diff > FLAG_DIFF_THRESHOLD) {
-        const span = document.createElement('span');
-        span.className = 'red-flag';
-        span.textContent = '🚩';
-        flagCell.appendChild(span);
-      }
+    const match = calculateMatchPercent(a, b);
+    if (match !== null) {
+      matchCell.textContent = match + '%';
+      flagCell.textContent = getFlagOrStar(match, a, b);
     }
   });
 }
@@ -385,7 +391,7 @@ function updateComparison() {
         <th class="label"></th>
         <th class="pa">Partner A</th>
         <th class="match">Match</th>
-        <th class="flag">Flag</th>
+        <th class="flag">Flag/Star</th>
         <th class="pb">Partner B</th>
       </tr>
     </thead>
