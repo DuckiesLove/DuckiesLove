@@ -68,8 +68,15 @@ export async function downloadCompatibilityPDF() {
     jsPDF: { unit: 'pt', format: 'letter', orientation: 'portrait' },
     pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.compat-section' }
   };
+  const html2pdfFn =
+    globalThis.html2pdf || (typeof window !== 'undefined' ? window.html2pdf : undefined);
+  if (!html2pdfFn) {
+    console.error('PDF generation failed: html2pdf library not found');
+    document.body.removeChild(shell);
+    return;
+  }
   try {
-    await html2pdf().set(opt).from(shell).save();
+    await html2pdfFn().set(opt).from(shell).save();
   } catch (err) {
     console.error('PDF generation failed:', err);
   } finally {
