@@ -1,53 +1,40 @@
-/*
-================================================================================
-pdfDownload.js — Black PDF export (sections intact, NO "Flag" column)
-Fixes: header wrapping ("Partne r B") + placeholder "-" cells in PDF
-Requires (load these BEFORE this file in your HTML):
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+/* Black PDF export with Category + Flag/Star columns (clone-only; web untouched) */
+const PDF_DEBUG_SHOW_CLONE = false;     // set true to preview the clone overlay
+const STRIP_IMAGES_IN_PDF = true;       // remove <img> in clone to avoid CORS issues
+const PDF_ORIENTATION = 'landscape';
+const STAR_MIN = 90;     // ⭐ threshold
+const RED_FLAG_MAX = 50; // 🚩 if match ≤ this
 
-How it works
-- Clones #pdf-container (web stays untouched)
-- Forces true black background + white text on the clone
-- Removes header emoji/icons and the entire "Flag" column (header + cells)
-- Prevents header/cell wrapping (nowrap) so "Partner B" won't split
-- Materializes marks so html2canvas sees actual characters (✓ ✗ –) instead of CSS/pseudo
-- Locks table/row/cell display (no “single long line” bug)
-- Adaptive scale + vertical tiling for tall pages (avoids crashes)
-
-Call: downloadCompatibilityPDF()
-================================================================================
-*/
-
-const PDF_DEBUG_SHOW_CLONE = false; // set true to preview the clone overlay instead of downloading
-const STRIP_IMAGES_IN_PDF = true;   // remove <img> in the clone (avoids CORS/taint)
-
-function assertLibsOrThrow() {
+function assertLibsOrThrow(){
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
-  if (!window.html2canvas) throw new Error('html2canvas missing (load the CDN script before this file).');
-  if (!jsPDFCtor)         throw new Error('jsPDF missing (load the CDN script before this file).');
+  if (!window.html2canvas) throw new Error('html2canvas missing (load CDN before this file).');
+  if (!jsPDFCtor)         throw new Error('jsPDF missing (load CDN before this file).');
   return jsPDFCtor;
 }
 
-/* ---------- PDF-only CSS (applies only to CLONE via .pdf-export) ---------- */
+/* PDF-only CSS — applies ONLY to the cloned .pdf-export tree */
 (function injectPdfCSS(){
   if (document.querySelector('style[data-pdf-style]')) return;
   const css = `
-  .pdf-export{background:#000!important;color:#fff!important;padding:24px!important;margin:0!important}
-  .pdf-export .compat-section{break-inside: avoid-page!important; page-break-inside: avoid!important; margin: 0 0 18pt 0!important}
-  .pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;background:transparent!important;color:#fff!important}
-  .pdf-export th,.pdf-export td{border:none!important;background:transparent!important;color:#fff!important;padding:6px 8px!important;line-height:1.25!important;vertical-align:middle!important;word-break:break-word!important;white-space:normal!important;box-sizing:border-box!important;page-break-inside:avoid!important;break-inside:avoid!important}
-  .pdf-export tr{page-break-inside:avoid!important;break-inside:avoid!important}
-  .pdf-export .section-title,.pdf-export .category-header,.pdf-export .compat-category{border:none!important;box-shadow:none!important;background:transparent!important;padding:6px 0!important}
-  .pdf-export .category-emoji,.pdf-export .category-header .emoji,.pdf-export .section-title .emoji{display:none!important}
+  .pdf-export{background:#000!important;color:#fff!important;padding:16px!important;margin:0!important}
+  .pdf-export, .pdf-export * { max-width:none!important; }
+  .pdf-export .compat-section{break-inside:avoid-page!important;page-break-inside:avoid!important;margin:0 0 12pt 0!important}
+  .pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:auto!important;background:transparent!important;color:#fff!important}
+  .pdf-export th,.pdf-export td{border:none!important;background:transparent!important;color:#fff!important;padding:6px 8px!important;line-height:1.25!important;vertical-align:middle!important;box-sizing:border-box!important;page-break-inside:avoid!important;break-inside:avoid!important}
+  .pdf-export thead th{white-space:nowrap!important;text-align:center!important;font-weight:700!important}
+  .pdf-export td:not(:first-child){text-align:center!important;white-space:nowrap!important}
+  /* column hints for wide layout */
+  .pdf-export .col-cat{width:18%!important;text-align:left!important;white-space:nowrap!important}
+  .pdf-export .col-desc{width:52%!important;text-align:left!important;white-space:normal!important}
+  .pdf-export .col-flag,.pdf-export .col-a,.pdf-export .col-match,.pdf-export .col-b{width:auto!important}
   `;
-  const style = document.createElement('style');
+  const style=document.createElement('style');
   style.setAttribute('data-pdf-style','true');
-  style.textContent = css;
+  style.textContent=css;
   document.head.appendChild(style);
 })();
 
-/* ---------- helpers ---------- */
+/* ----- small helpers (read/normalize data) ----- */
 function stripHeaderEmoji(root=document){
   const re=/[\p{Extended_Pictographic}\p{Emoji_Presentation}]/gu;
   root.querySelectorAll('.section-title,.category-header,.compat-category,th').forEach(n=>{
@@ -63,7 +50,7 @@ async function waitUntilReady(container){
     if (hasRows) break;
     if (Date.now()-t0>6000) break;
     await new Promise(r=>setTimeout(r,100));
-  }
+    }
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 }
 function forceTableDisplay(root){
@@ -73,176 +60,170 @@ function forceTableDisplay(root){
   root.querySelectorAll('tr').forEach(e=>e.style.display='table-row');
   root.querySelectorAll('td,th').forEach(e=>e.style.display='table-cell');
 }
-function removeFlagColumn(root){
-  root.querySelectorAll('table').forEach(table=>{
-    const ths = Array.from(table.querySelectorAll('thead th'));
-    if (!ths.length) return;
-    const idx = ths.findIndex(th => th.textContent.trim().toLowerCase() === 'flag');
-    if (idx === -1) return;
-    ths[idx]?.remove();
-    table.querySelectorAll('tbody tr').forEach(tr=>{
-      const cells = tr.querySelectorAll('td, th');
-      cells[idx]?.remove();
-    });
-  });
-}
 function stripProblemImages(root){
   if (!STRIP_IMAGES_IN_PDF) return;
   root.querySelectorAll('img').forEach(img => img.remove());
 }
-
-/* ---------- NEW: make headers/cells no-wrap + materialize marks ---------- */
-function enhancePdfClone(root){
-  // A) Prevent header/cell wrapping like "Partne r B"
-  root.querySelectorAll('th, td').forEach(el=>{
-    // Only keep nowrap for short header/indicator cells; allow long descriptions to wrap
-    const isHeader = el.tagName === 'TH';
-    const isShort  = el.textContent.trim().length <= 14; // heuristic for indicator cols
-    if (isHeader || isShort) {
-      el.style.whiteSpace = 'nowrap';
-      el.style.textOverflow = 'ellipsis';
-      el.style.overflow = 'hidden';
-    }
-  });
-
-  // Heuristic widths: first column wide; the rest equal narrow columns
-  root.querySelectorAll('table').forEach(table=>{
-    const headRow = table.querySelector('thead tr');
-    if (!headRow) return;
-    const cols = Array.from(headRow.children);
-    const n = cols.length;
-    if (n >= 3) {
-      const first = Math.max(40, 100 - (n-1)*15); // e.g., for 4 cols => ~55%
-      cols.forEach((th,i)=>{
-        th.style.width = (i===0 ? `${first}%` : `${(100-first)/(n-1)}%`);
-        th.style.textAlign = i===0 ? 'left' : 'center';
-      });
-      table.querySelectorAll('tbody tr').forEach(tr=>{
-        Array.from(tr.cells).forEach((td,i)=>{
-          td.style.width = (i===0 ? `${first}%` : `${(100-first)/(n-1)}%`);
-          if (i>0) td.style.textAlign = 'center';
-        });
-      });
-    }
-  });
-
-  // B) Turn pseudo-content/background icons into real characters
-  materializeIndicators(root);
+function findCellByHeader(tr, re){
+  const table = tr.closest('table'); const head = table?.querySelector('thead tr'); if (!head) return null;
+  const ths = Array.from(head.children);
+  const idx = ths.findIndex(th => re.test((th.textContent||'').trim()));
+  if (idx === -1) return null;
+  return tr.querySelectorAll('td,th')[idx] || null;
+}
+function parsePercentFromCell(cell){
+  if (!cell) return null;
+  const m=(cell.textContent||'').match(/\d+(\.\d+)?/);
+  return m ? Number(m[0]) : null;
+}
+function parseScore1to5(cell){
+  if (!cell) return null;
+  const raw=(cell.textContent||'').trim();
+  if (!raw || raw==='-' || raw==='–' || /^n\/?a$/i.test(raw)) return null;
+  const n=Number(raw); return Number.isFinite(n)?n:null;
+}
+function getMatchPercent(tr){
+  if (tr.dataset.match){ const n=Number(tr.dataset.match); if (Number.isFinite(n)) return n; }
+  return parsePercentFromCell(findCellByHeader(tr, /match/i));
+}
+function getPartnerScores(tr){
+  const a=parseScore1to5(findCellByHeader(tr, /partner\s*a/i));
+  const b=parseScore1to5(findCellByHeader(tr, /partner\s*b/i));
+  return { a, b };
+}
+/* Your red-flag rules */
+function isRedFlagRow(tr){
+  if (tr.classList.contains('red-flag') || tr.dataset.flag==='red') return true;
+  const pct=getMatchPercent(tr); if (pct!=null && pct<=RED_FLAG_MAX) return true;
+  const {a,b}=getPartnerScores(tr);
+  const oneHigh = x => x!=null && x>=4;
+  const noAns   = x => x==null;
+  if ((oneHigh(a)&&noAns(b)) || (oneHigh(b)&&noAns(a))) return true;
+  return false;
 }
 
-/* Convert empty/placeholder cells to real glyphs so html2canvas captures them. */
-function materializeIndicators(root){
-  // 1) If cells contain a single "-" (placeholder), convert to an en-dash centered
-  root.querySelectorAll('td, th').forEach(td=>{
-    const raw = td.textContent.trim();
-    if (raw === '-') {
-      td.textContent = '–'; // en-dash, more robust visually
-      td.style.textAlign = 'center';
+/* ----- Category + Flag/Star columns (clone-only) ----- */
+function nearestCategoryNameFor(table){
+  let p=table.previousElementSibling;
+  while (p && !/H\d/i.test(p.tagName) && !p.classList.contains('section-title') && !p.classList.contains('category-header') && !p.classList.contains('compat-category')) {
+    p=p.previousElementSibling;
+  }
+  return (p && (p.textContent||'').trim()) || '';
+}
+function ensureCategoryColumn(table){
+  const headRow=table.querySelector('thead tr'); if(!headRow) return;
+  const ths = Array.from(headRow.children);
+  const hasCat = ths.some(th => /^category$/i.test((th.textContent||'').trim()));
+  if (hasCat) return;
+  const th=document.createElement('th'); th.textContent='Category';
+  headRow.insertBefore(th, ths[0]||null);
+  table.querySelectorAll('tbody tr').forEach(tr=>{
+    const td=document.createElement('td'); td.className='col-cat';
+    const first=tr.querySelector('td,th'); tr.insertBefore(td, first||null);
+  });
+  const name = nearestCategoryNameFor(table);
+  if (name) table.querySelectorAll('tbody tr .col-cat').forEach(td => td.textContent=name);
+}
+function ensureFlagColumn(table){
+  const headRow=table.querySelector('thead tr'); if(!headRow) return;
+  const ths = Array.from(headRow.children);
+  const hasFlag = ths.some(th => /^flag$/i.test((th.textContent||'').trim()));
+  if (hasFlag) return;
+  const catExists = ths.some(th => /^category$/i.test((th.textContent||'').trim()));
+  const insertAfter = catExists ? 1 : 0; // after Category & Description
+  const th=document.createElement('th'); th.textContent='Flag';
+  headRow.insertBefore(th, ths[insertAfter+1] || null);
+  table.querySelectorAll('tbody tr').forEach(tr=>{
+    const cells=tr.querySelectorAll('td,th');
+    const td=document.createElement('td'); td.className='col-flag';
+    tr.insertBefore(td, cells[insertAfter+1] || null);
+  });
+}
+function populateFlagsAndStars(table){
+  const headRow=table.querySelector('thead tr'); const ths=Array.from(headRow.children);
+  const flagIdx = ths.findIndex(th => /^flag$/i.test((th.textContent||'').trim()));
+  if (flagIdx===-1) return;
+  table.querySelectorAll('tbody tr').forEach(tr=>{
+    const flagCell = tr.querySelectorAll('td,th')[flagIdx]; if (!flagCell) return;
+    const pct = getMatchPercent(tr);
+    const star = pct!=null && pct>=STAR_MIN;
+    const red  = isRedFlagRow(tr);
+    flagCell.textContent = red ? '🚩' : (star ? '⭐' : '');
+    flagCell.style.textAlign='center';
+  });
+}
+function normalizeGlyphs(root){
+  root.querySelectorAll('td,th').forEach(td=>{
+    const raw=td.textContent.trim();
+    if (raw==='-'){ td.textContent='–'; td.style.textAlign='center'; }
+  });
+  root.querySelectorAll('th,td').forEach(el=>{
+    const txt=el.textContent.trim();
+    if (txt.length<=14 || el.tagName==='TH'){
+      el.style.whiteSpace='nowrap'; el.style.textOverflow='ellipsis'; el.style.overflow='hidden';
     }
-  });
-
-  // 2) If you use classes/data-state, convert to ✓ ✗ –
-  root.querySelectorAll('td, th').forEach(td=>{
-    if (td.textContent.trim()) return;
-    const st = td.dataset.state;
-    const c  = td.classList;
-    const yes = st==='yes' || c.contains('yes') || c.contains('true') || c.contains('checked');
-    const no  = st==='no'  || c.contains('no')  || c.contains('false') || c.contains('unchecked');
-    const dash= st==='dash'|| c.contains('dash')|| c.contains('empty')  || c.contains('na');
-    if (yes)  td.textContent = '✓';
-    if (no)   td.textContent = '✗';
-    if (dash) td.textContent = '–';
-    if (yes || no || dash) td.style.textAlign = 'center';
-  });
-
-  // 3) Copy pseudo-element text (if any) into the DOM
-  root.querySelectorAll('*').forEach(el=>{
-    const before = getComputedStyle(el, '::before').content;
-    const after  = getComputedStyle(el, '::after').content;
-    const inject = (txt)=>{
-      if (!txt || txt === 'none' || txt === 'normal' || txt === '""') return;
-      const t = txt.replace(/^"(.*)"$/,'$1'); // strip quotes
-      if (!t) return;
-      const s = document.createElement('span');
-      s.textContent = t;
-      s.style.marginLeft = '4px';
-      el.appendChild(s);
-    };
-    inject(before); inject(after);
   });
 }
 
-/* ---------- clone builder ---------- */
+/* ----- Clone builder (does not alter live DOM layout) ----- */
 function makeClone(){
-  const src=document.getElementById('pdf-container');
-  if(!src) throw new Error('#pdf-container not found');
-
+  const src=document.getElementById('pdf-container'); if(!src) throw new Error('#pdf-container not found');
   const shell=document.createElement('div');
   Object.assign(shell.style,{background:'#000',color:'#fff',margin:'0',padding:'0',width:'100%',minHeight:'100vh',overflow:'auto'});
+  const clone=src.cloneNode(true); clone.classList.add('pdf-export');
 
-  const clone=src.cloneNode(true);
-  clone.classList.add('pdf-export');
-  // remove UI-only bits
   clone.querySelectorAll('[data-hide-in-pdf], .download-btn, .print-btn, nav, header, footer').forEach(e=>e.remove());
+  stripHeaderEmoji(clone); stripProblemImages(clone); forceTableDisplay(clone);
 
-  // cleanup + layout hardening
-  stripHeaderEmoji(clone);
-  removeFlagColumn(clone);
-  stripProblemImages(clone);
-  forceTableDisplay(clone);
-  enhancePdfClone(clone);  // <-- key fixes for wrap + marks
+  // add Category + Flag columns and fill
+  clone.querySelectorAll('table').forEach(t=>{
+    ensureCategoryColumn(t);
+    ensureFlagColumn(t);
+    populateFlagsAndStars(t);
+  });
+  normalizeGlyphs(clone);
 
-  shell.appendChild(clone);
-  document.body.appendChild(shell);
-
+  shell.appendChild(clone); document.body.appendChild(shell);
   if (PDF_DEBUG_SHOW_CLONE){
     Object.assign(shell.style,{position:'fixed',inset:'0',zIndex:'999999'});
     const banner=document.createElement('div');
     banner.textContent='PDF CLONE PREVIEW — press ESC to close';
     Object.assign(banner.style,{position:'sticky',top:'0',padding:'8px 12px',background:'#111',color:'#fff',fontSize:'12px',zIndex:'1000000'});
-    shell.prepend(banner);
-    window.addEventListener('keydown',e=>{ if(e.key==='Escape') shell.remove(); });
+    shell.prepend(banner); window.addEventListener('keydown',e=>{ if(e.key==='Escape') shell.remove(); });
   }
   return { shell, clone };
 }
 
-/* ---------- sizing/tiling plan ---------- */
+/* ----- sizing/tiling & render ----- */
 function measure(el){
   const r=el.getBoundingClientRect();
-  const width  = Math.ceil(Math.max(el.scrollWidth, r.width, document.documentElement.clientWidth));
-  const height = Math.ceil(Math.max(el.scrollHeight, r.height));
+  const width=Math.ceil(Math.max(el.scrollWidth, r.width, document.documentElement.clientWidth));
+  const height=Math.ceil(Math.max(el.scrollHeight, r.height));
   if (width===0 || height===0) throw new Error('Zero-size clone (display:none or empty content)');
   return { width, height };
 }
 function plan(width, height){
-  const MAX_MP=16, defaultScale=2;
+  const MAX_MP=18, defaultScale=2;
   let scale=defaultScale;
   let mp=(width*height*scale*scale)/1e6;
   if (mp>MAX_MP) scale=Math.max(1, Math.sqrt((MAX_MP*1e6)/(width*height)));
-  const targetSlicePx=2200;                 // rendered pixels per vertical slice
-  const renderedH=height*scale;
-  const slices=Math.ceil(renderedH/targetSlicePx);
+  const targetSlicePx=2400, renderedH=height*scale, slices=Math.ceil(renderedH/targetSlicePx);
   return { scale, slices, targetSlicePx };
 }
 async function renderTile(root, width, sliceCssHeight, yOffset, scale){
-  return await html2canvas(root, {
-    backgroundColor:'#000', scale,
-    useCORS:true, allowTaint:true,
-    scrollX:0, scrollY:0,
-    windowWidth:width,
-    windowHeight:sliceCssHeight,
-    height:sliceCssHeight,
-    y:yOffset
+  return await html2canvas(root,{
+    backgroundColor:'#000', scale, useCORS:true, allowTaint:true,
+    scrollX:0, scrollY:0, windowWidth:width, windowHeight:sliceCssHeight,
+    height:sliceCssHeight, y:yOffset
   });
 }
 
-/* ============================== MAIN EXPORTER ============================== */
+/* ----- Main export ----- */
 export async function downloadCompatibilityPDF(){
   const jsPDFCtor = assertLibsOrThrow();
   try{
     const container=document.getElementById('pdf-container');
     if(!container) throw new Error('PDF container (#pdf-container) not found.');
-
     await waitUntilReady(container);
 
     const { shell, clone } = makeClone();
@@ -251,29 +232,27 @@ export async function downloadCompatibilityPDF(){
     const { width, height } = measure(clone);
     const { scale, slices, targetSlicePx } = plan(width, height);
 
-    const pdf = new jsPDFCtor({ unit:'pt', format:'letter', orientation:'portrait' });
+    const pdf = new jsPDFCtor({ unit:'pt', format:'letter', orientation:PDF_ORIENTATION });
     const pageW = pdf.internal.pageSize.getWidth();
 
     if (slices <= 1){
       const canvas = await renderTile(clone, width, height, 0, scale);
       const img = canvas.toDataURL('image/jpeg', 0.92);
       const ratio = canvas.height / canvas.width;
-      pdf.addImage(img, 'JPEG', 0, 0, pageW, pageW * ratio, undefined, 'FAST');
+      pdf.addImage(img, 'JPEG', 0, 0, pageW, pageW*ratio, undefined, 'FAST');
     } else {
-      const cssSliceH = Math.ceil(targetSlicePx / scale);
-      let y = 0;
+      const cssSliceH = Math.ceil(targetSlicePx/scale);
+      let y=0;
       for (let i=0;i<slices;i++){
-        const remaining = height - y;
-        const sliceH = Math.min(cssSliceH, remaining);
-        const canvas = await renderTile(clone, width, sliceH, y, scale);
-        const img = canvas.toDataURL('image/jpeg', 0.9);
-        const ratio = canvas.height / canvas.width;
+        const remaining=height-y, sliceH=Math.min(cssSliceH, remaining);
+        const canvas=await renderTile(clone, width, sliceH, y, scale);
+        const img=canvas.toDataURL('image/jpeg', 0.9);
+        const ratio=canvas.height/canvas.width;
         if (i>0) pdf.addPage();
-        pdf.addImage(img, 'JPEG', 0, 0, pageW, pageW * ratio, undefined, 'FAST');
-        y += sliceH;
+        pdf.addImage(img, 'JPEG', 0, 0, pageW, pageW*ratio, undefined, 'FAST');
+        y+=sliceH;
       }
     }
-
     pdf.save('kink-compatibility.pdf');
     if (!PDF_DEBUG_SHOW_CLONE) document.body.removeChild(shell);
   }catch(err){
@@ -282,10 +261,9 @@ export async function downloadCompatibilityPDF(){
   }
 }
 
-/* Keep legacy names working + optional global for non-module callers */
+/* Aliases + global */
 export const exportToPDF = downloadCompatibilityPDF;
 export const exportCompatPDF = downloadCompatibilityPDF;
 export const exportKinkCompatibilityPDF = downloadCompatibilityPDF;
 export const generateCompatibilityPDF = downloadCompatibilityPDF;
 if (typeof window !== 'undefined') window.downloadCompatibilityPDF = downloadCompatibilityPDF;
-
