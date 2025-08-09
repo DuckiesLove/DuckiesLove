@@ -34,6 +34,19 @@ NOTES
 */
 
 const PDF_DEBUG_SHOW_CLONE = false; // Set true to preview clone overlay before saving
+const STRIP_IMAGES_IN_PDF = true; // Toggle if remote images have no CORS headers
+
+// Log availability of PDF-related libraries
+function logPdfEnv(tag = '[pdf]') {
+  const hasH2P = !!window.html2pdf;
+  const jsPDFCtor =
+    (window.jspdf && window.jspdf.jsPDF) ||
+    (window.jsPDF && window.jsPDF.jsPDF) ||
+    window.jsPDF;
+  const hasH2C = !!window.html2canvas;
+  console.log(`${tag} libs: html2pdf=${hasH2P} html2canvas=${hasH2C} jsPDF=${!!jsPDFCtor}`);
+  return { jsPDFCtor, hasH2P, hasH2C };
+}
 
 // --- Ensure html2pdf (bundles html2canvas + jsPDF) is available ---
 function ensureHtml2Pdf() {
@@ -73,6 +86,13 @@ function stripHeaderEmoji(root = document) {
   });
 }
 
+function stripProblemImages(root) {
+  if (!STRIP_IMAGES_IN_PDF) return;
+  root.querySelectorAll('img').forEach(img => {
+    img.remove();
+  });
+}
+
 async function waitUntilRenderReady(container){
   if (document.fonts?.ready) { try { await document.fonts.ready; } catch(_){} }
   const t0=Date.now();
@@ -107,6 +127,7 @@ function makePdfClone(){
   clone.classList.add('pdf-export');
   clone.querySelectorAll('[data-hide-in-pdf], .download-btn, .print-btn, nav, header, footer').forEach(el=>el.remove());
   stripHeaderEmoji(clone);
+  stripProblemImages(clone);
 
   shell.appendChild(clone);
   document.body.appendChild(shell);
@@ -147,7 +168,12 @@ function chooseScaleAndTiling(width, height){
 
 /* Render one vertical tile using html2canvas directly */
 async function renderTileToCanvas(root, width, sliceCssHeight, yOffset, scale){
-  return await html2canvas(root, {
+  const h2c = window.html2canvas;
+  if (!h2c) {
+    console.error('[pdf] html2canvas not found (should be bundled with html2pdf).');
+    throw new Error('html2canvas missing');
+  }
+  return await h2c(root, {
     backgroundColor: '#000',
     scale,
     useCORS: true,
@@ -186,13 +212,26 @@ export async function downloadCompatibilityPDF(){
     const { scale, slices, targetSlicePx } = chooseScaleAndTiling(width, height);
     console.log('[pdf] size=', width, 'x', height, ' scale=', scale.toFixed(2), ' slices=', slices);
 
-    const pdf = new jspdf.jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' });
+    const { jsPDFCtor } = logPdfEnv();
+    if (!jsPDFCtor) {
+      console.error('[pdf] jsPDF not found: window.jspdf.jsPDF OR window.jsPDF.jsPDF missing.');
+      alert('Could not generate PDF: jsPDF library missing.');
+      return;
+    }
+    const pdf = new jsPDFCtor({ unit: 'pt', format: 'letter', orientation: 'portrait' });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
 
+    const h2c = window.html2canvas;
+    if (!h2c) {
+      console.error('[pdf] html2canvas not found (should be bundled with html2pdf).');
+      alert('Could not generate PDF: html2canvas missing.');
+      return;
+    }
+
     if (slices <= 1) {
       // Single-shot render
-      const canvas = await html2canvas(clone, {
+      const canvas = await h2c(clone, {
         backgroundColor: '#000',
         scale,
         useCORS: true,
