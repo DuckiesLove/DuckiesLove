@@ -126,34 +126,6 @@ function groupKinksByCategory(data) {
   });
   return grouped;
 }
-
-function renderCategoryRow(categoryName, categoryData) {
-  const percent = calculateCategoryMatch(categoryData);
-  const flag = getFlagEmoji(percent);
-  const tr = document.createElement('tr');
-  tr.classList.add('category-header');
-  tr.innerHTML = `
-    <td colspan="5" class="category-cell">
-      <div class="category-banner">
-        <span class="category-flag">${flag}</span>
-        <span class="category-name">${categoryName}</span>
-      </div>
-    </td>`;
-  return tr;
-}
-
-function renderCategoryHeaderPDF(doc, categoryName, categoryData) {
-  const percent = calculateCategoryMatch(categoryData);
-  const flag = getFlagEmoji(percent);
-  doc.moveDown(0.4);
-  doc
-    .fontSize(14)
-    .font('Helvetica-Bold')
-    .fillColor('red')
-    .text(`${flag} ${categoryName}`, { align: 'left' })
-    .moveDown(0.2);
-  doc.fillColor('white');
-}
 function loadSavedSurvey() {
   const saved = localStorage.getItem('savedSurvey');
   if (!saved) return;
