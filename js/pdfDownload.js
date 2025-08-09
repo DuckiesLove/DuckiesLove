@@ -14,7 +14,26 @@ const STRIP_IMAGES_IN_PDF   = true;   // remove <img> in clone to avoid CORS/tai
 
 /* ---------- DIAG ---------- */
 const DIAG = (m,o)=>console.log('[pdf] DIAG:', m, o??'');
-(function envCheck(){
+let __pdfLibsPromise;
+async function ensurePdfLibs(){
+  const hasH2c = !!window.html2canvas;
+  const hasJsPDF = !!((window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF));
+  if (hasH2c && hasJsPDF) return;
+  if (!__pdfLibsPromise){
+    __pdfLibsPromise = new Promise((res, rej) => {
+      if (!document?.head){ rej(new Error('document.head missing')); return; }
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js';
+      s.onload = () => res();
+      s.onerror = () => rej(new Error('Failed to load html2pdf bundle'));
+      document.head.appendChild(s);
+    });
+  }
+  await __pdfLibsPromise;
+}
+
+(async function envCheck(){
+  try{ await ensurePdfLibs(); }catch(e){ DIAG('bundle load failed', e); }
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
   DIAG('env', {
     html2canvas: !!window.html2canvas,
@@ -159,6 +178,7 @@ async function renderTile(root, width, sliceCssHeight, yOffset, scale){
 /* =========================== MAIN EXPORTER =========================== */
 export async function downloadCompatibilityPDF(){
   try{
+    await ensurePdfLibs();
     const jsPDFCtor = window.jspdf?.jsPDF || window.jsPDF?.jsPDF;
     if (!window.html2canvas) return alert('Could not generate PDF: html2canvas missing (bundle not loaded?).');
     if (!jsPDFCtor)         return alert('Could not generate PDF: jsPDF missing (bundle not loaded?).');
