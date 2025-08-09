@@ -1,9 +1,7 @@
-/* Black PDF, full-width, with Category + single Flag column (⭐/🚩) — live DOM untouched */
+/* Black PDF, full-width, Category column only (no Flag column) — live DOM untouched */
 const PDF_DEBUG_SHOW_CLONE = false;
 const STRIP_IMAGES_IN_PDF = true;
 const PDF_ORIENTATION = 'landscape';
-const STAR_MIN = 90;          // ⭐ threshold
-const RED_FLAG_MAX = 50;      // 🚩 threshold
 
 function assertLibsOrThrow(){
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
@@ -22,11 +20,10 @@ function assertLibsOrThrow(){
   .pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:auto!important;background:transparent!important;color:#fff!important}
   .pdf-export thead th{font-weight:800!important;text-align:center!important;white-space:nowrap!important}
   .pdf-export th,.pdf-export td{border:none!important;padding:7px 10px!important;line-height:1.25!important;vertical-align:middle!important;box-sizing:border-box!important;page-break-inside:avoid!important;break-inside:avoid!important}
-  .pdf-export td{text-align:center!important;white-space:nowrap!important}
-  /* Column widths to fix “smushed” look and align headers */
-  .pdf-export .col-cat   {width:18%!important;text-align:left!important;white-space:nowrap!important}
-  .pdf-export .col-desc  {width:54%!important;text-align:left!important;white-space:normal!important}
-  .pdf-export .col-flag  {width:6%!important}
+  .pdf-export .col-cat, .pdf-export .col-desc {text-align:left!important;white-space:normal!important}
+  .pdf-export .col-a, .pdf-export .col-match, .pdf-export .col-b {text-align:center!important;white-space:nowrap!important}
+  .pdf-export .col-cat   {width:18%!important}
+  .pdf-export .col-desc  {width:60%!important}
   .pdf-export .col-a     {width:7%!important}
   .pdf-export .col-match {width:7%!important}
   .pdf-export .col-b     {width:8%!important}
@@ -91,17 +88,7 @@ function readRowValues(tr){
   return {a,b,m};
 }
 
-/* ---------- flag logic (single “Flag” column) ---------- */
-function isRedFlagRow(tr, vals){
-  if (tr.classList.contains('red-flag') || tr.dataset.flag==='red') return true;
-  const {a,b,m} = vals;
-  if (m!=null && m<=RED_FLAG_MAX) return true;
-  const oneHigh = x=>x!=null && x>=4;
-  const noAns   = x=>x==null;
-  return (oneHigh(a)&&noAns(b)) || (oneHigh(b)&&noAns(a));
-}
-
-/* ---------- Category + single Flag column ---------- */
+/* ---------- Category column helpers ---------- */
 function nearestCategoryNameFor(table){
   let p=table.previousElementSibling;
   while (p && !/H\d/i.test(p.tagName) && !p.classList.contains('section-title') && !p.classList.contains('category-header') && !p.classList.contains('compat-category')) p=p.previousElementSibling;
@@ -121,24 +108,19 @@ function ensureCategoryColumn(table){
     if (name) table.querySelectorAll('tbody tr .col-cat').forEach(td=>td.textContent=name);
   }
 }
-function ensureSingleFlagColumn(table){
-  const head=table.querySelector('thead tr'); if (!head) return;
-  const ths=[...head.children];
-  // remove any existing "Flag/Star" heading to avoid duplicates
-  ths.filter(th => /flag\/?star/i.test((th.textContent||'').trim())).forEach(th => th.remove());
-  // ensure exactly one "Flag"
-  let flagTh = ths.find(th => /^flag$/i.test((th.textContent||'').trim()));
-  if (!flagTh){
-    const catExists = ths.some(th => /^category$/i.test((th.textContent||'').trim()));
-    const insertAfter = catExists ? 1 : 0; // after Category & Description
-    const th=document.createElement('th'); th.textContent='Flag';
-    head.insertBefore(th, ths[insertAfter+1] || null);
-    table.querySelectorAll('tbody tr').forEach(tr=>{
-      const cells=tr.querySelectorAll('td,th');
-      const td=document.createElement('td'); td.className='col-flag';
-      tr.insertBefore(td, cells[insertAfter+1] || null);
-    });
-  }
+function removeFlagColumn(table){
+  const head = table.querySelector('thead tr');
+  if (!head) return;
+  const ths = [...head.children];
+  const idx = ths.findIndex(th => /flag/i.test((th.textContent||'').trim()));
+  if (idx === -1) return;
+  ths[idx].remove();
+  const cols = table.querySelectorAll('colgroup col');
+  if (cols[idx]) cols[idx].remove();
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    const cells = tr.querySelectorAll('td,th');
+    if (cells[idx]) cells[idx].remove();
+  });
 }
 function labelColumns(table){
   const head=table.querySelector('thead tr'); if (!head) return;
@@ -147,7 +129,6 @@ function labelColumns(table){
     const text=(th.textContent||'').trim().toLowerCase();
     if (text==='category') th.classList.add('col-cat');
     else if (i===0 || /description|item|activity/.test(text)) th.classList.add('col-desc'); // first data col is description
-    else if (text==='flag') th.classList.add('col-flag');
     else if (/partner\s*a/.test(text)) th.classList.add('col-a');
     else if (/match/.test(text)) th.classList.add('col-match');
     else if (/partner\s*b/.test(text)) th.classList.add('col-b');
@@ -157,11 +138,10 @@ function labelColumns(table){
     const cells=[...tr.cells]; cells.forEach((td,i)=>{ const cls=ths[i]?.className; if (cls) td.classList.add(...cls.split(/\s+/)); });
   });
 }
-function populateValuesAndFlags(table){
+function populateValues(table){
   const head=table.querySelector('thead tr'); if (!head) return;
   const ths=[...head.children];
   const idx = {
-    flag : ths.findIndex(th=>/^flag$/i.test((th.textContent||'').trim())),
     a    : ths.findIndex(th=>/partner\s*a/i.test((th.textContent||'').trim())),
     match: ths.findIndex(th=>/match/i.test((th.textContent||'').trim())),
     b    : ths.findIndex(th=>/partner\s*b/i.test((th.textContent||'').trim()))
@@ -169,17 +149,9 @@ function populateValuesAndFlags(table){
   table.querySelectorAll('tbody tr').forEach(tr=>{
     const vals = readRowValues(tr);
     const cells = tr.querySelectorAll('td,th');
-    // write text if missing
     if (idx.a>-1 && cells[idx.a] && !cells[idx.a].textContent.trim() && vals.a!=null) cells[idx.a].textContent = String(vals.a);
     if (idx.b>-1 && cells[idx.b] && !cells[idx.b].textContent.trim() && vals.b!=null) cells[idx.b].textContent = String(vals.b);
     if (idx.match>-1 && cells[idx.match] && !cells[idx.match].textContent.trim() && vals.m!=null) cells[idx.match].textContent = `${vals.m}%`;
-    // single Flag column
-    if (idx.flag>-1 && cells[idx.flag]) {
-      const red = isRedFlagRow(tr, vals);
-      const star = vals.m!=null && vals.m>=STAR_MIN;
-      cells[idx.flag].textContent = red ? '🚩' : (star ? '⭐' : '');
-      cells[idx.flag].style.textAlign = 'center';
-    }
   });
 }
 function normalizeGlyphs(root){
@@ -203,12 +175,12 @@ function makeClone(){
   clone.querySelectorAll('[data-hide-in-pdf], .download-btn, .print-btn, nav, header, footer').forEach(e=>e.remove());
   stripHeaderEmoji(clone); stripProblemImages(clone); forceTableDisplay(clone);
 
-  // per-table augmentation (Category + single Flag + mapping + widths)
+  // per-table augmentation (add Category column, drop Flag column, map classes)
   clone.querySelectorAll('table').forEach(t=>{
     ensureCategoryColumn(t);
-    ensureSingleFlagColumn(t);   // <- guarantees only ONE “Flag” header
+    removeFlagColumn(t);
     labelColumns(t);
-    populateValuesAndFlags(t);
+    populateValues(t);
   });
   normalizeGlyphs(clone);
 
