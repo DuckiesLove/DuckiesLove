@@ -58,262 +58,126 @@ function forceTableDisplay(root){
 }
 function stripProblemImages(root){ if (!STRIP_IMAGES_IN_PDF) return; root.querySelectorAll('img').forEach(i=>i.remove()); }
 
-/* === PDF CLONE COLUMN FIX — move Description into Category, remove Flag, restore widths === */
-(function ensurePdfFixCSS(){
+/* ====== 1) PDF-only CSS (once) ====== */
+(function injectPdfColumnFixCSS(){
   if (document.querySelector('style[data-pdf-column-fix]')) return;
   const css = `
-    .pdf-export table{ table-layout:fixed !important; width:100% !important; border-collapse:collapse !important }
-    .pdf-export th,.pdf-export td{ padding:7px 10px !important; vertical-align:top !important; color:#fff !important; background:transparent !important }
-    /* final layout after merge: 1) Category  2) Partner A  3) Match  4) Partner B */
-    .pdf-export tr > *:nth-child(1){ width:64% !important; text-align:left !important; white-space:normal !important }
-    .pdf-export tr > *:nth-child(2){ width:12% !important; text-align:center !important; white-space:nowrap !important }
-    .pdf-export tr > *:nth-child(3){ width:12% !important; text-align:center !important; white-space:nowrap !important }
-    .pdf-export tr > *:nth-child(4){ width:12% !important; text-align:center !important; white-space:nowrap !important }
+    .pdf-export table{ table-layout:fixed!important; width:100%!important; border-collapse:collapse!important }
+    .pdf-export th,.pdf-export td{ padding:7px 10px!important; vertical-align:top!important; color:#fff!important; background:transparent!important }
+    /* Final layout after fix: 1) Category  2) Partner A  3) Match  4) Partner B */
+    .pdf-export tr > *:nth-child(1){ width:64%!important; text-align:left!important; white-space:normal!important }
+    .pdf-export tr > *:nth-child(2),
+    .pdf-export tr > *:nth-child(3),
+    .pdf-export tr > *:nth-child(4){ width:12%!important; text-align:center!important; white-space:nowrap!important }
   `;
-  const s=document.createElement('style');
-  s.setAttribute('data-pdf-column-fix','true');
-  s.textContent=css;
+  const s=document.createElement('style'); s.setAttribute('data-pdf-column-fix','true'); s.textContent=css;
   document.head.appendChild(s);
 })();
 
-/* call this on the CLONED tree (e.g., inside your makeClone() result) */
-function fixPdfTables(root){
-  root.querySelectorAll('table').forEach(table=>{
-    const headRow = table.querySelector('thead tr');
-    const bodyRows = table.querySelectorAll('tbody tr');
-    if (!headRow || !bodyRows.length) return;
+/* ====== 2) Helper: normalize ONE table in the CLONE ====== */
+function fixOneTable(table){
+  const headRow = table.querySelector('thead tr');
+  const bodyRows = table.querySelectorAll('tbody tr');
+  if (!headRow || !bodyRows.length) return;
 
-    const headers = Array.from(headRow.children).map(th => (th.textContent||'').trim().toLowerCase());
+  // Remove any Flag / Flag-Star column
+  const headers = Array.from(headRow.children).map(th => (th.textContent||'').trim().toLowerCase());
+  const idxFlag = headers.findIndex(h => /^flag(\/star)?$/.test(h));
+  if (idxFlag > -1){
+    headRow.children[idxFlag].remove();
+    bodyRows.forEach(tr => tr.children[idxFlag] && tr.children[idxFlag].remove());
+  }
 
-    // indexes we want to keep by name
-    const idxCategory = headers.findIndex(h => h === 'category');
-    const idxA        = headers.findIndex(h => /partner\s*a\b/.test(h));
-    const idxMatch    = headers.findIndex(h => /\bmatch\b/.test(h));
-    const idxB        = headers.findIndex(h => /partner\s*b\b/.test(h));
+  // Identify key columns by header text
+  function hIdx(re){ const ths=[...table.querySelector('thead tr').children]; return ths.findIndex(th=>re.test((th.textContent||'').trim().toLowerCase())); }
+  let iCat   = hIdx(/^category$/);
+  const iA   = hIdx(/partner\s*a/);
+  const iM   = hIdx(/\bmatch\b/);
+  const iB   = hIdx(/partner\s*b/);
 
-    // remove any "flag" header/column first (if present)
-    const idxFlag = headers.findIndex(h => /^flag(\/star)?$/.test(h));
-    if (idxFlag > -1){
-      headRow.children[idxFlag].remove();
-      bodyRows.forEach(tr => tr.children[idxFlag]?.remove());
-      headers.splice(idxFlag,1);
+  // Find likely "description" column: first column that isn't Cat/A/Match/B and has text
+  const banned = new Set([iCat,iA,iM,iB].filter(i=>i>=0));
+  let iDesc = -1;
+  const ths=[...table.querySelector('thead tr').children];
+  for (let i=0;i<ths.length;i++){
+    if (banned.has(i)) continue;
+    let hasText = 0;
+    for (const tr of bodyRows){
+      const cell = tr.children[i];
+      if (cell && cell.textContent.trim()) { hasText++; if (hasText>=Math.ceil(bodyRows.length*0.1)) break; }
     }
+    if (hasText){ iDesc=i; break; }
+  }
+  // If no Category header, treat leftmost as Category
+  if (iCat < 0) iCat = 0;
 
-    // determine a likely Description column (the leftmost column that:
-    //  - is not Category/Partner A/Match/Partner B,
-    //  - actually has text in body cells)
-    const disallowed = new Set([idxCategory, idxA, idxMatch, idxB].filter(i=>i>=0));
-    let idxDesc = -1;
-    for (let i=0;i<headers.length;i++){
-      if (disallowed.has(i)) continue;
-      // check if most rows have some text in this column
-      let hits = 0;
-      for (const tr of bodyRows){
-        const cell = tr.children[i];
-        if (cell && cell.textContent.trim()) { hits++; if (hits >= Math.ceil(bodyRows.length*0.15)) break; }
-      }
-      if (hits) { idxDesc = i; break; }
-    }
-
-    // fallbacks: assume first non-category column is description
-    if (idxDesc === -1) {
-      for (let i=0;i<headers.length;i++){
-        if (i !== idxCategory && !/partner\s*a|match|partner\s*b/i.test(headers[i]||'')) { idxDesc = i; break; }
-      }
-    }
-
-    // if we could not find a Category header, treat the leftmost column as Category
-    const catIndex = idxCategory >= 0 ? idxCategory : 0;
-
-    // if we found a description column different from Category, move its text into Category and remove that column
-    if (idxDesc >= 0 && idxDesc !== catIndex){
-      // header remove
-      headRow.children[idxDesc]?.remove();
-      // body: merge text
-      bodyRows.forEach(tr=>{
-        const catCell  = tr.children[catIndex];
-        const descCell = tr.children[idxDesc]; // note: after previous removes, indexes may shift; we removed only head so far
-        if (!catCell || !descCell) return;
-        const dText = descCell.textContent;
-        if (dText && dText.trim()){
-          if (!catCell.textContent.trim()) catCell.textContent = dText.trim();
-          else catCell.textContent = (catCell.textContent + ' — ' + dText.trim()).replace(/\s+/g,' ');
+  // Merge description -> Category, then drop the desc column
+  if (iDesc >= 0 && iDesc !== iCat){
+    // Remove desc header
+    table.querySelector('thead tr').children[iDesc]?.remove();
+    // Merge each row's desc into category cell, then remove desc cell
+    bodyRows.forEach(tr=>{
+      const cells = tr.children;
+      const catCell  = cells[iCat];
+      const descCell = cells[iDesc]; // still valid because we haven't touched body yet
+      if (catCell && descCell){
+        const d = descCell.textContent.trim();
+        if (d){
+          if (!catCell.textContent.trim()) catCell.textContent = d;
+          else catCell.textContent = (catCell.textContent + ' — ' + d).replace(/\s+/g,' ');
         }
         descCell.remove();
-      });
-    }
-
-    // After potential removal, re-evaluate remaining headers to ensure order becomes:
-    // Category | Partner A | Match | Partner B
-    function headerIndex(labelRegex){
-      const row = table.querySelector('thead tr');
-      const cells = Array.from(row.children).map(th => (th.textContent||'').trim().toLowerCase());
-      return cells.findIndex(h => labelRegex.test(h));
-    }
-    const want = [
-      headerIndex(/^category$/),
-      headerIndex(/partner\s*a\b/),
-      headerIndex(/\bmatch\b/),
-      headerIndex(/partner\s*b\b/)
-    ];
-    // if any of those are -1, we just leave the current order; the CSS widths use nth-child
-
-    // normalize alignment on the now-first column (Category)
-    const firstIdx = 0;
-    table.querySelectorAll('thead tr > *:nth-child('+(firstIdx+1)+')').forEach(el=>{
-      el.style.textAlign='left';
-      el.style.whiteSpace='normal';
+      }
     });
-    table.querySelectorAll('tbody tr > *:nth-child('+(firstIdx+1)+')').forEach(el=>{
-      el.style.textAlign='left';
-      el.style.whiteSpace='normal';
-    });
-    // numeric cols centered
-    [2,3,4].forEach(n=>{
-      table.querySelectorAll(`thead tr > *:nth-child(${n}), tbody tr > *:nth-child(${n})`).forEach(el=>{
-        el.style.textAlign='center';
-        el.style.whiteSpace='nowrap';
-      });
-    });
-  });
-}
-
-
-/* ---------- value readers (text OR data-*) ---------- */
-function findCellByHeader(tr, re){
-  const head = tr.closest('table')?.querySelector('thead tr'); if (!head) return null;
-  const ths = [...head.children]; const idx = ths.findIndex(th => re.test((th.textContent||'').trim()));
-  if (idx === -1) return null; return tr.querySelectorAll('td,th')[idx] || null;
-}
-function numberOrNull(v){ const n=Number(v); return Number.isFinite(n)?n:null; }
-function parsePercent(cell){ if(!cell) return null; const m=(cell.textContent||'').match(/\d+(\.\d+)?/); return m?Number(m[0]):null; }
-function parseScore1to5(cell){
-  if (!cell) return null; const raw=(cell.textContent||'').trim();
-  if (!raw || raw==='-' || raw==='–' || /^n\/?a$/i.test(raw)) return null;
-  const n=Number(raw); return Number.isFinite(n)?n:null;
-}
-function readRowValues(tr){
-  // from row data-* if present
-  let a = numberOrNull(tr.dataset.partnerA ?? tr.dataset.a);
-  let b = numberOrNull(tr.dataset.partnerB ?? tr.dataset.b);
-  let m = numberOrNull(tr.dataset.match);
-  // from cell data-val
-  const cellA=findCellByHeader(tr,/partner\s*a/i), cellB=findCellByHeader(tr,/partner\s*b/i), cellM=findCellByHeader(tr,/match/i);
-  if (a==null) a = numberOrNull(cellA?.dataset?.val);
-  if (b==null) b = numberOrNull(cellB?.dataset?.val);
-  if (m==null) m = numberOrNull(cellM?.dataset?.val);
-  // from visible text
-  if (a==null) a = parseScore1to5(cellA);
-  if (b==null) b = parseScore1to5(cellB);
-  if (m==null) m = parsePercent(cellM);
-  return {a,b,m};
-}
-
-/* ---------- Category column helpers ---------- */
-function nearestCategoryNameFor(table){
-  let p=table.previousElementSibling;
-  while (p && !/H\d/i.test(p.tagName) && !p.classList.contains('section-title') && !p.classList.contains('category-header') && !p.classList.contains('compat-category')) p=p.previousElementSibling;
-  return (p && (p.textContent||'').trim()) || '';
-}
-function ensureCategoryColumn(table){
-  const head=table.querySelector('thead tr'); if (!head) return;
-  const ths=[...head.children]; const hasCat = ths.some(th => /^category$/i.test((th.textContent||'').trim()));
-  if (!hasCat){
-    const th=document.createElement('th'); th.textContent='Category';
-    head.insertBefore(th, ths[0]||null);
-    table.querySelectorAll('tbody tr').forEach(tr=>{
-      const td=document.createElement('td'); td.className='col-cat';
-      const first=tr.querySelector('td,th'); tr.insertBefore(td, first||null);
-    });
-    const name=nearestCategoryNameFor(table);
-    if (name) table.querySelectorAll('tbody tr .col-cat').forEach(td=>td.textContent=name);
   }
-}
-function removeFlagColumn(table){
-  const head = table.querySelector('thead tr');
-  if (!head) return;
-  const ths = [...head.children];
-  const idx = ths.findIndex(th => /flag/i.test((th.textContent||'').trim()));
-  if (idx === -1) return;
-  ths[idx].remove();
-  const cols = table.querySelectorAll('colgroup col');
-  if (cols[idx]) cols[idx].remove();
-  table.querySelectorAll('tbody tr').forEach(tr => {
-    const cells = tr.querySelectorAll('td,th');
-    if (cells[idx]) cells[idx].remove();
-  });
-}
-function labelColumns(table){
-  const head=table.querySelector('thead tr'); if (!head) return;
-  const ths=[...head.children];
-  ths.forEach((th,i)=>{
-    const text=(th.textContent||'').trim().toLowerCase();
-    if (text==='category') th.classList.add('col-cat');
-    else if (i===0 || /description|item|activity/.test(text)) th.classList.add('col-desc'); // first data col is description
-    else if (/partner\s*a/.test(text)) th.classList.add('col-a');
-    else if (/match/.test(text)) th.classList.add('col-match');
-    else if (/partner\s*b/.test(text)) th.classList.add('col-b');
-  });
-  // mirror classes to body cells by index
-  table.querySelectorAll('tbody tr').forEach(tr=>{
-    const cells=[...tr.cells]; cells.forEach((td,i)=>{ const cls=ths[i]?.className; if (cls) td.classList.add(...cls.split(/\s+/)); });
-  });
-}
-function populateValues(table){
-  const head=table.querySelector('thead tr'); if (!head) return;
-  const ths=[...head.children];
-  const idx = {
-    a    : ths.findIndex(th=>/partner\s*a/i.test((th.textContent||'').trim())),
-    match: ths.findIndex(th=>/match/i.test((th.textContent||'').trim())),
-    b    : ths.findIndex(th=>/partner\s*b/i.test((th.textContent||'').trim()))
+
+  // Ensure we now have 4 columns max (Cat, A, Match, B). If more, drop any extras at the end.
+  function colCount(){ return table.querySelector('thead tr').children.length; }
+  while (colCount() > 4) {
+    const last = colCount()-1;
+    table.querySelector('thead tr').children[last].remove();
+    bodyRows.forEach(tr => tr.children[last] && tr.children[last].remove());
+  }
+
+  // Alignments (CSS also enforces via nth-child; we set inline as belt & suspenders)
+  const setAlign = (n, align, wrap) => {
+    table.querySelectorAll(`thead tr > *:nth-child(${n}), tbody tr > *:nth-child(${n})`)
+      .forEach(el=>{ el.style.textAlign=align; el.style.whiteSpace=wrap; });
   };
-  table.querySelectorAll('tbody tr').forEach(tr=>{
-    const vals = readRowValues(tr);
-    const cells = tr.querySelectorAll('td,th');
-    if (idx.a>-1 && cells[idx.a] && !cells[idx.a].textContent.trim() && vals.a!=null) cells[idx.a].textContent = String(vals.a);
-    if (idx.b>-1 && cells[idx.b] && !cells[idx.b].textContent.trim() && vals.b!=null) cells[idx.b].textContent = String(vals.b);
-    if (idx.match>-1 && cells[idx.match] && !cells[idx.match].textContent.trim() && vals.m!=null) cells[idx.match].textContent = `${vals.m}%`;
-  });
+  setAlign(1,'left','normal');   // Category
+  setAlign(2,'center','nowrap'); // Partner A
+  setAlign(3,'center','nowrap'); // Match
+  setAlign(4,'center','nowrap'); // Partner B
 }
-function normalizeGlyphs(root){
-  root.querySelectorAll('td,th').forEach(td=>{
-    const raw=td.textContent.trim();
-    if (raw==='-'){ td.textContent='–'; td.style.textAlign='center'; }
-  });
-  // prevent short headers/indicators from wrapping
-  root.querySelectorAll('th,td').forEach(el=>{
-    const short = el.tagName==='TH' || el.textContent.trim().length<=14;
-    if (short){ el.style.whiteSpace='nowrap'; el.style.textOverflow='ellipsis'; el.style.overflow='hidden'; }
-  });
+
+/* ====== 3) Helper: run fix on ALL tables in the CLONE ====== */
+function fixPdfTables(root){
+  const tables = root.querySelectorAll('table');
+  console.log('[pdf-fix] tables found:', tables.length);
+  tables.forEach(fixOneTable);
 }
 
 /* ---------- build the clone (PDF-only) ---------- */
 function makeClone(){
-  const src=document.getElementById('pdf-container'); if(!src) throw new Error('#pdf-container not found');
+  const src=document.getElementById('pdf-container');
+  if(!src) throw new Error('#pdf-container not found');
+
+  // shell + clone
   const shell=document.createElement('div');
   Object.assign(shell.style,{background:'#000',color:'#fff',margin:'0',padding:'0',width:'100%',minHeight:'100vh',overflow:'auto'});
-  const clone=src.cloneNode(true); clone.classList.add('pdf-export');
+  const clone=src.cloneNode(true);
+  clone.classList.add('pdf-export');
+
+  // your usual cleanup
   clone.querySelectorAll('[data-hide-in-pdf], .download-btn, .print-btn, nav, header, footer').forEach(e=>e.remove());
   stripHeaderEmoji(clone); stripProblemImages(clone); forceTableDisplay(clone);
 
-  // per-table augmentation (add Category column, drop Flag column, map classes)
-  clone.querySelectorAll('table').forEach(t=>{
-    ensureCategoryColumn(t);
-    removeFlagColumn(t);
-    labelColumns(t);
-    populateValues(t);
-  });
-  normalizeGlyphs(clone);
+  // >>>>> THIS IS THE CRITICAL LINE <<<<<
+  fixPdfTables(clone);
+  console.log('[pdf-fix] applied');
 
-  shell.appendChild(clone); document.body.appendChild(shell);
-
-  if (PDF_DEBUG_SHOW_CLONE){
-    Object.assign(shell.style,{position:'fixed',inset:'0',zIndex:'999999'});
-    const banner=document.createElement('div');
-    banner.textContent='PDF CLONE PREVIEW — press ESC to close';
-    Object.assign(banner.style,{position:'sticky',top:'0',padding:'8px 12px',background:'#111',color:'#fff',fontSize:'12px',zIndex:'1000000'});
-    shell.prepend(banner); window.addEventListener('keydown',e=>{ if(e.key==='Escape') shell.remove(); });
-  }
+  shell.appendChild(clone);
+  document.body.appendChild(shell);
   return { shell, clone };
 }
 
@@ -343,7 +207,6 @@ export async function downloadCompatibilityPDF(){
     await waitUntilReady(container);
 
     const { shell, clone } = makeClone();
-    fixPdfTables(clone);
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
     const { width, height } = measure(clone);
