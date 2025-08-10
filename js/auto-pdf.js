@@ -3,7 +3,7 @@ import { calculateCompatibility } from './compatibility.js';
 
 let surveyA = null;
 let surveyB = null;
-let pdfGenerated = false;
+let pdfGenerating = false;
 
 function loadHistory() {
   try {
@@ -29,18 +29,23 @@ if (typeof window !== 'undefined') {
 }
 
 async function generatePDF(data) {
-  if (pdfGenerated) return;
-  pdfGenerated = true;
-  const { loadJsPDF } = await import('./loadJsPDF.js');
-  await loadJsPDF();
-  const { jsPDF } = window.jspdf || {};
-  if (!jsPDF) {
-    const err = new Error('jsPDF failed to load');
+  if (pdfGenerating) return;
+  pdfGenerating = true;
+  try {
+    const { loadJsPDF } = await import('./loadJsPDF.js');
+    await loadJsPDF();
+    const { jsPDF } = window.jspdf || {};
+    if (!jsPDF) {
+      throw new Error('jsPDF failed to load');
+    }
+    const { generateCompatibilityPDF } = await import('./compatibilityPdf.js');
+    generateCompatibilityPDF(data);
+  } catch (err) {
     console.error(err);
     throw err;
+  } finally {
+    pdfGenerating = false;
   }
-  const { generateCompatibilityPDF } = await import('./compatibilityPdf.js');
-  generateCompatibilityPDF(data);
 }
 
 const PAGE_BREAK_CATEGORIES = new Set([
