@@ -20,14 +20,15 @@
   </div>
 
   <script type="module">
-    import { downloadCompatibilityPDF } from '/js/pdfDownload.js';
+    import { downloadCompatibilityPDF } from "/js/pdfDownload.js";
     window.downloadCompatibilityPDF = downloadCompatibilityPDF;
-    const wire=()=>{const b=document.getElementById('downloadBtn')||document.querySelector('[data-download-pdf]');
-      if(!b){console.error('[pdf] missing button');return;}
+    const wire=()=>{
+      const b=document.getElementById("downloadBtn")||document.querySelector("[data-download-pdf]");
+      if(!b){console.error("[pdf] missing download button");return;}
       const fresh=b.cloneNode(true); b.replaceWith(fresh);
-      fresh.addEventListener('click',()=>downloadCompatibilityPDF().catch(e=>(console.error(e),alert('Could not generate PDF. See console.'))));
+      fresh.addEventListener("click",()=>downloadCompatibilityPDF().catch(e=>{console.error(e);alert("Could not generate PDF. See console.");}));
     };
-    document.readyState==='loading'?document.addEventListener('DOMContentLoaded',wire):wire();
+    document.readyState==="loading"?document.addEventListener("DOMContentLoaded",wire):wire();
   </script>
 
   <!-- ================================================================================ -->
