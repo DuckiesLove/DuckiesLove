@@ -72,6 +72,24 @@ function forceTableDisplay(root){
   root.querySelectorAll("td,th").forEach(e=>e.style.display="table-cell");
 }
 
+// Locate a header index by regex; returns -1 if not found
+function findHeaderIndex(table,re){
+  const head=table.querySelector('thead tr');
+  if(!head) return -1;
+  const ths=[...head.children];
+  return ths.findIndex(th=>re.test((th.textContent||'').trim().toLowerCase()));
+}
+
+// Ensure Partner A column has at least one value before export
+function partnerAColumnHasData(){
+  const table=document.querySelector('#pdf-container table');
+  if(!table) return false;
+  const idx=findHeaderIndex(table,/^partner\s*a$/);
+  if(idx<0) return false;
+  return [...table.querySelectorAll(`tbody tr td:nth-child(${idx+1})`)]
+    .some(td=> (td.textContent||'').trim()!=='');
+}
+
 // -------- 1) Table normalization: ensure first col is the label (Category), remove any old Flag column
 function fixOneTable(table){
   const head=table.querySelector("thead tr"); if(!head) return;
@@ -342,6 +360,10 @@ export async function downloadCompatibilityPDF(){
   const jsPDFCtor=assertLibsOrThrow();
   const src=document.getElementById("pdf-container");
   if(!src){ alert("PDF container not found"); return; }
+  if(!partnerAColumnHasData()){
+    alert('Partner A looks empty. Please upload your survey JSON first.');
+    return;
+  }
   await waitReady(src);
 
   const { shell, clone } = makeClone();
