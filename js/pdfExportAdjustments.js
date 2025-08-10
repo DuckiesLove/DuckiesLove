@@ -28,6 +28,21 @@ export class CompatibilityPDFExporter {
         padding: 6px;
         vertical-align: top;
       }
+      /* Keep rows and sections intact across pages */
+      .pdf-export tr,
+      .pdf-export thead,
+      .pdf-export tbody {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      .pdf-export .pdf-soft-break {
+        width: 100% !important;
+        height: 24px !important;
+      }
+      .pdf-export .compat-section {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
       /* Category column takes most space for text */
       .pdf-export .col-category {
         width: 55% !important;
@@ -111,14 +126,98 @@ export class CompatibilityPDFExporter {
     return clone;
   }
 
+  computePageHeightCss(clone, pdfWidthPt, pdfHeightPt) {
+    const cssWidth = Math.ceil(
+      Math.max(
+        clone.scrollWidth,
+        clone.getBoundingClientRect().width,
+        document.documentElement.clientWidth
+      )
+    );
+    const pageHeightCss = Math.ceil(cssWidth * (pdfHeightPt / pdfWidthPt));
+    return { cssWidth, pageHeightCss };
+  }
+
+  addSoftPageBreaks(clone, pageHeightCss, topPaddingPx = 20) {
+    const firstTop = clone.getBoundingClientRect().top;
+    const blocks = [
+      ...clone.querySelectorAll('table tbody tr'),
+      ...clone.querySelectorAll(
+        '.compat-section .section-title, .compat-section .category-header, .compat-category'
+      )
+    ].filter(Boolean);
+
+    let currentPageEnd = pageHeightCss;
+    const smallGuard = 6;
+
+    for (const node of blocks) {
+      const r = node.getBoundingClientRect();
+      const top = r.top - firstTop;
+      const bottom = top + r.height;
+
+      if (bottom > currentPageEnd - smallGuard) {
+        const needed = (currentPageEnd - top) + topPaddingPx;
+        const spacer = document.createElement('div');
+        spacer.className = 'pdf-soft-break';
+        spacer.style.height = `${Math.max(0, Math.ceil(needed))}px`;
+        node.parentNode.insertBefore(spacer, node);
+        currentPageEnd += pageHeightCss;
+      } else if ((currentPageEnd - top) < (r.height + smallGuard)) {
+        const spacer = document.createElement('div');
+        spacer.className = 'pdf-soft-break';
+        spacer.style.height = `${topPaddingPx}px`;
+        node.parentNode.insertBefore(spacer, node);
+        currentPageEnd += pageHeightCss;
+      }
+    }
+  }
+
+  pageBreakBeforeSections(clone, topPaddingPx = 24) {
+    clone.querySelectorAll('.compat-section').forEach((sec, i) => {
+      if (i === 0) return;
+      const spacer = document.createElement('div');
+      spacer.className = 'pdf-soft-break';
+      spacer.style.height = `${topPaddingPx}px`;
+      sec.parentNode.insertBefore(spacer, sec);
+    });
+  }
+
   async generate() {
     const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!jsPDFCtor || !window.html2canvas) {
+      throw new Error('PDF libs missing');
+    }
     this.injectStyles();
     const clone = this.prepareClone();
 
     document.body.appendChild(clone);
-    // Your existing html2canvas + jsPDF logic goes here.
-    document.body.removeChild(clone);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const pdf = new jsPDFCtor({ unit: 'pt', format: 'letter', orientation: 'landscape' });
+    const pdfW = pdf.internal.pageSize.getWidth();
+    const pdfH = pdf.internal.pageSize.getHeight();
+    const { cssWidth, pageHeightCss } = this.computePageHeightCss(clone, pdfW, pdfH);
+
+    this.pageBreakBeforeSections(clone, 24);
+    this.addSoftPageBreaks(clone, pageHeightCss, 20);
+
+    try {
+      const canvas = await html2canvas(clone, {
+        backgroundColor: '#000',
+        scale: 2,
+        useCORS: true,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: cssWidth,
+        windowHeight: Math.ceil(clone.getBoundingClientRect().height)
+      });
+      const img = canvas.toDataURL('image/jpeg', 0.95);
+      const ratio = canvas.height / canvas.width;
+      pdf.addImage(img, 'JPEG', 0, 0, pdfW, pdfW * ratio, undefined, 'FAST');
+      pdf.save('kink-compatibility.pdf');
+    } finally {
+      document.body.removeChild(clone);
+    }
   }
 }
 
