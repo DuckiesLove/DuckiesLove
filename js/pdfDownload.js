@@ -38,8 +38,8 @@
 
 /* ================================ CONFIG ================================== */
 const IDS = {
-  uploadA: '#uploadSurveyA',
-  uploadB: '#uploadSurveyB',
+  uploadA: '#uploadSurveyA, [data-upload-a]',
+  uploadB: '#uploadSurveyB, [data-upload-b]',
   downloadBtn: '#downloadBtn',
   container: '#pdf-container'
 };
@@ -49,6 +49,9 @@ const RED_FLAG_MAX = 50;               // 🚩 threshold (Match %)
 const CATEGORY_MIN_TOP = 64;           // min space above a category when starting near bottom
 const ROW_TOP_PAD = 20;                // space inserted to avoid row split
 const LABEL_LEFT_ALIGN = true;         // left-align category headers in PDF
+
+const PARTNER_A_CELL_SEL = 'td.pa';
+const CATEGORY_CELL_SEL = 'td:first-child';
 
 /* ============================== LIB CHECK ================================= */
 function getJsPDF() {
@@ -77,18 +80,38 @@ async function readPartnerFile(evt, which) {
 
     if (which === 'A') {
       window.partnerASurvey = window.surveyA = norm;
+      await ensurePartnerA();
     } else {
       window.partnerBSurvey = window.surveyB = norm;
+      if (typeof window.updateComparison === 'function') {
+        await Promise.resolve(window.updateComparison());
+      }
     }
     console.log(`[compat] Partner ${which} JSON loaded`, norm);
-
-    // Rebuild the table so Column A shows Partner A (your app’s method)
-    if (typeof window.updateComparison === 'function') {
-      await Promise.resolve(window.updateComparison());
-    }
   } catch (err) {
     console.error(`[compat] Failed to load Partner ${which}:`, err);
     alert(`Could not read Partner ${which} JSON. Check format and try again.`);
+  }
+}
+
+async function ensurePartnerA(){
+  if (typeof window.updateComparison === 'function') {
+    await Promise.resolve(window.updateComparison());
+  }
+  const t0 = Date.now();
+  while (Date.now() - t0 < 4000) {
+    if (partnerAHasData()) break;
+    await wait(120);
+  }
+  if (!partnerAHasData()) {
+    const count = fillPartnerAFromSurvey(window.partnerASurvey);
+    console.log('[compat] fallback filled Partner A cells:', count);
+  }
+  if (!partnerAHasData()) {
+    alert('Partner A did not appear in the table.\n\nCheck that:'
+      + '\n• Rows have a data-key/data-id, or the first column label matches your JSON item labels/keys'
+      + '\n• The table has either td.pa cells OR a header named "Partner A"'
+      + '\n• updateComparison() writes Partner A values');
   }
 }
 
@@ -104,19 +127,64 @@ function normalizeSurvey(json) {
 }
 
 /* ========================== TABLE SANITY/HELPERS ========================== */
-function findHeaderIndex(table, re) {
-  const head = table.querySelector('thead tr');
-  if (!head) return -1;
-  const ths = [...head.children];
-  return ths.findIndex(th => re.test((th.textContent || '').trim().toLowerCase()));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+function normalizeKey(s) {
+  return (s||'').toString().toLowerCase().replace(/[\s\-_]+/g,' ').trim()
+    .replace(/[^\p{L}\p{N} ]/gu,'').replace(/\s+/g,' ');
 }
-function partnerAColumnHasData() {
-  const table = document.querySelector(`${IDS.container} table`);
-  if (!table) return false;
-  const idxA = findHeaderIndex(table, /^partner\s*a$/);
-  if (idxA < 0) return false;
-  return [...table.querySelectorAll(`tbody tr td:nth-child(${idxA + 1})`)]
-    .some(td => (td.textContent || '').trim() !== '');
+
+function findPartnerAIndexByHeader(table){
+  const tr = table.querySelector('thead tr'); if(!tr) return -1;
+  return [...tr.children].findIndex(th => normalizeKey(th.textContent) === 'partner a');
+}
+
+function partnerAHasData(){
+  const table = document.querySelector(`${IDS.container} table`); if (!table) return false;
+  if (PARTNER_A_CELL_SEL){
+    return Array.from(table.querySelectorAll(PARTNER_A_CELL_SEL)).some(td=>{
+      const t=(td.textContent||'').trim(); return t!=='' && !/^[-–]$/.test(t);
+    });
+  }
+  const idx = findPartnerAIndexByHeader(table); if (idx<0) return false;
+  return Array.from(table.querySelectorAll(`tbody tr td:nth-child(${idx+1})`)).some(td=>{
+    const t=(td.textContent||'').trim(); return t!=='' && !/^[-–]$/.test(t);
+  });
+}
+
+function fillPartnerAFromSurvey(survey){
+  if (!survey || !Array.isArray(survey.items)) return 0;
+
+  const table = document.querySelector(`${IDS.container} table`); if (!table) return 0;
+  const items = survey.items.map(it=>{
+    const key = normalizeKey(it.key ?? it.id ?? it.label ?? it.name);
+    return { key, rating: Number(it.rating ?? it.score ?? it.value ?? 0) };
+  });
+
+  let getACell, setACell;
+  if (PARTNER_A_CELL_SEL){
+    getACell = tr => tr.querySelector(PARTNER_A_CELL_SEL);
+    setACell = (tr,val) => { const td=getACell(tr); if(td) td.textContent = String(val); };
+  } else {
+    const idxA = findPartnerAIndexByHeader(table); if (idxA < 0) return 0;
+    getACell = tr => tr.children[idxA] || null;
+    setACell = (tr,val) => { const td=getACell(tr); if(td) td.textContent = String(val); };
+  }
+
+  let filled = 0;
+  table.querySelectorAll('tbody tr').forEach(tr=>{
+    const tdA = getACell(tr);
+    if (tdA && (tdA.textContent||'').trim() !== '' && !/^[-–]$/.test(tdA.textContent.trim())) return;
+
+    const rowKey = normalizeKey(tr.getAttribute('data-key') || tr.getAttribute('data-id'));
+    const label  = normalizeKey(tr.querySelector(CATEGORY_CELL_SEL)?.textContent || '');
+
+    let match = items.find(it => it.key && rowKey && it.key === rowKey);
+    if (!match && label) match = items.find(it => it.key && (label.includes(it.key) || it.key.includes(label)));
+
+    if (match) { setACell(tr, match.rating); filled++; }
+  });
+  return filled;
 }
 
 /* ======================= PDF-ONLY DOM TRANSFORMS ========================== */
@@ -349,7 +417,13 @@ export async function downloadCompatibilityPDF() {
     const btn = document.querySelector(IDS.downloadBtn);
     if (!btn) { console.warn('[pdf] #downloadBtn not found.'); return; }
     const fresh = btn.cloneNode(true); btn.replaceWith(fresh);
-    fresh.addEventListener('click', downloadCompatibilityPDF);
+    fresh.addEventListener('click', async () => {
+      if (!partnerAHasData()) {
+        alert('Partner A looks empty. Upload your survey and wait for the table to refresh.');
+        return;
+      }
+      await downloadCompatibilityPDF();
+    });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireBtn);
   else wireBtn();
@@ -357,4 +431,16 @@ export async function downloadCompatibilityPDF() {
 
 // convenience global
 if (typeof window !== 'undefined') window.downloadCompatibilityPDF = downloadCompatibilityPDF;
+
+// quick console helper
+if (typeof window !== 'undefined') window.__compatDiag = () => {
+  const table = document.querySelector(`${IDS.container} table`);
+  const rows = table ? table.querySelectorAll('tbody tr').length : 0;
+  console.table({
+    tableFound: !!table,
+    rowCount: rows,
+    partnerASurveyLoaded: !!window.partnerASurvey,
+    partnerAHasData: partnerAHasData()
+  });
+};
 
