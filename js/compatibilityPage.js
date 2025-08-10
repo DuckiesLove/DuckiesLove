@@ -345,6 +345,27 @@ function renderFlags(root = document) {
   });
 }
 
+function markPartnerALoaded() {
+  const table = document.querySelector('#pdf-container table');
+  if (!table) return;
+
+  const ths = Array.from(table.querySelectorAll('thead th'));
+  const idxA = ths.findIndex(th => (th.textContent || '').trim().toLowerCase() === 'partner a');
+
+  if (idxA >= 0) {
+    const cells = Array.from(table.querySelectorAll(`tbody tr td:nth-child(${idxA + 1})`));
+    const hasAny = cells.some(td => (td.textContent || '').trim() !== '');
+    if (hasAny) {
+      cells.forEach(td => td.style.outline = '1px dashed rgba(255,255,255,.15)');
+      console.log('[compat] Partner A column populated in the DOM. Ready for PDF.');
+    } else {
+      console.warn('[compat] Partner A column is empty. Did the JSON include ratings for these rows?');
+    }
+  } else {
+    console.warn('[compat] Could not find a "Partner A" table header. Check your table markup.');
+  }
+}
+
 function updateComparison() {
   const container = document.getElementById('compatibility-report');
   const msg = document.getElementById('comparisonResult');
@@ -427,6 +448,7 @@ function updateComparison() {
 
   container.appendChild(table);
   renderFlags(table);
+  markPartnerALoaded();
 
   const categories = Object.entries(lastResult).map(([category, items]) => ({
     category,
