@@ -128,32 +128,9 @@
   </script>
 
   <script type="module">
-    import { downloadCompatibilityPDF } from "/js/pdfDownload.js";
+    import { downloadCompatibilityPDF } from '/js/pdfDownload.js';
+    // auto-wire is built into the module, but this exposes it if you need to call it manually:
     window.downloadCompatibilityPDF = downloadCompatibilityPDF;
-    const wire=()=>{
-      const b=document.getElementById("downloadBtn")||document.querySelector("[data-download-pdf]");
-      if(!b){console.error("[pdf] missing download button");return;}
-      const fresh=b.cloneNode(true); b.replaceWith(fresh);
-      fresh.addEventListener("click", async ()=>{
-        const table=document.querySelector('#pdf-container table');
-        const ths=table?Array.from(table.querySelectorAll('thead th')):[];
-        const idxA=ths.findIndex(th=> (th.textContent||'').trim().toLowerCase()==='partner a');
-        if(idxA>=0){
-          const hasData=Array.from(table.querySelectorAll(`tbody tr td:nth-child(${idxA+1})`)).some(td=> (td.textContent||'').trim()!=='');
-          if(!hasData){
-            alert('Partner A looks empty in the table. Upload your survey JSON first.');
-            return;
-          }
-        }
-        try{
-          await downloadCompatibilityPDF();
-        }catch(e){
-          console.error(e);alert("Could not generate PDF. See console.");
-        }
-      });
-    };
-    document.readyState==="loading"?document.addEventListener("DOMContentLoaded",wire):wire();
   </script>
-  <!-- ================================================================================ -->
-  </body>
+</body>
 </html>
