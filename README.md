@@ -112,6 +112,17 @@ applyPrintStyles('light');
 Pages will read the current theme and call this automatically when the body
 has the `light-mode` class.
 
+#### Example PDF Export
+
+Use `CompatibilityPDFExporter` to render any container to a PDF:
+
+```javascript
+import { CompatibilityPDFExporter } from './js/pdfExportAdjustments.js';
+
+const exporter = new CompatibilityPDFExporter('#your-container');
+await exporter.generate(); // replace with your trigger
+```
+
 ## Automated Tests
 
 Run the test suite with Node's built-in runner:
