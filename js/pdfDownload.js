@@ -34,17 +34,15 @@ function assertLibsOrThrow(){
 
 /* =============== PDF: prevent cut-off rows + add space at next page =============== */
 /* 1) CSS that keeps rows intact and styles our spacer breaks (PDF clone only) */
-(function injectPageBreakCSS(){
-  if (document.querySelector("style[data-pdf-safebreak]")) return;
+(function injectPdfBreakCSS(){
+  if (document.querySelector('style[data-pdf-breaks]')) return;
   const css = `
     .pdf-export tr, .pdf-export thead, .pdf-export tbody { break-inside: avoid !important; page-break-inside: avoid !important; }
-    .pdf-export .pdf-soft-break { width: 100% !important; height: 24px !important; }
-    /* optional: start each big section on a new page */
-    .pdf-export .compat-section { break-inside: avoid !important; page-break-inside: avoid !important; }
+    .pdf-export .pdf-soft-break { width:100% !important; }
   `;
-  const s = document.createElement("style");
-  s.setAttribute("data-pdf-safebreak","true");
-  s.textContent = css;
+  const s=document.createElement('style');
+  s.setAttribute('data-pdf-breaks','true');
+  s.textContent=css;
   document.head.appendChild(s);
 })();
 
@@ -229,26 +227,58 @@ function computePageHeightCss({ clone, pdfWidthPt, pdfHeightPt }){
   return { cssWidth, pageHeightCss };
 }
 
-function addSoftPageBreaks(clone, pageHeightCss, topPaddingPx = 20){
-  const firstTop = clone.getBoundingClientRect().top;
-  const blocks = [
-    ...clone.querySelectorAll("table tbody tr"),
-    ...clone.querySelectorAll(".compat-section .section-title, .compat-section .category-header, .compat-category")
-  ];
+function addSoftRowBreaks(clone, pageHeightCss, topPad = 20) {
+  const baseTop = clone.getBoundingClientRect().top;
+  const rows = Array.from(clone.querySelectorAll('table tbody tr'));
   let pageEnd = pageHeightCss, guard = 6;
-  for (const node of blocks) {
-    const r = node.getBoundingClientRect(), top = r.top - firstTop, bottom = top + r.height;
+
+  for (const tr of rows) {
+    const r = tr.getBoundingClientRect();
+    const top = r.top - baseTop, bottom = top + r.height;
+
     if (bottom > pageEnd - guard) {
-      const spacer = document.createElement("div");
-      spacer.className = "pdf-soft-break";
-      spacer.style.height = `${Math.max(0, Math.ceil((pageEnd - top) + topPaddingPx))}px`;
-      node.parentNode.insertBefore(spacer, node);
+      const spacer = document.createElement('div');
+      spacer.className = 'pdf-soft-break';
+      spacer.style.height = `${Math.max(0, Math.ceil((pageEnd - top) + topPad))}px`;
+      tr.parentNode.insertBefore(spacer, tr);
       pageEnd += pageHeightCss;
     } else if ((pageEnd - top) < (r.height + guard)) {
-      const spacer = document.createElement("div");
-      spacer.className = "pdf-soft-break";
-      spacer.style.height = `${topPaddingPx}px`;
-      node.parentNode.insertBefore(spacer, node);
+      const spacer = document.createElement('div');
+      spacer.className = 'pdf-soft-break';
+      spacer.style.height = `${topPad}px`;
+      tr.parentNode.insertBefore(spacer, tr);
+      pageEnd += pageHeightCss;
+    }
+  }
+}
+
+function keepCategoryTitlesOnNewPage(clone, pageHeightCss, minHeadingTopSpace = 60, topPad = 24) {
+  const baseTop = clone.getBoundingClientRect().top;
+  const targets = Array.from(clone.querySelectorAll(
+    '.compat-section, .section-title, .category-header, .compat-category, h2, h3'
+  ));
+
+  let pageEnd = pageHeightCss, guard = 6;
+
+  for (const el of targets) {
+    const r = el.getBoundingClientRect();
+    const top = r.top - baseTop;
+    const bottom = top + r.height;
+
+    if (bottom > pageEnd - guard) {
+      const spacer = document.createElement('div');
+      spacer.className = 'pdf-soft-break';
+      spacer.style.height = `${Math.max(0, Math.ceil((pageEnd - top) + topPad))}px`;
+      el.parentNode.insertBefore(spacer, el);
+      pageEnd += pageHeightCss;
+      continue;
+    }
+
+    if ((pageEnd - top) < minHeadingTopSpace) {
+      const spacer = document.createElement('div');
+      spacer.className = 'pdf-soft-break';
+      spacer.style.height = `${topPad}px`;
+      el.parentNode.insertBefore(spacer, el);
       pageEnd += pageHeightCss;
     }
   }
@@ -271,7 +301,8 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation='landscape', j
 
   const { cssWidth, pageHeightCss } = computePageHeightCss({ clone, pdfWidthPt: pdfW, pdfHeightPt: pdfH });
   pageBreakBeforeSections(clone, 24);
-  addSoftPageBreaks(clone, pageHeightCss, 20);
+  keepCategoryTitlesOnNewPage(clone, pageHeightCss, 60, 24);
+  addSoftRowBreaks(clone, pageHeightCss, 20);
 
   const totalCssHeight = Math.ceil(Math.max(clone.scrollHeight, clone.getBoundingClientRect().height));
   const MAX_MP = 18, baseScale = 2;

@@ -28,7 +28,7 @@ export class CompatibilityPDFExporter {
         padding: 6px;
         vertical-align: top;
       }
-      /* Keep rows and sections intact across pages */
+      /* Keep rows intact across pages */
       .pdf-export tr,
       .pdf-export thead,
       .pdf-export tbody {
@@ -37,11 +37,6 @@ export class CompatibilityPDFExporter {
       }
       .pdf-export .pdf-soft-break {
         width: 100% !important;
-        height: 24px !important;
-      }
-      .pdf-export .compat-section {
-        break-inside: avoid !important;
-        page-break-inside: avoid !important;
       }
       /* Category column takes most space for text */
       .pdf-export .col-category {
@@ -138,36 +133,60 @@ export class CompatibilityPDFExporter {
     return { cssWidth, pageHeightCss };
   }
 
-  addSoftPageBreaks(clone, pageHeightCss, topPaddingPx = 20) {
-    const firstTop = clone.getBoundingClientRect().top;
-    const blocks = [
-      ...clone.querySelectorAll('table tbody tr'),
-      ...clone.querySelectorAll(
-        '.compat-section .section-title, .compat-section .category-header, .compat-category'
-      )
-    ].filter(Boolean);
+  addSoftRowBreaks(clone, pageHeightCss, topPad = 20) {
+    const baseTop = clone.getBoundingClientRect().top;
+    const rows = Array.from(clone.querySelectorAll('table tbody tr'));
+    let pageEnd = pageHeightCss, guard = 6;
 
-    let currentPageEnd = pageHeightCss;
-    const smallGuard = 6;
-
-    for (const node of blocks) {
-      const r = node.getBoundingClientRect();
-      const top = r.top - firstTop;
+    for (const tr of rows) {
+      const r = tr.getBoundingClientRect();
+      const top = r.top - baseTop;
       const bottom = top + r.height;
 
-      if (bottom > currentPageEnd - smallGuard) {
-        const needed = (currentPageEnd - top) + topPaddingPx;
+      if (bottom > pageEnd - guard) {
         const spacer = document.createElement('div');
         spacer.className = 'pdf-soft-break';
-        spacer.style.height = `${Math.max(0, Math.ceil(needed))}px`;
-        node.parentNode.insertBefore(spacer, node);
-        currentPageEnd += pageHeightCss;
-      } else if ((currentPageEnd - top) < (r.height + smallGuard)) {
+        spacer.style.height = `${Math.max(0, Math.ceil((pageEnd - top) + topPad))}px`;
+        tr.parentNode.insertBefore(spacer, tr);
+        pageEnd += pageHeightCss;
+      } else if ((pageEnd - top) < (r.height + guard)) {
         const spacer = document.createElement('div');
         spacer.className = 'pdf-soft-break';
-        spacer.style.height = `${topPaddingPx}px`;
-        node.parentNode.insertBefore(spacer, node);
-        currentPageEnd += pageHeightCss;
+        spacer.style.height = `${topPad}px`;
+        tr.parentNode.insertBefore(spacer, tr);
+        pageEnd += pageHeightCss;
+      }
+    }
+  }
+
+  keepCategoryTitlesOnNewPage(clone, pageHeightCss, minHeadingTopSpace = 60, topPad = 24) {
+    const baseTop = clone.getBoundingClientRect().top;
+    const targets = Array.from(
+      clone.querySelectorAll('.compat-section, .section-title, .category-header, .compat-category, h2, h3')
+    );
+
+    let pageEnd = pageHeightCss, guard = 6;
+
+    for (const el of targets) {
+      const r = el.getBoundingClientRect();
+      const top = r.top - baseTop;
+      const bottom = top + r.height;
+
+      if (bottom > pageEnd - guard) {
+        const spacer = document.createElement('div');
+        spacer.className = 'pdf-soft-break';
+        spacer.style.height = `${Math.max(0, Math.ceil((pageEnd - top) + topPad))}px`;
+        el.parentNode.insertBefore(spacer, el);
+        pageEnd += pageHeightCss;
+        continue;
+      }
+
+      if ((pageEnd - top) < minHeadingTopSpace) {
+        const spacer = document.createElement('div');
+        spacer.className = 'pdf-soft-break';
+        spacer.style.height = `${topPad}px`;
+        el.parentNode.insertBefore(spacer, el);
+        pageEnd += pageHeightCss;
       }
     }
   }
@@ -199,7 +218,8 @@ export class CompatibilityPDFExporter {
     const { cssWidth, pageHeightCss } = this.computePageHeightCss(clone, pdfW, pdfH);
 
     this.pageBreakBeforeSections(clone, 24);
-    this.addSoftPageBreaks(clone, pageHeightCss, 20);
+    this.keepCategoryTitlesOnNewPage(clone, pageHeightCss, 60, 24);
+    this.addSoftRowBreaks(clone, pageHeightCss, 20);
 
     try {
       const canvas = await html2canvas(clone, {
