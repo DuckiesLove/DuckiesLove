@@ -222,18 +222,6 @@ function makeClone(){
   }
   return { shell, clone };
 }
-
-function measure(el){
-  const r=el.getBoundingClientRect();
-  const width=Math.ceil(Math.max(el.scrollWidth,r.width,document.documentElement.clientWidth));
-  const height=Math.ceil(Math.max(el.scrollHeight,r.height));
-  if(width===0||height===0) throw new Error("Zero-size clone");
-  return {width,height};
-}
-async function renderCanvas(root,width,height,scale=2){
-  return await html2canvas(root,{backgroundColor:"#000",scale,useCORS:true,allowTaint:true,scrollX:0,scrollY:0,windowWidth:width,windowHeight:height,height});
-}
-
 /* -------- soft pagination -------- */
 function computePageHeightCss({ clone, pdfWidthPt, pdfHeightPt }){
   const cssWidth = Math.ceil(Math.max(clone.scrollWidth, clone.getBoundingClientRect().width, document.documentElement.clientWidth));
@@ -246,29 +234,22 @@ function addSoftPageBreaks(clone, pageHeightCss, topPaddingPx = 20){
   const blocks = [
     ...clone.querySelectorAll("table tbody tr"),
     ...clone.querySelectorAll(".compat-section .section-title, .compat-section .category-header, .compat-category")
-  ].filter(Boolean);
-
-  let currentPageEnd = pageHeightCss;
-  const smallGuard = 6;
-
-  for (const node of blocks){
-    const r = node.getBoundingClientRect();
-    const top = r.top - firstTop;
-    const bottom = top + r.height;
-
-    if (bottom > currentPageEnd - smallGuard){
-      const needed = (currentPageEnd - top) + topPaddingPx;
+  ];
+  let pageEnd = pageHeightCss, guard = 6;
+  for (const node of blocks) {
+    const r = node.getBoundingClientRect(), top = r.top - firstTop, bottom = top + r.height;
+    if (bottom > pageEnd - guard) {
       const spacer = document.createElement("div");
       spacer.className = "pdf-soft-break";
-      spacer.style.height = `${Math.max(0, Math.ceil(needed))}px`;
+      spacer.style.height = `${Math.max(0, Math.ceil((pageEnd - top) + topPaddingPx))}px`;
       node.parentNode.insertBefore(spacer, node);
-      currentPageEnd += pageHeightCss;
-    } else if ((currentPageEnd - top) < (r.height + smallGuard)){
+      pageEnd += pageHeightCss;
+    } else if ((pageEnd - top) < (r.height + guard)) {
       const spacer = document.createElement("div");
       spacer.className = "pdf-soft-break";
       spacer.style.height = `${topPaddingPx}px`;
       node.parentNode.insertBefore(spacer, node);
-      currentPageEnd += pageHeightCss;
+      pageEnd += pageHeightCss;
     }
   }
 }
@@ -283,6 +264,48 @@ function pageBreakBeforeSections(clone, topPaddingPx = 24){
   });
 }
 
+async function renderMultiPagePDF({ clone, jsPDFCtor, orientation='landscape', jpgQuality=0.95 }) {
+  const pdf = new jsPDFCtor({ unit:'pt', format:'letter', orientation });
+  const pdfW = pdf.internal.pageSize.getWidth();
+  const pdfH = pdf.internal.pageSize.getHeight();
+
+  const { cssWidth, pageHeightCss } = computePageHeightCss({ clone, pdfWidthPt: pdfW, pdfHeightPt: pdfH });
+  pageBreakBeforeSections(clone, 24);
+  addSoftPageBreaks(clone, pageHeightCss, 20);
+
+  const totalCssHeight = Math.ceil(Math.max(clone.scrollHeight, clone.getBoundingClientRect().height));
+  const MAX_MP = 18, baseScale = 2;
+  let scale = baseScale;
+  const firstSliceMP = (cssWidth * pageHeightCss * scale * scale) / 1e6;
+  if (firstSliceMP > MAX_MP) {
+    scale = Math.max(1, Math.sqrt((MAX_MP*1e6)/(cssWidth*pageHeightCss)));
+  }
+
+  let y = 0, page = 0;
+  while (y < totalCssHeight) {
+    const sliceH = Math.min(pageHeightCss, totalCssHeight - y);
+    const canvas = await html2canvas(clone, {
+      backgroundColor: '#000',
+      scale,
+      useCORS: true,
+      allowTaint: true,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: cssWidth,
+      windowHeight: sliceH,
+      height: sliceH,
+      y
+    });
+    const img = canvas.toDataURL('image/jpeg', jpgQuality);
+    const ratio = canvas.height / canvas.width;
+    if (page > 0) pdf.addPage();
+    pdf.addImage(img, 'JPEG', 0, 0, pdfW, pdfW * ratio, undefined, 'FAST');
+    page += 1;
+    y += sliceH;
+  }
+  return pdf;
+}
+
 // -------- main
 export async function downloadCompatibilityPDF(){
   const jsPDFCtor=assertLibsOrThrow();
@@ -293,20 +316,8 @@ export async function downloadCompatibilityPDF(){
   const { shell, clone } = makeClone();
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
-  const pdf=new jsPDFCtor({unit:"pt",format:"letter",orientation:ORIENTATION});
-  const pdfW=pdf.internal.pageSize.getWidth();
-  const pdfH=pdf.internal.pageSize.getHeight();
-  const { cssWidth, pageHeightCss } = computePageHeightCss({ clone, pdfWidthPt: pdfW, pdfHeightPt: pdfH });
-
-  pageBreakBeforeSections(clone, 24);
-  addSoftPageBreaks(clone, pageHeightCss, 20);
-
   try{
-    const {height}=measure(clone);
-    const canvas=await renderCanvas(clone,cssWidth,height,2);
-    const img=canvas.toDataURL("image/jpeg",0.95);
-    const ratio=canvas.height/canvas.width;
-    pdf.addImage(img,"JPEG",0,0,pdfW,pdfW*ratio,undefined,"FAST");
+    const pdf = await renderMultiPagePDF({ clone, jsPDFCtor, orientation: ORIENTATION, jpgQuality: 0.95 });
     if(!PDF_DEBUG) pdf.save("kink-compatibility.pdf");
   }catch(err){
     console.error("[pdf] ERROR:",err); alert("Could not generate PDF.\n"+(err?.message||err));
