@@ -468,9 +468,9 @@ function updateComparison() {
 function handleFileUpload(input) {
   const file = input.files[0];
   if (!file) return;
-  if (input.id === 'uploadUser') {
+  if (input.id === 'uploadSurveyA') {
     loadFileA(file);
-  } else if (input.id === 'uploadPartner') {
+  } else if (input.id === 'uploadSurveyB') {
     loadFileB(file);
   }
 }
