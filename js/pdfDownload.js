@@ -122,7 +122,17 @@ function normalizeSurvey(json) {
       ...it,
       rating: typeof it.rating === 'number' ? it.rating : Number(it.rating ?? 0)
     }));
+    return json;
   }
+
+  if (json && typeof json === 'object') {
+    const items = Object.entries(json).map(([key, value]) => ({
+      key,
+      rating: typeof value === 'number' ? value : Number(value ?? 0)
+    }));
+    return { items };
+  }
+
   return json;
 }
 
@@ -140,50 +150,66 @@ function findPartnerAIndexByHeader(table){
 }
 
 function partnerAHasData(){
-  const table = document.querySelector(`${IDS.container} table`); if (!table) return false;
-  if (PARTNER_A_CELL_SEL){
-    return Array.from(table.querySelectorAll(PARTNER_A_CELL_SEL)).some(td=>{
-      const t=(td.textContent||'').trim(); return t!=='' && !/^[-–]$/.test(t);
-    });
+  const tables = document.querySelectorAll(`${IDS.container} table`);
+  for (const table of tables) {
+    if (PARTNER_A_CELL_SEL){
+      const has = Array.from(table.querySelectorAll(PARTNER_A_CELL_SEL)).some(td=>{
+        const t=(td.textContent||'').trim();
+        return t!=='' && !/^[-–]$/.test(t);
+      });
+      if (has) return true;
+    } else {
+      const idx = findPartnerAIndexByHeader(table);
+      if (idx>=0){
+        const has = Array.from(table.querySelectorAll(`tbody tr td:nth-child(${idx+1})`)).some(td=>{
+          const t=(td.textContent||'').trim();
+          return t!=='' && !/^[-–]$/.test(t);
+        });
+        if (has) return true;
+      }
+    }
   }
-  const idx = findPartnerAIndexByHeader(table); if (idx<0) return false;
-  return Array.from(table.querySelectorAll(`tbody tr td:nth-child(${idx+1})`)).some(td=>{
-    const t=(td.textContent||'').trim(); return t!=='' && !/^[-–]$/.test(t);
-  });
+  return false;
 }
 
 function fillPartnerAFromSurvey(survey){
   if (!survey || !Array.isArray(survey.items)) return 0;
 
-  const table = document.querySelector(`${IDS.container} table`); if (!table) return 0;
+  const tables = document.querySelectorAll(`${IDS.container} table`);
+  if (!tables.length) return 0;
+
   const items = survey.items.map(it=>{
     const key = normalizeKey(it.key ?? it.id ?? it.label ?? it.name);
     return { key, rating: Number(it.rating ?? it.score ?? it.value ?? 0) };
   });
 
-  let getACell, setACell;
-  if (PARTNER_A_CELL_SEL){
-    getACell = tr => tr.querySelector(PARTNER_A_CELL_SEL);
-    setACell = (tr,val) => { const td=getACell(tr); if(td) td.textContent = String(val); };
-  } else {
-    const idxA = findPartnerAIndexByHeader(table); if (idxA < 0) return 0;
-    getACell = tr => tr.children[idxA] || null;
-    setACell = (tr,val) => { const td=getACell(tr); if(td) td.textContent = String(val); };
-  }
-
   let filled = 0;
-  table.querySelectorAll('tbody tr').forEach(tr=>{
-    const tdA = getACell(tr);
-    if (tdA && (tdA.textContent||'').trim() !== '' && !/^[-–]$/.test(tdA.textContent.trim())) return;
+  tables.forEach(table => {
+    let getACell, setACell;
+    if (PARTNER_A_CELL_SEL){
+      getACell = tr => tr.querySelector(PARTNER_A_CELL_SEL);
+      setACell = (tr,val) => { const td=getACell(tr); if(td) td.textContent = String(val); };
+    } else {
+      const idxA = findPartnerAIndexByHeader(table);
+      if (idxA < 0) return;
+      getACell = tr => tr.children[idxA] || null;
+      setACell = (tr,val) => { const td=getACell(tr); if(td) td.textContent = String(val); };
+    }
 
-    const rowKey = normalizeKey(tr.getAttribute('data-key') || tr.getAttribute('data-id'));
-    const label  = normalizeKey(tr.querySelector(CATEGORY_CELL_SEL)?.textContent || '');
+    table.querySelectorAll('tbody tr').forEach(tr=>{
+      const tdA = getACell(tr);
+      if (tdA && (tdA.textContent||'').trim() !== '' && !/^[-–]$/.test(tdA.textContent.trim())) return;
 
-    let match = items.find(it => it.key && rowKey && it.key === rowKey);
-    if (!match && label) match = items.find(it => it.key && (label.includes(it.key) || it.key.includes(label)));
+      const rowKey = normalizeKey(tr.getAttribute('data-key') || tr.getAttribute('data-id'));
+      const label  = normalizeKey(tr.querySelector(CATEGORY_CELL_SEL)?.textContent || '');
 
-    if (match) { setACell(tr, match.rating); filled++; }
+      let match = items.find(it => it.key && rowKey && it.key === rowKey);
+      if (!match && label) match = items.find(it => it.key && (label.includes(it.key) || it.key.includes(label)));
+
+      if (match) { setACell(tr, match.rating); filled++; }
+    });
   });
+
   return filled;
 }
 
