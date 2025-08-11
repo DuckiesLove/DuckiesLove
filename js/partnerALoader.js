@@ -1,28 +1,51 @@
 // Partner A Loader: attaches JSON upload handler and PDF download guard
 // Auto-generated based on provided snippet.
 
+import { compatNormalizeKey as normalize } from './compatNormalizeKey.js';
+
 const CFG = {
   uploadSelector: '#uploadSurveyA, [data-upload-a]',
   downloadSelector: '#downloadBtn',
   tableContainer: '#pdf-container',
-  partnerACellSelector: 'td.pa',
-  createMissingPartnerACol: false,
+  partnerACellSelector: null,
+  createMissingPartnerACol: true,
   partnerAHeaderText: 'Partner A'
 };
 
 const $one = (sel, ctx = document) => ctx.querySelector(sel);
 const $all = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
-const normalize = str => (str || '').trim()
-  .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
-  .replace(/\s+/g, ' ').toLowerCase();
+// --- normalize (reuse if already defined elsewhere) ---
+const __compatNormalize =
+  (typeof window !== 'undefined' && window.__compatNormalize)
+    ? window.__compatNormalize
+    : (str =>
+        (str || '')
+          .trim()
+          .replace(/[“”]/g, '"')
+          .replace(/[‘’]/g, "'")
+          .replace(/[\u2013\u2014]/g, '-')      // – — -> -
+          .replace(/\u2026/g, '...')            // … -> ...
+          .replace(/\s+/g, ' ')
+          .toLowerCase()
+      );
+
+// Optionally cache on window for other scripts
+if (typeof window !== 'undefined' && !window.__compatNormalize) {
+  window.__compatNormalize = __compatNormalize;
+}
+
+// --- __compatDump (browser-only helper) ---
 if (typeof window !== 'undefined') {
   window.__compatDump = () => {
     console.log('Headers:', getHeaders());
-    console.log('Row samples:', $all(`${CFG.tableContainer} tr`).slice(0, 5).map(r => ({
-      label: normalize(r.dataset.key || r.cells[0]?.textContent || ''),
-      dataKey: r.dataset.key || '',
-      partnerA: r.querySelector(CFG.partnerACellSelector)?.textContent
-    })));
+    console.log(
+      'Row samples:',
+      $all(`${CFG.tableContainer} tr`).slice(0, 5).map(r => ({
+        label: __compatNormalize(r.dataset.key || r.cells[0]?.textContent || ''),
+        dataKey: r.dataset.key || '',
+        partnerA: r.querySelector(CFG.partnerACellSelector)?.textContent
+      }))
+    );
   };
 }
 
@@ -149,6 +172,7 @@ function guardDownload() {
 // initialization
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
+    ensurePartnerACol();
     const up = $one(CFG.uploadSelector);
     if (up) up.addEventListener('change', e => {
       if (e.target.files.length) handlePartnerAUpload(e.target.files[0]);
@@ -157,4 +181,26 @@ if (typeof document !== 'undefined') {
   });
 }
 
-export { handlePartnerAUpload, normalizeSurvey, surveyToLookup };
+// Keep normalize function from codex branch
+const normalize = str => (str || '').trim()
+  .replace(/[“”]/g, '"')
+  .replace(/[‘’]/g, "'")
+  .replace(/\s+/g, ' ')
+  .toLowerCase();
+
+// Keep __compatDump from main branch but using normalize above
+if (typeof window !== 'undefined') {
+  window.__compatDump = () => {
+    console.log('Headers:', getHeaders());
+    console.log('Row samples:', $all(`${CFG.tableContainer} tr`).slice(0, 5).map(r => ({
+      label: normalize(r.dataset.key || r.cells[0]?.textContent || ''),
+      dataKey: r.dataset.key || '',
+      partnerA: r.querySelector(CFG.partnerACellSelector)?.textContent
+    })));
+  };
+}
+
+// Unified exports from both branches
+export { ensurePartnerACol, handlePartnerAUpload, CFG };
+export { normalizeSurvey, surveyToLookup };
+
