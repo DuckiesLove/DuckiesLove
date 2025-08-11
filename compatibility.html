@@ -91,7 +91,7 @@
       </label>
 
       <label id="uploadPartnerSurvey" class="upload-button themed-button wide-button">
-        <input type="file" id="uploadSurveyB" />
+        <input id="uploadSurveyB" type="file" accept="application/json" />
         Upload Partner’s Survey
       </label>
 
@@ -422,6 +422,264 @@ window.__compatDump = () => {
   console.log('[__compatDump]', out);
   return out;
 };
+</script>
+<script>
+/**
+ * CODEX: DO THIS EXACTLY
+ * 1) Ensure the page has:
+ *      <div id="pdf-container"> … your comparison tables … </div>
+ *      <input id="uploadSurveyB" type="file" accept="application/json">   <!-- "Upload Partner's Survey" -->
+ *   (You can also use any element with [data-upload-b] instead of the id.)
+ *
+ * 2) Paste THIS script at the very end of compatibility.html (right before </body>).
+ *    It is SAFE with the Partner A loader already added.
+ *
+ * 3) Do NOT change layout. This script:
+ *    - Fills "Partner B" across ALL tables inside #pdf-container
+ *    - Writes to existing <td class="pb"> if present, OR inserts a “Partner B” column if missing
+ *    - Recomputes the Flag column (⭐ ≥ 90% match; 🚩 ≤ 50% match OR 4/5 vs no-answer)
+ *
+ * 4) After adding:
+ *    - Reload → Click “Upload Partner’s Survey” → pick JSON → Partner B column fills everywhere
+ *    - The existing “Download PDF” flow can remain as-is
+ */
+
+(function(){
+  // ----------------------- CONFIG -----------------------
+  const CFG_B = {
+    container: '#pdf-container',
+    uploadB:   '#uploadSurveyB, [data-upload-b]',
+    partnerBHeaderText: 'Partner B',
+    partnerBCellSelector: null,     // e.g. 'td.pb' if you ALREADY render a dedicated Partner B cell; leave null to auto-create a column
+    createMissingPartnerBCol: true, // true => insert "Partner B" column if missing
+    matchHeaderRegex: /\bmatch\b/i, // used to locate the Match column (for Flag recompute)
+    starMin: 90,
+    redFlagMax: 50
+  };
+
+  // Share tiny helpers with A-script if present:
+  const $1 = window.__compat$1 || ((s,r=document)=>r.querySelector(s));
+  const $$ = window.__compat$$ || ((s,r=document)=>Array.from(r.querySelectorAll(s)));
+
+  function norm(s){
+    return (s||'')
+      .replace(/[\u2018\u2019\u2032]/g,"'")
+      .replace(/[\u201C\u201D\u2033]/g,'"')
+      .replace(/[\u2013\u2014]/g,'-')
+      .replace(/\u2026/g,'...')
+      .replace(/\s+/g,' ')
+      .trim().toLowerCase();
+  }
+
+  // ----------------------- JSON → lookup -----------------------
+  function buildLookup(json){
+    const map = new Map();
+    if (json && typeof json==='object' && !Array.isArray(json)) {
+      for (const [k,v] of Object.entries(json)) map.set(norm(k), Number(v));
+      return map;
+    }
+    const items = Array.isArray(json?.items) ? json.items : [];
+    for (const it of items){
+      const k = norm(it.key ?? it.id ?? it.label ?? it.name ?? '');
+      if (k) map.set(k, Number(it.rating ?? it.score ?? it.value ?? 0));
+    }
+    return map;
+  }
+
+  // ----------------------- table helpers -----------------------
+  function findHeaderIndex(table, testFn){
+    const tr = $1('thead tr', table) || $1('tr', table);
+    if (!tr) return -1;
+    const cells = [...tr.children];
+    return cells.findIndex(th => testFn((th.textContent||'').trim()));
+  }
+  function partnerBIndex(table){ return findHeaderIndex(table, t => norm(t) === norm(CFG_B.partnerBHeaderText)); }
+  function partnerAIndex(table){ return findHeaderIndex(table, t => /\bpartner\s*a\b/i.test(t)); }
+  function partnerMatchIndex(table){ return findHeaderIndex(table, t => CFG_B.matchHeaderRegex.test(t)); }
+
+  function ensurePartnerBColumn(table){
+    if (CFG_B.partnerBCellSelector) return;                 // writing to class-based cells
+    let idx = partnerBIndex(table);
+    if (idx >= 0) return;                                   // already present
+    if (!CFG_B.createMissingPartnerBCol) return;
+
+    // Insert Partner B as the LAST column (stable default that won't disrupt “Flag”)
+    let head = $1('thead tr', table);
+    if (!head){
+      table.createTHead();
+      head = table.tHead.insertRow();
+      const firstBodyRow = $1('tbody tr', table);
+      const cols = firstBodyRow ? firstBodyRow.children.length : 1;
+      for (let i=0;i<cols;i++) head.appendChild(document.createElement('th'));
+      head.children[0].textContent = 'Category';
+    }
+    const th = document.createElement('th'); th.textContent = CFG_B.partnerBHeaderText;
+    head.appendChild(th);
+
+    $$('tbody tr', table).forEach(tr=>{
+      const td = document.createElement('td'); td.textContent='-';
+      tr.appendChild(td);
+    });
+  }
+
+  function makeBCellAccessors(table){
+    if (CFG_B.partnerBCellSelector){
+      return {
+        get: tr => $1(CFG_B.partnerBCellSelector, tr),
+        set: (tr,val)=>{ const td=$1(CFG_B.partnerBCellSelector,tr); if(td) td.textContent=String(val); }
+      };
+    }
+    const idx = partnerBIndex(table);
+    return {
+      get: tr => (idx>=0 ? tr.children[idx] : null),
+      set: (tr,val)=>{ if (idx>=0 && tr.children[idx]) tr.children[idx].textContent=String(val); }
+    };
+  }
+
+  function rowKey(tr){
+    const dk = tr.getAttribute('data-key') || tr.getAttribute('data-id');
+    if (dk) return norm(dk);
+    const labelCell = $1('td:first-child, th:first-child', tr);
+    return norm(labelCell?.textContent || '');
+  }
+
+  // ----------------------- fill Partner B everywhere -----------------------
+  function fillPartnerBAll(json){
+    const lookup = buildLookup(json);
+    const tables = $$(`${CFG_B.container} table`);
+    let wrote=0;
+
+    for (const table of tables){
+      ensurePartnerBColumn(table);
+      const acc = makeBCellAccessors(table);
+
+      for (const tr of $$('tbody tr', table)){
+        if (!tr.children || tr.children.length===0) continue;
+
+        const cur = (acc.get(tr)?.textContent||'').trim();
+        if (cur && !/^[-–]$/.test(cur)) continue; // already filled
+
+        const k = rowKey(tr);
+        if (!k) continue;
+
+        if (lookup.has(k)){ acc.set(tr, lookup.get(k)); wrote++; continue; }
+
+        // forgiving substring fallback (both ways)
+        let hit=null;
+        for (const key of lookup.keys()){
+          if (k.includes(key) || key.includes(k)){ hit=key; break; }
+        }
+        if (hit){ acc.set(tr, lookup.get(hit)); wrote++; }
+      }
+    }
+    return wrote;
+  }
+
+  // ----------------------- Flag recompute -----------------------
+  // If the Partner A script already defined populateFlags, use it.
+  // Otherwise define a minimal local version so B upload still updates flags.
+  const populateFlags = window.populateFlags || (function(){
+    return function localPopulateFlags(){
+      const tables = $$(`${CFG_B.container} table`);
+      for (const table of tables){
+        const mIdx = partnerMatchIndex(table);
+        if (mIdx === -1) continue;
+
+        // ensure a Flag column right after Match (remove duplicates)
+        const headRow = $1('thead tr', table) || $1('tr', table);
+        if (!headRow) continue;
+        [...headRow.children].forEach((th,i)=>{
+          const t=(th.textContent||'').trim().toLowerCase();
+          if (/^flag(\/star)?$/.test(t)){ headRow.children[i].remove(); $$('tbody tr', table).forEach(r=> r.children[i]?.remove()); }
+        });
+        const th = document.createElement('th'); th.textContent='Flag';
+        headRow.insertBefore(th, headRow.children[mIdx+1] || null);
+        const fIdx = mIdx+1;
+
+        const aIdx = partnerAIndex(table);
+        const bIdx = partnerBIndex(table);
+
+        $$('tbody tr', table).forEach(tr=>{
+          const getNum = idx => {
+            if (idx<0) return null;
+            const t=(tr.children[idx]?.textContent||'').trim();
+            if (t==='' || /^[-–]$/.test(t)) return null;
+            const n=Number(String(t).replace('%',''));
+            return Number.isFinite(n)?n:null;
+          };
+          const pct  = getNum(mIdx);
+          const aVal = getNum(aIdx);
+          const bVal = getNum(bIdx);
+
+          let icon = '';
+          if (pct!=null && pct >= CFG_B.starMin) icon = '⭐';
+          const high = v => v!=null && v>=4;
+          const noAns = v => v==null;
+          if ((pct!=null && pct <= CFG_B.redFlagMax) || (high(aVal)&&noAns(bVal)) || (high(bVal)&&noAns(aVal))) {
+            icon = '🚩';
+          }
+          const cell = tr.children[fIdx];
+          if (cell) cell.textContent = icon;
+        });
+      }
+    };
+  })();
+
+  // ----------------------- async render support -----------------------
+  let observerB;
+  function watchAndFillB(){
+    const root = $1(CFG_B.container);
+    if (!root) return;
+    if (observerB) observerB.disconnect();
+    observerB = new MutationObserver(()=>{
+      if (window.partnerBSurvey){
+        const wrote = fillPartnerBAll(window.partnerBSurvey);
+        if (wrote) populateFlags();
+      }
+    });
+    observerB.observe(root, {childList:true, subtree:true});
+    // initial pass
+    if (window.partnerBSurvey){
+      const wrote = fillPartnerBAll(window.partnerBSurvey);
+      if (wrote) populateFlags();
+    }
+  }
+
+  // ----------------------- upload wiring -----------------------
+  async function handleUploadB(file){
+    try{
+      const text = await file.text();
+      const json = JSON.parse(text);
+      window.partnerBSurvey = window.surveyB = json;
+
+      if (typeof window.updateComparison === 'function'){
+        await Promise.resolve(window.updateComparison());
+      }
+      watchAndFillB();
+      // small extra delay to catch late layout/fonts
+      setTimeout(()=>{
+        const wrote = fillPartnerBAll(window.partnerBSurvey);
+        if (wrote) populateFlags();
+      }, 120);
+    }catch(e){
+      console.error('[Partner B] JSON error:', e);
+      alert('Invalid JSON file for Partner B.');
+    }
+  }
+
+  // boot
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const inp = $1(CFG_B.uploadB);
+    if (inp){
+      inp.addEventListener('change', e=>{
+        const f = e?.target?.files?.[0];
+        if (f) handleUploadB(f);
+      });
+    } else {
+      console.warn('[Partner B] upload input not found (#uploadSurveyB or [data-upload-b]).');
+    }
+  });
+})();
 </script>
 </body>
 </html>
