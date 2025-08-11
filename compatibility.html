@@ -681,6 +681,142 @@ window.__compatDump = () => {
   });
 })();
   </script>
+
+  <!-- PATCH: accept nested survey export on the compatibility page -->
+  <script>
+  /**
+   * What this does
+   * - Detects the nested survey export shape and flattens it to { "Row label": rating, ... }
+   * - Hooks into BOTH Partner A & Partner B upload handlers by overriding their JSON->lookup step
+   * - Leaves your UI, columns, and PDF code untouched
+   *
+   * How to use
+   * 1) Paste this block after your existing Partner A/B loader scripts (near </body>).
+   * 2) Reload the page.
+   * 3) Upload the JSON you downloaded from the survey page — values will now populate.
+   */
+
+  /* ---------- Normalization used across the site ---------- */
+  function __compatNormKey(s){
+    return String(s||'')
+      .replace(/[\u2018\u2019\u2032]/g,"'")
+      .replace(/[\u201C\u201D\u2033]/g,'"')
+      .replace(/[\u2013\u2014]/g,'-')
+      .replace(/\u2026/g,'')           // remove single char ellipsis
+      .replace(/\s*\.\.\.\s*$/,'')     // remove trailing "..."
+      .replace(/\s+/g,' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  /* ---------- Flatten the nested survey export to a plain object ---------- */
+
+  function __compatFlattenSurveyJSON(json, merge = 'max'){
+    // If it already looks flat, just return it
+    if (json && typeof json === 'object' && !Array.isArray(json) && !json.survey) return json;
+    if (!json || typeof json !== 'object' || !json.survey) return json; // unsupported
+
+    const out = Object.create(null);
+
+    const take = (name, rating) => {
+      if (name == null) return;
+      const key = name; // leave original label; matching code already normalizes
+      const val = Number(rating);
+      if (!Number.isFinite(val)) return;
+
+      if (out[key] == null) out[key] = val;
+      else {
+        switch (merge) {
+          case 'max':   out[key] = Math.max(out[key], val); break;
+          case 'min':   out[key] = Math.min(out[key], val); break;
+          case 'avg':   out[key] = (out[key] + val) / 2;     break;
+          case 'last':  out[key] = val;                      break;
+          default:      out[key] = Math.max(out[key], val);
+        }
+      }
+    };
+
+    const cats = json.survey || {};
+    Object.values(cats).forEach(section=>{
+      if (!section || typeof section !== 'object') return;
+      ['Giving','Receiving','General'].forEach(bucket=>{
+        const arr = Array.isArray(section[bucket]) ? section[bucket] : [];
+        arr.forEach(item => take(item?.name ?? item?.label ?? item?.id, item?.rating ?? item?.score ?? item?.value));
+      });
+    });
+
+    return out;
+  }
+
+  /* ---------- Universal buildLookup that supports all inputs ---------- */
+  function __compatBuildLookupUniversal(json){
+    const flat = __compatFlattenSurveyJSON(json) || json;
+
+    const map = new Map();
+
+    // Case 1: already-flat object
+    if (flat && typeof flat === 'object' && !Array.isArray(flat) && !flat.items && !flat.survey){
+      for (const [k,v] of Object.entries(flat)){
+        map.set(__compatNormKey(k), Number(v));
+      }
+      return map;
+    }
+
+    // Case 2: items array
+    const items = Array.isArray(flat?.items) ? flat.items : [];
+    for (const it of items){
+      const k = __compatNormKey(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
+      if (!k) continue;
+      const n = Number(it?.rating ?? it?.score ?? it?.value);
+      if (Number.isFinite(n)) map.set(k, n);
+    }
+
+    return map;
+  }
+
+  /* ---------- Patch the loaders to use the universal builder ---------- */
+  (function patchLoaders(){
+    // If the A/B loader exposed buildLookup globally, overwrite it.
+    if (typeof window.buildLookup === 'function'){
+      window.buildLookup = __compatBuildLookupUniversal;
+    }
+
+    // Provide a well-known builder the site scripts can prefer.
+    window.__compatBuildLookup = __compatBuildLookupUniversal;
+
+    // If the A/B filler functions exist and internally call a non-global buildLookup,
+    // we still succeed because both Partner A and Partner B upload handlers store
+    // the parsed object on window.partnerASurvey / window.partnerBSurvey.
+    // We can proactively re-fill after an upload using our map:
+
+    function refillFromStored(){
+      try {
+        if (window.partnerASurvey && typeof window.fillPartnerAAll === 'function'){
+          // Make a Map now so row-matching is quick
+          const _ = __compatBuildLookupUniversal(window.partnerASurvey);
+          // The existing fill function expects the raw JSON; it re-builds internally.
+          window.fillPartnerAAll(window.partnerASurvey);
+        }
+        if (window.partnerBSurvey && typeof window.fillPartnerBAll === 'function'){
+          const _ = __compatBuildLookupUniversal(window.partnerBSurvey);
+          window.fillPartnerBAll(window.partnerBSurvey);
+        }
+        if (typeof window.populateFlags === 'function') window.populateFlags();
+      } catch (e) { console.warn('[compat] refill after patch failed', e); }
+    }
+
+    // Refill once now (in case JSON was already loaded), and whenever uploads happen
+    document.addEventListener('change', (e)=>{
+      if (e.target && (e.target.matches('#uploadSurveyA, [data-upload-a]') ||
+                       e.target.matches('#uploadSurveyB, [data-upload-b]'))){
+        setTimeout(refillFromStored, 150);
+      }
+    });
+    // Initial attempt
+    setTimeout(refillFromStored, 200);
+  })();
+  </script>
+
   <script>
 /* ROW KEY ANNOTATOR + AUTO REFILL + DIAGNOSTICS (works with truncated labels) */
 (function(){
