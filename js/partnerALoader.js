@@ -1,6 +1,8 @@
 // Partner A Loader: attaches JSON upload handler and PDF download guard
 // Auto-generated based on provided snippet.
 
+import { compatNormalizeKey as normalize } from './compatNormalizeKey.js';
+
 const CFG = {
   uploadSelector: '#uploadSurveyA, [data-upload-a]',
   downloadSelector: '#downloadBtn',
@@ -12,9 +14,6 @@ const CFG = {
 
 const $one = (sel, ctx = document) => ctx.querySelector(sel);
 const $all = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
-const normalize = str => (str || '').trim()
-  .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
-  .replace(/\s+/g, ' ').toLowerCase();
 window.__compatDump = () => {
   console.log('Headers:', getHeaders());
   console.log('Row samples:', $all(`${CFG.tableContainer} tr`).slice(0, 5).map(r => ({
