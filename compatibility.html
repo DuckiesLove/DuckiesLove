@@ -681,144 +681,7 @@ window.__compatDump = () => {
   });
 })();
   </script>
-
-  <!-- PATCH: accept nested survey export on the compatibility page -->
-  <script>
-  /**
-   * What this does
-   * - Detects the nested survey export shape and flattens it to { "Row label": rating, ... }
-   * - Hooks into BOTH Partner A & Partner B upload handlers by overriding their JSON->lookup step
-   * - Leaves your UI, columns, and PDF code untouched
-   *
-   * How to use
-   * 1) Paste this block after your existing Partner A/B loader scripts (near </body>).
-   * 2) Reload the page.
-   * 3) Upload the JSON you downloaded from the survey page — values will now populate.
-   */
-
-  /* ---------- Normalization used across the site ---------- */
-  function __compatNormKey(s){
-    return String(s||'')
-      .replace(/[\u2018\u2019\u2032]/g,"'")
-      .replace(/[\u201C\u201D\u2033]/g,'"')
-      .replace(/[\u2013\u2014]/g,'-')
-      .replace(/\u2026/g,'')           // remove single char ellipsis
-      .replace(/\s*\.\.\.\s*$/,'')     // remove trailing "..."
-      .replace(/\s+/g,' ')
-      .trim()
-      .toLowerCase();
-  }
-
-  /* ---------- Flatten the nested survey export to a plain object ---------- */
-
-  function __compatFlattenSurveyJSON(json, merge = 'max'){
-    // If it already looks flat, just return it
-    if (json && typeof json === 'object' && !Array.isArray(json) && !json.survey) return json;
-    if (!json || typeof json !== 'object' || !json.survey) return json; // unsupported
-
-    const out = Object.create(null);
-
-    const take = (name, rating) => {
-      if (name == null) return;
-      const key = name; // leave original label; matching code already normalizes
-      const val = Number(rating);
-      if (!Number.isFinite(val)) return;
-
-      if (out[key] == null) out[key] = val;
-      else {
-        switch (merge) {
-          case 'max':   out[key] = Math.max(out[key], val); break;
-          case 'min':   out[key] = Math.min(out[key], val); break;
-          case 'avg':   out[key] = (out[key] + val) / 2;     break;
-          case 'last':  out[key] = val;                      break;
-          default:      out[key] = Math.max(out[key], val);
-        }
-      }
-    };
-
-    const cats = json.survey || {};
-    Object.values(cats).forEach(section=>{
-      if (!section || typeof section !== 'object') return;
-      ['Giving','Receiving','General'].forEach(bucket=>{
-        const arr = Array.isArray(section[bucket]) ? section[bucket] : [];
-        arr.forEach(item => take(item?.name ?? item?.label ?? item?.id, item?.rating ?? item?.score ?? item?.value));
-      });
-    });
-
-    return out;
-  }
-
-  /* ---------- Universal buildLookup that supports all inputs ---------- */
-  function __compatBuildLookupUniversal(json){
-    const flat = __compatFlattenSurveyJSON(json) || json;
-
-    const map = new Map();
-
-    // Case 1: already-flat object
-    if (flat && typeof flat === 'object' && !Array.isArray(flat) && !flat.items && !flat.survey){
-      for (const [k,v] of Object.entries(flat)){
-        map.set(__compatNormKey(k), Number(v));
-      }
-      return map;
-    }
-
-    // Case 2: items array
-    const items = Array.isArray(flat?.items) ? flat.items : [];
-    for (const it of items){
-      const k = __compatNormKey(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
-      if (!k) continue;
-      const n = Number(it?.rating ?? it?.score ?? it?.value);
-      if (Number.isFinite(n)) map.set(k, n);
-    }
-
-    return map;
-  }
-
-  /* ---------- Patch the loaders to use the universal builder ---------- */
-  (function patchLoaders(){
-    // If the A/B loader exposed buildLookup globally, overwrite it.
-    if (typeof window.buildLookup === 'function'){
-      window.buildLookup = __compatBuildLookupUniversal;
-    }
-
-    // Provide a well-known builder the site scripts can prefer.
-    window.__compatBuildLookup = __compatBuildLookupUniversal;
-
-    // If the A/B filler functions exist and internally call a non-global buildLookup,
-    // we still succeed because both Partner A and Partner B upload handlers store
-    // the parsed object on window.partnerASurvey / window.partnerBSurvey.
-    // We can proactively re-fill after an upload using our map:
-
-    function refillFromStored(){
-      try {
-        if (window.partnerASurvey && typeof window.fillPartnerAAll === 'function'){
-          // Make a Map now so row-matching is quick
-          const _ = __compatBuildLookupUniversal(window.partnerASurvey);
-          // The existing fill function expects the raw JSON; it re-builds internally.
-          window.fillPartnerAAll(window.partnerASurvey);
-        }
-        if (window.partnerBSurvey && typeof window.fillPartnerBAll === 'function'){
-          const _ = __compatBuildLookupUniversal(window.partnerBSurvey);
-          window.fillPartnerBAll(window.partnerBSurvey);
-        }
-        if (typeof window.populateFlags === 'function') window.populateFlags();
-      } catch (e) { console.warn('[compat] refill after patch failed', e); }
-    }
-
-    // Refill once now (in case JSON was already loaded), and whenever uploads happen
-    document.addEventListener('change', (e)=>{
-      if (e.target && (e.target.matches('#uploadSurveyA, [data-upload-a]') ||
-                       e.target.matches('#uploadSurveyB, [data-upload-b]'))){
-        setTimeout(refillFromStored, 150);
-      }
-    });
-    // Initial attempt
-    setTimeout(refillFromStored, 200);
-  })();
-  </script>
-
-  <script>
-/* ROW KEY ANNOTATOR + AUTO REFILL + DIAGNOSTICS (works with truncated labels) */
+<script>
 (function(){
   const ROOT = document.querySelector('#pdf-container');
   if (!ROOT) return;
@@ -835,72 +698,118 @@ window.__compatDump = () => {
       .toLowerCase();
   }
 
-  function deriveLabel(tr){
-    const first = tr.querySelector('td:first-child, th:first-child');
-    // Prefer attributes first
-    const fromAttr =
-      tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
-      (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
-      tr.getAttribute('title') || tr.getAttribute('aria-label') ||
-      (first && (first.getAttribute('title') || first.getAttribute('aria-label')));
-    if (fromAttr) return fromAttr;
-    // Hidden full label node
-    const hidden = tr.querySelector('.full-label') || (first && first.querySelector('.full-label'));
-    if (hidden && hidden.textContent) return hidden.textContent;
-    // Fallback to visible text (may be ellipsized)
-    return first ? first.textContent : '';
-  }
-
-  function annotate(){
+  function annotateRows(){
     ROOT.querySelectorAll('table tbody tr').forEach(tr=>{
-      if ((tr.getAttribute('data-key') || tr.getAttribute('data-id') || '').trim()) return;
-      const key = norm(deriveLabel(tr));
-      if (key) tr.setAttribute('data-key', key);
+      if ((tr.getAttribute('data-key')||'').trim()) return;
+      const first = tr.querySelector('td:first-child, th:first-child');
+      const label =
+        tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
+        (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
+        tr.getAttribute('title') || tr.getAttribute('aria-label') ||
+        (first && (first.getAttribute('title') || first.getAttribute('aria-label'))) ||
+        (first ? first.textContent : '');
+      tr.setAttribute('data-key', norm(label));
     });
   }
 
-  // Call Partner A/B fillers if available (from your existing loader scripts)
-  function tryRefill(){
-    try {
-      if (window.partnerASurvey && typeof window.fillPartnerAAll === 'function') {
-        window.fillPartnerAAll(window.partnerASurvey);
-      }
-      if (window.partnerBSurvey && typeof window.fillPartnerBAll === 'function') {
-        window.fillPartnerBAll(window.partnerBSurvey);
-      }
-      if (typeof window.populateFlags === 'function') window.populateFlags();
-    } catch(e) { console.warn('[compat] refill error', e); }
-  }
-
-  // Diagnostics to help if something still doesn’t match
-  function toMap(obj){
-    const m=new Map();
-    if (obj && typeof obj==='object') for (const [k,v] of Object.entries(obj)) m.set(norm(k), v);
-    return m;
-  }
-  function mismatch(){
-    const A = toMap(window.partnerASurvey);
-    const B = toMap(window.partnerBSurvey);
-    const keysInDom = [];
-    ROOT.querySelectorAll('table tbody tr').forEach(tr=>{
-      const k = (tr.getAttribute('data-key')||'').trim();
-      if (k) keysInDom.push(k);
+  function tagColumns(){
+    ROOT.querySelectorAll('table').forEach(table=>{
+      const ths = Array.from(table.querySelectorAll('thead th'));
+      if (!ths.length) return;
+      const idxA = ths.findIndex(th => norm(th.textContent) === 'partner a');
+      const idxB = ths.findIndex(th => norm(th.textContent) === 'partner b');
+      if (idxA >= 0) table.querySelectorAll(`tbody tr`).forEach(tr=>{
+        const td = tr.children[idxA]; if (td) td.classList.add('pa');
+      });
+      if (idxB >= 0) table.querySelectorAll(`tbody tr`).forEach(tr=>{
+        const td = tr.children[idxB]; if (td) td.classList.add('pb');
+      });
     });
-    const jsonNotFound = (M) => [...M.keys()].filter(k => !keysInDom.includes(k));
-    console.group('[compat] mismatch report');
-    if (A.size) console.log('Partner A JSON keys not found in DOM:', jsonNotFound(A).slice(0,60));
-    if (B.size) console.log('Partner B JSON keys not found in DOM:', jsonNotFound(B).slice(0,60));
-    console.groupEnd();
   }
-  window.__compatMismatch = mismatch;
-  window.__compatAnnotate = annotate;
 
-  // Run now and on future DOM updates
-  annotate();
-  tryRefill();
-  const mo = new MutationObserver(()=>{ annotate(); tryRefill(); });
-  mo.observe(ROOT, {childList:true, subtree:true});
+  function buildLookup(json){
+    function flattenSurvey(j){
+      if (!j || typeof j!=='object' || !j.survey) return j;
+      const out = {};
+      Object.values(j.survey).forEach(sec=>{
+        ['Giving','Receiving','General'].forEach(b=>{
+          (Array.isArray(sec?.[b])?sec[b]:[]).forEach(it=>{
+            const k = it?.name ?? it?.label ?? it?.id;
+            const v = it?.rating ?? it?.score ?? it?.value;
+            if (k!=null && Number.isFinite(+v)) out[k] = Math.max(out[k]??-Infinity, +v);
+          });
+        });
+      });
+      return out;
+    }
+    const flat = flattenSurvey(json) || json;
+    const map = new Map();
+    if (flat && typeof flat==='object' && !Array.isArray(flat) && !flat.items && !flat.survey){
+      for (const [k,v] of Object.entries(flat)) map.set(norm(k), Number(v));
+      return map;
+    }
+    const items = Array.isArray(flat?.items) ? flat.items : [];
+    for (const it of items){
+      const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
+      const n = Number(it?.rating ?? it?.score ?? it?.value);
+      if (k && Number.isFinite(n)) map.set(k, n);
+    }
+    return map;
+  }
+
+  function writePartner(label, json){
+    const map = buildLookup(json);
+    if (!map.size) return 0;
+    const sel = label==='A' ? 'td.pa' : 'td.pb';
+    let wrote = 0;
+    ROOT.querySelectorAll('table tbody tr').forEach(tr=>{
+      const key = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
+      const val = map.get(norm(key));
+      if (val==null) return;
+      const td = tr.querySelector(sel);
+      if (!td) return;
+      if (!td.textContent || /^\s*[-–—]?\s*$/.test(td.textContent)){
+        td.textContent = String(val);
+        wrote++;
+      }
+    });
+    return wrote;
+  }
+
+  function refill(){
+    annotateRows();
+    tagColumns();
+    let w = 0;
+    if (window.partnerASurvey) w += writePartner('A', window.partnerASurvey);
+    if (window.partnerBSurvey) w += writePartner('B', window.partnerBSurvey);
+    if (typeof window.populateFlags === 'function') window.populateFlags();
+    return w;
+  }
+
+  window.fillPartnerAAll = json => { window.partnerASurvey = json; annotateRows(); tagColumns(); return writePartner('A', json); };
+  window.fillPartnerBAll = json => { window.partnerBSurvey = json; annotateRows(); tagColumns(); return writePartner('B', json); };
+
+  window.__compatQuick = {
+    refill,
+    check(key){
+      const k = norm(key);
+      const tr = ROOT.querySelector(`tbody tr[data-key="${k}"]`);
+      console.log('norm key:', k, 'row found?', !!tr, tr);
+      return tr;
+    }
+  };
+
+  annotateRows();
+  tagColumns();
+  setTimeout(refill, 100);
+
+  document.addEventListener('change', (e)=>{
+    if (e.target && (e.target.matches('#uploadSurveyA,[data-upload-a]') ||
+                     e.target.matches('#uploadSurveyB,[data-upload-b]'))){
+      setTimeout(refill, 150);
+    }
+  });
 })();
-  </script>
+</script>
 </body>
 </html>
