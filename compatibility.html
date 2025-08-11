@@ -86,7 +86,7 @@
       <button class="themed-button wide-button" onclick="window.history.back()">← Back</button>
 
       <label id="uploadYourSurvey" class="upload-button themed-button wide-button">
-        <input type="file" id="uploadSurveyA" />
+        <input id="uploadSurveyA" type="file" accept="application/json" />
         Upload Your Survey
       </label>
 
@@ -132,5 +132,296 @@
     // auto-wire is built into the module, but this exposes it if you need to call it manually:
     window.downloadCompatibilityPDF = downloadCompatibilityPDF;
   </script>
+
+<script>
+/**
+ * Partner A loader + Flag column + guarded PDF — ALL CATEGORIES
+ * - Loads Partner A JSON and fills Column A across every table in #pdf-container
+ * - auto-creates “Partner A” column if missing OR writes into existing one
+ * - adds “Flag” column after “Match” (⭐ >=90, 🚩 <=50 or 4/5 vs no-answer)
+ * - re-fills after async renders (MutationObserver)
+ * - blocks PDF download until Partner A has values
+ */
+
+const CFG = {
+  container: '#pdf-container',
+  uploadA:   '#uploadSurveyA, [data-upload-a]',
+  download:  '#downloadBtn, [data-download-pdf]',
+  partnerACellSelector: null,         // e.g. 'td.pa' if you already have a class-based Partner A cell; leave null to auto-create column
+  createMissingPartnerACol: true,     // true = auto insert “Partner A” column if missing
+  partnerAHeaderText: 'Partner A',
+  matchHeaderRegex: /\bmatch\b/i,     // header used to place “Flag” after
+  starMin: 90,                        // ⭐ rule
+  redFlagMax: 50                      // 🚩 rule
+};
+
+const $1 = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+const wait = ms=>new Promise(r=>setTimeout(r,ms));
+function norm(s){return (s||'').replace(/[\u2018\u2019\u2032]/g,"'").replace(/[\u201C\u201D\u2033]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...').replace(/\s+/g,' ').trim().toLowerCase();}
+
+/* JSON → lookup */
+function buildLookup(json){
+  const map=new Map();
+  if (json && typeof json==='object' && !Array.isArray(json)){
+    for (const [k,v] of Object.entries(json)) map.set(norm(k), Number(v));
+    return map;
+  }
+  const items = Array.isArray(json?.items) ? json.items : [];
+  for (const it of items){
+    const k = norm(it.key ?? it.id ?? it.label ?? it.name ?? '');
+    if (k) map.set(k, Number(it.rating ?? it.score ?? it.value ?? 0));
+  }
+  return map;
+}
+
+/* header/column helpers */
+function findHeaderIndex(table, testFn){
+  const tr = $1('thead tr', table) || $1('tr', table);
+  if (!tr) return -1;
+  return [...tr.children].findIndex(th => testFn((th.textContent||'').trim()));
+}
+function partnerAIndex(table){ return findHeaderIndex(table, t => norm(t) === norm(CFG.partnerAHeaderText)); }
+function matchIndex(table){ return findHeaderIndex(table, t => CFG.matchHeaderRegex.test(t)); }
+
+function ensurePartnerAColumn(table){
+  if (CFG.partnerACellSelector) return;                       // writing to class-based cells
+  let idx = partnerAIndex(table);
+  if (idx >= 0) return;                                       // already present
+  if (!CFG.createMissingPartnerACol) return;
+
+  let head = $1('thead tr', table);
+  if (!head){
+    table.createTHead();
+    head = table.tHead.insertRow();
+    const firstBodyRow = $1('tbody tr', table);
+    const cols = firstBodyRow ? firstBodyRow.children.length : 1;
+    for (let i=0;i<cols;i++) head.appendChild(document.createElement('th'));
+    head.children[0].textContent = 'Category';
+  }
+  const th = document.createElement('th'); th.textContent = CFG.partnerAHeaderText;
+  head.insertBefore(th, head.children[1] || null);
+  $$('tbody tr', table).forEach(tr=>{
+    const td = document.createElement('td'); td.textContent='-';
+    tr.insertBefore(td, tr.children[1] || null);
+  });
+}
+
+function ensureFlagColumn(table){
+  const headRow = $1('thead tr', table) || $1('tr', table);
+  if (!headRow) return -1;
+  let m = matchIndex(table);
+  if (m === -1) return -1;
+
+  // remove existing "Flag" columns to avoid duplicates
+  [...headRow.children].forEach((th,i)=>{
+    const t=(th.textContent||'').trim().toLowerCase();
+    if (/^flag(\/star)?$/.test(t)){ headRow.children[i].remove(); $$('tbody tr', table).forEach(tr=> tr.children[i]?.remove()); }
+  });
+
+  m = matchIndex(table);
+  if (m === -1) return -1;
+
+  const th = document.createElement('th'); th.textContent='Flag';
+  headRow.insertBefore(th, headRow.children[m+1] || null);
+  $$('tbody tr', table).forEach(tr=>{
+    const td=document.createElement('td'); td.className='flag-cell'; td.textContent='';
+    tr.insertBefore(td, tr.children[m+1] || null);
+  });
+  return m+1;
+}
+
+/* row identity */
+function rowKey(tr){
+  const dk = tr.getAttribute('data-key') || tr.getAttribute('data-id');
+  if (dk) return norm(dk);
+  const labelCell = $1('td:first-child, th:first-child', tr);
+  return norm(labelCell?.textContent || '');
+}
+
+/* access Partner A cell */
+function makeACellAccessors(table){
+  if (CFG.partnerACellSelector){
+    return {
+      get: tr => $1(CFG.partnerACellSelector, tr),
+      set: (tr,val)=>{ const td=$1(CFG.partnerACellSelector,tr); if(td) td.textContent=String(val); }
+    };
+  }
+  const idx = partnerAIndex(table);
+  return {
+    get: tr => (idx>=0 ? tr.children[idx] : null),
+    set: (tr,val)=>{ if (idx>=0 && tr.children[idx]) tr.children[idx].textContent=String(val); }
+  };
+}
+
+/* fill Partner A across ALL categories/tables */
+function fillPartnerAAll(json){
+  const lookup = buildLookup(json);
+  const tables = $$(`${CFG.container} table`);
+  let wrote=0;
+
+  for (const table of tables){
+    ensurePartnerAColumn(table);
+    const acc = makeACellAccessors(table);
+
+    for (const tr of $$('tbody tr', table)){
+      if (!tr.children || tr.children.length===0) continue;
+
+      const cur = (acc.get(tr)?.textContent||'').trim();
+      if (cur && !/^[-–]$/.test(cur)) continue;
+
+      const k = rowKey(tr);
+      if (!k) continue;
+
+      if (lookup.has(k)){ acc.set(tr, lookup.get(k)); wrote++; continue; }
+
+      // forgiving substring fallback both ways
+      let hit=null;
+      for (const key of lookup.keys()){
+        if (k.includes(key) || key.includes(k)){ hit=key; break; }
+      }
+      if (hit){ acc.set(tr, lookup.get(hit)); wrote++; }
+    }
+  }
+  return wrote;
+}
+
+/* Flags (after A/B + Match exist) */
+function populateFlags(){
+  const tables = $$(`${CFG.container} table`);
+  for (const table of tables){
+    const mIdx = matchIndex(table);
+    if (mIdx === -1) continue;
+    const fIdx = ensureFlagColumn(table);
+    if (fIdx === -1) continue;
+
+    const aIdx = partnerAIndex(table);
+    const bIdx = findHeaderIndex(table, t => /partner\s*b/i.test(t));
+
+    $$('tbody tr', table).forEach(tr=>{
+      const getNum = idx => {
+        if (idx<0) return null;
+        const t=(tr.children[idx]?.textContent||'').trim();
+        if (t==='' || /^[-–]$/.test(t)) return null;
+        const n=Number(String(t).replace('%','')); return Number.isFinite(n)?n:null;
+      };
+      const pct  = getNum(mIdx);
+      const aVal = getNum(aIdx);
+      const bVal = getNum(bIdx);
+
+      let icon = '';
+      if (pct!=null && pct >= CFG.starMin) icon='⭐';
+      const high = v => v!=null && v>=4;
+      const noAns = v => v==null;
+      if ((pct!=null && pct <= CFG.redFlagMax) || (high(aVal)&&noAns(bVal)) || (high(bVal)&&noAns(aVal))) icon='🚩';
+
+      const cell = tr.children[fIdx];
+      if (cell) cell.textContent = icon;
+    });
+  }
+}
+
+/* detect any Partner A in DOM */
+function partnerAHasAnyData(){
+  const tables = $$(`${CFG.container} table`);
+  for (const table of tables){
+    const acc = makeACellAccessors(table);
+    for (const tr of $$('tbody tr', table)){
+      const t=(acc.get(tr)?.textContent||'').trim();
+      if (t && !/^[-–]$/.test(t)) return true;
+    }
+  }
+  return false;
+}
+
+/* watch async renders and re-fill */
+let compatObserver;
+function watchAndFillAfterRender(){
+  const root = $1(CFG.container);
+  if (!root) return;
+  if (compatObserver) compatObserver.disconnect();
+  compatObserver = new MutationObserver(()=>{
+    if (window.partnerASurvey){
+      const wrote = fillPartnerAAll(window.partnerASurvey);
+      if (wrote) populateFlags();
+    }
+  });
+  compatObserver.observe(root, {childList:true, subtree:true});
+  if (window.partnerASurvey){
+    const wrote = fillPartnerAAll(window.partnerASurvey);
+    if (wrote) populateFlags();
+  }
+}
+
+/* upload + download wiring */
+async function handleUploadA(file){
+  try{
+    const text = await file.text();
+    const json = JSON.parse(text);
+    window.partnerASurvey = window.surveyA = json;
+
+    if (typeof window.updateComparison === 'function'){
+      await Promise.resolve(window.updateComparison());
+    }
+    watchAndFillAfterRender();
+    await wait(120);
+    const wrote = fillPartnerAAll(window.partnerASurvey);
+    if (wrote) populateFlags();
+
+    if (!partnerAHasAnyData()){
+      alert('Partner A looks empty. Ensure row text or data-key matches your JSON keys.');
+    }
+  }catch(e){
+    console.error('[Partner A] JSON error:', e);
+    alert('Invalid JSON file.');
+  }
+}
+
+(function boot(){
+  const up = $1(CFG.uploadA);
+  if (up){
+    up.addEventListener('change', e=>{
+      const f = e?.target?.files?.[0];
+      if (f) handleUploadA(f);
+    });
+  } else {
+    console.warn('[Partner A] upload input not found (#uploadSurveyA or [data-upload-a]).');
+  }
+
+  const btn = $1(CFG.download);
+  if (btn){
+    const fresh = btn.cloneNode(true); btn.replaceWith(fresh);
+    fresh.addEventListener('click', async ev=>{
+      if (!partnerAHasAnyData()){
+        ev.preventDefault();
+        alert('Partner A looks empty. Upload your survey and wait for the table to refresh.');
+        return;
+      }
+      if (typeof window.downloadCompatibilityPDF === 'function'){
+        ev.preventDefault();
+        await window.downloadCompatibilityPDF();
+      }
+    });
+  }
+})();
+
+/* console diagnostics */
+window.__compatDump = () => {
+  const out = [];
+  const tables = $$(`${CFG.container} table`);
+  for (const [i,t] of tables.entries()){
+    const head = $$('thead tr th', t).map(th=>th.textContent.trim());
+    const idx = partnerAIndex(t);
+    const rows = $$('tbody tr', t).slice(0,10).map(tr=>{
+      const label = $1('td:first-child, th:first-child', tr)?.textContent?.trim() || '';
+      const dk = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
+      return {label, dataKey: dk};
+    });
+    out.push({table:i, headers: head, partnerAIndex: idx, sampleRows: rows});
+  }
+  console.log('[__compatDump]', out);
+  return out;
+};
+</script>
 </body>
 </html>
