@@ -681,5 +681,149 @@ window.__compatDump = () => {
   });
 })();
 </script>
+<script>
+/* ===================== ROBUST ROW KEY ANNOTATION + DIAGNOSTICS ===================== *
+ * Purpose: Your table labels are visually truncated (…), while JSON uses full phrases.
+ * This derives a stable data-key for each <tr> from full-label sources if present, else visible text.
+ * Works alongside the existing Partner A/B loader scripts. Paste AFTER them.
+ */
+
+(function(){
+  const CONTAINER = '#pdf-container';
+
+  // Normalization used for keys: unify punctuation, remove ellipses, squash whitespace
+  function normKey(s){
+    return (s||'')
+      .replace(/[\u2018\u2019\u2032]/g,"'")
+      .replace(/[\u201C\u201D\u2033]/g,'"')
+      .replace(/[\u2013\u2014]/g,'-')
+      .replace(/\u2026/g,'')            // remove "…" ellipses
+      .replace(/\s*\.\.\.\s*$/,'')      // remove trailing "..."
+      .replace(/\s+/g,' ')
+      .trim().toLowerCase();
+  }
+
+  // Best-available full label for a row (attributes > hidden full text > visible text)
+  function getFullLabel(tr){
+    const first = tr.querySelector('td:first-child, th:first-child');
+    // Attributes on row or first cell
+    const fromAttr =
+      tr.getAttribute('data-full')      || tr.getAttribute('data-label') ||
+      (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
+      tr.getAttribute('title')          || tr.getAttribute('aria-label') ||
+      (first && (first.getAttribute('title') || first.getAttribute('aria-label')));
+    if (fromAttr) return fromAttr;
+    // Hidden/auxiliary nodes developers often add for full text
+    const hidden =
+      tr.querySelector('.full-label')   || tr.querySelector('[data-full-label]') ||
+      (first && (first.querySelector('.full-label') || first.querySelector('[data-full-label]')));
+    if (hidden && hidden.textContent) return hidden.textContent;
+    // Fallback to visible first-cell text (might be truncated)
+    return first ? first.textContent : '';
+  }
+
+  // Annotate every row with a strong data-key so loaders can match reliably
+  function annotateRows(){
+    const root = document.querySelector(CONTAINER);
+    if (!root) return;
+    const rows = Array.from(root.querySelectorAll('table tbody tr'));
+    rows.forEach(tr=>{
+      const already = tr.getAttribute('data-key') || tr.getAttribute('data-id');
+      if (already && already.trim()) return;
+      const label = getFullLabel(tr);
+      const key   = normKey(label);
+      if (key) tr.setAttribute('data-key', key);
+    });
+  }
+
+  // Build lookups for mismatch report from whatever the loaders stored
+  function currentJsonLookups(){
+    function toMap(obj){
+      const m = new Map();
+      if (obj && typeof obj === 'object'){
+        for (const [k,v] of Object.entries(obj)) m.set(normKey(k), v);
+      }
+      return m;
+    }
+    return {
+      A: toMap(window.partnerASurvey),
+      B: toMap(window.partnerBSurvey)
+    };
+  }
+
+  // Log what still doesn’t match (helps fix residual issues)
+  function reportMismatches(){
+    const root = document.querySelector(CONTAINER);
+    if (!root) return;
+
+    const {A,B} = currentJsonLookups();
+
+    function scan(label){
+      const unmatchedRows = [];
+      const tables = Array.from(root.querySelectorAll('table'));
+      const allRowKeys = [];
+      tables.forEach(t=>{
+        t.querySelectorAll('tbody tr').forEach(tr=>{
+          const rk = (tr.getAttribute('data-key') || '').trim();
+          if (rk) allRowKeys.push(rk);
+          const map = label==='A' ? A : B;
+          if (map.size && rk && !map.has(rk)) unmatchedRows.push(rk);
+        });
+      });
+
+      const map = label==='A' ? A : B;
+      const unmatchedKeys = [];
+      map.forEach((_, k)=>{
+        if (!allRowKeys.includes(k)) unmatchedKeys.push(k);
+      });
+
+      console.group(`[compat] Unmatched report Partner ${label}`);
+      console.log('Rows not matched by JSON (sample):', unmatchedRows.slice(0,60));
+      console.log('JSON keys not matched by any row (sample):', unmatchedKeys.slice(0,60));
+      console.log('(showing up to 60 each)');
+      console.groupEnd();
+    }
+
+    if (A.size) scan('A');
+    if (B.size) scan('B');
+  }
+
+  // Run once now, then whenever the table re-renders
+  function bootAnnotator(){
+    annotateRows();
+    const root = document.querySelector(CONTAINER);
+    if (!root) return;
+    const mo = new MutationObserver(()=>{
+      annotateRows();
+      // After keys exist, give loaders another chance to fill
+      try {
+        if (window.partnerASurvey && typeof window.fillPartnerAAll === 'function'){
+          window.fillPartnerAAll(window.partnerASurvey);
+        }
+        if (window.partnerBSurvey && typeof window.fillPartnerBAll === 'function'){
+          window.fillPartnerBAll(window.partnerBSurvey);
+        }
+        if (typeof window.populateFlags === 'function') window.populateFlags();
+      } catch(_) {}
+    });
+    mo.observe(root, {childList:true, subtree:true});
+  }
+
+  // Expose quick console commands
+  window.__compatAnnotate = annotateRows;
+  window.__compatMismatch = reportMismatches;
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    bootAnnotator();
+    // After uploads finish and the table refreshes, print a mismatch summary
+    document.addEventListener('change', (e)=>{
+      if (e.target && (e.target.matches('#uploadSurveyA, [data-upload-a]') ||
+                       e.target.matches('#uploadSurveyB, [data-upload-b]'))){
+        setTimeout(reportMismatches, 600);
+      }
+    });
+  });
+})();
+</script>
 </body>
 </html>
