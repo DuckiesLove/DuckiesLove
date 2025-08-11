@@ -80,6 +80,19 @@ function colorClass(percent) {
   return 'red';
 }
 
+function compatNormalizeKey(s){
+  return String(s || '')
+    .replace(/[\u2018\u2019\u2032]/g,"'")
+    .replace(/[\u201C\u201D\u2033]/g,'"')
+    .replace(/[\u2013\u2014]/g,'-')
+    .replace(/\u2026/g,'')
+    .replace(/\s*\.\.\.\s*$/,'')
+    .replace(/\s+/g,' ')
+    .trim()
+    .toLowerCase();
+}
+if (typeof window !== 'undefined') window.compatNormalizeKey = compatNormalizeKey;
+
 function makeBar(percent) {
   const outer = document.createElement('div');
   outer.className = 'partner-bar';
@@ -433,6 +446,8 @@ function updateComparison() {
       row.className = 'item-row';
       if (kink.partnerA != null) row.dataset.a = kink.partnerA;
       if (kink.partnerB != null) row.dataset.b = kink.partnerB;
+      const fullLabel = kink.name;
+      row.setAttribute('data-key', compatNormalizeKey(fullLabel));
       row.innerHTML = `
         <td class="label">${kink.name}</td>
         <td class="pa">${kink.partnerA ?? '-'}</td>
@@ -440,6 +455,12 @@ function updateComparison() {
         <td class="flag flag-cell"></td>
         <td class="pb">${kink.partnerB ?? '-'}</td>
       `;
+      const firstCell = row.querySelector('td.label');
+      const hidden = document.createElement('span');
+      hidden.className = 'full-label';
+      hidden.textContent = fullLabel;
+      hidden.hidden = true;
+      firstCell.appendChild(hidden);
       block.appendChild(row);
     });
 

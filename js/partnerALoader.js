@@ -69,7 +69,8 @@ async function handlePartnerAUpload(file) {
   setTimeout(() => {
     const matched = fillPartnerA(normalized);
     if (!matched) {
-      alert(`Partner A did not appear in the table.\n\nCheck that:\n• Rows have a data-key/data-id, or the first column matches your JSON keys\n• Table has td.pa cells OR a header named "${CFG.partnerAHeaderText}"\n• updateComparison() writes Partner A values`);
+      console.warn('[Partner A] No values found yet — will attempt to annotate and refill.');
+      if (window.__compatMismatch) setTimeout(window.__compatMismatch, 300);
     }
   }, 300);
 }

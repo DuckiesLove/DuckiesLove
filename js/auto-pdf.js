@@ -194,6 +194,19 @@ function colorClass(percent) {
   return 'red';
 }
 
+function compatNormalizeKey(s){
+  return String(s || '')
+    .replace(/[\u2018\u2019\u2032]/g,"'")
+    .replace(/[\u201C\u201D\u2033]/g,'"')
+    .replace(/[\u2013\u2014]/g,'-')
+    .replace(/\u2026/g,'')
+    .replace(/\s*\.\.\.\s*$/,'')
+    .replace(/\s+/g,' ')
+    .trim()
+    .toLowerCase();
+}
+if (typeof window !== 'undefined') window.compatNormalizeKey = compatNormalizeKey;
+
 function barFillColor(percent) {
   if (percent >= 80) return '#00c853';
   if (percent >= 60) return '#fbc02d';
@@ -367,10 +380,17 @@ function updateComparison() {
   categories.forEach(cat => {
     const row = document.createElement('tr');
     row.className = 'row';
+    const fullLabel = cat.name;
+    row.setAttribute('data-key', compatNormalizeKey(fullLabel));
     const nameTd = document.createElement('td');
     nameTd.className = 'kink-name';
     const icons = buildCategoryIcons(cat.you, cat.partner);
     nameTd.innerHTML = icons ? `${cat.name} ${icons}` : cat.name;
+    const hidden = document.createElement('span');
+    hidden.className = 'full-label';
+    hidden.textContent = fullLabel;
+    hidden.hidden = true;
+    nameTd.appendChild(hidden);
     row.appendChild(nameTd);
     row.appendChild(makeTd(cat.you));
     row.appendChild(makeTd(cat.partner));
