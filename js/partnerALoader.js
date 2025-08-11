@@ -7,8 +7,8 @@ const CFG = {
   uploadSelector: '#uploadSurveyA, [data-upload-a]',
   downloadSelector: '#downloadBtn',
   tableContainer: '#pdf-container',
-  partnerACellSelector: 'td.pa',
-  createMissingPartnerACol: false,
+  partnerACellSelector: null,
+  createMissingPartnerACol: true,
   partnerAHeaderText: 'Partner A'
 };
 
@@ -92,6 +92,7 @@ function guardDownload() {
 // initialization
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
+    ensurePartnerACol();
     const up = $one(CFG.uploadSelector);
     if (up) up.addEventListener('change', e => {
       if (e.target.files.length) handlePartnerAUpload(e.target.files[0]);
@@ -100,4 +101,4 @@ if (typeof document !== 'undefined') {
   });
 }
 
-export {}; // ensure module context
+export { ensurePartnerACol, handlePartnerAUpload, CFG };
