@@ -432,7 +432,7 @@ function updateComparison() {
     </colgroup>
     <thead>
       <tr>
-        <th class="label"></th>
+        <th class="label">Category</th>
         <th class="pa">Partner A</th>
         <th class="match">Match</th>
         <th class="flag">Flag/Star</th>
@@ -458,6 +458,7 @@ function updateComparison() {
       if (kink.partnerB != null) row.dataset.b = kink.partnerB;
       const fullLabel = kink.name;
       row.setAttribute('data-key', compatNormalizeKey(fullLabel));
+      row.setAttribute('data-full', fullLabel);
       row.innerHTML = `
         <td class="label">${kink.name}</td>
         <td class="pa">${kink.partnerA ?? '-'}</td>
@@ -480,6 +481,13 @@ function updateComparison() {
   container.appendChild(table);
   renderFlags(table);
   markPartnerALoaded();
+
+  if (window.__compatSetRoot) {
+    window.__compatSetRoot(document.querySelector('[data-compat-root]'));
+  }
+  if (window.__compatRendered) {
+    window.__compatRendered();
+  }
 
   const categories = Object.entries(lastResult).map(([category, items]) => ({
     category,

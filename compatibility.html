@@ -1153,5 +1153,172 @@ window.__compatDump = () => {
     });
   })();
   </script>
+
+<script>
+(function(){
+  const norm = s => String(s||'')
+    .replace(/[\u2018\u2019\u2032]/g,"'")
+    .replace(/[\u201C\u201D\u2033]/g,'"')
+    .replace(/[\u2013\u2014]/g,'-')
+    .replace(/\u2026/g,'')
+    .replace(/\s*\.\.\.\s*$/,'')
+    .replace(/\s+/g,' ')
+    .trim().toLowerCase();
+
+  function toLookup(json){
+    const map = new Map();
+    if (!json || typeof json !== 'object') return map;
+    // flat object
+    if (!Array.isArray(json) && !json.items && !json.survey){
+      for (const [k,v] of Object.entries(json)){
+        const n = Number(v); if (Number.isFinite(n)) map.set(norm(k), n);
+      }
+      return map;
+    }
+    // items array (your logs show {items:Array(35)})
+    const items = Array.isArray(json.items) ? json.items : [];
+    for (const it of items){
+      const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
+      const n = Number(it?.rating ?? it?.score ?? it?.value);
+      if (k && Number.isFinite(n)) map.set(k, n);
+    }
+    return map;
+  }
+
+  // Root resolving
+  let ROOT = null;
+  function getRoot(){
+    return ROOT ||
+           document.querySelector('[data-compat-root]') ||
+           document.querySelector('#pdf-container') ||
+           document.body;
+  }
+  window.__compatSetRoot = function(el){ if (el && el.querySelector) { ROOT = el; tryFillSoon(); } };
+
+  // Count rows (works for table OR custom grid)
+  function countRows(root){
+    const tableRows = root.querySelectorAll('tbody tr').length;
+    const roleRows  = root.querySelectorAll('[role="row"][data-compat-row]').length;
+    return Math.max(tableRows, roleRows);
+  }
+
+  // Annotate rows with a stable key (prefers data-full, falls back to first cell text)
+  function annotateRows(root){
+    // Table rows
+    root.querySelectorAll('table tbody tr').forEach(tr=>{
+      if ((tr.getAttribute('data-key')||'').trim()) return;
+      const first = tr.querySelector('td:first-child, th:first-child');
+      const label =
+        tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
+        (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
+        tr.getAttribute('title') || tr.getAttribute('aria-label') ||
+        (first && (first.getAttribute('title') || first.getAttribute('aria-label'))) ||
+        (first ? first.textContent : '');
+      tr.setAttribute('data-key', norm(label));
+    });
+    // Grid rows
+    root.querySelectorAll('[role="row"][data-compat-row]').forEach(row=>{
+      if ((row.getAttribute('data-key')||'').trim()) return;
+      const first = row.querySelector('[data-compat-cell]:first-child,[role="cell"]:first-child,*:first-child');
+      const label = row.getAttribute('data-full') || (first ? first.textContent : '');
+      row.setAttribute('data-key', norm(label));
+    });
+  }
+
+  // Tag Partner columns:
+  // - Tables: rely on exact THEAD text "Partner A" / "Partner B" to find column index
+  // - Grids: rely on data-compat-col="a"/"b"
+  function tagPartnerColumns(root){
+    root.querySelectorAll('table').forEach(table=>{
+      const tr = table.querySelector('thead tr'); if (!tr) return;
+      const ths = Array.from(tr.children);
+      const idxA = ths.findIndex(th => norm(th.textContent) === 'partner a');
+      const idxB = ths.findIndex(th => norm(th.textContent) === 'partner b');
+      if (idxA >= 0) table.querySelectorAll('tbody tr').forEach(r=>{ const td = r.children[idxA]; if (td) td.classList.add('pa'); });
+      if (idxB >= 0) table.querySelectorAll('tbody tr').forEach(r=>{ const td = r.children[idxB]; if (td) td.classList.add('pb'); });
+    });
+    root.querySelectorAll('[role="row"][data-compat-row]').forEach(row=>{
+      const a = row.querySelector('[data-compat-col="a"]'); if (a) a.classList.add('pa');
+      const b = row.querySelector('[data-compat-col="b"]'); if (b) b.classList.add('pb');
+    });
+  }
+
+  function fillPartner(root, partner, json){
+    const map = toLookup(json);
+    if (!map.size) return 0;
+    const cls = partner === 'A' ? 'pa' : 'pb';
+    let wrote = 0;
+
+    // Tables
+    root.querySelectorAll('table tbody tr').forEach(tr=>{
+      const td = tr.querySelector('td.'+cls); if (!td) return;
+      const cur = (td.textContent||'').trim(); if (cur && !/^[-–—]$/.test(cur)) return;
+      const key = tr.getAttribute('data-key') || tr.getAttribute('data-id') || ''; if (!key) return;
+      const val = map.get(norm(key)); if (val == null) return;
+      td.textContent = String(val); wrote++;
+    });
+
+    // Grids
+    root.querySelectorAll('[role="row"][data-compat-row]').forEach(row=>{
+      const cell = row.querySelector('[data-compat-col="'+(cls==='pa'?'a':'b')+'"].'+cls) ||
+                   row.querySelector('[data-compat-col="'+(cls==='pa'?'a':'b')+'"]');
+      if (!cell) return;
+      const cur = (cell.textContent||'').trim(); if (cur && !/^[-–—]$/.test(cur)) return;
+      const key = row.getAttribute('data-key') || ''; if (!key) return;
+      const val = map.get(norm(key)); if (val == null) return;
+      cell.textContent = String(val); wrote++;
+    });
+
+    return wrote;
+  }
+
+  async function findRootAndFill(){
+    const root = getRoot();
+    // wait up to 8s for rows to appear
+    const t0 = Date.now();
+    while (Date.now() - t0 < 8000 && countRows(root) === 0) {
+      await new Promise(r=>setTimeout(r,100));
+    }
+    if (countRows(root) === 0) return { wroteA:0, wroteB:0, reason:'no-rows' };
+
+    annotateRows(root);
+    tagPartnerColumns(root);
+
+    const wroteA = fillPartner(root, 'A', window.partnerASurvey || window.surveyA);
+    const wroteB = fillPartner(root, 'B', window.partnerBSurvey || window.surveyB);
+    if ((wroteA || wroteB) && typeof window.populateFlags === 'function') window.populateFlags();
+    return { wroteA, wroteB };
+  }
+
+  // Small debounced runner
+  let timer;
+  function tryFillSoon(){
+    clearTimeout(timer);
+    timer = setTimeout(()=>{ findRootAndFill().then(res=>console.log('[compat] fill result', res)); }, 150);
+  }
+
+  // Expose helpers for Console
+  window.__compatFindRoot = function(){
+    const root = getRoot();
+    const rows = countRows(root);
+    console.log('[compat] root:', root, 'rows:', rows);
+    return root;
+  };
+  window.__compatForceAFill = function(){ return findRootAndFill(); };
+  window.__compatRendered  = tryFillSoon;
+
+  // Auto: after uploads
+  document.addEventListener('change', e=>{
+    if (e.target && (e.target.matches('#uploadSurveyA,[data-upload-a]') || e.target.matches('#uploadSurveyB,[data-upload-b]'))) {
+      tryFillSoon();
+    }
+  });
+  // Auto: after DOM changes (in case renderer updates rows later)
+  new MutationObserver(()=>tryFillSoon()).observe(document.documentElement, { childList:true, subtree:true });
+
+  // Initial attempt
+  tryFillSoon();
+})();
+</script>
 </body>
 </html>
