@@ -953,5 +953,74 @@ window.__compatDump = () => {
   };
 })();
 </script>
+<script>
+(function(){
+  let compatRoot;
+  const waiters = [];
+
+  function setRoot(el){
+    compatRoot = el;
+    while (waiters.length) waiters.shift()(el);
+  }
+
+  window.registerCompatRoot = setRoot;
+  window.onCompatRoot = fn => compatRoot ? fn(compatRoot) : waiters.push(fn);
+
+  function autoDetectRoot(){
+    if (compatRoot) return compatRoot;
+    const el = document.querySelector('#pdf-container') ||
+               document.querySelector('[data-compat-root]') ||
+               document.querySelector('main') ||
+               document.body;
+    setRoot(el);
+    return el;
+  }
+
+  function waitForRows(root){
+    return new Promise(resolve => {
+      if (root.querySelector('tbody tr')) return resolve();
+      const obs = new MutationObserver(() => {
+        if (root.querySelector('tbody tr')){
+          obs.disconnect();
+          resolve();
+        }
+      });
+      obs.observe(root, {childList: true, subtree: true});
+    });
+  }
+
+  function tagPartnerAColumn(table){
+    const idx = partnerAIndex(table);
+    if (idx < 0) return;
+    const head = $1('thead tr', table) || $1('tr', table);
+    const th = head && head.children[idx];
+    if (th) th.setAttribute('data-partner-a', '');
+    $$('tbody tr', table).forEach(tr => {
+      const td = tr.children[idx];
+      if (td) td.setAttribute('data-partner-a', '');
+    });
+  }
+
+  async function handle(root){
+    await waitForRows(root);
+    $$('table', root).forEach(table => {
+      ensurePartnerAColumn(table);
+      tagPartnerAColumn(table);
+    });
+    if (window.partnerASurvey){
+      const wrote = fillPartnerAAll(window.partnerASurvey);
+      if (wrote && typeof populateFlags === 'function') populateFlags();
+    }
+  }
+
+  onCompatRoot(handle);
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', autoDetectRoot);
+  }else{
+    autoDetectRoot();
+  }
+})();
+</script>
 </body>
 </html>
