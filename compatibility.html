@@ -369,6 +369,18 @@ async function handleUploadA(file){
     if (wrote) populateFlags();
 
     if (!partnerAHasAnyData()){
+      const lookup = buildLookup(window.partnerASurvey);
+      const jsonKeys = Array.from(lookup.keys());
+      const rowKeys = [];
+      const tables = $$(`${CFG.container} table`);
+      for (const table of tables){
+        for (const tr of $$('tbody tr', table)){
+          const k = rowKey(tr);
+          if (k) rowKeys.push(k);
+        }
+      }
+      const unmatched = rowKeys.filter(k => !lookup.has(k));
+      console.warn('[Partner A] unmatched keys', {rowKeys, jsonKeys, unmatched});
       alert('Partner A looks empty. Ensure row text or data-key matches your JSON keys.');
     }
   }catch(e){
