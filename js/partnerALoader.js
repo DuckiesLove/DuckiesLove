@@ -1,7 +1,6 @@
 // Partner A Loader: attaches JSON upload handler and PDF download guard
 // Auto-generated based on provided snippet.
 
-import { compatNormalizeKey as normalize } from './compatNormalizeKey.js';
 
 const CFG = {
   uploadSelector: '#uploadSurveyA, [data-upload-a]',
@@ -76,7 +75,7 @@ function fillPartnerA(data) {
     const key = normalize(row.dataset.key || row.cells[0]?.textContent || '');
     if (key && key in data) {
       let cell = CFG.partnerACellSelector ? row.querySelector(CFG.partnerACellSelector) : row.cells[1];
-      if (cell) { cell.textContent = data[key]; matched++; }
+      if (cell) { cell.textContent = String(data[key]); matched++; }
     }
   });
   return matched;
