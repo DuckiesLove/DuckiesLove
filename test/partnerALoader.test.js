@@ -139,16 +139,16 @@ const handlePartnerAUpload =
 
 // 1) normalize flat key-value object
 test('normalize flat key-value object', () => {
-  const survey = normalizeSurvey({ Bondage: 4 });
+  const survey = normalizeSurvey({ 'Bondage-Play': 4 });
   const lookup = surveyToLookup(survey);
-  assert.deepStrictEqual(lookup, { bondage: 4 });
+  assert.deepStrictEqual(lookup, { 'bondage play': 4 });
 });
 
 // 2) normalize items array
 test('normalize items array', () => {
-  const survey = normalizeSurvey({ items: [{ key: 'Bondage', rating: 5 }] });
+  const survey = normalizeSurvey({ items: [{ key: 'Bondage_Play', rating: 5 }] });
   const lookup = surveyToLookup(survey);
-  assert.deepStrictEqual(lookup, { bondage: 5 });
+  assert.deepStrictEqual(lookup, { 'bondage play': 5 });
 });
 
 // 3) Partner A column inserted and populated (DOM integration)
@@ -171,8 +171,8 @@ test('Partner A column inserted and populated', async () => {
 
   const tbody = document.createElement('tbody');
   const row = document.createElement('tr');
-  row.dataset.key = 'affection';
-  const c1 = document.createElement('td'); c1.textContent = 'Affection';
+  row.dataset.key = 'Affection Level';
+  const c1 = document.createElement('td'); c1.textContent = 'Affection Level';
   const c2 = document.createElement('td'); c2.className = 'pb'; c2.textContent = '3';
   row.appendChild(c1); row.appendChild(c2);
   tbody.appendChild(row);
@@ -189,7 +189,7 @@ test('Partner A column inserted and populated', async () => {
   // Simulate uploading JSON and ensure value is written
   const realSetTimeout = global.setTimeout;
   global.setTimeout = (fn) => { fn(); return 0; }; // run immediately for test determinism
-  const file = { text: async () => JSON.stringify({ affection: 7 }) };
+  const file = { text: async () => JSON.stringify({ affection_level: 7 }) };
   await handlePartnerAUpload(file);
   global.setTimeout = realSetTimeout;
 
