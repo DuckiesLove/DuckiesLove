@@ -444,6 +444,136 @@ window.__compatDump = () => {
  *   (You can also use any element with [data-upload-b] instead of the id.)
  *
  * 2) Paste THIS script at the very end of compatibility.html (right before </body>).
+<script>
+(function(){
+  const ROOT_SEL = '#pdf-container';
+
+  // Robust normalization for matching keys
+  function norm(s){
+    return String(s||'')
+      .replace(/[\u2018\u2019\u2032]/g,"'")
+      .replace(/[\u201C\u201D\u2033]/g,'"')
+      .replace(/[\u2013\u2014]/g,'-')
+      .replace(/\u2026/g,'')           // …
+      .replace(/\s*\.\.\.\s*$/,'')     // trailing "..."
+      .replace(/\s+/g,' ')
+      .trim().toLowerCase();
+  }
+
+  // Accepts flat object, {items:[]}, or nested {survey:{Category:{Giving/Receiving/General:[...]}}}
+  function toLookup(json){
+    function flattenSurvey(j){
+      if (!j || typeof j!=='object' || !j.survey) return j;
+      const out = {};
+      Object.values(j.survey).forEach(sec=>{
+        ['Giving','Receiving','General'].forEach(b=>{
+          (Array.isArray(sec?.[b])?sec[b]:[]).forEach(it=>{
+            const k = it?.name ?? it?.label ?? it?.id;
+            const v = Number(it?.rating ?? it?.score ?? it?.value);
+            if (k!=null && Number.isFinite(v)) out[k] = Math.max(out[k]??-Infinity, v);
+          });
+        });
+      });
+      return out;
+    }
+    const flat = flattenSurvey(json) || json;
+    const map = new Map();
+    if (flat && typeof flat==='object' && !Array.isArray(flat) && !flat.items && !flat.survey){
+      for (const [k,v] of Object.entries(flat)) map.set(norm(k), Number(v));
+      return map;
+    }
+    const items = Array.isArray(flat?.items) ? flat.items : [];
+    for (const it of items){
+      const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
+      const n = Number(it?.rating ?? it?.score ?? it?.value);
+      if (k && Number.isFinite(n)) map.set(k, n);
+    }
+    return map;
+  }
+
+  // Ensure each row has a stable data-key for matching
+  function annotateRows(root){
+    root.querySelectorAll('table tbody tr').forEach(tr=>{
+      if ((tr.getAttribute('data-key')||'').trim()) return;
+      const first = tr.querySelector('td:first-child, th:first-child');
+      const label =
+        tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
+        (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
+        tr.getAttribute('title') || tr.getAttribute('aria-label') ||
+        (first && (first.getAttribute('title') || first.getAttribute('aria-label'))) ||
+        (first ? first.textContent : '');
+      tr.setAttribute('data-key', norm(label));
+    });
+  }
+
+  // Fallback writer for Partner A or B (used if project fill* is absent)
+  function fallbackWrite(partner, json){
+    const root = document.querySelector(ROOT_SEL);
+    if (!root) return 0;
+    annotateRows(root);
+    const map = toLookup(json);
+    if (!map.size) return 0;
+
+    function findColIndexByHeader(table, headerText){
+      const tr = table.querySelector('thead tr');
+      if (!tr) return -1;
+      const ths = Array.from(tr.children);
+      return ths.findIndex(th => norm(th.textContent) === norm(headerText));
+    }
+
+    const classSel = partner==='A' ? 'td.pa' : 'td.pb';
+    let wrote = 0;
+
+    root.querySelectorAll('table').forEach(table=>{
+      let idx = findColIndexByHeader(table, partner==='A' ? 'Partner A' : 'Partner B');
+      table.querySelectorAll('tbody tr').forEach(tr=>{
+        const key = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
+        const val = map.get(norm(key));
+        if (val==null) return;
+
+        let td = null;
+        if (idx >= 0 && tr.children && tr.children.length > idx) td = tr.children[idx];
+        if (!td) td = tr.querySelector(classSel);
+        if (!td) return;
+
+        if (!td.textContent || /^\s*[-–—]?\s*$/.test(td.textContent)){
+          td.textContent = String(val);
+          wrote++;
+        }
+      });
+    });
+
+    return wrote;
+  }
+
+  // Console helpers: force-fill without re-uploading
+  window.__compatARefill = function(){
+    const json = window.partnerASurvey || window.surveyA;
+    if (!json) { console.warn('[Partner A] No JSON loaded (upload first).'); return 0; }
+    let wrote = 0;
+    try{
+      if (typeof window.fillPartnerAAll === 'function') wrote = window.fillPartnerAAll(json) || 0;
+      else wrote = fallbackWrite('A', json);
+      if (typeof window.populateFlags === 'function') window.populateFlags();
+      console.log(`[Partner A] refill wrote ${wrote}`);
+    }catch(e){ console.warn('[Partner A] refill error:', e); }
+    return wrote;
+  };
+
+  window.__compatBRefill = function(){
+    const json = window.partnerBSurvey || window.surveyB;
+    if (!json) { console.warn('[Partner B] No JSON loaded (upload first).'); return 0; }
+    let wrote = 0;
+    try{
+      if (typeof window.fillPartnerBAll === 'function') wrote = window.fillPartnerBAll(json) || 0;
+      else wrote = fallbackWrite('B', json);
+      if (typeof window.populateFlags === 'function') window.populateFlags();
+      console.log(`[Partner B] refill wrote ${wrote}`);
+    }catch(e){ console.warn('[Partner B] refill error:', e); }
+    return wrote;
+  };
+})();
+</script>
  *    It is SAFE with the Partner A loader already added.
  *
  * 3) Do NOT change layout. This script:
@@ -695,51 +825,22 @@ window.__compatDump = () => {
   </script>
 <script>
 (function(){
-  const ROOT = document.querySelector('#pdf-container');
-  if (!ROOT) return;
+  const ROOT_SEL = '#pdf-container';
 
+  // Robust normalization for matching keys
   function norm(s){
     return String(s||'')
       .replace(/[\u2018\u2019\u2032]/g,"'")
       .replace(/[\u201C\u201D\u2033]/g,'"')
       .replace(/[\u2013\u2014]/g,'-')
-      .replace(/\u2026/g,'')
-      .replace(/\s*\.\.\.\s*$/,'')
+      .replace(/\u2026/g,'')           // …
+      .replace(/\s*\.\.\.\s*$/,'')     // trailing "..."
       .replace(/\s+/g,' ')
-      .trim()
-      .toLowerCase();
+      .trim().toLowerCase();
   }
 
-  function annotateRows(){
-    ROOT.querySelectorAll('table tbody tr').forEach(tr=>{
-      if ((tr.getAttribute('data-key')||'').trim()) return;
-      const first = tr.querySelector('td:first-child, th:first-child');
-      const label =
-        tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
-        (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
-        tr.getAttribute('title') || tr.getAttribute('aria-label') ||
-        (first && (first.getAttribute('title') || first.getAttribute('aria-label'))) ||
-        (first ? first.textContent : '');
-      tr.setAttribute('data-key', norm(label));
-    });
-  }
-
-  function tagColumns(){
-    ROOT.querySelectorAll('table').forEach(table=>{
-      const ths = Array.from(table.querySelectorAll('thead th'));
-      if (!ths.length) return;
-      const idxA = ths.findIndex(th => norm(th.textContent) === 'partner a');
-      const idxB = ths.findIndex(th => norm(th.textContent) === 'partner b');
-      if (idxA >= 0) table.querySelectorAll(`tbody tr`).forEach(tr=>{
-        const td = tr.children[idxA]; if (td) td.classList.add('pa');
-      });
-      if (idxB >= 0) table.querySelectorAll(`tbody tr`).forEach(tr=>{
-        const td = tr.children[idxB]; if (td) td.classList.add('pb');
-      });
-    });
-  }
-
-  function buildLookup(json){
+  // Accepts flat object, {items:[]}, or nested {survey:{Category:{Giving/Receiving/General:[...]}}}
+  function toLookup(json){
     function flattenSurvey(j){
       if (!j || typeof j!=='object' || !j.survey) return j;
       const out = {};
@@ -747,8 +848,8 @@ window.__compatDump = () => {
         ['Giving','Receiving','General'].forEach(b=>{
           (Array.isArray(sec?.[b])?sec[b]:[]).forEach(it=>{
             const k = it?.name ?? it?.label ?? it?.id;
-            const v = it?.rating ?? it?.score ?? it?.value;
-            if (k!=null && Number.isFinite(+v)) out[k] = Math.max(out[k]??-Infinity, +v);
+            const v = Number(it?.rating ?? it?.score ?? it?.value);
+            if (k!=null && Number.isFinite(v)) out[k] = Math.max(out[k]??-Infinity, v);
           });
         });
       });
@@ -769,75 +870,87 @@ window.__compatDump = () => {
     return map;
   }
 
-  function writePartner(label, json){
-    const map = buildLookup(json);
-    if (!map.size) return 0;
-    const sel = label==='A' ? 'td.pa' : 'td.pb';
-    let wrote = 0;
-    ROOT.querySelectorAll('table tbody tr').forEach(tr=>{
-      const key = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
-      const val = map.get(norm(key));
-      if (val==null) return;
-      const td = tr.querySelector(sel);
-      if (!td) return;
-      if (!td.textContent || /^\s*[-–—]?\s*$/.test(td.textContent)){
-        td.textContent = String(val);
-        wrote++;
-      }
+  // Ensure each row has a stable data-key for matching
+  function annotateRows(root){
+    root.querySelectorAll('table tbody tr').forEach(tr=>{
+      if ((tr.getAttribute('data-key')||'').trim()) return;
+      const first = tr.querySelector('td:first-child, th:first-child');
+      const label =
+        tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
+        (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
+        tr.getAttribute('title') || tr.getAttribute('aria-label') ||
+        (first && (first.getAttribute('title') || first.getAttribute('aria-label'))) ||
+        (first ? first.textContent : '');
+      tr.setAttribute('data-key', norm(label));
     });
+  }
+
+  // Fallback writer for Partner A or B (used if project fill* is absent)
+  function fallbackWrite(partner, json){
+    const root = document.querySelector(ROOT_SEL);
+    if (!root) return 0;
+    annotateRows(root);
+    const map = toLookup(json);
+    if (!map.size) return 0;
+
+    function findColIndexByHeader(table, headerText){
+      const tr = table.querySelector('thead tr');
+      if (!tr) return -1;
+      const ths = Array.from(tr.children);
+      return ths.findIndex(th => norm(th.textContent) === norm(headerText));
+    }
+
+    const classSel = partner==='A' ? 'td.pa' : 'td.pb';
+    let wrote = 0;
+
+    root.querySelectorAll('table').forEach(table=>{
+      let idx = findColIndexByHeader(table, partner==='A' ? 'Partner A' : 'Partner B');
+      table.querySelectorAll('tbody tr').forEach(tr=>{
+        const key = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
+        const val = map.get(norm(key));
+        if (val==null) return;
+
+        let td = null;
+        if (idx >= 0 && tr.children && tr.children.length > idx) td = tr.children[idx];
+        if (!td) td = tr.querySelector(classSel);
+        if (!td) return;
+
+        if (!td.textContent || /^\s*[-–—]?\s*$/.test(td.textContent)){
+          td.textContent = String(val);
+          wrote++;
+        }
+      });
+    });
+
     return wrote;
   }
 
-  function refill(){
-    annotateRows();
-    tagColumns();
-    let w = 0;
-    if (window.partnerASurvey) w += writePartner('A', window.partnerASurvey);
-    if (window.partnerBSurvey) w += writePartner('B', window.partnerBSurvey);
-    if (typeof window.populateFlags === 'function') window.populateFlags();
-    return w;
-  }
-
-  window.fillPartnerAAll = json => { window.partnerASurvey = json; annotateRows(); tagColumns(); return writePartner('A', json); };
-  window.fillPartnerBAll = json => { window.partnerBSurvey = json; annotateRows(); tagColumns(); return writePartner('B', json); };
-
-  // Put this somewhere after the Partner A loader script
-  window.__compatARefill = function() {
-    if (!window.partnerASurvey) {
-      console.warn("[Partner A] No Partner A JSON loaded yet");
-      return;
-    }
-    if (typeof window.fillPartnerAAll === "function") {
-      const wrote = window.fillPartnerAAll(window.partnerASurvey);
-      if (typeof window.populateFlags === "function") {
-        window.populateFlags();
-      }
+  // Console helpers: force-fill without re-uploading
+  window.__compatARefill = function(){
+    const json = window.partnerASurvey || window.surveyA;
+    if (!json) { console.warn('[Partner A] No JSON loaded (upload first).'); return 0; }
+    let wrote = 0;
+    try{
+      if (typeof window.fillPartnerAAll === 'function') wrote = window.fillPartnerAAll(json) || 0;
+      else wrote = fallbackWrite('A', json);
+      if (typeof window.populateFlags === 'function') window.populateFlags();
       console.log(`[Partner A] refill wrote ${wrote}`);
-    } else {
-      console.warn("[Partner A] fillPartnerAAll function not found");
-    }
+    }catch(e){ console.warn('[Partner A] refill error:', e); }
+    return wrote;
   };
 
-  window.__compatQuick = {
-    refill,
-    check(key){
-      const k = norm(key);
-      const tr = ROOT.querySelector(`tbody tr[data-key="${k}"]`);
-      console.log('norm key:', k, 'row found?', !!tr, tr);
-      return tr;
-    }
+  window.__compatBRefill = function(){
+    const json = window.partnerBSurvey || window.surveyB;
+    if (!json) { console.warn('[Partner B] No JSON loaded (upload first).'); return 0; }
+    let wrote = 0;
+    try{
+      if (typeof window.fillPartnerBAll === 'function') wrote = window.fillPartnerBAll(json) || 0;
+      else wrote = fallbackWrite('B', json);
+      if (typeof window.populateFlags === 'function') window.populateFlags();
+      console.log(`[Partner B] refill wrote ${wrote}`);
+    }catch(e){ console.warn('[Partner B] refill error:', e); }
+    return wrote;
   };
-
-  annotateRows();
-  tagColumns();
-  setTimeout(refill, 100);
-
-  document.addEventListener('change', (e)=>{
-    if (e.target && (e.target.matches('#uploadSurveyA,[data-upload-a]') ||
-                     e.target.matches('#uploadSurveyB,[data-upload-b]'))){
-      setTimeout(refill, 150);
-    }
-  });
 })();
 </script>
 </body>
