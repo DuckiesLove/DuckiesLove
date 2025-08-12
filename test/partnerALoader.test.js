@@ -151,7 +151,21 @@ test('normalize items array', () => {
   assert.deepStrictEqual(lookup, { 'bondage play': 5 });
 });
 
-// 3) Partner A column inserted and populated (DOM integration)
+// 3) normalize nested survey export
+test('normalize nested survey export', () => {
+  const survey = normalizeSurvey({
+    survey: {
+      Cat: {
+        Giving: [{ name: 'Bondage', rating: 8 }],
+        Receiving: [{ name: 'Service', rating: 6 }]
+      }
+    }
+  });
+  const lookup = surveyToLookup(survey);
+  assert.deepStrictEqual(lookup, { bondage: 8, service: 6 });
+});
+
+// 4) Partner A column inserted and populated (DOM integration)
 test('Partner A column inserted and populated', async () => {
   // Build DOM: <div id="pdf-container"><table>...</table></div>
   const root = document.createElement('div');
@@ -194,5 +208,47 @@ test('Partner A column inserted and populated', async () => {
   global.setTimeout = realSetTimeout;
 
   assert.strictEqual(row.cells[1].textContent, '7', 'Partner A cell should be populated with uploaded value');
+});
+
+// 5) Partner A fills using data-full from nested survey JSON
+test('Partner A fills using data-full from nested survey JSON', async () => {
+  document.children = [];
+  const root = document.createElement('div');
+  root.id = 'pdf-container';
+  document.appendChild(root);
+
+  const table = document.createElement('table');
+  root.appendChild(table);
+
+  const thead = document.createElement('thead');
+  const header = document.createElement('tr');
+  const h1 = document.createElement('th'); h1.textContent = 'Criteria';
+  const h2 = document.createElement('th'); h2.textContent = 'Partner B';
+  header.appendChild(h1); header.appendChild(h2);
+  thead.appendChild(header);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  const row = document.createElement('tr');
+  row.setAttribute('data-full', 'Affection Level');
+  const c1 = document.createElement('td'); c1.textContent = 'Affection...';
+  const c2 = document.createElement('td'); c2.className = 'pb'; c2.textContent = '3';
+  row.appendChild(c1); row.appendChild(c2);
+  tbody.appendChild(row);
+  table.appendChild(tbody);
+
+  document.dispatchEvent({ type: 'DOMContentLoaded' });
+
+  assert.strictEqual(header.cells[1].textContent, 'Partner A');
+  assert.strictEqual(row.cells[1].textContent, '-');
+
+  const realSetTimeout = global.setTimeout;
+  global.setTimeout = (fn) => { fn(); return 0; };
+  const file = { text: async () => JSON.stringify({ survey: { Cat: { Giving: [{ name: 'Affection Level', rating: 9 }] } } }) };
+  await handlePartnerAUpload(file);
+  global.setTimeout = realSetTimeout;
+
+  assert.strictEqual(row.dataset.key, 'affection level');
+  assert.strictEqual(row.cells[1].textContent, '9');
 });
 
