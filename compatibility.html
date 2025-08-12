@@ -801,6 +801,23 @@ window.__compatDump = () => {
   window.fillPartnerAAll = json => { window.partnerASurvey = json; annotateRows(); tagColumns(); return writePartner('A', json); };
   window.fillPartnerBAll = json => { window.partnerBSurvey = json; annotateRows(); tagColumns(); return writePartner('B', json); };
 
+  // Put this somewhere after the Partner A loader script
+  window.__compatARefill = function() {
+    if (!window.partnerASurvey) {
+      console.warn("[Partner A] No Partner A JSON loaded yet");
+      return;
+    }
+    if (typeof window.fillPartnerAAll === "function") {
+      const wrote = window.fillPartnerAAll(window.partnerASurvey);
+      if (typeof window.populateFlags === "function") {
+        window.populateFlags();
+      }
+      console.log(`[Partner A] refill wrote ${wrote}`);
+    } else {
+      console.warn("[Partner A] fillPartnerAAll function not found");
+    }
+  };
+
   window.__compatQuick = {
     refill,
     check(key){
