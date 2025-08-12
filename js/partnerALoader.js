@@ -17,6 +17,27 @@ const $one = (sel, ctx = document) => ctx.querySelector(sel);
 const $all = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const normalize = normalizeKey;
 
+function tagPartnerAColumn(root = $one(CFG.tableContainer)) {
+  if (!root) return;
+  root.querySelectorAll('table').forEach(table => {
+    const header = table.querySelector('thead tr');
+    if (!header) return;
+    const headers = [...header.children].map(h => normalize(h.textContent));
+    const idx = headers.findIndex(h => h === normalize(CFG.partnerAHeaderText));
+    if (idx < 0) return;
+    table.querySelectorAll('tbody tr').forEach(row => {
+      const cell = row.cells[idx];
+      if (cell) {
+        if (cell.classList && cell.classList.add) {
+          cell.classList.add('pa');
+        } else if (!cell.className.split(/\s+/).includes('pa')) {
+          cell.className = (cell.className ? cell.className + ' ' : '') + 'pa';
+        }
+      }
+    });
+  });
+}
+
 function annotateRows(root = $one(CFG.tableContainer)) {
   if (!root) return;
   root.querySelectorAll('table tbody tr').forEach(tr => {
@@ -55,18 +76,47 @@ function ensurePartnerACol() {
       row.insertBefore(cell, row.cells[1] || null);
     });
   }
+  tagPartnerAColumn();
+}
+
+function similarity(a, b) {
+  a = normalize(a);
+  b = normalize(b);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length > 10 && (a.includes(b) || b.includes(a))) return 0.9;
+  const A = new Set(a.split(/\s+/));
+  const B = new Set(b.split(/\s+/));
+  let inter = 0;
+  A.forEach(t => { if (B.has(t)) inter++; });
+  const union = A.size + B.size - inter || 1;
+  return inter / union;
 }
 
 function fillPartnerA(data) {
   let matched = 0;
+  const keys = Object.keys(data);
   $all(`${CFG.tableContainer} tbody tr`).forEach(row => {
     const key = row.getAttribute('data-key');
-    if (!key || !(key in data)) return;
-    let cell = CFG.partnerACellSelector ? row.querySelector(CFG.partnerACellSelector) : row.cells[1];
+    if (!key) return;
+    let cell = row.querySelector('.pa');
+    if (!cell) cell = CFG.partnerACellSelector ? row.querySelector(CFG.partnerACellSelector) : row.cells[1];
     if (!cell) return;
     const current = (cell.textContent || '').trim();
-    if (!current || /^[-–—]$/.test(current)) {
+    if (current && !/^[-–—]$/.test(current)) return;
+    if (key in data) {
       cell.textContent = String(data[key]);
+      matched++;
+      return;
+    }
+    let bestK = null, bestS = 0;
+    for (const k of keys) {
+      const s = similarity(key, k);
+      if (s > bestS) { bestS = s; bestK = k; }
+      if (bestS >= 0.92) break;
+    }
+    if (bestS >= 0.72 && bestK != null) {
+      cell.textContent = String(data[bestK]);
       matched++;
     }
   });
@@ -80,6 +130,7 @@ function observeDom() {
     if (window.partnerASurvey) {
       const lookup = surveyToLookup(window.partnerASurvey);
       annotateRows();
+      tagPartnerAColumn();
       fillPartnerA(lookup);
       if (typeof window.populateFlags === 'function') window.populateFlags();
     }
@@ -151,8 +202,10 @@ async function handlePartnerAUpload(file) {
   if (typeof updateComparison === 'function') updateComparison();
   ensurePartnerACol();
   annotateRows();
+  tagPartnerAColumn();
   setTimeout(() => {
     annotateRows();
+    tagPartnerAColumn();
     const matched = fillPartnerA(lookup);
     if (typeof window.populateFlags === 'function') window.populateFlags();
     if (!matched) {
@@ -182,6 +235,7 @@ if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     ensurePartnerACol();
     annotateRows();
+    tagPartnerAColumn();
     observeDom();
     const up = $one(CFG.uploadSelector);
     if (up) up.addEventListener('change', e => {
@@ -200,6 +254,57 @@ if (typeof window !== 'undefined') {
       dataKey: r.dataset.key || '',
       partnerA: r.querySelector(CFG.partnerACellSelector)?.textContent
     })));
+  };
+
+  window.__compatAFillNow = () => {
+    const json = window.partnerASurvey || window.surveyA;
+    if (!json) { console.warn('[Partner A] No JSON loaded (upload first)'); return 0; }
+    const lookup = surveyToLookup(json);
+    annotateRows();
+    tagPartnerAColumn();
+    const wrote = fillPartnerA(lookup);
+    if (typeof window.populateFlags === 'function') window.populateFlags();
+    console.log(`[Partner A] wrote ${wrote}`);
+    return wrote;
+  };
+
+  window.__compatAMismatch = () => {
+    const root = $one(CFG.tableContainer);
+    if (!root) return console.warn('No #pdf-container');
+    const json = window.partnerASurvey || window.surveyA;
+    if (!json) return console.warn('No Partner A JSON loaded');
+    const map = surveyToLookup(json);
+    const rowKeys = [];
+    root.querySelectorAll('table tbody tr').forEach(tr => {
+      const k = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
+      if (k) rowKeys.push(k);
+    });
+    const unmatchedRows = [];
+    root.querySelectorAll('table tbody tr').forEach(tr => {
+      const k = tr.getAttribute('data-key') || '';
+      if (!k) return;
+      if (map[k] != null) return;
+      let best = 0;
+      for (const mk of Object.keys(map)) {
+        best = Math.max(best, similarity(k, mk));
+        if (best >= 0.92) break;
+      }
+      if (best < 0.72) unmatchedRows.push(k);
+    });
+    const unmatchedKeys = [];
+    for (const mk of Object.keys(map)) {
+      let best = 0;
+      for (const rk of rowKeys) {
+        best = Math.max(best, similarity(mk, rk));
+        if (best >= 0.92) break;
+      }
+      if (best < 0.72) unmatchedKeys.push(mk);
+    }
+    console.group('[Partner A] mismatch report');
+    console.log('Rows not matched (sample):', unmatchedRows.slice(0, 60));
+    console.log('JSON keys not matched (sample):', unmatchedKeys.slice(0, 60));
+    console.log('(raise/add data-full on those rows if needed)');
+    console.groupEnd();
   };
 }
 

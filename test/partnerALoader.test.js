@@ -252,3 +252,41 @@ test('Partner A fills using data-full from nested survey JSON', async () => {
   assert.strictEqual(row.cells[1].textContent, '9');
 });
 
+// 6) Partner A fills using fuzzy matching
+test('Partner A fuzzy match fills close label', async () => {
+  document.children = [];
+  const root = document.createElement('div');
+  root.id = 'pdf-container';
+  document.appendChild(root);
+
+  const table = document.createElement('table');
+  root.appendChild(table);
+
+  const thead = document.createElement('thead');
+  const header = document.createElement('tr');
+  const h1 = document.createElement('th'); h1.textContent = 'Criteria';
+  const h2 = document.createElement('th'); h2.textContent = 'Partner B';
+  header.appendChild(h1); header.appendChild(h2);
+  thead.appendChild(header);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  const row = document.createElement('tr');
+  row.dataset.key = 'Public Humiliation in Crowds';
+  const c1 = document.createElement('td'); c1.textContent = 'Public Humiliation...';
+  const c2 = document.createElement('td'); c2.className = 'pb'; c2.textContent = '2';
+  row.appendChild(c1); row.appendChild(c2);
+  tbody.appendChild(row);
+  table.appendChild(tbody);
+
+  document.dispatchEvent({ type: 'DOMContentLoaded' });
+
+  const realSetTimeout = global.setTimeout;
+  global.setTimeout = (fn) => { fn(); return 0; };
+  const file = { text: async () => JSON.stringify({ 'Public Humiliation': 5 }) };
+  await handlePartnerAUpload(file);
+  global.setTimeout = realSetTimeout;
+
+  assert.strictEqual(row.cells[1].textContent, '5');
+});
+
