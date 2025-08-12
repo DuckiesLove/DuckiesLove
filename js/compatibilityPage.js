@@ -244,13 +244,12 @@ function mergeSurveyWithTemplate(survey, template) {
 }
 
 
-function buildKinkBreakdown(surveyA, surveyB) {
+function buildKinkBreakdown(surveyA, surveyB = {}) {
   const breakdown = {};
   const categories = Object.keys(surveyA).sort((a, b) => a.localeCompare(b));
   categories.forEach(category => {
-    if (!surveyB[category]) return;
     const catA = surveyA[category];
-    const catB = surveyB[category];
+    const catB = surveyB[category] || {};
     const names = new Set();
     ['Giving', 'Receiving', 'General'].forEach(role => {
       (catA[role] || []).forEach(k => names.add(k.name));
@@ -382,19 +381,30 @@ function markPartnerALoaded() {
 function updateComparison() {
   const container = document.getElementById('compatibility-report');
   const msg = document.getElementById('comparisonResult');
-  if (!surveyA || !surveyB) {
-    msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
+  if (!surveyA) {
+    msg.textContent = surveyB ? 'Please upload both surveys to compare.' : '';
     container.innerHTML = '';
     lastResult = null;
     return;
   }
-  msg.textContent = '';
-  lastResult = buildKinkBreakdown(surveyA, surveyB);
+
+  if (!surveyB) {
+    msg.textContent = 'Partner B data missing. Showing Partner A results only.';
+  } else {
+    msg.textContent = '';
+  }
+
+  lastResult = buildKinkBreakdown(surveyA, surveyB || {});
   container.innerHTML = '';
 
   // Calculate overall compatibility score and update history
-  const compat = calculateCompatibility(surveyA, surveyB);
-  const history = addHistoryEntry(compat.compatibilityScore);
+  let history;
+  if (surveyB) {
+    const compat = calculateCompatibility(surveyA, surveyB);
+    history = addHistoryEntry(compat.compatibilityScore);
+  } else {
+    history = loadHistory();
+  }
 
   const mergedKinkData = [];
   Object.entries(lastResult).forEach(([category, items]) => {
@@ -403,7 +413,7 @@ function updateComparison() {
         category,
         name: it.name,
         partnerA: maxRating(it.you),
-        partnerB: maxRating(it.partner)
+        partnerB: surveyB ? maxRating(it.partner) : null
       });
     });
   });

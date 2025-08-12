@@ -4,8 +4,6 @@ import assert from 'node:assert';
 // 1) normalizeSurvey/surveyToLookup tests (flat & items formats)
 // 2) DOM-based test for inserting & populating Partner A column
 
-import assert from 'assert';
-
 // ---------------------------- Minimal DOM shim ----------------------------
 class Element {
   constructor(tagName) {
