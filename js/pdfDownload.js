@@ -36,6 +36,8 @@
  *        • renders a multi-page, true-black PDF without seams
  */
 
+import { normalizeKey } from './compatNormalizeKey.js';
+
 /* ================================ CONFIG ================================== */
 const IDS = {
   uploadA: '#uploadSurveyA, [data-upload-a]',
@@ -138,11 +140,6 @@ function normalizeSurvey(json) {
 
 /* ========================== TABLE SANITY/HELPERS ========================== */
 const wait = ms => new Promise(r => setTimeout(r, ms));
-
-function normalizeKey(s) {
-  return (s||'').toString().toLowerCase().replace(/[\s\-_]+/g,' ').trim()
-    .replace(/[^\p{L}\p{N} ]/gu,'').replace(/\s+/g,' ');
-}
 
 function findPartnerAIndexByHeader(table){
   const tr = table.querySelector('thead tr'); if(!tr) return -1;

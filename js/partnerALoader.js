@@ -1,3 +1,5 @@
+import { normalizeKey } from './compatNormalizeKey.js';
+
 // Partner A Loader: attaches JSON upload handler and PDF download guard
 // Auto-generated based on provided snippet.
 
@@ -13,40 +15,7 @@ const CFG = {
 
 const $one = (sel, ctx = document) => ctx.querySelector(sel);
 const $all = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
-// --- normalize (reuse if already defined elsewhere) ---
-const __compatNormalize =
-  (typeof window !== 'undefined' && window.__compatNormalize)
-    ? window.__compatNormalize
-    : (str =>
-        (str || '')
-          .trim()
-          .replace(/[“”]/g, '"')
-          .replace(/[‘’]/g, "'")
-          .replace(/[\u2013\u2014]/g, '-')      // – — -> -
-          .replace(/\u2026/g, '...')            // … -> ...
-          .replace(/\s+/g, ' ')
-          .toLowerCase()
-      );
-
-// Optionally cache on window for other scripts
-if (typeof window !== 'undefined' && !window.__compatNormalize) {
-  window.__compatNormalize = __compatNormalize;
-}
-
-// --- __compatDump (browser-only helper) ---
-if (typeof window !== 'undefined') {
-  window.__compatDump = () => {
-    console.log('Headers:', getHeaders());
-    console.log(
-      'Row samples:',
-      $all(`${CFG.tableContainer} tr`).slice(0, 5).map(r => ({
-        label: __compatNormalize(r.dataset.key || r.cells[0]?.textContent || ''),
-        dataKey: r.dataset.key || '',
-        partnerA: r.querySelector(CFG.partnerACellSelector)?.textContent
-      }))
-    );
-  };
-}
+const normalize = normalizeKey;
 
 function getHeaders() {
   const headerRow = $one(`${CFG.tableContainer} thead tr`) || $one(`${CFG.tableContainer} tr`);
@@ -180,14 +149,6 @@ if (typeof document !== 'undefined') {
   });
 }
 
-// Keep normalize function from codex branch
-const normalize = str => (str || '').trim()
-  .replace(/[“”]/g, '"')
-  .replace(/[‘’]/g, "'")
-  .replace(/\s+/g, ' ')
-  .toLowerCase();
-
-// Keep __compatDump from main branch but using normalize above
 if (typeof window !== 'undefined') {
   window.__compatDump = () => {
     console.log('Headers:', getHeaders());
