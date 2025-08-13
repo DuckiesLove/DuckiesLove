@@ -7,7 +7,7 @@ import { normalizeKey } from './compatNormalizeKey.js';
 const CFG = {
   uploadSelector: '#uploadSurveyA, [data-upload-a]',
   downloadSelector: '#downloadBtn',
-  tableContainer: '#compat-container',
+  tableContainer: '#compat-container, #pdf-container',
   partnerACellSelector: null,
   createMissingPartnerACol: true,
   partnerAHeaderText: 'Partner A'

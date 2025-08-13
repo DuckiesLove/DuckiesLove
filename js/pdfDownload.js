@@ -64,78 +64,131 @@ function assertLibs() {
   if (!getJsPDF()) throw new Error('jsPDF missing');
 }
 
-/* ========================= UPLOAD + NORMALIZE ============================= */
-function wireUploads() {
-  const inA = document.querySelector(IDS.uploadA);
-  const inB = document.querySelector(IDS.uploadB);
-  if (inA) inA.addEventListener('change', e => readPartnerFile(e, 'A'));
-  if (inB) inB.addEventListener('change', e => readPartnerFile(e, 'B'));
-}
-
-async function readPartnerFile(evt, which) {
-  const file = evt?.target?.files?.[0];
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const raw = JSON.parse(text);
-    const norm = normalizeSurvey(raw);
-
-    if (which === 'A') {
-      window.partnerASurvey = window.surveyA = norm;
-      await ensurePartnerA();
-    } else {
-      window.partnerBSurvey = window.surveyB = norm;
-      if (typeof window.updateComparison === 'function') {
-        await Promise.resolve(window.updateComparison());
-      }
-    }
-    console.log(`[compat] Partner ${which} JSON loaded`, norm);
-  } catch (err) {
-    console.error(`[compat] Failed to load Partner ${which}:`, err);
-    alert(`Could not read Partner ${which} JSON. Check format and try again.`);
-  }
-}
-
-async function ensurePartnerA(){
-  if (typeof window.updateComparison === 'function') {
-    await Promise.resolve(window.updateComparison());
-  }
-  const t0 = Date.now();
-  while (Date.now() - t0 < 4000) {
-    if (partnerAHasData()) break;
-    await wait(120);
-  }
-  if (!partnerAHasData()) {
-    const count = fillPartnerAFromSurvey(window.partnerASurvey);
-    console.log('[compat] fallback filled Partner A cells:', count);
-  }
-  if (!partnerAHasData()) {
-    alert('Partner A did not appear in the table.\n\nCheck that:'
-      + '\n• Rows have a data-key/data-id, or the first column label matches your JSON item labels/keys'
-      + '\n• The table has either td.pa cells OR a header named "Partner A"'
-      + '\n• updateComparison() writes Partner A values');
-  }
+/* ========================= DATA & UPDATE LOGIC =========================== */
+if (typeof window !== 'undefined') {
+  window.partnerAData = window.partnerAData || null;
+  window.partnerBData = window.partnerBData || null;
 }
 
 function normalizeSurvey(json) {
-  // Light schema safety — adapt if your keys differ
-  if (Array.isArray(json?.items)) {
-    json.items = json.items.map(it => ({
-      ...it,
-      rating: typeof it.rating === 'number' ? it.rating : Number(it.rating ?? 0)
-    }));
-    return json;
-  }
+  const items = [];
+  const toNum = v => (typeof v === 'number' ? v : Number(v ?? 0));
 
-  if (json && typeof json === 'object') {
-    const items = Object.entries(json).map(([key, value]) => ({
-      key,
-      rating: typeof value === 'number' ? value : Number(value ?? 0)
-    }));
-    return { items };
-  }
+  const walk = obj => {
+    if (!obj) return;
+    if (Array.isArray(obj)) { obj.forEach(walk); return; }
+    if (typeof obj !== 'object') return;
 
-  return json;
+    if (Array.isArray(obj.items)) { obj.items.forEach(walk); return; }
+
+    const hasKey = obj.key || obj.id || obj.name || obj.label;
+    const hasRating = obj.rating ?? obj.score ?? obj.value;
+    if (hasKey && hasRating !== undefined) {
+      items.push({
+        key: obj.key ?? obj.id ?? obj.name ?? obj.label,
+        rating: toNum(obj.rating ?? obj.score ?? obj.value)
+      });
+      return;
+    }
+
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === 'number' || typeof v === 'string') {
+        items.push({ key: k, rating: toNum(v) });
+      } else if (v && typeof v === 'object') {
+        if ('rating' in v || 'score' in v || 'value' in v) {
+          items.push({ key: k, rating: toNum(v.rating ?? v.score ?? v.value) });
+        } else {
+          walk(v);
+        }
+      }
+    }
+  };
+
+  if (json && typeof json === 'object') walk(json);
+  return { items };
+}
+
+function surveyToLookup(survey) {
+  const out = {};
+  if (!survey || !Array.isArray(survey.items)) return out;
+  survey.items.forEach(it => {
+    const key = normalizeKey(it.key ?? it.id ?? it.label ?? it.name);
+    if (key) out[key] = Number(it.rating ?? it.score ?? it.value ?? 0);
+  });
+  return out;
+}
+
+window.updateComparison = function updateComparison() {
+  const root = document.querySelector('[data-compat-root]') || document.querySelector('#pdf-container');
+  if (!root) return;
+  const lookupA = surveyToLookup(window.partnerAData);
+  const lookupB = surveyToLookup(window.partnerBData);
+
+  const findVal = (lookup, key) => {
+    if (key in lookup) return lookup[key];
+    for (const [k, v] of Object.entries(lookup)) {
+      if (k.includes(key) || key.includes(k)) return v;
+    }
+  };
+
+  let countA = 0, countB = 0;
+  root.querySelectorAll('tbody > tr').forEach(tr => {
+    const key = normalizeKey(
+      tr.getAttribute('data-key') ||
+      tr.getAttribute('data-id') ||
+      tr.getAttribute('data-full') ||
+      tr.querySelector('td')?.textContent || ''
+    );
+    if (!key) return;
+    const tdA = tr.querySelector('td.pa');
+    const tdB = tr.querySelector('td.pb');
+    const valA = findVal(lookupA, key);
+    if (tdA && valA !== undefined) {
+      tdA.textContent = String(valA);
+      countA++;
+    }
+    const valB = findVal(lookupB, key);
+    if (tdB && valB !== undefined) {
+      tdB.textContent = String(valB);
+      countB++;
+    }
+  });
+  console.log(`[compat] filled Partner A cells: ${countA}; Partner B cells: ${countB}`);
+};
+
+async function handleUploadA(e) {
+  const file = e?.target?.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    window.partnerAData = normalizeSurvey(parsed);
+    window.updateComparison();
+  } catch (err) {
+    console.error('[compat] Failed to load Partner A:', err);
+    alert('Could not read Partner A JSON. Check format and try again.');
+  }
+}
+
+async function handleUploadB(e) {
+  const file = e?.target?.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    window.partnerBData = normalizeSurvey(parsed);
+    window.updateComparison();
+  } catch (err) {
+    console.error('[compat] Failed to load Partner B:', err);
+    alert('Could not read Partner B JSON. Check format and try again.');
+  }
+}
+
+function wireUploads() {
+  const inA = document.querySelector(IDS.uploadA);
+  const inB = document.querySelector(IDS.uploadB);
+  if (inA) inA.addEventListener('change', handleUploadA);
+  if (inB) inB.addEventListener('change', handleUploadB);
 }
 
 /* ========================== TABLE SANITY/HELPERS ========================== */
@@ -167,47 +220,6 @@ function partnerAHasData(){
     }
   }
   return false;
-}
-
-function fillPartnerAFromSurvey(survey){
-  if (!survey || !Array.isArray(survey.items)) return 0;
-
-  const tables = document.querySelectorAll(`${IDS.container} table`);
-  if (!tables.length) return 0;
-
-  const items = survey.items.map(it=>{
-    const key = normalizeKey(it.key ?? it.id ?? it.label ?? it.name);
-    return { key, rating: Number(it.rating ?? it.score ?? it.value ?? 0) };
-  });
-
-  let filled = 0;
-  tables.forEach(table => {
-    let getACell, setACell;
-    if (PARTNER_A_CELL_SEL){
-      getACell = tr => tr.querySelector(PARTNER_A_CELL_SEL);
-      setACell = (tr,val) => { const td=getACell(tr); if(td) td.textContent = String(val); };
-    } else {
-      const idxA = findPartnerAIndexByHeader(table);
-      if (idxA < 0) return;
-      getACell = tr => tr.children[idxA] || null;
-      setACell = (tr,val) => { const td=getACell(tr); if(td) td.textContent = String(val); };
-    }
-
-    table.querySelectorAll('tbody tr').forEach(tr=>{
-      const tdA = getACell(tr);
-      if (tdA && (tdA.textContent||'').trim() !== '' && !/^[-–]$/.test(tdA.textContent.trim())) return;
-
-      const rowKey = normalizeKey(tr.getAttribute('data-key') || tr.getAttribute('data-id'));
-      const label  = normalizeKey(tr.querySelector(CATEGORY_CELL_SEL)?.textContent || '');
-
-      let match = items.find(it => it.key && rowKey && it.key === rowKey);
-      if (!match && label) match = items.find(it => it.key && (label.includes(it.key) || it.key.includes(label)));
-
-      if (match) { setACell(tr, match.rating); filled++; }
-    });
-  });
-
-  return filled;
 }
 
 /* ======================= PDF-ONLY DOM TRANSFORMS ========================== */
@@ -403,7 +415,7 @@ export async function downloadCompatibilityPDF() {
   try { assertLibs(); } catch (e) { console.error(e); alert(e.message); return; }
 
   // Guard: ensure Partner A (Column A) is populated in the live DOM
-  if (!partnerAColumnHasData()) {
+  if (!partnerAHasData()) {
     alert('Partner A (Column A) looks empty. Upload your survey JSON first.');
     return;
   }
