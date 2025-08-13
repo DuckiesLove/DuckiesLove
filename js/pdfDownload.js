@@ -455,15 +455,3 @@ export async function downloadCompatibilityPDF() {
 // convenience global
 if (typeof window !== 'undefined') window.downloadCompatibilityPDF = downloadCompatibilityPDF;
 
-// quick console helper
-if (typeof window !== 'undefined') window.__compatDiag = () => {
-  const table = document.querySelector(`${IDS.container} table`);
-  const rows = table ? table.querySelectorAll('tbody tr').length : 0;
-  console.table({
-    tableFound: !!table,
-    rowCount: rows,
-    partnerASurveyLoaded: !!window.partnerASurvey,
-    partnerAHasData: partnerAHasData()
-  });
-};
-
