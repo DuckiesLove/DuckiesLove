@@ -482,13 +482,6 @@ function updateComparison() {
   renderFlags(table);
   markPartnerALoaded();
 
-  if (window.__compatSetRoot) {
-    window.__compatSetRoot(document.querySelector('[data-compat-root]'));
-  }
-  if (window.__compatRendered) {
-    window.__compatRendered();
-  }
-
   const categories = Object.entries(lastResult).map(([category, items]) => ({
     category,
     items: items.map(it => ({

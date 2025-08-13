@@ -11,33 +11,39 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script>
+<script>
 /**
- * Kink Compatibility — drop-in renderer for your existing data shape.
+ * Kink Compatibility — Single-source renderer that replaces window.updateComparison
  *
- * INPUT SHAPE (what you already have):
- * const rowsByCategory = {
- *   "Appearance Play": [
- *     { id: "appearance_outfit",   label: "Choosing my partner's outfit for the day or a scene" },
- *     { id: "appearance_underwear",label: "Selecting their underwear, lingerie, or base layers" },
+ * What this does:
+ *  - Renders a standards-based table per category (THEAD/TBODY)
+ *  - Emits <tr data-full="Exact full label"> so JSON keys can match deterministically
+ *  - Tags “Partner A” cells with .pa and “Partner B” cells with .pb
+ *  - Fills A/B immediately from window.partnerASurvey / window.partnerBSurvey (or window.surveyA/B)
+ *  - Recomputes a simple % “Match” after fill
+ *  - Requires NO extra helper scripts at the bottom of the page
+ *
+ * Requirements:
+ *  - Add data-compat-root to the wrapper that should receive the tables:
+ *      <div id="compat-container" data-compat-root></div>
+ *  - Upload handlers must set:
+ *      window.partnerASurvey (or window.surveyA)
+ *      window.partnerBSurvey (or window.surveyB)
+ *  - Call window.updateComparison(rowsByCategory) with your data.
+ *
+ * Expected input (rowsByCategory):
+ * {
+ *   "Appearance & Dress": [
+ *     { id:"appearance_outfit", label:"Choosing my partner's outfit for the day or a scene" },
+ *     { id:"appearance_underwear", label:"Selecting their underwear, lingerie, or base layers" },
  *     ...
  *   ],
- *   "Bondage": [
- *     { id: "bondage_rope", label: "Rope (tying, harnesses, decorative)" },
- *     ...
- *   ]
- * };
- *
- * Uploads must set:
- *   window.partnerASurvey (or window.surveyA)
- *   window.partnerBSurvey (or window.surveyB)
- *
- * Then call:
- *   window.updateComparison(rowsByCategory)
+ *   "Bondage": [ { id:"bondage_rope", label:"Rope (tying, harnesses, decorative)" }, ... ],
+ *   ...
+ * }
  */
-
 (function(){
-  // ---------- Normalization + Survey -> Lookup ----------
+  // ---------- Normalizer & Survey -> Lookup ----------
   function norm(s){
     return String(s||'')
       .replace(/[\u2018\u2019\u2032]/g,"'")
@@ -49,23 +55,23 @@
       .trim().toLowerCase();
   }
 
-  // Supports flat objects, {items:[...]}, or nested {survey:{...}}
   function toLookup(json){
     const map = new Map();
     if (!json || typeof json !== 'object') return map;
 
-    // Flat object: { "Choosing my partner's outfit ...": 4, ... }
-    if (!Array.isArray(json) && !json.items && !json.survey){
-      for (const [k,v] of Object.entries(json)){
+    // Flat { key: number } object
+    if (!Array.isArray(json) && !json.items && !json.survey) {
+      for (const [k,v] of Object.entries(json)) {
         const n = Number(v);
         if (Number.isFinite(n)) map.set(norm(k), n);
       }
       return map;
     }
 
-    // Items list: { items: [{ name|label|key|id, rating|score|value }, ...] }
-    if (Array.isArray(json.items)){
-      for (const it of json.items){
+    // {items:[{name|label|key|id, rating|score|value}]}
+    const items = Array.isArray(json.items) ? json.items : [];
+    if (items.length) {
+      for (const it of items) {
         const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
         const n = Number(it?.rating ?? it?.score ?? it?.value);
         if (k && Number.isFinite(n)) map.set(k, n);
@@ -73,34 +79,33 @@
       return map;
     }
 
-    // Nested survey export: { survey: { Category: { Giving/Receiving/General: [...] } } }
-    if (json.survey && typeof json.survey === 'object'){
+    // Nested survey export { survey: { Category: { Giving/Receiving/General:[...] } } }
+    if (json.survey && typeof json.survey === 'object') {
       Object.values(json.survey).forEach(section=>{
         ['Giving','Receiving','General'].forEach(bucket=>{
-          (Array.isArray(section?.[bucket]) ? section[bucket] : []).forEach(item=>{
+          const arr = Array.isArray(section?.[bucket]) ? section[bucket] : [];
+          arr.forEach(item=>{
             const k = norm(item?.name ?? item?.label ?? item?.id ?? '');
             const n = Number(item?.rating ?? item?.score ?? item?.value);
-            if (k && Number.isFinite(n)){
-              // prefer max if duplicates occur
-              map.set(k, Math.max(map.get(k) ?? -Infinity, n));
+            if (k && Number.isFinite(n)) {
+              map.set(k, Math.max(map.get(k) ?? -Infinity, n)); // prefer max on duplicates
             }
           });
         });
       });
     }
-
     return map;
   }
 
-  // ---------- Fill + Match ----------
+  // ---------- Fill helpers ----------
   function fillPartnerCells(tbody, cls, lookup){
     if (!lookup || !lookup.size) return 0;
     let wrote = 0;
     tbody.querySelectorAll('tr').forEach(tr=>{
       const td = tr.querySelector('td.'+cls);
       if (!td) return;
-      const cur = (td.textContent||'').trim();
-      if (cur && !/^[-–—]$/.test(cur)) return; // don't overwrite real values
+      const current = (td.textContent||'').trim();
+      if (current && !/^[-–—]$/.test(current)) return; // don't overwrite real values
       const key = norm(tr.getAttribute('data-full') || tr.getAttribute('data-id') || '');
       if (!key) return;
       const val = lookup.get(key);
@@ -111,24 +116,16 @@
     return wrote;
   }
 
+  // Simple similarity metric for the “Match” column (1–5 scale assumed)
   function computeMatch(a, b){
     const na = Number(a), nb = Number(b);
     if (!Number.isFinite(na) || !Number.isFinite(nb)) return '';
-    const diff = Math.abs(na - nb);            // assuming 1..5 scale
-    const pct  = Math.round((1 - diff/4) * 100); // 100..0
+    const diff = Math.abs(na - nb);          // 0..4
+    const pct  = Math.round((1 - diff/4) * 100);
     return pct + '%';
   }
 
-  function recomputeMatches(tbody){
-    tbody.querySelectorAll('tr').forEach(tr=>{
-      const a = tr.querySelector('td.pa')?.textContent;
-      const b = tr.querySelector('td.pb')?.textContent;
-      const m = tr.querySelector('td.match');
-      if (m) m.textContent = computeMatch(a, b);
-    });
-  }
-
-  // ---------- Category Table Renderer ----------
+  // ---------- Category renderer ----------
   function renderCategoryTable(category, items, mount){
     const section = document.createElement('section');
     section.className = 'compat-section';
@@ -143,10 +140,10 @@
 
     const thead = document.createElement('thead');
     const thr = document.createElement('tr');
-    const hCat   = document.createElement('th'); hCat.textContent   = 'Category';
-    const hA     = document.createElement('th'); hA.textContent     = 'Partner A';
-    const hMatch = document.createElement('th'); hMatch.textContent = 'Match';
-    const hB     = document.createElement('th'); hB.textContent     = 'Partner B';
+    const hCat   = document.createElement('th'); hCat.textContent    = 'Category';
+    const hA     = document.createElement('th'); hA.textContent      = 'Partner A';
+    const hMatch = document.createElement('th'); hMatch.textContent  = 'Match';
+    const hB     = document.createElement('th'); hB.textContent      = 'Partner B';
     thr.append(hCat, hA, hMatch, hB);
     thead.appendChild(thr);
 
@@ -155,22 +152,12 @@
     items.forEach(row=>{
       const tr = document.createElement('tr');
       if (row.id)    tr.setAttribute('data-id', row.id);
-      if (row.label) tr.setAttribute('data-full', row.label); // full key for matching
+      if (row.label) tr.setAttribute('data-full', row.label); // full label for matching
 
-      const tdLabel = document.createElement('td');
-      tdLabel.textContent = row.label || '';
-
-      const tdA = document.createElement('td');
-      tdA.className = 'pa';
-      tdA.textContent = '-';
-
-      const tdMatch = document.createElement('td');
-      tdMatch.className = 'match';
-      tdMatch.textContent = '';
-
-      const tdB = document.createElement('td');
-      tdB.className = 'pb';
-      tdB.textContent = '-';
+      const tdLabel = document.createElement('td'); tdLabel.textContent = row.label || '';
+      const tdA     = document.createElement('td'); tdA.className = 'pa'; tdA.textContent = '-';
+      const tdMatch = document.createElement('td'); tdMatch.className = 'match'; tdMatch.textContent = '';
+      const tdB     = document.createElement('td'); tdB.className = 'pb'; tdB.textContent = '-';
 
       tr.append(tdLabel, tdA, tdMatch, tdB);
       tbody.appendChild(tr);
@@ -180,23 +167,31 @@
     section.appendChild(table);
     mount.appendChild(section);
 
-    // Initial fill from globals, if present
+    // Immediate fill if surveys already uploaded
     const aLookup = toLookup(window.partnerASurvey || window.surveyA || null);
     const bLookup = toLookup(window.partnerBSurvey || window.surveyB || null);
     const wroteA  = fillPartnerCells(tbody, 'pa', aLookup);
     const wroteB  = fillPartnerCells(tbody, 'pb', bLookup);
-    if (wroteA || wroteB) recomputeMatches(tbody);
+
+    if (wroteA || wroteB) {
+      tbody.querySelectorAll('tr').forEach(tr=>{
+        const a = tr.querySelector('td.pa')?.textContent;
+        const b = tr.querySelector('td.pb')?.textContent;
+        const m = tr.querySelector('td.match');
+        if (m) m.textContent = computeMatch(a, b);
+      });
+      if (typeof window.populateFlags === 'function') window.populateFlags();
+    }
   }
 
-  // ---------- Public API ----------
+  // ---------- Public API (drop-in replacement) ----------
   window.updateComparison = function(rowsByCategory){
-    const root = document.querySelector('[data-compat-root]') || document.querySelector('#compat-container') || document.querySelector('#compat-container');
-    if (!root) { console.error('[compat] Missing container. Add data-compat-root to the wrapper.'); return; }
+    const root = document.querySelector('[data-compat-root]') || document.querySelector('#pdf-container');
+    if (!root) { console.error('[compat] Missing container: add data-compat-root to the wrapper.'); return; }
 
-    root.innerHTML = ''; // rebuild fresh
-
+    // Reset and rebuild all categories
+    root.innerHTML = '';
     if (Array.isArray(rowsByCategory)) {
-      // If a flat array was passed, render as a single category
       renderCategoryTable('All', rowsByCategory, root);
     } else {
       Object.entries(rowsByCategory || {}).forEach(([cat, items])=>{
@@ -205,26 +200,38 @@
     }
   };
 
-  // Re-fill when a new JSON is uploaded (uses your existing upload inputs)
+  // Refill on upload change (after rows exist)
   document.addEventListener('change', (e)=>{
     const isA = e.target && e.target.matches('#uploadSurveyA,[data-upload-a]');
     const isB = e.target && e.target.matches('#uploadSurveyB,[data-upload-b]');
     if (!(isA || isB)) return;
 
     setTimeout(()=>{
+      const root = document.querySelector('[data-compat-root]') || document.querySelector('#pdf-container');
+      if (!root) return;
+
       const aLookup = toLookup(window.partnerASurvey || window.surveyA || null);
       const bLookup = toLookup(window.partnerBSurvey || window.surveyB || null);
-      document.querySelectorAll('[data-compat-root] table').forEach(table=>{
+
+      root.querySelectorAll('table').forEach(table=>{
         const tbody = table.querySelector('tbody');
-        const wroteA = isA ? fillPartnerCells(tbody, 'pa', aLookup) : 0;
-        const wroteB = isB ? fillPartnerCells(tbody, 'pb', bLookup) : 0;
-        if (wroteA || wroteB) recomputeMatches(tbody);
+        const wroteA = fillPartnerCells(tbody, 'pa', aLookup);
+        const wroteB = fillPartnerCells(tbody, 'pb', bLookup);
+
+        if (wroteA || wroteB) {
+          tbody.querySelectorAll('tr').forEach(tr=>{
+            const a = tr.querySelector('td.pa')?.textContent;
+            const b = tr.querySelector('td.pb')?.textContent;
+            const m = tr.querySelector('td.match');
+            if (m) m.textContent = computeMatch(a, b);
+          });
+        }
       });
       if (typeof window.populateFlags === 'function') window.populateFlags();
-    }, 120);
+    }, 150);
   });
 })();
-  </script>
+</script>
   <style>
   #compat-container {
     width: 100%;

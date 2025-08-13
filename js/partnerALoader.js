@@ -210,7 +210,6 @@ async function handlePartnerAUpload(file) {
     if (typeof window.populateFlags === 'function') window.populateFlags();
     if (!matched) {
       console.warn('[Partner A] No values found yet — will attempt to annotate and refill.');
-      if (window.__compatMismatch) setTimeout(window.__compatMismatch, 300);
     }
   }, 300);
 }
@@ -244,68 +243,6 @@ if (typeof document !== 'undefined') {
     }, true);
     guardDownload();
   });
-}
-
-if (typeof window !== 'undefined') {
-  window.__compatDump = () => {
-    console.log('Headers:', getHeaders());
-    console.log('Row samples:', $all(`${CFG.tableContainer} tr`).slice(0, 5).map(r => ({
-      label: normalize(r.dataset.key || r.cells[0]?.textContent || ''),
-      dataKey: r.dataset.key || '',
-      partnerA: r.querySelector(CFG.partnerACellSelector)?.textContent
-    })));
-  };
-
-  window.__compatAFillNow = () => {
-    const json = window.partnerASurvey || window.surveyA;
-    if (!json) { console.warn('[Partner A] No JSON loaded (upload first)'); return 0; }
-    const lookup = surveyToLookup(json);
-    annotateRows();
-    tagPartnerAColumn();
-    const wrote = fillPartnerA(lookup);
-    if (typeof window.populateFlags === 'function') window.populateFlags();
-    console.log(`[Partner A] wrote ${wrote}`);
-    return wrote;
-  };
-
-  window.__compatAMismatch = () => {
-    const root = $one(CFG.tableContainer);
-    if (!root) return console.warn('No #compat-container');
-    const json = window.partnerASurvey || window.surveyA;
-    if (!json) return console.warn('No Partner A JSON loaded');
-    const map = surveyToLookup(json);
-    const rowKeys = [];
-    root.querySelectorAll('table tbody tr').forEach(tr => {
-      const k = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
-      if (k) rowKeys.push(k);
-    });
-    const unmatchedRows = [];
-    root.querySelectorAll('table tbody tr').forEach(tr => {
-      const k = tr.getAttribute('data-key') || '';
-      if (!k) return;
-      if (map[k] != null) return;
-      let best = 0;
-      for (const mk of Object.keys(map)) {
-        best = Math.max(best, similarity(k, mk));
-        if (best >= 0.92) break;
-      }
-      if (best < 0.72) unmatchedRows.push(k);
-    });
-    const unmatchedKeys = [];
-    for (const mk of Object.keys(map)) {
-      let best = 0;
-      for (const rk of rowKeys) {
-        best = Math.max(best, similarity(mk, rk));
-        if (best >= 0.92) break;
-      }
-      if (best < 0.72) unmatchedKeys.push(mk);
-    }
-    console.group('[Partner A] mismatch report');
-    console.log('Rows not matched (sample):', unmatchedRows.slice(0, 60));
-    console.log('JSON keys not matched (sample):', unmatchedKeys.slice(0, 60));
-    console.log('(raise/add data-full on those rows if needed)');
-    console.groupEnd();
-  };
 }
 
 // Unified exports from both branches
