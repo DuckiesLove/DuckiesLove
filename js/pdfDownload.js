@@ -108,52 +108,60 @@ function normalizeSurvey(json) {
   return { items };
 }
 
-function surveyToLookup(survey) {
-  const out = {};
-  if (!survey || !Array.isArray(survey.items)) return out;
-  survey.items.forEach(it => {
-    const key = normalizeKey(it.key ?? it.id ?? it.label ?? it.name);
-    if (key) out[key] = Number(it.rating ?? it.score ?? it.value ?? 0);
+window.updateComparison = function(partnerAData = window.partnerAData, partnerBData = window.partnerBData) {
+  console.log('[compat] Partner A JSON loaded', partnerAData);
+  console.log('[compat] Partner B JSON loaded', partnerBData);
+
+  function normalizeLabel(label) {
+    return String(label || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  const aLookup = {};
+  const bLookup = {};
+  (partnerAData?.items || []).forEach(item => {
+    const label = item.label ?? item.key ?? item.name ?? item.id;
+    const score = item.score ?? item.rating ?? item.value ?? 0;
+    aLookup[normalizeLabel(label)] = score;
   });
-  return out;
-}
+  (partnerBData?.items || []).forEach(item => {
+    const label = item.label ?? item.key ?? item.name ?? item.id;
+    const score = item.score ?? item.rating ?? item.value ?? 0;
+    bLookup[normalizeLabel(label)] = score;
+  });
 
-window.updateComparison = function updateComparison() {
-  const root = document.querySelector('[data-compat-root]') || document.querySelector('#pdf-container');
-  if (!root) return;
-  const lookupA = surveyToLookup(window.partnerAData);
-  const lookupB = surveyToLookup(window.partnerBData);
+  const root = document.querySelector('[data-compat-root]');
+  if (!root) {
+    console.warn('[compat] No root container found.');
+    return;
+  }
+  const rows = root.querySelectorAll('tbody tr');
+  console.log('[compat] Found rows:', rows.length);
 
-  const findVal = (lookup, key) => {
-    if (key in lookup) return lookup[key];
-    for (const [k, v] of Object.entries(lookup)) {
-      if (k.includes(key) || key.includes(k)) return v;
-    }
-  };
+  rows.forEach(row => {
+    const labelCell = row.querySelector('td');
+    if (!labelCell) return;
 
-  let countA = 0, countB = 0;
-  root.querySelectorAll('tbody > tr').forEach(tr => {
-    const key = normalizeKey(
-      tr.getAttribute('data-key') ||
-      tr.getAttribute('data-id') ||
-      tr.getAttribute('data-full') ||
-      tr.querySelector('td')?.textContent || ''
-    );
-    if (!key) return;
-    const tdA = tr.querySelector('td.pa');
-    const tdB = tr.querySelector('td.pb');
-    const valA = findVal(lookupA, key);
-    if (tdA && valA !== undefined) {
-      tdA.textContent = String(valA);
-      countA++;
-    }
-    const valB = findVal(lookupB, key);
-    if (tdB && valB !== undefined) {
-      tdB.textContent = String(valB);
-      countB++;
+    const norm = normalizeLabel(labelCell.textContent);
+    const scoreA = aLookup[norm] ?? 0;
+    const scoreB = bLookup[norm] ?? 0;
+
+    const aCell = row.querySelector('td:nth-child(2)');
+    const bCell = row.querySelector('td:last-child');
+    if (aCell) aCell.textContent = scoreA;
+    if (bCell) bCell.textContent = scoreB;
+
+    const matchCell = row.querySelector('td:nth-child(3)');
+    if (matchCell) {
+      const diff = Math.abs(scoreA - scoreB);
+      const match = 100 - (diff * 20);
+      matchCell.textContent = `${match}%`;
     }
   });
-  console.log(`[compat] filled Partner A cells: ${countA}; Partner B cells: ${countB}`);
+
+  console.log('[compat] Fill complete.');
 };
 
 async function handleUploadA(e) {
@@ -163,7 +171,7 @@ async function handleUploadA(e) {
     const text = await file.text();
     const parsed = JSON.parse(text);
     window.partnerAData = normalizeSurvey(parsed);
-    window.updateComparison();
+    window.updateComparison(window.partnerAData, window.partnerBData);
   } catch (err) {
     console.error('[compat] Failed to load Partner A:', err);
     alert('Could not read Partner A JSON. Check format and try again.');
@@ -177,7 +185,7 @@ async function handleUploadB(e) {
     const text = await file.text();
     const parsed = JSON.parse(text);
     window.partnerBData = normalizeSurvey(parsed);
-    window.updateComparison();
+    window.updateComparison(window.partnerAData, window.partnerBData);
   } catch (err) {
     console.error('[compat] Failed to load Partner B:', err);
     alert('Could not read Partner B JSON. Check format and try again.');
