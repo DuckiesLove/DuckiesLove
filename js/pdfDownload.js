@@ -50,6 +50,7 @@ const STAR_MIN = 90;                   // ⭐ threshold (Match %)
 const RED_FLAG_MAX = 50;               // 🚩 threshold (Match %)
 const CATEGORY_MIN_TOP = 64;           // min space above a category when starting near bottom
 const ROW_TOP_PAD = 20;                // space inserted to avoid row split
+const FIRST_PAGE_HEADER = 'Talk Kink'; // header text for first PDF page
 const LABEL_LEFT_ALIGN = true;         // left-align category headers in PDF
 
 const PARTNER_A_CELL_SEL = 'td.pa';
@@ -526,7 +527,7 @@ function keepRowsIntact(clone, pageHeightCss, topPad = ROW_TOP_PAD) {
   }
 }
 
-async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATION, jpgQuality=0.95 }) {
+async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATION, jpgQuality=0.95, firstPageHeader=FIRST_PAGE_HEADER }) {
   const pdf = new jsPDFCtor({ unit:'pt', format:'letter', orientation });
   const pdfW = pdf.internal.pageSize.getWidth();
   const pdfH = pdf.internal.pageSize.getHeight();
@@ -543,18 +544,37 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATIO
   const estMP = (cssWidth * pageHeightCss * scale * scale) / 1e6;
   if (estMP > MAX_MP) scale = Math.max(1, Math.sqrt((MAX_MP * 1e6) / (cssWidth * pageHeightCss)));
 
+  // Reserve space for header band on first page (in PDF points)
+  const headerPt = firstPageHeader ? 56 : 0;
+  const headerTopPadCss = headerPt ? Math.round((headerPt / pdfH) * pageHeightCss) : 0;
+
   // slice the page-height repeatedly; each slice = one PDF page
   let y = 0, page = 0;
   while (y < totalCssHeight) {
-    const sliceH = Math.min(pageHeightCss, totalCssHeight - y);
+    const sliceYOffsetCss = page === 0 ? headerTopPadCss : 0;
+    const sliceH = Math.min(pageHeightCss - sliceYOffsetCss, totalCssHeight - y);
     const canvas = await html2canvas(clone, {
       backgroundColor:'#000', scale, useCORS:true, allowTaint:true,
-      scrollX:0, scrollY:0, windowWidth:cssWidth, windowHeight:sliceH, height:sliceH, y
+      scrollX:0, scrollY:0, windowWidth:cssWidth, windowHeight:sliceH, height:sliceH, y: y + sliceYOffsetCss
     });
     const img = canvas.toDataURL('image/jpeg', jpgQuality);
     if (page > 0) pdf.addPage();
-    pdf.addImage(img, 'JPEG', 0, 0, pdfW, pdfH, undefined, 'FAST');
-    page++; y += sliceH;
+
+    // Draw header on first page
+    if (page === 0 && firstPageHeader) {
+      pdf.setFillColor(0,0,0);
+      pdf.rect(0,0,pdfW,headerPt,'F');
+      pdf.setTextColor(255,255,255);
+      pdf.setFont('helvetica','bold');
+      pdf.setFontSize(22);
+      pdf.text(firstPageHeader, 36, 36);
+    }
+
+    const drawY = page === 0 ? headerPt : 0;
+    const drawH = page === 0 ? (pdfH - headerPt) : pdfH;
+    pdf.addImage(img, 'JPEG', 0, drawY, pdfW, drawH, undefined, 'FAST');
+
+    page++; y += pageHeightCss;
   }
   return pdf;
 }
@@ -581,7 +601,7 @@ export async function downloadCompatibilityPDF() {
 
   try {
     const jsPDFCtor = getJsPDF();
-    const pdf = await renderMultiPagePDF({ clone, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95 });
+    const pdf = await renderMultiPagePDF({ clone, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95, firstPageHeader: FIRST_PAGE_HEADER });
     pdf.save('kink-compatibility.pdf');
   } catch (err) {
     console.error('[pdf] render error:', err);
