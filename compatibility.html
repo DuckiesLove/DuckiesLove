@@ -112,13 +112,60 @@
     initTheme();
     window.applyThemeColors = applyThemeColors;
   </script>
+  <!-- Safe session check script -->
   <script>
-    fetch("/check-session", { credentials: "include" })
-      .then(res => {
-        if (res.status === 401) {
-          window.location.href = "/token.html";
-        }
-      });
+  /**
+   * Safe session check:
+   * - Silently ignores 404 / network errors (useful on static hosting & local previews)
+   * - Only redirects on 401 Unauthorized
+   * - Won’t throw or spam the console
+   *
+   * How to use:
+   * 1) Paste this block.
+   * 2) Delete the old:
+   *      fetch("/check-session", { credentials: "include" })
+   *        .then(res => { if (res.status === 401) window.location.href = "/token.html"; });
+   * 3) Call safeCheckSession(); (or skip entirely if you don’t need auth)
+   */
+
+  (function(){
+    function safeCheckSession(opts){
+      const cfg = Object.assign({
+        url: '/check-session',          // change if your API path differs
+        redirectTo: '/token.html',      // where to send on 401
+        credentials: 'include',         // send cookies if present
+        log: false                      // set true to log non-401 statuses
+      }, (opts || {}));
+
+      try {
+        fetch(cfg.url, { credentials: cfg.credentials })
+          .then(res => {
+            if (res.status === 401) {
+              // Only redirect on explicit 401
+              window.location.href = cfg.redirectTo;
+              return;
+            }
+            // Silence 404s and other statuses unless logging is enabled
+            if (cfg.log && res.status !== 204 && res.status !== 200) {
+              console.info('[session] status:', res.status);
+            }
+          })
+          .catch(() => {
+            // Network error / CORS / offline — ignore quietly
+          });
+      } catch (_) {
+        // Older browsers / unexpected errors — ignore
+      }
+    }
+
+    // OPTIONAL: run automatically on load (safe even if endpoint doesn’t exist)
+    document.addEventListener('DOMContentLoaded', function(){
+      safeCheckSession();
+    });
+
+    // Expose if you want to call manually later
+    window.safeCheckSession = safeCheckSession;
+  })();
   </script>
 
   <script type="module">
