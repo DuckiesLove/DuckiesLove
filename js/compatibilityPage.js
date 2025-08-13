@@ -343,16 +343,13 @@ function renderFlags(root = document) {
   rows.forEach(row => {
     const a = Number(row.dataset.a);
     const b = Number(row.dataset.b);
-    const flagCell = row.querySelector('.flag-cell');
     const matchCell = row.querySelector('.match');
-
-    flagCell.textContent = '';
+    if (!matchCell) return;
     matchCell.textContent = '-';
 
     const match = calculateMatchPercent(a, b);
     if (match !== null) {
       matchCell.textContent = match + '%';
-      flagCell.textContent = getFlagOrStar(match, a, b);
     }
   });
 }
@@ -427,7 +424,6 @@ function updateComparison() {
       <col class="label" />
       <col class="pa" />
       <col class="match" />
-      <col class="flag" />
       <col class="pb" />
     </colgroup>
     <thead>
@@ -435,7 +431,6 @@ function updateComparison() {
         <th class="label">Category</th>
         <th class="pa">Partner A</th>
         <th class="match">Match</th>
-        <th class="flag">Flag/Star</th>
         <th class="pb">Partner B</th>
       </tr>
     </thead>
@@ -448,7 +443,7 @@ function updateComparison() {
 
     const titleRow = document.createElement('tr');
     // Remove decorative emoji from category headers in web view
-    titleRow.innerHTML = `<td class="category-title" colspan="5">${category}</td>`;
+    titleRow.innerHTML = `<td class="category-title" colspan="4">${category}</td>`;
     block.appendChild(titleRow);
 
     kinks.forEach(kink => {
@@ -457,14 +452,15 @@ function updateComparison() {
       if (kink.partnerA != null) row.dataset.a = kink.partnerA;
       if (kink.partnerB != null) row.dataset.b = kink.partnerB;
       const fullLabel = kink.name;
-      row.setAttribute('data-key', compatNormalizeKey(fullLabel));
+      const key = compatNormalizeKey(fullLabel);
+      row.setAttribute('data-id', key);
+      row.setAttribute('data-key', key);
       row.setAttribute('data-full', fullLabel);
       row.innerHTML = `
         <td class="label">${kink.name}</td>
-        <td class="pa">${kink.partnerA ?? '-'}</td>
-        <td class="match">-</td>
-        <td class="flag flag-cell"></td>
-        <td class="pb">${kink.partnerB ?? '-'}</td>
+        <td class="pa" data-partner-a>${kink.partnerA ?? '-'}</td>
+        <td class="match" data-match>-</td>
+        <td class="pb" data-partner-b>${kink.partnerB ?? '-'}</td>
       `;
       const firstCell = row.querySelector('td.label');
       const hidden = document.createElement('span');
