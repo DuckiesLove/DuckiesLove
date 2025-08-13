@@ -449,84 +449,150 @@
     if (window.__compatRunFill) window.__compatRunFill();
   });
 </script>
-
-<!-- TALK KINK HEADER + REMOVE TOP GAP (copy–paste this whole block near the end of compatibility.html, before </body>) -->
-<style>
-  /* Make sure the very top of the report doesn’t have mystery spacing */
-  #pdf-container { margin-top: 0 !important; padding-top: 0 !important; }
-  #pdf-container > :first-child { margin-top: 0 !important; }
-
-  /* Title style (works in web and in the PDF clone) */
-  .site-title {
-    font-family: "Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    color: #fff;
-    text-align: center;
+<!-- ✅ DROP THIS WHOLE BLOCK IN **compatibility.html** (near the end, before </body>)  -->
+<!-- It adds a “Talk Kink” header on page 1, removes the big top gap, and keeps fonts/layout proportional in the PDF. -->
+<style id="tk-pdf-style">
+  /* --- Base (web + PDF) header style --- */
+  .tk-header {
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:12px; padding:0; margin:0 0 10px 0; line-height:1;
+    border-bottom:1px solid rgba(255,255,255,.15);
+  }
+  .tk-brand {
+    font-family: "Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
     font-weight: 900;
-    /* Responsive, capped */
-    font-size: clamp(28px, 4.6vw, 56px);
-    line-height: 1.05;
-    letter-spacing: 0.5px;
-    /* Tight top; tiny gap below */
-    margin: 6px 0 10px !important;
+    letter-spacing: .5px;
+    text-transform: none;
+    color:#fff;
+    margin:0; padding:0;
   }
-  .site-title-rule {
-    height: 1px;
-    width: min(92%, 1100px);
-    margin: 8px auto 10px;
-    background: rgba(255,255,255,0.22);
+  .tk-sub {
+    color:#ddd; font-size: clamp(12px, 1.4vw, 14px);
+    margin:0; padding:0;
+  }
+  .tk-meta {
+    text-align:right; color:#aaa; font-size: clamp(11px, 1.3vw, 13px);
+    margin-left:auto; white-space:nowrap;
   }
 
-  /* After the title, ensure the first section header (“All”) isn’t pushed way down */
-  .site-title + .site-title-rule + * { margin-top: 8px !important; }
+  /* --- Make page 1 compact; remove that huge blank top band --- */
+  #pdf-container { margin-top:0 !important; padding-top:0 !important; }
+  #pdf-container > :first-child { margin-top:0 !important; padding-top:0 !important; }
 
-  /* When exporting (the clone gets .pdf-export), keep the spacing tight too */
-  .pdf-export .site-title { margin: 4px 0 8px !important; }
-  .pdf-export .site-title-rule { width: 96%; background: rgba(255,255,255,0.28); }
-  .pdf-export .site-title + .site-title-rule + * { margin-top: 8px !important; }
+  /* --- Tighten the gap between header and the table section title (“All” / category) --- */
+  .tk-after-header { margin-top: 8px !important; }
 
-  /* Safety: many themes give first section a big top margin – clamp it */
-  #pdf-container .section-title:first-of-type,
-  #pdf-container h1:first-of-type,
-  #pdf-container h2:first-of-type { margin-top: 8px !important; }
+  /* --- PDF-only refinements --- */
+  .pdf-export .tk-header { margin: 0 0 8px 0 !important; padding:0 !important; }
+  .pdf-export .tk-brand { font-size: clamp(18px, 2.6vw, 26px) !important; }
+  .pdf-export .tk-sub   { font-size: clamp(11px, 1.2vw, 13px) !important; }
+  .pdf-export .tk-meta  { font-size: clamp(10px, 1.1vw, 12px) !important; }
 </style>
 
 <script>
 /*
-  Inserts a “Talk Kink” header at the very top of #pdf-container
-  and trims the large gap before the first section (“All”).
-  If the title already exists, nothing changes.
+  TALK KINK PAGE-1 HEADER + TOP-GAP FIX
+  -------------------------------------
+  What this does
+  • Inserts a “Talk Kink — Compatibility Report” header INSIDE #pdf-container (so it’s included in the PDF)
+  • Removes the large blank gap at the top of page 1
+  • Scales fonts proportionally in both web view and PDF clone
+  • Works with your existing downloadCompatibilityPDF() (no need to rewrite it)
+
+  How to use
+  1) Paste this whole block before </body>.
+  2) Make sure your report content is inside <div id="pdf-container">…</div>.
+  3) That’s it. The header will appear on page 1 (web + PDF). The gap will be gone.
+
+  Optional: If your exporter builds a clone (e.g., .pdf-export), we automatically run the same header fix on the clone.
 */
-(function addTalkKinkOnce(){
-  function insert() {
-    var root = document.getElementById('pdf-container');
+
+(function TKHeaderFix(){
+  const ROOT_SEL = '#pdf-container';
+
+  function ensureHeader(root){
     if (!root) return;
+    // If a header already exists, don’t duplicate.
+    if (root.querySelector('.tk-header')) return;
 
-    // If there’s already a title, do nothing
-    if (root.querySelector('.site-title')) return;
+    // Build header
+    const wrap = document.createElement('div');
+    wrap.className = 'tk-header';
 
-    // Build the title + thin rule and insert as the first children
-    var title = document.createElement('div');
-    title.className = 'site-title';
-    title.textContent = 'Talk Kink';
+    const left = document.createElement('div');
+    const brand = document.createElement('h1');
+    brand.className = 'tk-brand';
+    brand.textContent = 'Talk Kink';
+    const sub = document.createElement('div');
+    sub.className = 'tk-sub';
+    sub.textContent = 'Compatibility Report';
+    left.appendChild(brand); left.appendChild(sub);
 
-    var rule = document.createElement('div');
-    rule.className = 'site-title-rule';
+    const meta = document.createElement('div');
+    meta.className = 'tk-meta';
+    const dt = new Date();
+    // e.g. Aug 13, 2025
+    meta.textContent = dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
-    // Insert before everything else so it appears on page one
-    root.insertBefore(rule, root.firstChild);
-    root.insertBefore(title, root.firstChild);
+    wrap.appendChild(left);
+    wrap.appendChild(meta);
 
-    // EXTRA: clamp any leftover top spacer element if a theme left one behind
-    var firstReal = rule.nextElementSibling;
-    if (firstReal && parseInt(getComputedStyle(firstReal).marginTop, 10) > 24) {
-      firstReal.style.marginTop = '8px';
+    // Insert header at the very top of the container
+    root.insertBefore(wrap, root.firstChild);
+
+    // Nudge the next element down just a touch (reduces giant gap while keeping breathing room)
+    const next = wrap.nextElementSibling;
+    if (next) next.classList.add('tk-after-header');
+  }
+
+  function removeTopGap(root){
+    if (!root) return;
+    root.style.marginTop = '0';
+    root.style.paddingTop = '0';
+    if (root.firstElementChild){
+      root.firstElementChild.style.marginTop = '0';
+      root.firstElementChild.style.paddingTop = '0';
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', insert);
+  // Run on the live page
+  function applyOnLive(){
+    const root = document.querySelector(ROOT_SEL);
+    if (!root) return;
+    ensureHeader(root);
+    removeTopGap(root);
+  }
+
+  // Hook into your existing PDF export if it creates a clone (.pdf-export)
+  // We’ll attempt to patch AFTER the clone is added to the DOM.
+  function patchExporter(){
+    const orig = window.downloadCompatibilityPDF;
+    if (typeof orig !== 'function') return; // nothing to wrap
+
+    window.downloadCompatibilityPDF = async function wrappedExporter(){
+      // Run original; many exporters synchronously add a clone to DOM before rendering
+      // but to be safe, we wait a couple RAFs and then patch the clone container too.
+      try {
+        // Give the page a chance to add the .pdf-export clone (if your exporter does that)
+        await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+        // Try to find the PDF clone root: prefer a .pdf-export inside body, else fall back to live
+        const cloneRoot = document.querySelector('.pdf-export') || document.querySelector(ROOT_SEL);
+        ensureHeader(cloneRoot);
+        removeTopGap(cloneRoot);
+      } catch(_) {}
+      // Now call the original exporter
+      return orig.apply(this, arguments);
+    };
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => {
+      applyOnLive();
+      patchExporter();
+    });
   } else {
-    insert();
+    applyOnLive();
+    patchExporter();
   }
 })();
 </script>
