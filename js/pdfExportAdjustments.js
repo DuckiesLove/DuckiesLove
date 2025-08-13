@@ -1,5 +1,5 @@
 export class CompatibilityPDFExporter {
-  constructor(containerSelector = '#pdf-container') {
+  constructor(containerSelector = '#compat-container') {
     this.containerSelector = containerSelector;
     this.styleAttr = 'data-pdf-fix';
     this.categoryShortMap = {
@@ -242,6 +242,6 @@ export class CompatibilityPDFExporter {
 }
 
 /* Usage:
-const exporter = new CompatibilityPDFExporter('#pdf-container');
+const exporter = new CompatibilityPDFExporter('#compat-container');
 exporter.generate();
 */
