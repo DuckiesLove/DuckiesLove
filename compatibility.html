@@ -11,8 +11,222 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+/**
+ * Kink Compatibility — drop-in renderer for your existing data shape.
+ *
+ * INPUT SHAPE (what you already have):
+ * const rowsByCategory = {
+ *   "Appearance Play": [
+ *     { id: "appearance_outfit",   label: "Choosing my partner's outfit for the day or a scene" },
+ *     { id: "appearance_underwear",label: "Selecting their underwear, lingerie, or base layers" },
+ *     ...
+ *   ],
+ *   "Bondage": [
+ *     { id: "bondage_rope", label: "Rope (tying, harnesses, decorative)" },
+ *     ...
+ *   ]
+ * };
+ *
+ * Uploads must set:
+ *   window.partnerASurvey (or window.surveyA)
+ *   window.partnerBSurvey (or window.surveyB)
+ *
+ * Then call:
+ *   window.updateComparison(rowsByCategory)
+ */
+
+(function(){
+  // ---------- Normalization + Survey -> Lookup ----------
+  function norm(s){
+    return String(s||'')
+      .replace(/[\u2018\u2019\u2032]/g,"'")
+      .replace(/[\u201C\u201D\u2033]/g,'"')
+      .replace(/[\u2013\u2014]/g,'-')
+      .replace(/\u2026/g,'')
+      .replace(/\s*\.\.\.\s*$/,'')
+      .replace(/\s+/g,' ')
+      .trim().toLowerCase();
+  }
+
+  // Supports flat objects, {items:[...]}, or nested {survey:{...}}
+  function toLookup(json){
+    const map = new Map();
+    if (!json || typeof json !== 'object') return map;
+
+    // Flat object: { "Choosing my partner's outfit ...": 4, ... }
+    if (!Array.isArray(json) && !json.items && !json.survey){
+      for (const [k,v] of Object.entries(json)){
+        const n = Number(v);
+        if (Number.isFinite(n)) map.set(norm(k), n);
+      }
+      return map;
+    }
+
+    // Items list: { items: [{ name|label|key|id, rating|score|value }, ...] }
+    if (Array.isArray(json.items)){
+      for (const it of json.items){
+        const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
+        const n = Number(it?.rating ?? it?.score ?? it?.value);
+        if (k && Number.isFinite(n)) map.set(k, n);
+      }
+      return map;
+    }
+
+    // Nested survey export: { survey: { Category: { Giving/Receiving/General: [...] } } }
+    if (json.survey && typeof json.survey === 'object'){
+      Object.values(json.survey).forEach(section=>{
+        ['Giving','Receiving','General'].forEach(bucket=>{
+          (Array.isArray(section?.[bucket]) ? section[bucket] : []).forEach(item=>{
+            const k = norm(item?.name ?? item?.label ?? item?.id ?? '');
+            const n = Number(item?.rating ?? item?.score ?? item?.value);
+            if (k && Number.isFinite(n)){
+              // prefer max if duplicates occur
+              map.set(k, Math.max(map.get(k) ?? -Infinity, n));
+            }
+          });
+        });
+      });
+    }
+
+    return map;
+  }
+
+  // ---------- Fill + Match ----------
+  function fillPartnerCells(tbody, cls, lookup){
+    if (!lookup || !lookup.size) return 0;
+    let wrote = 0;
+    tbody.querySelectorAll('tr').forEach(tr=>{
+      const td = tr.querySelector('td.'+cls);
+      if (!td) return;
+      const cur = (td.textContent||'').trim();
+      if (cur && !/^[-–—]$/.test(cur)) return; // don't overwrite real values
+      const key = norm(tr.getAttribute('data-full') || tr.getAttribute('data-id') || '');
+      if (!key) return;
+      const val = lookup.get(key);
+      if (val == null) return;
+      td.textContent = String(val);
+      wrote++;
+    });
+    return wrote;
+  }
+
+  function computeMatch(a, b){
+    const na = Number(a), nb = Number(b);
+    if (!Number.isFinite(na) || !Number.isFinite(nb)) return '';
+    const diff = Math.abs(na - nb);            // assuming 1..5 scale
+    const pct  = Math.round((1 - diff/4) * 100); // 100..0
+    return pct + '%';
+  }
+
+  function recomputeMatches(tbody){
+    tbody.querySelectorAll('tr').forEach(tr=>{
+      const a = tr.querySelector('td.pa')?.textContent;
+      const b = tr.querySelector('td.pb')?.textContent;
+      const m = tr.querySelector('td.match');
+      if (m) m.textContent = computeMatch(a, b);
+    });
+  }
+
+  // ---------- Category Table Renderer ----------
+  function renderCategoryTable(category, items, mount){
+    const section = document.createElement('section');
+    section.className = 'compat-section';
+
+    const title = document.createElement('h2');
+    title.className = 'section-title';
+    title.textContent = category;
+    section.appendChild(title);
+
+    const table = document.createElement('table');
+    table.className = 'compat-table';
+
+    const thead = document.createElement('thead');
+    const thr = document.createElement('tr');
+    const hCat   = document.createElement('th'); hCat.textContent   = 'Category';
+    const hA     = document.createElement('th'); hA.textContent     = 'Partner A';
+    const hMatch = document.createElement('th'); hMatch.textContent = 'Match';
+    const hB     = document.createElement('th'); hB.textContent     = 'Partner B';
+    thr.append(hCat, hA, hMatch, hB);
+    thead.appendChild(thr);
+
+    const tbody = document.createElement('tbody');
+
+    items.forEach(row=>{
+      const tr = document.createElement('tr');
+      if (row.id)    tr.setAttribute('data-id', row.id);
+      if (row.label) tr.setAttribute('data-full', row.label); // full key for matching
+
+      const tdLabel = document.createElement('td');
+      tdLabel.textContent = row.label || '';
+
+      const tdA = document.createElement('td');
+      tdA.className = 'pa';
+      tdA.textContent = '-';
+
+      const tdMatch = document.createElement('td');
+      tdMatch.className = 'match';
+      tdMatch.textContent = '';
+
+      const tdB = document.createElement('td');
+      tdB.className = 'pb';
+      tdB.textContent = '-';
+
+      tr.append(tdLabel, tdA, tdMatch, tdB);
+      tbody.appendChild(tr);
+    });
+
+    table.append(thead, tbody);
+    section.appendChild(table);
+    mount.appendChild(section);
+
+    // Initial fill from globals, if present
+    const aLookup = toLookup(window.partnerASurvey || window.surveyA || null);
+    const bLookup = toLookup(window.partnerBSurvey || window.surveyB || null);
+    const wroteA  = fillPartnerCells(tbody, 'pa', aLookup);
+    const wroteB  = fillPartnerCells(tbody, 'pb', bLookup);
+    if (wroteA || wroteB) recomputeMatches(tbody);
+  }
+
+  // ---------- Public API ----------
+  window.updateComparison = function(rowsByCategory){
+    const root = document.querySelector('[data-compat-root]') || document.querySelector('#compat-container') || document.querySelector('#compat-container');
+    if (!root) { console.error('[compat] Missing container. Add data-compat-root to the wrapper.'); return; }
+
+    root.innerHTML = ''; // rebuild fresh
+
+    if (Array.isArray(rowsByCategory)) {
+      // If a flat array was passed, render as a single category
+      renderCategoryTable('All', rowsByCategory, root);
+    } else {
+      Object.entries(rowsByCategory || {}).forEach(([cat, items])=>{
+        renderCategoryTable(cat, Array.isArray(items) ? items : [], root);
+      });
+    }
+  };
+
+  // Re-fill when a new JSON is uploaded (uses your existing upload inputs)
+  document.addEventListener('change', (e)=>{
+    const isA = e.target && e.target.matches('#uploadSurveyA,[data-upload-a]');
+    const isB = e.target && e.target.matches('#uploadSurveyB,[data-upload-b]');
+    if (!(isA || isB)) return;
+
+    setTimeout(()=>{
+      const aLookup = toLookup(window.partnerASurvey || window.surveyA || null);
+      const bLookup = toLookup(window.partnerBSurvey || window.surveyB || null);
+      document.querySelectorAll('[data-compat-root] table').forEach(table=>{
+        const tbody = table.querySelector('tbody');
+        const wroteA = isA ? fillPartnerCells(tbody, 'pa', aLookup) : 0;
+        const wroteB = isB ? fillPartnerCells(tbody, 'pb', bLookup) : 0;
+        if (wroteA || wroteB) recomputeMatches(tbody);
+      });
+      if (typeof window.populateFlags === 'function') window.populateFlags();
+    }, 120);
+  });
+})();
+  </script>
   <style>
-  #pdf-container {
+  #compat-container {
     width: 100%;
     max-width: 100%;
   }
@@ -100,13 +314,7 @@
 
     <div id="comparisonResults">
       <div id="loading-spinner" class="loading-overlay"><div class="spinner"></div></div>
-      <div id="pdf-container" data-compat-root>
-        <div id="compatibility-wrapper" class="compatibility-wrapper">
-          <div id="comparisonResult"></div>
-          <div id="compatibility-report" class="pdf-export-area"></div>
-          <div id="print-card-list" class="print-only"></div>
-        </div>
-      </div>
+      <div id="compat-container" data-compat-root></div>
       <div class="print-footer"></div>
     </div>
   </div>
@@ -132,1193 +340,5 @@
     // auto-wire is built into the module, but this exposes it if you need to call it manually:
     window.downloadCompatibilityPDF = downloadCompatibilityPDF;
   </script>
-
-<script>
-/**
- * Partner A loader + Flag column + guarded PDF — ALL CATEGORIES
- * - Loads Partner A JSON and fills Column A across every table in #pdf-container
- * - auto-creates “Partner A” column if missing OR writes into existing one
- * - adds “Flag” column after “Match” (⭐ >=90, 🚩 <=50 or 4/5 vs no-answer)
- * - re-fills after async renders (MutationObserver)
- * - blocks PDF download until Partner A has values
- */
-
-const CFG = {
-  container: '#pdf-container',
-  uploadA:   '#uploadSurveyA, [data-upload-a]',
-  download:  '#downloadBtn, [data-download-pdf]',
-  partnerACellSelector: null,         // e.g. 'td.pa' if you already have a class-based Partner A cell; leave null to auto-create column
-  createMissingPartnerACol: true,     // true = auto insert “Partner A” column if missing
-  partnerAHeaderText: 'Partner A',
-  matchHeaderRegex: /\bmatch\b/i,     // header used to place “Flag” after
-  starMin: 90,                        // ⭐ rule
-  redFlagMax: 50                      // 🚩 rule
-};
-
-const $1 = (s,r=document)=>r.querySelector(s);
-const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
-const wait = ms=>new Promise(r=>setTimeout(r,ms));
-function norm(s){return (s||'').replace(/[\u2018\u2019\u2032]/g,"'").replace(/[\u201C\u201D\u2033]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...').replace(/\s+/g,' ').trim().toLowerCase();}
-
-/* JSON → lookup */
-function buildLookup(json){
-  const map=new Map();
-  if (json && typeof json==='object' && !Array.isArray(json)){
-    for (const [k,v] of Object.entries(json)) map.set(norm(k), Number(v));
-    return map;
-  }
-  const items = Array.isArray(json?.items) ? json.items : [];
-  for (const it of items){
-    const k = norm(it.key ?? it.id ?? it.label ?? it.name ?? '');
-    if (k) map.set(k, Number(it.rating ?? it.score ?? it.value ?? 0));
-  }
-  return map;
-}
-
-/* header/column helpers */
-function findHeaderIndex(table, testFn){
-  const tr = $1('thead tr', table) || $1('tr', table);
-  if (!tr) return -1;
-  return [...tr.children].findIndex(th => testFn((th.textContent||'').trim()));
-}
-function partnerAIndex(table){ return findHeaderIndex(table, t => norm(t) === norm(CFG.partnerAHeaderText)); }
-function matchIndex(table){ return findHeaderIndex(table, t => CFG.matchHeaderRegex.test(t)); }
-
-function ensurePartnerAColumn(table){
-  if (CFG.partnerACellSelector) return;                       // writing to class-based cells
-  let idx = partnerAIndex(table);
-  if (idx >= 0) return;                                       // already present
-  if (!CFG.createMissingPartnerACol) return;
-
-  let head = $1('thead tr', table);
-  if (!head){
-    table.createTHead();
-    head = table.tHead.insertRow();
-    const firstBodyRow = $1('tbody tr', table);
-    const cols = firstBodyRow ? firstBodyRow.children.length : 1;
-    for (let i=0;i<cols;i++) head.appendChild(document.createElement('th'));
-    head.children[0].textContent = 'Category';
-  }
-  const th = document.createElement('th'); th.textContent = CFG.partnerAHeaderText;
-  head.insertBefore(th, head.children[1] || null);
-  $$('tbody tr', table).forEach(tr=>{
-    const td = document.createElement('td'); td.textContent='-';
-    tr.insertBefore(td, tr.children[1] || null);
-  });
-}
-
-function ensureFlagColumn(table){
-  const headRow = $1('thead tr', table) || $1('tr', table);
-  if (!headRow) return -1;
-  let m = matchIndex(table);
-  if (m === -1) return -1;
-
-  // remove existing "Flag" columns to avoid duplicates
-  [...headRow.children].forEach((th,i)=>{
-    const t=(th.textContent||'').trim().toLowerCase();
-    if (/^flag(\/star)?$/.test(t)){ headRow.children[i].remove(); $$('tbody tr', table).forEach(tr=> tr.children[i]?.remove()); }
-  });
-
-  m = matchIndex(table);
-  if (m === -1) return -1;
-
-  const th = document.createElement('th'); th.textContent='Flag';
-  headRow.insertBefore(th, headRow.children[m+1] || null);
-  $$('tbody tr', table).forEach(tr=>{
-    const td=document.createElement('td'); td.className='flag-cell'; td.textContent='';
-    tr.insertBefore(td, tr.children[m+1] || null);
-  });
-  return m+1;
-}
-
-/* row identity */
-function rowKey(tr){
-  const dk = tr.getAttribute('data-key') || tr.getAttribute('data-id');
-  if (dk) return norm(dk);
-  const labelCell = $1('td:first-child, th:first-child', tr);
-  return norm(labelCell?.textContent || '');
-}
-
-/* access Partner A cell */
-function makeACellAccessors(table){
-  if (CFG.partnerACellSelector){
-    return {
-      get: tr => $1(CFG.partnerACellSelector, tr),
-      set: (tr,val)=>{ const td=$1(CFG.partnerACellSelector,tr); if(td) td.textContent=String(val); }
-    };
-  }
-  const idx = partnerAIndex(table);
-  return {
-    get: tr => (idx>=0 ? tr.children[idx] : null),
-    set: (tr,val)=>{ if (idx>=0 && tr.children[idx]) tr.children[idx].textContent=String(val); }
-  };
-}
-
-/* fill Partner A across ALL categories/tables */
-function fillPartnerAAll(json){
-  const lookup = buildLookup(json);
-  const tables = $$(`${CFG.container} table`);
-  let wrote=0;
-
-  for (const table of tables){
-    ensurePartnerAColumn(table);
-    const acc = makeACellAccessors(table);
-
-    for (const tr of $$('tbody tr', table)){
-      if (!tr.children || tr.children.length===0) continue;
-
-      const cur = (acc.get(tr)?.textContent||'').trim();
-      if (cur && !/^[-–]$/.test(cur)) continue;
-
-      const k = rowKey(tr);
-      if (!k) continue;
-
-      if (lookup.has(k)){ acc.set(tr, lookup.get(k)); wrote++; continue; }
-
-      // forgiving substring fallback both ways
-      let hit=null;
-      for (const key of lookup.keys()){
-        if (k.includes(key) || key.includes(k)){ hit=key; break; }
-      }
-      if (hit){ acc.set(tr, lookup.get(hit)); wrote++; }
-    }
-  }
-  return wrote;
-}
-
-/* Flags (after A/B + Match exist) */
-function populateFlags(){
-  const tables = $$(`${CFG.container} table`);
-  for (const table of tables){
-    const mIdx = matchIndex(table);
-    if (mIdx === -1) continue;
-    const fIdx = ensureFlagColumn(table);
-    if (fIdx === -1) continue;
-
-    const aIdx = partnerAIndex(table);
-    const bIdx = findHeaderIndex(table, t => /partner\s*b/i.test(t));
-
-    $$('tbody tr', table).forEach(tr=>{
-      const getNum = idx => {
-        if (idx<0) return null;
-        const t=(tr.children[idx]?.textContent||'').trim();
-        if (t==='' || /^[-–]$/.test(t)) return null;
-        const n=Number(String(t).replace('%','')); return Number.isFinite(n)?n:null;
-      };
-      const pct  = getNum(mIdx);
-      const aVal = getNum(aIdx);
-      const bVal = getNum(bIdx);
-
-      let icon = '';
-      if (pct!=null && pct >= CFG.starMin) icon='⭐';
-      const high = v => v!=null && v>=4;
-      const noAns = v => v==null;
-      if ((pct!=null && pct <= CFG.redFlagMax) || (high(aVal)&&noAns(bVal)) || (high(bVal)&&noAns(aVal))) icon='🚩';
-
-      const cell = tr.children[fIdx];
-      if (cell) cell.textContent = icon;
-    });
-  }
-}
-
-/* detect any Partner A in DOM */
-function partnerAHasAnyData(){
-  const tables = $$(`${CFG.container} table`);
-  for (const table of tables){
-    const acc = makeACellAccessors(table);
-    for (const tr of $$('tbody tr', table)){
-      const t=(acc.get(tr)?.textContent||'').trim();
-      if (t && !/^[-–]$/.test(t)) return true;
-    }
-  }
-  return false;
-}
-
-/* watch async renders and re-fill */
-let compatObserver;
-function watchAndFillAfterRender(){
-  const root = $1(CFG.container);
-  if (!root) return;
-  if (compatObserver) compatObserver.disconnect();
-  compatObserver = new MutationObserver(()=>{
-    if (window.partnerASurvey){
-      const wrote = fillPartnerAAll(window.partnerASurvey);
-      if (wrote) populateFlags();
-    }
-  });
-  compatObserver.observe(root, {childList:true, subtree:true});
-  if (window.partnerASurvey){
-    const wrote = fillPartnerAAll(window.partnerASurvey);
-    if (wrote) populateFlags();
-  }
-}
-
-/* upload + download wiring */
-async function handleUploadA(file){
-  try{
-    const text = await file.text();
-    const json = JSON.parse(text);
-    window.partnerASurvey = window.surveyA = json;
-
-    if (typeof window.updateComparison === 'function'){
-      await Promise.resolve(window.updateComparison());
-    }
-    watchAndFillAfterRender();
-    await wait(120);
-    const wrote = fillPartnerAAll(window.partnerASurvey);
-    if (wrote) populateFlags();
-
-    if (!partnerAHasAnyData()){
-      const lookup = buildLookup(window.partnerASurvey);
-      const jsonKeys = Array.from(lookup.keys());
-      const rowKeys = [];
-      const tables = $$(`${CFG.container} table`);
-      for (const table of tables){
-        for (const tr of $$('tbody tr', table)){
-          const k = rowKey(tr);
-          if (k) rowKeys.push(k);
-        }
-      }
-      const unmatched = rowKeys.filter(k => !lookup.has(k));
-      console.warn('[Partner A] unmatched keys', {rowKeys, jsonKeys, unmatched});
-      alert('Partner A looks empty. Ensure row text or data-key matches your JSON keys.');
-    }
-  }catch(e){
-    console.error('[Partner A] JSON error:', e);
-    alert('Invalid JSON file.');
-  }
-}
-
-(function boot(){
-  const up = $1(CFG.uploadA);
-  if (up){
-    up.addEventListener('change', e=>{
-      const f = e?.target?.files?.[0];
-      if (f) handleUploadA(f);
-    });
-  } else {
-    console.warn('[Partner A] upload input not found (#uploadSurveyA or [data-upload-a]).');
-  }
-
-  const btn = $1(CFG.download);
-  if (btn){
-    const fresh = btn.cloneNode(true); btn.replaceWith(fresh);
-    fresh.addEventListener('click', async ev=>{
-      if (!partnerAHasAnyData()){
-        ev.preventDefault();
-        alert('Partner A looks empty. Upload your survey and wait for the table to refresh.');
-        return;
-      }
-      if (typeof window.downloadCompatibilityPDF === 'function'){
-        ev.preventDefault();
-        await window.downloadCompatibilityPDF();
-      }
-    });
-  }
-})();
-
-/* console diagnostics */
-window.__compatDump = () => {
-  const out = [];
-  const tables = $$(`${CFG.container} table`);
-  for (const [i,t] of tables.entries()){
-    const head = $$('thead tr th', t).map(th=>th.textContent.trim());
-    const idx = partnerAIndex(t);
-    const rows = $$('tbody tr', t).slice(0,10).map(tr=>{
-      const label = $1('td:first-child, th:first-child', tr)?.textContent?.trim() || '';
-      const dk = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
-      return {label, dataKey: dk};
-    });
-    out.push({table:i, headers: head, partnerAIndex: idx, sampleRows: rows});
-  }
-  console.log('[__compatDump]', out);
-  return out;
-};
-</script>
-<script>
-/**
- * CODEX: DO THIS EXACTLY
- * 1) Ensure the page has:
- *      <div id="pdf-container"> … your comparison tables … </div>
- *      <input id="uploadSurveyB" type="file" accept="application/json">   <!-- "Upload Partner's Survey" -->
- *   (You can also use any element with [data-upload-b] instead of the id.)
- *
- * 2) Paste THIS script at the very end of compatibility.html (right before </body>).
-<script>
-(function(){
-  const ROOT_SEL = '#pdf-container';
-
-  // Robust normalization for matching keys
-  function norm(s){
-    return String(s||'')
-      .replace(/[\u2018\u2019\u2032]/g,"'")
-      .replace(/[\u201C\u201D\u2033]/g,'"')
-      .replace(/[\u2013\u2014]/g,'-')
-      .replace(/\u2026/g,'')           // …
-      .replace(/\s*\.\.\.\s*$/,'')     // trailing "..."
-      .replace(/\s+/g,' ')
-      .trim().toLowerCase();
-  }
-
-  // Accepts flat object, {items:[]}, or nested {survey:{Category:{Giving/Receiving/General:[...]}}}
-  function toLookup(json){
-    function flattenSurvey(j){
-      if (!j || typeof j!=='object' || !j.survey) return j;
-      const out = {};
-      Object.values(j.survey).forEach(sec=>{
-        ['Giving','Receiving','General'].forEach(b=>{
-          (Array.isArray(sec?.[b])?sec[b]:[]).forEach(it=>{
-            const k = it?.name ?? it?.label ?? it?.id;
-            const v = Number(it?.rating ?? it?.score ?? it?.value);
-            if (k!=null && Number.isFinite(v)) out[k] = Math.max(out[k]??-Infinity, v);
-          });
-        });
-      });
-      return out;
-    }
-    const flat = flattenSurvey(json) || json;
-    const map = new Map();
-    if (flat && typeof flat==='object' && !Array.isArray(flat) && !flat.items && !flat.survey){
-      for (const [k,v] of Object.entries(flat)) map.set(norm(k), Number(v));
-      return map;
-    }
-    const items = Array.isArray(flat?.items) ? flat.items : [];
-    for (const it of items){
-      const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
-      const n = Number(it?.rating ?? it?.score ?? it?.value);
-      if (k && Number.isFinite(n)) map.set(k, n);
-    }
-    return map;
-  }
-
-  // Ensure each row has a stable data-key for matching
-  function annotateRows(root){
-    root.querySelectorAll('table tbody tr').forEach(tr=>{
-      if ((tr.getAttribute('data-key')||'').trim()) return;
-      const first = tr.querySelector('td:first-child, th:first-child');
-      const label =
-        tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
-        (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
-        tr.getAttribute('title') || tr.getAttribute('aria-label') ||
-        (first && (first.getAttribute('title') || first.getAttribute('aria-label'))) ||
-        (first ? first.textContent : '');
-      tr.setAttribute('data-key', norm(label));
-    });
-  }
-
-  // Fallback writer for Partner A or B (used if project fill* is absent)
-  function fallbackWrite(partner, json){
-    const root = document.querySelector(ROOT_SEL);
-    if (!root) return 0;
-    annotateRows(root);
-    const map = toLookup(json);
-    if (!map.size) return 0;
-
-    function findColIndexByHeader(table, headerText){
-      const tr = table.querySelector('thead tr');
-      if (!tr) return -1;
-      const ths = Array.from(tr.children);
-      return ths.findIndex(th => norm(th.textContent) === norm(headerText));
-    }
-
-    const classSel = partner==='A' ? 'td.pa' : 'td.pb';
-    let wrote = 0;
-
-    root.querySelectorAll('table').forEach(table=>{
-      let idx = findColIndexByHeader(table, partner==='A' ? 'Partner A' : 'Partner B');
-      table.querySelectorAll('tbody tr').forEach(tr=>{
-        const key = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
-        const val = map.get(norm(key));
-        if (val==null) return;
-
-        let td = null;
-        if (idx >= 0 && tr.children && tr.children.length > idx) td = tr.children[idx];
-        if (!td) td = tr.querySelector(classSel);
-        if (!td) return;
-
-        if (!td.textContent || /^\s*[-–—]?\s*$/.test(td.textContent)){
-          td.textContent = String(val);
-          wrote++;
-        }
-      });
-    });
-
-    return wrote;
-  }
-
-  // Console helpers: force-fill without re-uploading
-  window.__compatARefill = function(){
-    const json = window.partnerASurvey || window.surveyA;
-    if (!json) { console.warn('[Partner A] No JSON loaded (upload first).'); return 0; }
-    let wrote = 0;
-    try{
-      if (typeof window.fillPartnerAAll === 'function') wrote = window.fillPartnerAAll(json) || 0;
-      else wrote = fallbackWrite('A', json);
-      if (typeof window.populateFlags === 'function') window.populateFlags();
-      console.log(`[Partner A] refill wrote ${wrote}`);
-    }catch(e){ console.warn('[Partner A] refill error:', e); }
-    return wrote;
-  };
-
-  window.__compatBRefill = function(){
-    const json = window.partnerBSurvey || window.surveyB;
-    if (!json) { console.warn('[Partner B] No JSON loaded (upload first).'); return 0; }
-    let wrote = 0;
-    try{
-      if (typeof window.fillPartnerBAll === 'function') wrote = window.fillPartnerBAll(json) || 0;
-      else wrote = fallbackWrite('B', json);
-      if (typeof window.populateFlags === 'function') window.populateFlags();
-      console.log(`[Partner B] refill wrote ${wrote}`);
-    }catch(e){ console.warn('[Partner B] refill error:', e); }
-    return wrote;
-  };
-})();
-</script>
- *    It is SAFE with the Partner A loader already added.
- *
- * 3) Do NOT change layout. This script:
- *    - Fills "Partner B" across ALL tables inside #pdf-container
- *    - Writes to existing <td class="pb"> if present, OR inserts a “Partner B” column if missing
- *    - Recomputes the Flag column (⭐ ≥ 90% match; 🚩 ≤ 50% match OR 4/5 vs no-answer)
- *
- * 4) After adding:
- *    - Reload → Click “Upload Partner’s Survey” → pick JSON → Partner B column fills everywhere
- *    - The existing “Download PDF” flow can remain as-is
- */
-
-(function(){
-  // ----------------------- CONFIG -----------------------
-  const CFG_B = {
-    container: '#pdf-container',
-    uploadB:   '#uploadSurveyB, [data-upload-b]',
-    partnerBHeaderText: 'Partner B',
-    partnerBCellSelector: null,     // e.g. 'td.pb' if you ALREADY render a dedicated Partner B cell; leave null to auto-create a column
-    createMissingPartnerBCol: true, // true => insert "Partner B" column if missing
-    matchHeaderRegex: /\bmatch\b/i, // used to locate the Match column (for Flag recompute)
-    starMin: 90,
-    redFlagMax: 50
-  };
-
-  // Share tiny helpers with A-script if present:
-  const $1 = window.__compat$1 || ((s,r=document)=>r.querySelector(s));
-  const $$ = window.__compat$$ || ((s,r=document)=>Array.from(r.querySelectorAll(s)));
-
-  function norm(s){
-    return (s||'')
-      .replace(/[\u2018\u2019\u2032]/g,"'")
-      .replace(/[\u201C\u201D\u2033]/g,'"')
-      .replace(/[\u2013\u2014]/g,'-')
-      .replace(/\u2026/g,'...')
-      .replace(/\s+/g,' ')
-      .trim().toLowerCase();
-  }
-
-  // ----------------------- JSON → lookup -----------------------
-  function buildLookup(json){
-    const map = new Map();
-    if (json && typeof json==='object' && !Array.isArray(json)) {
-      for (const [k,v] of Object.entries(json)) map.set(norm(k), Number(v));
-      return map;
-    }
-    const items = Array.isArray(json?.items) ? json.items : [];
-    for (const it of items){
-      const k = norm(it.key ?? it.id ?? it.label ?? it.name ?? '');
-      if (k) map.set(k, Number(it.rating ?? it.score ?? it.value ?? 0));
-    }
-    return map;
-  }
-
-  // ----------------------- table helpers -----------------------
-  function findHeaderIndex(table, testFn){
-    const tr = $1('thead tr', table) || $1('tr', table);
-    if (!tr) return -1;
-    const cells = [...tr.children];
-    return cells.findIndex(th => testFn((th.textContent||'').trim()));
-  }
-  function partnerBIndex(table){ return findHeaderIndex(table, t => norm(t) === norm(CFG_B.partnerBHeaderText)); }
-  function partnerAIndex(table){ return findHeaderIndex(table, t => /\bpartner\s*a\b/i.test(t)); }
-  function partnerMatchIndex(table){ return findHeaderIndex(table, t => CFG_B.matchHeaderRegex.test(t)); }
-
-  function ensurePartnerBColumn(table){
-    if (CFG_B.partnerBCellSelector) return;                 // writing to class-based cells
-    let idx = partnerBIndex(table);
-    if (idx >= 0) return;                                   // already present
-    if (!CFG_B.createMissingPartnerBCol) return;
-
-    // Insert Partner B as the LAST column (stable default that won't disrupt “Flag”)
-    let head = $1('thead tr', table);
-    if (!head){
-      table.createTHead();
-      head = table.tHead.insertRow();
-      const firstBodyRow = $1('tbody tr', table);
-      const cols = firstBodyRow ? firstBodyRow.children.length : 1;
-      for (let i=0;i<cols;i++) head.appendChild(document.createElement('th'));
-      head.children[0].textContent = 'Category';
-    }
-    const th = document.createElement('th'); th.textContent = CFG_B.partnerBHeaderText;
-    head.appendChild(th);
-
-    $$('tbody tr', table).forEach(tr=>{
-      const td = document.createElement('td'); td.textContent='-';
-      tr.appendChild(td);
-    });
-  }
-
-  function makeBCellAccessors(table){
-    if (CFG_B.partnerBCellSelector){
-      return {
-        get: tr => $1(CFG_B.partnerBCellSelector, tr),
-        set: (tr,val)=>{ const td=$1(CFG_B.partnerBCellSelector,tr); if(td) td.textContent=String(val); }
-      };
-    }
-    const idx = partnerBIndex(table);
-    return {
-      get: tr => (idx>=0 ? tr.children[idx] : null),
-      set: (tr,val)=>{ if (idx>=0 && tr.children[idx]) tr.children[idx].textContent=String(val); }
-    };
-  }
-
-  function rowKey(tr){
-    const dk = tr.getAttribute('data-key') || tr.getAttribute('data-id');
-    if (dk) return norm(dk);
-    const labelCell = $1('td:first-child, th:first-child', tr);
-    return norm(labelCell?.textContent || '');
-  }
-
-  // ----------------------- fill Partner B everywhere -----------------------
-  function fillPartnerBAll(json){
-    const lookup = buildLookup(json);
-    const tables = $$(`${CFG_B.container} table`);
-    let wrote=0;
-
-    for (const table of tables){
-      ensurePartnerBColumn(table);
-      const acc = makeBCellAccessors(table);
-
-      for (const tr of $$('tbody tr', table)){
-        if (!tr.children || tr.children.length===0) continue;
-
-        const cur = (acc.get(tr)?.textContent||'').trim();
-        if (cur && !/^[-–]$/.test(cur)) continue; // already filled
-
-        const k = rowKey(tr);
-        if (!k) continue;
-
-        if (lookup.has(k)){ acc.set(tr, lookup.get(k)); wrote++; continue; }
-
-        // forgiving substring fallback (both ways)
-        let hit=null;
-        for (const key of lookup.keys()){
-          if (k.includes(key) || key.includes(k)){ hit=key; break; }
-        }
-        if (hit){ acc.set(tr, lookup.get(hit)); wrote++; }
-      }
-    }
-    return wrote;
-  }
-
-  // ----------------------- Flag recompute -----------------------
-  // If the Partner A script already defined populateFlags, use it.
-  // Otherwise define a minimal local version so B upload still updates flags.
-  const populateFlags = window.populateFlags || (function(){
-    return function localPopulateFlags(){
-      const tables = $$(`${CFG_B.container} table`);
-      for (const table of tables){
-        const mIdx = partnerMatchIndex(table);
-        if (mIdx === -1) continue;
-
-        // ensure a Flag column right after Match (remove duplicates)
-        const headRow = $1('thead tr', table) || $1('tr', table);
-        if (!headRow) continue;
-        [...headRow.children].forEach((th,i)=>{
-          const t=(th.textContent||'').trim().toLowerCase();
-          if (/^flag(\/star)?$/.test(t)){ headRow.children[i].remove(); $$('tbody tr', table).forEach(r=> r.children[i]?.remove()); }
-        });
-        const th = document.createElement('th'); th.textContent='Flag';
-        headRow.insertBefore(th, headRow.children[mIdx+1] || null);
-        const fIdx = mIdx+1;
-
-        const aIdx = partnerAIndex(table);
-        const bIdx = partnerBIndex(table);
-
-        $$('tbody tr', table).forEach(tr=>{
-          const getNum = idx => {
-            if (idx<0) return null;
-            const t=(tr.children[idx]?.textContent||'').trim();
-            if (t==='' || /^[-–]$/.test(t)) return null;
-            const n=Number(String(t).replace('%',''));
-            return Number.isFinite(n)?n:null;
-          };
-          const pct  = getNum(mIdx);
-          const aVal = getNum(aIdx);
-          const bVal = getNum(bIdx);
-
-          let icon = '';
-          if (pct!=null && pct >= CFG_B.starMin) icon = '⭐';
-          const high = v => v!=null && v>=4;
-          const noAns = v => v==null;
-          if ((pct!=null && pct <= CFG_B.redFlagMax) || (high(aVal)&&noAns(bVal)) || (high(bVal)&&noAns(aVal))) {
-            icon = '🚩';
-          }
-          const cell = tr.children[fIdx];
-          if (cell) cell.textContent = icon;
-        });
-      }
-    };
-  })();
-
-  // ----------------------- async render support -----------------------
-  let observerB;
-  function watchAndFillB(){
-    const root = $1(CFG_B.container);
-    if (!root) return;
-    if (observerB) observerB.disconnect();
-    observerB = new MutationObserver(()=>{
-      if (window.partnerBSurvey){
-        const wrote = fillPartnerBAll(window.partnerBSurvey);
-        if (wrote) populateFlags();
-      }
-    });
-    observerB.observe(root, {childList:true, subtree:true});
-    // initial pass
-    if (window.partnerBSurvey){
-      const wrote = fillPartnerBAll(window.partnerBSurvey);
-      if (wrote) populateFlags();
-    }
-  }
-
-  // ----------------------- upload wiring -----------------------
-  async function handleUploadB(file){
-    try{
-      const text = await file.text();
-      const json = JSON.parse(text);
-      window.partnerBSurvey = window.surveyB = json;
-
-      if (typeof window.updateComparison === 'function'){
-        await Promise.resolve(window.updateComparison());
-      }
-      watchAndFillB();
-      // small extra delay to catch late layout/fonts
-      setTimeout(()=>{
-        const wrote = fillPartnerBAll(window.partnerBSurvey);
-        if (wrote) populateFlags();
-      }, 120);
-    }catch(e){
-      console.error('[Partner B] JSON error:', e);
-      alert('Invalid JSON file for Partner B.');
-    }
-  }
-
-  // boot
-  document.addEventListener('DOMContentLoaded', ()=>{
-    const inp = $1(CFG_B.uploadB);
-    if (inp){
-      inp.addEventListener('change', e=>{
-        const f = e?.target?.files?.[0];
-        if (f) handleUploadB(f);
-      });
-    } else {
-      console.warn('[Partner B] upload input not found (#uploadSurveyB or [data-upload-b]).');
-    }
-  });
-})();
-  </script>
-<script>
-(function(){
-  const ROOT_SEL = '#pdf-container';
-
-  // Robust normalization for matching keys
-  function norm(s){
-    return String(s||'')
-      .replace(/[\u2018\u2019\u2032]/g,"'")
-      .replace(/[\u201C\u201D\u2033]/g,'"')
-      .replace(/[\u2013\u2014]/g,'-')
-      .replace(/\u2026/g,'')           // …
-      .replace(/\s*\.\.\.\s*$/,'')     // trailing "..."
-      .replace(/\s+/g,' ')
-      .trim().toLowerCase();
-  }
-
-  // Accepts flat object, {items:[]}, or nested {survey:{Category:{Giving/Receiving/General:[...]}}}
-  function toLookup(json){
-    function flattenSurvey(j){
-      if (!j || typeof j!=='object' || !j.survey) return j;
-      const out = {};
-      Object.values(j.survey).forEach(sec=>{
-        ['Giving','Receiving','General'].forEach(b=>{
-          (Array.isArray(sec?.[b])?sec[b]:[]).forEach(it=>{
-            const k = it?.name ?? it?.label ?? it?.id;
-            const v = Number(it?.rating ?? it?.score ?? it?.value);
-            if (k!=null && Number.isFinite(v)) out[k] = Math.max(out[k]??-Infinity, v);
-          });
-        });
-      });
-      return out;
-    }
-    const flat = flattenSurvey(json) || json;
-    const map = new Map();
-    if (flat && typeof flat==='object' && !Array.isArray(flat) && !flat.items && !flat.survey){
-      for (const [k,v] of Object.entries(flat)) map.set(norm(k), Number(v));
-      return map;
-    }
-    const items = Array.isArray(flat?.items) ? flat.items : [];
-    for (const it of items){
-      const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
-      const n = Number(it?.rating ?? it?.score ?? it?.value);
-      if (k && Number.isFinite(n)) map.set(k, n);
-    }
-    return map;
-  }
-
-  // Ensure each row has a stable data-key for matching
-  function annotateRows(root){
-    root.querySelectorAll('table tbody tr').forEach(tr=>{
-      if ((tr.getAttribute('data-key')||'').trim()) return;
-      const first = tr.querySelector('td:first-child, th:first-child');
-      const label =
-        tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
-        (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
-        tr.getAttribute('title') || tr.getAttribute('aria-label') ||
-        (first && (first.getAttribute('title') || first.getAttribute('aria-label'))) ||
-        (first ? first.textContent : '');
-      tr.setAttribute('data-key', norm(label));
-    });
-  }
-
-  // Fallback writer for Partner A or B (used if project fill* is absent)
-  function fallbackWrite(partner, json){
-    const root = document.querySelector(ROOT_SEL);
-    if (!root) return 0;
-    annotateRows(root);
-    const map = toLookup(json);
-    if (!map.size) return 0;
-
-    function findColIndexByHeader(table, headerText){
-      const tr = table.querySelector('thead tr');
-      if (!tr) return -1;
-      const ths = Array.from(tr.children);
-      return ths.findIndex(th => norm(th.textContent) === norm(headerText));
-    }
-
-    const classSel = partner==='A' ? 'td.pa' : 'td.pb';
-    let wrote = 0;
-
-    root.querySelectorAll('table').forEach(table=>{
-      let idx = findColIndexByHeader(table, partner==='A' ? 'Partner A' : 'Partner B');
-      table.querySelectorAll('tbody tr').forEach(tr=>{
-        const key = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
-        const val = map.get(norm(key));
-        if (val==null) return;
-
-        let td = null;
-        if (idx >= 0 && tr.children && tr.children.length > idx) td = tr.children[idx];
-        if (!td) td = tr.querySelector(classSel);
-        if (!td) return;
-
-        if (!td.textContent || /^\s*[-–—]?\s*$/.test(td.textContent)){
-          td.textContent = String(val);
-          wrote++;
-        }
-      });
-    });
-
-    return wrote;
-  }
-
-  // Console helpers: force-fill without re-uploading
-  window.__compatARefill = function(){
-    const json = window.partnerASurvey || window.surveyA;
-    if (!json) { console.warn('[Partner A] No JSON loaded (upload first).'); return 0; }
-    let wrote = 0;
-    try{
-      if (typeof window.fillPartnerAAll === 'function') wrote = window.fillPartnerAAll(json) || 0;
-      else wrote = fallbackWrite('A', json);
-      if (typeof window.populateFlags === 'function') window.populateFlags();
-      console.log(`[Partner A] refill wrote ${wrote}`);
-    }catch(e){ console.warn('[Partner A] refill error:', e); }
-    return wrote;
-  };
-
-  window.__compatBRefill = function(){
-    const json = window.partnerBSurvey || window.surveyB;
-    if (!json) { console.warn('[Partner B] No JSON loaded (upload first).'); return 0; }
-    let wrote = 0;
-    try{
-      if (typeof window.fillPartnerBAll === 'function') wrote = window.fillPartnerBAll(json) || 0;
-      else wrote = fallbackWrite('B', json);
-      if (typeof window.populateFlags === 'function') window.populateFlags();
-      console.log(`[Partner B] refill wrote ${wrote}`);
-    }catch(e){ console.warn('[Partner B] refill error:', e); }
-    return wrote;
-  };
-})();
-</script>
-<script>
-(function(){
-  let compatRoot;
-  const waiters = [];
-
-  function setRoot(el){
-    compatRoot = el;
-    while (waiters.length) waiters.shift()(el);
-  }
-
-  window.registerCompatRoot = setRoot;
-  window.onCompatRoot = fn => compatRoot ? fn(compatRoot) : waiters.push(fn);
-
-  function autoDetectRoot(){
-    if (compatRoot) return compatRoot;
-    const el = document.querySelector('#pdf-container') ||
-               document.querySelector('[data-compat-root]') ||
-               document.querySelector('main') ||
-               document.body;
-    setRoot(el);
-    return el;
-  }
-
-  function waitForRows(root){
-    return new Promise(resolve => {
-      if (root.querySelector('tbody tr')) return resolve();
-      const obs = new MutationObserver(() => {
-        if (root.querySelector('tbody tr')){
-          obs.disconnect();
-          resolve();
-        }
-      });
-      obs.observe(root, {childList: true, subtree: true});
-    });
-  }
-
-  function tagPartnerAColumn(table){
-    const idx = partnerAIndex(table);
-    if (idx < 0) return;
-    const head = $1('thead tr', table) || $1('tr', table);
-    const th = head && head.children[idx];
-    if (th) th.setAttribute('data-partner-a', '');
-    $$('tbody tr', table).forEach(tr => {
-      const td = tr.children[idx];
-      if (td) td.setAttribute('data-partner-a', '');
-    });
-  }
-
-  async function handle(root){
-    await waitForRows(root);
-    $$('table', root).forEach(table => {
-      ensurePartnerAColumn(table);
-      tagPartnerAColumn(table);
-    });
-    if (window.partnerASurvey){
-      const wrote = fillPartnerAAll(window.partnerASurvey);
-      if (wrote && typeof populateFlags === 'function') populateFlags();
-    }
-  }
-
-  onCompatRoot(handle);
-
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', autoDetectRoot);
-  }else{
-    autoDetectRoot();
-  }
-})();
-</script>
-  <script>
-  (function(){
-    // ---------- Robust normalizer ----------
-    const norm = s => String(s||'')
-      .replace(/[\u2018\u2019\u2032]/g,"'")
-      .replace(/[\u201C\u201D\u2033]/g,'"')
-      .replace(/[\u2013\u2014]/g,'-')
-      .replace(/\u2026/g,'')
-      .replace(/\s*\.\.\.\s*$/,'')
-      .replace(/\s+/g,' ')
-      .trim().toLowerCase();
-
-    // ---------- Build lookup from: flat object OR {items:[{name|label|key|id, rating|score|value}]} ----------
-    function toLookup(json){
-      const map = new Map();
-      if (!json || typeof json !== 'object') return map;
-
-      // flat object case
-      if (!Array.isArray(json) && !json.items && !json.survey) {
-        for (const [k,v] of Object.entries(json)) {
-          const n = Number(v);
-          if (Number.isFinite(n)) map.set(norm(k), n);
-        }
-        return map;
-      }
-
-      // items array case (your logs show {items: Array(35)})
-      const items = Array.isArray(json.items) ? json.items : [];
-      for (const it of items){
-        const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
-        const n = Number(it?.rating ?? it?.score ?? it?.value);
-        if (k && Number.isFinite(n)) map.set(k, n);
-      }
-      return map;
-    }
-
-    // ---------- Root detection (prefers data-compat-root) ----------
-    function getRoot(){
-      return document.querySelector('[data-compat-root]') ||
-             document.querySelector('#pdf-container') ||
-             document.body;
-    }
-
-    // ---------- Annotate rows with stable keys (works for true tables) ----------
-    function annotateRows(root){
-      root.querySelectorAll('table tbody tr').forEach(tr=>{
-        if ((tr.getAttribute('data-key')||'').trim()) return;
-        const first = tr.querySelector('td:first-child, th:first-child');
-        const label =
-          tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
-          (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
-          tr.getAttribute('title') || tr.getAttribute('aria-label') ||
-          (first && (first.getAttribute('title') || first.getAttribute('aria-label'))) ||
-          (first ? first.textContent : '');
-        tr.setAttribute('data-key', norm(label));
-      });
-    }
-
-    // ---------- Tag Partner A/B columns by reading THEAD ----------
-    function tagPartnerColumns(root){
-      root.querySelectorAll('table').forEach(table=>{
-        const tr = table.querySelector('thead tr');
-        if (!tr) return;
-        const ths = Array.from(tr.children);
-        const idxA = ths.findIndex(th => norm(th.textContent) === 'partner a');
-        const idxB = ths.findIndex(th => norm(th.textContent) === 'partner b');
-        if (idxA >= 0) table.querySelectorAll('tbody tr').forEach(r=>{ const td = r.children[idxA]; if (td) td.classList.add('pa'); });
-        if (idxB >= 0) table.querySelectorAll('tbody tr').forEach(r=>{ const td = r.children[idxB]; if (td) td.classList.add('pb'); });
-      });
-    }
-
-    // ---------- Fill a given partner column ('A' or 'B') ----------
-    function fillPartner(root, partner, json){
-      const map = toLookup(json);
-      if (!map.size) return 0;
-      const cls = partner === 'A' ? 'pa' : 'pb';
-      let wrote = 0;
-
-      root.querySelectorAll('table tbody tr').forEach(tr=>{
-        const td = tr.querySelector('td.'+cls);
-        if (!td) return;
-        const curr = (td.textContent||'').trim();
-        if (curr && !/^[-–—]$/.test(curr)) return;  // don't overwrite real values
-        const key = tr.getAttribute('data-key') || tr.getAttribute('data-id') || '';
-        if (!key) return;
-        const val = map.get(norm(key));
-        if (val == null) return;
-        td.textContent = String(val);
-        wrote++;
-      });
-      return wrote;
-    }
-
-    // ---------- Public console helpers ----------
-    window.__compatFindRoot = function(){
-      const root = getRoot();
-      const rows = root.querySelectorAll('tbody tr').length;
-      console.log('[compat] root =', root, 'rows =', rows);
-      return root;
-    };
-
-    window.__compatForceAFill = function(){
-      const root = getRoot();
-      annotateRows(root);
-      tagPartnerColumns(root);
-      const a = fillPartner(root, 'A', window.partnerASurvey || window.surveyA);
-      const b = fillPartner(root, 'B', window.partnerBSurvey || window.surveyB);
-      if (typeof window.populateFlags === 'function') window.populateFlags();
-      console.log(`[compat] filled A=${a} B=${b}`);
-      return {A:a, B:b};
-    };
-
-    // ---------- Auto-fill after uploads (id or data- attributes) ----------
-    document.addEventListener('change', e=>{
-      const isA = e.target && e.target.matches('#uploadSurveyA,[data-upload-a]');
-      const isB = e.target && e.target.matches('#uploadSurveyB,[data-upload-b]');
-      if (!(isA || isB)) return;
-
-      // give the page a moment to render rows, then fill
-      setTimeout(()=>{
-        const root = getRoot();
-        annotateRows(root);
-        tagPartnerColumns(root);
-        const resA = isA ? fillPartner(root, 'A', window.partnerASurvey || window.surveyA) : 0;
-        const resB = isB ? fillPartner(root, 'B', window.partnerBSurvey || window.surveyB) : 0;
-        if (typeof window.populateFlags === 'function') window.populateFlags();
-        console.log(`[compat] auto-fill A=${resA} B=${resB}`);
-      }, 150);
-    });
-  })();
-  </script>
-
-<script>
-(function(){
-  const norm = s => String(s||'')
-    .replace(/[\u2018\u2019\u2032]/g,"'")
-    .replace(/[\u201C\u201D\u2033]/g,'"')
-    .replace(/[\u2013\u2014]/g,'-')
-    .replace(/\u2026/g,'')
-    .replace(/\s*\.\.\.\s*$/,'')
-    .replace(/\s+/g,' ')
-    .trim().toLowerCase();
-
-  function toLookup(json){
-    const map = new Map();
-    if (!json || typeof json !== 'object') return map;
-    // flat object
-    if (!Array.isArray(json) && !json.items && !json.survey){
-      for (const [k,v] of Object.entries(json)){
-        const n = Number(v); if (Number.isFinite(n)) map.set(norm(k), n);
-      }
-      return map;
-    }
-    // items array (your logs show {items:Array(35)})
-    const items = Array.isArray(json.items) ? json.items : [];
-    for (const it of items){
-      const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
-      const n = Number(it?.rating ?? it?.score ?? it?.value);
-      if (k && Number.isFinite(n)) map.set(k, n);
-    }
-    return map;
-  }
-
-  // Root resolving
-  let ROOT = null;
-  function getRoot(){
-    return ROOT ||
-           document.querySelector('[data-compat-root]') ||
-           document.querySelector('#pdf-container') ||
-           document.body;
-  }
-  window.__compatSetRoot = function(el){ if (el && el.querySelector) { ROOT = el; tryFillSoon(); } };
-
-  // Count rows (works for table OR custom grid)
-  function countRows(root){
-    const tableRows = root.querySelectorAll('tbody tr').length;
-    const roleRows  = root.querySelectorAll('[role="row"][data-compat-row]').length;
-    return Math.max(tableRows, roleRows);
-  }
-
-  // Annotate rows with a stable key (prefers data-full, falls back to first cell text)
-  function annotateRows(root){
-    // Table rows
-    root.querySelectorAll('table tbody tr').forEach(tr=>{
-      if ((tr.getAttribute('data-key')||'').trim()) return;
-      const first = tr.querySelector('td:first-child, th:first-child');
-      const label =
-        tr.getAttribute('data-full') || tr.getAttribute('data-label') ||
-        (first && (first.getAttribute('data-full') || first.getAttribute('data-label'))) ||
-        tr.getAttribute('title') || tr.getAttribute('aria-label') ||
-        (first && (first.getAttribute('title') || first.getAttribute('aria-label'))) ||
-        (first ? first.textContent : '');
-      tr.setAttribute('data-key', norm(label));
-    });
-    // Grid rows
-    root.querySelectorAll('[role="row"][data-compat-row]').forEach(row=>{
-      if ((row.getAttribute('data-key')||'').trim()) return;
-      const first = row.querySelector('[data-compat-cell]:first-child,[role="cell"]:first-child,*:first-child');
-      const label = row.getAttribute('data-full') || (first ? first.textContent : '');
-      row.setAttribute('data-key', norm(label));
-    });
-  }
-
-  // Tag Partner columns:
-  // - Tables: rely on exact THEAD text "Partner A" / "Partner B" to find column index
-  // - Grids: rely on data-compat-col="a"/"b"
-  function tagPartnerColumns(root){
-    root.querySelectorAll('table').forEach(table=>{
-      const tr = table.querySelector('thead tr'); if (!tr) return;
-      const ths = Array.from(tr.children);
-      const idxA = ths.findIndex(th => norm(th.textContent) === 'partner a');
-      const idxB = ths.findIndex(th => norm(th.textContent) === 'partner b');
-      if (idxA >= 0) table.querySelectorAll('tbody tr').forEach(r=>{ const td = r.children[idxA]; if (td) td.classList.add('pa'); });
-      if (idxB >= 0) table.querySelectorAll('tbody tr').forEach(r=>{ const td = r.children[idxB]; if (td) td.classList.add('pb'); });
-    });
-    root.querySelectorAll('[role="row"][data-compat-row]').forEach(row=>{
-      const a = row.querySelector('[data-compat-col="a"]'); if (a) a.classList.add('pa');
-      const b = row.querySelector('[data-compat-col="b"]'); if (b) b.classList.add('pb');
-    });
-  }
-
-  function fillPartner(root, partner, json){
-    const map = toLookup(json);
-    if (!map.size) return 0;
-    const cls = partner === 'A' ? 'pa' : 'pb';
-    let wrote = 0;
-
-    // Tables
-    root.querySelectorAll('table tbody tr').forEach(tr=>{
-      const td = tr.querySelector('td.'+cls); if (!td) return;
-      const cur = (td.textContent||'').trim(); if (cur && !/^[-–—]$/.test(cur)) return;
-      const key = tr.getAttribute('data-key') || tr.getAttribute('data-id') || ''; if (!key) return;
-      const val = map.get(norm(key)); if (val == null) return;
-      td.textContent = String(val); wrote++;
-    });
-
-    // Grids
-    root.querySelectorAll('[role="row"][data-compat-row]').forEach(row=>{
-      const cell = row.querySelector('[data-compat-col="'+(cls==='pa'?'a':'b')+'"].'+cls) ||
-                   row.querySelector('[data-compat-col="'+(cls==='pa'?'a':'b')+'"]');
-      if (!cell) return;
-      const cur = (cell.textContent||'').trim(); if (cur && !/^[-–—]$/.test(cur)) return;
-      const key = row.getAttribute('data-key') || ''; if (!key) return;
-      const val = map.get(norm(key)); if (val == null) return;
-      cell.textContent = String(val); wrote++;
-    });
-
-    return wrote;
-  }
-
-  async function findRootAndFill(){
-    const root = getRoot();
-    // wait up to 8s for rows to appear
-    const t0 = Date.now();
-    while (Date.now() - t0 < 8000 && countRows(root) === 0) {
-      await new Promise(r=>setTimeout(r,100));
-    }
-    if (countRows(root) === 0) return { wroteA:0, wroteB:0, reason:'no-rows' };
-
-    annotateRows(root);
-    tagPartnerColumns(root);
-
-    const wroteA = fillPartner(root, 'A', window.partnerASurvey || window.surveyA);
-    const wroteB = fillPartner(root, 'B', window.partnerBSurvey || window.surveyB);
-    if ((wroteA || wroteB) && typeof window.populateFlags === 'function') window.populateFlags();
-    return { wroteA, wroteB };
-  }
-
-  // Small debounced runner
-  let timer;
-  function tryFillSoon(){
-    clearTimeout(timer);
-    timer = setTimeout(()=>{ findRootAndFill().then(res=>console.log('[compat] fill result', res)); }, 150);
-  }
-
-  // Expose helpers for Console
-  window.__compatFindRoot = function(){
-    const root = getRoot();
-    const rows = countRows(root);
-    console.log('[compat] root:', root, 'rows:', rows);
-    return root;
-  };
-  window.__compatForceAFill = function(){ return findRootAndFill(); };
-  window.__compatRendered  = tryFillSoon;
-
-  // Auto: after uploads
-  document.addEventListener('change', e=>{
-    if (e.target && (e.target.matches('#uploadSurveyA,[data-upload-a]') || e.target.matches('#uploadSurveyB,[data-upload-b]'))) {
-      tryFillSoon();
-    }
-  });
-  // Auto: after DOM changes (in case renderer updates rows later)
-  new MutationObserver(()=>tryFillSoon()).observe(document.documentElement, { childList:true, subtree:true });
-
-  // Initial attempt
-  tryFillSoon();
-})();
-</script>
 </body>
 </html>

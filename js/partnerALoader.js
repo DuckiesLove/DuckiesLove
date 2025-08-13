@@ -7,7 +7,7 @@ import { normalizeKey } from './compatNormalizeKey.js';
 const CFG = {
   uploadSelector: '#uploadSurveyA, [data-upload-a]',
   downloadSelector: '#downloadBtn',
-  tableContainer: '#pdf-container',
+  tableContainer: '#compat-container',
   partnerACellSelector: null,
   createMissingPartnerACol: true,
   partnerAHeaderText: 'Partner A'
@@ -270,7 +270,7 @@ if (typeof window !== 'undefined') {
 
   window.__compatAMismatch = () => {
     const root = $one(CFG.tableContainer);
-    if (!root) return console.warn('No #pdf-container');
+    if (!root) return console.warn('No #compat-container');
     const json = window.partnerASurvey || window.surveyA;
     if (!json) return console.warn('No Partner A JSON loaded');
     const map = surveyToLookup(json);

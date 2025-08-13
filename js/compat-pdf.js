@@ -116,7 +116,7 @@ function stripProblemImages(root){
 
 function makeClone(){
   const src=document.getElementById('pdf-container');
-  if(!src) throw new Error('#pdf-container not found');
+  if(!src) throw new Error('#compat-container not found');
   const r=src.getBoundingClientRect();
   diag('container', { width:r.width, height:r.height, scrollW:src.scrollWidth, scrollH:src.scrollHeight });
 

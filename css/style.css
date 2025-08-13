@@ -2801,7 +2801,7 @@ body {
     font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
   }
 
-  #pdf-container {
+  #compat-container {
     margin: 0 auto !important;
     padding: 0 !important;
     background-color: #000 !important;
@@ -2821,7 +2821,7 @@ body {
 }
 
 /* Centered PDF export containers */
-#pdf-container {
+#compat-container {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -2839,7 +2839,7 @@ body {
 }
 
 @media print {
-  body, #pdf-container, #compatibility-wrapper {
+  body, #compat-container, #compatibility-wrapper {
     background: #000 !important;
     color: #fff !important;
     margin: 0 !important;
