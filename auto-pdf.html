@@ -5,8 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Compatibility PDF</title>
   <link rel="stylesheet" href="css/auto-pdf.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
   <script src="js/template-survey.js"></script>
   <script type="module" src="js/auto-pdf.js"></script>
+  <style>
+    /* Base title look (web + PDF) */
+    .site-title {
+      font-family: "Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: #fff;
+      text-align: center;
+      /* Proportional sizing: scales with viewport but capped */
+      font-size: clamp(28px, 4.6vw, 56px);
+      line-height: 1.05;
+      letter-spacing: 0.5px;
+      margin: 10px 0 14px;
+    }
+    /* Optional thin divider for polish (remove if you don’t want it) */
+    .site-title + .site-title-rule {
+      height: 1px;
+      background: rgba(255,255,255,0.2);
+      width: min(92%, 1100px);
+      margin: 8px auto 10px;
+    }
+
+    /* Ensure good placement inside the PDF clone */
+    .pdf-export .site-title {
+      margin-top: 8px;   /* nudge up a bit more in PDF */
+      margin-bottom: 12px;
+    }
+    .pdf-export .site-title + .site-title-rule {
+      width: 96%;
+      background: rgba(255,255,255,0.25);
+    }
+  </style>
 </head>
 <body>
   <!-- ✅ BUTTONS AT THE TOP -->
@@ -23,6 +54,8 @@
 
   <!-- ✅ COMPATIBILITY RESULTS WRAPPER -->
   <div id="pdf-container">
+    <div class="site-title">Talk Kink</div>
+    <div class="site-title-rule"></div>
     <div id="compatibility-wrapper" class="compatibility-wrapper">
       <div id="comparisonResult"></div>
       <div id="compatibility-report"></div>
@@ -35,6 +68,32 @@
           window.location.href = "/token.html";
         }
       });
+  </script>
+  <script>
+(function addTalkKinkTitle(){
+  function ensure(){
+    var root = document.getElementById('pdf-container');
+    if (!root) return; // nothing to do
+    // Already present?
+    if (root.querySelector('.site-title')) return;
+
+    // Insert as the very first child
+    var title = document.createElement('div');
+    title.className = 'site-title';
+    title.textContent = 'Talk Kink';
+
+    var rule = document.createElement('div');
+    rule.className = 'site-title-rule';
+
+    root.insertBefore(rule, root.firstChild);
+    root.insertBefore(title, root.firstChild);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensure);
+  } else {
+    ensure();
+  }
+})();
   </script>
 </body>
 </html>
