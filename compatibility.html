@@ -100,7 +100,7 @@
 
     <div id="comparisonResults">
       <div id="loading-spinner" class="loading-overlay"><div class="spinner"></div></div>
-      <div id="compat-container" data-compat-root></div>
+      <div id="compat-container" class="compat-root" data-compat-root></div>
       <div class="print-footer"></div>
     </div>
   </div>
@@ -449,266 +449,164 @@
     if (window.__compatRunFill) window.__compatRunFill();
   });
 </script>
-<!-- ✅ DROP THIS WHOLE BLOCK IN **compatibility.html** (near the end, before </body>)  -->
-<!-- It adds a “Talk Kink” header on page 1, removes the big top gap, and keeps fonts/layout proportional in the PDF. -->
-<style id="tk-pdf-style">
-  /* --- Base (web + PDF) header style --- */
-  .tk-header {
-    display:flex; align-items:flex-end; justify-content:space-between;
-    gap:12px; padding:0; margin:0 0 10px 0; line-height:1;
-    border-bottom:1px solid rgba(255,255,255,.15);
-  }
-  .tk-brand {
-    font-family: "Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
-    font-weight: 900;
-    letter-spacing: .5px;
-    text-transform: none;
-    color:#fff;
-    margin:0; padding:0;
-  }
-  .tk-sub {
-    color:#ddd; font-size: clamp(12px, 1.4vw, 14px);
-    margin:0; padding:0;
-  }
-  .tk-meta {
-    text-align:right; color:#aaa; font-size: clamp(11px, 1.3vw, 13px);
-    margin-left:auto; white-space:nowrap;
-  }
-
-  /* --- Make page 1 compact; remove that huge blank top band --- */
-  #pdf-container { margin-top:0 !important; padding-top:0 !important; }
-  #pdf-container > :first-child { margin-top:0 !important; padding-top:0 !important; }
-
-  /* --- Tighten the gap between header and the table section title (“All” / category) --- */
-  .tk-after-header { margin-top: 8px !important; }
-
-  /* --- PDF-only refinements --- */
-  .pdf-export .tk-header { margin: 0 0 8px 0 !important; padding:0 !important; }
-  .pdf-export .tk-brand { font-size: clamp(18px, 2.6vw, 26px) !important; }
-  .pdf-export .tk-sub   { font-size: clamp(11px, 1.2vw, 13px) !important; }
-  .pdf-export .tk-meta  { font-size: clamp(10px, 1.1vw, 12px) !important; }
-</style>
-
+<!-- TALK KINK — centered header + tighter top spacing (web + PDF) -->
 <script>
-/*
-  TALK KINK PAGE-1 HEADER + TOP-GAP FIX
-  -------------------------------------
-  What this does
-  • Inserts a “Talk Kink — Compatibility Report” header INSIDE #pdf-container (so it’s included in the PDF)
-  • Removes the large blank gap at the top of page 1
-  • Scales fonts proportionally in both web view and PDF clone
-  • Works with your existing downloadCompatibilityPDF() (no need to rewrite it)
+/* ============================================================================
+   WHAT THIS DOES (step-by-step)
+   1) Loads a clean, rounded display font (Fredoka) for the title.
+   2) Inserts a centered “Talk Kink” heading above the table on the live page.
+   3) Injects the same centered heading into the PDF clone on page one only.
+   4) Reduces the top margin so the categories/table sit higher (less empty space).
+   5) Keeps all changes PDF-only or additive; your existing layout stays intact.
+   ============================================================================ */
 
-  How to use
-  1) Paste this whole block before </body>.
-  2) Make sure your report content is inside <div id="pdf-container">…</div>.
-  3) That’s it. The header will appear on page 1 (web + PDF). The gap will be gone.
-
-  Optional: If your exporter builds a clone (e.g., .pdf-export), we automatically run the same header fix on the clone.
-*/
-
-(function TKHeaderFix(){
-  const ROOT_SEL = '#pdf-container';
-
-  function ensureHeader(root){
-    if (!root) return;
-    // If a header already exists, don’t duplicate.
-    if (root.querySelector('.tk-header')) return;
-
-    // Build header
-    const wrap = document.createElement('div');
-    wrap.className = 'tk-header';
-
-    const left = document.createElement('div');
-    const brand = document.createElement('h1');
-    brand.className = 'tk-brand';
-    brand.textContent = 'Talk Kink';
-    const sub = document.createElement('div');
-    sub.className = 'tk-sub';
-    sub.textContent = 'Compatibility Report';
-    left.appendChild(brand); left.appendChild(sub);
-
-    const meta = document.createElement('div');
-    meta.className = 'tk-meta';
-    const dt = new Date();
-    // e.g. Aug 13, 2025
-    meta.textContent = dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-
-    wrap.appendChild(left);
-    wrap.appendChild(meta);
-
-    // Insert header at the very top of the container
-    root.insertBefore(wrap, root.firstChild);
-
-    // Nudge the next element down just a touch (reduces giant gap while keeping breathing room)
-    const next = wrap.nextElementSibling;
-    if (next) next.classList.add('tk-after-header');
-  }
-
-  function removeTopGap(root){
-    if (!root) return;
-    root.style.marginTop = '0';
-    root.style.paddingTop = '0';
-    if (root.firstElementChild){
-      root.firstElementChild.style.marginTop = '0';
-      root.firstElementChild.style.paddingTop = '0';
-    }
-  }
-
-  // Run on the live page
-  function applyOnLive(){
-    const root = document.querySelector(ROOT_SEL);
-    if (!root) return;
-    ensureHeader(root);
-    removeTopGap(root);
-  }
-
-  // Hook into your existing PDF export if it creates a clone (.pdf-export)
-  // We’ll attempt to patch AFTER the clone is added to the DOM.
-  function patchExporter(){
-    const orig = window.downloadCompatibilityPDF;
-    if (typeof orig !== 'function') return; // nothing to wrap
-
-    window.downloadCompatibilityPDF = async function wrappedExporter(){
-      // Run original; many exporters synchronously add a clone to DOM before rendering
-      // but to be safe, we wait a couple RAFs and then patch the clone container too.
-      try {
-        // Give the page a chance to add the .pdf-export clone (if your exporter does that)
-        await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
-        // Try to find the PDF clone root: prefer a .pdf-export inside body, else fall back to live
-        const cloneRoot = document.querySelector('.pdf-export') || document.querySelector(ROOT_SEL);
-        ensureHeader(cloneRoot);
-        removeTopGap(cloneRoot);
-      } catch(_) {}
-      // Now call the original exporter
-      return orig.apply(this, arguments);
-    };
-  }
-
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', () => {
-      applyOnLive();
-      patchExporter();
-    });
-  } else {
-    applyOnLive();
-    patchExporter();
+/* 1) Load aesthetic display font (Fredoka) once */
+(function loadFont(){
+  if (!document.querySelector('link[data-tk-font]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap';
+    link.setAttribute('data-tk-font','1');
+    document.head.appendChild(link);
   }
 })();
-</script>
 
-<!-- Talk Kink header for PDF clone and tighter top spacing -->
-<script>
-/* ========================= CONFIG (tweak if you like) ========================= */
-const TK_HEADER_TEXT = 'Talk Kink';
-const TK_FONT_FAMILY = '"Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif';
-const TK_TITLE_SIZE_PT = 28;           // header font size in points (PDF-friendly)
-const TK_TITLE_LETTER_SP = 1.5;        // letter spacing in px
-const TK_TITLE_TOP_PAD_PX = 8;         // space above title inside header
-const TK_TITLE_BOTTOM_PAD_PX = 10;     // space below title inside header
-const TK_CONTENT_TOP_REDUCTION_PX = 24;// how much we pull main content upward (reduce top padding)
+/* 2) Web (live page) header: centered “Talk Kink” above the table */
+(function injectLiveHeader(){
+  const ROOT = document.getElementById('pdf-container') || document.querySelector('[data-compat-root]') || document.body;
+  if (!ROOT) return;
 
-/* ============= 1) Load Fredoka One (if not already on the page) ============== */
-(function ensureFredoka(){
-  if ([...document.styleSheets].some(s => (s.href||'').includes('Fredoka+One'))) return;
-  const l = document.createElement('link');
-  l.rel = 'stylesheet';
-  l.href = 'https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap';
-  document.head.appendChild(l);
-})();
-
-/* ============= 2) Inject clone-only CSS for header + tighter spacing ========= */
-(function injectHeaderCSS(){
-  if (document.querySelector('style[data-tk-pdf-header]')) return;
-  const css = `
-    /* Only affects the export clone (we add .pdf-export class on the clone) */
-    .pdf-export{ padding-top:${Math.max(0, 18 - TK_CONTENT_TOP_REDUCTION_PX)}px !important; }
-    .pdf-export .tk-pdf-header{
-      width:100%; text-align:center; background:transparent; color:#fff;
-      padding:${TK_TITLE_TOP_PAD_PX}px 8px ${TK_TITLE_BOTTOM_PAD_PX}px 8px;
-      margin:0 auto 4px auto; box-sizing:border-box;
-    }
-    .pdf-export .tk-pdf-title{
-      font-family:${TK_FONT_FAMILY};
-      font-weight:400;
-      font-size:${TK_TITLE_SIZE_PT}pt;
-      line-height:1.1;
-      letter-spacing:${TK_TITLE_LETTER_SP}px;
-      margin:0; padding:0;
-      color:#fff;
-      text-shadow: 0 1px 0 rgba(0,0,0,.2);
-    }
-    /* Pull sections up a bit more so there’s no huge gap */
-    .pdf-export .section-title,
-    .pdf-export .category-header,
-    .pdf-export .compat-category{ margin-top:6px !important; }
-  `;
-  const s = document.createElement('style');
-  s.setAttribute('data-tk-pdf-header','true');
-  s.textContent = css;
-  document.head.appendChild(s);
-})();
-
-/* ============= 3) Patch your existing makeClone() used by pdf export =========
-   What this does:
-   - Wraps your current makeClone() (from pdfDownload.js) and inserts a centered
-     “Talk Kink” header at the very top of the clone.
-   - Leaves the live page unchanged (only the export clone is modified).
-*/
-(function patchMakeCloneForHeader(){
-  // If pdfDownload.js attached makePdfClone() or makeClone() to window, wrap it.
-  const originalMakeClone =
-    window.makePdfClone || window.makeClone || null;
-
-  // If we don’t find it, we’ll try to decorate after the clone is appended (plan B).
-  function addHeaderToClone(cloneRoot){
-    if (!cloneRoot || cloneRoot.querySelector('.tk-pdf-header')) return;
-    const header = document.createElement('div');
-    header.className = 'tk-pdf-header';
-
-    const h = document.createElement('h1');
-    h.className = 'tk-pdf-title';
-    h.textContent = TK_HEADER_TEXT;
-
-    header.appendChild(h);
-    // Put header right at the top of the exported content
-    cloneRoot.prepend(header);
+  // Add styles for the live title (does not affect PDF clone)
+  if (!document.querySelector('style[data-tk-live]')) {
+    const css = `
+      .tk-live-title{
+        font-family: 'Fredoka', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        font-size: clamp(28px, 4.2vw, 44px);
+        line-height: 1.05;
+        letter-spacing: .4px;
+        color: #fff;
+        text-align: center;
+        margin: 18px 0 12px 0; /* small gap above categories */
+        text-shadow: 0 2px 0 rgba(0,0,0,.35);
+      }
+      /* pull the categories up slightly on live page as well */
+      #pdf-container, [data-compat-root]{
+        scroll-margin-top: 24px;
+      }
+    `;
+    const style = document.createElement('style');
+    style.setAttribute('data-tk-live','1');
+    style.textContent = css;
+    document.head.appendChild(style);
   }
 
-  if (typeof originalMakeClone === 'function'){
-    const wrapped = function(){
-      const res = originalMakeClone.apply(this, arguments);
-      try {
-        const clone = res?.clone || res?.shell?.querySelector('.pdf-export') || null;
-        if (clone) addHeaderToClone(clone);
-      } catch(_) {}
+  // Insert the heading once
+  if (!document.querySelector('.tk-live-title')) {
+    const h = document.createElement('div');
+    h.className = 'tk-live-title';
+    h.textContent = 'Talk Kink';
+    ROOT.parentNode.insertBefore(h, ROOT);
+  }
+})();
+
+/* 3) PDF clone header (centered) + 4) tighter top spacing for categories */
+(function pdfHeaderAndSpacing(){
+  // Styles apply ONLY inside the PDF clone (.pdf-export)
+  if (!document.querySelector('style[data-tk-pdf-center]')) {
+    const css = `
+      /* PDF-only title block, centered at the very top */
+      .pdf-export .tk-header{
+        position: absolute;
+        top: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 64px);
+        text-align: center;
+        color: #fff;
+        z-index: 999;
+        pointer-events: none;
+      }
+      .pdf-export .tk-header .tk-title{
+        font-family: 'Fredoka', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        font-size: 26pt;
+        line-height: 1.0;
+        letter-spacing: .4px;
+        text-shadow: 0 2px 0 rgba(0,0,0,.35);
+        margin: 0;
+      }
+      /* Pull the categories/table up a bit under the centered title */
+      .pdf-export #pdf-container,
+      .pdf-export .compat-root,
+      .pdf-export .compat-table-wrap{
+        margin-top: 86px !important; /* reduce from large gap; tweak 76–96px to taste */
+      }
+
+      /* Optional: keep columns sensible on page one (text gets real estate) */
+      .pdf-export table colgroup col.col-text   { width: 58% !important; }
+      .pdf-export table colgroup col.col-pa     { width: 10% !important; }
+      .pdf-export table colgroup col.col-match  { width: 12% !important; }
+      .pdf-export table colgroup col.col-flag   { width: 8%  !important; }
+      .pdf-export table colgroup col.col-pb     { width: 12% !important; }
+      .pdf-export td, .pdf-export th{ padding: 6px 8px !important; }
+    `;
+    const style = document.createElement('style');
+    style.setAttribute('data-tk-pdf-center','1');
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  // Wrap your existing exporter so we can inject the centered title into the PDF clone
+  const attach = () => {
+    if (typeof window.downloadCompatibilityPDF !== 'function') return false;
+    const original = window.downloadCompatibilityPDF;
+
+    window.downloadCompatibilityPDF = async function patchedDownload(){
+      // Remember current children so we can find the newly-added clone shell
+      const before = new Set([...document.body.children]);
+      const res = await original.apply(this, arguments).catch(e=>{ throw e; });
+
+      // Try to find the newly mounted PDF overlay/clone
+      const shell = [...document.body.children].find(n => !before.has(n) && n.querySelector && n.querySelector('.pdf-export'))
+                 || document.querySelector('.pdf-export')?.closest('div')
+                 || document.querySelector('.pdf-export');
+
+      if (shell && shell.querySelector) {
+        const clone = shell.querySelector('.pdf-export') || shell;
+
+        // Ensure the table reserves proportional widths (helps keep columns neat)
+        clone.querySelectorAll('table').forEach(tbl=>{
+          if (!tbl.querySelector('colgroup')){
+            const cg = document.createElement('colgroup');
+            cg.innerHTML = `
+              <col class="col-text"><col class="col-pa"><col class="col-match">
+              <col class="col-flag"><col class="col-pb">
+            `;
+            const thead = tbl.querySelector('thead');
+            if (thead && thead.nextSibling) tbl.insertBefore(cg, thead.nextSibling);
+            else tbl.insertBefore(cg, tbl.firstChild);
+          }
+        });
+
+        // Inject the centered header if missing
+        if (!clone.querySelector('.tk-header')) {
+          const box = document.createElement('div');
+          box.className = 'tk-header';
+          box.innerHTML = `<div class="tk-title">Talk Kink</div>`;
+          clone.appendChild(box);
+        }
+      }
+
       return res;
     };
-    // Re-expose wherever your exporter reads it from:
-    if (window.makePdfClone) window.makePdfClone = wrapped;
-    if (window.makeClone) window.makeClone = wrapped;
-  } else {
-    // Plan B: hook the exporter entry so we can inject after the clone appears.
-    const origDownload =
-      window.downloadCompatibilityPDF ||
-      window.exportCompatPDF ||
-      window.generateCompatibilityPDF;
-    if (typeof origDownload === 'function'){
-      window.downloadCompatibilityPDF = async function(){
-        // Run the normal flow; after the clone is built but before snapshotting,
-        // pdfDownload.js appends .pdf-export to the DOM. We poll briefly for it.
-        const p = origDownload.apply(this, arguments);
-        // small async wait, in case the original function is sync up-front
-        await Promise.resolve();
-        // try to find the active export clone and add header
-        const tryAdd = () => {
-          const clone = document.querySelector('.pdf-export');
-          if (clone) addHeaderToClone(clone);
-        };
-        tryAdd();
-        return p;
-      };
-    }
+    return true;
+  };
+
+  // Attach immediately or as soon as the exporter arrives
+  if (!attach()){
+    const iv = setInterval(()=>{ if (attach()) clearInterval(iv); }, 120);
+    setTimeout(()=>clearInterval(iv), 8000);
   }
 })();
 </script>
