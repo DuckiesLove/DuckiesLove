@@ -199,89 +199,146 @@ function wireUploads() {
   if (inB) inB.addEventListener('change', handleUploadB);
 }
 
-// -----------------------------------------------------
-// -- BEGIN: FILTER NON-ZERO ONLY (rows/sections) -----
-// -----------------------------------------------------
-/** Numeric value helper: returns 0 for "", "—", "-", "–", NaN, null. */
-function __num(cell) {
-  if (!cell) return 0;
-  // Prefer data-value if you store raw scores there
-  const dv = cell.getAttribute?.('data-value');
+/* ---------- FONT + RENDERING STABILIZER FOR THE CLONE (PDF only) ---------- */
+(function injectPdfFontCSS(){
+  if (document.querySelector('style[data-pdf-fontfix]')) return;
+  const s = document.createElement('style');
+  s.setAttribute('data-pdf-fontfix','true');
+  s.textContent = `
+    /* Make the clone render uniformly (fixes "different font on page 2+") */
+    .pdf-export, .pdf-export * {
+      -webkit-font-smoothing: antialiased !important;
+      -moz-osx-font-smoothing: grayscale !important;
+      text-rendering: optimizeLegibility !important;
+      image-rendering: auto !important;
+    }
+    /* Force your site font; keep your current family name if different */
+    .pdf-export { font-family: 'Fredoka One', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif !important; }
+  `;
+  document.head.appendChild(s);
+})();
+
+/* ---------- HELPERS ---------- */
+function __norm(s){
+  return String(s||'')
+    .replace(/[\u2018\u2019\u2032]/g,"'")
+    .replace(/[\u201C\u201D\u2033]/g,'"')
+    .replace(/[\u2013\u2014]/g,'-')
+    .replace(/\u2026/g,'')
+    .replace(/\s*\.\.\.\s*$/,'')
+    .replace(/\s+/g,' ')
+    .trim()
+    .toLowerCase();
+}
+
+function __numFromCell(td){
+  if (!td) return 0;
+  // Prefer raw score attribute if you have it
+  const dv = td.getAttribute && td.getAttribute('data-value');
   if (dv != null && dv !== '') {
     const n = Number(dv);
     return Number.isFinite(n) ? n : 0;
   }
-  const t = (cell.textContent || '').trim().replace(/[–—]/g, '-');
-  if (t === '' || t === '-' || t === '—' || t === '–') return 0;
-  const n = parseFloat(t);
+  const t = (td.textContent || '').trim().replace(/[–—]/g, '-');
+  if (!t || t === '-' ) return 0;
+  const n = Number(t);
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Find the Partner A / Partner B cells in a row using common selectors/fallbacks. */
-function __findPartnerCells(tr) {
-  // Common class names used across pages
-  const a =
-    tr.querySelector('.pa, .score-a, [data-partner="A"], [data-partner="a"]') ||
-    tr.querySelector('td:nth-child(2)'); // fallback if your table is Category | A | Match | Flag | B
-  const b =
-    tr.querySelector('.pb, .score-b, [data-partner="B"], [data-partner="b"]') ||
-    tr.querySelector('td:last-child'); // fallback to last cell
-  return { a, b };
+/* Find “Partner A” / “Partner B” column indexes for a table. */
+function __findABIndexes(table){
+  // Header scan
+  const ths = table.querySelectorAll('thead tr th, tr:first-child th');
+  let aIdx = -1, bIdx = -1;
+  ths.forEach((th, i) => {
+    const t = __norm(th.getAttribute('data-col') || th.textContent);
+    if (t === 'partner a' || t === 'a') aIdx = i;
+    if (t === 'partner b' || t === 'b') bIdx = i;
+  });
+
+  // Fallback: try to infer from classes on the first body row
+  if (aIdx < 0 || bIdx < 0) {
+    const firstRow = table.querySelector('tbody tr');
+    if (firstRow) {
+      const tds = firstRow.children;
+      for (let i=0;i<tds.length;i++){
+        if (tds[i].classList.contains('pa') || tds[i].classList.contains('score-a')) aIdx = i;
+        if (tds[i].classList.contains('pb') || tds[i].classList.contains('score-b')) bIdx = i;
+      }
+    }
+  }
+
+  // Last fallback: assume layout Category | A | Match | Flag | B
+  if (aIdx < 0 && ths.length >= 5) aIdx = 1;
+  if (bIdx < 0 && ths.length >= 5) bIdx = 4;
+
+  return { aIdx, bIdx };
 }
 
-/** TRUE if this table row should be kept (i.e., at least one partner > 0). */
-function __keepRow(tr) {
-  // Ignore header rows
-  if (tr.matches('thead tr') || tr.querySelector('th')) return true;
+/* Should we keep this row? True if either partner has non‑zero. */
+function __keepRowByIndex(tr, aIdx, bIdx){
+  // header rows always keep
+  if (tr.querySelector('th')) return true;
 
-  const { a, b } = __findPartnerCells(tr);
-  const va = __num(a);
-  const vb = __num(b);
-  return va > 0 || vb > 0;
+  const cells = tr.children;
+  const a = aIdx >= 0 ? cells[aIdx] : tr.querySelector('.pa, .score-a, [data-partner="A"], [data-partner="a"]');
+  const b = bIdx >= 0 ? cells[bIdx] : tr.querySelector('.pb, .score-b, [data-partner="B"], [data-partner="b"]');
+
+  const va = __numFromCell(a);
+  const vb = __numFromCell(b);
+  return (va > 0 || vb > 0);
+}
+
+/* Remove orphan headings (if their section lost all rows). */
+function __stripOrphanHeadings(root){
+  const headingSel = '.section-title, .category-header, h2, h3, hr';
+  root.querySelectorAll(headingSel).forEach(h => {
+    const sec = h.closest('.compat-section, .category-block, section[data-category], .category-wrapper') || h.parentElement;
+    if (sec && !sec.querySelector('tbody tr')) h.remove();
+  });
+}
+
+/* Remove empty section wrappers. */
+function __stripEmptySections(root){
+  const sectionSel = '.compat-section, .category-block, section[data-category], .category-wrapper';
+  root.querySelectorAll(sectionSel).forEach(sec => {
+    if (!sec.querySelector('tbody tr')) sec.remove();
+  });
 }
 
 /**
- * Remove rows where BOTH partners are 0/blank, then remove any empty categories/sections.
- * Pass the cloned root (NOT your live DOM).
+ * MAIN: call this on the PDF clone (NOT on your live page!)
+ * It will:
+ *  - remove rows where A==0 AND B==0
+ *  - remove empty tables
+ *  - remove empty sections and orphan headings
+ *  - wait for fonts (prevents page‑2 font shift)
  */
-function filterZeroRowsAndEmptySections(cloneRoot) {
+async function filterZeroRowsAndEmptySections(cloneRoot){
   if (!cloneRoot) return;
 
-  // 1) Drop data rows with A==0 AND B==0
-  const rows = cloneRoot.querySelectorAll('tbody tr');
-  rows.forEach(tr => {
-    if (!__keepRow(tr)) tr.remove();
-  });
+  // Ensure web fonts are ready before slicing so page 2+ matches page 1
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch(_) {}
+  }
 
-  // 2) Remove entirely empty tables (no remaining body rows)
+  // For each table, compute A/B column index once, then prune rows
   cloneRoot.querySelectorAll('table').forEach(tbl => {
-    const hasData = tbl.querySelector('tbody tr');
-    if (!hasData) tbl.remove();
+    const { aIdx, bIdx } = __findABIndexes(tbl);
+    tbl.querySelectorAll('tbody tr').forEach(tr => {
+      if (!__keepRowByIndex(tr, aIdx, bIdx)) tr.remove();
+    });
   });
 
-  // 3) Remove empty sections/categories if wrapped in containers
-  const sectionSel = [
-    '.compat-section',
-    '.category-block',
-    'section[data-category]',
-    '.category-wrapper'
-  ].join(',');
-
-  cloneRoot.querySelectorAll(sectionSel).forEach(sec => {
-    const hasRow = sec.querySelector('tbody tr');
-    if (!hasRow) sec.remove();
+  // Remove empty tables
+  cloneRoot.querySelectorAll('table').forEach(tbl => {
+    if (!tbl.querySelector('tbody tr')) tbl.remove();
   });
 
-  // Optional: remove orphan headings/HRs left behind
-  cloneRoot.querySelectorAll('h2, h3, .section-title, .category-header, hr').forEach(h => {
-    const parent = h.closest(sectionSel) || h.parentElement;
-    if (parent && !parent.querySelector('tbody tr')) h.remove();
-  });
+  // Remove empty category wrappers and stray headings/hrs
+  __stripEmptySections(cloneRoot);
+  __stripOrphanHeadings(cloneRoot);
 }
-
-// -----------------------------------------------------
-// -- END: FILTER NON-ZERO ONLY (rows/sections) -------
-// -----------------------------------------------------
 
 /* ========================== TABLE SANITY/HELPERS ========================== */
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -515,7 +572,7 @@ export async function downloadCompatibilityPDF() {
   const { shell, clone } = makeClone();
 
   // Remove rows/categories where both partners have zero/blank scores
-  filterZeroRowsAndEmptySections(clone);
+  await filterZeroRowsAndEmptySections(clone);
 
   // Ensure 5 columns and populate Flag (⭐/🚩) in the CLONE (web stays untouched)
   ensureFlagColumnAndPopulate(clone);
