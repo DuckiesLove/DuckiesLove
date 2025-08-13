@@ -126,94 +126,55 @@
     // auto-wire is built into the module, but this exposes it if you need to call it manually:
     window.downloadCompatibilityPDF = downloadCompatibilityPDF;
   </script>
-<!-- ===================== COMPATIBILITY AUTO-FILL (A & B) — ONE DROP-IN =====================
-HOW TO USE (copy/paste this whole block into compatibility.html before </body>):
-
-1) Ensure you have a container for the comparison table:
-   <div id="compat-container" data-compat-root></div>
-
-2) Make sure you have two JSON upload inputs (keep yours if you already have them):
-   <input id="uploadSurveyA" type="file" accept="application/json">
-   <input id="uploadSurveyB" type="file" accept="application/json">
-
-3) Table markup (if you already render a table, keep it; this script can also bootstrap one):
-   - Rows live in <tbody><tr>...</tr></tbody>
-   - First column: human-readable label.
-   - Partner A cell has  data-partner-a
-   - Match cell      has  data-match
-   - Partner B cell has  data-partner-b
-   - (Best) each <tr> carries a stable key via data-id and/or the full label via data-full.
-
-   Example row:
-   <tr data-id="appearance_outfit" data-full="Choosing my partner's outfit for the day or a scene">
-     <td>Choosing my partner's outfit for the day or a scene</td>
-     <td data-partner-a>-</td>
-     <td data-match></td>
-     <td data-partner-b>-</td>
-   </tr>
-
-4) Upload flow (wiring is included below):
-   - Selecting a JSON file for Partner A/B calls handlePartnerAUpload/handlePartnerBUpload automatically.
-   - The script supports JSON in these forms:
-       a) Flat object: { "Some Label": 4, "Another": 5, ... }
-       b) Items array: { items: [ {name|label|key|id, rating|score|value}, ... ] }
-       c) Nested export:
-          {
-            "survey": {
-              "Category Name": {
-                "Giving":    [{name, rating}, ...],
-                "Receiving": [{name, rating}, ...],
-                "General":   [{name, rating}, ...]
-              }
-            }
-          }
-
-5) After fill, the script recomputes % Match (assuming 1–5 scores).
-   You can also call window.updateComparison() at any time to recompute matches.
-
-6) If no table is present yet, the script bootstraps a minimal “All” table
-   from the union of keys in A/B JSON so you can still export/test.
-
-========================================================================================== -->
-
 <script>
-(function(){
-  // ===================== Config (edit only if needed) =====================
-  const ROOT_SEL = '[data-compat-root], #compat-container'; // where the tables live
-  const A_SEL    = 'td[data-partner-a]';
-  const B_SEL    = 'td[data-partner-b]';
-  const M_SEL    = 'td[data-match]';
+/* ===================== COMPAT: Robust A/B Fill (markup-agnostic) ===================== *
+ * Supports three table shapes:
+ *  1) Cells with data-partner-a / data-partner-b attributes             (preferred)
+ *  2) Cells with .pa / .pb classes                                      (legacy)
+ *  3) No markers, but THEAD headers literally "Partner A" / "Partner B" (auto-tag)
+ *
+ * Also:
+ *  - Annotates rows with data-full (full visible label) and data-id (normalized key)
+ *  - Matches JSON -> rows by data-id -> data-full -> visible text -> fuzzy overlap
+ *  - Bootstraps a simple table if your container has 0 rows
+ *  - Recomputes a Match % (assumes 1–5 scale)
+ *
+ * Requirements:
+ *  - Your wrapper has data-compat-root OR you use #pdf-container
+ *  - First column is the label cell (visible text)
+ *  - Keep THEAD headers: Category | Partner A | Match | Partner B (lets us auto-tag A/B)
+ */
 
-  // ===================== Normalization & tokenization =====================
+(function(){
+  /* ---------- normalizers ---------- */
   function norm(s){
     return String(s||'')
       .replace(/[\u2018\u2019\u2032]/g,"'")
       .replace(/[\u201C\u201D\u2033]/g,'"')
       .replace(/[\u2013\u2014]/g,'-')
       .replace(/\u2026/g,'')
-      .replace(/[^\w\s'-]/g,' ')   // keep letters/digits/space/hyphen/apostrophe
+      .replace(/[^\w\s'-]/g,' ')
       .replace(/\s+/g,' ')
       .trim().toLowerCase();
   }
   const toks = s => norm(s).split(' ').filter(Boolean);
 
-  // ===================== JSON -> Lookup (supports all shapes) =====================
+  /* ---------- JSON → lookup ---------- */
   function toLookup(json){
     const map = new Map();
     if (!json || typeof json !== 'object') return map;
 
-    // 1) Flat object: { "Label": 4, ... }
-    if (!Array.isArray(json) && !json.items && !json.survey) {
-      for (const [k,v] of Object.entries(json)) {
-        const n = Number(v);
-        if (Number.isFinite(n)) map.set(norm(k), n);
+    // flat {key:value}
+    if (!Array.isArray(json) && !json.items && !json.survey){
+      for (const [k,v] of Object.entries(json)){
+        const n = Number(v); if (Number.isFinite(n)) map.set(norm(k), n);
       }
       return map;
     }
 
-    // 2) Items array
-    if (Array.isArray(json.items)) {
-      for (const it of json.items) {
+    // items array
+    if (Array.isArray(json.items)){
+      for (const it of json.items){
         const k = norm(it?.name ?? it?.label ?? it?.key ?? it?.id ?? '');
         const n = Number(it?.rating ?? it?.score ?? it?.value);
         if (k && Number.isFinite(n)) map.set(k, n);
@@ -221,18 +182,14 @@ HOW TO USE (copy/paste this whole block into compatibility.html before </body>):
       return map;
     }
 
-    // 3) Nested survey export
-    if (json.survey && typeof json.survey === 'object') {
+    // nested survey export
+    if (json.survey && typeof json.survey === 'object'){
       Object.values(json.survey).forEach(section=>{
         ['Giving','Receiving','General'].forEach(bucket=>{
-          const arr = Array.isArray(section?.[bucket]) ? section[bucket] : [];
-          arr.forEach(it=>{
+          (Array.isArray(section?.[bucket])?section[bucket]:[]).forEach(it=>{
             const k = norm(it?.name ?? it?.label ?? it?.id ?? '');
             const n = Number(it?.rating ?? it?.score ?? it?.value);
-            if (k && Number.isFinite(n)) {
-              // prefer max if duplicates
-              map.set(k, Math.max(map.get(k) ?? -Infinity, n));
-            }
+            if (k && Number.isFinite(n)) map.set(k, Math.max(map.get(k)??-Infinity, n));
           });
         });
       });
@@ -240,28 +197,99 @@ HOW TO USE (copy/paste this whole block into compatibility.html before </body>):
     return map;
   }
 
-  // ===================== Key extraction from a row =====================
-  function rowKeys(tr){
+  /* ---------- DOM helpers ---------- */
+  function getRoot(){
+    return document.querySelector('[data-compat-root]') || document.querySelector('#pdf-container') || document.body;
+  }
+
+  // If no rows exist, create a simple "All" table from the union of JSON keys
+  function bootstrapIfEmpty(root){
+    const hasRows = root.querySelectorAll('tbody tr').length > 0;
+    if (hasRows) return false;
+
+    const aMap = toLookup(window.partnerASurvey || window.surveyA || {});
+    const bMap = toLookup(window.partnerBSurvey || window.surveyB || {});
+    const keys = new Set([...aMap.keys(), ...bMap.keys()]);
+    if (!keys.size) return false;
+
+    const section = document.createElement('section'); section.className = 'compat-section';
+    const h2 = document.createElement('h2'); h2.className = 'section-title'; h2.textContent = 'All'; section.appendChild(h2);
+
+    const table = document.createElement('table'); table.className = 'compat-table';
+    const thead = document.createElement('thead'); const thr = document.createElement('tr');
+    ['Category','Partner A','Match','Partner B'].forEach(t=>{ const th=document.createElement('th'); th.textContent=t; thr.appendChild(th); });
+    thead.appendChild(thr);
+    const tbody = document.createElement('tbody');
+
+    keys.forEach(k=>{
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-id', k);
+      tr.setAttribute('data-full', k);
+      const td0 = document.createElement('td'); td0.textContent = k;
+      const tda = document.createElement('td'); tda.className = 'pa'; tda.setAttribute('data-partner-a',''); tda.textContent = aMap.has(k) ? aMap.get(k) : '-';
+      const tdm = document.createElement('td'); tdm.className = 'match';
+      const tdb = document.createElement('td'); tdb.className = 'pb'; tdb.setAttribute('data-partner-b',''); tdb.textContent = bMap.has(k) ? bMap.get(k) : '-';
+      tr.append(td0, tda, tdm, tdb); tbody.appendChild(tr);
+    });
+
+    table.append(thead, tbody); section.appendChild(table);
+    root.innerHTML = ''; root.appendChild(section);
+    console.log(`[compat] bootstrapped ${keys.size} rows from JSON union.`);
+    return true;
+  }
+
+  // Ensure each row has data-full and data-id
+  function annotateRows(root){
+    root.querySelectorAll('table tbody tr').forEach(tr=>{
+      const first = tr.querySelector('td:first-child, th:first-child');
+      const vis = first ? (first.textContent || '') : '';
+      if (!tr.hasAttribute('data-full') && vis) tr.setAttribute('data-full', vis);
+      if (!tr.hasAttribute('data-id')){
+        const canon = norm(tr.getAttribute('data-full') || vis);
+        if (canon) tr.setAttribute('data-id', canon);
+      }
+    });
+  }
+
+  // If there are no .pa/.pb markers, use THEAD headers to tag the columns
+  function ensurePartnerMarkers(root){
+    root.querySelectorAll('table').forEach(table=>{
+      const thead = table.querySelector('thead tr'); if (!thead) return;
+      const ths = Array.from(thead.children).map(th => norm(th.textContent));
+      const idxA = ths.indexOf('partner a');
+      const idxB = ths.indexOf('partner b');
+
+      const tbody = table.querySelector('tbody'); if (!tbody) return;
+      if (idxA >= 0 && !tbody.querySelector('td.pa, td[data-partner-a]')){
+        tbody.querySelectorAll('tr').forEach(tr=>{ const td = tr.children[idxA]; if (td){ td.classList.add('pa'); td.setAttribute('data-partner-a',''); }});
+      }
+      if (idxB >= 0 && !tbody.querySelector('td.pb, td[data-partner-b]')){
+        tbody.querySelectorAll('tr').forEach(tr=>{ const td = tr.children[idxB]; if (td){ td.classList.add('pb'); td.setAttribute('data-partner-b',''); }});
+      }
+    });
+  }
+
+  /* ---------- matching ---------- */
+  function rowKeyBundle(tr){
     const id   = tr.getAttribute('data-id')   || '';
     const full = tr.getAttribute('data-full') || '';
     const vis  = tr.querySelector('td:first-child, th:first-child')?.textContent || '';
-    return { kId:norm(id), kFull:norm(full), kVis:norm(vis) };
+    return { kId: norm(id), kFull: norm(full), kVis: norm(vis) };
   }
 
-  // ===================== Matching: exact -> contains -> fuzzy =====================
-  function matchValue(keys, lookup){
-    // exact by data-id / data-full / visible text
-    if (keys.kId   && lookup.has(keys.kId))   return lookup.get(keys.kId);
+  function pickValue(keys, lookup){
+    // 1) exact id
+    if (keys.kId && lookup.has(keys.kId)) return lookup.get(keys.kId);
+    // 2) exact full
     if (keys.kFull && lookup.has(keys.kFull)) return lookup.get(keys.kFull);
-    if (keys.kVis  && lookup.has(keys.kVis))  return lookup.get(keys.kVis);
-
-    // contains (either direction)
+    // 3) exact visible
+    if (keys.kVis && lookup.has(keys.kVis)) return lookup.get(keys.kVis);
+    // 4) contains (either direction)
     for (const [lk, val] of lookup.entries()){
       if (lk.includes(keys.kFull) || keys.kFull.includes(lk)) return val;
       if (lk.includes(keys.kVis)  || keys.kVis.includes(lk))  return val;
     }
-
-    // token overlap (≥60% overlap OR ≥4 shared tokens)
+    // 5) token overlap ≥60% or ≥4 shared tokens
     const tryKeys = [keys.kFull, keys.kVis].filter(Boolean);
     for (const rk of tryKeys){
       const rt = toks(rk); if (!rt.length) continue;
@@ -276,150 +304,103 @@ HOW TO USE (copy/paste this whole block into compatibility.html before </body>):
     return undefined;
   }
 
-  // ===================== Fill helper =====================
-  function fillColumn(root, cellSelector, lookup){
+  /* ---------- fill + match ---------- */
+  function fillColumn(root, selectorList, lookup){
     if (!lookup || !lookup.size) return 0;
-    const rows = root.querySelectorAll('tbody tr');
-    let wrote = 0, seen = 0;
-
+    const rows = root.querySelectorAll('table tbody tr');
+    let wrote = 0;
     rows.forEach(tr=>{
-      const td = tr.querySelector(cellSelector);
+      const td = tr.querySelector(selectorList);
       if (!td) return;
-      seen++;
-      const cur = (td.textContent||'').trim();
-      if (cur && !/^[-–—]$/.test(cur)) return; // don't overwrite existing real values
-      const val = matchValue(rowKeys(tr), lookup);
+      const current = (td.textContent || '').trim();
+      if (current && !/^[-–—]$/.test(current)) return; // don't overwrite real values
+      const val = pickValue(rowKeyBundle(tr), lookup);
       if (val == null) return;
       td.textContent = String(val);
       wrote++;
     });
-
-    console.log(`[compat] filled ${cellSelector} : ${wrote}/${seen}`);
     return wrote;
   }
 
-  // ===================== Match computation (assumes 1–5 scores) =====================
   function computeMatch(a, b){
     const na = Number(a), nb = Number(b);
     if (!Number.isFinite(na) || !Number.isFinite(nb)) return '';
-    const diff = Math.abs(na - nb);            // 0..4
-    return Math.round((1 - diff/4) * 100) + '%';
+    const diff = Math.abs(na - nb);                      // 0..4
+    return Math.round((1 - diff/4) * 100) + '%';         // 100..0
   }
 
-  // ===================== Public: recompute matches for all rows =====================
-  window.updateComparison = function(){
-    const root = document.querySelector(ROOT_SEL);
-    if (!root) return;
-    root.querySelectorAll('tbody tr').forEach(tr=>{
-      const a = tr.querySelector(A_SEL)?.textContent;
-      const b = tr.querySelector(B_SEL)?.textContent;
-      const m = tr.querySelector(M_SEL);
-      if (m) m.textContent = computeMatch(a, b);
+  function recomputeMatches(root){
+    root.querySelectorAll('table tbody tr').forEach(tr=>{
+      const a = tr.querySelector('td[data-partner-a], td.pa')?.textContent;
+      const b = tr.querySelector('td[data-partner-b], td.pb')?.textContent;
+      const m = tr.querySelector('td[data-match]') || tr.children[2]; // assume 3rd col if standard
+      if (m && m.tagName === 'TD') m.textContent = computeMatch(a, b);
     });
-  };
+  }
 
-  // ===================== Bootstrap a table if none exists =====================
-  function bootstrapIfEmpty(){
-    const root = document.querySelector(ROOT_SEL);
-    if (!root) return false;
+  /* ---------- main entry ---------- */
+  function runFill(){
+    const root = getRoot();
+    if (!root) return;
 
-    const hasRows = root.querySelectorAll('tbody tr').length > 0;
-    if (hasRows) return false;
+    // If empty, create a minimal table so we can fill something
+    bootstrapIfEmpty(root);
+
+    // Make keys discoverable & cells targetable
+    annotateRows(root);
+    ensurePartnerMarkers(root);
 
     const aMap = toLookup(window.partnerASurvey || window.surveyA || {});
     const bMap = toLookup(window.partnerBSurvey || window.surveyB || {});
-    const keys = new Set([...aMap.keys(), ...bMap.keys()]);
-    if (!keys.size) return false; // nothing to show yet
 
-    const section = document.createElement('section');
-    section.className = 'compat-section';
+    const wroteA = fillColumn(root, 'td[data-partner-a], td.pa', aMap);
+    const wroteB = fillColumn(root, 'td[data-partner-b], td.pb', bMap);
 
-    const h2 = document.createElement('h2');
-    h2.className = 'section-title';
-    h2.textContent = 'All';
-    section.appendChild(h2);
+    if (wroteA || wroteB) recomputeMatches(root);
+    if (typeof window.populateFlags === 'function') window.populateFlags();
 
-    const table = document.createElement('table');
-    table.className = 'compat-table';
-
-    const thead = document.createElement('thead');
-    const thr = document.createElement('tr');
-    ['Category','Partner A','Match','Partner B'].forEach(t=>{
-      const th = document.createElement('th'); th.textContent = t; thr.appendChild(th);
-    });
-    thead.appendChild(thr);
-
-    const tbody = document.createElement('tbody');
-    keys.forEach(k=>{
-      const tr = document.createElement('tr');
-      tr.setAttribute('data-id', k);
-      tr.setAttribute('data-full', k);
-
-      const tdLabel = document.createElement('td'); tdLabel.textContent = k;
-      const tdA = document.createElement('td'); tdA.setAttribute('data-partner-a',''); tdA.textContent='-';
-      const tdM = document.createElement('td'); tdM.setAttribute('data-match',''); tdM.textContent='';
-      const tdB = document.createElement('td'); tdB.setAttribute('data-partner-b',''); tdB.textContent='-';
-
-      tr.append(tdLabel, tdA, tdM, tdB);
-      tbody.appendChild(tr);
-    });
-
-    table.append(thead, tbody);
-    section.appendChild(table);
-    root.innerHTML = '';
-    root.appendChild(section);
-
-    console.log(`[compat] bootstrapped ${keys.size} rows from JSON union.`);
-    return true;
+    console.log(`[compat] filled Partner A cells: ${wroteA}; Partner B cells: ${wroteB}`);
   }
 
-  // ===================== Upload handlers (public) =====================
-  window.handlePartnerAUpload = async function(json){
-    // optional: allow passing a File object directly
-    if (json && typeof File !== 'undefined' && json instanceof File) {
-      try { json = JSON.parse(await json.text()); } catch(_) { alert('Invalid Partner A JSON'); return; }
-    }
-    console.log('[compat] Partner A JSON loaded', json);
-    // ensure table exists
-    bootstrapIfEmpty();
-    // fill A then recompute matches
-    const root = document.querySelector(ROOT_SEL);
-    const wrote = fillColumn(root, A_SEL, toLookup(json));
-    window.updateComparison();
-    if (!wrote) console.warn('[compat] Partner A wrote 0 cells — check row keys vs JSON labels/ids.');
-  };
-
-  window.handlePartnerBUpload = async function(json){
-    if (json && typeof File !== 'undefined' && json instanceof File) {
-      try { json = JSON.parse(await json.text()); } catch(_) { alert('Invalid Partner B JSON'); return; }
-    }
-    console.log('[compat] Partner B JSON loaded', json);
-    bootstrapIfEmpty();
-    const root = document.querySelector(ROOT_SEL);
-    const wrote = fillColumn(root, B_SEL, toLookup(json));
-    window.updateComparison();
-    if (!wrote) console.warn('[compat] Partner B wrote 0 cells — check row keys vs JSON labels/ids.');
-  };
-
-  // ===================== Wire file inputs automatically =====================
-  document.addEventListener('change', async (e)=>{
-    const el = e.target;
-    if (!el || el.type !== 'file' || !el.files || !el.files[0]) return;
-    const file = el.files[0];
-    if (el.id === 'uploadSurveyA') {
-      await window.handlePartnerAUpload(file);
-    } else if (el.id === 'uploadSurveyB') {
-      await window.handlePartnerBUpload(file);
+  // Wire uploads (Partner A / Partner B)
+  document.addEventListener('change', async e=>{
+    if (!e.target) return;
+    if (e.target.matches('#uploadSurveyA,[data-upload-a],#uploadSurveyB,[data-upload-b]')){
+      // If your upload handlers already parse JSON and set window.partnerASurvey/window.partnerBSurvey,
+      // runFill will use them. If not, attempt quick inline parsing:
+      const f = e.target.files && e.target.files[0];
+      if (f && !window.partnerASurvey && !window.partnerBSurvey){
+        try {
+          const json = JSON.parse(await f.text());
+          if (e.target.matches('#uploadSurveyA,[data-upload-a]')) window.partnerASurvey = json;
+          else window.partnerBSurvey = json;
+        } catch {}
+      }
+      setTimeout(runFill, 150);
     }
   });
 
-  // Optional: if JSON objects are already on the page (window.partnerASurvey / partnerBSurvey),
-  // try a first fill after load.
-  document.addEventListener('DOMContentLoaded', ()=>{
-    if (window.partnerASurvey) window.handlePartnerAUpload(window.partnerASurvey);
-    if (window.partnerBSurvey) window.handlePartnerBUpload(window.partnerBSurvey);
-  });
+  // Expose manual trigger + run once
+  window.__compatRunFill = runFill;
+  document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
 })();
+</script>
+
+<!-- OPTIONAL: Minimal wiring if you don’t already parse and call handlers -->
+<script>
+  // If you already parse uploads elsewhere, you can delete this block.
+  const upA = document.querySelector('#uploadSurveyA,[data-upload-a]');
+  if (upA) upA.addEventListener('change', async e=>{
+    const f=e.target.files?.[0]; if (!f) return;
+    try { window.partnerASurvey = JSON.parse(await f.text()); } catch {}
+    if (window.__compatRunFill) window.__compatRunFill();
+  });
+  const upB = document.querySelector('#uploadSurveyB,[data-upload-b]');
+  if (upB) upB.addEventListener('change', async e=>{
+    const f=e.target.files?.[0]; if (!f) return;
+    try { window.partnerBSurvey = JSON.parse(await f.text()); } catch {}
+    if (window.__compatRunFill) window.__compatRunFill();
+  });
 </script>
 
 </body>
