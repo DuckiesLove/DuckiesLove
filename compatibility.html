@@ -597,5 +597,121 @@
 })();
 </script>
 
+<!-- Talk Kink header for PDF clone and tighter top spacing -->
+<script>
+/* ========================= CONFIG (tweak if you like) ========================= */
+const TK_HEADER_TEXT = 'Talk Kink';
+const TK_FONT_FAMILY = '"Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif';
+const TK_TITLE_SIZE_PT = 28;           // header font size in points (PDF-friendly)
+const TK_TITLE_LETTER_SP = 1.5;        // letter spacing in px
+const TK_TITLE_TOP_PAD_PX = 8;         // space above title inside header
+const TK_TITLE_BOTTOM_PAD_PX = 10;     // space below title inside header
+const TK_CONTENT_TOP_REDUCTION_PX = 24;// how much we pull main content upward (reduce top padding)
+
+/* ============= 1) Load Fredoka One (if not already on the page) ============== */
+(function ensureFredoka(){
+  if ([...document.styleSheets].some(s => (s.href||'').includes('Fredoka+One'))) return;
+  const l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap';
+  document.head.appendChild(l);
+})();
+
+/* ============= 2) Inject clone-only CSS for header + tighter spacing ========= */
+(function injectHeaderCSS(){
+  if (document.querySelector('style[data-tk-pdf-header]')) return;
+  const css = `
+    /* Only affects the export clone (we add .pdf-export class on the clone) */
+    .pdf-export{ padding-top:${Math.max(0, 18 - TK_CONTENT_TOP_REDUCTION_PX)}px !important; }
+    .pdf-export .tk-pdf-header{
+      width:100%; text-align:center; background:transparent; color:#fff;
+      padding:${TK_TITLE_TOP_PAD_PX}px 8px ${TK_TITLE_BOTTOM_PAD_PX}px 8px;
+      margin:0 auto 4px auto; box-sizing:border-box;
+    }
+    .pdf-export .tk-pdf-title{
+      font-family:${TK_FONT_FAMILY};
+      font-weight:400;
+      font-size:${TK_TITLE_SIZE_PT}pt;
+      line-height:1.1;
+      letter-spacing:${TK_TITLE_LETTER_SP}px;
+      margin:0; padding:0;
+      color:#fff;
+      text-shadow: 0 1px 0 rgba(0,0,0,.2);
+    }
+    /* Pull sections up a bit more so there’s no huge gap */
+    .pdf-export .section-title,
+    .pdf-export .category-header,
+    .pdf-export .compat-category{ margin-top:6px !important; }
+  `;
+  const s = document.createElement('style');
+  s.setAttribute('data-tk-pdf-header','true');
+  s.textContent = css;
+  document.head.appendChild(s);
+})();
+
+/* ============= 3) Patch your existing makeClone() used by pdf export =========
+   What this does:
+   - Wraps your current makeClone() (from pdfDownload.js) and inserts a centered
+     “Talk Kink” header at the very top of the clone.
+   - Leaves the live page unchanged (only the export clone is modified).
+*/
+(function patchMakeCloneForHeader(){
+  // If pdfDownload.js attached makePdfClone() or makeClone() to window, wrap it.
+  const originalMakeClone =
+    window.makePdfClone || window.makeClone || null;
+
+  // If we don’t find it, we’ll try to decorate after the clone is appended (plan B).
+  function addHeaderToClone(cloneRoot){
+    if (!cloneRoot || cloneRoot.querySelector('.tk-pdf-header')) return;
+    const header = document.createElement('div');
+    header.className = 'tk-pdf-header';
+
+    const h = document.createElement('h1');
+    h.className = 'tk-pdf-title';
+    h.textContent = TK_HEADER_TEXT;
+
+    header.appendChild(h);
+    // Put header right at the top of the exported content
+    cloneRoot.prepend(header);
+  }
+
+  if (typeof originalMakeClone === 'function'){
+    const wrapped = function(){
+      const res = originalMakeClone.apply(this, arguments);
+      try {
+        const clone = res?.clone || res?.shell?.querySelector('.pdf-export') || null;
+        if (clone) addHeaderToClone(clone);
+      } catch(_) {}
+      return res;
+    };
+    // Re-expose wherever your exporter reads it from:
+    if (window.makePdfClone) window.makePdfClone = wrapped;
+    if (window.makeClone) window.makeClone = wrapped;
+  } else {
+    // Plan B: hook the exporter entry so we can inject after the clone appears.
+    const origDownload =
+      window.downloadCompatibilityPDF ||
+      window.exportCompatPDF ||
+      window.generateCompatibilityPDF;
+    if (typeof origDownload === 'function'){
+      window.downloadCompatibilityPDF = async function(){
+        // Run the normal flow; after the clone is built but before snapshotting,
+        // pdfDownload.js appends .pdf-export to the DOM. We poll briefly for it.
+        const p = origDownload.apply(this, arguments);
+        // small async wait, in case the original function is sync up-front
+        await Promise.resolve();
+        // try to find the active export clone and add header
+        const tryAdd = () => {
+          const clone = document.querySelector('.pdf-export');
+          if (clone) addHeaderToClone(clone);
+        };
+        tryAdd();
+        return p;
+      };
+    }
+  }
+})();
+</script>
+
 </body>
 </html>
