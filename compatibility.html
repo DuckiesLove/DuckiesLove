@@ -450,5 +450,86 @@
   });
 </script>
 
+<!-- TALK KINK HEADER + REMOVE TOP GAP (copy–paste this whole block near the end of compatibility.html, before </body>) -->
+<style>
+  /* Make sure the very top of the report doesn’t have mystery spacing */
+  #pdf-container { margin-top: 0 !important; padding-top: 0 !important; }
+  #pdf-container > :first-child { margin-top: 0 !important; }
+
+  /* Title style (works in web and in the PDF clone) */
+  .site-title {
+    font-family: "Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color: #fff;
+    text-align: center;
+    font-weight: 900;
+    /* Responsive, capped */
+    font-size: clamp(28px, 4.6vw, 56px);
+    line-height: 1.05;
+    letter-spacing: 0.5px;
+    /* Tight top; tiny gap below */
+    margin: 6px 0 10px !important;
+  }
+  .site-title-rule {
+    height: 1px;
+    width: min(92%, 1100px);
+    margin: 8px auto 10px;
+    background: rgba(255,255,255,0.22);
+  }
+
+  /* After the title, ensure the first section header (“All”) isn’t pushed way down */
+  .site-title + .site-title-rule + * { margin-top: 8px !important; }
+
+  /* When exporting (the clone gets .pdf-export), keep the spacing tight too */
+  .pdf-export .site-title { margin: 4px 0 8px !important; }
+  .pdf-export .site-title-rule { width: 96%; background: rgba(255,255,255,0.28); }
+  .pdf-export .site-title + .site-title-rule + * { margin-top: 8px !important; }
+
+  /* Safety: many themes give first section a big top margin – clamp it */
+  #pdf-container .section-title:first-of-type,
+  #pdf-container h1:first-of-type,
+  #pdf-container h2:first-of-type { margin-top: 8px !important; }
+</style>
+
+<script>
+/*
+  Inserts a “Talk Kink” header at the very top of #pdf-container
+  and trims the large gap before the first section (“All”).
+  If the title already exists, nothing changes.
+*/
+(function addTalkKinkOnce(){
+  function insert() {
+    var root = document.getElementById('pdf-container');
+    if (!root) return;
+
+    // If there’s already a title, do nothing
+    if (root.querySelector('.site-title')) return;
+
+    // Build the title + thin rule and insert as the first children
+    var title = document.createElement('div');
+    title.className = 'site-title';
+    title.textContent = 'Talk Kink';
+
+    var rule = document.createElement('div');
+    rule.className = 'site-title-rule';
+
+    // Insert before everything else so it appears on page one
+    root.insertBefore(rule, root.firstChild);
+    root.insertBefore(title, root.firstChild);
+
+    // EXTRA: clamp any leftover top spacer element if a theme left one behind
+    var firstReal = rule.nextElementSibling;
+    if (firstReal && parseInt(getComputedStyle(firstReal).marginTop, 10) > 24) {
+      firstReal.style.marginTop = '8px';
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', insert);
+  } else {
+    insert();
+  }
+})();
+</script>
+
 </body>
 </html>
