@@ -199,6 +199,90 @@ function wireUploads() {
   if (inB) inB.addEventListener('change', handleUploadB);
 }
 
+// -----------------------------------------------------
+// -- BEGIN: FILTER NON-ZERO ONLY (rows/sections) -----
+// -----------------------------------------------------
+/** Numeric value helper: returns 0 for "", "—", "-", "–", NaN, null. */
+function __num(cell) {
+  if (!cell) return 0;
+  // Prefer data-value if you store raw scores there
+  const dv = cell.getAttribute?.('data-value');
+  if (dv != null && dv !== '') {
+    const n = Number(dv);
+    return Number.isFinite(n) ? n : 0;
+  }
+  const t = (cell.textContent || '').trim().replace(/[–—]/g, '-');
+  if (t === '' || t === '-' || t === '—' || t === '–') return 0;
+  const n = parseFloat(t);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Find the Partner A / Partner B cells in a row using common selectors/fallbacks. */
+function __findPartnerCells(tr) {
+  // Common class names used across pages
+  const a =
+    tr.querySelector('.pa, .score-a, [data-partner="A"], [data-partner="a"]') ||
+    tr.querySelector('td:nth-child(2)'); // fallback if your table is Category | A | Match | Flag | B
+  const b =
+    tr.querySelector('.pb, .score-b, [data-partner="B"], [data-partner="b"]') ||
+    tr.querySelector('td:last-child'); // fallback to last cell
+  return { a, b };
+}
+
+/** TRUE if this table row should be kept (i.e., at least one partner > 0). */
+function __keepRow(tr) {
+  // Ignore header rows
+  if (tr.matches('thead tr') || tr.querySelector('th')) return true;
+
+  const { a, b } = __findPartnerCells(tr);
+  const va = __num(a);
+  const vb = __num(b);
+  return va > 0 || vb > 0;
+}
+
+/**
+ * Remove rows where BOTH partners are 0/blank, then remove any empty categories/sections.
+ * Pass the cloned root (NOT your live DOM).
+ */
+function filterZeroRowsAndEmptySections(cloneRoot) {
+  if (!cloneRoot) return;
+
+  // 1) Drop data rows with A==0 AND B==0
+  const rows = cloneRoot.querySelectorAll('tbody tr');
+  rows.forEach(tr => {
+    if (!__keepRow(tr)) tr.remove();
+  });
+
+  // 2) Remove entirely empty tables (no remaining body rows)
+  cloneRoot.querySelectorAll('table').forEach(tbl => {
+    const hasData = tbl.querySelector('tbody tr');
+    if (!hasData) tbl.remove();
+  });
+
+  // 3) Remove empty sections/categories if wrapped in containers
+  const sectionSel = [
+    '.compat-section',
+    '.category-block',
+    'section[data-category]',
+    '.category-wrapper'
+  ].join(',');
+
+  cloneRoot.querySelectorAll(sectionSel).forEach(sec => {
+    const hasRow = sec.querySelector('tbody tr');
+    if (!hasRow) sec.remove();
+  });
+
+  // Optional: remove orphan headings/HRs left behind
+  cloneRoot.querySelectorAll('h2, h3, .section-title, .category-header, hr').forEach(h => {
+    const parent = h.closest(sectionSel) || h.parentElement;
+    if (parent && !parent.querySelector('tbody tr')) h.remove();
+  });
+}
+
+// -----------------------------------------------------
+// -- END: FILTER NON-ZERO ONLY (rows/sections) -------
+// -----------------------------------------------------
+
 /* ========================== TABLE SANITY/HELPERS ========================== */
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -429,6 +513,9 @@ export async function downloadCompatibilityPDF() {
   }
 
   const { shell, clone } = makeClone();
+
+  // Remove rows/categories where both partners have zero/blank scores
+  filterZeroRowsAndEmptySections(clone);
 
   // Ensure 5 columns and populate Flag (⭐/🚩) in the CLONE (web stays untouched)
   ensureFlagColumnAndPopulate(clone);
