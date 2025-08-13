@@ -219,6 +219,62 @@ function wireUploads() {
   document.head.appendChild(s);
 })();
 
+/* ---------- PRETTY, CENTERED PDF HEADER + TOP SPACING TWEAKS ---------- */
+/* 1) Load a classy display font just for the PDF clone */
+(function ensurePdfFont(){
+  if (document.querySelector('link[data-pdf-font]')) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap';
+  link.setAttribute('data-pdf-font','true');
+  document.head.appendChild(link);
+})();
+
+/* 2) Add header + spacing rules into the PDF-only stylesheet you already inject */
+(function injectPrettyHeaderCSS(){
+  if (document.querySelector('style[data-pdf-pretty]')) return;
+  const css = `
+    .pdf-export { padding-top: 8px !important; }
+    .pdf-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: transparent !important;
+      margin: 0 0 8px 0 !important;
+      padding: 8px 0 4px 0 !important;
+      border: 0 !important;
+    }
+    .pdf-header h1 {
+      font-family: "Playfair Display", Georgia, "Times New Roman", serif !important;
+      font-weight: 700 !important;
+      font-size: 28pt !important;
+      line-height: 1.1 !important;
+      letter-spacing: 0.5px !important;
+      color: #ffffff !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .pdf-export .compat-section:first-of-type,
+    .pdf-export .section-title:first-of-type,
+    .pdf-export .category-header:first-of-type {
+      margin-top: 6px !important;
+      padding-top: 0 !important;
+    }
+
+    .pdf-export table:first-of-type,
+    .pdf-export .compat-table:first-of-type {
+      margin-top: 4px !important;
+    }
+  `;
+  const s = document.createElement('style');
+  s.setAttribute('data-pdf-pretty','true');
+  s.textContent = css;
+  document.head.appendChild(s);
+})();
+
 /* ---------- HELPERS ---------- */
 function __norm(s){
   return String(s||'')
@@ -400,6 +456,13 @@ function makeClone(){
   const shell = document.createElement('div');
   Object.assign(shell.style,{background:'#000',color:'#fff',margin:0,padding:0,width:'100%',minHeight:'100vh',overflow:'auto'});
 
+  // Create a centered header for the PDF only
+  const header = document.createElement('div');
+  header.className = 'pdf-header';
+  const h1 = document.createElement('h1');
+  h1.textContent = FIRST_PAGE_HEADER;
+  header.appendChild(h1);
+
   const clone = src.cloneNode(true);
   clone.classList.add('pdf-export');
 
@@ -419,6 +482,7 @@ function makeClone(){
   }
 
   document.body.appendChild(shell);
+  shell.appendChild(header);
   shell.appendChild(clone);
   return { shell, clone };
 }
@@ -601,14 +665,14 @@ export async function downloadCompatibilityPDF() {
 
   try {
     const jsPDFCtor = getJsPDF();
-    const pdf = await renderMultiPagePDF({ clone, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95, firstPageHeader: FIRST_PAGE_HEADER });
+    const pdf = await renderMultiPagePDF({ clone: shell, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95, firstPageHeader: '' });
     pdf.save('kink-compatibility.pdf');
   } catch (err) {
     console.error('[pdf] render error:', err);
     alert('Could not generate PDF. See console for details.');
   } finally {
     // cleanup overlay shell
-    const overlay = clone && clone.parentNode;
+    const overlay = shell && shell.parentNode;
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
   }
 }
