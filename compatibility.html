@@ -611,5 +611,87 @@
 })();
 </script>
 
+<style>
+  /* --- Only affect the cloned PDF (your on-screen page stays as-is) --- */
+  .pdf-export .tk-pdf-only { display:block !important; }
+
+  /* Centered title on page 1 */
+  .pdf-export .tk-pdf-title {
+    font-family: "Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    font-weight: 700;
+    text-align: center;
+    font-size: 48px;               /* adjust if you want it larger/smaller */
+    line-height: 1.05;
+    letter-spacing: 0.5px;
+    color: #fff;
+    margin: 0 0 12px 0;            /* small gap below the title */
+  }
+
+  /* Remove the big empty gap under the title and yank the table up */
+  .pdf-export {
+    padding-top: 18px !important;  /* keeps a little breathing room at the very top */
+  }
+  .pdf-export .compat-intro,
+  .pdf-export .page-spacer,
+  .pdf-export .hero,
+  .pdf-export header,
+  .pdf-export .banner,
+  .pdf-export .top-gap { display:none !important; }
+
+  /* First category/table sits tighter to the title */
+  .pdf-export .compat-section:first-of-type,
+  .pdf-export .categories-table:first-of-type,
+  .pdf-export table:first-of-type {
+    margin-top: 4px !important;
+  }
+
+  /* Tighten headings that might add extra space on the first page */
+  .pdf-export h1:first-of-type,
+  .pdf-export h2:first-of-type,
+  .pdf-export .section-title:first-of-type {
+    margin-top: 4px !important;
+  }
+</style>
+
+<script>
+  (function () {
+    // 1) Inject a PDF-only, centered title at the VERY TOP of #pdf-container.
+    //    It will be invisible on the website, but visible in the PDF clone
+    //    because of the .pdf-export .tk-pdf-only rule above.
+    const ROOT = document.getElementById('pdf-container');
+    if (!ROOT) return;
+
+    // Don’t add it twice if your page hot-reloads
+    if (!ROOT.querySelector('#tkPdfTitle')) {
+      const title = document.createElement('div');
+      title.id = 'tkPdfTitle';
+      title.className = 'tk-pdf-only tk-pdf-title';
+      title.textContent = 'Talk Kink';
+      ROOT.insertBefore(title, ROOT.firstChild);
+    }
+
+    // 2) (Optional safety) If your PDF generator clones #pdf-container later,
+    //    a tiny post-layout nudge can help collapse stray margins.
+    function collapseFirstPageGap() {
+      const firstSection =
+        ROOT.querySelector('.compat-section') ||
+        ROOT.querySelector('.categories-table') ||
+        ROOT.querySelector('table');
+      if (firstSection) {
+        firstSection.style.marginTop = '4px';
+      }
+    }
+
+    // Nudge right after fonts/layout settle
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        requestAnimationFrame(() => requestAnimationFrame(collapseFirstPageGap));
+      });
+    } else {
+      requestAnimationFrame(() => requestAnimationFrame(collapseFirstPageGap));
+    }
+  })();
+</script>
+
 </body>
 </html>
