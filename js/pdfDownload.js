@@ -220,12 +220,12 @@ function wireUploads() {
 })();
 
 /* ---------- PRETTY, CENTERED PDF HEADER + TOP SPACING TWEAKS ---------- */
-/* 1) Load a classy display font just for the PDF clone */
+/* 1) Load header font just for the PDF clone */
 (function ensurePdfFont(){
   if (document.querySelector('link[data-pdf-font]')) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap';
+  link.href = 'https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap';
   link.setAttribute('data-pdf-font','true');
   document.head.appendChild(link);
 })();
@@ -242,14 +242,14 @@ function wireUploads() {
       justify-content: center;
       text-align: center;
       background: transparent !important;
-      margin: 0 0 8px 0 !important;
-      padding: 8px 0 4px 0 !important;
+      margin: 0 0 20px 0 !important;
+      padding: 0 !important;
       border: 0 !important;
     }
     .pdf-header h1 {
-      font-family: "Playfair Display", Georgia, "Times New Roman", serif !important;
+      font-family: "Fredoka One", sans-serif !important;
       font-weight: 700 !important;
-      font-size: 28pt !important;
+      font-size: 36px !important;
       line-height: 1.1 !important;
       letter-spacing: 0.5px !important;
       color: #ffffff !important;
@@ -257,16 +257,16 @@ function wireUploads() {
       padding: 0 !important;
     }
 
+    .pdf-export #pdf-container,
+    .pdf-export .compat-root,
+    .pdf-export .compat-table-wrap,
     .pdf-export .compat-section:first-of-type,
     .pdf-export .section-title:first-of-type,
-    .pdf-export .category-header:first-of-type {
-      margin-top: 6px !important;
-      padding-top: 0 !important;
-    }
-
+    .pdf-export .category-header:first-of-type,
     .pdf-export table:first-of-type,
     .pdf-export .compat-table:first-of-type {
-      margin-top: 4px !important;
+      margin-top: 0 !important;
+      padding-top: 0 !important;
     }
   `;
   const s = document.createElement('style');
