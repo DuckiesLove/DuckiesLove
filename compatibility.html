@@ -612,25 +612,33 @@
 </script>
 
 <style>
-  /* --- Only affect the cloned PDF (your on-screen page stays as-is) --- */
+  /* PDF-only toggles (web stays unchanged) */
   .pdf-export .tk-pdf-only { display:block !important; }
 
-  /* Centered title on page 1 */
+  /* ===== Title & spacing knobs you can tweak ===== */
+  :root {
+    /* Move the title DOWN a little from the very top of the page */
+    --tk-title-top: 22px;         /* ↑ increase to push title farther down */
+    /* Pull the first category/table UP closer to the title */
+    --tk-first-section-up: -18px; /* more negative = closer to the title */
+  }
+
+  /* Centered “Talk Kink” on page 1 */
   .pdf-export .tk-pdf-title {
+    position: relative;
+    top: var(--tk-title-top);
     font-family: "Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     font-weight: 700;
     text-align: center;
-    font-size: 48px;               /* adjust if you want it larger/smaller */
+    font-size: 54px;             /* adjust size if desired */
     line-height: 1.05;
-    letter-spacing: 0.5px;
+    letter-spacing: .5px;
     color: #fff;
-    margin: 0 0 12px 0;            /* small gap below the title */
+    margin: 0 0 10px 0;
   }
 
-  /* Remove the big empty gap under the title and yank the table up */
-  .pdf-export {
-    padding-top: 18px !important;  /* keeps a little breathing room at the very top */
-  }
+  /* Keep PDF surface tidy */
+  .pdf-export { padding-top: 0 !important; }
   .pdf-export .compat-intro,
   .pdf-export .page-spacer,
   .pdf-export .hero,
@@ -638,30 +646,22 @@
   .pdf-export .banner,
   .pdf-export .top-gap { display:none !important; }
 
-  /* First category/table sits tighter to the title */
+  /* Pull the first category/table closer to the title */
   .pdf-export .compat-section:first-of-type,
   .pdf-export .categories-table:first-of-type,
-  .pdf-export table:first-of-type {
-    margin-top: 4px !important;
-  }
-
-  /* Tighten headings that might add extra space on the first page */
-  .pdf-export h1:first-of-type,
-  .pdf-export h2:first-of-type,
+  .pdf-export table:first-of-type,
   .pdf-export .section-title:first-of-type {
-    margin-top: 4px !important;
+    /* negative margin moves it upward toward the title */
+    margin-top: var(--tk-first-section-up) !important;
   }
 </style>
 
 <script>
   (function () {
-    // 1) Inject a PDF-only, centered title at the VERY TOP of #pdf-container.
-    //    It will be invisible on the website, but visible in the PDF clone
-    //    because of the .pdf-export .tk-pdf-only rule above.
+    // Insert centered PDF-only title at the very top of #pdf-container (once)
     const ROOT = document.getElementById('pdf-container');
     if (!ROOT) return;
 
-    // Don’t add it twice if your page hot-reloads
     if (!ROOT.querySelector('#tkPdfTitle')) {
       const title = document.createElement('div');
       title.id = 'tkPdfTitle';
@@ -670,25 +670,25 @@
       ROOT.insertBefore(title, ROOT.firstChild);
     }
 
-    // 2) (Optional safety) If your PDF generator clones #pdf-container later,
-    //    a tiny post-layout nudge can help collapse stray margins.
-    function collapseFirstPageGap() {
-      const firstSection =
+    // Nudge first section/table up after layout settles so it hugs the title
+    function tightenFirstSection() {
+      const first =
         ROOT.querySelector('.compat-section') ||
         ROOT.querySelector('.categories-table') ||
         ROOT.querySelector('table');
-      if (firstSection) {
-        firstSection.style.marginTop = '4px';
+      if (first) {
+        const cssVar = getComputedStyle(document.documentElement)
+          .getPropertyValue('--tk-first-section-up').trim();
+        if (cssVar) first.style.marginTop = cssVar;
       }
     }
 
-    // Nudge right after fonts/layout settle
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        requestAnimationFrame(() => requestAnimationFrame(collapseFirstPageGap));
-      });
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.finally(() =>
+        requestAnimationFrame(() => requestAnimationFrame(tightenFirstSection))
+      );
     } else {
-      requestAnimationFrame(() => requestAnimationFrame(collapseFirstPageGap));
+      requestAnimationFrame(() => requestAnimationFrame(tightenFirstSection));
     }
   })();
 </script>
