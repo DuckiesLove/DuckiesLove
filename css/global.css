@@ -30,3 +30,8 @@
 }
 
 
+/* Hide heading after the Download PDF button */
+#downloadBtn + h1 {
+  display: none;
+}
+
