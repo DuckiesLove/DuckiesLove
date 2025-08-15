@@ -230,43 +230,40 @@ function wireUploads() {
   document.head.appendChild(link);
 })();
 
-/* 2) Add header + spacing rules into the PDF-only stylesheet you already inject */
+/* 2) Add PDF-only title + spacing rules */
 (function injectPrettyHeaderCSS(){
   if (document.querySelector('style[data-pdf-pretty]')) return;
   const css = `
-    .pdf-export { padding-top: 8px !important; }
-    .pdf-header {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      background: transparent !important;
-      margin: 0 0 20px 0 !important;
-      padding: 0 !important;
-      border: 0 !important;
-    }
-    .pdf-header h1 {
-      font-family: "Fredoka One", sans-serif !important;
-      font-weight: 700 !important;
-      font-size: 36px !important;
-      line-height: 1.1 !important;
-      letter-spacing: 0.5px !important;
-      color: #ffffff !important;
-      margin: 0 !important;
-      padding: 0 !important;
+    .pdf-export .tk-pdf-only { display:block !important; }
+
+    :root {
+      --tk-title-top: 22px;
+      --tk-first-section-up: -18px;
     }
 
-    .pdf-export #pdf-container,
-    .pdf-export .compat-root,
-    .pdf-export .compat-table-wrap,
+    .pdf-export .tk-pdf-title {
+      position: relative;
+      top: var(--tk-title-top);
+      font-family: "Fredoka One", system-ui, sans-serif;
+      font-weight: 700;
+      text-align: center;
+      font-size: 54px;
+      color: #fff;
+      margin: 0 0 10px 0;
+    }
+
+    .pdf-export .compat-intro,
+    .pdf-export .page-spacer,
+    .pdf-export .hero,
+    .pdf-export header,
+    .pdf-export .banner,
+    .pdf-export .top-gap { display:none !important; }
+
     .pdf-export .compat-section:first-of-type,
-    .pdf-export .section-title:first-of-type,
-    .pdf-export .category-header:first-of-type,
+    .pdf-export .categories-table:first-of-type,
     .pdf-export table:first-of-type,
-    .pdf-export .compat-table:first-of-type {
-      margin-top: 0 !important;
-      padding-top: 0 !important;
+    .pdf-export .section-title:first-of-type {
+      margin-top: var(--tk-first-section-up) !important;
     }
   `;
   const s = document.createElement('style');
@@ -456,15 +453,17 @@ function makeClone(){
   const shell = document.createElement('div');
   Object.assign(shell.style,{background:'#000',color:'#fff',margin:0,padding:0,width:'100%',minHeight:'100vh',overflow:'auto'});
 
-  // Create a centered header for the PDF only
-  const header = document.createElement('div');
-  header.className = 'pdf-header';
-  const h1 = document.createElement('h1');
-  h1.textContent = FIRST_PAGE_HEADER;
-  header.appendChild(h1);
-
   const clone = src.cloneNode(true);
   clone.classList.add('pdf-export');
+
+  // Insert centered "Talk Kink" title at top of PDF
+  if (!clone.querySelector('#tkPdfTitle')) {
+    const title = document.createElement('div');
+    title.id = 'tkPdfTitle';
+    title.className = 'tk-pdf-only tk-pdf-title';
+    title.textContent = FIRST_PAGE_HEADER;
+    clone.insertBefore(title, clone.firstChild);
+  }
 
   // strip UI elements
   clone.querySelectorAll('[data-hide-in-pdf], .download-btn, .print-btn, nav, header, footer').forEach(e=>e.remove());
@@ -482,8 +481,28 @@ function makeClone(){
   }
 
   document.body.appendChild(shell);
-  shell.appendChild(header);
   shell.appendChild(clone);
+
+  // Nudge first section/table closer to the title
+  function tightenFirstSection(){
+    const first = clone.querySelector('.compat-section') ||
+                  clone.querySelector('.categories-table') ||
+                  clone.querySelector('table');
+    if(first){
+      const cssVar = getComputedStyle(document.documentElement)
+        .getPropertyValue('--tk-first-section-up').trim();
+      if(cssVar) first.style.marginTop = cssVar;
+    }
+  }
+
+  if (document.fonts && document.fonts.ready){
+    document.fonts.ready.finally(()=>
+      requestAnimationFrame(()=>requestAnimationFrame(tightenFirstSection))
+    );
+  } else {
+    requestAnimationFrame(()=>requestAnimationFrame(tightenFirstSection));
+  }
+
   return { shell, clone };
 }
 
