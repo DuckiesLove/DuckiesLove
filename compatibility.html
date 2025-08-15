@@ -797,5 +797,130 @@
 })();
 </script>
 
+<!-- 🚀 ONE-BOX FIX: Put "Talk Kink" on page-1 of the PDF + tighten top gap
+     Paste this ENTIRE block at the VERY BOTTOM of compatibility.html (just before </body>).
+     It does NOT depend on #pdf-container (so the “PDF container not found” error goes away).
+     It ONLY touches the hidden PDF clone, not your live page. -->
+
+<script>
+(function TK_PDF_HEADER_PATCH(){
+  /* ====== TUNABLES ====== */
+  const TITLE_TEXT   = 'Talk Kink';
+  const TITLE_SIZE   = '56px';   // PDF title size
+  const TITLE_WEIGHT = '800';
+  const TITLE_FAMILY = `'Fredoka One', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif`;
+  const TITLE_TOP    = '18px';   // space from VERY top of the PDF to the title
+  const GAP_BELOW    = '10px';   // small gap below the title
+  const PULL_FIRST_UP_PX = 14;   // pull first section/table UP toward the title
+  /* ====================== */
+
+  // PDF-only CSS (applies inside the .pdf-export clone only)
+  (function injectCss(){
+    if (document.querySelector('style[data-tkpdftitle]')) return;
+    const css = `
+      .pdf-export .tk-pdf-title{
+        width:100% !important; text-align:center !important;
+        color:#fff !important; margin:0 0 ${GAP_BELOW} 0 !important; padding:0 !important;
+        font-family:${TITLE_FAMILY} !important; font-weight:${TITLE_WEIGHT} !important;
+        font-size:${TITLE_SIZE} !important; line-height:1.08 !important;
+        padding-top:${TITLE_TOP} !important;
+      }
+    `;
+    const s = document.createElement('style');
+    s.setAttribute('data-tkpdftitle','true');
+    s.textContent = css;
+    document.head.appendChild(s);
+  })();
+
+  // Find the PDF clone node the exporter puts in the DOM
+  function findPdfCloneRoot() {
+    // common: a container appended that contains .pdf-export
+    const exp = document.querySelector('.pdf-export');
+    if (exp) return exp;
+    // fallback: any full-screen overlay recently added
+    const overlays = Array.from(document.body.children).reverse();
+    for (const el of overlays) {
+      if (el.querySelector && el.querySelector('.pdf-export')) {
+        return el.querySelector('.pdf-export');
+      }
+    }
+    return null;
+  }
+
+  // Insert title + tighten first section INSIDE the clone (PDF only)
+  function tweakClone(clone){
+    try {
+      if (!clone) return;
+      // Create title once at very top
+      if (!clone.querySelector('.tk-pdf-title')) {
+        const title = document.createElement('div');
+        title.className = 'tk-pdf-title';
+        title.textContent = TITLE_TEXT;
+        clone.insertBefore(title, clone.firstChild || null);
+      }
+      // Pull first section/table up slightly toward the title
+      const first =
+        clone.querySelector('.compat-section') ||
+        clone.querySelector('.categories-table') ||
+        clone.querySelector('.section-title') ||
+        clone.querySelector('table') ||
+        clone.children[1]; // fallback: second child after the title
+      if (first && first.style) {
+        const cur = parseFloat(getComputedStyle(first).marginTop || '0');
+        first.style.marginTop = (cur - PULL_FIRST_UP_PX) + 'px';
+      }
+    } catch(e) {
+      console.warn('[TK PDF] tweakClone error:', e);
+    }
+  }
+
+  // Wrap the existing downloader so we can tweak the clone at the right time
+  function wrapExporter(){
+    const original =
+      window.downloadCompatibilityPDF ||
+      (typeof downloadCompatibilityPDF === 'function' ? downloadCompatibilityPDF : null);
+
+    if (typeof original !== 'function') {
+      // If exporter not ready yet, try again shortly
+      setTimeout(wrapExporter, 200);
+      return;
+    }
+    if (original.__tkWrapped) return;
+
+    window.downloadCompatibilityPDF = async function(){
+      // Observe additions to <body> so we can catch the clone as it appears
+      let cloneSeen = false;
+      const observer = new MutationObserver(() => {
+        const clone = findPdfCloneRoot();
+        if (clone && !cloneSeen) {
+          cloneSeen = true;
+          tweakClone(clone);
+        }
+      });
+      observer.observe(document.body, { childList:true, subtree:true });
+
+      try {
+        const res = await original.apply(this, arguments);
+        // Final fallback (in case observer missed it)
+        const clone = findPdfCloneRoot();
+        if (clone && !cloneSeen) tweakClone(clone);
+        return res;
+      } finally {
+        observer.disconnect();
+      }
+    };
+    window.downloadCompatibilityPDF.__tkWrapped = true;
+    console.log('[TK PDF] exporter wrapped: title + spacing will apply to PDF clone only.');
+  }
+
+  // Start once DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wrapExporter);
+  } else {
+    wrapExporter();
+  }
+})();
+</script>
+
 </body>
 </html>
