@@ -694,5 +694,108 @@
   })();
 </script>
 
+<script>
+(function () {
+  /* ========= TUNABLES ========= */
+  const TITLE_TEXT = 'Talk Kink';
+  const TITLE_FONT_FAMILY = `'Fredoka One', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif`;
+  const TITLE_FONT_SIZE = '64px';       // header size in the PDF
+  const TITLE_TOP_PADDING = '28px';     // space from the very top of the page to the title
+  const GAP_BELOW_TITLE = '14px';       // space between title and first category/table
+  /* ============================ */
+
+  // 1) Add tiny PDF-only CSS so the title is centered and gaps are controlled
+  (function injectPdfOnlyCSS(){
+    if (document.querySelector('style[data-tk-pdf-head]')) return;
+    const css = `
+      /* Only affects the cloned PDF content (your exporter puts .pdf-export on the clone) */
+      .pdf-export .tk-pdf-title {
+        width: 100% !important;
+        text-align: center !important;
+        font-weight: 700 !important;
+        color: #fff !important;
+        line-height: 1.1 !important;
+        padding-top: ${TITLE_TOP_PADDING} !important;
+        margin: 0 0 ${GAP_BELOW_TITLE} 0 !important;
+      }
+      .pdf-export .tk-pdf-title h1 {
+        font-family: ${TITLE_FONT_FAMILY} !important;
+        font-size: ${TITLE_FONT_SIZE} !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      /* Trim the big gap many themes put before the first section/table */
+      .pdf-export .tk-tight-top { margin-top: 0 !important; padding-top: 0 !important; }
+    `;
+    const s = document.createElement('style');
+    s.setAttribute('data-tk-pdf-head', 'true');
+    s.textContent = css;
+    document.head.appendChild(s);
+  })();
+
+  // 2) Guard: we need the target container and the exporter function
+  function getPdfRoot(){ return document.getElementById('pdf-container'); }
+  function hasExporter(){ return typeof window.downloadCompatibilityPDF === 'function'; }
+
+  // 3) Build a temporary header INSIDE #pdf-container (so it will be cloned into the PDF),
+  //    then remove it afterward so your web page layout is untouched.
+  async function withPdfHeader(runner){
+    const root = getPdfRoot();
+    if (!root) { alert('PDF container (#pdf-container) not found.'); return; }
+
+    // Create the title band at the very top of the content
+    const titleBand = document.createElement('div');
+    titleBand.className = 'tk-pdf-title';
+    titleBand.setAttribute('data-hide-on-web', 'true');
+    titleBand.innerHTML = `<h1>${TITLE_TEXT}</h1>`;
+
+    // Try to tighten the area above the first visible section/table
+    // We’ll mark that first block with tk-tight-top temporarily
+    const firstBlock =
+      root.querySelector('.compat-section, .category-section, .section-title, h2, h3, table') || root.firstElementChild;
+
+    // Insert the title at the very top of the container
+    root.insertBefore(titleBand, root.firstChild);
+    if (firstBlock) firstBlock.classList.add('tk-tight-top');
+
+    try {
+      return await runner();   // run the PDF export while the header exists
+    } finally {
+      // Remove the temporary title and class so the live page stays clean
+      titleBand.remove();
+      if (firstBlock) firstBlock.classList.remove('tk-tight-top');
+    }
+  }
+
+  // 4) Wire the existing Download button so we inject the title just-in-time,
+  //    call your current exporter, then clean up automatically.
+  function wireTalkKinkHeader(){
+    const btn = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
+    if (!btn) { console.warn('[TK PDF] Download button not found.'); return; }
+    if (!hasExporter()) { console.warn('[TK PDF] downloadCompatibilityPDF() not found.'); return; }
+
+    // Replace any existing click handler with a clean one
+    const fresh = btn.cloneNode(true);
+    btn.replaceWith(fresh);
+    fresh.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await withPdfHeader(() => window.downloadCompatibilityPDF());
+      } catch (err) {
+        console.error('[TK PDF] Export failed:', err);
+        alert('Could not generate PDF. Open console for details.');
+      }
+    });
+  }
+
+  // 5) Run on DOM ready (and immediately if DOM is already loaded)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireTalkKinkHeader);
+  } else {
+    wireTalkKinkHeader();
+  }
+})();
+</script>
+
 </body>
 </html>
