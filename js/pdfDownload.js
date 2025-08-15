@@ -722,3 +722,44 @@ export async function downloadCompatibilityPDF() {
 // convenience global
 if (typeof window !== 'undefined') window.downloadCompatibilityPDF = downloadCompatibilityPDF;
 
+// === PATCH: Add "Talk Kink" title and adjust spacing in PDF export ===
+(function () {
+    const TK_TITLE_TEXT = 'Talk Kink';
+    const TK_TITLE_OFFSET_PX = 10; // move title up/down: negative = higher, positive = lower
+    const TK_SECTION_PULLUP_PX = 20; // pull first section closer: bigger = closer
+
+    // Store original function
+    const originalDownload = window.downloadCompatibilityPDF;
+
+    // Override
+    window.downloadCompatibilityPDF = async function () {
+        // Call original to build PDF DOM
+        const pdfDom = await originalDownload.apply(this, arguments);
+
+        // Find the top container (pdf export wrapper)
+        const container = pdfDom.querySelector('.pdf-export') || pdfDom;
+
+        // === Inject Title ===
+        const titleEl = document.createElement('h1');
+        titleEl.textContent = TK_TITLE_TEXT;
+        Object.assign(titleEl.style, {
+            textAlign: 'center',
+            fontFamily: `'Fredoka One', 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif`,
+            fontSize: 'clamp(26px, 5.5vw, 52px)',
+            margin: `${TK_TITLE_OFFSET_PX}px 0 0 0`,
+            padding: 0
+        });
+
+        // Insert at the top of the PDF content
+        container.prepend(titleEl);
+
+        // === Pull up the first category/section ===
+        const firstSection = container.querySelector('h2, .category-section');
+        if (firstSection) {
+            firstSection.style.marginTop = `${TK_SECTION_PULLUP_PX}px`;
+        }
+
+        return pdfDom;
+    };
+})();
+
