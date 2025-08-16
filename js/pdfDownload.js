@@ -4,9 +4,11 @@
  * ==== EXACT SETUP STEPS (Codex do these in order) ======================================
  * 1) Create /js/pdfDownload.js and paste THIS ENTIRE FILE into it.
  *
- * 2) In compatibility.html <head> (BEFORE any script that imports this file) add:
- *    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
- *    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+ * 2) The module will attempt to load html2canvas and jsPDF automatically if they
+ *    are missing.  You may still include the CDN <script> tags in your page's
+ *    <head> to preload them for faster use:
+ *      <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+ *      <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
  *
  * 3) Make sure the whole survey (ALL categories) is inside ONE container:
  *    <div id="pdf-container">
@@ -37,6 +39,7 @@
  */
 
 import { normalizeKey } from './compatNormalizeKey.js';
+import { loadJsPDF } from './loadJsPDF.js';
 
 /* ================================ CONFIG ================================== */
 const IDS = {
@@ -60,8 +63,31 @@ const CATEGORY_CELL_SEL = 'td:first-child';
 function getJsPDF() {
   return (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
 }
-function assertLibs() {
-  if (!window.html2canvas) throw new Error('html2canvas missing');
+
+async function ensureLibs() {
+  if (!window.html2canvas) {
+    try {
+      await import('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    } catch (err) {
+      console.warn('Failed to load html2canvas:', err);
+    }
+  }
+  if (!window.html2canvas) {
+    console.warn('html2canvas not available; using stub');
+    window.html2canvas = async () => {
+      const message =
+        "HTML-to-canvas library failed to load. Printing the page instead—choose 'Save as PDF' in your browser.";
+      if (typeof alert === 'function') {
+        alert(message);
+        try { window.print && window.print(); } catch {}
+      } else {
+        console.error(message);
+      }
+      return document.createElement('canvas');
+    };
+  }
+
+  await loadJsPDF();
   if (!getJsPDF()) throw new Error('jsPDF missing');
 }
 
@@ -664,7 +690,7 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATIO
 
 /* ============================== EXPORT ENTRY ============================== */
 export async function downloadCompatibilityPDF() {
-  try { assertLibs(); } catch (e) { console.error(e); alert(e.message); return; }
+  try { await ensureLibs(); } catch (e) { console.error(e); alert(e.message); return; }
 
   // Guard: ensure Partner A (Column A) is populated in the live DOM
   if (!partnerAHasData()) {
