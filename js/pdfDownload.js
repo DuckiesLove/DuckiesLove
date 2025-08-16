@@ -159,7 +159,9 @@ window.updateComparison = function(partnerAData = window.partnerAData, partnerBD
     bLookup[normalizeLabel(label)] = score;
   });
 
-  const root = document.querySelector('[data-compat-root]');
+  const root =
+    document.querySelector('[data-compat-root]') ||
+    document.querySelector('#pdf-container');
   if (!root) {
     console.warn('[compat] No root container found.');
     return;
