@@ -547,7 +547,7 @@ How to apply
 
   function downloadCompatibilityPDF(){
     const jsPDFctor = window.jspdf?.jsPDF;
-    if (!jsPDFctor || !window.jspdf?.autoTable){
+    if (!jsPDFctor || !jsPDFctor.API?.autoTable){
       alert('Missing jsPDF and/or AutoTable. Keep the two CDN <script> tags above this block.');
       return;
     }
