@@ -505,6 +505,14 @@ function handleFileUpload(input) {
 
 window.handleFileUpload = handleFileUpload;
 
+// Attach upload handlers for both survey inputs
+['uploadSurveyA', 'uploadSurveyB'].forEach(id => {
+  const input = document.getElementById(id);
+  if (input) {
+    input.addEventListener('change', e => handleFileUpload(e.target));
+  }
+});
+
 
 
 function downloadBlob(blob, filename) {
