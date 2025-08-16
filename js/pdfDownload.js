@@ -692,10 +692,9 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATIO
 export async function downloadCompatibilityPDF() {
   try { await ensureLibs(); } catch (e) { console.error(e); alert(e.message); return; }
 
-  // Guard: ensure Partner A (Column A) is populated in the live DOM
+  // Warn if Partner A (Column A) is empty but continue with PDF generation
   if (!partnerAHasData()) {
-    alert('Partner A (Column A) looks empty. Upload your survey JSON first.');
-    return;
+    console.warn('Partner A (Column A) looks empty; generating PDF anyway.');
   }
 
   const { shell, clone } = makeClone();
@@ -735,8 +734,7 @@ export async function downloadCompatibilityPDF() {
     const fresh = btn.cloneNode(true); btn.replaceWith(fresh);
     fresh.addEventListener('click', async () => {
       if (!partnerAHasData()) {
-        alert('Partner A looks empty. Upload your survey and wait for the table to refresh.');
-        return;
+        console.warn('Partner A looks empty; generating PDF anyway.');
       }
       await downloadCompatibilityPDF();
     });
