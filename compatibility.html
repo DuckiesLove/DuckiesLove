@@ -76,6 +76,8 @@
       background: transparent !important;
     }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
 </head>
 <body class="theme-dark">
   <div class="main-container themed">
@@ -440,47 +442,51 @@
     const f=e.target.files?.[0]; if (!f) return;
     try { window.partnerBSurvey = JSON.parse(await f.text()); } catch {}
     if (window.__compatRunFill) window.__compatRunFill();
-  });
-</script>
-  <!-- ========================= COPY–PASTE THIS WHOLE BLOCK =========================
-Goal: Generate a clean PDF from your on-page comparison table with ONE centered “Talk Kink”
-title (not touching the top). Uses jsPDF + AutoTable. Works even if your table lives inside
-#compat-container OR #pdf-container (or is simply the first visible <table> on the page).
+<!-- ================= COPY–PASTE THIS WHOLE BLOCK (replaces the previous one) ================
+What this fixes
+1) Prevents header wrap/overhang for “Partner A” and “Partner B” by using non-breaking spaces
+   and giving those columns a slightly larger minimum width.
+2) Title-cases every Category cell before it goes to PDF (e.g., “picking head coverings…”
+   → “Picking Head Coverings…”).
+3) Keeps a single centered “Talk Kink” title and tight spacing above the table.
 
-WHAT CODEx SHOULD DO (exact steps)
-1) Open `compatibility.html`.
-2) Scroll to the VERY BOTTOM, just before `</body>`.
-3) Paste this entire block as-is.
-4) Make sure there is a “Download PDF” button on the page:
-     - If you already have one with id="downloadBtn" or [data-download-pdf], you’re done.
-     - If not, add this anywhere in the body: <button id="downloadBtn">Download PDF</button>
-5) Hard refresh the page (Ctrl/Cmd + Shift + R).
-6) Click “Download PDF”. You’ll get a landscape PDF with:
-     - one centered “Talk Kink” title, ~84pt from the top
-     - your table right under it (Category | Partner A | Match | Flag | Partner B)
-     - long Category text wrapped; columns sized dynamically.
-
-Optional later:
-- To use your site font (e.g., Fredoka One), embed it via jsPDF addFileToVFS/addFont then set PDF_FONT = 'FredokaOne'.
-
-=============================================================================== -->
-
-<!-- Required libraries (MUST be above the exporter script) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+How to apply
+- Put these TWO CDN tags near the top of compatibility.html (above this script) if you don’t already have them:
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
+- Paste THIS script just before </body>.
+- Make sure you have a button with id="downloadBtn" (or add: <button id="downloadBtn">Download PDF</button>)
+- Hard refresh and click the button.
+============================================================================================== -->
 
 <script>
 (function(){
   /* ====== TUNABLES ====== */
   const PDF_TITLE   = 'Talk Kink';
-  const PDF_FONT    = 'helvetica';  // Change to your embedded font name if you add one
-  const TITLE_Y     = 84;           // Title baseline from top (increase to move lower)
-  const TITLE_SIZE  = 48;           // Title font size
-  const TABLE_GAP   = 34;           // Distance from title baseline to table
-  const MARGIN_LR   = 36;           // Left/right margins (≈ 0.5")
+  const PDF_FONT    = 'helvetica';
+  const TITLE_Y     = 84;   // move DOWN by increasing; UP by decreasing
+  const TITLE_SIZE  = 54;   // title font size
+  const TABLE_GAP   = 34;   // distance from title to table
+  const MARGIN_LR   = 36;   // left/right margins
   /* ====================== */
 
+  const NBSP = '\u00A0'; // non-breaking space
+
   const norm = s => String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+
+  // Simple Title-Case for Category text
+  function toTitleCase(str){
+    const small = new Set(['a','an','and','as','at','but','by','for','from','in','into','of','on','or','the','to','with','up','via','vs','etc','e.g.','i.e.']);
+    const words = String(str||'').toLowerCase().split(/\s+/);
+    return words.map((w,i) => {
+      const keepLower = i>0 && small.has(w);
+      if (keepLower) return w;
+      // keep punctuation at the end (e.g., “50s)”)
+      const m = w.match(/^([(\[{"']?)(.+?)([)\]"'}]?)$/) || [];
+      const lead = m[1] || '', core = m[2] || w, trail = m[3] || '';
+      return lead + core.charAt(0).toUpperCase() + core.slice(1) + trail;
+    }).join(' ');
+  }
 
   // Find the first visible comparison table
   function findComparisonTable(){
@@ -531,15 +537,17 @@ Optional later:
       const flagCell  = cells[idx.flag];
       const flagAttr  = flagCell?.getAttribute?.('data-flag') || ''; // prefer explicit data-flag if present
       const flagValue = flagAttr || read(idx.flag);
-      return [ read(idx.category), read(idx.a), read(idx.match), flagValue, read(idx.b) ];
+
+      // Title-case Category column here
+      const catTitle = toTitleCase(read(idx.category));
+
+      return [ catTitle, read(idx.a), read(idx.match), flagValue, read(idx.b) ];
     });
   }
 
   function downloadCompatibilityPDF(){
-    // Simple lib checks
     const jsPDFctor = window.jspdf?.jsPDF;
-    const hasAutoTable = jsPDFctor?.API?.autoTable;
-    if (!jsPDFctor || !hasAutoTable){
+    if (!jsPDFctor || !window.jspdf?.autoTable){
       alert('Missing jsPDF and/or AutoTable. Keep the two CDN <script> tags above this block.');
       return;
     }
@@ -553,7 +561,9 @@ Optional later:
 
     // Snapshot current table content
     const body = extractRows(table);
-    const HEAD = ['Category','Partner A','Match','Flag','Partner B'];
+
+    // Use non-breaking spaces to stop header wrap
+    const HEAD = ['Category','Partner'+NBSP+'A','Match','Flag','Partner'+NBSP+'B'];
 
     // Build PDF (Letter, landscape), white text on black background
     const doc = new jsPDFctor({ orientation: 'landscape', unit: 'pt', format: 'letter' });
@@ -570,11 +580,11 @@ Optional later:
     doc.setTextColor(255,255,255);
     doc.text(PDF_TITLE, pageW/2, TITLE_Y, { align: 'center' });
 
-    // Dynamic column widths
+    // Dynamic column widths — give A/Match/Flag/B a slightly larger minimum to avoid wraps
     const availW = pageW - (MARGIN_LR*2);
-    const catW   = Math.max(420, availW * 0.62); // generous Category width
-    const restW  = Math.max(200, availW - catW); // remaining width
-    const eachW  = Math.max(70,  restW / 4);     // A, Match, Flag, B
+    const minEach = 100;                 // bumped up to prevent header overhang
+    const catW   = Math.max(380, availW - minEach*4);
+    const eachW  = Math.max(minEach, (availW - catW) / 4);
 
     const startY = TITLE_Y + TABLE_GAP;
 
@@ -595,10 +605,10 @@ Optional later:
       },
       headStyles: {
         fontStyle: 'bold',
-        fontSize: 14,
+        fontSize: 16,           // big but we keep it on one line with NBSP + wider cols
         textColor: [255,255,255],
-        halign: 'left',
-        fillColor: [0,0,0]
+        fillColor: [0,0,0],
+        overflow: 'hidden'      // never wrap headers
       },
       columnStyles: {
         0: { cellWidth: catW,  halign: 'left'   }, // Category
@@ -606,6 +616,10 @@ Optional later:
         2: { cellWidth: eachW, halign: 'center' }, // Match
         3: { cellWidth: eachW, halign: 'center' }, // Flag
         4: { cellWidth: eachW, halign: 'center' }  // Partner B
+      },
+      didParseCell: (data) => {
+        // Ensure header cells don’t break on space
+        if (data.section === 'head') data.cell.styles.overflow = 'hidden';
       }
     });
 
@@ -618,17 +632,6 @@ Optional later:
     const btn = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
     if (btn) btn.addEventListener('click', downloadCompatibilityPDF);
   });
-
-  // -------- OPTIONAL: embed your own font (e.g., Fredoka One) --------
-  // 1) Convert TTF to Base64 VFS (with jsPDF font converter).
-  // 2) Register once per page load, then set PDF_FONT above to that font name.
-  //
-  // (function registerFredoka(){
-  //   const base64TTF = 'PASTE_BASE64_TTF_HERE';
-  //   const tmp = new (window.jspdf.jsPDF)();
-  //   tmp.addFileToVFS('FredokaOne-Regular.ttf', base64TTF);
-  //   tmp.addFont('FredokaOne-Regular.ttf', 'FredokaOne', 'normal');
-  // })();
 })();
 </script>
 
