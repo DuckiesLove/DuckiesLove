@@ -442,42 +442,47 @@
     if (window.__compatRunFill) window.__compatRunFill();
   });
 </script>
-<!-- =========================
-Talk Kink — PDF Export (ONE DROP-IN)
-Purpose: Create a black-background PDF from your on-page comparison table with ONE centered “Talk Kink” title.
-What it expects on the page: a rendered comparison table with headers that read (case-insensitive):
-  Category | Partner A | Match | Flag | Partner B
-Table can live inside #compat-container or #pdf-container (or be the first visible <table>).
+  <!-- ========================= COPY–PASTE THIS WHOLE BLOCK =========================
+Goal: Generate a clean PDF from your on-page comparison table with ONE centered “Talk Kink”
+title (not touching the top). Uses jsPDF + AutoTable. Works even if your table lives inside
+#compat-container OR #pdf-container (or is simply the first visible <table> on the page).
 
-HOW TO INSTALL (copy this whole block as-is):
-1) Paste this entire snippet near the END of compatibility.html (just before </body>).
-2) Make sure you have a “Download PDF” button somewhere (id="downloadBtn" or data-download-pdf). If not, add:
-   <button id="downloadBtn" type="button">Download PDF</button>
-3) Hard refresh the page (Ctrl/Cmd + Shift + R). Click “Download PDF”.
+WHAT CODEx SHOULD DO (exact steps)
+1) Open `compatibility.html`.
+2) Scroll to the VERY BOTTOM, just before `</body>`.
+3) Paste this entire block as-is.
+4) Make sure there is a “Download PDF” button on the page:
+     - If you already have one with id="downloadBtn" or [data-download-pdf], you’re done.
+     - If not, add this anywhere in the body: <button id="downloadBtn">Download PDF</button>
+5) Hard refresh the page (Ctrl/Cmd + Shift + R).
+6) Click “Download PDF”. You’ll get a landscape PDF with:
+     - one centered “Talk Kink” title, ~84pt from the top
+     - your table right under it (Category | Partner A | Match | Flag | Partner B)
+     - long Category text wrapped; columns sized dynamically.
 
-This exporter:
-- Finds your table automatically (#compat-container → #pdf-container → first visible <table>)
-- Maps columns by header text (so DOM order doesn’t break the export)
-- Centers a single “Talk Kink” title, not touching the top
-- Wraps long Category text; sizes columns dynamically for Letter landscape
-- Keeps the page black with white text (no web layout changes)
-========================= -->
+Optional later:
+- To use your site font (e.g., Fredoka One), embed it via jsPDF addFileToVFS/addFont then set PDF_FONT = 'FredokaOne'.
 
-<!-- REQUIRED LIBS (load once) -->
+=============================================================================== -->
+
+<!-- Required libraries (MUST be above the exporter script) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <script>
 (function(){
+  /* ====== TUNABLES ====== */
   const PDF_TITLE   = 'Talk Kink';
-  const PDF_FONT    = 'helvetica';   // If you embed a custom font (e.g., Fredoka One), change this name and register it below
-  const TITLE_Y     = 84;            // Title baseline from top (increase to move down)
-  const TITLE_SIZE  = 48;            // Title font size
-  const TABLE_GAP   = 34;            // Distance from title baseline to top of table
-  const MARGIN_LR   = 36;            // Left/right margins (≈0.5")
+  const PDF_FONT    = 'helvetica';  // Change to your embedded font name if you add one
+  const TITLE_Y     = 84;           // Title baseline from top (increase to move lower)
+  const TITLE_SIZE  = 48;           // Title font size
+  const TABLE_GAP   = 34;           // Distance from title baseline to table
+  const MARGIN_LR   = 36;           // Left/right margins (≈ 0.5")
+  /* ====================== */
 
   const norm = s => String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
 
+  // Find the first visible comparison table
   function findComparisonTable(){
     const selectors = [
       '#compat-container table:where(:not([hidden]))',
@@ -495,7 +500,7 @@ This exporter:
   function extractRows(table){
     const WANT = ['category','partner a','match','flag','partner b'];
 
-    // Build header index map by text
+    // Map headers by text (case-insensitive)
     const headerRow = table.querySelector('thead tr')
       || Array.from(table.querySelectorAll('tr')).find(r => r.querySelector('th'));
     const map = {};
@@ -511,6 +516,7 @@ This exporter:
     const rows = bodyRows.length ? bodyRows
       : Array.from(table.querySelectorAll('tr')).filter(r => r.querySelectorAll('td').length);
 
+    // Positional fallbacks if some headers weren’t found
     const idx = {
       category:  ('category' in map)   ? map['category']   : 0,
       a:         ('partner a' in map)  ? map['partner a']  : 1,
@@ -523,43 +529,41 @@ This exporter:
       const cells = Array.from(tr.querySelectorAll('td'));
       const read  = i => (cells[i]?.innerText || cells[i]?.textContent || '').trim();
       const flagCell  = cells[idx.flag];
-      const flagAttr  = flagCell?.getAttribute?.('data-flag') || ''; // prefer explicit data-flag
+      const flagAttr  = flagCell?.getAttribute?.('data-flag') || ''; // prefer explicit data-flag if present
       const flagValue = flagAttr || read(idx.flag);
       return [ read(idx.category), read(idx.a), read(idx.match), flagValue, read(idx.b) ];
     });
   }
 
-  // Main exporter
   function downloadCompatibilityPDF(){
-    console.time('[pdf] build');
-    console.info('[pdf] starting…');
-
+    // Simple lib checks
     const jsPDFctor = window.jspdf?.jsPDF;
     if (!jsPDFctor || !window.jspdf?.autoTable){
       alert('Missing jsPDF and/or AutoTable. Keep the two CDN <script> tags above this block.');
-      console.error('[pdf] libs missing');
       return;
     }
 
+    // Locate table
     const table = findComparisonTable();
     if (!table){
       alert('Could not find the comparison table on this page.');
-      console.error('[pdf] table not found');
       return;
     }
 
+    // Snapshot current table content
     const body = extractRows(table);
     const HEAD = ['Category','Partner A','Match','Flag','Partner B'];
 
+    // Build PDF (Letter, landscape), white text on black background
     const doc = new jsPDFctor({ orientation: 'landscape', unit: 'pt', format: 'letter' });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
 
-    // Black background
+    // Paint full black background
     doc.setFillColor(0,0,0);
     doc.rect(0,0,pageW,pageH,'F');
 
-    // Title (single, centered, not touching top)
+    // Title: single, centered, not touching the top
     doc.setFont(PDF_FONT,'bold');
     doc.setFontSize(TITLE_SIZE);
     doc.setTextColor(255,255,255);
@@ -567,13 +571,12 @@ This exporter:
 
     // Dynamic column widths
     const availW = pageW - (MARGIN_LR*2);
-    const catW   = Math.max(420, availW * 0.62); // generous space for Category
+    const catW   = Math.max(420, availW * 0.62); // generous Category width
     const restW  = Math.max(200, availW - catW); // remaining width
-    const eachW  = Math.max(70,  restW / 4);     // Partner A / Match / Flag / Partner B
+    const eachW  = Math.max(70,  restW / 4);     // A, Match, Flag, B
 
     const startY = TITLE_Y + TABLE_GAP;
 
-    // Table render
     doc.autoTable({
       head: [HEAD],
       body,
@@ -587,7 +590,7 @@ This exporter:
         fillColor: [0,0,0],
         lineWidth: 0,
         cellPadding: { top: 5, right: 6, bottom: 5, left: 6 },
-        overflow: 'linebreak'  // wrap long text in Category
+        overflow: 'linebreak'   // wrap long Category text
       },
       headStyles: {
         fontStyle: 'bold',
@@ -600,36 +603,31 @@ This exporter:
         0: { cellWidth: catW,  halign: 'left'   }, // Category
         1: { cellWidth: eachW, halign: 'center' }, // Partner A
         2: { cellWidth: eachW, halign: 'center' }, // Match
-        3: { cellWidth: eachW, halign: 'center' }, // Flag (⭐/🚩 or text)
+        3: { cellWidth: eachW, halign: 'center' }, // Flag
         4: { cellWidth: eachW, halign: 'center' }  // Partner B
       }
     });
 
-    // Save (you can customize the name)
-    // const filename = 'kink-compatibility_' + Date.now() + '.pdf';
-    // doc.save(filename);
     doc.save('kink-compatibility.pdf');
-
-    console.info('[pdf] done.');
-    console.timeEnd('[pdf] build');
   }
 
-  // Expose + wire the button (id="downloadBtn" or [data-download-pdf])
+  // Expose globally & wire button if present
   window.downloadCompatibilityPDF = downloadCompatibilityPDF;
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('downloadBtn') || document.querySelector('[data-download-pdf]');
     if (btn) btn.addEventListener('click', downloadCompatibilityPDF);
   });
 
-  // ---------- OPTIONAL: embed custom font (Fredoka One) ----------
-  // 1) Convert TTF → Base64 VFS (e.g., using jsPDF font converter) and paste below.
-  // 2) Then set PDF_FONT = 'FredokaOne' at the top.
+  // -------- OPTIONAL: embed your own font (e.g., Fredoka One) --------
+  // 1) Convert TTF to Base64 VFS (with jsPDF font converter).
+  // 2) Register once per page load, then set PDF_FONT above to that font name.
   //
-  // const vfsFredoka = 'BASE64_TTF_STRING_GOES_HERE';
-  // const docTmp = new (window.jspdf.jsPDF)();
-  // docTmp.addFileToVFS('FredokaOne-Regular.ttf', vfsFredoka);
-  // docTmp.addFont('FredokaOne-Regular.ttf', 'FredokaOne', 'normal');
-  // (You only need to run the addFileToVFS/addFont once per page load.)
+  // (function registerFredoka(){
+  //   const base64TTF = 'PASTE_BASE64_TTF_HERE';
+  //   const tmp = new (window.jspdf.jsPDF)();
+  //   tmp.addFileToVFS('FredokaOne-Regular.ttf', base64TTF);
+  //   tmp.addFont('FredokaOne-Regular.ttf', 'FredokaOne', 'normal');
+  // })();
 })();
 </script>
 
