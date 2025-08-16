@@ -538,7 +538,8 @@ Optional later:
   function downloadCompatibilityPDF(){
     // Simple lib checks
     const jsPDFctor = window.jspdf?.jsPDF;
-    if (!jsPDFctor || !window.jspdf?.autoTable){
+    const hasAutoTable = jsPDFctor?.API?.autoTable;
+    if (!jsPDFctor || !hasAutoTable){
       alert('Missing jsPDF and/or AutoTable. Keep the two CDN <script> tags above this block.');
       return;
     }
