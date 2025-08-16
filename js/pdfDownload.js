@@ -198,6 +198,10 @@ async function handleUploadA(e) {
     const text = await file.text();
     const parsed = JSON.parse(text);
     window.partnerAData = normalizeSurvey(parsed);
+    if (!window.partnerAData.items.length) {
+      alert('No survey items found. Please check the file format.');
+      return;
+    }
     window.updateComparison(window.partnerAData, window.partnerBData);
   } catch (err) {
     console.error('[compat] Failed to load Partner A:', err);
@@ -212,6 +216,10 @@ async function handleUploadB(e) {
     const text = await file.text();
     const parsed = JSON.parse(text);
     window.partnerBData = normalizeSurvey(parsed);
+    if (!window.partnerBData.items.length) {
+      alert('No survey items found. Please check the file format.');
+      return;
+    }
     window.updateComparison(window.partnerAData, window.partnerBData);
   } catch (err) {
     console.error('[compat] Failed to load Partner B:', err);
