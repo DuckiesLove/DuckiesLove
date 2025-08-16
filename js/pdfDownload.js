@@ -177,12 +177,12 @@ window.updateComparison = function(partnerAData = window.partnerAData, partnerBD
     const scoreA = aLookup[norm] ?? 0;
     const scoreB = bLookup[norm] ?? 0;
 
-    const aCell = row.querySelector('td:nth-child(2)');
-    const bCell = row.querySelector('td:last-child');
+    const aCell = row.querySelector('td.pa, td[data-partner-a]');
+    const bCell = row.querySelector('td.pb, td[data-partner-b]');
     if (aCell) aCell.textContent = scoreA;
     if (bCell) bCell.textContent = scoreB;
 
-    const matchCell = row.querySelector('td:nth-child(3)');
+    const matchCell = row.querySelector('td.match, td[data-match]');
     if (matchCell) {
       const diff = Math.abs(scoreA - scoreB);
       const match = 100 - (diff * 20);
