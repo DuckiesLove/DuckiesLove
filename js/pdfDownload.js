@@ -29,7 +29,7 @@
  *      and call your existing updateComparison() so the table shows Partner A in Column A.
  *    - (Optional) Upload Partner B; updateComparison() will redraw with both partners.
  *    - Click “Download PDF”. This script:
- *        • clones #compat-container (web stays untouched)
+ *        • clones #pdf-container (web stays untouched)
  *        • ensures 5 columns: Category | Partner A | Match | Flag | Partner B
  *        • fills Flag:  ⭐ when Match ≥ 90; 🚩 when Match ≤ 50 OR (A is 4/5 while B is empty) OR vice-versa
  *        • spaces categories (no title cut) + keeps table rows intact across pages
@@ -43,7 +43,7 @@ const IDS = {
   uploadA: '#uploadSurveyA, [data-upload-a]',
   uploadB: '#uploadSurveyB, [data-upload-b]',
   downloadBtn: '#downloadBtn',
-  container: '#compat-container'
+  container: '#pdf-container, #compat-container'
 };
 const PDF_ORIENTATION = 'landscape';  // 'portrait' | 'landscape'
 const STAR_MIN = 90;                   // ⭐ threshold (Match %)
@@ -448,7 +448,7 @@ function partnerAHasData(){
 /* 1) Build safe clone (web page remains untouched) */
 function makeClone(){
   const src = document.querySelector(IDS.container);
-  if (!src) throw new Error('#compat-container not found');
+  if (!src) throw new Error('#pdf-container not found');
 
   const shell = document.createElement('div');
   Object.assign(shell.style,{background:'#000',color:'#fff',margin:0,padding:0,width:'100%',minHeight:'100vh',overflow:'auto'});
