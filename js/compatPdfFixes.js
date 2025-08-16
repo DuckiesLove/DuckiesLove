@@ -7,30 +7,30 @@ export function applyCompatLayoutAndFlags(root = document.getElementById('pdf-co
     style.id = 'compat-pdf-fixes';
     style.textContent = `
   /* Dark theme + reliable widths */
-  #compat-container { background:#000; color:#fff; }
-  #compat-container table.compat { width:100%; table-layout:fixed; border-collapse:collapse; color:#fff; background:#000; }
-  #compat-container table.compat th,
-  #compat-container table.compat td { padding:10px 12px; vertical-align:top; word-break:break-word; }
+  #pdf-container { background:#000; color:#fff; }
+  #pdf-container table.compat { width:100%; table-layout:fixed; border-collapse:collapse; color:#fff; background:#000; }
+  #pdf-container table.compat th,
+  #pdf-container table.compat td { padding:10px 12px; vertical-align:top; word-break:break-word; }
 
   /* Even column widths: [Label | A | Match | Flag | B] */
-  #compat-container table.compat col.label { width:52%; }
-  #compat-container table.compat col.pa    { width:12%; }
-  #compat-container table.compat col.match { width:8%;  }
-  #compat-container table.compat col.flag  { width:8%;  }
-  #compat-container table.compat col.pb    { width:12%; }
+  #pdf-container table.compat col.label { width:52%; }
+  #pdf-container table.compat col.pa    { width:12%; }
+  #pdf-container table.compat col.match { width:8%;  }
+  #pdf-container table.compat col.flag  { width:8%;  }
+  #pdf-container table.compat col.pb    { width:12%; }
 
   /* Remove the "Kink" header label cell text */
-  #compat-container table.compat thead th:first-child { color:transparent; }
+  #pdf-container table.compat thead th:first-child { color:transparent; }
 
   /* Category title row (spans all columns) */
-  #compat-container .category-title {
+  #pdf-container .category-title {
     font-weight:800; font-size:1.2rem;
     border-top:2px solid #333; border-bottom:2px solid #333;
     padding:14px 12px !important;
   }
 
   /* Keep a whole category (title + items) together on one page */
-  #compat-container tbody.category-block { break-inside:avoid; page-break-inside:avoid; }
+  #pdf-container tbody.category-block { break-inside:avoid; page-break-inside:avoid; }
 
   /* Print: keep true black background */
   @media print {

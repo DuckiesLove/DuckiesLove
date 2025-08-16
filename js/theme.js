@@ -135,7 +135,7 @@ export const pdfStyles = `
       color: #fbc02d !important; /* yellow */
     }
 
-    #compat-container {
+    #pdf-container, #compat-container {
       font-size: 11pt;
       line-height: 1.6;
       padding: 1.5em;

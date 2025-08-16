@@ -355,7 +355,7 @@ function renderFlags(root = document) {
 }
 
 function markPartnerALoaded() {
-  const table = document.querySelector('#compat-container table');
+  const table = document.querySelector('#pdf-container table');
   if (!table) return;
 
   const ths = Array.from(table.querySelectorAll('thead th'));
