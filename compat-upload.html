@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Compatibility Upload Test</title>
+</head>
+<body>
+<!-- ======= UI: error surfaces, status, file inputs, and download button ======= -->
+<div id="compat-upload">
+  <div id="globalError" style="display:none;color:#b00020;margin:.5rem 0;"></div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+    <label>
+      <strong>Survey A (Partner A):</strong>
+      <input id="uploadA" type="file" accept="application/json,.json" />
+    </label>
+    <span id="statusA" style="font-size:.9rem;color:#666">No file</span>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-top:.5rem">
+    <label>
+      <strong>Survey B (Partner B):</strong>
+      <input id="uploadB" type="file" accept="application/json,.json" />
+    </label>
+    <span id="statusB" style="font-size:.9rem;color:#666">No file</span>
+  </div>
+
+  <button id="downloadBtn" disabled style="margin-top:.75rem">Download Compatibility PDF</button>
+</div>
+
+<script>
+/* =====================================================================
+   Robust, symmetric upload pipeline for Survey A & B
+   - Parses a wide range of JSON shapes
+   - Validates & shows per-survey status
+   - Enables "Download" only when BOTH surveys have numeric items
+   - No alerts; messages shown inline
+   ===================================================================== */
+
+let partnerAData = null;
+let partnerBData = null;
+
+const NAME_KEYS  = ["id","key","name","label","title","slug"];
+const SCORE_KEYS = ["rating","score","value","val","points","level"];
+
+/* ---------- helpers ---------- */
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function pick(obj, keys) { for (const k of keys) if (obj && Object.prototype.hasOwnProperty.call(obj, k)) return obj[k]; }
+function toNumberish(v) {
+  if (typeof v === "number" && !Number.isNaN(v)) return v;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (/^\d+%$/.test(t)) return Number(t.slice(0, -1)) / 20;      // e.g. "80%" -> 4.0 on 0–5
+    if (/^\d+\s*\/\s*\d+$/.test(t)) return Number(t.split("/")[0]); // e.g. "4/5" -> 4
+    const n = Number(t);
+    if (!Number.isNaN(n)) return n;
+  }
+  return null;
+}
+
+/* Accepts varied row shapes and returns {id,label,score} or null */
+function mapRow(row) {
+  if (!row || typeof row !== "object") return null;
+  const candidate = ["", "item", "question", "meta", "data"]
+    .map(prefix => prefix ? row[prefix] : row)
+    .find(v => v && typeof v === "object") || row;
+
+  const nameLike  = pick(candidate, NAME_KEYS);
+  const scoreLike = pick(candidate, SCORE_KEYS);
+
+  const idRaw = (typeof nameLike === "string" ? nameLike : String(nameLike ?? "")).trim();
+  if (!idRaw) return null;
+
+  const score = toNumberish(scoreLike);
+  return { id: idRaw, label: idRaw, score };
+}
+
+/* Accept {items:[...]}, {answers:[...]}, {data:[...]}, bare array, or first array found */
+function normalizeSurvey(json) {
+  let rows = [];
+  if (Array.isArray(json)) rows = json;
+  else if (Array.isArray(json?.items)) rows = json.items;
+  else if (Array.isArray(json?.answers)) rows = json.answers;
+  else if (Array.isArray(json?.data)) rows = json.data;
+  else if (json && typeof json === "object") {
+    const firstArray = Object.values(json).find(v => Array.isArray(v));
+    if (Array.isArray(firstArray)) rows = firstArray;
+  }
+  if (!Array.isArray(rows)) rows = [];
+
+  const items = [];
+  let missingScores = 0;
+  for (const r of rows) {
+    const m = mapRow(r);
+    if (!m) continue;
+    if (typeof m.score !== "number") missingScores++;
+    items.push({ id: m.id, label: m.label, score: m.score });
+  }
+  return { items, missingScores };
+}
+
+function validateNormalized(n) {
+  const errors = [];
+  if (!n.items.length) errors.push("No recognizable items with names/ids were found.");
+  const scored = n.items.filter(i => typeof i.score === "number");
+  if (n.items.length && !scored.length) errors.push("Items found, but none contained numeric scores.");
+  return { errors, scoredCount: scored.length, total: n.items.length, missing: n.missingScores };
+}
+
+/* ---------- UI feedback ---------- */
+function setGlobalError(msgs) {
+  const box = document.getElementById("globalError");
+  if (!box) return;
+  if (!msgs || msgs.length === 0) { box.style.display = "none"; box.innerHTML = ""; return; }
+  box.style.display = "block";
+  box.innerHTML = msgs.map(m => `<div>• ${escapeHtml(m)}</div>`).join("");
+}
+
+function setStatus(which, text, isOK) {
+  const el = document.getElementById(which === "A" ? "statusA" : "statusB");
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = isOK ? "#1b5e20" : "#b00020";
+}
+
+/* Enable download only when BOTH A and B have at least one numeric score */
+function updateUIStates() {
+  const btn = document.getElementById("downloadBtn");
+  const aOk = !!(partnerAData?.items?.some(i => typeof i.score === "number"));
+  const bOk = !!(partnerBData?.items?.some(i => typeof i.score === "number"));
+  btn.disabled = !(aOk && bOk);
+  if (!aOk || !bOk) {
+    setGlobalError([]);
+  }
+}
+
+/* ---------- Public upload handlers: wired to both inputs ---------- */
+async function handleUpload(file, which) {
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+
+    const normalized = normalizeSurvey(json);
+    const { errors, scoredCount, total, missing } = validateNormalized(normalized);
+
+    // Store by partner
+    if (which === "A") partnerAData = normalized;
+    else partnerBData = normalized;
+
+    // Update comparison table right away (no-op if you haven’t built it)
+    updateComparison();
+
+    if (errors.length) {
+      setStatus(which, `Loaded ${total} items (${scoredCount} scored). Issues: ${errors.join(" ")}`, false);
+    } else {
+      const warn = missing ? ` • ${missing} item(s) missing scores → shown as N/A` : "";
+      setStatus(which, `✅ Loaded ${total} items, ${scoredCount} scored${warn}`, true);
+    }
+
+    updateUIStates();
+    console.info(`[Upload ${which}]`, { total, scoredCount, missing, errors });
+
+  } catch (e) {
+    setStatus(which, `Invalid JSON for Survey ${which}. ${e.message}`, false);
+    updateUIStates();
+  }
+}
+
+/* ---------- Table injection (safe if you already have a table) ---------- */
+function updateComparison() {
+  const rows = document.querySelectorAll("[data-kink-id]");
+  if (!rows.length) return;
+
+  const aMap = new Map((partnerAData?.items || []).map(i => [i.id, i]));
+  const bMap = new Map((partnerBData?.items || []).map(i => [i.id, i]));
+
+  rows.forEach(tr => {
+    const id = tr.getAttribute("data-kink-id");
+    const a = aMap.get(id);
+    const b = bMap.get(id);
+
+    const aCell = tr.querySelector("[data-cell='A']");
+    if (aCell) aCell.textContent = typeof a?.score === "number" ? String(a.score) : "N/A";
+
+    const bCell = tr.querySelector("[data-cell='B']");
+    if (bCell) bCell.textContent = typeof b?.score === "number" ? String(b.score) : "N/A";
+
+    const matchCell = tr.querySelector("[data-cell='Match']");
+    if (matchCell) {
+      if (typeof a?.score === "number" && typeof b?.score === "number") {
+        const diff = Math.abs(a.score - b.score);
+        const pct = Math.max(0, 100 - (diff / 5) * 100);
+        matchCell.textContent = `${Math.round(pct)}%`;
+      } else {
+        matchCell.textContent = "N/A";
+      }
+    }
+
+    const flagCell = tr.querySelector("[data-cell='Flag']");
+    if (flagCell) {
+      if (typeof a?.score === "number" && typeof b?.score === "number") {
+        flagCell.textContent = Math.abs(a.score - b.score) >= 3 ? "🚩" : "";
+      } else {
+        flagCell.textContent = "";
+      }
+    }
+  });
+}
+
+/* ---------- PDF guard (plug in your jsPDF code where indicated) ---------- */
+async function downloadCompatibilityPDF() {
+  const aOk = partnerAData?.items?.some(i => typeof i.score === "number");
+  const bOk = partnerBData?.items?.some(i => typeof i.score === "number");
+  if (!aOk || !bOk) {
+    setGlobalError(["You need valid scores for both Survey A and Survey B before generating the PDF."]);
+    return;
+  }
+
+  // --- Your jsPDF export goes here ---
+  // const { jsPDF } = window.jspdf;
+  // const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+  // doc.text("Talk Kink Compatibility Report", 40, 40);
+  // ... build from DOM or partnerAData/partnerBData ...
+  // doc.save("compatibility.pdf");
+}
+
+/* ---------- Wire up inputs & button ---------- */
+document.getElementById("uploadA")?.addEventListener("change", e => handleUpload(e.target.files?.[0], "A"));
+document.getElementById("uploadB")?.addEventListener("change", e => handleUpload(e.target.files?.[0], "B"));
+document.getElementById("downloadBtn")?.addEventListener("click", downloadCompatibilityPDF);
+
+</script>
+</body>
+</html>
