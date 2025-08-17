@@ -64,27 +64,30 @@ function getJsPDF() {
   return (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
 }
 
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error('Failed to load script: ' + src));
+    document.head.appendChild(el);
+  });
+}
+
 async function ensureLibs() {
   if (!window.html2canvas) {
     try {
-      await import('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-    } catch (err) {
-      console.warn('Failed to load html2canvas:', err);
+      await loadScript('/lib/html2canvas.min.js');
+    } catch {
+      try {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      } catch {
+        throw new Error('html2canvas failed to load. PDF export unavailable.');
+      }
     }
   }
   if (!window.html2canvas) {
-    console.warn('html2canvas not available; using stub');
-    window.html2canvas = async () => {
-      const message =
-        "HTML-to-canvas library failed to load. Printing the page instead—choose 'Save as PDF' in your browser.";
-      if (typeof alert === 'function') {
-        alert(message);
-        try { window.print && window.print(); } catch {}
-      } else {
-        console.error(message);
-      }
-      return document.createElement('canvas');
-    };
+    throw new Error('html2canvas failed to load. PDF export unavailable.');
   }
 
   await loadJsPDF();
