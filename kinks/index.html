@@ -93,6 +93,7 @@
   <!-- Panel Container (still hidden until needed) -->
   <div id="panelContainer" class="panel-container" style="display:none;"></div>
 
+  <script src="/js/template-survey.js"></script>
   <!-- Theme Handling -->
   <script type="module">
     import { initTheme, applyThemeColors } from '../js/theme.js';
@@ -204,7 +205,27 @@
     }
 
     async function renderSurvey(selectedNames) {
-      const allData = await fetch('../template-survey.json').then(res => res.json());
+      let allData;
+      if (location.protocol.startsWith('http')) {
+        try {
+          const res = await fetch('../template-survey.json', { cache: 'no-store' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          allData = await res.json();
+        } catch (err) {
+          if (window.templateSurvey) {
+            console.warn('Failed to load template, using embedded copy:', err);
+            allData = window.templateSurvey;
+          } else {
+            alert('Failed to load template: ' + err.message);
+            return;
+          }
+        }
+      } else if (window.templateSurvey) {
+        allData = window.templateSurvey;
+      } else {
+        alert('Failed to load template: unsupported protocol');
+        return;
+      }
       surveyCategories = selectedNames.map(name => ({
         name,
         kinks: [
