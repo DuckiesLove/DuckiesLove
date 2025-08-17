@@ -352,14 +352,14 @@ if (fileBInput) {
 }
 
 function updateComparison() {
-  const container = document.getElementById('compatibility-report');
+  const container = document.getElementById('pdf-container');
   const msg = document.getElementById('comparisonResult');
   if (!surveyA || !surveyB) {
-    msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
+    if (msg) msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
     if (container) container.innerHTML = '';
     return;
   }
-  msg.textContent = '';
+  if (msg) msg.textContent = '';
   if (!container) return;
 
   const categories = buildCategoryComparison(surveyA, surveyB);

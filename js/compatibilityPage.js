@@ -379,18 +379,24 @@ function markPartnerALoaded() {
 }
 
 function updateComparison() {
-  const container = document.getElementById('compatibility-report');
+  const container = document.getElementById('pdf-container');
   const msg = document.getElementById('comparisonResult');
+
+  if (!container) {
+    console.warn('[compat] No results container found');
+    return;
+  }
+
   if (!surveyA) {
-    msg.textContent = surveyB ? 'Please upload both surveys to compare.' : '';
+    if (msg) msg.textContent = surveyB ? 'Please upload both surveys to compare.' : '';
     container.innerHTML = '';
     lastResult = null;
     return;
   }
 
   if (!surveyB) {
-    msg.textContent = 'Partner B data missing. Showing Partner A results only.';
-  } else {
+    if (msg) msg.textContent = 'Partner B data missing. Showing Partner A results only.';
+  } else if (msg) {
     msg.textContent = '';
   }
 
