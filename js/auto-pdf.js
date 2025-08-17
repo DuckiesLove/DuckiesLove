@@ -55,7 +55,10 @@ const PAGE_BREAK_CATEGORIES = new Set([
 ]);
 
 function parseSurveyJSON(text) {
-  const clean = text.replace(/^\uFEFF/, '').trim();
+  const clean = text
+    .replace(/^\uFEFF/, '')
+    .replace(/\u0000/g, '')
+    .trim();
   try {
     return JSON.parse(clean);
   } catch {

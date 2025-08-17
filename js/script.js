@@ -53,7 +53,10 @@ const HIGH_INTENSITY_WARNING =
   'The High-Intensity Kinks category includes intense but SSC-aware kink options that require strong negotiation, emotional readiness, and safe aftercare. Only explore if you feel prepared.';
 
 function parseSurveyJSON(text) {
-  const clean = text.replace(/^\uFEFF/, '').trim();
+  const clean = text
+    .replace(/^\uFEFF/, '')
+    .replace(/\u0000/g, '')
+    .trim();
   try {
     return JSON.parse(clean);
   } catch {
