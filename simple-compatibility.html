@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Compatibility Module</title>
+</head>
+<body>
+<!-- Compatibility Module -->
+<div style="margin:1em 0;display:flex;flex-direction:column;gap:0.5em">
+  <label>
+    Upload Survey A:
+    <input type="file" id="uploadA" accept=".json" />
+  </label>
+  <div id="statusA" aria-live="polite"></div>
+
+  <label>
+    Upload Survey B:
+    <input type="file" id="uploadB" accept=".json" />
+  </label>
+  <div id="statusB" aria-live="polite"></div>
+
+  <button id="downloadBtn" disabled>Download Compatibility Report</button>
+  <div id="globalError" style="color:#f66"></div>
+</div>
+
+<table border="1" style="margin-top:1em; border-collapse:collapse; min-width:360px;">
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Partner A</th>
+      <th>Match</th>
+      <th>Partner B</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<script>
+/* ---- CONFIG ---- */
+const ID_ALIAS = {
+  "Choosing my partner’s outfit for the day or a scene": "choose_outfit",
+  "Selecting their underwear, lingerie, or base layers": "select_underwear",
+  "Styling their hair (braiding, brushing, tying, etc.)": "style_hair",
+  "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": "head_coverings",
+  "Offering makeup, polish, or accessories as part of ritual or play": "makeup_accessories",
+  "Creating themed looks (slutty, innocent, doll–like, sharp, etc.)": "themed_looks",
+  "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "costumes",
+  "Curating time-period or historical outfits (e.g., Victorian, 50s)": "historical_outfits",
+  "Helping them present more femme, masc, or androgynous by request": "presentation_help"
+  // add more mappings here
+};
+
+/* ---- GLOBAL STATE ---- */
+let partnerAData = [];
+let partnerBData = [];
+let globalErrors = [];
+
+/* ---- HELPERS ---- */
+function safeParseJson(text) {
+  try {
+    const clean = text.replace(/^\uFEFF/, "")
+      .replace(/[\u201C\u201D]/g,'"')
+      .replace(/[\u2018\u2019]/g,"'")
+      .replace(/,\s*([}\]])/g,"$1");
+    return JSON.parse(clean);
+  } catch(e) {
+    return null;
+  }
+}
+
+function mapLabelToId(label) {
+  if (!label) return null;
+  if (ID_ALIAS[label]) return ID_ALIAS[label];
+  let norm = label.toLowerCase().replace(/[^a-z0-9]+/g,"_");
+  return norm;
+}
+
+function normalizeSurvey(json) {
+  let items = [];
+  function pushEntry(label, score) {
+    const id = mapLabelToId(label);
+    if (id && !isNaN(score)) items.push({id, label, score: Number(score)});
+  }
+  if (Array.isArray(json)) {
+    json.forEach(e => {
+      const label = e.label || e.name || e.id;
+      let val = e.value ?? e.score ?? e.rating;
+      if (typeof val === "string" && val.includes("/")) {
+        let [a,b] = val.split("/").map(Number);
+        val = b ? (a/b*5) : NaN;
+      }
+      pushEntry(label, val);
+    });
+  } else if (typeof json === "object") {
+    Object.entries(json).forEach(([k,v])=>{
+      if (typeof v === "object") {
+        const label = v.label||v.name||k;
+        pushEntry(label, v.value ?? v.score ?? v.rating);
+      } else {
+        pushEntry(k,v);
+      }
+    });
+  }
+  return items;
+}
+
+function ensureRowExists(id,label) {
+  let row = document.querySelector(`tr[data-kink-id="${id}"]`);
+  if (!row) {
+    const tbody = document.querySelector("table tbody") || document.querySelector("table");
+    row = document.createElement("tr");
+    row.setAttribute("data-kink-id",id);
+    row.innerHTML = `
+      <td>${label}</td>
+      <td data-cell="A"></td>
+      <td data-cell="match"></td>
+      <td data-cell="B"></td>`;
+    tbody.appendChild(row);
+  }
+  return row;
+}
+
+function updateComparison() {
+  document.querySelectorAll("tr[data-kink-id]").forEach(tr=>{
+    tr.querySelector('[data-cell="A"]').textContent="";
+    tr.querySelector('[data-cell="B"]').textContent="";
+    tr.querySelector('[data-cell="match"]').textContent="";
+  });
+
+  const byId = {};
+  partnerAData.forEach(e=>{ byId[e.id] = byId[e.id]||{}; byId[e.id].A=e; });
+  partnerBData.forEach(e=>{ byId[e.id] = byId[e.id]||{}; byId[e.id].B=e; });
+
+  Object.entries(byId).forEach(([id,vals])=>{
+    const label = vals.A?.label || vals.B?.label || id;
+    const row = ensureRowExists(id,label);
+    if (vals.A) row.querySelector('[data-cell="A"]').textContent=vals.A.score;
+    if (vals.B) row.querySelector('[data-cell="B"]').textContent=vals.B.score;
+    if (vals.A && vals.B) {
+      const diff=Math.abs(vals.A.score-vals.B.score);
+      const pct=Math.max(0,100-(diff*20));
+      row.querySelector('[data-cell="match"]').textContent=pct+"%";
+      if(pct>=80) row.querySelector('[data-cell="match"]').style.color="lightgreen";
+      else if(pct<=40) row.querySelector('[data-cell="match"]').style.color="tomato";
+      else row.querySelector('[data-cell="match"]').style.color="";
+    }
+  });
+  updateDownloadEnabled();
+}
+
+function setStatus(which,msg){ document.getElementById("status"+which).textContent=msg; }
+function setGlobalError(msg){ globalErrors.push(msg); document.getElementById("globalError").textContent=globalErrors.join("; "); }
+function updateDownloadEnabled(){
+  document.getElementById("downloadBtn").disabled = !(partnerAData.length && partnerBData.length);
+}
+
+/* ---- HANDLERS ---- */
+function handleUpload(file,who){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const json=safeParseJson(e.target.result);
+    if(!json){ setStatus(who,"Invalid JSON"); return; }
+    const items=normalizeSurvey(json);
+    if(!items.length){ setStatus(who,"No valid items"); return; }
+    if(who==="A") partnerAData=items;
+    else partnerBData=items;
+    setStatus(who,`Loaded ${items.length} items`);
+    updateComparison();
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById("uploadA").addEventListener("change",e=>{
+  if(e.target.files[0]) handleUpload(e.target.files[0],"A");
+});
+document.getElementById("uploadB").addEventListener("change",e=>{
+  if(e.target.files[0]) handleUpload(e.target.files[0],"B");
+});
+
+document.getElementById("downloadBtn").addEventListener("click",()=>{
+  if(!partnerAData.length||!partnerBData.length) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:"landscape"});
+  doc.text("Compatibility Report",14,16);
+  const body=[];
+  document.querySelectorAll("tr[data-kink-id]").forEach(tr=>{
+    const tds=tr.querySelectorAll("td");
+    if(tds.length>=4){
+      body.push([tds[0].innerText,tds[1].innerText,tds[2].innerText,tds[3].innerText]);
+    }
+  });
+  doc.autoTable({head:[["Category","Partner A","Match","Partner B"]], body});
+  doc.save("compatibility.pdf");
+});
+</script>
+</body>
+</html>
+
