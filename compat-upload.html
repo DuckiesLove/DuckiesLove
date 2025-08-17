@@ -158,6 +158,45 @@ function updateUIStates() {
   }
 }
 
+// Escape an arbitrary id for use in querySelector
+function cssEscape(str){
+  return String(str).replace(/["\\#.:><~+^$[\]|(){}=]/g, "\\$&");
+}
+
+// Ensure a table row exists for a given id; creates one if missing
+function ensureRowExists(id, label){
+  let tbody = document.querySelector('tbody');
+  if (!tbody){
+    const anyRow = document.querySelector('[data-kink-id]');
+    if (anyRow) tbody = anyRow.parentElement;
+    else return null;
+  }
+  let row = document.querySelector(`[data-kink-id="${cssEscape(id)}"]`);
+  if (row) return row;
+
+  row = document.createElement('tr');
+  row.setAttribute('data-kink-id', id);
+
+  const tdLabel = document.createElement('td');
+  tdLabel.textContent = label || id;
+
+  const tdA = document.createElement('td');
+  tdA.setAttribute('data-cell','A');
+  tdA.textContent = 'N/A';
+
+  const tdMatch = document.createElement('td');
+  tdMatch.setAttribute('data-cell','Match');
+  tdMatch.textContent = 'N/A';
+
+  const tdB = document.createElement('td');
+  tdB.setAttribute('data-cell','B');
+  tdB.textContent = 'N/A';
+
+  row.append(tdLabel, tdA, tdMatch, tdB);
+  tbody.appendChild(row);
+  return row;
+}
+
 /* ---------- Public upload handlers: wired to both inputs ---------- */
 async function handleUpload(file, which) {
   if (!file) return;
@@ -197,45 +236,58 @@ async function handleUpload(file, which) {
   }
 }
 
-/* ---------- Table injection (safe if you already have a table) ---------- */
+/* ---------- Table injection (creates missing rows when needed) ---------- */
 function updateComparison() {
-  const rows = document.querySelectorAll("[data-kink-id]");
-  if (!rows.length) return;
+  const aItems = partnerAData?.items || [];
+  const bItems = partnerBData?.items || [];
+  const aMap = new Map(aItems.map(i => [i.id, i]));
+  const bMap = new Map(bItems.map(i => [i.id, i]));
 
-  const aMap = new Map((partnerAData?.items || []).map(i => [i.id, i]));
-  const bMap = new Map((partnerBData?.items || []).map(i => [i.id, i]));
+  const ids = new Set([...aMap.keys(), ...bMap.keys()]);
+  let updated = 0;
 
-  rows.forEach(tr => {
-    const id = tr.getAttribute("data-kink-id");
+  ids.forEach(id => {
     const a = aMap.get(id);
     const b = bMap.get(id);
+    const label = a?.label || b?.label || id;
 
-    const aCell = tr.querySelector("[data-cell='A']");
-    if (aCell) aCell.textContent = typeof a?.score === "number" ? String(a.score) : "N/A";
+    let tr = document.querySelector(`[data-kink-id="${cssEscape(id)}"]`);
+    if (!tr) tr = ensureRowExists(id, label);
+    if (!tr) return; // still nothing to attach to
 
-    const bCell = tr.querySelector("[data-cell='B']");
-    if (bCell) bCell.textContent = typeof b?.score === "number" ? String(b.score) : "N/A";
+    const aCell = tr.querySelector('[data-cell="A"]');
+    if (aCell) aCell.textContent = typeof a?.score === 'number' ? String(a.score) : 'N/A';
 
-    const matchCell = tr.querySelector("[data-cell='Match']");
+    const bCell = tr.querySelector('[data-cell="B"]');
+    if (bCell) bCell.textContent = typeof b?.score === 'number' ? String(b.score) : 'N/A';
+
+    const matchCell = tr.querySelector('[data-cell="Match"]');
     if (matchCell) {
-      if (typeof a?.score === "number" && typeof b?.score === "number") {
+      if (typeof a?.score === 'number' && typeof b?.score === 'number') {
         const diff = Math.abs(a.score - b.score);
         const pct = Math.max(0, 100 - (diff / 5) * 100);
         matchCell.textContent = `${Math.round(pct)}%`;
       } else {
-        matchCell.textContent = "N/A";
+        matchCell.textContent = 'N/A';
       }
     }
 
-    const flagCell = tr.querySelector("[data-cell='Flag']");
+    const flagCell = tr.querySelector('[data-cell="Flag"]');
     if (flagCell) {
-      if (typeof a?.score === "number" && typeof b?.score === "number") {
-        flagCell.textContent = Math.abs(a.score - b.score) >= 3 ? "🚩" : "";
+      if (typeof a?.score === 'number' && typeof b?.score === 'number') {
+        flagCell.textContent = Math.abs(a.score - b.score) >= 3 ? '🚩' : '';
       } else {
-        flagCell.textContent = "";
+        flagCell.textContent = '';
       }
     }
+    updated++;
   });
+
+  if (!updated) {
+    setGlobalError(['No matching rows were found or created. Check your ID_ALIAS mappings or table structure.']);
+  } else {
+    setGlobalError([]);
+  }
 }
 
 /* ---------- PDF guard (plug in your jsPDF code where indicated) ---------- */
