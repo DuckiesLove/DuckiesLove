@@ -438,7 +438,7 @@ if (roleDefinitionsBtn) roleDefinitionsBtn.addEventListener('click', showRolePan
 if (closeRoleDefinitionsBtn) closeRoleDefinitionsBtn.addEventListener('click', hideRolePanel);
 if (roleDefinitionsOverlay) roleDefinitionsOverlay.addEventListener('click', hideRolePanel);
 
-function startNewSurvey() {
+async function startNewSurvey() {
   guidedMode = true;
   if (surveyIntro) surveyIntro.style.display = 'none';
   if (newSurveyBtn) newSurveyBtn.style.display = 'none';
@@ -460,20 +460,20 @@ function startNewSurvey() {
   const initialize = data => initializeSurvey(data);
 
   if (location.protocol.startsWith('http')) {
-    fetch('../template-survey.json', { cache: 'no-store' })
-      .then(res => res.json())
-      .then(data => {
-        window.templateSurvey = normalizeSurveyFormat(data);
+    try {
+      const res = await fetch('../template-survey.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      window.templateSurvey = normalizeSurveyFormat(data);
+      initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
+    } catch (err) {
+      if (window.templateSurvey) {
+        console.warn('Failed to load template, using embedded copy:', err);
         initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
-      })
-      .catch(err => {
-        if (window.templateSurvey) {
-          console.warn('Failed to load template, using embedded copy:', err);
-          initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
-        } else {
-          alert('Failed to load template: ' + err.message);
-        }
-      });
+      } else {
+        alert('Failed to load template: ' + err.message);
+      }
+    }
   } else if (window.templateSurvey) {
     // When opened directly from the file system, use the embedded template
     initialize(JSON.parse(JSON.stringify(window.templateSurvey)));
