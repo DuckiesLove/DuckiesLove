@@ -30,7 +30,7 @@ function renderKinkSection(title, g, r, n) {
 
 // Example usage
 document.addEventListener('DOMContentLoaded', () => {
-  const el = document.getElementById('compatibility-report');
+  const el = document.getElementById('pdf-container');
   if (el) {
     el.innerHTML += renderKinkSection('Nipple clips', 5, 5, 0);
   }
