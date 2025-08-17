@@ -29,6 +29,7 @@
 </div>
 
 <script>
+(function(){
 /* =====================================================================
    Robust, symmetric upload pipeline for Survey A & B
    - Parses a wide range of JSON shapes
@@ -43,17 +44,22 @@ let partnerBData = null;
 const NAME_KEYS  = ["id","key","name","label","title","slug"];
 const SCORE_KEYS = ["rating","score","value","val","points","level"];
 
+/* If your <tr> ids differ from the JSON keys, map them here */
+const ID_ALIAS = new Map([
+  // ["JSON key", "your data-kink-id value"],
+]);
+
 /* ---------- helpers ---------- */
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m]))}
 function pick(obj, keys) { for (const k of keys) if (obj && Object.prototype.hasOwnProperty.call(obj, k)) return obj[k]; }
 function toNumberish(v) {
-  if (typeof v === "number" && !Number.isNaN(v)) return v;
+  if (typeof v === "number" && !Number.isNaN(v)) return v > 5 && v <= 10 ? v / 2 : v;
   if (typeof v === "string") {
     const t = v.trim();
     if (/^\d+%$/.test(t)) return Number(t.slice(0, -1)) / 20;      // e.g. "80%" -> 4.0 on 0–5
     if (/^\d+\s*\/\s*\d+$/.test(t)) return Number(t.split("/")[0]); // e.g. "4/5" -> 4
     const n = Number(t);
-    if (!Number.isNaN(n)) return n;
+    if (!Number.isNaN(n)) return n > 5 && n <= 10 ? n / 2 : n;      // handle 1–10 scales
   }
   return null;
 }
@@ -72,12 +78,14 @@ function mapRow(row) {
   if (!idRaw) return null;
 
   const score = toNumberish(scoreLike);
-  return { id: idRaw, label: idRaw, score };
+  const id = ID_ALIAS.get(idRaw) || idRaw;
+  return { id, label: idRaw, score };
 }
 
-/* Accept {items:[...]}, {answers:[...]}, {data:[...]}, bare array, or first array found */
+/* Accept {items:[...]}, {answers:[...]}, {data:[...]}, bare array, first array found, or plain object map */
 function normalizeSurvey(json) {
   let rows = [];
+  let usingObjectMap = false;
   if (Array.isArray(json)) rows = json;
   else if (Array.isArray(json?.items)) rows = json.items;
   else if (Array.isArray(json?.answers)) rows = json.answers;
@@ -85,16 +93,30 @@ function normalizeSurvey(json) {
   else if (json && typeof json === "object") {
     const firstArray = Object.values(json).find(v => Array.isArray(v));
     if (Array.isArray(firstArray)) rows = firstArray;
+    else {
+      usingObjectMap = true;
+      rows = Object.entries(json);
+    }
   }
-  if (!Array.isArray(rows)) rows = [];
+  if (!rows) rows = [];
 
   const items = [];
   let missingScores = 0;
-  for (const r of rows) {
-    const m = mapRow(r);
-    if (!m) continue;
-    if (typeof m.score !== "number") missingScores++;
-    items.push({ id: m.id, label: m.label, score: m.score });
+
+  if (usingObjectMap) {
+    for (const [k, v] of rows) {
+      const score = toNumberish(v);
+      if (typeof score !== "number") missingScores++;
+      const id = ID_ALIAS.get(k) || k;
+      items.push({ id, label: k, score });
+    }
+  } else {
+    for (const r of rows) {
+      const m = mapRow(r);
+      if (!m) continue;
+      if (typeof m.score !== "number") missingScores++;
+      items.push({ id: m.id, label: m.label, score: m.score });
+    }
   }
   return { items, missingScores };
 }
@@ -116,11 +138,13 @@ function setGlobalError(msgs) {
   box.innerHTML = msgs.map(m => `<div>• ${escapeHtml(m)}</div>`).join("");
 }
 
-function setStatus(which, text, isOK) {
+function setStatus(which, text, state) {
   const el = document.getElementById(which === "A" ? "statusA" : "statusB");
   if (!el) return;
   el.textContent = text;
-  el.style.color = isOK ? "#1b5e20" : "#b00020";
+  if (state === true) el.style.color = "#1b5e20";
+  else if (state === false) el.style.color = "#b00020";
+  else el.style.color = "#666";
 }
 
 /* Enable download only when BOTH A and B have at least one numeric score */
@@ -138,9 +162,14 @@ function updateUIStates() {
 async function handleUpload(file, which) {
   if (!file) return;
 
+  setStatus(which, "Loading...", null);
+  await new Promise(r => setTimeout(r));
+
   try {
     const text = await file.text();
+    await new Promise(r => setTimeout(r));
     const json = JSON.parse(text);
+    await new Promise(r => setTimeout(r));
 
     const normalized = normalizeSurvey(json);
     const { errors, scoredCount, total, missing } = validateNormalized(normalized);
@@ -231,6 +260,7 @@ document.getElementById("uploadA")?.addEventListener("change", e => handleUpload
 document.getElementById("uploadB")?.addEventListener("change", e => handleUpload(e.target.files?.[0], "B"));
 document.getElementById("downloadBtn")?.addEventListener("click", downloadCompatibilityPDF);
 
+})();
 </script>
 </body>
 </html>
