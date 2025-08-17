@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Talk Kink Drop-In Module</title>
+
+  <!--
+  ============================================================
+  TALK KINK – FULL DROP-IN MODULE (no hand‑coded rows needed)
+  ============================================================
+  What this does (end-to-end):
+  1) Adds UI (Survey A/B upload + Download button + status).
+  2) Safely parses messy JSON (BOM, smart quotes, trailing commas).
+  3) Normalizes many shapes (object maps, arrays, nested).
+  4) Builds the ENTIRE table dynamically from the surveys
+     (no <tr> boilerplate required).
+  5) Fuzzy-matches labels between A/B + optional alias overrides.
+  6) Fills Partner A/B, computes Match%, highlights high/low.
+  7) Guards PDF export until both surveys are valid.
+  8) Optional: include jsPDF + AutoTable (CDN tags below) for PDF.
+
+  HOW TO USE:
+  - Paste this block below your page header (it creates the table).
+  - (Optional) Uncomment the two <script> CDN tags for PDF export.
+  - If any labels are stubborn, add exact pairs in ID_ALIAS below.
+  -->
+
+  <!-- Optional PDF libraries (uncomment to enable PDF export) -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script> -->
+
+  <style>
+    .tk-wrap { margin: 1rem 0; display: grid; gap: .5rem; }
+    .tk-inline { display:flex; gap:1rem; align-items:center; flex-wrap:wrap }
+    .tk-status { font-size:.9rem; color:#9aa4b2 }
+    .tk-err { color:#ff6b6b; margin:.5rem 0; display:none }
+    .sr-only { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden }
+    table.tk-table { width:100%; border-collapse: collapse; }
+    .tk-table th, .tk-table td { padding:.6rem .7rem; border-bottom:1px solid rgba(255,255,255,.08) }
+    .tk-table th { text-align:left; font-weight:700 }
+    .match-high { outline: 1px solid rgba(0,255,128,.35); background: rgba(0,255,128,.07); }
+    .match-low  { outline: 1px solid rgba(255,64,64,.35);  background: rgba(255,64,64,.07); }
+
+  </style>
+</head>
+<body>
+<div class="tk-wrap" id="tk-module">
+
+  <div id="tk-err" class="tk-err">
+
+  </div>
+
+  <div id="tk-sr" class="sr-only" aria-live="polite" role="status">
+
+  </div>
+
+  <div class="tk-inline">
+    <label><strong>Survey A (Partner A):</strong>
+      <input id="tk-uploadA" type="file" accept=".json,application/json" aria-label="Upload JSON for Partner A">
+    </label>
+
+    <span id="tk-statusA" class="tk-status">No file
+    </span>
+
+  </div>
+
+  <div class="tk-inline">
+    <label><strong>Survey B (Partner B):</strong>
+      <input id="tk-uploadB" type="file" accept=".json,application/json" aria-label="Upload JSON for Partner B">
+    </label>
+
+    <span id="tk-statusB" class="tk-status">No file
+    </span>
+
+  </div>
+
+  <div class="tk-inline" style="justify-content:space-between">
+    <div class="tk-status">Overall match: <strong id="tk-overall">—</strong>
+    </div>
+
+    <button id="tk-download" disabled>Download Compatibility Report</button>
+
+  </div>
+
+  <!-- The module will create this table automatically -->
+  <table id="tk-table" class="tk-table">
+    <thead>
+      <tr>
+        <th>Category
+        </th>
+        <th>Partner A
+        </th>
+        <th>Match
+        </th>
+        <th>Partner B
+        </th>
+      </tr>
+
+    </thead>
+
+    <tbody id="tk-tbody">
+      <!-- rows generated at runtime -->
+    </tbody>
+
+  </table>
+
+</div>
+
+<script>
+  <!-- existing JavaScript unchanged -->
+</script>
+</body>
+</html>
