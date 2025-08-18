@@ -5,22 +5,24 @@
   <title>Compatibility Module</title>
 </head>
 <body>
-<!-- Compatibility Module -->
-<div style="margin:1em 0;display:flex;flex-direction:column;gap:0.5em">
-  <label>
-    Upload Survey A:
-    <input type="file" id="uploadA" accept=".json" />
-  </label>
-  <div id="statusA" aria-live="polite"></div>
+<!-- Partner A + Partner B (via "Load Partner Survey") — wiring fix + identical parsing paths -->
+<div id="compat-ui" style="margin:.75rem 0 1rem">
+  <div id="globalError" style="display:none;color:#ff6b6b;margin:.5rem 0;"></div>
 
-  <label>
-    Upload Survey B:
-    <input type="file" id="uploadB" accept=".json" />
-  </label>
-  <div id="statusB" aria-live="polite"></div>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+    <label><strong>Survey A (Partner A):</strong>
+      <input id="uploadA" type="file" accept=".json,application/json" />
+    </label>
+    <span id="statusA" style="font-size:.9rem;color:#8aa">No file</span>
+  </div>
 
-  <button id="downloadBtn" disabled>Download Compatibility Report</button>
-  <div id="globalError" style="color:#f66"></div>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;margin-top:.5rem">
+    <button id="loadPartnerBtn" type="button">Load Partner Survey</button>
+    <input id="uploadB" type="file" accept=".json,application/json" hidden />
+    <span id="statusB" style="font-size:.9rem;color:#8aa">No file</span>
+  </div>
+
+  <button id="downloadBtn" disabled style="margin-top:.75rem">Download Compatibility Report</button>
 </div>
 
 <table border="1" style="margin-top:1em; border-collapse:collapse; min-width:360px;">
@@ -37,164 +39,236 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
 <script>
-/* ---- CONFIG ---- */
-const ID_ALIAS = {
-  "Choosing my partner’s outfit for the day or a scene": "choose_outfit",
-  "Selecting their underwear, lingerie, or base layers": "select_underwear",
-  "Styling their hair (braiding, brushing, tying, etc.)": "style_hair",
-  "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": "head_coverings",
-  "Offering makeup, polish, or accessories as part of ritual or play": "makeup_accessories",
-  "Creating themed looks (slutty, innocent, doll–like, sharp, etc.)": "themed_looks",
-  "Dressing them in role-specific costumes (maid, bunny, doll, etc.)": "costumes",
-  "Curating time-period or historical outfits (e.g., Victorian, 50s)": "historical_outfits",
-  "Helping them present more femme, masc, or androgynous by request": "presentation_help"
-  // add more mappings here
-};
+/* ======== minimal, robust A/B parser & table filler (self-contained) ======== */
+let partnerAData=null, partnerBData=null;
 
-/* ---- GLOBAL STATE ---- */
-let partnerAData = [];
-let partnerBData = [];
-let globalErrors = [];
-
-/* ---- HELPERS ---- */
-function safeParseJson(text) {
-  try {
-    const clean = text.replace(/^\uFEFF/, "")
-      .replace(/[\u201C\u201D]/g,'"')
-      .replace(/[\u2018\u2019]/g,"'")
-      .replace(/,\s*([}\]])/g,"$1");
-    return JSON.parse(clean);
-  } catch(e) {
-    return null;
-  }
+function setError(msg){
+  const el=document.getElementById("globalError");
+  if(!el) return;
+  if(!msg){ el.style.display="none"; el.textContent=""; return; }
+  el.style.display="block"; el.textContent=msg;
+}
+function setStatus(which, text, ok=true){
+  const el=document.getElementById(which==="A"?"statusA":"statusB");
+  if (!el) return;
+  el.textContent=text;
+  el.style.color = ok ? "#59ff9b" : "#ff6b6b";
+}
+function updateDownloadEnabled(){
+  const btn=document.getElementById("downloadBtn");
+  btn.disabled = !(partnerAData?.length>0 && partnerBData?.length>0);
 }
 
-function mapLabelToId(label) {
-  if (!label) return null;
-  if (ID_ALIAS[label]) return ID_ALIAS[label];
-  let norm = label.toLowerCase().replace(/[^a-z0-9]+/g,"_");
-  return norm;
+/* --- JSON helpers --- */
+function safeParseJson(text){
+  try{
+    if (text && text.charCodeAt(0)===0xFEFF) text = text.slice(1);
+    text = text.replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'");
+    text = text.replace(/,\s*([\]}])/g,"$1");
+    return JSON.parse(text);
+  }catch(e){ return null; }
+}
+function coerceScore(v){
+  if (typeof v==="number" && Number.isFinite(v)) return v;
+  if (typeof v==="string"){
+    const t=v.trim();
+    if (/^\d+%$/.test(t)) return Number(t.slice(0,-1))/20;      // 80% -> 4.0
+    if (/^\d+\s*\/\s*\d+$/.test(t)) return Number(t.split("/")[0]); // "4/5" -> 4
+    const n=Number(t); if(!Number.isNaN(n)) return n;
+  }
+  if (v && typeof v==="object"){
+    const s=v.rating ?? v.score ?? v.value ?? v.val ?? v.points ?? v.level;
+    return coerceScore(s);
+  }
+  return null;
 }
 
-function normalizeSurvey(json) {
-  let items = [];
-  function pushEntry(label, score) {
-    const id = mapLabelToId(label);
-    if (id && !isNaN(score)) items.push({id, label, score: Number(score)});
+/* --- label→id mapping (fuzzy) --- */
+function normKey(s){
+  return String(s).toLowerCase()
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"')
+    .replace(/\([^)]*\)/g," ").replace(/[^a-z0-9'"& ]+/g," ")
+    .replace(/\s+/g," ").trim();
+}
+function slugify(s){
+  return String(s).toLowerCase()
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/['’]/g,"").replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"");
+}
+function buildTableIndex(){
+  const map = new Map();
+  document.querySelectorAll("tbody tr[data-kink-id]").forEach(tr=>{
+    const id = tr.getAttribute("data-kink-id");
+    const label = tr.cells?.[0]?.textContent?.trim() || id;
+    map.set(normKey(label), id);
+  });
+  return map;
+}
+function pickId(label){
+  const byNorm = buildTableIndex().get(normKey(label));
+  return byNorm || slugify(label);
+}
+
+/* --- normalization (object maps, arrays, nested) --- */
+function normalizeSurvey(json){
+  if (typeof json==="string"){ const again=safeParseJson(json); if(again) json=again; }
+
+  // object map { "Label": 5, ... }
+  if (json && typeof json==="object" && !Array.isArray(json)){
+    const items=[]; for (const [label,val] of Object.entries(json)){
+      const id=pickId(label); const score=coerceScore(val);
+      if (id && typeof score==="number") items.push({id,label,score});
+    }
+    return items;
   }
-  if (Array.isArray(json)) {
-    json.forEach(e => {
-      const label = e.label || e.name || e.id;
-      let val = e.value ?? e.score ?? e.rating;
-      if (typeof val === "string" && val.includes("/")) {
-        let [a,b] = val.split("/").map(Number);
-        val = b ? (a/b*5) : NaN;
-      }
-      pushEntry(label, val);
-    });
-  } else if (typeof json === "object") {
-    Object.entries(json).forEach(([k,v])=>{
-      if (typeof v === "object") {
-        const label = v.label||v.name||k;
-        pushEntry(label, v.value ?? v.score ?? v.rating);
-      } else {
-        pushEntry(k,v);
-      }
-    });
+
+  // array-ish
+  let rows=[];
+  if (Array.isArray(json)) rows=json;
+  else if (Array.isArray(json?.items)) rows=json.items;
+  else if (Array.isArray(json?.answers)) rows=json.answers;
+  else if (Array.isArray(json?.data)) rows=json.data;
+  else if (json && typeof json==="object"){
+    const first=Object.values(json).find(v=>Array.isArray(v));
+    if (Array.isArray(first)) rows=first;
+  }
+
+  const NAME=["id","key","name","label","title","slug"];
+  const SCORE=["rating","score","value","val","points","level"];
+  const items=[];
+  for (const row of rows||[]){
+    if (!row || typeof row!=="object") continue;
+    const cand=["","item","question","meta","data"].map(p=>p?row[p]:row).find(v=>v && typeof v==="object")||row;
+    let label=null; for (const k of NAME) if (k in cand){ label=cand[k]; break; }
+    label=(typeof label==="string"?label:String(label??"")).trim();
+    if (!label) continue;
+    let raw=null; for (const k of SCORE) if (k in cand){ raw=cand[k]; break; }
+    const score=coerceScore(raw);
+    const id=pickId(label);
+    if (id && typeof score==="number") items.push({id,label,score});
   }
   return items;
 }
 
-function ensureRowExists(id,label) {
-  let row = document.querySelector(`tr[data-kink-id="${id}"]`);
-  if (!row) {
-    const tbody = document.querySelector("table tbody") || document.querySelector("table");
-    row = document.createElement("tr");
-    row.setAttribute("data-kink-id",id);
-    row.innerHTML = `
-      <td>${label}</td>
-      <td data-cell="A"></td>
-      <td data-cell="match"></td>
-      <td data-cell="B"></td>`;
-    tbody.appendChild(row);
-  }
-  return row;
+/* --- scale + match --- */
+function detectScale(items){
+  const vals = items.map(i=>i.score).filter(n=>typeof n==="number");
+  if (!vals.length) return 1;
+  const max=Math.max(...vals), min=Math.min(...vals);
+  if (max<=5 && min>=0) return 1;
+  if (max<=1 && min>=0) return 5;
+  if (max<=7)  return 5/7;
+  if (max<=10) return 5/10;
+  if (max<=100) return 5/100;
+  return 5/Math.max(5,max);
 }
+function computeMatch(a5,b5){ const diff=Math.abs(a5-b5); return Math.max(0,100-(diff/5)*100); }
 
-function updateComparison() {
-  document.querySelectorAll("tr[data-kink-id]").forEach(tr=>{
-    tr.querySelector('[data-cell="A"]').textContent="";
-    tr.querySelector('[data-cell="B"]').textContent="";
-    tr.querySelector('[data-cell="match"]').textContent="";
-  });
+/* --- table sync --- */
+function ensureRow(id,label){
+  let tr=document.querySelector(`tbody tr[data-kink-id="${CSS.escape(id)}"]`);
+  if (tr) return tr;
+  const tbody=document.querySelector("table tbody")||document.querySelector("table");
+  tr=document.createElement("tr");
+  tr.setAttribute("data-kink-id",id);
+  tr.innerHTML=`
+    <td>${label}</td>
+    <td data-cell="A">-</td>
+    <td data-cell="Match">-</td>
+    <td data-cell="B">-</td>`;
+  tbody.appendChild(tr);
+  return tr;
+}
+function rebuildTable(){
+  const union=new Map();
+  (partnerAData||[]).forEach(i=>union.set(i.id,i.label));
+  (partnerBData||[]).forEach(i=>union.set(i.id,i.label));
+  const tbody=document.querySelector("table tbody");
+  if (!tbody) return;
+  tbody.innerHTML="";
+  [...union.entries()].sort((a,b)=>a[1].localeCompare(b[1])).forEach(([id,label])=>ensureRow(id,label));
+}
+function updateComparison(){
+  if (!document.querySelector("tbody tr[data-kink-id]") && ((partnerAData&&partnerAData.length) || (partnerBData&&partnerBData.length))) {
+    rebuildTable();
+  }
+  const aMap=new Map((partnerAData||[]).map(i=>[i.id,i]));
+  const bMap=new Map((partnerBData||[]).map(i=>[i.id,i]));
+  const scaleA=detectScale(partnerAData||[]);
+  const scaleB=detectScale(partnerBData||[]);
 
-  const byId = {};
-  partnerAData.forEach(e=>{ byId[e.id] = byId[e.id]||{}; byId[e.id].A=e; });
-  partnerBData.forEach(e=>{ byId[e.id] = byId[e.id]||{}; byId[e.id].B=e; });
+  document.querySelectorAll("tbody tr[data-kink-id]").forEach(tr=>{
+    const id=tr.getAttribute("data-kink-id");
+    const A=aMap.get(id), B=bMap.get(id);
+    const aCell=tr.querySelector('[data-cell="A"]');
+    const bCell=tr.querySelector('[data-cell="B"]');
+    const mCell=tr.querySelector('[data-cell="Match"]');
 
-  Object.entries(byId).forEach(([id,vals])=>{
-    const label = vals.A?.label || vals.B?.label || id;
-    const row = ensureRowExists(id,label);
-    if (vals.A) row.querySelector('[data-cell="A"]').textContent=vals.A.score;
-    if (vals.B) row.querySelector('[data-cell="B"]').textContent=vals.B.score;
-    if (vals.A && vals.B) {
-      const diff=Math.abs(vals.A.score-vals.B.score);
-      const pct=Math.max(0,100-(diff*20));
-      row.querySelector('[data-cell="match"]').textContent=pct+"%";
-      if(pct>=80) row.querySelector('[data-cell="match"]').style.color="lightgreen";
-      else if(pct<=40) row.querySelector('[data-cell="match"]').style.color="tomato";
-      else row.querySelector('[data-cell="match"]').style.color="";
+    const aRaw=typeof A?.score==="number"?A.score:null;
+    const bRaw=typeof B?.score==="number"?B.score:null;
+
+    if (aCell) aCell.textContent = aRaw ?? "-";
+    if (bCell) bCell.textContent = bRaw ?? "-";
+
+    if (mCell){
+      if (aRaw!=null && bRaw!=null){
+        const pct=Math.round(computeMatch(aRaw*scaleA,bRaw*scaleB));
+        mCell.textContent = `${pct}%`;
+      } else mCell.textContent="-";
     }
   });
+
   updateDownloadEnabled();
 }
 
-function setStatus(which,msg){ document.getElementById("status"+which).textContent=msg; }
-function setGlobalError(msg){ globalErrors.push(msg); document.getElementById("globalError").textContent=globalErrors.join("; "); }
-function updateDownloadEnabled(){
-  document.getElementById("downloadBtn").disabled = !(partnerAData.length && partnerBData.length);
-}
-
-/* ---- HANDLERS ---- */
-function handleUpload(file,who){
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const json=safeParseJson(e.target.result);
-    if(!json){ setStatus(who,"Invalid JSON"); return; }
+/* --- unified upload path --- */
+async function handleUpload(file, which){
+  if (!file){ setStatus(which,"No file selected",false); updateDownloadEnabled(); return; }
+  try{
+    const text=await file.text();
+    const json=safeParseJson(text);
+    if(!json){ setStatus(which,"Invalid JSON",false); updateDownloadEnabled(); return; }
     const items=normalizeSurvey(json);
-    if(!items.length){ setStatus(who,"No valid items"); return; }
-    if(who==="A") partnerAData=items;
-    else partnerBData=items;
-    setStatus(who,`Loaded ${items.length} items`);
+    if(!items.length){ setStatus(which,"No recognizable items",false); updateDownloadEnabled(); return; }
+    if (which==="A") partnerAData=items; else partnerBData=items;
+    setStatus(which, `Loaded ${items.length} items`, true);
     updateComparison();
-  };
-  reader.readAsText(file);
+    setError(null);
+  }catch(e){
+    setStatus(which, `Read failed: ${e.message}`, false);
+  }finally{
+    updateDownloadEnabled();
+  }
 }
 
-document.getElementById("uploadA").addEventListener("change",e=>{
-  if(e.target.files[0]) handleUpload(e.target.files[0],"A");
-});
-document.getElementById("uploadB").addEventListener("change",e=>{
-  if(e.target.files[0]) handleUpload(e.target.files[0],"B");
+/* ========= WIRING: A uses input; B uses button that opens hidden input ========= */
+const inputA=document.getElementById("uploadA");
+const inputB=document.getElementById("uploadB");
+const btnB=document.getElementById("loadPartnerBtn");
+
+inputA.addEventListener("change", e=>{
+  if (e.target.files && e.target.files[0]) handleUpload(e.target.files[0], "A");
 });
 
-document.getElementById("downloadBtn").addEventListener("click",()=>{
-  if(!partnerAData.length||!partnerBData.length) return;
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({orientation:"landscape"});
-  doc.text("Compatibility Report",14,16);
-  const body=[];
-  document.querySelectorAll("tr[data-kink-id]").forEach(tr=>{
-    const tds=tr.querySelectorAll("td");
-    if(tds.length>=4){
-      body.push([tds[0].innerText,tds[1].innerText,tds[2].innerText,tds[3].innerText]);
-    }
-  });
-  doc.autoTable({head:[["Category","Partner A","Match","Partner B"]], body});
-  doc.save("compatibility.pdf");
+/* Important: reset inputB.value BEFORE clicking so choosing the same file fires 'change' */
+btnB.addEventListener("click", ()=>{
+  inputB.value = "";           // ← key fix so re-selecting same file works
+  inputB.click();
+});
+/* Handle B once user picks file */
+inputB.addEventListener("change", e=>{
+  if (e.target.files && e.target.files[0]) handleUpload(e.target.files[0], "B");
+});
+
+/* Optional: also handle programmatic drops into inputB via 'input' event */
+inputB.addEventListener("input", e=>{
+  if (e.target.files && e.target.files[0]) handleUpload(e.target.files[0], "B");
 });
 </script>
+
 </body>
 </html>
 
