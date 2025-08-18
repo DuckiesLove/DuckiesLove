@@ -314,5 +314,108 @@ document.getElementById("downloadBtn")?.addEventListener("click", downloadCompat
 
 })();
 </script>
+
+<!-- ===== TalkKink Compatibility – Test Harness =====
+Place this AFTER your existing compatibility script (so it can call handleUpload). -->
+
+<style>
+  .tk-testbar { display:flex; flex-wrap:wrap; gap:.5rem; margin:1rem 0; }
+  .tk-note { font-size:.9rem; opacity:.8; }
+</style>
+
+<div class="tk-testbar" id="tk-tests">
+  <button type="button" onclick="TK_loadSample('A','objectMap05')">Load Sample A (Object map 0–5)</button>
+  <button type="button" onclick="TK_loadSample('B','array10')">Load Sample B (Array 1–10 → scaled)</button>
+  <button type="button" onclick="TK_loadSample('B','percent')">Load Sample B (Percent strings)</button>
+  <button type="button" onclick="TK_loadSample('B','mismatch')">Load Sample B (Fuzzy label mismatch)</button>
+  <button type="button" onclick="TK_loadSample('A','malformed')">Load Malformed JSON → error</button>
+  <div class="tk-note">Use these to verify parsing, fuzzy mapping, scaling, and PDF gating.</div>
+</div>
+
+<script>
+/* ------- Test Fixtures ------- */
+const TK_FIXTURES = {
+  /* A: object map like your export (0–5 scale) */
+  objectMap05: {
+    "Choosing my partner’s outfit for the day or a scene": 5,
+    "Selecting their underwear, lingerie, or base layers": 5,
+    "Styling their hair (braiding, brushing, tying, etc.)": 1,
+    "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": 1,
+    "Offering makeup, polish, or accessories as part of ritual or play": 5
+  },
+
+  /* B: array of rows on a 1–10 scale → should normalize to 0–5 */
+  array10: [
+    { label: "Choosing my partner’s outfit for the day or a scene", rating: 8 },
+    { label: "Selecting their underwear, lingerie, or base layers", rating: 7 },
+    { label: "Styling their hair (braiding, brushing, tying, etc.)", rating: 2 },
+    { label: "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol", rating: 3 },
+    { label: "Offering makeup, polish, or accessories as part of ritual or play", rating: 9 }
+  ],
+
+  /* B: percent strings → should coerce to 0–5 (80% → 4.0) */
+  percent: {
+    "Choosing my partner’s outfit for the day or a scene": "80%",
+    "Selecting their underwear, lingerie, or base layers": "60%",
+    "Styling their hair (braiding, brushing, tying, etc.)": "20%",
+    "Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol": "40%",
+    "Offering makeup, polish, or accessories as part of ritual or play": "100%"
+  },
+
+  /* B: labels with punctuation/spacing differences → tests fuzzy match */
+  mismatch: {
+    "Choosing my partners outfit for the day (or scene)": 4,
+    "Selecting underwear / lingerie / base layers": 3,
+    "Styling their hair - braiding, brushing, tying etc": 2,
+    "Picking head coverings (hoods, hats, veils)": 2,
+    "Makeup / polish / accessories as ritual or play": 5
+  },
+
+  /* Malformed JSON (string, not parseable on purpose) */
+  malformed: "{ this is not valid JSON }"
+};
+
+/* ------- Loader: calls your existing handleUpload(file, 'A'|'B') ------- */
+async function TK_loadSample(which, key){
+  const data = TK_FIXTURES[key];
+  let file;
+
+  if (key === "malformed") {
+    file = new File([TK_FIXTURES.malformed], `malformed-${which}.json`, { type: "application/json" });
+  } else {
+    const text = JSON.stringify(data, null, 2);
+    file = new File([text], `sample-${key}-${which}.json`, { type: "application/json" });
+  }
+
+  // Prefer the real UI pathway if your script uses input change listeners
+  const input = document.getElementById(which === 'A' ? 'uploadA' : 'uploadB');
+  if (input) {
+    // Trigger your existing handler path by dispatching a synthetic change
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return;
+  }
+
+  // Fallback: call global handleUpload directly if exposed
+  if (typeof handleUpload === "function") {
+    await handleUpload(file, which);
+  } else {
+    console.warn("handleUpload is not in global scope; ensure the main module script is loaded first.");
+  }
+}
+
+/* ------- Quick “Test Plan” you can follow step-by-step (visible in console) ------- */
+console.log(`TalkKink Test Plan:
+1) Click "Load Sample A (Object map 0–5)" → Partner A column should fill with 5,5,1,1,5.
+2) Click "Load Partner Survey" (if present) or one of the B buttons:
+   a) "Array 1–10" → values normalize; Match% computed.
+   b) "Percent strings" → 80% becomes 4.0, etc.
+   c) "Fuzzy mismatch" → labels with different punctuation still map to rows.
+3) Try "Malformed JSON" → status should turn red with an error message; Download remains disabled.
+4) After both A and B are valid, Download button enables. If jsPDF + AutoTable are on the page, a PDF is generated.
+`);
+</script>
 </body>
 </html>
