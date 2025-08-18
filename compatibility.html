@@ -443,6 +443,9 @@
     const f=e.target.files?.[0]; if (!f) return;
     try { window.partnerBSurvey = JSON.parse(await f.text()); } catch {}
     if (window.__compatRunFill) window.__compatRunFill();
+  });
+</script>
+
 <!-- ================= COPY–PASTE THIS WHOLE BLOCK (replaces the previous one) ================
 What this fixes
 1) Prevents header wrap/overhang for “Partner A” and “Partner B” by using non-breaking spaces
