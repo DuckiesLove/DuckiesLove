@@ -5,7 +5,7 @@
   <title>Compatibility Module</title>
 </head>
 <body>
-<!-- Partner A + Partner B (via "Load Partner Survey") — wiring fix + identical parsing paths -->
+<!-- ========== Partner A + Partner B (robust load + auto row IDs) ========== -->
 <div id="compat-ui" style="margin:.75rem 0 1rem">
   <div id="globalError" style="display:none;color:#ff6b6b;margin:.5rem 0;"></div>
 
@@ -41,123 +41,110 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
 <script>
-/* ======== minimal, robust A/B parser & table filler (self-contained) ======== */
-let partnerAData=null, partnerBData=null;
-
-function setError(msg){
-  const el=document.getElementById("globalError");
-  if(!el) return;
-  if(!msg){ el.style.display="none"; el.textContent=""; return; }
-  el.style.display="block"; el.textContent=msg;
+/* ---------- tiny UI helpers ---------- */
+function tkSetStatus(which, msg, ok=true){
+  const el = document.getElementById(which==="A" ? "statusA" : "statusB");
+  if (el){ el.textContent = msg; el.style.color = ok ? "#59ff9b" : "#ff6b6b"; }
 }
-function setStatus(which, text, ok=true){
-  const el=document.getElementById(which==="A"?"statusA":"statusB");
+function tkSetError(msg){
+  const el = document.getElementById("globalError");
   if (!el) return;
-  el.textContent=text;
-  el.style.color = ok ? "#59ff9b" : "#ff6b6b";
+  if (!msg){ el.style.display="none"; el.textContent=""; return; }
+  el.style.display="block"; el.textContent = msg;
 }
-function updateDownloadEnabled(){
-  const btn=document.getElementById("downloadBtn");
-  btn.disabled = !(partnerAData?.length>0 && partnerBData?.length>0);
+function tkEnableDownload(){
+  const btn = document.getElementById("downloadBtn");
+  if (!btn) return;
+  btn.disabled = !(window.tkA?.length > 0 && window.tkB?.length > 0);
 }
 
-/* --- JSON helpers --- */
-function safeParseJson(text){
+/* ---------- make every row addressable: add data-kink-id = slug(first-cell) ---------- */
+function tkSlug(s){
+  return String(s||"")
+    .toLowerCase()
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g,"")  // strip accents
+    .replace(/['’]/g,"")                                // drop apostrophes
+    .replace(/[^a-z0-9]+/g,"_")                         // non-alnum -> underscore
+    .replace(/^_+|_+$/g,"");                            // trim underscores
+}
+function tkEnsureRowIds(){
+  const rows = document.querySelectorAll("table tbody tr");
+  rows.forEach(tr=>{
+    if (tr.hasAttribute("data-kink-id")) return;
+    const td = tr.querySelector("td");
+    if (!td) return;
+    const id = tkSlug(td.textContent.trim());
+    if (id) tr.setAttribute("data-kink-id", id);
+  });
+}
+
+/* ---------- JSON parsing + normalization ---------- */
+function tkSafeParse(text){
   try{
-    if (text && text.charCodeAt(0)===0xFEFF) text = text.slice(1);
-    text = text.replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'");
-    text = text.replace(/,\s*([\]}])/g,"$1");
+    if (text && text.charCodeAt(0)===0xFEFF) text = text.slice(1);  // strip BOM
+    text = text.replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'"); // smart quotes
+    text = text.replace(/,\s*([\]}])/g,"$1"); // trailing commas
     return JSON.parse(text);
   }catch(e){ return null; }
 }
-function coerceScore(v){
-  if (typeof v==="number" && Number.isFinite(v)) return v;
-  if (typeof v==="string"){
-    const t=v.trim();
-    if (/^\d+%$/.test(t)) return Number(t.slice(0,-1))/20;      // 80% -> 4.0
+function tkCoerceScore(v){
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string"){
+    const t = v.trim();
+    if (/^\d+%$/.test(t)) return Number(t.slice(0,-1))/20;     // 80% -> 4.0
     if (/^\d+\s*\/\s*\d+$/.test(t)) return Number(t.split("/")[0]); // "4/5" -> 4
-    const n=Number(t); if(!Number.isNaN(n)) return n;
+    const n = Number(t); if (!Number.isNaN(n)) return n;
   }
-  if (v && typeof v==="object"){
-    const s=v.rating ?? v.score ?? v.value ?? v.val ?? v.points ?? v.level;
-    return coerceScore(s);
+  if (v && typeof v === "object"){
+    const s = v.rating ?? v.score ?? v.value ?? v.val ?? v.points ?? v.level;
+    return tkCoerceScore(s);
   }
   return null;
 }
-
-/* --- label→id mapping (fuzzy) --- */
-function normKey(s){
-  return String(s).toLowerCase()
-    .normalize("NFKD").replace(/[\u0300-\u036f]/g,"")
-    .replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"')
-    .replace(/\([^)]*\)/g," ").replace(/[^a-z0-9'"& ]+/g," ")
-    .replace(/\s+/g," ").trim();
-}
-function slugify(s){
-  return String(s).toLowerCase()
-    .normalize("NFKD").replace(/[\u0300-\u036f]/g,"")
-    .replace(/['’]/g,"").replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"");
-}
-function buildTableIndex(){
-  const map = new Map();
-  document.querySelectorAll("tbody tr[data-kink-id]").forEach(tr=>{
-    const id = tr.getAttribute("data-kink-id");
-    const label = tr.cells?.[0]?.textContent?.trim() || id;
-    map.set(normKey(label), id);
-  });
-  return map;
-}
-function pickId(label){
-  const byNorm = buildTableIndex().get(normKey(label));
-  return byNorm || slugify(label);
-}
-
-/* --- normalization (object maps, arrays, nested) --- */
-function normalizeSurvey(json){
-  if (typeof json==="string"){ const again=safeParseJson(json); if(again) json=again; }
-
-  // object map { "Label": 5, ... }
-  if (json && typeof json==="object" && !Array.isArray(json)){
-    const items=[]; for (const [label,val] of Object.entries(json)){
-      const id=pickId(label); const score=coerceScore(val);
-      if (id && typeof score==="number") items.push({id,label,score});
+/* Return array of {id,label,score} where id = slug(label) */
+function tkNormalize(json){
+  // object map: {"Label": 5, ...}
+  if (json && typeof json === "object" && !Array.isArray(json)){
+    const out = [];
+    for (const [label,val] of Object.entries(json)){
+      const score = tkCoerceScore(val);
+      if (typeof score === "number"){
+        out.push({ id: tkSlug(label), label, score });
+      }
     }
-    return items;
+    return out;
   }
-
   // array-ish
-  let rows=[];
-  if (Array.isArray(json)) rows=json;
+  let rows = [];
+  if (Array.isArray(json)) rows = json;
   else if (Array.isArray(json?.items)) rows=json.items;
   else if (Array.isArray(json?.answers)) rows=json.answers;
   else if (Array.isArray(json?.data)) rows=json.data;
-  else if (json && typeof json==="object"){
-    const first=Object.values(json).find(v=>Array.isArray(v));
-    if (Array.isArray(first)) rows=first;
+  else if (json && typeof json === "object"){
+    const firstArr = Object.values(json).find(v=>Array.isArray(v));
+    if (Array.isArray(firstArr)) rows = firstArr;
   }
-
-  const NAME=["id","key","name","label","title","slug"];
-  const SCORE=["rating","score","value","val","points","level"];
-  const items=[];
+  const NAME = ["label","name","title","id","key","slug"];
+  const SCORE = ["rating","score","value","val","points","level"];
+  const out=[];
   for (const row of rows||[]){
-    if (!row || typeof row!=="object") continue;
-    const cand=["","item","question","meta","data"].map(p=>p?row[p]:row).find(v=>v && typeof v==="object")||row;
-    let label=null; for (const k of NAME) if (k in cand){ label=cand[k]; break; }
-    label=(typeof label==="string"?label:String(label??"")).trim();
+    if (!row || typeof row !== "object") continue;
+    const cand = ["","item","question","meta","data"].map(p=>p?row[p]:row).find(v=>v && typeof v==="object") || row;
+    let label = null; for (const k of NAME) if (k in cand){ label = cand[k]; break; }
+    label = (typeof label==="string" ? label : String(label??"")).trim();
     if (!label) continue;
-    let raw=null; for (const k of SCORE) if (k in cand){ raw=cand[k]; break; }
-    const score=coerceScore(raw);
-    const id=pickId(label);
-    if (id && typeof score==="number") items.push({id,label,score});
+    let s = null; for (const k of SCORE) if (k in cand){ s = cand[k]; break; }
+    const score = tkCoerceScore(s);
+    if (typeof score === "number") out.push({ id: tkSlug(label), label, score });
   }
-  return items;
+  return out;
 }
 
-/* --- scale + match --- */
-function detectScale(items){
+/* ---------- scale + match + table injection ---------- */
+function tkDetectScale(items){
   const vals = items.map(i=>i.score).filter(n=>typeof n==="number");
   if (!vals.length) return 1;
-  const max=Math.max(...vals), min=Math.min(...vals);
+  const max = Math.max(...vals), min = Math.min(...vals);
   if (max<=5 && min>=0) return 1;
   if (max<=1 && min>=0) return 5;
   if (max<=7)  return 5/7;
@@ -165,108 +152,132 @@ function detectScale(items){
   if (max<=100) return 5/100;
   return 5/Math.max(5,max);
 }
-function computeMatch(a5,b5){ const diff=Math.abs(a5-b5); return Math.max(0,100-(diff/5)*100); }
+function tkMatch(a5,b5){ const d=Math.abs(a5-b5); return Math.max(0, 100 - (d/5)*100); }
 
-/* --- table sync --- */
-function ensureRow(id,label){
-  let tr=document.querySelector(`tbody tr[data-kink-id="${CSS.escape(id)}"]`);
-  if (tr) return tr;
-  const tbody=document.querySelector("table tbody")||document.querySelector("table");
-  tr=document.createElement("tr");
-  tr.setAttribute("data-kink-id",id);
-  tr.innerHTML=`
-    <td>${label}</td>
-    <td data-cell="A">-</td>
-    <td data-cell="Match">-</td>
-    <td data-cell="B">-</td>`;
-  tbody.appendChild(tr);
-  return tr;
+function tkEnsureCells(tr){
+  if (!tr.querySelector('[data-cell="A"]'))  tr.insertCell(1).setAttribute("data-cell","A");
+  if (!tr.querySelector('[data-cell="Match"]')) tr.insertCell(2).setAttribute("data-cell","Match");
+  if (!tr.querySelector('[data-cell="B"]'))  tr.insertCell(3).setAttribute("data-cell","B");
 }
-function rebuildTable(){
-  const union=new Map();
-  (partnerAData||[]).forEach(i=>union.set(i.id,i.label));
-  (partnerBData||[]).forEach(i=>union.set(i.id,i.label));
-  const tbody=document.querySelector("table tbody");
+function tkRebuildTableFromUnion(){
+  const tbody = document.querySelector("table tbody");
   if (!tbody) return;
+  const union = new Map(); // id -> label
+  (window.tkA||[]).forEach(i=>union.set(i.id,i.label));
+  (window.tkB||[]).forEach(i=>union.set(i.id,i.label));
+  const sorted = [...union.entries()].sort((a,b)=> a[1].localeCompare(b[1]));
   tbody.innerHTML="";
-  [...union.entries()].sort((a,b)=>a[1].localeCompare(b[1])).forEach(([id,label])=>ensureRow(id,label));
-}
-function updateComparison(){
-  if (!document.querySelector("tbody tr[data-kink-id]") && ((partnerAData&&partnerAData.length) || (partnerBData&&partnerBData.length))) {
-    rebuildTable();
+  for (const [id,label] of sorted){
+    const tr = document.createElement("tr");
+    tr.setAttribute("data-kink-id", id);
+    const td = document.createElement("td"); td.textContent = label;
+    tr.appendChild(td);
+    const tdA=document.createElement("td"); tdA.setAttribute("data-cell","A"); tdA.textContent="-";
+    const tdM=document.createElement("td"); tdM.setAttribute("data-cell","Match"); tdM.textContent="-";
+    const tdB=document.createElement("td"); tdB.setAttribute("data-cell","B"); tdB.textContent="-";
+    tr.append(tdA,tdM,tdB);
+    tbody.appendChild(tr);
   }
-  const aMap=new Map((partnerAData||[]).map(i=>[i.id,i]));
-  const bMap=new Map((partnerBData||[]).map(i=>[i.id,i]));
-  const scaleA=detectScale(partnerAData||[]);
-  const scaleB=detectScale(partnerBData||[]);
+}
 
-  document.querySelectorAll("tbody tr[data-kink-id]").forEach(tr=>{
-    const id=tr.getAttribute("data-kink-id");
-    const A=aMap.get(id), B=bMap.get(id);
-    const aCell=tr.querySelector('[data-cell="A"]');
-    const bCell=tr.querySelector('[data-cell="B"]');
-    const mCell=tr.querySelector('[data-cell="Match"]');
+function tkUpdate(){
+  tkEnsureRowIds();
 
-    const aRaw=typeof A?.score==="number"?A.score:null;
-    const bRaw=typeof B?.score==="number"?B.score:null;
+  // If table has no identifiable rows yet but we have data, build from data
+  if (!document.querySelector('tbody tr[data-kink-id]') && ((window.tkA&&tkA.length) || (window.tkB&&tkB.length))){
+    tkRebuildTableFromUnion();
+  }
 
-    if (aCell) aCell.textContent = aRaw ?? "-";
-    if (bCell) bCell.textContent = bRaw ?? "-";
+  const aMap = new Map((window.tkA||[]).map(i=>[i.id,i]));
+  const bMap = new Map((window.tkB||[]).map(i=>[i.id,i]));
+  const sA = tkDetectScale(window.tkA||[]);
+  const sB = tkDetectScale(window.tkB||[]);
 
-    if (mCell){
-      if (aRaw!=null && bRaw!=null){
-        const pct=Math.round(computeMatch(aRaw*scaleA,bRaw*scaleB));
-        mCell.textContent = `${pct}%`;
-      } else mCell.textContent="-";
+  // show what couldn't be matched
+  const tbody = document.querySelector("table tbody");
+  const haveIds = new Set(Array.from(tbody.querySelectorAll('tr[data-kink-id]')).map(tr=>tr.getAttribute('data-kink-id')));
+  const aUnmatched = (window.tkA||[]).filter(i=>!haveIds.has(i.id)).slice(0,5);
+  const bUnmatched = (window.tkB||[]).filter(i=>!haveIds.has(i.id)).slice(0,5);
+  if (aUnmatched.length || bUnmatched.length){
+    console.warn("Unmatched A:", aUnmatched);
+    console.warn("Unmatched B:", bUnmatched);
+  }
+
+  document.querySelectorAll('tbody tr[data-kink-id]').forEach(tr=>{
+    const id = tr.getAttribute('data-kink-id');
+    tkEnsureCells(tr);
+
+    const A = aMap.get(id), B = bMap.get(id);
+    const aCell = tr.querySelector('[data-cell="A"]');
+    const bCell = tr.querySelector('[data-cell="B"]');
+    const mCell = tr.querySelector('[data-cell="Match"]');
+
+    const aRaw = (typeof A?.score==="number") ? A.score : null;
+    const bRaw = (typeof B?.score==="number") ? B.score : null;
+
+    aCell.textContent = aRaw ?? "-";
+    bCell.textContent = bRaw ?? "-";
+
+    if (aRaw!=null && bRaw!=null){
+      const pct = Math.round(tkMatch(aRaw*sA, bRaw*sB));
+      mCell.textContent = `${pct}%`;
+    } else {
+      mCell.textContent = "-";
     }
   });
 
-  updateDownloadEnabled();
+  tkEnableDownload();
 }
 
-/* --- unified upload path --- */
-async function handleUpload(file, which){
-  if (!file){ setStatus(which,"No file selected",false); updateDownloadEnabled(); return; }
+/* ---------- unified upload path (A and B both use this) ---------- */
+async function tkHandleUpload(file, which){
+  if (!file){ tkSetStatus(which,"No file selected",false); tkEnableDownload(); return; }
   try{
-    const text=await file.text();
-    const json=safeParseJson(text);
-    if(!json){ setStatus(which,"Invalid JSON",false); updateDownloadEnabled(); return; }
-    const items=normalizeSurvey(json);
-    if(!items.length){ setStatus(which,"No recognizable items",false); updateDownloadEnabled(); return; }
-    if (which==="A") partnerAData=items; else partnerBData=items;
-    setStatus(which, `Loaded ${items.length} items`, true);
-    updateComparison();
-    setError(null);
-  }catch(e){
-    setStatus(which, `Read failed: ${e.message}`, false);
+    const text = await file.text();
+    const json = tkSafeParse(text);
+    if (!json){ tkSetStatus(which,"Invalid JSON",false); tkEnableDownload(); return; }
+
+    const items = tkNormalize(json);
+    if (!items.length){ tkSetStatus(which,"No recognizable items",false); tkEnableDownload(); return; }
+
+    if (which==="A") window.tkA = items; else window.tkB = items;
+    tkSetStatus(which, `Loaded ${items.length} items`);
+    tkUpdate();
+    tkSetError(null);
+  }catch(err){
+    tkSetStatus(which, `Read failed: ${err.message}`, false);
   }finally{
-    updateDownloadEnabled();
+    tkEnableDownload();
   }
 }
 
-/* ========= WIRING: A uses input; B uses button that opens hidden input ========= */
-const inputA=document.getElementById("uploadA");
-const inputB=document.getElementById("uploadB");
-const btnB=document.getElementById("loadPartnerBtn");
+/* ---------- wire up: A = input; B = button opens hidden input ---------- */
+(function tkWire(){
+  // ensure table rows have ids now
+  tkEnsureRowIds();
 
-inputA.addEventListener("change", e=>{
-  if (e.target.files && e.target.files[0]) handleUpload(e.target.files[0], "A");
-});
+  const inA = document.getElementById("uploadA");
+  const inB = document.getElementById("uploadB");
+  const btnB = document.getElementById("loadPartnerBtn"); // your visible button
 
-/* Important: reset inputB.value BEFORE clicking so choosing the same file fires 'change' */
-btnB.addEventListener("click", ()=>{
-  inputB.value = "";           // ← key fix so re-selecting same file works
-  inputB.click();
-});
-/* Handle B once user picks file */
-inputB.addEventListener("change", e=>{
-  if (e.target.files && e.target.files[0]) handleUpload(e.target.files[0], "B");
-});
+  if (inA) inA.addEventListener("change", e=>{
+    if (e.target.files?.[0]) tkHandleUpload(e.target.files[0], "A");
+  });
 
-/* Optional: also handle programmatic drops into inputB via 'input' event */
-inputB.addEventListener("input", e=>{
-  if (e.target.files && e.target.files[0]) handleUpload(e.target.files[0], "B");
-});
+  if (btnB && inB){
+    btnB.addEventListener("click", ()=>{
+      inB.value = "";            // important: allows selecting the same file again
+      inB.click();
+    });
+    inB.addEventListener("change", e=>{
+      if (e.target.files?.[0]) tkHandleUpload(e.target.files[0], "B");
+    });
+    // in case you programmatically set files
+    inB.addEventListener("input", e=>{
+      if (e.target.files?.[0]) tkHandleUpload(e.target.files[0], "B");
+    });
+  }
+})();
 </script>
 
 </body>
