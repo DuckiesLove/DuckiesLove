@@ -432,110 +432,185 @@
 })();
 </script>
 
-<!-- OPTIONAL: Minimal wiring if you don’t already parse and call handlers -->
-<script>
-  // If you already parse uploads elsewhere, you can delete this block.
-  const upA = document.querySelector('#uploadSurveyA,[data-upload-a]');
-  if (upA) upA.addEventListener('change', async e=>{
-    const f=e.target.files?.[0]; if (!f) return;
-    try { window.partnerASurvey = JSON.parse(await f.text()); } catch {}
-    if (window.__compatRunFill) window.__compatRunFill();
-  });
-  const upB = document.querySelector('#uploadSurveyB,[data-upload-b]');
-  if (upB) upB.addEventListener('change', async e=>{
-    const f=e.target.files?.[0]; if (!f) return;
-    try { window.partnerBSurvey = JSON.parse(await f.text()); } catch {}
-    if (window.__compatRunFill) window.__compatRunFill();
-  });
-</script>
+<!--
+CODEx: ONE-BOX CHANGESET FOR TALK KINK COMPATIBILITY
+Purpose:
+- Fix Partner B not loading (ID mismatch).
+- Keep ONLY two numeric columns (Partner A & Partner B).
+- Show Match as a percentage.
+- Show Flag as an icon (⭐ high, ⚑ medium, 🚩 low) in DOM and PDF.
+- Make PDF export compute Match/Flag itself (never numbers in Flag).
 
-<!-- ================= COPY–PASTE THIS WHOLE BLOCK (replaces the previous one) ================
-What this fixes
-1) Prevents header wrap/overhang for “Partner A” and “Partner B” by using non-breaking spaces
-   and giving those columns a slightly larger minimum width.
-2) Title-cases every Category cell before it goes to PDF (e.g., “picking head coverings…”
-   → “Picking Head Coverings…”).
-3) Keeps a single centered “Talk Kink” title and tight spacing above the table.
+HOW TO APPLY:
+Paste this WHOLE block at the very BOTTOM of compatibility.html (after your existing scripts).
+No other edits required. This block:
+  • Normalizes Partner B input ID/selector and binds the handler.
+  • Wraps updateComparison() to clean table cells & render icons.
+  • Replaces the PDF export so it computes % + icon.
 
-How to apply
-- Put these TWO CDN tags near the top of compatibility.html (above this script) if you don’t already have them:
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
-- Paste THIS script just before </body>.
-- Make sure you have a button with id="downloadBtn" (or add: <button id="downloadBtn">Download PDF</button>)
-- Hard refresh and click the button.
-============================================================================================== -->
+If your current IDs already match, this still works (it tries multiple selectors).
+-->
+
+<!-- 0) (Optional) Ensure PDF libs are present. If not, add these two lines above this box. -->
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> -->
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script> -->
+
+<style>
+  /* Icons for the Flag column (page view) */
+  .tk-flagcell { text-align:center; width:3.5rem }
+  .tk-flag { font-size:1.1em; line-height:1; display:inline-block }
+  .tk-flag--star { color:#ffd166 }   /* high */
+  .tk-flag--flag { color:#4cc9f0 }   /* medium */
+  .tk-flag--low  { color:#ff6b6b }   /* low (optional) */
+</style>
 
 <script>
-/* ===== PDF Export: compute % + icon, never numbers in Flag =====
-   Requires jsPDF + jsPDF-AutoTable (same as before). */
+/* ========================= 1) Partner B wiring fix ========================= */
+/* B wasn’t loading because JS listened to #uploadSurveyB but HTML used #uploadB.
+   This binder tries both (and [data-upload-b]) and routes to handleUploadB. */
+(function bindPartnerB(){
+  const inputB = document.getElementById("uploadB")
+              || document.getElementById("uploadSurveyB")
+              || document.querySelector("[data-upload-b]");
+  const trigger = document.getElementById("loadPartnerBtn")
+              || document.querySelector("[data-load-partner]");
+
+  // Let a "Load Partner Survey" button open the hidden input
+  if (trigger && inputB){
+    trigger.addEventListener("click", () => { inputB.value=""; inputB.click(); });
+  }
+
+  // On file select, call your handler if present, else noop message
+  function onBFile(e){
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (typeof window.handleUploadB === "function") {
+      window.handleUploadB(f);
+    } else if (typeof window.handleUpload === "function") {
+      // some builds use generic handleUpload(file, "B")
+      try { window.handleUpload(f, "B"); } catch {}
+    } else {
+      console.warn("No handleUploadB(file) found; ensure your loader is defined.");
+    }
+  }
+  if (inputB){
+    inputB.addEventListener("change", onBFile);
+    inputB.addEventListener("input", onBFile); // programmatic assignment fallback
+  } else {
+    console.warn('Partner B input not found. Add id="uploadB" or id="uploadSurveyB" or [data-upload-b].');
+  }
+})();
+
+/* ========================= 2) Enforce cell schema & render icons (DOM) ========================= */
+/* Guarantees: A/B numeric only; Match is %; Flag is icon only. */
+const TK_THRESH = { star: 90, flag: 60, low: 30 }; // tweak thresholds here
+
+function tkNum(v){ const n = Number(String(v??"").trim()); return Number.isFinite(n)?n:null; }
+function tkPct(a,b){ const A=tkNum(a), B=tkNum(b); if(A==null||B==null) return null; return Math.round(100-(Math.abs(A-B)/5)*100); }
+
+function tkEnsureCells(tr){
+  // Expect [Category][A][Match][Flag][B]
+  const need = ["A","Match","Flag","B"];
+  const have = new Set(Array.from(tr.querySelectorAll("td[data-cell]")).map(td=>td.getAttribute("data-cell")));
+  need.forEach(key=>{
+    if (!have.has(key)){
+      const td = document.createElement("td");
+      td.setAttribute("data-cell", key);
+      if (key==="Flag") td.classList.add("tk-flagcell");
+      tr.appendChild(td);
+    }
+  });
+}
+
+function tkRenderRow(tr){
+  tkEnsureCells(tr);
+  const aTd=tr.querySelector('td[data-cell="A"]');
+  const mTd=tr.querySelector('td[data-cell="Match"]');
+  const fTd=tr.querySelector('td[data-cell="Flag"]');
+  const bTd=tr.querySelector('td[data-cell="B"]');
+
+  const A=tkNum(aTd?.textContent), B=tkNum(bTd?.textContent);
+  aTd.textContent = A ?? "-";          // numeric only
+  bTd.textContent = B ?? "-";          // numeric only
+
+  const pct = tkPct(A,B);
+  mTd.textContent = pct==null ? "-" : `${pct}%`;
+
+  // icon only in Flag (wipe any numbers)
+  fTd.textContent = "";
+  if (pct!=null){
+    if (pct >= TK_THRESH.star){
+      fTd.innerHTML = `<span class="tk-flag tk-flag--star" title="High match">★</span>`;
+    } else if (pct >= TK_THRESH.flag){
+      fTd.innerHTML = `<span class="tk-flag tk-flag--flag" title="Medium match">⚑</span>`;
+    } else if (pct <= TK_THRESH.low){
+      fTd.innerHTML = `<span class="tk-flag tk-flag--low" title="Low match">🚩</span>`;
+    } // else keep blank
+  }
+}
+
+function tkRefreshAll(){
+  document.querySelectorAll('tbody tr[data-kink-id]').forEach(tkRenderRow);
+}
+
+// Wrap updateComparison so the visuals are enforced every time data changes
+(function installDomPatch(){
+  if (typeof window.updateComparison === "function"){
+    const _orig = window.updateComparison;
+    window.updateComparison = function(){ _orig.apply(this, arguments); tkRefreshAll(); };
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tkRefreshAll);
+  } else {
+    tkRefreshAll();
+  }
+})();
+
+/* ========================= 3) PDF export override (compute % + icon) ========================= */
+/* Generates: Category | Partner A | Match(%) | Flag(icon) | Partner B */
 (function installPDFExport(){
-  // helper: parse number or return null
-  function n(v){ const x=Number(String(v??"").trim()); return Number.isFinite(x)?x:null; }
-  function percent(a,b){
-    const A=n(a), B=n(b);
-    if (A==null || B==null) return null;
-    return Math.round(100 - (Math.abs(A-B)/5)*100);
-  }
   function flagIcon(pct){
-    if (pct==null) return "";         // no match yet
-    if (pct >= 90) return "★";        // high
-    if (pct >= 60) return "⚑";        // medium
-    return "";                        // low → blank (change to "❗" if you prefer)
+    if (pct==null) return "";
+    if (pct >= TK_THRESH.star) return "★";
+    if (pct >= TK_THRESH.flag) return "⚑";
+    if (pct <= TK_THRESH.low)  return "🚩";
+    return "";
   }
 
-  // NEW exporter (replaces any old one bound to the button)
   async function exportCompatibilityPDF(){
     if (!(window.jspdf && window.jspdf.jsPDF && window.jspdf.autoTable)) {
       alert("PDF export needs jsPDF + jsPDF-AutoTable on the page.");
       return;
     }
     const { jsPDF } = window.jspdf;
-
-    // Build rows from the DOM, but recompute Match/Flag instead of reading them
     const rows = [];
+
     document.querySelectorAll('tbody tr[data-kink-id]').forEach(tr=>{
-      const category = tr.cells?.[0]?.textContent?.trim() ?? tr.getAttribute('data-kink-id');
+      const cat = tr.cells?.[0]?.textContent?.trim() ?? tr.getAttribute('data-kink-id');
       const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent ?? "";
       const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent ?? "";
-
-      const A = n(aTxt), B = n(bTxt);
-      const pct = percent(A,B);
-      const pctTxt = (pct==null ? "–" : `${pct}%`);
-      const flag = flagIcon(pct);
-
-      // Only A & B are numeric in the PDF; Match is %, Flag is icon
-      rows.push([category, (A??"–"), pctTxt, flag, (B??"–")]);
+      const A = tkNum(aTxt), B = tkNum(bTxt);
+      const pct = tkPct(A,B);
+      rows.push([cat, (A??"–"), (pct==null?"–":`${pct}%`), flagIcon(pct), (B??"–")]);
     });
 
     const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
     doc.setFontSize(18);
     doc.text("Talk Kink • Compatibility Report", 40, 48);
-
     window.jspdf.autoTable(doc, {
       head: [["Category","Partner A","Match","Flag","Partner B"]],
       body: rows,
       startY: 70,
-      styles: { fontSize: 10, cellPadding: 6, overflow: "linebreak" },
-      columnStyles: {
-        1: { halign: "center" },  // A
-        2: { halign: "center" },  // Match %
-        3: { halign: "center" },  // Flag icon
-        4: { halign: "center" },  // Partner B
-      },
-      headStyles: { fillColor: [0,0,0] }
+      styles: { fontSize: 10, cellPadding: 6, overflow:"linebreak" },
+      columnStyles: { 1:{halign:"center"}, 2:{halign:"center"}, 3:{halign:"center"}, 4:{halign:"center"} },
+      headStyles: { fillColor:[0,0,0] }
     });
-
     doc.save("compatibility-report.pdf");
   }
 
   const btn = document.getElementById("downloadBtn") || document.querySelector('[data-download-pdf]');
-  if (btn){
-    btn.onclick = exportCompatibilityPDF;  // override any previous click listener
-  } else {
-    // Fallback: expose globally if you trigger it elsewhere
-    window.downloadCompatibilityPDF = exportCompatibilityPDF;
-  }
+  if (btn) btn.onclick = exportCompatibilityPDF;
+  else window.downloadCompatibilityPDF = exportCompatibilityPDF;
 })();
 </script>
 
