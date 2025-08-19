@@ -43,8 +43,9 @@ import { loadJsPDF } from './loadJsPDF.js';
 
 /* ================================ CONFIG ================================== */
 const IDS = {
-  uploadA: '#uploadSurveyA, [data-upload-a]',
-  uploadB: '#uploadSurveyB, [data-upload-b]',
+  uploadA: '#uploadSurveyA, #uploadA, [data-upload-a]',
+  uploadB: '#uploadSurveyB, #uploadB, [data-upload-b]',
+  btnLoadB: '#loadPartnerBtn, [data-load-partner]',
   downloadBtn: '#downloadBtn',
   container: '#pdf-container, #compat-container'
 };
@@ -235,8 +236,17 @@ async function handleUploadB(e) {
 function wireUploads() {
   const inA = document.querySelector(IDS.uploadA);
   const inB = document.querySelector(IDS.uploadB);
-  if (inA) inA.addEventListener('change', handleUploadA);
-  if (inB) inB.addEventListener('change', handleUploadB);
+  const btnB = document.querySelector(IDS.btnLoadB);
+  if (inA) ['change', 'input'].forEach(evt => inA.addEventListener(evt, handleUploadA));
+  if (inB) ['change', 'input'].forEach(evt => inB.addEventListener(evt, handleUploadB));
+  if (btnB && inB) {
+    btnB.addEventListener('click', () => {
+      inB.value = '';
+      inB.click();
+    });
+  } else if (!inB) {
+    console.warn('Partner B file input not found. Add id="uploadB" (or id="uploadSurveyB" or data-upload-b) to your HTML.');
+  }
 }
 
 /* ---------- FONT + RENDERING STABILIZER FOR THE CLONE (PDF only) ---------- */
