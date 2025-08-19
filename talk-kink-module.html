@@ -41,6 +41,12 @@
     .match-high { outline: 1px solid rgba(0,255,128,.35); background: rgba(0,255,128,.07); }
     .match-low  { outline: 1px solid rgba(255,64,64,.35);  background: rgba(255,64,64,.07); }
 
+    .tk-flagcell{ text-align:center; width:3.5rem }
+    .tk-flag{ font-size:1.15em; line-height:1; display:inline-block }
+    .tk-flag--star{ color:#ffd166 }
+    .tk-flag--flag{ color:#4cc9f0 }
+    .tk-flag--low { color:#ff6b6b }
+
   </style>
 </head>
 <body>
@@ -84,19 +90,21 @@
 
   <!-- The module will create this table automatically -->
   <table id="tk-table" class="tk-table">
-    <thead>
-      <tr>
-        <th>Category
-        </th>
-        <th>Partner A
-        </th>
-        <th>Match
-        </th>
-        <th>Partner B
-        </th>
-      </tr>
+      <thead>
+        <tr>
+          <th>Category
+          </th>
+          <th>Partner A
+          </th>
+          <th>Match
+          </th>
+          <th>Flag
+          </th>
+          <th>Partner B
+          </th>
+        </tr>
 
-    </thead>
+      </thead>
 
     <tbody id="tk-tbody">
       <!-- rows generated at runtime -->
@@ -106,8 +114,90 @@
 
 </div>
 
-<script>
-  <!-- existing JavaScript unchanged -->
-</script>
-</body>
-</html>
+  <script>
+    /* thresholds for icons */
+    const TK_FLAG_THRESHOLDS = { star: 90, flag: 60 };
+
+    /* compute percent match from two 0–5 scores (or best effort if strings) */
+    function tkNumber(v){
+      const n = typeof v === 'number' ? v : Number(String(v).trim());
+      return Number.isFinite(n) ? n : null;
+    }
+    function tkPercent(a, b){
+      const A = tkNumber(a), B = tkNumber(b);
+      if (A==null || B==null) return null;
+      const pct = Math.max(0, 100 - (Math.abs(A - B) / 5) * 100);
+      return Math.round(pct);
+    }
+
+    /* ensure row has the schema: [Category][A][Match][Flag][B] */
+    function tkEnsureCells(tr){
+      const need = ['A','Match','Flag','B'];
+      const have = new Set(Array.from(tr.querySelectorAll('td[data-cell]')).map(td=>td.getAttribute('data-cell')));
+      need.forEach(key=>{
+        if (!have.has(key)){
+          const td = document.createElement('td');
+          td.setAttribute('data-cell', key);
+          if (key === 'Flag') td.classList.add('tk-flagcell');
+          tr.appendChild(td);
+        }
+      });
+    }
+
+    /* render % + icon, and make sure only A/B are numeric */
+    function tkRenderRow(tr){
+      tkEnsureCells(tr);
+
+      const aTd = tr.querySelector('td[data-cell="A"]');
+      const mTd = tr.querySelector('td[data-cell="Match"]');
+      const fTd = tr.querySelector('td[data-cell="Flag"]');
+      const bTd = tr.querySelector('td[data-cell="B"]');
+
+      if (aTd && /%$/.test(aTd.textContent.trim())) aTd.textContent = String(tkNumber(aTd.textContent.replace('%','')) ?? '-');
+      if (bTd && /%$/.test(bTd.textContent.trim())) bTd.textContent = String(tkNumber(bTd.textContent.replace('%','')) ?? '-');
+
+      const A = tkNumber(aTd?.textContent);
+      const B = tkNumber(bTd?.textContent);
+
+      const pct = tkPercent(A, B);
+      if (mTd) mTd.textContent = pct == null ? '-' : `${pct}%`;
+
+      if (fTd){
+        fTd.classList.add('tk-flagcell');
+        fTd.textContent = '';
+        if (pct != null){
+          const span = document.createElement('span');
+          span.classList.add('tk-flag');
+          if (pct >= TK_FLAG_THRESHOLDS.star){
+            span.classList.add('tk-flag--star');
+            span.textContent = '★';
+          } else if (pct >= TK_FLAG_THRESHOLDS.flag){
+            span.classList.add('tk-flag--flag');
+            span.textContent = '⚑';
+          } else {
+            span.classList.add('tk-flag--low');
+            span.textContent = '⚑';
+          }
+          fTd.appendChild(span);
+        }
+      }
+    }
+
+    function tkRenderAll(root=document){
+      root.querySelectorAll('#tk-tbody tr').forEach(tkRenderRow);
+    }
+
+    const tkBody = document.getElementById('tk-tbody');
+    if (tkBody && typeof MutationObserver === 'function'){
+      const mo = new MutationObserver(()=>tkRenderAll());
+      mo.observe(tkBody,{childList:true});
+    }
+
+    if (document.readyState !== 'loading') tkRenderAll();
+    else document.addEventListener('DOMContentLoaded', tkRenderAll);
+
+    window.tkRenderRow = tkRenderRow;
+    window.tkRenderAll = tkRenderAll;
+  </script>
+  </body>
+  </html>
