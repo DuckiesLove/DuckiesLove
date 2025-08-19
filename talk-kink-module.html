@@ -25,9 +25,9 @@
   - If any labels are stubborn, add exact pairs in ID_ALIAS below.
   -->
 
-  <!-- Optional PDF libraries (uncomment to enable PDF export) -->
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> -->
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script> -->
+    <!-- Optional PDF libraries (uncomment to enable PDF export) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script>
 
   <style>
     .tk-wrap { margin: 1rem 0; display: grid; gap: .5rem; }
@@ -84,7 +84,7 @@
     <div class="tk-status">Overall match: <strong id="tk-overall">—</strong>
     </div>
 
-    <button id="tk-download" disabled>Download Compatibility Report</button>
+      <button id="tk-download" data-download-pdf disabled>Download Compatibility Report</button>
 
   </div>
 
@@ -196,8 +196,128 @@
     if (document.readyState !== 'loading') tkRenderAll();
     else document.addEventListener('DOMContentLoaded', tkRenderAll);
 
-    window.tkRenderRow = tkRenderRow;
-    window.tkRenderAll = tkRenderAll;
-  </script>
-  </body>
-  </html>
+      window.tkRenderRow = tkRenderRow;
+      window.tkRenderAll = tkRenderAll;
+    </script>
+
+    <script>
+    (function installSolidPdfExport(){
+      // ---- thresholds/icons
+      const TK_THRESH = { star: 90, flag: 60, low: 30 };
+      const ICONS = { star: "★", flag: "⚑", low: "🚩", blank: "" };
+
+      // ---- utils
+      const num = v => {
+        const n = Number(String(v ?? "").trim());
+        return Number.isFinite(n) ? n : null;
+      };
+      const matchPct = (a, b) => {
+        const A = num(a), B = num(b);
+        if (A == null || B == null) return null;
+        return Math.round(100 - (Math.abs(A - B) / 5) * 100);
+      };
+      const flagFor = pct => {
+        if (pct == null) return ICONS.blank;
+        if (pct >= TK_THRESH.star) return ICONS.star;
+        if (pct >= TK_THRESH.flag) return ICONS.flag;
+        if (pct <= TK_THRESH.low)  return ICONS.low;
+        return ICONS.blank;
+      };
+
+      // ---- collect rows from DOM
+      function collectRows() {
+        let trs = Array.from(document.querySelectorAll('tbody tr[data-kink-id]'));
+        if (trs.length === 0) {
+          trs = Array.from(document.querySelectorAll('tbody tr'))
+            .filter(tr => tr.querySelector('td'));
+        }
+        const rows = [];
+        for (const tr of trs) {
+          const cat = tr.cells?.[0]?.textContent?.trim() || tr.getAttribute('data-kink-id') || "";
+          const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent
+                    ?? tr.cells?.[1]?.textContent ?? "";
+          const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent
+                    ?? tr.cells?.[tr.cells.length - 1]?.textContent ?? "";
+
+          const A = num(aTxt), B = num(bTxt);
+          const pct = matchPct(A, B);
+
+          rows.push([
+            cat || "—",
+            (A ?? "—"),
+            (pct == null ? "—" : `${pct}%`),
+            flagFor(pct),
+            (B ?? "—")
+          ]);
+        }
+        return rows;
+      }
+
+      // ---- call AutoTable for any UMD/attach style
+      function runAutoTable(doc, opts) {
+        if (typeof doc.autoTable === "function") {
+          doc.autoTable(opts);
+        } else if (window.jspdf && typeof window.jspdf.autoTable === "function") {
+          window.jspdf.autoTable(doc, opts);
+        } else {
+          throw new Error("jsPDF-AutoTable not found. Include the plugin before this script.");
+        }
+      }
+
+      // ---- main export function
+      async function exportCompatibilityPDF() {
+        try {
+          if (!(window.jspdf && window.jspdf.jsPDF)) {
+            alert("Missing jsPDF. Add the CDN script before this exporter.");
+            return;
+          }
+
+          const rows = collectRows();
+          if (!rows.length) {
+            console.warn("[PDF] No data rows found.");
+            alert("No data rows found to export. Make sure the table has rows before exporting.");
+            return;
+          }
+
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+
+          doc.setFontSize(18);
+          doc.text("Talk Kink • Compatibility Report", 40, 48);
+
+          runAutoTable(doc, {
+            head: [["Category", "Partner A", "Match", "Flag", "Partner B"]],
+            body: rows,
+            startY: 70,
+            styles: { fontSize: 10, cellPadding: 6, overflow: "linebreak" },
+            headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" },
+            columnStyles: {
+              0: { halign: "left"  },
+              1: { halign: "center" },
+              2: { halign: "center" },
+              3: { halign: "center" },
+              4: { halign: "center" }
+            }
+          });
+
+          doc.save("compatibility-report.pdf");
+        } catch (err) {
+          console.error("[PDF] Export failed:", err);
+          alert("PDF export failed: " + err.message);
+        }
+      }
+
+      // ---- bind button
+      const btn = document.getElementById("downloadBtn") || document.querySelector("[data-download-pdf]");
+      if (btn) btn.onclick = exportCompatibilityPDF;
+      window.downloadCompatibilityPDF = exportCompatibilityPDF;
+
+      // Debug info
+      (function debugLog(){
+        const rows = collectRows();
+        console.log(`[PDF] Found ${rows.length} data rows. First row:`, rows[0]);
+      })();
+    })();
+    </script>
+    </body>
+    </html>
