@@ -76,8 +76,6 @@
       background: transparent !important;
     }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
 </head>
 <body class="theme-dark">
   <div class="main-container themed">
@@ -578,8 +576,11 @@ function tkRefreshAll(){
   }
 
   async function exportCompatibilityPDF(){
-    if (!(window.jspdf && window.jspdf.jsPDF && window.jspdf.autoTable)) {
-      alert("PDF export needs jsPDF + jsPDF-AutoTable on the page.");
+    try {
+      const { loadJsPDF } = await import('./js/loadJsPDF.js');
+      await loadJsPDF();
+    } catch {
+      alert('PDF export requires jsPDF.');
       return;
     }
     const { jsPDF } = window.jspdf;
@@ -594,18 +595,40 @@ function tkRefreshAll(){
       rows.push([cat, (A??"–"), (pct==null?"–":`${pct}%`), flagIcon(pct), (B??"–")]);
     });
 
-    const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
+    const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
+    const margin = 40;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const colWidth = (pageWidth - margin * 2) / 5;
+    const lineHeight = 20;
+    let y = 70;
+
+    const drawHeader = () => {
+      doc.setFontSize(12);
+      ['Category','Partner A','Match','Flag','Partner B'].forEach((text,i)=>{
+        doc.text(text, margin + i * colWidth + colWidth / 2, y, { align:'center' });
+      });
+      y += lineHeight;
+      doc.setFontSize(10);
+    };
+
+    const drawRow = cells => {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+        drawHeader();
+      }
+      cells.forEach((text,i)=>{
+        doc.text(String(text), margin + i * colWidth + colWidth / 2, y, { align:'center' });
+      });
+      y += lineHeight;
+    };
+
     doc.setFontSize(18);
-    doc.text("Talk Kink • Compatibility Report", 40, 48);
-    window.jspdf.autoTable(doc, {
-      head: [["Category","Partner A","Match","Flag","Partner B"]],
-      body: rows,
-      startY: 70,
-      styles: { fontSize: 10, cellPadding: 6, overflow:"linebreak" },
-      columnStyles: { 1:{halign:"center"}, 2:{halign:"center"}, 3:{halign:"center"}, 4:{halign:"center"} },
-      headStyles: { fillColor:[0,0,0] }
-    });
-    doc.save("compatibility-report.pdf");
+    doc.text('Talk Kink • Compatibility Report', margin, 48);
+    drawHeader();
+    rows.forEach(drawRow);
+    doc.save('compatibility-report.pdf');
   }
 
   const btn = document.getElementById("downloadBtn") || document.querySelector('[data-download-pdf]');
