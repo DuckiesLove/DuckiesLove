@@ -22,15 +22,16 @@
     <span id="statusB" style="font-size:.9rem;color:#8aa">No file</span>
   </div>
 
-  <button id="downloadBtn" disabled style="margin-top:.75rem">Download Compatibility Report</button>
+  <button id="downloadPdfBtn" disabled style="margin-top:.75rem">Download Compatibility Report</button>
 </div>
 
-<table border="1" style="margin-top:1em; border-collapse:collapse; min-width:360px;">
+<table id="compatibilityTable" border="1" style="margin-top:1em; border-collapse:collapse; min-width:360px;">
   <thead>
     <tr>
       <th>Category</th>
       <th>Partner A</th>
       <th>Match</th>
+      <th>Flag</th>
       <th>Partner B</th>
     </tr>
   </thead>
@@ -53,7 +54,7 @@ function tkSetError(msg){
   el.style.display="block"; el.textContent = msg;
 }
 function tkEnableDownload(){
-  const btn = document.getElementById("downloadBtn");
+  const btn = document.getElementById("downloadPdfBtn");
   if (!btn) return;
   btn.disabled = !(window.tkA?.length > 0 && window.tkB?.length > 0);
 }
@@ -154,10 +155,19 @@ function tkDetectScale(items){
 }
 function tkMatch(a5,b5){ const d=Math.abs(a5-b5); return Math.max(0, 100 - (d/5)*100); }
 
+function tkFlag(match, a, b){
+  if (match >= 90) return '⭐';
+  const high = v => typeof v === 'number' && v >= 4;
+  const missing = v => v === null || v === undefined || v === 0;
+  if (match <= 50 || ((high(a) || high(b)) && (missing(a) || missing(b)))) return '🚩';
+  return '';
+}
+
 function tkEnsureCells(tr){
-  if (!tr.querySelector('[data-cell="A"]'))  tr.insertCell(1).setAttribute("data-cell","A");
+  if (!tr.querySelector('[data-cell="A"]'))    tr.insertCell(1).setAttribute("data-cell","A");
   if (!tr.querySelector('[data-cell="Match"]')) tr.insertCell(2).setAttribute("data-cell","Match");
-  if (!tr.querySelector('[data-cell="B"]'))  tr.insertCell(3).setAttribute("data-cell","B");
+  if (!tr.querySelector('[data-cell="Flag"]'))  tr.insertCell(3).setAttribute("data-cell","Flag");
+  if (!tr.querySelector('[data-cell="B"]'))     tr.insertCell(4).setAttribute("data-cell","B");
 }
 function tkRebuildTableFromUnion(){
   const tbody = document.querySelector("table tbody");
@@ -174,8 +184,9 @@ function tkRebuildTableFromUnion(){
     tr.appendChild(td);
     const tdA=document.createElement("td"); tdA.setAttribute("data-cell","A"); tdA.textContent="-";
     const tdM=document.createElement("td"); tdM.setAttribute("data-cell","Match"); tdM.textContent="-";
+    const tdF=document.createElement("td"); tdF.setAttribute("data-cell","Flag"); tdF.textContent="";
     const tdB=document.createElement("td"); tdB.setAttribute("data-cell","B"); tdB.textContent="-";
-    tr.append(tdA,tdM,tdB);
+    tr.append(tdA,tdM,tdF,tdB);
     tbody.appendChild(tr);
   }
 }
@@ -211,6 +222,7 @@ function tkUpdate(){
     const aCell = tr.querySelector('[data-cell="A"]');
     const bCell = tr.querySelector('[data-cell="B"]');
     const mCell = tr.querySelector('[data-cell="Match"]');
+    const fCell = tr.querySelector('[data-cell="Flag"]');
 
     const aRaw = (typeof A?.score==="number") ? A.score : null;
     const bRaw = (typeof B?.score==="number") ? B.score : null;
@@ -219,10 +231,14 @@ function tkUpdate(){
     bCell.textContent = bRaw ?? "-";
 
     if (aRaw!=null && bRaw!=null){
-      const pct = Math.round(tkMatch(aRaw*sA, bRaw*sB));
+      const a5 = aRaw*sA;
+      const b5 = bRaw*sB;
+      const pct = Math.round(tkMatch(a5, b5));
       mCell.textContent = `${pct}%`;
+      fCell.textContent = tkFlag(pct, a5, b5);
     } else {
       mCell.textContent = "-";
+      fCell.textContent = '';
     }
   });
 
@@ -278,6 +294,43 @@ async function tkHandleUpload(file, which){
     });
   }
 })();
+
+// Attach export handler
+document.getElementById("downloadPdfBtn").addEventListener("click", () => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF("landscape");
+
+  // Add title
+  doc.setFontSize(18);
+  doc.text("Talk Kink • Compatibility Report", 14, 20);
+
+  // Pull rows from the HTML table
+  doc.autoTable({
+    html: "#compatibilityTable",
+    startY: 30,
+    styles: {
+      fontSize: 10,
+      cellPadding: 3,
+      halign: "center",
+      valign: "middle",
+    },
+    headStyles: {
+      fillColor: [0, 0, 0],
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+    },
+    columnStyles: {
+      0: { halign: "left" },
+      1: { halign: "center" },
+      2: { halign: "center" },
+      3: { halign: "center" },
+      4: { halign: "center" },
+    }
+  });
+
+  // Save file
+  doc.save("compatibility-report.pdf");
+});
 </script>
 
 </body>
