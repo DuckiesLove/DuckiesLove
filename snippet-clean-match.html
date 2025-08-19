@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Clean 2-number, % match, flag icons only</title>
+<!-- === Clean 2-number, % match, flag icons only === -->
+<style>
+  .tk-flagcell { text-align:center; width:3.5rem }
+  .tk-flag { font-size:1.1em; display:inline-block }
+  .tk-flag--star { color:#ffd166 } /* gold star */
+  .tk-flag--flag { color:#4cc9f0 } /* blue flag */
+</style>
+</head>
+<body>
+<table>
+  <thead>
+    <tr>
+      <th>Partner A</th>
+      <th>Match</th>
+      <th>Flag</th>
+      <th>Partner B</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr data-kink-id="demo">
+      <td data-cell="A">3</td>
+      <td data-cell="Match">-</td>
+      <td data-cell="Flag"></td>
+      <td data-cell="B">5</td>
+    </tr>
+  </tbody>
+</table>
+<script>
+const TK_THRESH = { star: 90, flag: 60 };
+
+function tkNumber(v){
+  const n = Number(String(v).trim());
+  return Number.isFinite(n) ? n : null;
+}
+function tkPercent(a,b){
+  const A=tkNumber(a), B=tkNumber(b);
+  if(A==null||B==null) return null;
+  return Math.round(100 - (Math.abs(A-B)/5)*100);
+}
+function tkRenderRow(tr){
+  let aTd=tr.querySelector('td[data-cell="A"]'),
+      mTd=tr.querySelector('td[data-cell="Match"]'),
+      fTd=tr.querySelector('td[data-cell="Flag"]'),
+      bTd=tr.querySelector('td[data-cell="B"]');
+  if(!aTd||!mTd||!fTd||!bTd) return;
+
+  const A=tkNumber(aTd.textContent), B=tkNumber(bTd.textContent);
+  const pct=tkPercent(A,B);
+  mTd.textContent = pct==null ? '-' : `${pct}%`;
+
+  fTd.textContent="";
+  if(pct!=null){
+    if(pct>=TK_THRESH.star){
+      fTd.innerHTML=`<span class="tk-flag tk-flag--star" title="High Match">★</span>`;
+    } else if(pct>=TK_THRESH.flag){
+      fTd.innerHTML=`<span class="tk-flag tk-flag--flag" title="Medium Match">⚑</span>`;
+    }
+  }
+}
+
+function tkRefreshAll(){
+  document.querySelectorAll('tbody tr[data-kink-id]').forEach(tkRenderRow);
+}
+
+tkRefreshAll();
+</script>
+</body>
+</html>
