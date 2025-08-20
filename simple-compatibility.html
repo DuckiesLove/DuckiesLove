@@ -295,42 +295,76 @@ async function tkHandleUpload(file, which){
   }
 })();
 
-// Attach export handler
-document.getElementById("downloadPdfBtn").addEventListener("click", () => {
+// Attach export handler using explicit row collection (prevents blank PDFs)
+(function(){
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF("landscape");
 
-  // Add title
-  doc.setFontSize(18);
-  doc.text("Talk Kink • Compatibility Report", 14, 20);
+  // convert text to number
+  const toNum = v => {
+    const n = Number(String(v ?? "").trim());
+    return Number.isFinite(n) ? n : null;
+    };
 
-  // Pull rows from the HTML table
-  doc.autoTable({
-    html: "#compatibilityTable",
-    startY: 30,
-    styles: {
-      fontSize: 10,
-      cellPadding: 3,
-      halign: "center",
-      valign: "middle",
-    },
-    headStyles: {
-      fillColor: [0, 0, 0],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-    },
-    columnStyles: {
-      0: { halign: "left" },
-      1: { halign: "center" },
-      2: { halign: "center" },
-      3: { halign: "center" },
-      4: { halign: "center" },
+  // match percentage
+  const matchPct = (a, b) => {
+    if (a == null || b == null) return null;
+    return Math.round(100 - (Math.abs(a - b) / 5) * 100);
+  };
+
+  // flag emoji
+  const flagFor = pct => {
+    if (pct == null) return "";
+    if (pct >= 90) return "⭐";
+    if (pct >= 60) return "🟨";
+    if (pct <= 30) return "🚩";
+    return "";
+  };
+
+  // collect table rows
+  function collectRows(){
+    const rows = [];
+    document.querySelectorAll("#compatibilityTable tbody tr").forEach(tr => {
+      const cells = tr.querySelectorAll("td");
+      if (cells.length < 3) return;
+
+      const category = cells[0].textContent.trim();
+      const aVal = toNum(cells[1].textContent);
+      const bVal = toNum(cells[cells.length - 1].textContent);
+
+      const pct = matchPct(aVal, bVal);
+      rows.push([
+        category,
+        aVal ?? "—",
+        pct == null ? "—" : pct + "%",
+        flagFor(pct),
+        bVal ?? "—"
+      ]);
+    });
+    return rows;
+  }
+
+  function exportPDF(){
+    const rows = collectRows();
+    if (!rows.length){
+      alert("No table rows found. Check #compatibilityTable structure.");
+      return;
     }
-  });
 
-  // Save file
-  doc.save("compatibility-report.pdf");
-});
+    const doc = new jsPDF({orientation: "landscape"});
+    doc.setFontSize(16);
+    doc.text("Talk Kink • Compatibility Report", 40, 40);
+
+    doc.autoTable({
+      head: [["Category","Partner A","Match","Flag","Partner B"]],
+      body: rows,
+      startY: 60
+    });
+
+    doc.save("compatibility-report.pdf");
+  }
+
+  document.getElementById("downloadPdfBtn").addEventListener("click", exportPDF);
+})();
 </script>
 
 </body>
