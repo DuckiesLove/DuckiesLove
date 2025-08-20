@@ -57,6 +57,10 @@
       max-width: 300px;
       width: 100%;
     }
+    .export-tip {
+      font-size: 0.9rem;
+      margin: 0;
+    }
   </style>
   <style>
     /* Keep rows from splitting in both web and print */
@@ -94,6 +98,7 @@
       </label>
 
       <button class="themed-button wide-button" id="downloadBtn">Download PDF</button>
+      <p id="exportTip" class="export-tip">Upload both surveys before exporting.</p>
     </div>
 
     <div id="comparisonResults">
@@ -622,6 +627,22 @@ function tkRefreshAll(){
     return rows;
   }
 
+  let exportBtn;
+
+  function updateExportButton(){
+    const rows = rowsFromMemory();
+    const ready = Array.isArray(rows) && rows.length > 0 &&
+                  Array.isArray(window.partnerAData?.items) && window.partnerAData.items.length > 0 &&
+                  Array.isArray(window.partnerBData?.items) && window.partnerBData.items.length > 0;
+    if (exportBtn) {
+      exportBtn.disabled = !ready;
+      exportBtn.title = ready ? "" : "Upload both surveys before exporting.";
+    }
+    const tip = document.getElementById("exportTip");
+    if (tip) tip.style.display = ready ? "none" : "";
+  }
+  window.updateExportButton = updateExportButton;
+
     function runAutoTable(doc, opts){
     if (typeof doc.autoTable === "function") return doc.autoTable(opts);
     if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
@@ -684,7 +705,9 @@ function tkRefreshAll(){
             || document.getElementById("downloadPdfBtn")
             || document.querySelector("[data-download-pdf]");
     if (btn) {
+      exportBtn = btn;
       btn.onclick = exportPDF;
+      updateExportButton();
       console.log("[PDF] Exporter bound to", btn);
     } else {
       window.downloadCompatibilityPDF = exportPDF;
