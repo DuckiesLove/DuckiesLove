@@ -449,9 +449,9 @@ No other edits required. This block:
 If your current IDs already match, this still works (it tries multiple selectors).
 -->
 
-<!-- 0) (Optional) Ensure PDF libs are present. If not, add these two lines above this box. -->
-<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> -->
-<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script> -->
+<!-- 0) Ensure PDF libs are present -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script>
 
 <style>
   /* Icons for the Flag column (page view) */
@@ -564,76 +564,155 @@ function tkRefreshAll(){
   }
 })();
 
-/* ========================= 3) PDF export override (compute % + icon) ========================= */
-/* Generates: Category | Partner A | Match(%) | Flag(icon) | Partner B */
-(function installPDFExport(){
-  function flagIcon(pct){
-    if (pct==null) return "";
-    if (pct >= TK_THRESH.star) return "★";
-    if (pct >= TK_THRESH.flag) return "⚑";
-    if (pct <= TK_THRESH.low)  return "🚩";
-    return "";
+</script>
+
+<!-- ONE-BOX FIX: PDF IS BLANK → ALWAYS BUILD ROWS (NO TABLE SCRAPING REQUIRED) -->
+<script>
+(function SolidCompatibilityPDF(){
+  const THRESH = { star: 90, flag: 60, low: 30 };
+  const ICON   = { star: "★", flag: "⚑", low: "🚩", blank: "" };
+
+  const num = v => { const n = Number(String(v ?? "").trim()); return Number.isFinite(n) ? n : null; };
+  const percent = (a,b) => {
+    const A=num(a), B=num(b);
+    if (A==null || B==null) return null;
+    return Math.round(100 - (Math.abs(A - B) / 5) * 100);
+  };
+  const flagFor = p => (p==null) ? ICON.blank : (p>=THRESH.star ? ICON.star : (p>=THRESH.flag ? ICON.flag : (p<=THRESH.low ? ICON.low : ICON.blank)));
+
+  const detectScale = arr => {
+    const vals = (arr||[]).map(x=>x?.score).filter(x=>typeof x==="number");
+    if (!vals.length) return 1;
+    const mx = Math.max(...vals), mn = Math.min(...vals);
+    if (mx<=5 && mn>=0) return 1;
+    if (mx<=1 && mn>=0) return 5;
+    if (mx<=7)  return 5/7;
+    if (mx<=10) return 5/10;
+    if (mx<=100)return 5/100;
+    return 5/Math.max(5,mx);
+  };
+
+  function rowsFromMemory(){
+    const A = (window.partnerAData?.items) || (Array.isArray(window.partnerAData) ? window.partnerAData : null);
+    const B = (window.partnerBData?.items) || (Array.isArray(window.partnerBData) ? window.partnerBData : null);
+    if (!A && !B) return null;
+
+    const sA = detectScale(A||[]);
+    const sB = detectScale(B||[]);
+    const mapA = new Map((A||[]).map(i=>[i.id||i.label, i]));
+    const mapB = new Map((B||[]).map(i=>[i.id||i.label, i]));
+    const union = new Map();
+    (A||[]).forEach(i=>union.set(i.id||i.label, i.label||i.id));
+    (B||[]).forEach(i=>union.set(i.id||i.label, i.label||i.id));
+
+    const rows = [];
+    for (const [id,label] of union){
+      const a = mapA.get(id), b = mapB.get(id);
+      const Araw = (typeof a?.score==="number") ? a.score : null;
+      const Brow = (typeof b?.score==="number") ? b.score : null;
+      const pct  = (Araw==null || Brow==null) ? null : percent(Araw*sA, Brow*sB);
+      rows.push([
+        label || id || "—",
+        (Araw==null ? "—" : Araw),
+        (pct==null  ? "—" : `${pct}%`),
+        flagFor(pct),
+        (Brow==null ? "—" : Brow)
+      ]);
+    }
+    return rows;
   }
 
-  async function exportCompatibilityPDF(){
-    try {
-      const { loadJsPDF } = await import('./js/loadJsPDF.js');
-      await loadJsPDF();
-    } catch {
-      alert('PDF export requires jsPDF.');
+  function rowsFromDOM(){
+    let trs = Array.from(document.querySelectorAll('tbody tr[data-kink-id]'));
+    if (trs.length===0) {
+      trs = Array.from(document.querySelectorAll('tbody tr')).filter(tr=>tr.querySelectorAll('td').length>=3);
+    }
+    if (trs.length===0) return [];
+
+    const rows = [];
+    for (const tr of trs){
+      const tds = tr.querySelectorAll("td");
+      const cat = tds[0]?.textContent?.trim() || tr.getAttribute("data-kink-id") || "";
+      const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent ?? tds[1]?.textContent ?? "";
+      const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent ?? tds[tds.length-1]?.textContent ?? "";
+      const A = num(aTxt), B = num(bTxt);
+      const pct = percent(A,B);
+      rows.push([
+        cat || "—",
+        (A==null ? "—" : A),
+        (pct==null ? "—" : `${pct}%`),
+        flagFor(pct),
+        (B==null ? "—" : B)
+      ]);
+    }
+    return rows;
+  }
+
+  function runAutoTable(doc, opts){
+    if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+    if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
+    throw new Error("jsPDF-AutoTable not found. Include the plugin before this exporter.");
+  }
+
+  function exportPDF(){
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      alert("Missing jsPDF. Include the jsPDF CDN before this script.");
       return;
     }
+
+    let rows = rowsFromMemory();
+    if (!rows || rows.length===0) rows = rowsFromDOM();
+
+    if (!rows || rows.length===0){
+      console.warn("[PDF] No data rows found. partnerAData/partnerBData missing and DOM had no rows.");
+      alert("No data rows found to export. Load both surveys first or ensure the table has rows.");
+      return;
+    }
+
     const { jsPDF } = window.jspdf;
-    const rows = [];
-
-    document.querySelectorAll('tbody tr[data-kink-id]').forEach(tr=>{
-      const cat = tr.cells?.[0]?.textContent?.trim() ?? tr.getAttribute('data-kink-id');
-      const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent ?? "";
-      const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent ?? "";
-      const A = tkNum(aTxt), B = tkNum(bTxt);
-      const pct = tkPct(A,B);
-      rows.push([cat, (A??"–"), (pct==null?"–":`${pct}%`), flagIcon(pct), (B??"–")]);
-    });
-
-    const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
-    const margin = 40;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const colWidth = (pageWidth - margin * 2) / 5;
-    const lineHeight = 20;
-    let y = 70;
-
-    const drawHeader = () => {
-      doc.setFontSize(12);
-      ['Category','Partner A','Match','Flag','Partner B'].forEach((text,i)=>{
-        doc.text(text, margin + i * colWidth + colWidth / 2, y, { align:'center' });
-      });
-      y += lineHeight;
-      doc.setFontSize(10);
-    };
-
-    const drawRow = cells => {
-      if (y > pageHeight - margin) {
-        doc.addPage();
-        y = margin;
-        drawHeader();
-      }
-      cells.forEach((text,i)=>{
-        doc.text(String(text), margin + i * colWidth + colWidth / 2, y, { align:'center' });
-      });
-      y += lineHeight;
-    };
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
 
     doc.setFontSize(18);
-    doc.text('Talk Kink • Compatibility Report', margin, 48);
-    drawHeader();
-    rows.forEach(drawRow);
-    doc.save('compatibility-report.pdf');
+    doc.text("Talk Kink • Compatibility Report", 40, 48);
+
+    runAutoTable(doc, {
+      head: [["Category","Partner A","Match","Flag","Partner B"]],
+      body: rows,
+      startY: 70,
+      styles: { fontSize: 10, cellPadding: 6, overflow: "linebreak" },
+      headStyles: { fillColor: [0,0,0], textColor: [255,255,255], fontStyle: "bold" },
+      columnStyles: { 0:{halign:"left"}, 1:{halign:"center"}, 2:{halign:"center"}, 3:{halign:"center"}, 4:{halign:"center"} }
+    });
+
+    doc.save("compatibility-report.pdf");
   }
 
-  const btn = document.getElementById("downloadBtn") || document.querySelector('[data-download-pdf]');
-  if (btn) btn.onclick = exportCompatibilityPDF;
-  else window.downloadCompatibilityPDF = exportCompatibilityPDF;
+  function bindButton(){
+    const btn = document.getElementById("downloadBtn")
+            || document.getElementById("downloadPdfBtn")
+            || document.querySelector("[data-download-pdf]");
+    if (btn) {
+      btn.onclick = exportPDF;
+      console.log("[PDF] Exporter bound to", btn);
+    } else {
+      window.downloadCompatibilityPDF = exportPDF;
+      console.warn("[PDF] No button found. Use window.downloadCompatibilityPDF() to export.");
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindButton);
+  } else {
+    bindButton();
+  }
+
+  (function debug(){
+    const mem = rowsFromMemory();
+    const dom = rowsFromDOM();
+    console.log(`[PDF] Memory rows: ${mem?mem.length:0}  |  DOM rows: ${dom.length}`);
+    if (mem && mem.length) console.log("[PDF] First memory row:", mem[0]);
+    else if (dom.length)   console.log("[PDF] First DOM row:", dom[0]);
+  })();
 })();
 </script>
 
