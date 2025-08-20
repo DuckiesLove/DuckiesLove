@@ -58,6 +58,7 @@ const FIRST_PAGE_HEADER = 'Talk Kink'; // header text for first PDF page
 const LABEL_LEFT_ALIGN = true;         // left-align category headers in PDF
 
 const PARTNER_A_CELL_SEL = 'td.pa';
+const PARTNER_B_CELL_SEL = 'td.pb';
 const CATEGORY_CELL_SEL = 'td:first-child';
 
 /* ============================== LIB CHECK ================================= */
@@ -419,6 +420,7 @@ function __stripEmptySections(root){
  */
 async function filterZeroRowsAndEmptySections(cloneRoot){
   if (!cloneRoot) return;
+  if (!partnerAHasData() && !partnerBHasData()) return;
 
   // Ensure web fonts are ready before slicing so page 2+ matches page 1
   if (document.fonts && document.fonts.ready) {
@@ -451,6 +453,11 @@ function findPartnerAIndexByHeader(table){
   return [...tr.children].findIndex(th => normalizeKey(th.textContent) === 'partner a');
 }
 
+function findPartnerBIndexByHeader(table){
+  const tr = table.querySelector('thead tr'); if(!tr) return -1;
+  return [...tr.children].findIndex(th => normalizeKey(th.textContent) === 'partner b');
+}
+
 function partnerAHasData(){
   const tables = document.querySelectorAll(`${IDS.container} table`);
   for (const table of tables) {
@@ -462,6 +469,29 @@ function partnerAHasData(){
       if (has) return true;
     } else {
       const idx = findPartnerAIndexByHeader(table);
+      if (idx>=0){
+        const has = Array.from(table.querySelectorAll(`tbody tr td:nth-child(${idx+1})`)).some(td=>{
+          const t=(td.textContent||'').trim();
+          return t!=='' && !/^[-–]$/.test(t);
+        });
+        if (has) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function partnerBHasData(){
+  const tables = document.querySelectorAll(`${IDS.container} table`);
+  for (const table of tables) {
+    if (PARTNER_B_CELL_SEL){
+      const has = Array.from(table.querySelectorAll(PARTNER_B_CELL_SEL)).some(td=>{
+        const t=(td.textContent||'').trim();
+        return t!=='' && !/^[-–]$/.test(t);
+      });
+      if (has) return true;
+    } else {
+      const idx = findPartnerBIndexByHeader(table);
       if (idx>=0){
         const has = Array.from(table.querySelectorAll(`tbody tr td:nth-child(${idx+1})`)).some(td=>{
           const t=(td.textContent||'').trim();
@@ -715,8 +745,16 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATIO
 export async function downloadCompatibilityPDF() {
   try { await ensureLibs(); } catch (e) { console.error(e); alert(e.message); return; }
 
+  const aHas = partnerAHasData();
+  const bHas = partnerBHasData();
+
+  if (!aHas && !bHas) {
+    alert('Both partners appear to have no data. Please load at least one survey before exporting.');
+    return;
+  }
+
   // Warn if Partner A (Column A) is empty but continue with PDF generation
-  if (!partnerAHasData()) {
+  if (!aHas) {
     console.warn('Partner A (Column A) looks empty; generating PDF anyway.');
   }
 
