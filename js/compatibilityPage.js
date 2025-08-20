@@ -432,6 +432,9 @@ function updateComparison() {
   });
   window.partnerAData = { items: aItems };
   window.partnerBData = { items: bItems };
+  if (typeof window.updateExportButton === 'function') {
+    window.updateExportButton();
+  }
 
   const groupedData = groupKinksByCategory(mergedKinkData);
 
