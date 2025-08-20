@@ -622,33 +622,7 @@ function tkRefreshAll(){
     return rows;
   }
 
-  function rowsFromDOM(){
-    let trs = Array.from(document.querySelectorAll('tbody tr[data-kink-id]'));
-    if (trs.length===0) {
-      trs = Array.from(document.querySelectorAll('tbody tr')).filter(tr=>tr.querySelectorAll('td').length>=3);
-    }
-    if (trs.length===0) return [];
-
-    const rows = [];
-    for (const tr of trs){
-      const tds = tr.querySelectorAll("td");
-      const cat = tds[0]?.textContent?.trim() || tr.getAttribute("data-kink-id") || "";
-      const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent ?? tds[1]?.textContent ?? "";
-      const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent ?? tds[tds.length-1]?.textContent ?? "";
-      const A = num(aTxt), B = num(bTxt);
-      const pct = percent(A,B);
-      rows.push([
-        cat || "—",
-        (A==null ? "—" : A),
-        (pct==null ? "—" : `${pct}%`),
-        flagFor(pct),
-        (B==null ? "—" : B)
-      ]);
-    }
-    return rows;
-  }
-
-  function runAutoTable(doc, opts){
+    function runAutoTable(doc, opts){
     if (typeof doc.autoTable === "function") return doc.autoTable(opts);
     if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
     throw new Error("jsPDF-AutoTable not found. Include the plugin before this exporter.");
@@ -660,29 +634,47 @@ function tkRefreshAll(){
       return;
     }
 
-    let rows = rowsFromMemory();
-    if (!rows || rows.length===0) rows = rowsFromDOM();
+      const rows = rowsFromMemory();
+      if (!rows || rows.length === 0){
+        console.warn("[PDF] No data rows found. partnerAData/partnerBData missing.");
+        alert("No data rows found to export. Load both surveys first.");
+        return;
+      }
 
-    if (!rows || rows.length===0){
-      console.warn("[PDF] No data rows found. partnerAData/partnerBData missing and DOM had no rows.");
-      alert("No data rows found to export. Load both surveys first or ensure the table has rows.");
-      return;
-    }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF("landscape");
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text(
+        "Talk Kink • Compatibility Report",
+        doc.internal.pageSize.getWidth() / 2,
+        20,
+        { align: "center" }
+      );
 
-    doc.setFontSize(18);
-    doc.text("Talk Kink • Compatibility Report", 40, 48);
+      const headers = [[
+        { content: "Category", styles: { halign: "left" } },
+        { content: "Partner A", styles: { halign: "center" } },
+        { content: "Match", styles: { halign: "center" } },
+        { content: "Flag", styles: { halign: "center" } },
+        { content: "Partner B", styles: { halign: "center" } }
+      ]];
 
-    runAutoTable(doc, {
-      head: [["Category","Partner A","Match","Flag","Partner B"]],
-      body: rows,
-      startY: 70,
-      styles: { fontSize: 10, cellPadding: 6, overflow: "linebreak" },
-      headStyles: { fillColor: [0,0,0], textColor: [255,255,255], fontStyle: "bold" },
-      columnStyles: { 0:{halign:"left"}, 1:{halign:"center"}, 2:{halign:"center"}, 3:{halign:"center"}, 4:{halign:"center"} }
-    });
+      runAutoTable(doc, {
+        head: headers,
+        body: rows,
+        startY: 30,
+        styles: { fontSize: 10, cellPadding: 3, valign: "middle", overflow: "linebreak" },
+        headStyles: { fillColor: [0,0,0], textColor: [255,255,255], halign: "center" },
+        columnStyles: {
+          0: { cellWidth: 110, halign: "left" },
+          1: { cellWidth: 30, halign: "center" },
+          2: { cellWidth: 30, halign: "center" },
+          3: { cellWidth: 20, halign: "center" },
+          4: { cellWidth: 30, halign: "center" }
+        }
+      });
 
     doc.save("compatibility-report.pdf");
   }
@@ -706,13 +698,11 @@ function tkRefreshAll(){
     bindButton();
   }
 
-  (function debug(){
-    const mem = rowsFromMemory();
-    const dom = rowsFromDOM();
-    console.log(`[PDF] Memory rows: ${mem?mem.length:0}  |  DOM rows: ${dom.length}`);
-    if (mem && mem.length) console.log("[PDF] First memory row:", mem[0]);
-    else if (dom.length)   console.log("[PDF] First DOM row:", dom[0]);
-  })();
+    (function debug(){
+      const mem = rowsFromMemory();
+      console.log(`[PDF] Memory rows: ${mem ? mem.length : 0}`);
+      if (mem && mem.length) console.log("[PDF] First memory row:", mem[0]);
+    })();
 })();
 </script>
 
