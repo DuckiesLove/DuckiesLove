@@ -413,16 +413,25 @@ function updateComparison() {
   }
 
   const mergedKinkData = [];
+  const aItems = [];
+  const bItems = [];
   Object.entries(lastResult).forEach(([category, items]) => {
     items.forEach(it => {
+      const aScore = maxRating(it.you);
+      const bScore = surveyB ? maxRating(it.partner) : null;
       mergedKinkData.push({
         category,
         name: it.name,
-        partnerA: maxRating(it.you),
-        partnerB: surveyB ? maxRating(it.partner) : null
+        partnerA: aScore,
+        partnerB: bScore
       });
+      const key = compatNormalizeKey(it.name);
+      if (aScore != null) aItems.push({ id: key, label: it.name, score: aScore });
+      if (bScore != null) bItems.push({ id: key, label: it.name, score: bScore });
     });
   });
+  window.partnerAData = { items: aItems };
+  window.partnerBData = { items: bItems };
 
   const groupedData = groupKinksByCategory(mergedKinkData);
 
