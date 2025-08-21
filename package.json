@@ -9,7 +9,7 @@
     "test:coverage": "node --test --experimental-test-coverage",
     "generate-token": "node scripts/generateToken.js",
     "generate:tokens": "node generateTokens.js",
-    "generate-pdf:landscape": "node --input-type=module -e \"globalThis.window={};await import('./js/vendor/jspdf.umd.min.js');(await import('./js/compatibilityPdf.js')).generateCompatibilityPDFLandscape({categories: []})\""
+    "generate-pdf:landscape": "node --input-type=module -e \"globalThis.window={};await import('./js/vendor/jspdf.umd.min.js');await (await import('./js/compatibilityPdf.js')).generateCompatibilityPDFLandscape({categories: []})\""
   },
   "keywords": [],
   "author": "",
