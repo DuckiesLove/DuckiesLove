@@ -38,7 +38,7 @@ test('generates PDF with score columns and percent', async () => {
     ]
   };
 
-  generateCompatibilityPDF(data);
+  await generateCompatibilityPDF(data);
 
   assert.ok(rectCalls.length > 0);
   assert.ok(textCalls.some(c => c[0] === 'Kink Compatibility Report'));
@@ -85,7 +85,7 @@ test('shows N/A bar when scores missing', async () => {
     ]
   };
 
-  generateCompatibilityPDF(data);
+  await generateCompatibilityPDF(data);
 
   assert.ok(textCalls.some(c => c[0] === 'N/A'));
   assert.ok(!textCalls.some(c => /\d+%/.test(c[0])));
@@ -115,6 +115,6 @@ test('renders compatibility history section when history data present', async ()
     categories: [],
     history: [{ score: 85, date: '2024-01-01T00:00:00Z' }]
   };
-  generateCompatibilityPDF(data);
+  await generateCompatibilityPDF(data);
   assert.ok(textCalls.some(c => c[0] === 'Compatibility History'));
 });

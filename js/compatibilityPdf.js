@@ -2,7 +2,7 @@ import { getFlagEmoji } from './matchFlag.js';
 import { buildLayout, drawMatchBar, getMatchPercentage } from './compatibilityReportHelpers.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
-export function generateCompatibilityPDF(data = { categories: [] }) {
+export async function generateCompatibilityPDF(data = { categories: [] }) {
   if (DEBUG) {
     console.log('PDF function triggered');
   }
@@ -142,7 +142,7 @@ export function generateCompatibilityPDF(data = { categories: [] }) {
     });
   });
 
-  doc.save('compatibility_report.pdf');
+  await doc.save('compatibility_report.pdf');
 }
 
 if (typeof document !== 'undefined') {
@@ -163,7 +163,7 @@ if (typeof document !== 'undefined') {
   }
 }
 
-export function generateCompatibilityPDFLandscape(data) {
+export async function generateCompatibilityPDFLandscape(data) {
   const categories = Array.isArray(data) ? data : data?.categories || [];
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -204,7 +204,7 @@ export function generateCompatibilityPDFLandscape(data) {
     }
   });
 
-  doc.save('compatibility_report_landscape.pdf');
+  await doc.save('compatibility_report_landscape.pdf');
 }
 
 function drawTitle(doc, pageWidth) {

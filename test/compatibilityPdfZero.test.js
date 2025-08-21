@@ -33,7 +33,7 @@ test('renders zero scores for both partners', async () => {
   };
 
   const { generateCompatibilityPDF } = await import('../js/compatibilityPdf.js');
-  generateCompatibilityPDF(data);
+  await generateCompatibilityPDF(data);
 
   // Ensure zeros are printed and no N/A appears
   const texts = textCalls.map(c => c[0]);
