@@ -630,16 +630,28 @@ function tkRefreshAll(){
   let exportBtn;
 
   function updateExportButton(){
-    const rows = rowsFromMemory();
-    const ready = Array.isArray(rows) && rows.length > 0 &&
-                  Array.isArray(window.partnerAData?.items) && window.partnerAData.items.length > 0 &&
-                  Array.isArray(window.partnerBData?.items) && window.partnerBData.items.length > 0;
+    const rows = rowsFromMemory() || [];
+    const haveSurveys = typeof window.partnerAData !== "undefined" &&
+                        typeof window.partnerBData !== "undefined";
+    const hasRatings = Array.isArray(rows) && rows.length > 0;
+
     if (exportBtn) {
-      exportBtn.disabled = !ready;
-      exportBtn.title = ready ? "" : "Upload both surveys before exporting.";
+      exportBtn.disabled = !haveSurveys;
+      exportBtn.title = haveSurveys ? "" : "Upload both surveys before exporting.";
     }
+
     const tip = document.getElementById("exportTip");
-    if (tip) tip.style.display = ready ? "none" : "";
+    if (tip) {
+      if (!haveSurveys) {
+        tip.textContent = "Upload both surveys before exporting.";
+        tip.style.display = "";
+      } else if (!hasRatings) {
+        tip.textContent = "Warning: One or both surveys have no ratings; the exported PDF may be empty.";
+        tip.style.display = "";
+      } else {
+        tip.style.display = "none";
+      }
+    }
   }
   window.updateExportButton = updateExportButton;
 
@@ -655,11 +667,10 @@ function tkRefreshAll(){
       return;
     }
 
-      const rows = rowsFromMemory();
-      if (!rows || rows.length === 0){
-        console.warn("[PDF] No data rows found. partnerAData/partnerBData missing.");
-        alert("No data rows found to export. Load both surveys first.");
-        return;
+      const rows = rowsFromMemory() || [];
+      if (rows.length === 0){
+        console.warn("[PDF] No data rows found. Exporting mostly empty report.");
+        alert("No ratings found. Exporting an empty compatibility report.");
       }
 
       const { jsPDF } = window.jspdf;
