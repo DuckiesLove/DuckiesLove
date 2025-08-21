@@ -631,22 +631,17 @@ function tkRefreshAll(){
 
   function updateExportButton(){
     const rows = rowsFromMemory() || [];
-    const haveSurveys = typeof window.partnerAData !== "undefined" &&
-                        typeof window.partnerBData !== "undefined";
     const hasRatings = Array.isArray(rows) && rows.length > 0;
 
     if (exportBtn) {
-      exportBtn.disabled = !haveSurveys;
-      exportBtn.title = haveSurveys ? "" : "Upload both surveys before exporting.";
+      exportBtn.disabled = !hasRatings;
+      exportBtn.title = hasRatings ? "" : "Upload both surveys and make sure at least one has ratings before exporting.";
     }
 
     const tip = document.getElementById("exportTip");
     if (tip) {
-      if (!haveSurveys) {
-        tip.textContent = "Upload both surveys before exporting.";
-        tip.style.display = "";
-      } else if (!hasRatings) {
-        tip.textContent = "Warning: One or both surveys have no ratings; the exported PDF may be empty.";
+      if (!hasRatings) {
+        tip.textContent = "Upload both surveys and make sure at least one survey has ratings before exporting.";
         tip.style.display = "";
       } else {
         tip.style.display = "none";
