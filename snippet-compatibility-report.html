@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Compatibility Report Export</title>
+</head>
+<body>
+<!-- (Optional) Example button & table skeleton (keep your own if you already have them)
+<button id="downloadPdfBtn">Download Compatibility Report</button>
+<table id="compatibilityTable">
+  <thead>
+    <tr>
+      <th>Category</th><th>Partner A</th><th>Match</th><th>Flag</th><th>Partner B</th>
+    </tr>
+  </thead>
+  <tbody><!-- your rows here --></tbody>
+</table>
+-->
+
+<!--
+TALK KINK • COMPATIBILITY REPORT — COMPLETE DROP-IN (ONE BOX)
+
+What you get
+- Works with your existing table and button.
+- Finds the table automatically (prefers #compatibilityTable).
+- Cleans up duplicated category text (like "…scene…scene").
+- Exports 5 columns: Category | Partner A | Match | Flag | Partner B.
+- Recomputes Match% and Flag (★ >=90, ⚑ >=60, 🚩 <=30). Only A/B are numeric.
+- Falls back to window.partnerAData / window.partnerBData if the DOM table is empty.
+- Loads jsPDF + AutoTable if missing.
+
+How to use
+1) Put this whole block at the BOTTOM of your page (after your table is rendered).
+2) Make sure you have a download button with ANY ONE of these:
+   - id="downloadBtn"  OR  id="downloadPdfBtn"  OR  attribute [data-download-pdf]
+3) Make sure your table has a THEAD with at least: Category, Partner A, Partner B
+   (Match/Flag are optional, the script computes them anyway).
+   Recommended id: <table id="compatibilityTable"> … </table>
+-->
+
+<script>
+(function () {
+  /* ---------- Load libs if missing ---------- */
+  function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Failed to load '+src));document.head.appendChild(s);});}
+  async function ensureLibs(){
+    if(!(window.jspdf && window.jspdf.jsPDF)){
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+    const hasAuto = (window.jspdf && window.jspdf.autoTable) || (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+    if(!hasAuto){
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
+  }
+  function runAutoTable(doc, opts){
+    if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+    if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
+    throw new Error("jsPDF-AutoTable not available.");
+  }
+
+  /* ---------- Match, flags, utils ---------- */
+  const THRESH={star:90, flag:60, low:30};
+  const ICON={star:"★", flag:"⚑", low:"🚩", blank:""};
+  const num=v=>{const n=Number(String(v??"").trim());return Number.isFinite(n)?n:null;};
+  const matchPct=(a,b)=>{const A=num(a),B=num(b); if(A==null||B==null)return null; return Math.round(100-(Math.abs(A-B)/5)*100);};
+  const iconFor=p=>p==null?ICON.blank:(p>=THRESH.star?ICON.star:(p>=THRESH.flag?ICON.flag:(p<=THRESH.low?ICON.low:ICON.blank)));
+  const normWS=s=>(s||"").replace(/\s+/g," ").trim();
+  const dedupeTwice=s=>{
+    const t=normWS(s); const L=t.length;
+    if(L>0 && L%2===0){ const half=L/2; const a=t.slice(0,half), b=t.slice(half);
+      if(a===b) return a;
+    }
+    return t;
+  };
+
+  /* ---------- Collect rows from DOM table ---------- */
+  function getTargetTable(){
+    return document.getElementById("compatibilityTable")
+        || document.querySelector('table[aria-label*="compatibility" i]')
+        || document.querySelector("table");
+  }
+
+  function rowsFromTable(){
+    const table = getTargetTable();
+    if(!table) return [];
+
+    // Prefer explicit THEAD; otherwise take first row with THs
+    let headerCells = Array.from(table.querySelectorAll("thead th"));
+    if (!headerCells.length) headerCells = Array.from(table.querySelectorAll("tr th"));
+
+    // Map columns by header text if available
+    let idx = { cat:0, A:1, match:2, flag:3, B:4 };
+    if (headerCells.length) {
+      const labels = headerCells.map(th => normWS(th.textContent).toLowerCase());
+      const find = key => labels.findIndex(t => t.includes(key));
+      const c = find("category"); if(c>-1) idx.cat=c;
+      const a = find("partner a"); if(a>-1) idx.A=a;
+      const b = find("partner b"); if(b>-1) idx.B=b;
+      const m = find("match"); if(m>-1) idx.match=m;
+      const f = find("flag");  if(f>-1) idx.flag=f;
+    }
+
+    // Gather body rows (prefer TBODY; else any TR with TDs under this table)
+    let trs = Array.from(table.querySelectorAll("tbody tr"));
+    if(!trs.length) trs = Array.from(table.querySelectorAll("tr")).filter(tr=>tr.closest("table")===table && tr.querySelectorAll("td").length);
+
+    const rows = [];
+    for(const tr of trs){
+      const tds = Array.from(tr.querySelectorAll("td"));
+      if(!tds.length) continue;
+
+      const catCell = tds[idx.cat] || tds[0];
+      const aCell = tr.querySelector('td[data-cell="A"]') || tds[idx.A] || tds[1];
+      const bCell = tr.querySelector('td[data-cell="B"]') || tds[idx.B] || tds[tds.length-1];
+
+      // Clean category: collapse duplicate text (A B A B issues)
+      const category = dedupeTwice(catCell?.textContent || tr.getAttribute("data-kink-id") || "");
+      const A = num(aCell?.textContent);
+      const B = num(bCell?.textContent);
+      const P = matchPct(A,B);
+
+      // Only A/B numeric, percentage + icon derived
+      rows.push([ category || "—", (A==null?"—":A), (P==null?"—":`${P}%`), iconFor(P), (B==null?"—":B) ]);
+    }
+    return rows;
+  }
+
+  /* ---------- Fallback: memory data ---------- */
+  function rowsFromMemory(){
+    const A=(window.partnerAData?.items)||(Array.isArray(window.partnerAData)?window.partnerAData:null);
+    const B=(window.partnerBData?.items)||(Array.isArray(window.partnerBData)?window.partnerBData:null);
+    if(!A && !B) return [];
+    const mA=new Map((A||[]).map(i=>[(i.id||i.label),i]));
+    const mB=new Map((B||[]).map(i=>[(i.id||i.label),i]));
+    const keys=new Map(); (A||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id)); (B||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id));
+    const out=[];
+    for(const [id,label] of keys){
+      const a=mA.get(id), b=mB.get(id);
+      const Ar=num(a?.score), Br=num(b?.score), P=matchPct(Ar,Br);
+      out.push([label||id||"—",(Ar??"—"),(P==null?"—":`${P}%`),iconFor(P),(Br??"—")]);
+    }
+    return out;
+  }
+
+  /* ---------- Exporter ---------- */
+  async function exportPDF(ev){
+    ev?.preventDefault?.();
+    try{
+      await ensureLibs();
+      const { jsPDF } = window.jspdf;
+
+      let rows = rowsFromTable();
+      if(!rows.length) rows = rowsFromMemory();
+      if(!rows.length){
+        alert("No data rows found to export. Make sure the table or partnerA/B data is present.");
+        return;
+      }
+
+      const doc = new jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
+      doc.setFontSize(20);
+      doc.text("Talk Kink • Compatibility Report", doc.internal.pageSize.width/2, 48, {align:"center"});
+
+      runAutoTable(doc, {
+        head: [["Category","Partner A","Match","Flag","Partner B"]],
+        body: rows,
+        startY: 70,
+        styles: { fontSize: 11, cellPadding: 6, overflow: "linebreak" },
+        headStyles: { fillColor: [0,0,0], textColor: [255,255,255], fontStyle: "bold" },
+        columnStyles: {
+          0:{ halign:"left",   cellWidth: 560 },
+          1:{ halign:"center", cellWidth: 80  },
+          2:{ halign:"center", cellWidth: 90  },
+          3:{ halign:"center", cellWidth: 60  },
+          4:{ halign:"center", cellWidth: 80  }
+        }
+      });
+
+      doc.save("compatibility-report.pdf");
+    }catch(err){
+      console.error("[PDF] Export failed:", err);
+      alert("PDF export failed: " + err.message);
+    }
+  }
+
+  /* ---------- Bind to your existing button ---------- */
+  function bind(){
+    const btn = document.querySelector("#downloadBtn") 
+             || document.querySelector("#downloadPdfBtn")
+             || document.querySelector("[data-download-pdf]");
+    if (btn){
+      btn.removeEventListener("click", exportPDF);
+      btn.addEventListener("click", exportPDF);
+      console.log("[PDF] Export bound to button:", btn);
+    } else {
+      console.warn("[PDF] Download button not found (expected #downloadBtn, #downloadPdfBtn, or [data-download-pdf]).");
+    }
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+  else bind();
+
+  // Rebind in case your UI re-renders
+  const mo = new MutationObserver(bind);
+  mo.observe(document.documentElement, { childList:true, subtree:true });
+})();
+</script>
+</body>
+</html>
