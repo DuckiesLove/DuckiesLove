@@ -678,20 +678,24 @@ async function setupPDFExport() {
         startY: 20,
         styles: {
           fontSize: 10,
-          cellWidth: "wrap",
           halign: "center",
           valign: "middle",
           fillColor: [0, 0, 0],
           textColor: [255, 255, 255]
         },
-        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" },
+        headStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold"
+        },
         columnStyles: {
-          0: { cellWidth: 70, halign: "left" },
-          1: { cellWidth: 20 },
-          2: { cellWidth: 20 },
-          3: { cellWidth: 15 },
-          4: { cellWidth: 20 }
-        }
+          0: { cellWidth: 95, halign: "left", fontStyle: "bold" },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 25 }
+        },
+        tableWidth: "auto"
       });
 
       doc.save("compatibility_report.pdf");
