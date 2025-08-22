@@ -1,13 +1,33 @@
 (function(){
   /* ===== Config ===== */
   const BTN_SELECTORS = ["#downloadBtn", "#downloadPdfBtn", "[data-download-pdf]"];
-  const THRESH = { star: 90, flag: 60, low: 30 };
-  const ICON   = { star: "★", flag: "⚑", low: "🚩", blank: "" };
+  const ICON   = { star: "⭐", red:"🚩", white:"⚑", blank: "" };
 
   /* ===== Helpers ===== */
-  const toNum = v => { const n = Number(String(v ?? "").trim()); return Number.isFinite(n) ? n : null; };
-  const matchPct = (a,b) => { const A=toNum(a), B=toNum(b); if (A==null||B==null) return null; return Math.round(100 - (Math.abs(A-B)/5)*100); };
-  const iconFor = p => p==null ? ICON.blank : (p>=THRESH.star ? ICON.star : (p>=THRESH.flag ? ICON.flag : (p<=THRESH.low ? ICON.low : ICON.blank)));
+  const toNum = v => {
+    const t = String(v ?? "").trim();
+    if (t === "" || t === "-") return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  };
+  const matchPct = (a,b) => {
+    const A=toNum(a), B=toNum(b);
+    if (A==null||B==null) return null;
+    return Math.round(100 - Math.abs(A-B)*20);
+  };
+  const flagFor = (a,b,pct) => {
+    if (pct != null && pct >= 90) return ICON.star;
+    if ((a != null && a <= 1) || (b != null && b <= 1)) return ICON.red;
+    if ((a === 5 && b < 5) || (b === 5 && a < 5)) return ICON.white;
+    return ICON.blank;
+  };
+  const dedupeCategory = text => {
+    if (!text) return "";
+    const mid = Math.floor(text.length / 2);
+    const first = text.slice(0, mid).trim();
+    const second = text.slice(mid).trim();
+    return first === second ? first : text;
+  };
   function runAutoTable(doc, opts){
     if (typeof doc.autoTable === "function") return doc.autoTable(opts);
     if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
@@ -30,12 +50,13 @@
       const tds = tr.querySelectorAll("td");
       if (!tds.length) continue;
 
-      const category = tds[0]?.textContent?.trim() || tr.getAttribute("data-kink-id") || "";
+      const category = dedupeCategory(tds[0]?.textContent?.trim() || tr.getAttribute("data-kink-id") || "");
       const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent ?? tds[1]?.textContent ?? "";
       const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent ?? tds[tds.length-1]?.textContent ?? "";
 
       const A = toNum(aTxt), B = toNum(bTxt), pct = matchPct(A,B);
-      out.push([category || "—", (A ?? "—"), (pct==null ? "—" : `${pct}%`), iconFor(pct), (B ?? "—")]);
+      const flag = flagFor(A,B,pct);
+      out.push([category || "—", (A ?? "—"), (pct==null ? "—" : `${pct}%`), flag, (B ?? "—")]);
     }
     return out;
   }
@@ -46,13 +67,14 @@
     const out = [];
     for (const tr of trs){
       const tds = tr.querySelectorAll("td");
-      const category = tds[0]?.textContent?.trim();
+      const category = dedupeCategory(tds[0]?.textContent?.trim());
       if (!category) continue; // skip empty/section rows
 
       const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent ?? tds[1]?.textContent ?? "";
       const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent ?? tds[tds.length-1]?.textContent ?? "";
       const A = toNum(aTxt), B = toNum(bTxt), pct = matchPct(A,B);
-      out.push([category, (A ?? "—"), (pct==null ? "—" : `${pct}%`), iconFor(pct), (B ?? "—")]);
+      const flag = flagFor(A,B,pct);
+      out.push([category, (A ?? "—"), (pct==null ? "—" : `${pct}%`), flag, (B ?? "—")]);
     }
     return out;
   }
@@ -72,7 +94,8 @@
       const a=mA.get(id), b=mB.get(id);
       const Araw = toNum(a?.score), Braw = toNum(b?.score);
       const pct = matchPct(Araw, Braw);
-      out.push([label || id || "—", (Araw ?? "—"), (pct==null ? "—" : `${pct}%`), iconFor(pct), (Braw ?? "—")]);
+      const flag = flagFor(Araw,Braw,pct);
+      out.push([label || id || "—", (Araw ?? "—"), (pct==null ? "—" : `${pct}%`), flag, (Braw ?? "—")]);
     }
     return out;
   }
@@ -114,27 +137,39 @@
       }
 
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
+      const doc = new jsPDF();
 
-      doc.setFontSize(20);
-      doc.text("Talk Kink • Compatibility Report", doc.internal.pageSize.width/2, 48, { align:"center" });
+      // Full-page black background with white text
+      doc.setFillColor(0,0,0);
+      doc.rect(0,0,doc.internal.pageSize.width,doc.internal.pageSize.height,'F');
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(16);
+      doc.text("Talk Kink • Compatibility Report", 14, 15);
 
       runAutoTable(doc, {
         head: [["Category","Partner A","Match","Flag","Partner B"]],
         body: rows,
-        startY: 70,
-        styles: { fontSize: 11, cellPadding: 6, overflow:"linebreak" },
-        headStyles: { fillColor:[0,0,0], textColor:[255,255,255], fontStyle:"bold" },
+        startY: 20,
+        styles: {
+          fontSize: 10,
+          cellWidth: 'wrap',
+          halign: 'center',
+          valign: 'middle',
+          fillColor: [0,0,0],
+          textColor: [255,255,255],
+          fontStyle: 'normal'
+        },
+        headStyles: { fillColor:[0,0,0], textColor:[255,255,255], fontStyle:'bold' },
         columnStyles: {
-          0:{ halign:"left",   cellWidth: 560 },
-          1:{ halign:"center", cellWidth: 80  },
-          2:{ halign:"center", cellWidth: 90  },
-          3:{ halign:"center", cellWidth: 60  },
-          4:{ halign:"center", cellWidth: 80  }
+          0:{ cellWidth:70, halign:'left' },
+          1:{ cellWidth:20 },
+          2:{ cellWidth:20 },
+          3:{ cellWidth:15 },
+          4:{ cellWidth:20 }
         }
       });
 
-      doc.save("compatibility-report.pdf");
+      doc.save("compatibility_report.pdf");
     }catch(err){
       console.error("[PDF] Export failed:", err);
       alert("PDF export failed: " + err.message);
