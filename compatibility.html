@@ -623,9 +623,18 @@ async function setupPDFExport() {
         return isNaN(n) ? null : n;
       }
 
-      const data = rows.map(row => {
+      const data = [];
+      rows.forEach(row => {
         const cells = [...row.querySelectorAll("td")].map(td => td.innerText.trim());
         const category = dedupeCategory(cells[idx.category]);
+
+        // Detect if row is a header (category only, no numbers)
+        const isHeaderRow = cells.slice(1).every(c => c === "-" || c === "");
+        if (isHeaderRow && category) {
+          data.push({ type: "header", text: category });
+          return;
+        }
+
         const a = toNum(cells[idx.a]);
         const b = toNum(cells[idx.b]);
 
@@ -637,7 +646,7 @@ async function setupPDFExport() {
           else if (a <= 1 || b <= 1) flag = "🚩";
           else if ((a === 5 && b < 5) || (b === 5 && a < 5)) flag = "⚑";
         }
-        return [category, a ?? "-", match, flag, b ?? "-"];
+        data.push({ type: "row", values: [category, a ?? "-", match, flag, b ?? "-"] });
       });
 
       const doc = new jsPDF();
@@ -651,18 +660,37 @@ async function setupPDFExport() {
       doc.setFontSize(16);
       doc.text("Talk Kink • Compatibility Report", 14, 15);
 
+      const body = data.map(item => {
+        if (item.type === "header") {
+          return [
+            { content: item.text, colSpan: 5, styles: { halign: "left", fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" } }
+          ];
+        }
+        return item.values.map(val => ({
+          content: val,
+          styles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] }
+        }));
+      });
+
       doc.autoTable({
         head: [["Category", "Partner A", "Match", "Flag", "Partner B"]],
-        body: data,
+        body: body,
         startY: 20,
-        styles: { fontSize: 10, cellWidth: "wrap", textColor: [255, 255, 255], fillColor: [0, 0, 0] },
-        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] },
+        styles: {
+          fontSize: 10,
+          cellWidth: "wrap",
+          halign: "center",
+          valign: "middle",
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255]
+        },
+        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" },
         columnStyles: {
-          0: { cellWidth: 70 },
-          1: { cellWidth: 20, halign: "center" },
-          2: { cellWidth: 20, halign: "center" },
-          3: { cellWidth: 15, halign: "center" },
-          4: { cellWidth: 20, halign: "center" }
+          0: { cellWidth: 70, halign: "left" },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 15 },
+          4: { cellWidth: 20 }
         }
       });
 
