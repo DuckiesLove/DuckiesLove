@@ -571,15 +571,12 @@ function tkRefreshAll(){
 // Dynamically load jsPDF and jsPDF-Autotable if not already included
 function loadScript(url) {
   return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${url}"]`)) {
-      resolve();
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = url;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
+    if (document.querySelector(`script[src="${url}"]`)) return resolve();
+    const s = document.createElement("script");
+    s.src = url;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
   });
 }
 
@@ -590,48 +587,92 @@ async function setupPDFExport() {
 
     const { jsPDF } = window.jspdf;
 
-    function generatePDF() {
+    const downloadBtn = document.querySelector("#downloadBtn, #downloadPdfBtn, [data-download-pdf]");
+    if (!downloadBtn) {
+      console.warn("No download button found. Add id='downloadBtn' or id='downloadPdfBtn' or data-download-pdf.");
+      return;
+    }
+
+    downloadBtn.addEventListener("click", () => {
       const table = document.querySelector("table");
       if (!table) {
         alert("No table found on this page.");
         return;
       }
 
-      // Verify header row includes Category / Partner A / Partner B
-      const headers = Array.from(table.querySelectorAll("th")).map(th => th.textContent.trim().toLowerCase());
-      if (!(headers.includes("category") && headers.includes("partner a") && headers.includes("partner b"))) {
-        alert("Table must include headers: Category, Partner A, Partner B.");
-        return;
+      const rows = [...table.querySelectorAll("tbody tr")];
+      const headCells = [...table.querySelectorAll("thead th")].map(th => th.innerText.toLowerCase());
+
+      const idx = {
+        category: headCells.findIndex(h => h.includes("category")),
+        a: headCells.findIndex(h => h.includes("partner a")),
+        b: headCells.findIndex(h => h.includes("partner b"))
+      };
+
+      function dedupeCategory(text) {
+        if (!text) return "";
+        const mid = Math.floor(text.length / 2);
+        const firstHalf = text.slice(0, mid).trim();
+        const secondHalf = text.slice(mid).trim();
+        return firstHalf === secondHalf ? firstHalf : text;
       }
 
-      const doc = new jsPDF("p", "pt", "a4");
+      function toNum(val) {
+        if (val === "-" || val === "" || val == null) return null;
+        const n = parseInt(val, 10);
+        return isNaN(n) ? null : n;
+      }
+
+      const data = rows.map(row => {
+        const cells = [...row.querySelectorAll("td")].map(td => td.innerText.trim());
+        const category = dedupeCategory(cells[idx.category]);
+        const a = toNum(cells[idx.a]);
+        const b = toNum(cells[idx.b]);
+
+        let match = "N/A", flag = "";
+        if (a != null && b != null) {
+          match = (100 - Math.abs(a - b) * 20) + "%";
+          const m = parseInt(match);
+          if (m >= 90) flag = "⭐";
+          else if (a <= 1 || b <= 1) flag = "🚩";
+          else if ((a === 5 && b < 5) || (b === 5 && a < 5)) flag = "⚑";
+        }
+        return [category, a ?? "-", match, flag, b ?? "-"];
+      });
+
+      const doc = new jsPDF();
+
+      // Full black background
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, doc.internal.pageSize.width, doc.internal.pageSize.height, "F");
+
+      // White text styling
+      doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
-      doc.text("Talk Kink • Compatibility Report", 40, 40);
+      doc.text("Talk Kink • Compatibility Report", 14, 15);
 
       doc.autoTable({
-        html: table,
-        startY: 60,
-        theme: "grid",
-        styles: { fontSize: 10, cellPadding: 5 },
-        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] }
+        head: [["Category", "Partner A", "Match", "Flag", "Partner B"]],
+        body: data,
+        startY: 20,
+        styles: { fontSize: 10, cellWidth: "wrap", textColor: [255, 255, 255], fillColor: [0, 0, 0] },
+        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 20, halign: "center" },
+          2: { cellWidth: 20, halign: "center" },
+          3: { cellWidth: 15, halign: "center" },
+          4: { cellWidth: 20, halign: "center" }
+        }
       });
 
       doc.save("compatibility_report.pdf");
-    }
-
-    // Bind to button
-    const btn = document.querySelector("#downloadBtn, #downloadPdfBtn, [data-download-pdf]");
-    if (btn) {
-      btn.addEventListener("click", generatePDF);
-    } else {
-      console.warn("No download button found. Add id='downloadBtn' or id='downloadPdfBtn' or data-download-pdf.");
-    }
+    });
   } catch (err) {
     console.error("Failed to set up PDF export:", err);
   }
 }
 
-// Run setup after page loads
 document.addEventListener("DOMContentLoaded", setupPDFExport);
 </script>
 
