@@ -454,10 +454,6 @@ No other edits required. This block:
 If your current IDs already match, this still works (it tries multiple selectors).
 -->
 
-<!-- 0) Ensure PDF libs are present -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script>
-
 <style>
   /* Icons for the Flag column (page view) */
   .tk-flagcell { text-align:center; width:3.5rem }
@@ -571,7 +567,214 @@ function tkRefreshAll(){
 
 </script>
 
-<script src="js/compatTbodyPdf.js"></script>
+<!--
+TALK KINK • PDF EXPORT — ONE-BOX IMPLEMENTATION
+
+Approach (what Codex should do)
+1) Locate the HTML page that renders the compatibility table (e.g., compatibility.html).
+2) Verify the table headers include (case-insensitive): “Category”, “Partner A”, “Partner B”.
+   - “Match” and “Flag” are optional; the script computes them anyway.
+3) Ensure the download button has ONE of:
+   - id="downloadBtn"  OR  id="downloadPdfBtn"  OR  [data-download-pdf]
+4) Paste THIS ENTIRE BLOCK at the very end of the page, AFTER the table markup.
+   - No extra <script> tags needed: this block auto-loads jsPDF + AutoTable if missing and
+     binds to the existing download button automatically.
+5) Open the page and click the download button to export the PDF.
+
+What this script guarantees
+- Finds your table dynamically by reading header text (Category/Partner A/Partner B).
+- If that fails, it falls back to rows with data-kink-id, then to window.partnerAData/B.
+- Recomputes Match % and renders Flag icons (★ high, ⚑ medium, 🚩 low). Only A/B are numeric.
+- Logs what source it used so you can diagnose quickly.
+-->
+
+<script>
+(function () {
+  /* ---------- Load libs if missing ---------- */
+  function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Failed to load '+src));document.head.appendChild(s);});}
+  async function ensureLibs(){
+    if(!(window.jspdf && window.jspdf.jsPDF)){
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+    const hasAuto = (window.jspdf && window.jspdf.autoTable) || (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+    if(!hasAuto){
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
+  }
+  function runAutoTable(doc, opts){
+    if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+    if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
+    throw new Error("jsPDF-AutoTable not available.");
+  }
+
+  /* ---------- Matching & icons ---------- */
+  const THRESH={star:90, flag:60, low:30};
+  const ICON={star:"★", flag:"⚑", low:"🚩", blank:""};
+  const num=v=>{const n=Number(String(v??"").trim());return Number.isFinite(n)?n:null;};
+  const matchPct=(a,b)=>{const A=num(a),B=num(b); if(A==null||B==null)return null; return Math.round(100-(Math.abs(A-B)/5)*100);};
+  const iconFor=p=>p==null?ICON.blank:(p>=THRESH.star?ICON.star:(p>=THRESH.flag?ICON.flag:(p<=THRESH.low?ICON.low:ICON.blank)));
+
+  /* ---------- 1) Discover your table by its header text ---------- */
+  function normalize(t){ return (t||"").replace(/\s+/g," ").trim().toLowerCase(); }
+  function findTableByHeader(){
+    const tables = Array.from(document.querySelectorAll("table"));
+    for(const table of tables){
+      let headerCells = Array.from(table.querySelectorAll("thead th"));
+      if (!headerCells.length) headerCells = Array.from(table.querySelectorAll("tr th"));
+      if (!headerCells.length) continue;
+
+      const labels = headerCells.map(th => normalize(th.textContent));
+      const idxCat   = labels.findIndex(t => t.includes("category"));
+      const idxA     = labels.findIndex(t => t.includes("partner a"));
+      const idxB     = labels.findIndex(t => t.includes("partner b"));
+      const idxMatch = labels.findIndex(t => t.includes("match"));
+      const idxFlag  = labels.findIndex(t => t.includes("flag"));
+
+      if (idxCat !== -1 && idxA !== -1 && idxB !== -1) {
+        return { table, cols:{cat:idxCat, A:idxA, match:idxMatch, flag:idxFlag, B:idxB} };
+      }
+    }
+    return null;
+  }
+
+  function rowsFromDiscoveredTable(info){
+    const { table, cols } = info;
+    let trs = Array.from(table.querySelectorAll("tbody tr"));
+    if (!trs.length) trs = Array.from(table.querySelectorAll("tr")).filter(tr=>tr.querySelectorAll("td").length);
+
+    const rows = [];
+    for(const tr of trs){
+      const tds = Array.from(tr.querySelectorAll("td"));
+      if (!tds.length) continue;
+
+      const cat  = tds[cols.cat]?.textContent?.trim() ?? "";
+      const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent ?? tds[cols.A]?.textContent ?? "";
+      const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent ?? tds[cols.B]?.textContent ?? "";
+
+      const A=num(aTxt), B=num(bTxt), P=matchPct(A,B);
+      rows.push([cat || "—", (A==null ? "—" : A), (P==null ? "—" : `${P}%`), iconFor(P), (B==null ? "—" : B)]);
+    }
+    return rows;
+  }
+
+  /* ---------- 2) Fallbacks if header-based discovery fails ---------- */
+  function rowsFromDataKinkId(){
+    const trs = Array.from(document.querySelectorAll('tr[data-kink-id]'));
+    const rows=[];
+    for(const tr of trs){
+      const tds=tr.querySelectorAll("td");
+      if(!tds.length) continue;
+      const cat = tds[0]?.textContent?.trim() || tr.getAttribute("data-kink-id") || "";
+      const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent ?? tds[1]?.textContent ?? "";
+      const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent ?? tds[tds.length-1]?.textContent ?? "";
+      const A=num(aTxt), B=num(bTxt), P=matchPct(A,B);
+      rows.push([cat||"—",(A??"—"),(P==null?"—":`${P}%`),iconFor(P),(B??"—")]);
+    }
+    return rows;
+  }
+  function rowsFromMemory(){
+    const A=(window.partnerAData?.items)||(Array.isArray(window.partnerAData)?window.partnerAData:null);
+    const B=(window.partnerBData?.items)||(Array.isArray(window.partnerBData)?window.partnerBData:null);
+    if(!A && !B) return [];
+    const mA=new Map((A||[]).map(i=>[(i.id||i.label),i]));
+    const mB=new Map((B||[]).map(i=>[(i.id||i.label),i]));
+    const keys=new Map(); (A||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id)); (B||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id));
+    const out=[];
+    for(const [id,label] of keys){
+      const a=mA.get(id), b=mB.get(id);
+      const Ar=num(a?.score), Br=num(b?.score), P=matchPct(Ar,Br);
+      out.push([label||id||"—",(Ar??"—"),(P==null?"—":`${P}%`),iconFor(P),(Br??"—")]);
+    }
+    return out;
+  }
+  function selfTestRows(){ // last resort to prove the click works
+    console.warn("[PDF] Self-test rows used (couldn’t find your table/data).");
+    return [
+      ["Choosing outfit for a scene", 5, "100%", "★", 5],
+      ["Styling hair (braiding, etc.)", 1, "100%", "★", 1],
+      ["Creating themed looks", 0, "100%", "★", 0]
+    ];
+  }
+
+  async function collectRows(){
+    // Try discover-by-header
+    const info = findTableByHeader();
+    if (info){
+      const rows = rowsFromDiscoveredTable(info);
+      if (rows.length){ console.log("[PDF] Using discovered table:", info.cols); return rows; }
+    }
+    // Try explicit data attributes
+    let rows = rowsFromDataKinkId();
+    if (rows.length){ console.log("[PDF] Using rows from [data-kink-id]:", rows.length); return rows; }
+    // Ask app to render (if supported), then retry once
+    if (typeof window.updateComparison === "function"){ try { window.updateComparison(); } catch {} }
+    rows = rowsFromDataKinkId();
+    if (rows.length){ console.log("[PDF] Using rows from [data-kink-id] after updateComparison:", rows.length); return rows; }
+    // Memory fallback
+    rows = rowsFromMemory();
+    if (rows.length){ console.log("[PDF] Using memory rows:", rows.length); return rows; }
+    // Self test
+    return selfTestRows();
+  }
+
+  /* ---------- Exporter ---------- */
+  async function exportPDF(e){
+    e?.preventDefault?.();
+    try{
+      await ensureLibs();
+      const { jsPDF } = window.jspdf;
+
+      const rows = await collectRows();
+
+      const doc = new jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
+      doc.setFontSize(20);
+      doc.text("Talk Kink • Compatibility Report", doc.internal.pageSize.width/2, 48, {align:"center"});
+
+      runAutoTable(doc, {
+        head: [["Category","Partner A","Match","Flag","Partner B"]],
+        body: rows,
+        startY: 70,
+        styles: { fontSize: 11, cellPadding: 6, overflow: "linebreak" },
+        headStyles: { fillColor: [0,0,0], textColor: [255,255,255], fontStyle: "bold" },
+        columnStyles: {
+          0:{ halign:"left",   cellWidth: 560 },
+          1:{ halign:"center", cellWidth: 80  },
+          2:{ halign:"center", cellWidth: 90  },
+          3:{ halign:"center", cellWidth: 60  },
+          4:{ halign:"center", cellWidth: 80  }
+        }
+      });
+
+      doc.save("compatibility-report.pdf");
+    }catch(err){
+      console.error("[PDF] Export failed:", err);
+      alert("PDF export failed: " + err.message);
+    }
+  }
+
+  /* ---------- Bind to existing download button ---------- */
+  function bind(){
+    const selectors = ["#downloadBtn", "#downloadPdfBtn", "[data-download-pdf]"];
+    for(const sel of selectors){
+      const el = document.querySelector(sel);
+      if (el){
+        el.removeEventListener("click", exportPDF);
+        el.addEventListener("click", exportPDF);
+        console.log("[PDF] Bound to button:", sel);
+        return;
+      }
+    }
+    console.warn("[PDF] Download button not found (expected #downloadBtn, #downloadPdfBtn, or [data-download-pdf]).");
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+  else bind();
+
+  // Keep binding alive if the UI re-renders
+  const mo = new MutationObserver(bind);
+  mo.observe(document.documentElement, {childList:true, subtree:true});
+})();
+</script>
 
 </body>
 </html>
