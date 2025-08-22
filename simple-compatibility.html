@@ -37,10 +37,6 @@
   </thead>
   <tbody></tbody>
 </table>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
 <script>
 /* ---------- tiny UI helpers ---------- */
 function tkSetStatus(which, msg, ok=true){
@@ -294,76 +290,156 @@ async function tkHandleUpload(file, which){
     });
   }
 })();
+</script>
 
-// Attach export handler using explicit row collection (prevents blank PDFs)
-(function(){
-  const { jsPDF } = window.jspdf;
+<!--
+TALK KINK • FINAL ONE-BOX EXPORTER
+Fixes shown issue (“&” in Flag column and duplicated Category text in PDF).
+- Uses your EXISTING download button: #downloadBtn or #downloadPdfBtn or [data-download-pdf]
+- Reads the visible table, but IGNORES the table’s Match/Flag cells and RECOMPUTES them:
+    Match = % similarity from Partner A vs Partner B (0–5 scale)
+    Flag  = ★ (>=90%), ⚑ (>=60%), 🚩 (<=30%), otherwise blank
+- Dedupes repeated category text like “...scene ...scene”
+- Falls back to window.partnerAData / window.partnerBData if table rows aren’t present
+- Loads jsPDF + AutoTable if missing
 
-  // convert text to number
-  const toNum = v => {
-    const n = Number(String(v ?? "").trim());
-    return Number.isFinite(n) ? n : null;
-    };
-
-  // match percentage
-  const matchPct = (a, b) => {
-    if (a == null || b == null) return null;
-    return Math.round(100 - (Math.abs(a - b) / 5) * 100);
-  };
-
-  // flag emoji
-  const flagFor = pct => {
-    if (pct == null) return "";
-    if (pct >= 90) return "⭐";
-    if (pct >= 60) return "🟨";
-    if (pct <= 30) return "🚩";
-    return "";
-  };
-
-  // collect table rows
-  function collectRows(){
-    const rows = [];
-    document.querySelectorAll("#compatibilityTable tbody tr").forEach(tr => {
-      const cells = tr.querySelectorAll("td");
-      if (cells.length < 3) return;
-
-      const category = cells[0].textContent.trim();
-      const aVal = toNum(cells[1].textContent);
-      const bVal = toNum(cells[cells.length - 1].textContent);
-
-      const pct = matchPct(aVal, bVal);
-      rows.push([
-        category,
-        aVal ?? "—",
-        pct == null ? "—" : pct + "%",
-        flagFor(pct),
-        bVal ?? "—"
-      ]);
-    });
-    return rows;
-  }
-
-  function exportPDF(){
-    const rows = collectRows();
-    if (!rows.length){
-      alert("No table rows found. Check #compatibilityTable structure.");
-      return;
+Paste this WHOLE block at the very end of the page (after your table renders).
+-->
+<script>
+(function () {
+  /* ===== libs ===== */
+  function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Failed to load '+src));document.head.appendChild(s);});}
+  async function ensureLibs(){
+    if(!(window.jspdf && window.jspdf.jsPDF)){
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
     }
-
-    const doc = new jsPDF({orientation: "landscape"});
-    doc.setFontSize(16);
-    doc.text("Talk Kink • Compatibility Report", 40, 40);
-
-    doc.autoTable({
-      head: [["Category","Partner A","Match","Flag","Partner B"]],
-      body: rows,
-      startY: 60
-    });
-
-    doc.save("compatibility-report.pdf");
+    const hasAuto=(window.jspdf&&window.jspdf.autoTable)||(window.jsPDF&&window.jsPDF.API&&window.jsPDF.API.autoTable);
+    if(!hasAuto){
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
+  }
+  function runAutoTable(doc, opts){
+    if(typeof doc.autoTable==="function") return doc.autoTable(opts);
+    if(window.jspdf && typeof window.jspdf.autoTable==="function") return window.jspdf.autoTable(doc, opts);
+    throw new Error("jsPDF-AutoTable not available");
   }
 
-  document.getElementById("downloadPdfBtn").addEventListener("click", exportPDF);
+  /* ===== helpers ===== */
+  const THRESH={star:90, flag:60, low:30};
+  const ICON={star:"★", flag:"⚑", low:"🚩", blank:""};
+  const toNum=v=>{const n=Number(String(v??"").trim());return Number.isFinite(n)?n:null;};
+  const pct=(a,b)=>{const A=toNum(a),B=toNum(b); if(A==null||B==null) return null; return Math.round(100-(Math.abs(A-B)/5)*100);};
+  const flagFor=p=>p==null?ICON.blank:(p>=THRESH.star?ICON.star:(p>=THRESH.flag?ICON.flag:(p<=THRESH.low?ICON.low:ICON.blank)));
+  const tidy=s=>(s||"").replace(/\s+/g," ").trim();
+  // if a cell accidentally contains the same text twice concatenated (“foofoo”), cut it in half:
+  const dedupeDupedText=s=>{const t=tidy(s); const L=t.length; if(L&&L%2===0){const h=L/2; if(t.slice(0,h)===t.slice(h)) return t.slice(0,h);} return t;};
+
+  /* ===== table discovery & row extraction ===== */
+  function getTable(){
+    return document.getElementById("compatibilityTable")
+        || document.querySelector('table[aria-label*="compatibility" i]')
+        || document.querySelector("table");
+  }
+  function headerIndex(table){
+    let ths=[...table.querySelectorAll("thead th")];
+    if(!ths.length) ths=[...table.querySelectorAll("tr th")];
+    const labs=ths.map(th=>tidy(th.textContent).toLowerCase());
+    // defaults if not found
+    const idx={cat:0, A:1, B:4};
+    const f=(k)=>labs.findIndex(t=>t.includes(k));
+    const c=f("category"); if(c>-1) idx.cat=c;
+    const a=f("partner a"); if(a>-1) idx.A=a;
+    const b=f("partner b"); if(b>-1) idx.B=b;
+    return idx;
+  }
+  function rowsFromTable(){
+    const table=getTable(); if(!table) return [];
+    const idx=headerIndex(table);
+    let trs=[...table.querySelectorAll("tbody tr")];
+    if(!trs.length) trs=[...table.querySelectorAll("tr")].filter(tr=>tr.closest("table")===table && tr.querySelectorAll("td").length);
+    const out=[];
+    for(const tr of trs){
+      const tds=[...tr.querySelectorAll("td")]; if(!tds.length) continue;
+      const catCell = tds[idx.cat] || tds[0];
+      const aCell   = tr.querySelector('td[data-cell="A"]') || tds[idx.A] || tds[1];
+      const bCell   = tr.querySelector('td[data-cell="B"]') || tds[idx.B] || tds[tds.length-1];
+
+      const cat = dedupeDupedText(catCell?.textContent || tr.getAttribute("data-kink-id") || "");
+      const A   = toNum(aCell?.textContent);
+      const B   = toNum(bCell?.textContent);
+      const P   = pct(A,B);
+
+      out.push([ cat || "—", (A==null?"—":A), (P==null?"—":`${P}%`), flagFor(P), (B==null?"—":B) ]);
+    }
+    return out;
+  }
+
+  /* ===== memory fallback ===== */
+  function rowsFromMemory(){
+    const A=(window.partnerAData?.items)||(Array.isArray(window.partnerAData)?window.partnerAData:null);
+    const B=(window.partnerBData?.items)||(Array.isArray(window.partnerBData)?window.partnerBData:null);
+    if(!A && !B) return [];
+    const mA=new Map((A||[]).map(i=>[(i.id||i.label),i]));
+    const mB=new Map((B||[]).map(i=>[(i.id||i.label),i]));
+    const keys=new Map(); (A||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id)); (B||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id));
+    const out=[];
+    for(const [id,label] of keys){
+      const a=mA.get(id), b=mB.get(id);
+      const Ar=toNum(a?.score), Br=toNum(b?.score);
+      const P=pct(Ar,Br);
+      out.push([label||id||"—",(Ar??"—"),(P==null?"—":`${P}%`),flagFor(P),(Br??"—")]);
+    }
+    return out;
+  }
+
+  /* ===== export ===== */
+  async function exportPDF(ev){
+    ev?.preventDefault?.();
+    try{
+      await ensureLibs();
+      const { jsPDF }=window.jspdf;
+
+      let rows=rowsFromTable();
+      if(!rows.length) rows=rowsFromMemory();
+
+      if(!rows.length){ alert("No data rows found to export. Load a survey or ensure the table is visible."); return; }
+
+      const doc=new jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
+      doc.setFontSize(20);
+      doc.text("Talk Kink • Compatibility Report", doc.internal.pageSize.width/2, 48, {align:"center"});
+
+      runAutoTable(doc, {
+        head: [["Category","Partner A","Match","Flag","Partner B"]],
+        body: rows,
+        startY: 70,
+        styles:{ fontSize: 11, cellPadding: 6, overflow:"linebreak" },
+        headStyles:{ fillColor:[0,0,0], textColor:[255,255,255], fontStyle:"bold" },
+        columnStyles:{
+          0:{ halign:"left",   cellWidth: 560 },
+          1:{ halign:"center", cellWidth: 80  },
+          2:{ halign:"center", cellWidth: 90  },
+          3:{ halign:"center", cellWidth: 60  },
+          4:{ halign:"center", cellWidth: 80  }
+        }
+      });
+
+      doc.save("compatibility-report.pdf");
+    }catch(err){
+      console.error("[PDF] Export failed:", err);
+      alert("PDF export failed: " + err.message);
+    }
+  }
+
+  /* ===== bind to your existing button ===== */
+  function bind(){
+    const btn=document.querySelector("#downloadBtn")||document.querySelector("#downloadPdfBtn")||document.querySelector("[data-download-pdf]");
+    if(!btn){ console.warn("[PDF] Download button not found (#downloadBtn, #downloadPdfBtn, or [data-download-pdf])."); return; }
+    btn.removeEventListener("click", exportPDF);
+    btn.addEventListener("click", exportPDF);
+    console.log("[PDF] Exporter bound:", btn);
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", bind); else bind();
+  new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 
