@@ -18,64 +18,72 @@
 -->
 
 <!--
-TALK KINK • COMPATIBILITY REPORT — FINAL “ONE BOX” FIX
+TALK KINK • COMPATIBILITY REPORT — ONE-BOX FIX (copy/paste)
 
-WHAT THIS DOES
-• Attaches to your EXISTING download button: #downloadBtn OR #downloadPdfBtn OR [data-download-pdf]
-• Reads your on-page table (prefer #compatibilityTable), but:
-    – Cleans duplicated Category text (e.g., “…scene…scene” → “…scene”)
-    – RECOMPUTES Match% and Flag (★ >=90, ⚑ >=60, 🚩 <=30) so you never see a raw “&”
-    – Ensures there are exactly 5 columns in the PDF: Category | Partner A | Match | Flag | Partner B
-• If the DOM table is empty, falls back to window.partnerAData / window.partnerBData
-• Loads jsPDF + AutoTable if they’re not already on the page
-• Always downloads a PDF when you click the button
+What this does
+• Binds to your EXISTING “Download PDF” button: #downloadBtn or #downloadPdfBtn or [data-download-pdf]
+• Builds the PDF from your on-page table OR (fallback) from window.partnerAData / window.partnerBData
+• RECOMPUTES “Match %” and “Flag” (★ ≥ 90, ⚑ ≥ 60, 🚩 ≤ 30); only A/B are numeric
+• Stops the “duplicated Category text” problem by smart-deduping repeated phrases
+• Gives you exactly 5 columns in the PDF: Category | Partner A | Match | Flag | Partner B
+• Auto-loads jsPDF + AutoTable if not already on the page
 
-HOW TO USE (copy/paste)
-1) Make sure your page renders a table with a THEAD containing these headings (case-insensitive):
-      Category | Partner A | [Match] | [Flag] | Partner B
-   (Match/Flag may be missing in DOM; the script will compute them).
-   Recommended table id:  <table id="compatibilityTable">…</table>
+How to use
+1) Make sure your table header includes (case-insensitive): “Category”, “Partner A”, “Partner B”.
+   (It’s OK if “Match/Flag” are not rendered; this script recomputes them.)
+   Recommended id: <table id="compatibilityTable">…</table>
+2) Your download button must exist as ONE of:
+   <button id="downloadBtn">Download PDF</button>
+   <button id="downloadPdfBtn">Download PDF</button>
+   <button data-download-pdf>Download PDF</button>
+3) Paste THIS WHOLE <script> block at the very end of the HTML (after the table renders). Click the button.
 
-2) Your existing download button must be one of:
-      <button id="downloadBtn">…</button>
-      <button id="downloadPdfBtn">…</button>
-      <button data-download-pdf>…</button>
-
-3) Paste THIS ENTIRE BLOCK at the very end of the HTML file, after the table has been rendered.
-
-That’s it. Click your existing button to export the PDF.
+Tip
+If your table rows use <td data-cell="A">…</td> and <td data-cell="B">…</td>, this script will prefer them.
 -->
 
 <script>
 (function () {
-  /* ========== Load libs if missing ========== */
-  function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Failed to load '+src));document.head.appendChild(s);});}
+  /* ---------- Lazy-load libs ---------- */
+  function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`))return res();const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("Failed to load "+src));document.head.appendChild(s);});}
   async function ensureLibs(){
     if(!(window.jspdf && window.jspdf.jsPDF)){
       await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
     }
-    const hasAuto = (window.jspdf && window.jspdf.autoTable) || (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+    const hasAuto=(window.jspdf&&window.jspdf.autoTable)||(window.jsPDF&&window.jsPDF.API&&window.jsPDF.API.autoTable);
     if(!hasAuto){
       await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
     }
   }
   function runAutoTable(doc, opts){
-    if (typeof doc.autoTable === "function") return doc.autoTable(opts);
-    if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
-    throw new Error("jsPDF-AutoTable not available.");
+    if(typeof doc.autoTable==="function") return doc.autoTable(opts);
+    if(window.jspdf && typeof window.jspdf.autoTable==="function") return window.jspdf.autoTable(doc, opts);
+    throw new Error("jsPDF-AutoTable not available");
   }
 
-  /* ========== Utilities: numbers, % match, flags, text cleanup ========== */
+  /* ---------- Utils ---------- */
   const THRESH={star:90, flag:60, low:30};
   const ICON={star:"★", flag:"⚑", low:"🚩", blank:""};
-  const toNum=v=>{const n=Number(String(v??"").trim());return Number.isFinite(n)?n:null;};
-  const pct=(a,b)=>{const A=toNum(a),B=toNum(b); if(A==null||B==null) return null; return Math.round(100-(Math.abs(A-B)/5)*100);};
-  const flagFor=p=>p==null?ICON.blank:(p>=THRESH.star?ICON.star:(p>=THRESH.flag?ICON.flag:(p<=THRESH.low?ICON.low:ICON.blank)));
   const tidy=s=>(s||"").replace(/\s+/g," ").trim();
-  // If a cell accidentally contains the same text twice concatenated (“foofoo”), cut it in half.
-  const dedupeTwice=s=>{const t=tidy(s); const L=t.length; if(L && L%2===0){const h=L/2; if(t.slice(0,h)===t.slice(h)) return t.slice(0,h);} return t;};
+  const toNum=v=>{const n=Number(String(v??"").trim());return Number.isFinite(n)?n:null;};
+  const matchPct=(a,b)=>{const A=toNum(a),B=toNum(b); if(A==null||B==null)return null; return Math.round(100-(Math.abs(A-B)/5)*100);};
+  const flagFor=p=>p==null?ICON.blank:(p>=THRESH.star?ICON.star:(p>=THRESH.flag?ICON.flag:(p<=THRESH.low?ICON.low:ICON.blank)));
 
-  /* ========== Read rows from the on-page table ========== */
+  // Smart deduper for doubled category cells like “foo…foo…”
+  function dedupeSmart(s){
+    const t=tidy(s);
+    if(!t) return t;
+    // 1) perfect repeats: "ABAB" or "ABCABC"
+    const m=t.match(/^(.+?)\1+$/); if(m) return m[1];
+    // 2) locate second occurrence of the opening seed
+    const seedLen=Math.min(48, Math.max(8, Math.floor(t.length/4)));
+    const seed=t.slice(0,seedLen);
+    const p=t.indexOf(seed, seedLen);
+    if(p>0){ return tidy(t.slice(0,p)); }
+    return t;
+  }
+
+  /* ---------- Table discovery & extraction ---------- */
   function getTable(){
     return document.getElementById("compatibilityTable")
         || document.querySelector('table[aria-label*="compatibility" i]')
@@ -84,19 +92,19 @@ That’s it. Click your existing button to export the PDF.
   function headerIndex(table){
     let ths=[...table.querySelectorAll("thead th")];
     if(!ths.length) ths=[...table.querySelectorAll("tr th")];
-    const labels=ths.map(th=>tidy(th.textContent).toLowerCase());
-    const idx={cat:0, A:1, B:4}; // safe defaults
-    const find = key => labels.findIndex(t => t.includes(key));
+    const labs=ths.map(th=>tidy(th.textContent).toLowerCase());
+    const idx={cat:0, A:1, B:4}; // defaults if not found
+    const find=k=>labs.findIndex(x=>x.includes(k));
     const c=find("category"); if(c>-1) idx.cat=c;
     const a=find("partner a"); if(a>-1) idx.A=a;
     const b=find("partner b"); if(b>-1) idx.B=b;
     return idx;
   }
+
   function rowsFromTable(){
     const table=getTable(); if(!table) return [];
     const idx=headerIndex(table);
 
-    // Prefer TBODY rows; otherwise any TR with TDs inside this table
     let trs=[...table.querySelectorAll("tbody tr")];
     if(!trs.length) trs=[...table.querySelectorAll("tr")].filter(tr=>tr.closest("table")===table && tr.querySelectorAll("td").length);
 
@@ -104,24 +112,22 @@ That’s it. Click your existing button to export the PDF.
     for(const tr of trs){
       const tds=[...tr.querySelectorAll("td")]; if(!tds.length) continue;
 
-      // Resolve cells (support data attributes if present)
       const catCell = tds[idx.cat] || tds[0];
       const aCell   = tr.querySelector('td[data-cell="A"]') || tds[idx.A] || tds[1];
       const bCell   = tr.querySelector('td[data-cell="B"]') || tds[idx.B] || tds[tds.length-1];
 
       // Clean & compute
-      const category = dedupeTwice(catCell?.textContent || tr.getAttribute("data-kink-id") || "");
+      const category = dedupeSmart(catCell?.textContent || tr.getAttribute("data-kink-id") || "");
       const A = toNum(aCell?.textContent);
       const B = toNum(bCell?.textContent);
-      const P = pct(A,B);
+      const P = matchPct(A,B);
 
-      // Build the exact 5-column row
       out.push([ category || "—", (A==null?"—":A), (P==null?"—":`${P}%`), flagFor(P), (B==null?"—":B) ]);
     }
     return out;
   }
 
-  /* ========== Memory fallback (window.partnerAData / window.partnerBData) ========== */
+  /* ---------- Memory fallback ---------- */
   function rowsFromMemory(){
     const A=(window.partnerAData?.items)||(Array.isArray(window.partnerAData)?window.partnerAData:null);
     const B=(window.partnerBData?.items)||(Array.isArray(window.partnerBData)?window.partnerBData:null);
@@ -132,28 +138,24 @@ That’s it. Click your existing button to export the PDF.
     const out=[];
     for(const [id,label] of keys){
       const a=mA.get(id), b=mB.get(id);
-      const Ar=toNum(a?.score), Br=toNum(b?.score), P=pct(Ar,Br);
+      const Ar=toNum(a?.score), Br=toNum(b?.score), P=matchPct(Ar,Br);
       out.push([ label||id||"—", (Ar??"—"), (P==null?"—":`${P}%`), flagFor(P), (Br??"—") ]);
     }
     return out;
   }
 
-  /* ========== Exporter ========== */
+  /* ---------- Export ---------- */
   async function exportPDF(ev){
     ev?.preventDefault?.();
     try{
       await ensureLibs();
-      const { jsPDF } = window.jspdf;
+      const { jsPDF }=window.jspdf;
 
-      let rows = rowsFromTable();
-      if(!rows.length) rows = rowsFromMemory();
+      let rows=rowsFromTable();
+      if(!rows.length) rows=rowsFromMemory();
+      if(!rows.length){ alert("No data rows found to export. Make sure the table is visible or partnerA/B data is loaded."); return; }
 
-      if(!rows.length){
-        alert("No data rows found to export. Ensure the table is visible or partnerA/B data is loaded.");
-        return;
-      }
-
-      const doc = new jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
+      const doc=new jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
       doc.setFontSize(20);
       doc.text("Talk Kink • Compatibility Report", doc.internal.pageSize.width/2, 48, {align:"center"});
 
@@ -161,44 +163,40 @@ That’s it. Click your existing button to export the PDF.
         head: [["Category","Partner A","Match","Flag","Partner B"]],
         body: rows,
         startY: 70,
-        styles:     { fontSize: 11, cellPadding: 6, overflow: "linebreak" },
-        headStyles: { fillColor: [0,0,0], textColor: [255,255,255], fontStyle: "bold" },
+        styles: { fontSize: 11, cellPadding: 6, overflow:"linebreak" },
+        headStyles: { fillColor:[0,0,0], textColor:[255,255,255], fontStyle:"bold" },
+        // Nice fixed widths so A/Match/Flag/B stay narrow and Category gets room
         columnStyles: {
           0:{ halign:"left",   cellWidth: 560 },
-          1:{ halign:"center", cellWidth: 80  },
-          2:{ halign:"center", cellWidth: 90  },
-          3:{ halign:"center", cellWidth: 60  },
-          4:{ halign:"center", cellWidth: 80  }
+          1:{ halign:"center", cellWidth: 85  },
+          2:{ halign:"center", cellWidth: 95  },
+          3:{ halign:"center", cellWidth: 70  },
+          4:{ halign:"center", cellWidth: 85  }
         }
       });
 
       doc.save("compatibility-report.pdf");
     }catch(err){
       console.error("[PDF] Export failed:", err);
-      alert("PDF export failed: " + err.message);
+      alert("PDF export failed: "+err.message);
     }
   }
 
-  /* ========== Bind to your existing button ========== */
+  /* ---------- Bind to existing button ---------- */
   function bind(){
-    const btn = document.querySelector("#downloadBtn")
-            || document.querySelector("#downloadPdfBtn")
-            || document.querySelector("[data-download-pdf]");
-    if (btn){
+    const btn=document.querySelector("#downloadBtn")||document.querySelector("#downloadPdfBtn")||document.querySelector("[data-download-pdf]");
+    if(btn){
       btn.removeEventListener("click", exportPDF);
       btn.addEventListener("click", exportPDF);
-      console.log("[PDF] Export bound to button:", btn);
-    } else {
-      console.warn("[PDF] Download button not found (expected #downloadBtn, #downloadPdfBtn, or [data-download-pdf]).");
+      console.log("[PDF] Bound to:", btn);
+    }else{
+      console.warn("[PDF] Download button not found (use #downloadBtn / #downloadPdfBtn / [data-download-pdf]).");
     }
   }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
-  else bind();
-  // Re-bind if your app re-renders
-  new MutationObserver(bind).observe(document.documentElement, {childList:true, subtree:true});
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", bind); else bind();
+  new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 
 </body>
 </html>
-
