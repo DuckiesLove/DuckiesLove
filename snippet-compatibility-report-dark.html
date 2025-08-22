@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Talk Kink Compatibility Report</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+  <button id="download">Download PDF</button>
+
+  <script>
+    document.getElementById("download").addEventListener("click", () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape" });
+
+      // Paint full black background
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, doc.internal.pageSize.width, doc.internal.pageSize.height, "F");
+
+      // Title
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.text("Talk Kink • Compatibility Report", 14, 20);
+
+      // Example table data
+      const head = [["Category", "Partner A", "Match", "Flag", "Partner B"]];
+      const body = [
+        ["Choosing my partner’s outfit for the day or a scene", 5, "100%", "⭐", 5],
+        ["Styling their hair (braiding, brushing, tying, etc.)", 1, "100%", "⭐", 1],
+        ["Offering makeup, polish, or accessories", 5, "100%", "⭐", 5],
+        ["Creating themed looks", 0, "100%", "⭐", 0],
+      ];
+
+      doc.autoTable({
+        head,
+        body,
+        startY: 30,
+        styles: {
+          font: "helvetica",
+          fontSize: 10,
+          textColor: [255, 255, 255],
+          fillColor: [0, 0, 0],  // black rows
+          halign: "center",
+          valign: "middle",
+        },
+        headStyles: {
+          textColor: [255, 255, 255],
+          fillColor: [0, 0, 0],
+          fontStyle: "bold",
+        },
+        columnStyles: {
+          0: { halign: "left", cellWidth: 90 },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 25 },
+        },
+        alternateRowStyles: { fillColor: [0, 0, 0] },
+        theme: "grid",
+      });
+
+      doc.save("compatibility-report.pdf");
+    });
+  </script>
+</body>
+</html>
