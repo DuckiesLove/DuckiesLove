@@ -4,8 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDF Download Test</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- PDF libraries will be loaded on demand -->
 </head>
 <body>
   <button id="downloadBtn">Download PDF</button>
@@ -19,19 +18,74 @@
     </table>
   </div>
 
-  <script type="module">
-    import { downloadCompatibilityPDF } from "/js/pdfDownload.js";
-    window.downloadCompatibilityPDF = downloadCompatibilityPDF;
-    const wire=()=>{
-      const b=document.getElementById("downloadBtn")||document.querySelector("[data-download-pdf]");
-      if(!b){console.error("[pdf] missing download button");return;}
-      const fresh=b.cloneNode(true); b.replaceWith(fresh);
-      fresh.addEventListener("click",()=>downloadCompatibilityPDF().catch(e=>{console.error(e);alert("Could not generate PDF. See console.");}));
-    };
-    document.readyState==="loading"?document.addEventListener("DOMContentLoaded",wire):wire();
-  </script>
   <script src="/js/tkSpacingPatch.js"></script>
 
   <!-- ================================================================================ -->
+  <!-- Add this right before </body> -->
+  <script>
+  (function() {
+    // load jsPDF + autotable if missing
+    function loadScript(src, cb) {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = cb;
+      document.head.appendChild(s);
+    }
+
+    function ensureLibraries(cb) {
+      if (typeof window.jspdf === 'undefined') {
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', function() {
+          loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js', cb);
+        });
+      } else cb();
+    }
+
+    function cleanTable() {
+      const table = document.querySelector("table");
+      if (!table) return null;
+
+      // clone clean copy so we don’t duplicate cells
+      const clone = table.cloneNode(true);
+
+      // remove accidental doubled text (e.g. “Choosing…Choosing…”)
+      Array.from(clone.querySelectorAll("td")).forEach(td => {
+        td.textContent = td.textContent.replace(/(.+)\1/, "$1");
+      });
+
+      return clone;
+    }
+
+    function exportPDF() {
+      ensureLibraries(() => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'pt', 'a4');
+
+        const table = cleanTable();
+        if (!table) {
+          alert("No table found to export.");
+          return;
+        }
+
+        doc.text("Talk Kink • Compatibility Report", 40, 40);
+        doc.autoTable({
+          html: table,
+          startY: 60,
+          styles: { fontSize: 9, cellPadding: 4, halign: 'center' },
+          headStyles: { fillColor: [0,0,0], textColor: [255,255,255] },
+          alternateRowStyles: { fillColor: [240,240,240] },
+          theme: 'grid'
+        });
+
+        doc.save("compatibility-report.pdf");
+      });
+    }
+
+    // attach to your button
+    document.addEventListener("DOMContentLoaded", () => {
+      const btn = document.querySelector("#downloadBtn, #downloadPdfBtn, [data-download-pdf]");
+      if (btn) btn.addEventListener("click", exportPDF);
+    });
+  })();
+  </script>
 </body>
 </html>
