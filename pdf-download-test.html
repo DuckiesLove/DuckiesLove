@@ -12,80 +12,73 @@
   <div id="pdf-container">
     <h1>PDF Export Test</h1>
     <table>
+      <thead>
+        <tr>
+          <th>Column 1</th>
+          <th>Column 2</th>
+        </tr>
+      </thead>
       <tbody>
-        <tr><td>Cell 1</td><td>Cell 2</td></tr>
+        <tr>
+          <td>Cell 1</td>
+          <td>Cell 2</td>
+        </tr>
       </tbody>
     </table>
   </div>
-
-  <script src="/js/tkSpacingPatch.js"></script>
-
-  <!-- ================================================================================ -->
-  <!-- Add this right before </body> -->
   <script>
-  (function() {
-    // load jsPDF + autotable if missing
-    function loadScript(src, cb) {
-      const s = document.createElement('script');
-      s.src = src;
-      s.onload = cb;
-      document.head.appendChild(s);
-    }
+async function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${url}"]`)) return resolve();
+    const s = document.createElement("script");
+    s.src = url;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
 
-    function ensureLibraries(cb) {
-      if (typeof window.jspdf === 'undefined') {
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', function() {
-          loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js', cb);
-        });
-      } else cb();
-    }
+async function setupPDFExport() {
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js");
 
-    function cleanTable() {
-      const table = document.querySelector("table");
-      if (!table) return null;
+  const { jsPDF } = window.jspdf;
 
-      // clone clean copy so we don’t duplicate cells
-      const clone = table.cloneNode(true);
+  function generatePDF() {
+    const doc = new jsPDF("p", "pt", "a4");
+    doc.setFontSize(16);
+    doc.text("Talk Kink • Compatibility Report", 40, 40);
 
-      // remove accidental doubled text (e.g. “Choosing…Choosing…”)
-      Array.from(clone.querySelectorAll("td")).forEach(td => {
-        td.textContent = td.textContent.replace(/(.+)\1/, "$1");
-      });
+    // Build headers + body manually to avoid duplication
+    const headers = [];
+    const headCells = document.querySelectorAll("table thead tr th");
+    headCells.forEach(th => headers.push(th.textContent.trim()));
 
-      return clone;
-    }
-
-    function exportPDF() {
-      ensureLibraries(() => {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('p', 'pt', 'a4');
-
-        const table = cleanTable();
-        if (!table) {
-          alert("No table found to export.");
-          return;
-        }
-
-        doc.text("Talk Kink • Compatibility Report", 40, 40);
-        doc.autoTable({
-          html: table,
-          startY: 60,
-          styles: { fontSize: 9, cellPadding: 4, halign: 'center' },
-          headStyles: { fillColor: [0,0,0], textColor: [255,255,255] },
-          alternateRowStyles: { fillColor: [240,240,240] },
-          theme: 'grid'
-        });
-
-        doc.save("compatibility-report.pdf");
-      });
-    }
-
-    // attach to your button
-    document.addEventListener("DOMContentLoaded", () => {
-      const btn = document.querySelector("#downloadBtn, #downloadPdfBtn, [data-download-pdf]");
-      if (btn) btn.addEventListener("click", exportPDF);
+    const body = [];
+    document.querySelectorAll("table tbody tr").forEach(row => {
+      const rowData = [];
+      row.querySelectorAll("td").forEach(td => rowData.push(td.textContent.trim()));
+      body.push(rowData);
     });
-  })();
-  </script>
+
+    doc.autoTable({
+      head: [headers],
+      body: body,
+      startY: 60,
+      theme: "grid",
+      styles: { fontSize: 10, cellPadding: 5 },
+      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] }
+    });
+
+    doc.save("compatibility_report.pdf");
+  }
+
+  const btn = document.querySelector("#downloadBtn, #downloadPdfBtn, [data-download-pdf]");
+  if (btn) btn.addEventListener("click", generatePDF);
+  else console.warn("No download button found.");
+}
+
+document.addEventListener("DOMContentLoaded", setupPDFExport);
+</script>
 </body>
 </html>
