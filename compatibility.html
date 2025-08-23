@@ -435,455 +435,195 @@
 })();
 </script>
 
-<!--
-CODEx: ONE-BOX CHANGESET FOR TALK KINK COMPATIBILITY
-Purpose:
-- Fix Partner B not loading (ID mismatch).
-- Keep ONLY two numeric columns (Partner A & Partner B).
-- Show Match as a percentage.
-- Show Flag as an icon (⭐ high, ⚑ medium, 🚩 low) in DOM and PDF.
-- Make PDF export compute Match/Flag itself (never numbers in Flag).
-
-HOW TO APPLY:
-Paste this WHOLE block at the very BOTTOM of compatibility.html (after your existing scripts).
-No other edits required. This block:
-  • Normalizes Partner B input ID/selector and binds the handler.
-  • Wraps updateComparison() to clean table cells & render icons.
-  • Replaces the PDF export so it computes % + icon.
-
-If your current IDs already match, this still works (it tries multiple selectors).
--->
-
-<style>
-  /* Icons for the Flag column (page view) */
-  .tk-flagcell { text-align:center; width:3.5rem }
-  .tk-flag { font-size:1.1em; line-height:1; display:inline-block }
-  .tk-flag--star { color:#ffd166 }   /* high */
-  .tk-flag--flag { color:#4cc9f0 }   /* medium */
-  .tk-flag--low  { color:#ff6b6b }   /* low (optional) */
-</style>
-
-<script>
-/* ========================= 1) Partner B wiring fix ========================= */
-/* B wasn’t loading because JS listened to #uploadSurveyB but HTML used #uploadB.
-   This binder tries both (and [data-upload-b]) and routes to handleUploadB. */
-(function bindPartnerB(){
-  const inputB = document.getElementById("uploadB")
-              || document.getElementById("uploadSurveyB")
-              || document.querySelector("[data-upload-b]");
-  const trigger = document.getElementById("loadPartnerBtn")
-              || document.querySelector("[data-load-partner]");
-
-  // Let a "Load Partner Survey" button open the hidden input
-  if (trigger && inputB){
-    trigger.addEventListener("click", () => { inputB.value=""; inputB.click(); });
-  }
-
-  // On file select, call your handler if present, else noop message
-  function onBFile(e){
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (typeof window.handleUploadB === "function") {
-      window.handleUploadB(f);
-    } else if (typeof window.handleUpload === "function") {
-      // some builds use generic handleUpload(file, "B")
-      try { window.handleUpload(f, "B"); } catch {}
-    } else {
-      console.warn("No handleUploadB(file) found; ensure your loader is defined.");
-    }
-  }
-  if (inputB){
-    inputB.addEventListener("change", onBFile);
-    inputB.addEventListener("input", onBFile); // programmatic assignment fallback
-  } else {
-    console.warn('Partner B input not found. Add id="uploadB" or id="uploadSurveyB" or [data-upload-b].');
-  }
-})();
-
-/* ========================= 2) Enforce cell schema & render icons (DOM) ========================= */
-/* Guarantees: A/B numeric only; Match is %; Flag is icon only. */
-const TK_THRESH = { star: 90, flag: 60, low: 30 }; // tweak thresholds here
-
-function tkNum(v){ const n = Number(String(v??"").trim()); return Number.isFinite(n)?n:null; }
-function tkPct(a,b){ const A=tkNum(a), B=tkNum(b); if(A==null||B==null) return null; return Math.round(100-(Math.abs(A-B)/5)*100); }
-
-function tkEnsureCells(tr){
-  // Expect [Category][A][Match][Flag][B]
-  const need = ["A","Match","Flag","B"];
-  const have = new Set(Array.from(tr.querySelectorAll("td[data-cell]")).map(td=>td.getAttribute("data-cell")));
-  need.forEach(key=>{
-    if (!have.has(key)){
-      const td = document.createElement("td");
-      td.setAttribute("data-cell", key);
-      if (key==="Flag") td.classList.add("tk-flagcell");
-      tr.appendChild(td);
-    }
-  });
-}
-
-function tkRenderRow(tr){
-  tkEnsureCells(tr);
-  const aTd=tr.querySelector('td[data-cell="A"]');
-  const mTd=tr.querySelector('td[data-cell="Match"]');
-  const fTd=tr.querySelector('td[data-cell="Flag"]');
-  const bTd=tr.querySelector('td[data-cell="B"]');
-
-  const A=tkNum(aTd?.textContent), B=tkNum(bTd?.textContent);
-  aTd.textContent = A ?? "-";          // numeric only
-  bTd.textContent = B ?? "-";          // numeric only
-
-  const pct = tkPct(A,B);
-  mTd.textContent = pct==null ? "-" : `${pct}%`;
-
-  // icon only in Flag (wipe any numbers)
-  fTd.textContent = "";
-  if (pct!=null){
-    if (pct >= TK_THRESH.star){
-      fTd.innerHTML = `<span class="tk-flag tk-flag--star" title="High match">★</span>`;
-    } else if (pct >= TK_THRESH.flag){
-      fTd.innerHTML = `<span class="tk-flag tk-flag--flag" title="Medium match">⚑</span>`;
-    } else if (pct <= TK_THRESH.low){
-      fTd.innerHTML = `<span class="tk-flag tk-flag--low" title="Low match">🚩</span>`;
-    } // else keep blank
-  }
-}
-
-function tkRefreshAll(){
-  document.querySelectorAll('tbody tr[data-kink-id]').forEach(tkRenderRow);
-}
-
-// Wrap updateComparison so the visuals are enforced every time data changes
-(function installDomPatch(){
-  if (typeof window.updateComparison === "function"){
-    const _orig = window.updateComparison;
-    window.updateComparison = function(){ _orig.apply(this, arguments); tkRefreshAll(); };
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", tkRefreshAll);
-  } else {
-    tkRefreshAll();
-  }
-})();
-
-</script>
-
-<script src="js/compatibilityTablePdf.js"></script>
-
-<!-- ======================================================================
-TALK KINK • COMPATIBILITY REPORT — "IT-ALWAYS-WORKS" DROP-IN (DEBUG BUILD)
-Copy/paste this ENTIRE block as the LAST thing before </body> on your page.
-
-What this does (and how you’ll SEE the change):
-• Forces the column order to: Category | Partner A | Match % | Flag | Partner B
-• Reads Partner B from the **Partner B** column (or the last cell when headers
-  are weird) — not from the flag column.
-• Wraps long Category labels to **two lines max**, removes accidental duplicates.
-• Centers the numbers under the correct headers (no “hanging” Partner A).
-• Paints EVERY PDF page pure black (no white borders).
-• Auto-loads jsPDF + AutoTable if missing.
-• Binds to #downloadPdfBtn / #downloadBtn / [data-download-pdf].
-• If no button is found, it INJECTS a temporary “Download PDF (debug)” button
-  so you can test immediately.
-• Exposes a global `window.TK_export()` you can run from DevTools console.
-
-If you still “don’t see any change”, open browser DevTools → Console and look for
-[TK] logs. This build is very chatty on purpose.
-====================================================================== -->
-
 <script>
 (function () {
-  /* ----------------------- 0) Helpers ----------------------- */
-  const LOG = (...a)=>console.log("%c[TK]","color:#00e0ff",...a);
-  const ERR = (...a)=>console.error("%c[TK]","color:#ff6b6b",...a);
-
-  function tidy(s){ return (s||"").replace(/\s+/g," ").trim(); }
-  function toNum(v){ const n = Number(String(v??"").trim()); return Number.isFinite(n) ? n : null; }
-  function pctMatch(a,b){ const A=toNum(a), B=toNum(b); if(A==null||B==null) return null; return Math.round(100 - Math.abs(A-B)/5*100); }
-  function flagFor(p){ return p==null ? "—" : (p>=90 ? "★" : (p>=60 ? "⚑" : (p<=30 ? "🚩" : "+P"))); }
-
-  // Clamp text to *2 lines worth* of characters (simple & robust for PDF).
-  function clampTwoLines(str, maxPerLine){
-    const t = tidy(str); if(!t) return "—";
-    if (t.length <= maxPerLine*2) return t;
-    return t.slice(0,maxPerLine).trim() + "\n" + t.slice(maxPerLine, maxPerLine*2).trim() + "…";
-  }
-  // Remove duplicate label blobs like “…foo…foo…” (common copy/merge glitch).
-  function dedupeSmart(s){
+  // -------------------------- Utilities --------------------------
+  const log = (...a)=>console.log('[TK]', ...a);
+  const tidy = s => (s||'').replace(/\s+/g,' ').trim();
+  const toNum = v => {
+    if (v == null) return null;
+    const n = Number(String(v).replace(/[^\d\-]/g,''));
+    return Number.isFinite(n) ? n : null;
+  };
+  function dedupeOnce(s){
     const t = tidy(s);
     if (!t) return t;
-    const m = t.match(/^(.+?)\1+$/); if (m) return m[1];
-    const seedLen = Math.min(60, Math.max(10, Math.floor(t.length/3)));
-    const seed = t.slice(0, seedLen);
-    const again = t.indexOf(seed, seedLen);
-    return again > 0 ? tidy(t.slice(0, again)) : t;
+    // If the first half repeats at the second half, return once
+    const mid = Math.floor(t.length/2);
+    const left = tidy(t.slice(0,mid));
+    const right = tidy(t.slice(mid));
+    if (left && right.startsWith(left)) return left;
+    return t;
   }
+  function clampCat(s, maxChars=95){
+    let t = dedupeOnce(s);
+    if (t.length > maxChars) t = t.slice(0, maxChars-1)+'…';
+    return t;
+  }
+  const pct = (a,b)=> (a==null||b==null) ? null : Math.round(100 - (Math.abs(a-b)/5)*100);
 
-  /* ----------------------- 1) Libs ------------------------- */
-  function loadScript(src){
-    return new Promise((res,rej)=>{
+  async function loadScript(src){
+    await new Promise((res,rej)=>{
       if (document.querySelector(`script[src="${src}"]`)) return res();
-      const s=document.createElement("script");
-      s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Failed to load "+src));
+      const s=document.createElement('script');
+      s.src=src; s.onload=res; s.onerror=()=>rej(new Error('Failed to load '+src));
       document.head.appendChild(s);
     });
   }
-  async function ensureLibs(){
-    if(!(window.jspdf && window.jspdf.jsPDF)){
-      LOG("Loading jsPDF…");
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+
+  // -------------------------- Export core --------------------------
+  async function exportPDF() {
+    // Load libs if needed
+    if (!(window.jspdf && window.jspdf.jsPDF)){
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
     }
-    const hasAT = (window.jspdf && window.jspdf.autoTable) ||
-                  (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
-    if(!hasAT){
-      LOG("Loading jsPDF-autoTable…");
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    if (!(window.jspdf?.autoTable || window.jsPDF?.API?.autoTable)){
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
     }
-  }
-  function runAT(doc, opts){
-    if (typeof doc.autoTable === "function") return doc.autoTable(opts);
-    if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
-    throw new Error("AutoTable not available");
-  }
 
-  /* ----------------------- 2) Table reader ------------------ */
-  function findTable(){
-    const t = document.querySelector("#compatibilityTable") ||
-              [...document.querySelectorAll("table")].find(tbl=>{
-                const first = tbl.querySelector("tbody tr") || tbl.querySelector("tr");
-                return first && first.querySelectorAll("td").length >= 4; // lenient
-              }) ||
-              document.querySelector("table");
-    LOG("Table =", t);
-    return t;
-  }
+    // Find the table
+    const table =
+      document.getElementById('compatibilityTable') ||
+      document.querySelector('table.results-table') ||
+      document.querySelector('table');
+    if (!table){ alert('No compatibility table found.'); return; }
+    log('Table =', table);
 
-  // Map header names → column indices, case/spacing-insensitive
-  function headerMap(table){
-    const ths = [...table.querySelectorAll("thead th")].length
-              ? [...table.querySelectorAll("thead th")]
-              : [...table.querySelectorAll("tr")].find(r=>r.querySelectorAll("th").length)?.querySelectorAll("th") || [];
-    const map = { cat:0, a:1, match:null, flag:null, b:null };
-    if (!ths.length) return map;
+    // Header mapping
+    let ths = [...table.querySelectorAll('thead th')];
+    if (!ths.length) ths = [...table.querySelectorAll('tr th')];
+    const labels = ths.map(th => tidy(th.textContent).toLowerCase());
 
-    const names = [...ths].map(th => tidy(th.textContent).toLowerCase());
-    const idx = (needle)=>names.findIndex(n => n.includes(needle));
+    // Defaults (sensible fallbacks)
+    const idx = { cat: 0, a: 1, match: null, b: null };
+    const find = k => labels.findIndex(x => x.includes(k));
 
-    const c = idx("category");      if (c>-1) map.cat   = c;
-    const a = idx("partner a");     if (a>-1) map.a     = a;
-    const m = idx("match");         if (m>-1) map.match = m;
-    const f = idx("flag");          if (f>-1) map.flag  = f;
-    const b = idx("partner b");     if (b>-1) map.b     = b;
+    const c = find('category');   if (c>-1) idx.cat = c;
+    const a = find('partner a');  if (a>-1) idx.a   = a;
+    const m = find('match');      if (m>-1) idx.match = m;
 
-    LOG("Header map =", map, names);
-    return map;
-  }
+    // Prefer explicit Partner B, else assume last column is B
+    const b = find('partner b');
+    if (b>-1) idx.b = b;
+    else if (ths.length) idx.b = ths.length-1;
+    else idx.b = 3;
 
-  function rowsFromDOM(){
-    const table = findTable();
-    if(!table) return [];
+    log('Header map =', idx, labels);
 
-    const map = headerMap(table);
-    const trs = [...table.querySelectorAll("tbody tr")].length
-      ? [...table.querySelectorAll("tbody tr")]
-      : [...table.querySelectorAll("tr")].filter(r=>r.querySelectorAll("td").length);
+    // Collect rows
+    let trs = [...table.querySelectorAll('tbody tr')];
+    if (!trs.length) trs = [...table.querySelectorAll('tr')].filter(tr=>tr.querySelectorAll('td').length);
 
-    const out=[];
-    for (const tr of trs){
-      const tds = [...tr.querySelectorAll("td")]; if(!tds.length) continue;
+    const body = [];
+    trs.forEach(tr=>{
+      const tds = [...tr.querySelectorAll('td')];
+      if (!tds.length) return;
 
-      // Prefer explicit cells if present
-      const catTxt = tr.querySelector('td[data-col="category"]')?.textContent || tds[map.cat]?.textContent || tds[0]?.textContent || "";
-      const aTxt   = tr.querySelector('td[data-cell="A"]')?.textContent      || (map.a!=null ? tds[map.a]?.textContent : tds[1]?.textContent);
-      const bTxt   = tr.querySelector('td[data-cell="B"]')?.textContent      || (map.b!=null ? tds[map.b]?.textContent : tds.at(-1)?.textContent);
+      const catRaw = tds[idx.cat]?.textContent || '';
+      const aRaw   = tds[idx.a]?.textContent   || '';
+      const mRaw   = (idx.match!=null ? tds[idx.match]?.textContent : '') || '';
+      const bRaw   = tds[idx.b]?.textContent   || '';
 
-      // Compute fresh Match/Flag (ignore whatever is on the page)
-      const A = toNum(aTxt);
-      const B = toNum(bTxt);
-      const P = pctMatch(A,B);
+      // Build cells
+      const CAT = clampCat(catRaw);
+      const A = toNum(aRaw);
+      const B = toNum(bRaw);
+      const M = (mRaw && /\d/.test(mRaw)) ? tidy(mRaw) : (pct(A,B)!=null ? pct(A,B)+'%' : '—');
 
-      const label = clampTwoLines(dedupeSmart(catTxt), 56);
-
-      out.push([label, A==null?"—":A, P==null?"—":`${P}%`, flagFor(P), B==null?"—":B]);
-    }
-    LOG("DOM rows =", out.length);
-    return out;
-  }
-
-  function rowsFromMemory(){
-    const A = (window.partnerAData?.items) || (Array.isArray(window.partnerAData)?window.partnerAData:null);
-    const B = (window.partnerBData?.items) || (Array.isArray(window.partnerBData)?window.partnerBData:null);
-    if(!A && !B){ LOG("No partnerAData/partnerBData found"); return []; }
-
-    const mA=new Map((A||[]).map(i=>[(i.id||i.label),i]));
-    const mB=new Map((B||[]).map(i=>[(i.id||i.label),i]));
-    const keys=new Map();
-    (A||[]).forEach(i=>keys.set(i.id||i.label, i.label||i.id));
-    (B||[]).forEach(i=>keys.set(i.id||i.label, i.label||i.id));
-
-    const out=[];
-    for(const [id,label] of keys){
-      const a=mA.get(id), b=mB.get(id);
-      const Av=toNum(a?.score), Bv=toNum(b?.score), P=pctMatch(Av,Bv);
-      out.push([ clampTwoLines(label||id||"—",56), Av??"—", P==null?"—":`${P}%`, flagFor(P), Bv??"—" ]);
-    }
-    LOG("MEM rows =", out.length);
-    return out;
-  }
-
-  /* ----------------------- 3) Exporter -------------------- */
-  async function doExport(){
-    try{
-      await ensureLibs();
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
-
-      const W = doc.internal.pageSize.getWidth();
-      const H = doc.internal.pageSize.getHeight();
-
-      const drawPage = ()=>{
-        // full-bleed black (no white border on any page)
-        doc.setFillColor(0,0,0);
-        doc.rect(0,0,W,H,"F");
-        doc.setTextColor(255,255,255);
-        doc.setFontSize(32);
-        doc.text("Talk Kink • Compatibility Report", W/2, 58, { align:"center", baseline:"middle" });
-      };
-
-      // Get rows (DOM preferred; fallback memory)
-      let rows = rowsFromDOM();
-      if(!rows.length) rows = rowsFromMemory();
-      if(!rows.length){ alert("No data rows found to export."); return; }
-
-      // Column widths: category flexible; four numeric columns fixed & centered
-      const fixed = 4*90;        // 4 narrow columns
-      const marginLR = 36;       // small margin
-      const tableWidth = W - marginLR*2;
-      const catW = Math.max(420, tableWidth - fixed - 40); // remaining width to Category
-
-      runAT(doc, {
-        head: [["Category","Partner A","Match %","Flag","Partner B"]],
-        body: rows,
-        margin: { top: 96, left: marginLR, right: marginLR, bottom: 36 },
-        startY: 98,
-        tableWidth,
-        styles: {
-          fillColor:[0,0,0],
-          textColor:[255,255,255],
-          fontSize: 16,
-          cellPadding: 8,
-          halign: "center",
-          valign: "middle",
-          overflow: "linebreak"
-        },
-        headStyles: {
-          fillColor:[0,0,0],
-          textColor:[255,255,255],
-          fontStyle:"bold",
-          halign:"center"
-        },
-        columnStyles: {
-          0: { halign:"left", cellWidth: catW }, // Category
-          1: { cellWidth: 90 },                  // A
-          2: { cellWidth: 90 },                  // Match %
-          3: { cellWidth: 90 },                  // Flag
-          4: { cellWidth: 90 }                   // B  (second partner numbers)
-        },
-        didDrawPage: drawPage
-      });
-
-      doc.save("compatibility-report.pdf");
-    }catch(e){
-      ERR(e);
-      alert("PDF export failed: " + e.message);
-    }
-  }
-
-  /* ----------------------- 4) Binding --------------------- */
-  function bind(){
-    let btn = document.querySelector("#downloadPdfBtn") ||
-              document.querySelector("#downloadBtn") ||
-              document.querySelector("[data-download-pdf]");
-    if (!btn){
-      // inject a temporary debug button so you can test immediately
-      btn = document.createElement("button");
-      btn.textContent = "Download PDF (debug)";
-      btn.style.cssText = "position:fixed;z-index:99999;top:12px;right:12px;padding:10px 14px;border:1px solid #0ff;background:#000;color:#0ff;border-radius:8px;font:14px/1.2 system-ui,Segoe UI,Roboto,sans-serif;cursor:pointer;";
-      document.body.appendChild(btn);
-      LOG("No download button found — injected a temporary one.");
-    }
-    btn.removeEventListener("click", doExport);
-    btn.addEventListener("click", doExport);
-    LOG("Bound export to button:", btn);
-  }
-
-  // expose a manual trigger for you:
-  window.TK_export = doExport;
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bind);
-  } else {
-    bind();
-  }
-  new MutationObserver(bind).observe(document.documentElement, { childList:true, subtree:true });
-})();
-</script>
-
-<!-- ===== REMOVE "Run Export (manual)" BUTTON (drop this before </body>) ===== -->
-<style>
-  /* 1) Hide any pre-rendered manual-export button immediately */
-  #manualExportBtn,
-  [data-role="manual-export"],
-  [data-manual-export],
-  .manual-export {
-    display: none !important;
-  }
-</style>
-
-<script>
-(function () {
-  // 2) If your app uses a flag, force-disable manual export creation
-  // (Safe even if not present in your code.)
-  try { window.ADD_MANUAL_EXPORT_BUTTON = false; } catch (_) {}
-
-  // 3) Proactively remove any manual-export button added by scripts
-  const KILL_SELECTORS = [
-    '#manualExportBtn',
-    '[data-role="manual-export"]',
-    '[data-manual-export]',
-    '.manual-export'
-  ];
-
-  function nukeManualButton() {
-    document.querySelectorAll(KILL_SELECTORS.join(',')).forEach(el => {
-      // Optional: if it has an attached listener, clean it
-      try { const clone = el.cloneNode(true); el.replaceWith(clone); } catch (_) {}
-      el.remove();
+      // Keep non-empty
+      if (CAT || A!=null || B!=null){
+        body.push([ CAT || '—', A!=null?A:'—', M || '—', B!=null?B:'—' ]);
+      }
     });
+
+    log('DOM rows =', body.length);
+    if (!body.length){ alert('No data rows found to export.'); return; }
+
+    // Build PDF (black bg, white text)
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 36;
+
+    // Per-page background
+    const paintPage = () => {
+      doc.setFillColor(0,0,0);
+      doc.rect(0,0,pageW,pageH,'F');
+      doc.setTextColor(255,255,255);
+    };
+    paintPage();
+
+    // Title
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(28);
+    doc.text('Talk Kink • Compatibility Report', pageW/2, 48, { align:'center' });
+
+    // Fit widths to avoid “could not fit page” autoTable error
+    const usable = pageW - margin*2;
+    const colOther = 70; // width for A, Match, B
+    const catWidth = Math.max(usable - (colOther*3) - 2, 420);
+
+    // Render table
+    (doc.autoTable || window.jspdf.autoTable)(doc, {
+      head: [[ 'Category', 'Partner A', 'Match %', 'Partner B' ]],
+      body,
+      startY: 76,
+      margin: { left: margin, right: margin, top: margin, bottom: margin },
+      styles: {
+        font: 'helvetica',
+        fontStyle: 'normal',
+        fontSize: 11,
+        textColor: [255,255,255],
+        fillColor: [0,0,0],
+        lineColor: [255,255,255],
+        lineWidth: 0.15,
+        cellPadding: 5,
+        overflow: 'linebreak',
+        valign: 'middle'
+      },
+      headStyles: {
+        fontStyle: 'bold',
+        fillColor: [0,0,0],
+        textColor: [255,255,255]
+      },
+      columnStyles: {
+        0: { cellWidth: catWidth, halign:'left'   }, // Category
+        1: { cellWidth: colOther, halign:'center' }, // Partner A
+        2: { cellWidth: colOther, halign:'center' }, // Match %
+        3: { cellWidth: colOther, halign:'center' }  // Partner B
+      },
+      didDrawPage: paintPage
+    });
+
+    doc.save('compatibility-report.pdf');
   }
 
-  // Run ASAP and keep watch in case a framework re-inserts it
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', nukeManualButton, { once: true });
+  // -------------------------- Bind + clean UI --------------------------
+  function bindButtons(){
+    const selectors = ['#downloadBtn', '#downloadPdfBtn', '[data-download-pdf]'];
+    for (const sel of selectors){
+      const btn = document.querySelector(sel);
+      if (btn){
+        btn.removeEventListener('click', exportPDF);
+        btn.addEventListener('click', exportPDF);
+        log('Bound to Download button:', btn);
+        break;
+      }
+    }
+    // Remove “Run Export (manual)” if present
+    const manual = [...document.querySelectorAll('button,a')].find(el=>/run export \(manual\)/i.test(el.textContent||''));
+    if (manual) manual.remove();
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', bindButtons);
   } else {
-    nukeManualButton();
+    bindButtons();
   }
-
-  const mo = new MutationObserver(() => nukeManualButton());
-  mo.observe(document.documentElement, { childList: true, subtree: true });
-
-  // 4) (Optional) Re-bind your real export if needed
-  // Make sure your PDF export still hooks ONLY to the real download button.
-  // If your exporter attaches elsewhere, rebind it here.
-  const ensurePdfBind = () => {
-    const realBtn = document.querySelector('#downloadBtn, #downloadPdfBtn, [data-download-pdf]');
-    if (!realBtn) return;
-    // If your app already binds it, do nothing. Otherwise you can bind:
-    // realBtn.onclick = () => window.TK_exportPDF && window.TK_exportPDF();
-  };
-  ensurePdfBind();
+  new MutationObserver(bindButtons).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
-<!-- ===== END REMOVE "Run Export (manual)" BUTTON ===== -->
 
 </body>
 </html>
