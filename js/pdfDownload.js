@@ -23,7 +23,8 @@
  * 5) At the end of compatibility.html (just before </body>) import the module:
  *    <script type="module">
  *      import { downloadCompatibilityPDF } from '/js/pdfDownload.js';
- *      window.downloadCompatibilityPDF = downloadCompatibilityPDF; // optional convenience
+ *      // Optionally expose the function; pass 'dark' for a dark PDF
+ *      window.downloadCompatibilityPDF = downloadCompatibilityPDF;
  *    </script>
  *
  * 6) Flow to populate Column A and export:
@@ -35,7 +36,8 @@
  *        • ensures 5 columns: Category | Partner A | Match | Flag | Partner B
  *        • fills Flag:  ⭐ when Match ≥ 90; 🚩 when Match ≤ 50 OR (A is 4/5 while B is empty) OR vice-versa
  *        • spaces categories (no title cut) + keeps table rows intact across pages
- *        • renders a multi-page, true-black PDF without seams
+ *        • renders a multi-page PDF in your chosen theme (light by default) without seams
+ *    - Example: downloadCompatibilityPDF('dark') for a dark background
  */
 
 import { normalizeKey } from './compatNormalizeKey.js';
@@ -525,12 +527,15 @@ function partnerBHasData(){
 })();
 
 /* 1) Build safe clone (web page remains untouched) */
-function makeClone(){
+function makeClone(theme = 'light'){
   const src = document.querySelector(IDS.container);
   if (!src) throw new Error('#pdf-container not found');
 
   const shell = document.createElement('div');
-  Object.assign(shell.style,{background:'#000',color:'#fff',margin:0,padding:0,width:'100%',minHeight:'100vh',overflow:'auto'});
+  const themeColors = theme === 'dark'
+    ? { background: '#000', color: '#fff' }
+    : { background: '#fff', color: '#000' };
+  Object.assign(shell.style, themeColors, {margin:0,padding:0,width:'100%',minHeight:'100vh',overflow:'auto'});
 
   const clone = src.cloneNode(true);
   clone.classList.add('pdf-export');
@@ -742,7 +747,7 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATIO
 }
 
 /* ============================== EXPORT ENTRY ============================== */
-export async function downloadCompatibilityPDF() {
+export async function downloadCompatibilityPDF(theme = 'light') {
   try { await ensureLibs(); } catch (e) { console.error(e); alert(e.message); return; }
 
   const aHas = partnerAHasData();
@@ -758,7 +763,7 @@ export async function downloadCompatibilityPDF() {
     console.warn('Partner A (Column A) looks empty; generating PDF anyway.');
   }
 
-  const { shell, clone } = makeClone();
+  const { shell, clone } = makeClone(theme);
 
   // Remove rows/categories where both partners have zero/blank scores
   await filterZeroRowsAndEmptySections(clone);
@@ -797,7 +802,8 @@ export async function downloadCompatibilityPDF() {
       if (!partnerAHasData()) {
         console.warn('Partner A looks empty; generating PDF anyway.');
       }
-      await downloadCompatibilityPDF();
+      const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) || 'light';
+      await downloadCompatibilityPDF(theme);
     });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireBtn);

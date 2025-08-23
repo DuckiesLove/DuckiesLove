@@ -100,13 +100,15 @@ stub now opens the browser's print dialog so you can choose **Save as PDF** if t
 library fails to load. Run a local web server and select **Download Data** again
 to download the PDF automatically.
 
-#### Light PDF Mode
+#### PDF Themes
 
-PDF exports default to a dark color scheme. Pass `'light'` to `applyPrintStyles()`
-before exporting if you prefer a white background:
+PDF exports now default to a light color scheme. Pass `'dark'` when generating if
+you prefer a dark background:
 
 ```javascript
-applyPrintStyles('light');
+downloadCompatibilityPDF('dark');
+// or, when using the print-style helper:
+applyPrintStyles('dark');
 ```
 
 Pages will read the current theme and call this automatically when the body
