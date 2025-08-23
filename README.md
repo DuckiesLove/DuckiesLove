@@ -100,17 +100,26 @@ stub now opens the browser's print dialog so you can choose **Save as PDF** if t
 library fails to load. Run a local web server and select **Download Data** again
 to download the PDF automatically.
 
-#### Light PDF Mode
+#### PDF Themes
 
-PDF exports default to a dark color scheme. Pass `'light'` to `applyPrintStyles()`
-before exporting if you prefer a white background:
+PDF exports default to a dark color scheme (black background with white text).
+Override the `--pdf-bg` and `--pdf-text` CSS variables to switch themes. For a
+light PDF, set them on the page or in a stylesheet:
 
-```javascript
-applyPrintStyles('light');
+```html
+<body style="--pdf-bg: #fff; --pdf-text: #000">
 ```
 
-Pages will read the current theme and call this automatically when the body
-has the `light-mode` class.
+```css
+:root {
+  --pdf-bg: #fff;
+  --pdf-text: #000;
+}
+```
+
+You can also toggle themes programmatically. Passing `'light'` to
+`applyPrintStyles()` sets these variables for you, and pages with the
+`light-mode` class call this helper automatically.
 
 #### Example PDF Export
 
