@@ -101,21 +101,35 @@ library fails to load. Run a local web server and select **Download Data** again
 to download the PDF automatically.
 
 #### PDF Themes
+// Unified theme handling: supports CSS variables OR function argument
+export async function downloadCompatibilityPDF(arg = 'light') {
+  // 1. Defaults
+  let theme = (typeof arg === 'string') ? arg : 'light';
 
-PDF exports default to a dark color scheme (black background with white text).
-Override the `--pdf-bg` and `--pdf-text` CSS variables to switch themes. For a
-light PDF, set them on the page or in a stylesheet:
+  // 2. Read CSS variables (highest priority if set)
+  const cssBg   = getComputedStyle(document.body).getPropertyValue('--pdf-bg')?.trim();
+  const cssText = getComputedStyle(document.body).getPropertyValue('--pdf-text')?.trim();
 
-```html
-<body style="--pdf-bg: #fff; --pdf-text: #000">
-```
+  // 3. Apply theme logic
+  let bg = [255, 255, 255]; // light default
+  let fg = [0, 0, 0];
+  if (theme === 'dark') {
+    bg = [0, 0, 0];
+    fg = [255, 255, 255];
+  }
 
-```css
-:root {
-  --pdf-bg: #fff;
-  --pdf-text: #000;
+  // 4. Override with CSS vars if present
+  if (cssBg) bg = hexToRgb(cssBg) || bg;
+  if (cssText) fg = hexToRgb(cssText) || fg;
+
+  // ... (rest of your export logic: ensureLibs, extractRows, autoTable, etc.)
 }
-```
+
+// helper
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null;
+}
 
 You can also toggle themes programmatically. Passing `'light'` to
 `applyPrintStyles()` sets these variables for you, and pages with the

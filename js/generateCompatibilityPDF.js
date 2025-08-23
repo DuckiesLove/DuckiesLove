@@ -25,10 +25,10 @@ function shortenLabel(text = '') {
   return text.split(/\s+/).slice(0, 4).join(' ');
 }
 
-// PDF layout settings
-const pdfStyles = {
-  backgroundColor: 'black',
-  textColor: '#FFFFFF',
+// Default PDF layout settings
+const defaultPdfStyles = {
+  backgroundColor: '#FFFFFF',
+  textColor: '#000000',
   headingFont: 'helvetica',
   bodyFont: 'helvetica',
   barHeight: 10,
@@ -49,7 +49,9 @@ function getHistoryIcon(score) {
   return '🔴';
 }
 
-export function generateCompatibilityPDF(compatibilityData) {
+export function generateCompatibilityPDF(compatibilityData, styleOptions = {}) {
+  const pdfStyles = { ...defaultPdfStyles, ...styleOptions };
+
   const categories = Array.isArray(compatibilityData)
     ? compatibilityData
     : compatibilityData?.categories || [];
@@ -118,7 +120,8 @@ export function generateCompatibilityPDF(compatibilityData) {
       category.category || category.name,
       items,
       layout,
-      columnY[currentColumn]
+      columnY[currentColumn],
+      pdfStyles.textColor
     );
     columnY[currentColumn] = endY + pdfStyles.barSpacing;
   });
