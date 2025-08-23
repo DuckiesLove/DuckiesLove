@@ -470,29 +470,49 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
         || document.querySelector('.results-table.compat')
         || document.querySelector('table');
   }
-  function extractRows(table){
-    const trs=[...table.querySelectorAll('tr')].filter(tr=>{
-      const hasTH=tr.querySelectorAll('th').length>0;
-      const tds=tr.querySelectorAll('td');
-      return !hasTH && tds.length>0;
-    });
+  function extractRows(root){
+    if(!root) return [];
     const out=[];
-    trs.forEach(tr=>{
-      const cells=[...tr.querySelectorAll('td')].map(td=>tidy(td.textContent));
-      if(!cells.length) return;
-      const category=cells[0]||'—';
-      const nums=cells.map(toNum);
-      const idxs=nums.map((n,i)=>n!==null?i:-1).filter(i=>i>=0);
-      const a = idxs.length ? nums[idxs[0]] : null;
-      const b = idxs.length ? nums[idxs[idxs.length-1]] : null;
-      let match = cells.find(c=>/%$/.test(c));
-      if(!match && a!==null && b!==null){
-        const pct=Math.round(100 - (Math.abs(a-b)/5)*100);
-        match = `${Math.max(0,Math.min(100,pct))}%`;
-      }
-      if(!match) match='—';
-      out.push({category,a,match,b});
-    });
+    // If a real <table> exists, read its <tr><td> cells
+    if(root.tagName && root.tagName.toLowerCase()==='table'){
+      const trs=[...root.querySelectorAll('tr')].filter(tr=>{
+        const hasTH=tr.querySelectorAll('th').length>0;
+        const tds=tr.querySelectorAll('td');
+        return !hasTH && tds.length>0;
+      });
+      trs.forEach(tr=>{
+        const cells=[...tr.querySelectorAll('td')].map(td=>tidy(td.textContent));
+        if(!cells.length) return;
+        const category=cells[0]||'—';
+        const nums=cells.map(toNum);
+        const idxs=nums.map((n,i)=>n!==null?i:-1).filter(i=>i>=0);
+        const a = idxs.length ? nums[idxs[0]] : null;
+        const b = idxs.length ? nums[idxs[idxs.length-1]] : null;
+        let match = cells.find(c=>/%$/.test(c));
+        if(!match && a!==null && b!==null){
+          const pct=Math.round(100 - (Math.abs(a-b)/5)*100);
+          match = `${Math.max(0,Math.min(100,pct))}%`;
+        }
+        out.push({category,a,match:match||'—',b});
+      });
+    }else{
+      // Fallback for markup built from <div class="row"><div>…</div>…</div>
+      const rows=[...root.querySelectorAll('.row')];
+      rows.forEach(r=>{
+        const cells=[...r.children].map(c=>tidy(c.textContent));
+        if(!cells.length) return;
+        const category=cells[0]||'—';
+        const nums=cells.map(toNum).filter(n=>n!==null);
+        const a = nums.length ? nums[0] : null;
+        const b = nums.length ? nums[nums.length-1] : null;
+        let match = cells.find(c=>/%$/.test(c)) || null;
+        if(!match && a!==null && b!==null){
+          const pct=Math.round(100 - (Math.abs(a-b)/5)*100);
+          match = `${Math.max(0,Math.min(100,pct))}%`;
+        }
+        out.push({category,a,match:match||'—',b});
+      });
+    }
     return out;
   }
 
