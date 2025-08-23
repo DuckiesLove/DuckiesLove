@@ -6,27 +6,27 @@
 </head>
 <body>
 <!--
-ONE-BOX DROP-IN: fixes 3 issues at once for the PDF
+ONE-BOX DROP-IN — fixes your two problems:
+1) Wrong columns (Partner B values ending up under “Flag”) → we IGNORE the DOM and build rows ONLY from window.partnerAData / window.partnerBData. That guarantees the order is: Category | A | Match | Flag | B.
+2) White border on later pages → we paint a pure-black background on EVERY page via didDrawPage.
 
-What this does (and why it will look different after you paste it)
-• Reads your data from window.partnerAData / window.partnerBData (not the DOM table),
-  so Category text is NOT duplicated and Partner B always sits under “Partner B”.
-• Forces Category to at most TWO lines (adds … if needed). No wrapping to 3+ lines.
-• Locks column widths so Partner A / Match / Flag / Partner B never drift.
-• Full black background, white text, consistent margins (nothing cut off on the right).
-• Binds automatically to #downloadBtn, #downloadPdfBtn, or [data-download-pdf].
-• If no button exists, it creates one.
+What you do
+1) Make sure BOTH client-side objects exist after uploads:
+   - window.partnerAData  (either {items:[{id|label, score|value|rating}…]} OR just an array of those items)
+   - window.partnerBData  (same shape)
+2) Paste this whole <script> block right before </body>.
+3) Your existing button with id="downloadBtn" (or id="downloadPdfBtn" or [data-download-pdf]) will start working.
+   You can also call window.exportCompatibilityPDF() from the console.
 
-How to use
-1) Make sure your page defines window.partnerAData / window.partnerBData like you already do
-   (either {items:[{id|label,score}…]} or a plain array of those items).
-2) Paste this WHOLE block just before </body>.
-3) Click your Download button (or use window.exportCompatibilityPDF()).
+Notes
+• Category is clamped to TWO lines with an ellipsis.
+• Columns are locked to exact widths so numbers do not drift.
+• Background and cells are black; text is white on ALL pages (no white border).
 -->
 
 <script>
 (function () {
-  /* ---------- lazy-load deps if missing ---------- */
+  /* ---------------- deps ---------------- */
   function load(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`))return res();const s=document.createElement("script");s.src=src;s.async=true;s.onload=res;s.onerror=()=>rej(new Error("Failed to load "+src));document.head.appendChild(s);});}
   async function ensureLibs(){
     if(!(window.jspdf && window.jspdf.jsPDF)){
@@ -41,12 +41,13 @@ How to use
     return window.jspdf.autoTable(doc, opts);
   }
 
-  /* ---------- helpers ---------- */
+  /* ---------------- utils ---------------- */
   const tidy = s => String(s||"").replace(/\s+/g," ").trim();
-  const toNum = v => { const n = Number(String(v ?? "").trim()); return Number.isFinite(n) ? n : null; };
-  const pct = (a,b)=> (a==null||b==null) ? null : Math.round(100 - (Math.abs(a-b)/5)*100);
-  const flag = p => p==null ? "" : (p>=90 ? "★" : (p>=60 ? "⚑" : "🚩"));
+  const toNum = v => { const n = Number(String(v??"").trim()); return Number.isFinite(n) ? n : null; };
+  const pct   = (a,b)=> (a==null||b==null) ? null : Math.round(100 - (Math.abs(a-b)/5)*100);
+  const flagI = p => p==null ? "" : (p>=90 ? "★" : (p>=60 ? "⚑" : "🚩"));
 
+  // clamp Category to exactly max 2 lines with ellipsis
   function clamp2(doc, text, width, fontSize){
     doc.setFontSize(fontSize);
     const lines = doc.splitTextToSize(text, width);
@@ -57,61 +58,71 @@ How to use
     return [lines[0], second + "…"];
   }
 
-  function rowsFromData(){
+  // STRICT data builder (never reads table) → prevents column mixups
+  function rowsFromDataStrict(){
     const A=(window.partnerAData?.items) || (Array.isArray(window.partnerAData)?window.partnerAData:null);
     const B=(window.partnerBData?.items) || (Array.isArray(window.partnerBData)?window.partnerBData:null);
-    if(!A && !B) return [];
-    const map=new Map();
-    const put=(arr,isA)=> (arr||[]).forEach(it=>{
-      const key = it.id || it.label || "";
+    if(!A || !B) return null; // require both to avoid DOM fallback/misalignment
+
+    const map=new Map(); // key -> {label,A,B}
+    const ingest=(arr,isA)=> (arr||[]).forEach(it=>{
+      const key   = it.id || it.label || "";
       const label = tidy(it.label || it.id || "");
       const score = toNum(it.score ?? it.value ?? it.rating);
       if(!map.has(key)) map.set(key,{label,A:null,B:null});
       if(isA) map.get(key).A = score; else map.get(key).B = score;
     });
-    put(A,true); put(B,false);
+    ingest(A,true); ingest(B,false);
+
     return [...map.values()]
       .sort((x,y)=>x.label.localeCompare(y.label,undefined,{sensitivity:"base"}))
-      .map(r=>{ const p=pct(r.A,r.B); return [r.label||"—", r.A??"—", p==null?"—":`${p}%`, flag(p), r.B??"—"]; });
+      .map(r=>{
+        const p = pct(r.A, r.B);
+        return [r.label || "—", r.A ?? "—", p==null?"—":`${p}%`, flagI(p), r.B ?? "—"]; // ORDER LOCKED
+      });
   }
 
-  function rowsFromDOM(){
-    const table=document.getElementById("compatibilityTable") || document.querySelector("table");
-    if(!table) return [];
-    const trs=[...table.querySelectorAll("tbody tr")].filter(tr=>tr.querySelectorAll("td").length);
-    return trs.map(tr=>{
-      const tds=[...tr.querySelectorAll("td")];
-      return [tidy(tds[0]?.textContent), tidy(tds[1]?.textContent), tidy(tds[2]?.textContent), tidy(tds[3]?.textContent), tidy(tds[4]?.textContent)];
-    });
-  }
-
+  /* ---------------- exporter ---------------- */
   async function exportCompatibilityPDF(){
     await ensureLibs();
     const { jsPDF } = window.jspdf;
 
-    let rows = rowsFromData();
-    if(!rows.length) rows = rowsFromDOM();
-    if(!rows.length){ alert("No survey data found. Load Partner A and Partner B first."); return; }
+    const rows = rowsFromDataStrict();
+    if(!rows || !rows.length){
+      alert("Load BOTH surveys first (Partner A and Partner B).");
+      return;
+    }
 
+    // page & layout
     const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
     const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
 
-    const M = { top: 64, left: 52, right: 52, bottom: 48 };
+    // margins chosen to avoid any right-edge clipping
+    const M = { top: 70, left: 54, right: 54, bottom: 54 };
     const INNER_W = W - M.left - M.right;
 
-    const wCat = Math.floor(INNER_W * 0.59);
-    const wA = 72;
+    // fixed column widths (sum = INNER_W)
+    const wCat   = Math.floor(INNER_W * 0.58); // wide Category → 2 lines max
+    const wA     = 72;
     const wMatch = 88;
-    const wFlag = 64;
-    const wB = INNER_W - (wCat + wA + wMatch + wFlag);
-    const BODY_FS = 12;
-    const CAT_FS = 16;
+    const wFlag  = 66;
+    const wB     = INNER_W - (wCat + wA + wMatch + wFlag); // fill remainder
 
-    doc.setFillColor(0,0,0); doc.rect(0,0,W,H,"F");
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(28);
-    doc.text("Talk Kink • Compatibility Report", W/2, 42, {align:"center"});
+    const BODY_FS = 12;
+    const CAT_FS  = 16;
+
+    // draw black background on EVERY page
+    function paintBlackPage(doc){
+      doc.setFillColor(0,0,0);
+      doc.rect(0,0,W,H,"F");
+      doc.setTextColor(255,255,255);
+    }
+    paintBlackPage(doc);
+
+    // title
+    doc.setFontSize(32);
+    doc.text("Talk Kink • Compatibility Report", W/2, 48, {align:"center"});
 
     runAutoTable(doc, {
       head: [["Category","Partner A","Match","Flag","Partner B"]],
@@ -122,8 +133,8 @@ How to use
       tableWidth: INNER_W,
       styles: {
         fontSize: BODY_FS,
-        overflow: "linebreak",
         cellPadding: 8,
+        overflow: "linebreak",
         halign: "center",
         valign: "middle",
         textColor: [255,255,255],
@@ -144,39 +155,50 @@ How to use
         4: { cellWidth: wB,     halign: "center"},
       },
       didParseCell: data => {
+        // enforce black/white EVERYWHERE
         data.cell.styles.fillColor = [0,0,0];
         data.cell.styles.textColor = [255,255,255];
+
+        // clamp Category (col 0) to TWO lines
         if(data.section==="body" && data.column.index===0){
-          const clean = tidy(Array.isArray(data.cell.text)?data.cell.text.join(" "):data.cell.text);
+          const text = tidy(Array.isArray(data.cell.text)?data.cell.text.join(" "):data.cell.text);
           const usable = wCat - (data.cell.styles.cellPadding*2);
-          const clamped = clamp2(data.doc, clean, usable, CAT_FS);
-          data.cell.text = clamped;
+          data.cell.text = clamp2(data.doc, text, usable, CAT_FS);
           data.cell.styles.fontSize = CAT_FS;
           data.cell.styles.lineHeight = 1.18;
+          data.cell.styles.halign = "left";
         }
       },
       willDrawCell: (data) => {
+        // paint each cell black (prevents any gray/white boxes)
         const c = data.cell;
         data.doc.setFillColor(0,0,0);
         data.doc.rect(c.x, c.y, c.width, c.height, "F");
       },
-      horizontalPageBreak: true
+      didDrawPage: (data) => {
+        // repaint page background (for pages after the first)
+        paintBlackPage(data.doc);
+        // re-draw the title
+        data.doc.setFontSize(32);
+        data.doc.text("Talk Kink • Compatibility Report", W/2, 48, {align:"center"});
+      }
     });
 
     doc.save("compatibility-report.pdf");
   }
 
+  // bind or create a button
   function bind(){
     let btn = document.querySelector("#downloadBtn,#downloadPdfBtn,[data-download-pdf]");
     if(!btn){
       btn = document.createElement("button");
       btn.id = "downloadBtn";
       btn.textContent = "Download Compatibility PDF";
-      btn.style.cssText="margin:14px 0;padding:10px 14px;border-radius:10px;border:1px solid #0ff;background:#001014;color:#0ff;cursor:pointer;";
+      btn.style.cssText="margin:12px 0;padding:10px 14px;border-radius:10px;border:1px solid #0ff;background:#001014;color:#0ff;cursor:pointer;";
       document.body.appendChild(btn);
     }
     btn.addEventListener("click", exportCompatibilityPDF);
-    window.exportCompatibilityPDF = exportCompatibilityPDF;
+    window.exportCompatibilityPDF = exportCompatibilityPDF; // optional manual trigger
   }
 
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", bind);
@@ -185,3 +207,4 @@ How to use
 </script>
 </body>
 </html>
+
