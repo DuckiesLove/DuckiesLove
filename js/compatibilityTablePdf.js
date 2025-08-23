@@ -1,17 +1,13 @@
 (function () {
-  /* ---------- load jsPDF & AutoTable ---------- */
+  /* --------- Load jsPDF & AutoTable --------- */
   function inject(src) {
     return new Promise((res, rej) => {
       if (document.querySelector(`script[src="${src}"]`)) return res();
       const s = document.createElement("script");
-      s.src = src;
-      s.async = true;
-      s.onload = res;
-      s.onerror = () => rej(new Error("Failed to load " + src));
+      s.src = src; s.async = true; s.onload = res; s.onerror = () => rej(new Error("Failed " + src));
       document.head.appendChild(s);
     });
   }
-
   async function ensureLibs() {
     await inject("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
     if (!(window.jspdf && window.jspdf.jsPDF)) throw new Error("jsPDF not ready");
@@ -19,35 +15,34 @@
       await inject("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
     }
   }
-
   function runAutoTable(doc, opts) {
     if (typeof doc.autoTable === "function") return doc.autoTable(opts);
     return window.jspdf.autoTable(doc, opts);
   }
 
-  /* ---------- table helpers ---------- */
-  const tidy = s => (s || "").replace(/\s+/g, " ").trim();
-
+  /* --------- Helpers --------- */
+  const tidy = s => String(s || "").replace(/\s+/g, " ").trim();
+  function dedupeSmart(s) {
+    const t = tidy(s); if (!t) return t;
+    const m = t.match(/^(.+?)\1+$/); if (m) return m[1];
+    const seed = t.slice(0, Math.min(30, Math.floor(t.length / 2)));
+    const p = t.indexOf(seed, seed.length);
+    return (p > 0) ? t.slice(0, p).trim() : t;
+  }
   function getTable() {
     return document.getElementById("compatibilityTable")
       || document.querySelector('table[aria-label*="compatibility" i]')
       || document.querySelector("table");
   }
-
-  function getRowsFromTable() {
-    const table = getTable();
-    if (!table) return [];
-    let trs = [...table.querySelectorAll("tbody tr")];
-    if (!trs.length) trs = [...table.querySelectorAll("tr")].filter(tr => tr.querySelectorAll("td").length);
-    const out = [];
-    for (const tr of trs) {
+  function rowsFromTable() {
+    const table = getTable(); if (!table) return [];
+    const trs = [...table.querySelectorAll("tbody tr")].filter(tr => tr.querySelectorAll("td").length);
+    return trs.map(tr => {
       const tds = [...tr.querySelectorAll("td")];
-      if (!tds.length) continue;
-      out.push(tds.map(td => tidy(td.textContent)));
-    }
-    return out;
+      const cat = dedupeSmart(tds[0]?.textContent || "");
+      return [cat, tidy(tds[1]?.textContent), tidy(tds[2]?.textContent), tidy(tds[3]?.textContent), tidy(tds[4]?.textContent)];
+    });
   }
-
   function getOrCreateButton() {
     let btn = document.querySelector("#downloadBtn,#downloadPdfBtn,[data-download-pdf]");
     if (btn) return btn;
@@ -59,61 +54,48 @@
     return btn;
   }
 
-  /* ---------- export ---------- */
+  /* --------- Export --------- */
   async function exportCompatibilityPDF() {
     await ensureLibs();
     const { jsPDF } = window.jspdf;
-
-    const rows = getRowsFromTable();
-    if (!rows.length) {
-      alert("No rows to export.");
-      return;
-    }
+    const rows = rowsFromTable();
+    if (!rows.length) { alert("No data"); return; }
 
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 40, top = 80;
+    const innerW = pageW - 2 * margin;
 
-    const pageW = doc.internal.pageSize.getWidth ? doc.internal.pageSize.getWidth() : doc.internal.pageSize.width;
-    const pageH = doc.internal.pageSize.getHeight ? doc.internal.pageSize.getHeight() : doc.internal.pageSize.height;
+    const wCat = Math.floor(innerW * 0.55);
+    const wA = Math.floor(innerW * 0.10);
+    const wMatch = Math.floor(innerW * 0.12);
+    const wFlag = Math.floor(innerW * 0.08);
+    const wB = innerW - (wCat + wA + wMatch + wFlag);
 
-    const M_LEFT = 72;   // 1 inch
-    const M_RIGHT = 72;  // 1 inch
-    const INNER_W = pageW - M_LEFT - M_RIGHT;
-
-    const wCat = Math.floor(INNER_W * 0.50);
-    const wA = Math.floor(INNER_W * 0.11);
-    const wMatch = Math.floor(INNER_W * 0.13);
-    const wFlag = Math.floor(INNER_W * 0.08);
-    const wB = INNER_W - (wCat + wA + wMatch + wFlag);
-
+    // Black background
     doc.setFillColor(0, 0, 0);
     doc.rect(0, 0, pageW, pageH, "F");
 
+    // Title
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(32);
-    doc.text("Talk Kink • Compatibility Report", pageW / 2, 64, { align: "center" });
+    doc.setFontSize(28);
+    doc.text("Talk Kink • Compatibility Report", pageW / 2, 50, { align: "center" });
+
+    // Clamp to 2 lines
+    function clampTwo(text, avail) {
+      const lines = doc.splitTextToSize(text, avail);
+      return lines.length <= 2 ? lines : [lines[0], (lines[1] + "…")];
+    }
 
     runAutoTable(doc, {
       head: [["Category", "Partner A", "Match", "Flag", "Partner B"]],
       body: rows,
-      startY: 96,
-      theme: "plain",
-      margin: { left: M_LEFT, right: M_RIGHT },
-      tableWidth: INNER_W,
-      styles: {
-        fontSize: 14,
-        cellPadding: 8,
-        overflow: "linebreak",
-        halign: "center",
-        valign: "middle",
-        textColor: [255, 255, 255],
-        fillColor: [0, 0, 0]
-      },
-      headStyles: {
-        fontStyle: "bold",
-        textColor: [255, 255, 255],
-        fillColor: [0, 0, 0],
-        halign: "center"
-      },
+      startY: top,
+      margin: { left: margin, right: margin },
+      tableWidth: innerW,
+      styles: { fontSize: 12, cellPadding: 6, textColor: [255, 255, 255], fillColor: [0, 0, 0], overflow: "linebreak" },
+      headStyles: { fontStyle: "bold", fillColor: [0, 0, 0], textColor: [255, 255, 255] },
       columnStyles: {
         0: { cellWidth: wCat, halign: "left", fontStyle: "bold" },
         1: { cellWidth: wA, halign: "center" },
@@ -122,31 +104,27 @@
         4: { cellWidth: wB, halign: "center" }
       },
       didParseCell: data => {
-        data.cell.styles.fillColor = [0, 0, 0];
-        data.cell.styles.textColor = [255, 255, 255];
-        data.cell.styles.overflow = "linebreak";
+        if (data.section === "body" && data.column.index === 0) {
+          const clamped = clampTwo(dedupeSmart(data.cell.text), wCat - 12);
+          data.cell.text = clamped;
+        }
       },
       willDrawCell: data => {
-        const { cell } = data;
         doc.setFillColor(0, 0, 0);
-        doc.rect(cell.x, cell.y, cell.width, cell.height, "F");
+        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, "F");
       }
     });
 
     doc.save("compatibility-report.pdf");
   }
 
+  // Button
   function bind() {
     const btn = getOrCreateButton();
     btn.removeEventListener("click", exportCompatibilityPDF);
     btn.addEventListener("click", exportCompatibilityPDF);
     window.exportCompatibilityPDF = exportCompatibilityPDF;
   }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bind);
-  } else {
-    bind();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+  else bind();
 })();
-
