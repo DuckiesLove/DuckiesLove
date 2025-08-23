@@ -18,30 +18,29 @@
 -->
 
 <!--
-TALK KINK • COMPATIBILITY REPORT — FIXED WIDTH PDF EXPORT
+TALK KINK • COMPATIBILITY REPORT — Tidy PDF Export (2-line Category, correct columns)
 
-INSTRUCTIONS:
-1. Place this whole <script> block at the very bottom of your HTML page, just before </body>.
-2. Make sure your table exists (id="compatibilityTable" recommended).
-3. Make sure you have a button with one of these selectors:
-     <button id="downloadBtn">Download PDF</button>
-     <button id="downloadPdfBtn">Download PDF</button>
-     <button data-download-pdf>Download PDF</button>
-   (If no button exists, this script will create one automatically.)
-4. Reload your page and click the button, or run window.exportCompatibilityPDF() in the console.
+WHAT THIS DOES
+• Auto-loads jsPDF + jsPDF-AutoTable.
+• Reads your visible table (id="compatibilityTable" recommended).
+• Builds rows by matching header names so “Partner B” is never placed in “Flag”.
+• Cleans duplicate category text, and clamps each Category cell to max 2 lines
+  (adds … if it would be longer). Numbers stay centered and don’t “hang”.
+• Exports a landscape A4 PDF with black background and white text.
+• Column widths are fixed to fit the printable area (no cutoff).
 
-WHAT IT DOES:
-• Auto-loads jsPDF + jsPDF-AutoTable from CDN
-• Extracts rows from your compatibility table
-• Creates a landscape A4 PDF with a solid black background and white text
-• Ensures Category is wide + left aligned, other columns fixed and centered
-• Forces column widths to sum exactly to page width so no cut-off
-• Wraps long text instead of overflowing
+HOW TO USE
+1) Put this whole <script> block just before </body>.
+2) Make sure your table exists (ideally: <table id="compatibilityTable"> … </table>)
+   with headings that include “Category”, “Partner A”, “Match”, “Flag”, “Partner B”.
+3) Have a button with id="downloadBtn" (or #downloadPdfBtn / [data-download-pdf]).
+   If missing, this script will create one.
+4) Reload the page and click the button (or call window.exportCompatibilityPDF()).
 -->
 
 <script>
 (function () {
-  /* ---------- Load jsPDF & AutoTable ---------- */
+  /* ---------- Load libs ---------- */
   function inject(src){
     return new Promise((res,rej)=>{
       if (document.querySelector(`script[src="${src}"]`)) return res();
@@ -62,28 +61,90 @@ WHAT IT DOES:
     return window.jspdf.autoTable(doc, opts);
   }
 
-  /* ---------- Table helpers ---------- */
-  const tidy = s => (s||"").replace(/\s+/g," ").trim();
+  /* ---------- Helpers ---------- */
+  const tidy = s => (Array.isArray(s)?s.join(" "):String(s||"")).replace(/\s+/g," ").trim();
+
+  // Remove obvious duplicated category like "foo ... foo ..."
+  function dedupeSmart(s){
+    const t = tidy(s);
+    if (!t) return t;
+    const m = t.match(/^(.+?)\1+$/);           // ABAB / ABCABC pattern
+    if (m) return m[1];
+    const seedLen = Math.min(48, Math.max(8, Math.floor(t.length/4)));
+    const seed    = t.slice(0, seedLen);
+    const p       = t.indexOf(seed, seedLen);
+    return (p>0) ? t.slice(0,p).trim() : t;
+  }
+
   function getTable(){
     return document.getElementById("compatibilityTable")
         || document.querySelector('table[aria-label*="compatibility" i]')
         || document.querySelector("table");
   }
-  function getRowsFromTable(){
-    const table=getTable();
-    if(!table) return [];
-    let trs=[...table.querySelectorAll("tbody tr")];
-    if(!trs.length) trs=[...table.querySelectorAll("tr")].filter(tr=>tr.querySelectorAll("td").length);
-    const out=[];
-    for(const tr of trs){
-      const tds=[...tr.querySelectorAll("td")];
-      if(!tds.length) continue;
-      out.push(tds.map(td=>tidy(td.textContent)));
+
+  // Map header names → column indexes so Partner B won't slip under Flag
+  function headerIndex(table){
+    let ths = [...table.querySelectorAll("thead th")];
+    if (!ths.length) ths = [...table.querySelectorAll("tr th")];
+    const labels = ths.map(th => tidy(th.textContent).toLowerCase());
+
+    const find = (needleArr) => {
+      for (const k of needleArr){
+        const i = labels.findIndex(x => x.includes(k));
+        if (i>-1) return i;
+      }
+      return -1;
+    };
+
+    return {
+      cat : find(["category"]),
+      A   : find(["partner a","a)","a "]),
+      match: find(["match"]),
+      flag : find(["flag"]),
+      B   : find(["partner b","b)","b "])
+    };
+  }
+
+  function rowsFromTable(){
+    const table = getTable();
+    if (!table) return [];
+
+    const idx = headerIndex(table);
+    // fallback if header missing: assume natural order
+    const useFallback = Object.values(idx).some(v => v<0);
+
+    const trs = [...table.querySelectorAll("tbody tr")].filter(tr=>tr.querySelectorAll("td").length);
+    const out = [];
+
+    for (const tr of trs){
+      const tds = [...tr.querySelectorAll("td")];
+      if (!tds.length) continue;
+
+      // Prefer explicit data-cell markers when available
+      const aCell = tr.querySelector('td[data-cell="A"]');
+      const bCell = tr.querySelector('td[data-cell="B"]');
+
+      const category = dedupeSmart(tds[0]?.textContent || tr.getAttribute("data-kink-id") || "");
+
+      let A, Match, Flag, B;
+      if (aCell || bCell || !useFallback){
+        // Safe by header mapping (or explicit data-cell)
+        const catTxt = (idx.cat>-1 && tds[idx.cat]) ? tds[idx.cat].textContent : category;
+        A     = tidy(aCell ? aCell.textContent : (idx.A>-1 ? tds[idx.A]?.textContent : tds[1]?.textContent));
+        Match = tidy(idx.match>-1 ? tds[idx.match]?.textContent : "");
+        Flag  = tidy(idx.flag>-1 ? tds[idx.flag]?.textContent  : "");
+        B     = tidy(bCell ? bCell.textContent : (idx.B>-1 ? tds[idx.B]?.textContent : tds[tds.length-1]?.textContent));
+        out.push([dedupeSmart(catTxt), A, Match, Flag, B]);
+      } else {
+        // Fallback positional
+        out.push([category, tidy(tds[1]?.textContent), tidy(tds[2]?.textContent), tidy(tds[3]?.textContent), tidy(tds[4]?.textContent||tds[tds.length-1]?.textContent)]);
+      }
     }
     return out;
   }
+
   function getOrCreateButton(){
-    let btn=document.querySelector("#downloadBtn,#downloadPdfBtn,[data-download-pdf]");
+    let btn = document.querySelector("#downloadBtn,#downloadPdfBtn,[data-download-pdf]");
     if (btn) return btn;
     btn=document.createElement("button");
     btn.id="downloadBtn";
@@ -93,51 +154,75 @@ WHAT IT DOES:
     return btn;
   }
 
-  /* ---------- Export (fits within printable width) ---------- */
+  /* ---------- Export (2-line Category, fixed columns) ---------- */
   async function exportCompatibilityPDF(){
     await ensureLibs();
     const { jsPDF } = window.jspdf;
 
-    const rows = getRowsFromTable();
+    const rows = rowsFromTable();
     if (!rows.length){ alert("No rows to export."); return; }
 
     const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
 
+    // Page metrics and inner width (printable)
     const pageW = doc.internal.pageSize.getWidth ? doc.internal.pageSize.getWidth() : doc.internal.pageSize.width;
     const pageH = doc.internal.pageSize.getHeight ? doc.internal.pageSize.getHeight() : doc.internal.pageSize.height;
-
-    const M_LEFT  = 72;   // 1 inch
-    const M_RIGHT = 72;   // 1 inch
+    const M_LEFT=72, M_RIGHT=72, M_TOP=96;
     const INNER_W = pageW - M_LEFT - M_RIGHT;
 
-    const wCat   = Math.floor(INNER_W * 0.50);
-    const wA     = Math.floor(INNER_W * 0.11);
-    const wMatch = Math.floor(INNER_W * 0.13);
+    // Fixed widths (sum exactly equals INNER_W)
+    const wCat   = Math.floor(INNER_W * 0.52);
+    const wA     = Math.floor(INNER_W * 0.10);
+    const wMatch = Math.floor(INNER_W * 0.14);
     const wFlag  = Math.floor(INNER_W * 0.08);
-    const wB     = INNER_W - (wCat + wA + wMatch + wFlag);
+    const wB     = INNER_W - (wCat + wA + wMatch + wFlag);  // remainder → Partner B
 
+    const PAD = 8;                 // keep in sync with styles.cellPadding
+    const CAT_LINE_H = 1.25;       // line height multiplier
+    const CAT_FS = 16;             // font size used for category cells
+
+    // Black background
     doc.setFillColor(0,0,0);
     doc.rect(0,0,pageW,pageH,"F");
 
+    // Title
     doc.setTextColor(255,255,255);
     doc.setFontSize(32);
-    doc.text("Talk Kink • Compatibility Report", pageW/2, 64, { align:"center" });
+    doc.text("Talk Kink • Compatibility Report", pageW/2, 56, { align:"center" });
+
+    // Utility: clamp text to 2 lines within available width
+    function clampTwoLines(text, availWidth){
+      doc.setFontSize(CAT_FS);
+      const lines = doc.splitTextToSize(text, availWidth);
+      if (lines.length <= 2) return lines;
+      // keep first line; trim second line to fit with ellipsis
+      let second = lines[1];
+      const ell = "…";
+      // If more than two, join the remaining back into second and trim
+      const rest = [lines[1], ...lines.slice(2)].join(" ");
+      let clipped = doc.splitTextToSize(rest, availWidth)[0] || second;
+      // Ensure we fit even with ellipsis
+      while (doc.getTextWidth(clipped + ell) > availWidth && clipped.length > 0){
+        clipped = clipped.slice(0, -1);
+      }
+      return [lines[0], (clipped + ell)];
+    }
 
     runAutoTable(doc, {
       head: [["Category","Partner A","Match","Flag","Partner B"]],
       body: rows,
-      startY: 96,
+      startY: M_TOP,
       theme: "plain",
       margin: { left: M_LEFT, right: M_RIGHT },
       tableWidth: INNER_W,
       styles: {
         fontSize: 14,
-        cellPadding: 8,
+        cellPadding: PAD,
         overflow: "linebreak",
         halign: "center",
         valign: "middle",
         textColor: [255,255,255],
-        fillColor: [0,0,0]
+        fillColor: [0,0,0],
       },
       headStyles: {
         fontStyle: "bold",
@@ -152,13 +237,26 @@ WHAT IT DOES:
         3: { cellWidth: wFlag,  halign: "center" },
         4: { cellWidth: wB,     halign: "center" }
       },
+
+      // Make sure every cell paints black / white
       didParseCell: data => {
         data.cell.styles.fillColor = [0,0,0];
         data.cell.styles.textColor = [255,255,255];
-        data.cell.styles.overflow  = "linebreak";
+
+        // Clamp CATEGORY to two lines & remove duplicates
+        if (data.section === "body" && data.column.index === 0){
+          const clean = dedupeSmart(tidy(data.cell.text));
+          const avail = wCat - 2*PAD;
+          const clamped = clampTwoLines(clean, avail);
+          data.cell.text = clamped;
+          data.cell.styles.fontSize = CAT_FS;
+          data.cell.styles.lineHeight = CAT_LINE_H;
+        }
       },
+
       willDrawCell: data => {
         const { cell } = data;
+        // force solid black background
         doc.setFillColor(0,0,0);
         doc.rect(cell.x, cell.y, cell.width, cell.height, "F");
       }
@@ -167,17 +265,15 @@ WHAT IT DOES:
     doc.save("compatibility-report.pdf");
   }
 
+  // Bind button
   function bind(){
     const btn=getOrCreateButton();
     btn.removeEventListener("click", exportCompatibilityPDF);
     btn.addEventListener("click", exportCompatibilityPDF);
-    window.exportCompatibilityPDF = exportCompatibilityPDF;
+    window.exportCompatibilityPDF = exportCompatibilityPDF; // optional manual trigger
   }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bind);
-  } else {
-    bind();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+  else bind();
 })();
 </script>
 </body>
