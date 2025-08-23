@@ -150,6 +150,7 @@
         head: [["Category","Partner A","Match","Flag","Partner B"]],
         body: rows,
         startY: 20,
+        theme: 'plain',
         styles: {
           fontSize: 10,
           cellWidth: 'wrap',
@@ -166,6 +167,10 @@
           2:{ cellWidth:20 },
           3:{ cellWidth:15 },
           4:{ cellWidth:20 }
+        },
+        didParseCell: data => {
+          data.cell.styles.fillColor = [0,0,0];
+          data.cell.styles.textColor = [255,255,255];
         }
       });
 
