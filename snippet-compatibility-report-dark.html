@@ -5,64 +5,35 @@
   <title>Compatibility Report Export (Dark)</title>
 </head>
 <body>
-<!-- (Optional) Example button & table skeleton (keep your own if you already have them)
-<button id="downloadBtn">Download Compatibility PDF</button>
-<table id="compatibilityTable">
-  <thead>
-    <tr>
-      <th>Category</th><th>Partner A</th><th>Match</th><th>Flag</th><th>Partner B</th>
-    </tr>
-  </thead>
-  <tbody><!-- your rows here --></tbody>
-</table>
--->
 <!--
-TALK KINK • COMPATIBILITY REPORT — PDF that actually fixes your 3 issues
+ONE-BOX DROP-IN: fixes 3 issues at once for the PDF
 
-WHY YOUR LAST TRY DIDN’T CHANGE
-Your page’s table duplicates the Category text (responsive markup) and some
-rows place Partner B under the wrong column when scraped directly from DOM.
-So “reading the table” keeps reproducing those problems.
+What this does (and why it will look different after you paste it)
+• Reads your data from window.partnerAData / window.partnerBData (not the DOM table),
+  so Category text is NOT duplicated and Partner B always sits under “Partner B”.
+• Forces Category to at most TWO lines (adds … if needed). No wrapping to 3+ lines.
+• Locks column widths so Partner A / Match / Flag / Partner B never drift.
+• Full black background, white text, consistent margins (nothing cut off on the right).
+• Binds automatically to #downloadBtn, #downloadPdfBtn, or [data-download-pdf].
+• If no button exists, it creates one.
 
-WHAT THIS DOES INSTEAD
-• Ignores the DOM table for content and builds the PDF **from your data**:
-  window.partnerAData / window.partnerBData (items: [{id|label, score}, …]).
-  This avoids duplicated Category text entirely and guarantees A/B are aligned.
-• Forces Category to **max 2 lines** per row (adds … if longer).
-• Keeps A/B numeric under the correct headers; Match is a %; Flag is:
-    ★ ≥ 90, ⚑ ≥ 60, 🚩 < 60.
-• Black background, white text, fixed column widths so nothing is cut off.
-
-HOW TO USE
-1) Ensure your page already sets either:
-     window.partnerAData = { items: [{id|label, score}, …] } (or just an array),
-     window.partnerBData = { items: [{id|label, score}, …] }.
-   (They’re the same objects you use to fill the web table.)
-2) Paste this whole <script> block just before </body>.
-3) Have a button with id="downloadBtn" (or it will be added for you).
-4) Click the button (or run window.exportCompatibilityPDF()).
-
-NOTE
-If A/B data are not available, this will fall back to the DOM table — but the
-best results come from the data path described above.
+How to use
+1) Make sure your page defines window.partnerAData / window.partnerBData like you already do
+   (either {items:[{id|label,score}…]} or a plain array of those items).
+2) Paste this WHOLE block just before </body>.
+3) Click your Download button (or use window.exportCompatibilityPDF()).
 -->
 
 <script>
 (function () {
-  /* ------------------ load libs ------------------ */
-  function inject(src){
-    return new Promise((res,rej)=>{
-      if(document.querySelector(`script[src="${src}"]`)) return res();
-      const s=document.createElement("script");
-      s.src=src; s.async=true; s.onload=res; s.onerror=()=>rej(new Error("Failed "+src));
-      document.head.appendChild(s);
-    });
-  }
+  /* ---------- lazy-load deps if missing ---------- */
+  function load(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`))return res();const s=document.createElement("script");s.src=src;s.async=true;s.onload=res;s.onerror=()=>rej(new Error("Failed to load "+src));document.head.appendChild(s);});}
   async function ensureLibs(){
-    await inject("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-    if(!(window.jspdf && window.jspdf.jsPDF)) throw new Error("jsPDF not ready");
-    if(!((window.jspdf && window.jspdf.autoTable) || (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable))){
-      await inject("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    if(!(window.jspdf && window.jspdf.jsPDF)){
+      await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+    if(!((window.jspdf&&window.jspdf.autoTable)||(window.jsPDF&&window.jsPDF.API&&window.jsPDF.API.autoTable))){
+      await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
     }
   }
   function runAutoTable(doc, opts){
@@ -70,185 +41,144 @@ best results come from the data path described above.
     return window.jspdf.autoTable(doc, opts);
   }
 
-  /* ------------------ helpers ------------------ */
+  /* ---------- helpers ---------- */
   const tidy = s => String(s||"").replace(/\s+/g," ").trim();
-  const toNum = v => {
-    const n = Number(String(v ?? "").trim());
-    return Number.isFinite(n) ? n : null;
-  };
-  const pctMatch = (a,b)=> {
-    if(a==null || b==null) return null;
-    return Math.round(100 - (Math.abs(a-b)/5)*100);
-  };
-  const flagFor = p => p==null ? "" : (p>=90 ? "★" : (p>=60 ? "⚑" : "🚩"));
+  const toNum = v => { const n = Number(String(v ?? "").trim()); return Number.isFinite(n) ? n : null; };
+  const pct = (a,b)=> (a==null||b==null) ? null : Math.round(100 - (Math.abs(a-b)/5)*100);
+  const flag = p => p==null ? "" : (p>=90 ? "★" : (p>=60 ? "⚑" : "🚩"));
 
-  // Build rows from window.partnerAData / window.partnerBData (preferred)
+  function clamp2(doc, text, width, fontSize){
+    doc.setFontSize(fontSize);
+    const lines = doc.splitTextToSize(text, width);
+    if(lines.length<=2) return lines;
+    const merged = [lines[1], ...lines.slice(2)].join(" ");
+    let second = doc.splitTextToSize(merged, width)[0] || lines[1];
+    while(doc.getTextWidth(second + "…") > width && second.length>0){ second = second.slice(0,-1); }
+    return [lines[0], second + "…"];
+  }
+
   function rowsFromData(){
-    const rawA = (window.partnerAData?.items) || (Array.isArray(window.partnerAData) ? window.partnerAData : null);
-    const rawB = (window.partnerBData?.items) || (Array.isArray(window.partnerBData) ? window.partnerBData : null);
-    if(!rawA && !rawB) return [];
-
-    const map = new Map(); // key -> {label, A, B}
-    const put = (arr, isA) => (arr||[]).forEach(it=>{
+    const A=(window.partnerAData?.items) || (Array.isArray(window.partnerAData)?window.partnerAData:null);
+    const B=(window.partnerBData?.items) || (Array.isArray(window.partnerBData)?window.partnerBData:null);
+    if(!A && !B) return [];
+    const map=new Map();
+    const put=(arr,isA)=> (arr||[]).forEach(it=>{
       const key = it.id || it.label || "";
       const label = tidy(it.label || it.id || "");
       const score = toNum(it.score ?? it.value ?? it.rating);
-      if(!map.has(key)) map.set(key, { label, A: null, B: null });
+      if(!map.has(key)) map.set(key,{label,A:null,B:null});
       if(isA) map.get(key).A = score; else map.get(key).B = score;
     });
-    put(rawA, true);
-    put(rawB, false);
-
-    // Sort alphabetically by label to keep stable
+    put(A,true); put(B,false);
     return [...map.values()]
-      .sort((x,y)=>x.label.localeCompare(y.label, undefined, {sensitivity:"base"}))
-      .map(row=>{
-        const p = pctMatch(row.A, row.B);
-        return [row.label || "—", row.A ?? "—", p==null ? "—" : `${p}%`, flagFor(p), row.B ?? "—"];
-      });
+      .sort((x,y)=>x.label.localeCompare(y.label,undefined,{sensitivity:"base"}))
+      .map(r=>{ const p=pct(r.A,r.B); return [r.label||"—", r.A??"—", p==null?"—":`${p}%`, flag(p), r.B??"—"]; });
   }
 
-  // Fallback: read from the DOM table if needed
   function rowsFromDOM(){
-    const table = document.getElementById("compatibilityTable") || document.querySelector("table");
+    const table=document.getElementById("compatibilityTable") || document.querySelector("table");
     if(!table) return [];
-    const trs = [...table.querySelectorAll("tbody tr")].filter(tr=>tr.querySelectorAll("td").length);
-    const out = [];
-    for(const tr of trs){
-      const tds = [...tr.querySelectorAll("td")];
-      out.push([
-        tidy(tds[0]?.textContent),
-        tidy(tds[1]?.textContent),
-        tidy(tds[2]?.textContent),
-        tidy(tds[3]?.textContent),
-        tidy(tds[4]?.textContent)
-      ]);
-    }
-    return out;
+    const trs=[...table.querySelectorAll("tbody tr")].filter(tr=>tr.querySelectorAll("td").length);
+    return trs.map(tr=>{
+      const tds=[...tr.querySelectorAll("td")];
+      return [tidy(tds[0]?.textContent), tidy(tds[1]?.textContent), tidy(tds[2]?.textContent), tidy(tds[3]?.textContent), tidy(tds[4]?.textContent)];
+    });
   }
 
-  // Clamp text to at most 2 lines for Category
-  function clampTwoLines(doc, text, availWidth, fontSize, ellipsis="…"){
-    doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, availWidth);
-    if (lines.length <= 2) return lines;
-    // recompute 2nd line to fit with ellipsis
-    const secondFull = [lines[1], ...lines.slice(2)].join(" ");
-    let second = doc.splitTextToSize(secondFull, availWidth)[0] || lines[1];
-    while (doc.getTextWidth(second + ellipsis) > availWidth && second.length > 0){
-      second = second.slice(0,-1);
-    }
-    return [lines[0], second + ellipsis];
-  }
-
-  /* ------------------ export ------------------ */
   async function exportCompatibilityPDF(){
     await ensureLibs();
     const { jsPDF } = window.jspdf;
 
     let rows = rowsFromData();
-    if (!rows.length) rows = rowsFromDOM();   // last resort
-
-    if (!rows.length){
-      alert("No survey data found. Load Partner A and B first.");
-      return;
-    }
+    if(!rows.length) rows = rowsFromDOM();
+    if(!rows.length){ alert("No survey data found. Load Partner A and Partner B first."); return; }
 
     const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
 
-    // Layout metrics
-    const M_LEFT=56, M_RIGHT=56, START_Y=84;  // slightly tighter margins
-    const INNER_W = pageW - M_LEFT - M_RIGHT;
+    const M = { top: 64, left: 52, right: 52, bottom: 48 };
+    const INNER_W = W - M.left - M.right;
 
-    // Fixed column widths (sum = INNER_W). Category big; others compact.
-    const wCat   = Math.floor(INNER_W * 0.54);
-    const wA     = Math.floor(INNER_W * 0.10);
-    const wMatch = Math.floor(INNER_W * 0.12);
-    const wFlag  = Math.floor(INNER_W * 0.08);
-    const wB     = INNER_W - (wCat + wA + wMatch + wFlag);
+    const wCat = Math.floor(INNER_W * 0.59);
+    const wA = 72;
+    const wMatch = 88;
+    const wFlag = 64;
+    const wB = INNER_W - (wCat + wA + wMatch + wFlag);
+    const BODY_FS = 12;
+    const CAT_FS = 16;
 
-    const PAD = 8;             // cell padding
-    const CAT_FS = 16;         // category font size
-    const LINE_H = 1.2;        // line height multiplier
-
-    // Full-page black background
-    doc.setFillColor(0,0,0);
-    doc.rect(0,0,pageW,pageH,"F");
-
-    // Title
+    doc.setFillColor(0,0,0); doc.rect(0,0,W,H,"F");
     doc.setTextColor(255,255,255);
     doc.setFontSize(28);
-    doc.text("Talk Kink • Compatibility Report", pageW/2, 48, { align:"center" });
+    doc.text("Talk Kink • Compatibility Report", W/2, 42, {align:"center"});
 
     runAutoTable(doc, {
       head: [["Category","Partner A","Match","Flag","Partner B"]],
       body: rows,
-      startY: START_Y,
+      startY: M.top,
+      margin: { left: M.left, right: M.right, top: M.top, bottom: M.bottom },
       theme: "plain",
-      margin: { left: M_LEFT, right: M_RIGHT },
       tableWidth: INNER_W,
       styles: {
-        fontSize: 12,
-        cellPadding: PAD,
+        fontSize: BODY_FS,
         overflow: "linebreak",
+        cellPadding: 8,
         halign: "center",
         valign: "middle",
         textColor: [255,255,255],
         fillColor: [0,0,0],
       },
       headStyles: {
+        fontSize: 14,
         fontStyle: "bold",
         textColor: [255,255,255],
         fillColor: [0,0,0],
-        halign: "center"
+        halign: "center",
       },
       columnStyles: {
-        0: { cellWidth: wCat,   halign: "left",  fontStyle: "bold" },
-        1: { cellWidth: wA,     halign: "center" },
-        2: { cellWidth: wMatch, halign: "center" },
-        3: { cellWidth: wFlag,  halign: "center" },
-        4: { cellWidth: wB,     halign: "center" }
+        0: { cellWidth: wCat,   halign: "left"  },
+        1: { cellWidth: wA,     halign: "center"},
+        2: { cellWidth: wMatch, halign: "center"},
+        3: { cellWidth: wFlag,  halign: "center"},
+        4: { cellWidth: wB,     halign: "center"},
       },
       didParseCell: data => {
-        // Paint every cell black/white
         data.cell.styles.fillColor = [0,0,0];
         data.cell.styles.textColor = [255,255,255];
-
-        // Force Category to 2 lines, deduped, with ellipsis
-        if (data.section === "body" && data.column.index === 0){
-          const clean = tidy(data.cell.text);
-          const avail = wCat - (PAD * 2);
-          const clamped = clampTwoLines(data.doc, clean, avail, CAT_FS);
+        if(data.section==="body" && data.column.index===0){
+          const clean = tidy(Array.isArray(data.cell.text)?data.cell.text.join(" "):data.cell.text);
+          const usable = wCat - (data.cell.styles.cellPadding*2);
+          const clamped = clamp2(data.doc, clean, usable, CAT_FS);
           data.cell.text = clamped;
           data.cell.styles.fontSize = CAT_FS;
-          data.cell.styles.lineHeight = LINE_H;
+          data.cell.styles.lineHeight = 1.18;
         }
       },
-      willDrawCell: data => {
+      willDrawCell: (data) => {
         const c = data.cell;
         data.doc.setFillColor(0,0,0);
         data.doc.rect(c.x, c.y, c.width, c.height, "F");
-      }
+      },
+      horizontalPageBreak: true
     });
 
     doc.save("compatibility-report.pdf");
   }
 
-  // Button binding
   function bind(){
     let btn = document.querySelector("#downloadBtn,#downloadPdfBtn,[data-download-pdf]");
     if(!btn){
       btn = document.createElement("button");
       btn.id = "downloadBtn";
       btn.textContent = "Download Compatibility PDF";
-      btn.style.cssText = "margin:16px 0;padding:10px 14px;border-radius:8px;border:1px solid #0ff;background:#001014;color:#0ff;cursor:pointer;";
+      btn.style.cssText="margin:14px 0;padding:10px 14px;border-radius:10px;border:1px solid #0ff;background:#001014;color:#0ff;cursor:pointer;";
       document.body.appendChild(btn);
     }
-    btn.onclick = exportCompatibilityPDF;
-    window.exportCompatibilityPDF = exportCompatibilityPDF; // optional manual trigger
+    btn.addEventListener("click", exportCompatibilityPDF);
+    window.exportCompatibilityPDF = exportCompatibilityPDF;
   }
+
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", bind);
   else bind();
 })();
