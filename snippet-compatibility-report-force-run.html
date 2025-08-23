@@ -1,0 +1,199 @@
+<!--
+FORCE-RUN, NO-GUESS “ONE BOX” FIX
+Copy/paste this WHOLE block as the LAST thing before </body>.
+
+What this does (so you can SEE it work even if nothing else is wired):
+• Auto-loads jsPDF + AutoTable.
+• Builds rows by scanning ANY table on the page (no IDs required).
+• Forces the column order to: Category | Partner A | Match % | Flag | Partner B.
+• Puts Partner B numbers under Partner B (never under Flag).
+• Wraps long Category to two lines max; removes accidental duplicates.
+• Fills every page black (no white borders) with white text.
+• Shows a floating “Run Export (debug)” button AND auto-runs once after 2s.
+• Writes very obvious [TK] messages to the browser console so you know what happened.
+
+If you still “don’t see any change”, open DevTools (F12) → Console and read the [TK] logs.
+-->
+<script>
+(function () {
+  /* ----------------------- Utilities ----------------------- */
+  const log = (...a)=>console.log("%c[TK]","color:#00E5FF;font-weight:bold",...a);
+  const err = (...a)=>console.error("%c[TK]","color:#FF6B6B;font-weight:bold",...a);
+  const tidy = s => (s||"").replace(/\s+/g," ").trim();
+  const toNum = v => { const n = Number(String(v??"").trim()); return Number.isFinite(n)?n:null; };
+  const pct = (a,b)=>{ const A=toNum(a),B=toNum(b); if(A==null||B==null) return null; return Math.round(100 - Math.abs(A-B)/5*100); };
+  const flag = p => p==null ? "—" : (p>=90?"★":(p>=60?"⚑":(p<=30?"🚩":"+P")));
+  const clamp2 = (s,max=56)=>{ const t=tidy(s); if(!t) return "—"; if(t.length<=max*2) return t; return t.slice(0,max).trim()+"\n"+t.slice(max,max*2).trim()+"…"; };
+  const dedupeSmart=s=>{ const t=tidy(s); if(!t) return t; const m=t.match(/^(.*?)(\1)+$/); if(m) return m[1]; const L=Math.min(60,Math.max(10,Math.floor(t.length/3))); const seed=t.slice(0,L); const p=t.indexOf(seed,L); return p>0?tidy(t.slice(0,p)):t; };
+
+  /* ----------------------- Load libs ----------------------- */
+  function load(src){ return new Promise((res,rej)=>{ if(document.querySelector(`script[src="${src}"]`)) return res(); const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Failed to load "+src)); document.head.appendChild(s); }); }
+  async function ensureLibs(){
+    if(!(window.jspdf && window.jspdf.jsPDF)){ log("Loading jsPDF…"); await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"); }
+    const hasAT=(window.jspdf&&window.jspdf.autoTable)||(window.jsPDF&&window.jsPDF.API&&window.jsPDF.API.autoTable);
+    if(!hasAT){ log("Loading AutoTable…"); await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"); }
+  }
+  function runAT(doc,opts){ if(typeof doc.autoTable==="function") return doc.autoTable(opts); if(window.jspdf&&typeof window.jspdf.autoTable==="function") return window.jspdf.autoTable(doc,opts); throw new Error("AutoTable missing"); }
+
+  /* ----------------------- Row collector ----------------------- */
+  function headerIndexFrom(ths){
+    const names=[...ths].map(th=>tidy(th.textContent).toLowerCase());
+    const f=k=>names.findIndex(n=>n.includes(k));
+    const iCat = f("category"); const iA=f("partner a"); const iB=f("partner b"); const iMatch=f("match"); const iFlag=f("flag");
+    return {cat: iCat>-1?iCat:0, a: iA>-1?iA:1, b: iB>-1?iB:null, match: iMatch, flag: iFlag};
+  }
+
+  function rowsFromAnyTable(){
+    const tables=[...document.querySelectorAll("table")];
+    if(!tables.length){ log("No <table> found."); return []; }
+
+    // Choose the table that has the most body rows with numeric cells
+    let best=null, bestScore=-1;
+    for(const t of tables){
+      const trs=[...t.querySelectorAll("tbody tr")];
+      const score = trs.filter(r=>/\d/.test(r.textContent)).length;
+      if(score>bestScore){ bestScore=score; best=t; }
+    }
+    if(!best){ log("Tables exist but none look like data."); return []; }
+    log("Using table:", best);
+
+    const ths=best.querySelectorAll("thead th").length?best.querySelectorAll("thead th")
+             : (best.querySelector("tr th")?best.querySelectorAll("tr th"):[]);
+    const map= headerIndexFrom(ths);
+    log("Header map guess:", map);
+
+    const rows=[];
+    const trs=[...best.querySelectorAll("tbody tr")].length?[...best.querySelectorAll("tbody tr")]:[...best.querySelectorAll("tr")].filter(r=>r.querySelectorAll("td").length);
+    for(const tr of trs){
+      const tds=[...tr.querySelectorAll("td")]; if(!tds.length) continue;
+
+      // prefer explicit data-cell markers if your HTML has them
+      const catCell = tr.querySelector('td[data-col="category"]') || tds[map.cat] || tds[0];
+      const aCell   = tr.querySelector('td[data-cell="A"]')      || tds[map.a]   || tds[1];
+      const bCell   = tr.querySelector('td[data-cell="B"]')      || (map.b!=null ? tds[map.b] : tds.at(-1)); // last cell fallback
+
+      const label = clamp2(dedupeSmart(catCell?.textContent||""), 56);
+      const A = toNum(aCell?.textContent);
+      const B = toNum(bCell?.textContent);
+      const P = pct(A,B);
+
+      rows.push([label, A==null?"—":A, P==null?"—":`${P}%`, flag(P), B==null?"—":B]);
+    }
+    log("Collected rows:", rows.length);
+    return rows;
+  }
+
+  function rowsFromMemory(){
+    const A=(window.partnerAData?.items)||(Array.isArray(window.partnerAData)?window.partnerAData:null);
+    const B=(window.partnerBData?.items)||(Array.isArray(window.partnerBData)?window.partnerBData:null);
+    if(!A && !B) return [];
+    const mA=new Map((A||[]).map(i=>[(i.id||i.label),i])); const mB=new Map((B||[]).map(i=>[(i.id||i.label),i]));
+    const keys=new Map(); (A||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id)); (B||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id));
+    const out=[];
+    for(const [id,label] of keys){
+      const a=mA.get(id), b=mB.get(id);
+      const Av=toNum(a?.score), Bv=toNum(b?.score), P=pct(Av,Bv);
+      out.push([clamp2(label||id||"—",56), Av??"—", P==null?"—":`${P}%`, flag(P), Bv??"—"]);
+    }
+    log("Memory rows:", out.length);
+    return out;
+  }
+
+  /* ----------------------- Exporter ----------------------- */
+  async function exportPDF(){
+    try{
+      await ensureLibs();
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
+
+      const W = doc.internal.pageSize.getWidth();
+      const H = doc.internal.pageSize.getHeight();
+
+      function paintPage(){
+        doc.setFillColor(0,0,0);
+        doc.rect(0,0,W,H,"F");                 // full-bleed black (kills white borders)
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(32);
+        doc.text("Talk Kink • Compatibility Report", W/2, 58, {align:"center", baseline:"middle"});
+      }
+
+      let rows = rowsFromAnyTable();
+      if(!rows.length) rows = rowsFromMemory();
+      if(!rows.length){ alert("No data rows found. Open DevTools → Console for [TK] logs."); return; }
+
+      const marginLR = 36;
+      const tableWidth = W - marginLR*2;
+      const narrow = 90*4; // 4 narrow columns
+      const catWidth = Math.max(420, tableWidth - narrow - 40);
+
+      runAT(doc, {
+        head: [["Category","Partner A","Match %","Flag","Partner B"]],
+        body: rows,
+        margin: { top: 96, left: marginLR, right: marginLR, bottom: 36 },
+        startY: 98,
+        tableWidth,
+        styles: {
+          fillColor:[0,0,0],
+          textColor:[255,255,255],
+          fontSize: 16,
+          cellPadding: 8,
+          halign: "center",
+          valign: "middle",
+          overflow: "linebreak"
+        },
+        headStyles: { fillColor:[0,0,0], textColor:[255,255,255], fontStyle:"bold", halign:"center" },
+        columnStyles: {
+          0: { halign:"left", cellWidth: catWidth }, // Category
+          1: { cellWidth: 90 },                      // Partner A (numbers)
+          2: { cellWidth: 90 },                      // Match %
+          3: { cellWidth: 90 },                      // Flag
+          4: { cellWidth: 90 }                       // Partner B (second set of numbers)
+        },
+        didDrawPage: paintPage
+      });
+
+      doc.save("compatibility-report.pdf");
+      log("PDF saved.");
+    }catch(e){ err(e); alert("PDF export failed: "+e.message); }
+  }
+
+  /* ----------------------- Make it impossible to miss ----------------------- */
+  // Floating debug button (even if the site’s own button is missing)
+  function makeDebugButton(){
+    if (document.getElementById("tk-debug-export")) return;
+    const b=document.createElement("button");
+    b.id="tk-debug-export";
+    b.textContent="Run Export (debug)";
+    b.style.cssText="position:fixed;z-index:999999;bottom:16px;right:16px;padding:10px 14px;border:1px solid #0ff;background:#000;color:#0ff;border-radius:10px;font:14px/1.2 system-ui,Segoe UI,Roboto,sans-serif;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.4)";
+    b.onclick=exportPDF;
+    document.body.appendChild(b);
+    log("Debug button injected (bottom-right).");
+  }
+
+  // Also bind to any “real” button if it exists
+  function bindExisting(){
+    const btn = document.querySelector("#downloadPdfBtn") || document.querySelector("#downloadBtn") || document.querySelector("[data-download-pdf]");
+    if (btn){
+      btn.removeEventListener("click", exportPDF);
+      btn.addEventListener("click", exportPDF);
+      log("Bound to existing button:", btn);
+    } else {
+      log("No site button found; using debug button.");
+    }
+  }
+
+  // Expose manual trigger
+  window.TK_export = exportPDF;
+
+  function init(){
+    bindExisting();
+    makeDebugButton();
+    // Auto-run once so you SEE the result even if you miss the button
+    setTimeout(()=>{ log("Auto-running export once for debug…"); exportPDF(); }, 2000);
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+
+})();
+</script>
