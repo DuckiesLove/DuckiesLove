@@ -689,7 +689,7 @@ function keepRowsIntact(clone, pageHeightCss, topPad = ROW_TOP_PAD) {
   }
 }
 
-async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATION, jpgQuality=0.95, firstPageHeader=FIRST_PAGE_HEADER }) {
+export async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATION, jpgQuality=0.95, firstPageHeader=FIRST_PAGE_HEADER, bgColor=null }) {
   const pdf = new jsPDFCtor({ unit:'pt', format:'letter', orientation });
   const pdfW = pdf.internal.pageSize.getWidth();
   const pdfH = pdf.internal.pageSize.getHeight();
@@ -716,7 +716,7 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATIO
     const sliceYOffsetCss = page === 0 ? headerTopPadCss : 0;
     const sliceH = Math.min(pageHeightCss - sliceYOffsetCss, totalCssHeight - y);
     const canvas = await html2canvas(clone, {
-      backgroundColor:'#000', scale, useCORS:true, allowTaint:true,
+      backgroundColor:bgColor, scale, useCORS:true, allowTaint:true,
       scrollX:0, scrollY:0, windowWidth:cssWidth, windowHeight:sliceH, height:sliceH, y: y + sliceYOffsetCss
     });
     const img = canvas.toDataURL('image/jpeg', jpgQuality);
@@ -742,7 +742,7 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATIO
 }
 
 /* ============================== EXPORT ENTRY ============================== */
-export async function downloadCompatibilityPDF() {
+export async function downloadCompatibilityPDF({ bgColor=null } = {}) {
   try { await ensureLibs(); } catch (e) { console.error(e); alert(e.message); return; }
 
   const aHas = partnerAHasData();
@@ -770,7 +770,7 @@ export async function downloadCompatibilityPDF() {
 
   try {
     const jsPDFCtor = getJsPDF();
-    const pdf = await renderMultiPagePDF({ clone: shell, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95, firstPageHeader: '' });
+    const pdf = await renderMultiPagePDF({ clone: shell, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95, firstPageHeader: '', bgColor });
     pdf.save('kink-compatibility.pdf');
   } catch (err) {
     console.error('[pdf] render error:', err);
