@@ -45,9 +45,9 @@ export function drawMatchBar(
 }
 
 // Render the category header at the provided coordinates
-function renderCategoryHeader(doc, x, y, category) {
+function renderCategoryHeader(doc, x, y, category, textColor = 'white') {
   doc.setFontSize(13);
-  doc.setTextColor('white');
+  doc.setTextColor(textColor);
   doc.text(category, x, y);
   doc.setFontSize(9);
 }
@@ -88,12 +88,12 @@ export function getMatchPercentage(a, b) {
 }
 
 // Helper: draw one row of the kink table
-function drawKinkRow(doc, layout, y, label, aScore, bScore, match) {
+function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = 'white') {
   const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
   const aNorm = normalizeScore(aScore);
   const bNorm = normalizeScore(bScore);
 
-  doc.setTextColor('white');
+  doc.setTextColor(textColor);
   doc.setFontSize(8);
   doc.text(label, colLabel, y, {
     width: colA - colLabel - 5,
@@ -102,7 +102,7 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match) {
 
   if (aNorm == null || bNorm == null) {
     doc.text('N/A', colA, y, { align: 'left' });
-    drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, null);
+    drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, null, textColor);
     doc.text('N/A', colFlag, y, { align: 'center' });
     doc.text('N/A', colB, y, { align: 'left' });
     return;
@@ -113,22 +113,22 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match) {
   const flag = getFlagIcon(aNorm, bNorm, resolvedMatch);
 
   doc.text(formatScore(aNorm), colA, y, { align: 'left' });
-  drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, resolvedMatch);
+  drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, resolvedMatch, textColor);
   doc.text(flag, colFlag, y, { align: 'center' });
   doc.text(formatScore(bNorm), colB, y, { align: 'left' });
 }
 
 // Render an entire category section including column headers
-export function renderCategorySection(doc, categoryLabel, items, layout, startY) {
+export function renderCategorySection(doc, categoryLabel, items, layout, startY, textColor = 'white') {
   const { colLabel, colA, colBar, colFlag, colB, barWidth } = layout;
 
-  renderCategoryHeader(doc, colLabel, startY, categoryLabel);
+  renderCategoryHeader(doc, colLabel, startY, categoryLabel, textColor);
 
   let currentY = startY + 13;
 
   // Column titles
   doc.setFontSize(9);
-  doc.setTextColor('white');
+  doc.setTextColor(textColor);
   doc.text('Partner A', colA, currentY);
   doc.text('Match', colBar + barWidth / 2, currentY, { align: 'center' });
   doc.text('Flag', colFlag, currentY);
@@ -137,7 +137,7 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY)
   currentY += 10;
 
   for (const item of items) {
-    drawKinkRow(doc, layout, currentY, item.label, item.partnerA, item.partnerB, item.match);
+    drawKinkRow(doc, layout, currentY, item.label, item.partnerA, item.partnerB, item.match, textColor);
     currentY += 12;
   }
 
