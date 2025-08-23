@@ -3013,18 +3013,24 @@ body {
     display: none !important;
   }
 }
-/* Set universal black background and text color for PDF */
+/* Optional dark mode for PDFs */
+.pdf-dark-mode {
+  --pdf-bg: #000;
+  --pdf-color: #fff;
+}
+
+/* Configure print colors using CSS variables so they can be overridden */
 @media print {
   html, body {
     margin: 0;
     padding: 0;
-    background: #000 !important;
-    color: white !important;
+    background: var(--pdf-bg, #fff) !important;
+    color: var(--pdf-color, #000) !important;
   }
 
   .compatibility-wrapper {
-    background: #000 !important;
-    color: white !important;
+    background: var(--pdf-bg, #fff) !important;
+    color: var(--pdf-color, #000) !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 auto !important;

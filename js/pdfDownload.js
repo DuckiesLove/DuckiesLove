@@ -694,7 +694,7 @@ function keepRowsIntact(clone, pageHeightCss, topPad = ROW_TOP_PAD) {
   }
 }
 
-async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATION, jpgQuality=0.95, firstPageHeader=FIRST_PAGE_HEADER }) {
+export async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATION, jpgQuality=0.95, firstPageHeader=FIRST_PAGE_HEADER, bgColor=null }) {
   const pdf = new jsPDFCtor({ unit:'pt', format:'letter', orientation });
   const pdfW = pdf.internal.pageSize.getWidth();
   const pdfH = pdf.internal.pageSize.getHeight();
@@ -721,7 +721,7 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATIO
     const sliceYOffsetCss = page === 0 ? headerTopPadCss : 0;
     const sliceH = Math.min(pageHeightCss - sliceYOffsetCss, totalCssHeight - y);
     const canvas = await html2canvas(clone, {
-      backgroundColor:'#000', scale, useCORS:true, allowTaint:true,
+      backgroundColor:bgColor, scale, useCORS:true, allowTaint:true,
       scrollX:0, scrollY:0, windowWidth:cssWidth, windowHeight:sliceH, height:sliceH, y: y + sliceYOffsetCss
     });
     const img = canvas.toDataURL('image/jpeg', jpgQuality);
@@ -747,7 +747,160 @@ async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORIENTATIO
 }
 
 /* ============================== EXPORT ENTRY ============================== */
-export async function downloadCompatibilityPDF(theme = 'light') {
+export async function downloadCompatibilityPDF(arg = undefined) {
+  let theme = 'dark';
+  let bgColor = null;
+  if (typeof arg === 'string') {
+    theme = arg || 'dark';
+  } else if (arg && typeof arg === 'object') {
+    ({ theme = 'dark', bgColor = null } = arg);
+  }
+
+  const THEMES = {
+    light:    { bg: [255, 255, 255], fg: [0, 0, 0],       title: [0, 0, 0] },
+    dark:     { bg: [0, 0, 0],       fg: [255, 255, 255], title: [255, 255, 255] },
+    midnight: { bg: [8, 10, 20],     fg: [240, 243, 255], title: [240, 243, 255] },
+  };
+
+  const chosen = THEMES[theme] || THEMES.dark;
+  const bg = normalizeColor(bgColor) || chosen.bg;
+  const fg = chosen.fg;
+  const titleColor = chosen.title;
+
+  const tidy = (s) => (s || '').replace(/\s+/g, ' ').trim();
+  const toNum = (v) => {
+    const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+  function clampTwoLines(s, perLine = 60) {
+    const t = tidy(s); if (!t) return '—';
+    if (t.length <= perLine) return t;
+    const first = t.slice(0, perLine).trim();
+    const rest  = t.slice(perLine).trim();
+    const second = rest.length > perLine ? (rest.slice(0, perLine - 1).trim() + '…') : rest;
+    return first + '\n' + second;
+  }
+  function normalizeColor(c) {
+    if (!c) return null;
+    if (Array.isArray(c) && c.length === 3) return c.map(n => Math.max(0, Math.min(255, n|0)));
+    if (typeof c === 'string' && /^#([0-9a-f]{6})$/i.test(c)) {
+      const hex = c.replace('#','');
+      return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+    }
+    return null;
+  }
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s = document.createElement('script');
+      s.src = src; s.onload = res; s.onerror = () => rej(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+  async function ensureLibs() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+    const hasAT =
+      (window.jspdf && window.jspdf.autoTable) ||
+      (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+    if (!hasAT) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+    }
+  }
+
+  function extractRows() {
+    const table = document.querySelector('table.results-table.compat') ||
+                  document.querySelector('#compatibilityTable') ||
+                  document.querySelector('table');
+
+    let rows = [];
+    if (table) {
+      const trs = [...table.querySelectorAll('tr')]
+        .filter(tr => tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0);
+      rows = trs.map(tr => [...tr.querySelectorAll('td')].map(td => tidy(td.textContent)));
+    } else {
+      rows = [...document.querySelectorAll('.results-table.compat .row')]
+        .map(r => [...r.children].map(c => tidy(c.textContent)));
+    }
+
+    return rows.map(cells => {
+      const category = cells[0] || '—';
+      const nums = cells.map(toNum).filter(n => n !== null);
+      const a = nums.length ? nums[0] : null;
+      const b = nums.length ? nums[nums.length - 1] : null;
+      let match = cells.find(c => /%$/.test(c)) || null;
+      if (!match && a !== null && b !== null) {
+        const pct = Math.round(100 - (Math.abs(a - b) / 5) * 100);
+        match = `${Math.max(0, Math.min(100, pct))}%`;
+      }
+      return [clampTwoLines(category, 60), a ?? '—', match ?? '—', b ?? '—'];
+    });
+  }
+
+  await ensureLibs();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+
+  const paint = () => {
+    doc.setFillColor(...bg);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    doc.setTextColor(...fg);
+  };
+
+  const title = 'Talk Kink • Compatibility Report';
+  const body  = extractRows();
+  if (!body.length) {
+    alert('No data rows found to export.');
+    return;
+  }
+
+  paint();
+  doc.setTextColor(...titleColor);
+  doc.setFontSize(32);
+  doc.text(title, pageW / 2, 50, { align: 'center' });
+  doc.setTextColor(...fg);
+
+  const runAutoTable = (opts) => {
+    if (typeof doc.autoTable === 'function') return doc.autoTable(opts);
+    if (window.jspdf && typeof window.jspdf.autoTable === 'function') return window.jspdf.autoTable(doc, opts);
+    throw new Error('jsPDF-AutoTable not available');
+  };
+
+  runAutoTable({
+    head: [['Category', 'Partner A', 'Match %', 'Partner B']],
+    body,
+    startY: 80,
+    margin: { left: 30, right: 30, top: 80, bottom: 40 },
+    styles: {
+      fontSize: 12,
+      cellPadding: 6,
+      textColor: fg,
+      fillColor: bg,
+      lineColor: fg,
+      lineWidth: 0.25,
+      overflow: 'linebreak'
+    },
+    headStyles: {
+      fontStyle: 'bold',
+      fillColor: bg,
+      textColor: fg
+    },
+    columnStyles: {
+      0: { cellWidth: 520, halign: 'left'   },
+      1: { cellWidth:  80, halign: 'center' },
+      2: { cellWidth:  90, halign: 'center' },
+      3: { cellWidth:  80, halign: 'center' }
+    },
+    tableWidth: 'wrap',
+    didDrawPage: paint
+  });
+
+  doc.save('compatibility-report.pdf');
+}
+
   try { await ensureLibs(); } catch (e) { console.error(e); alert(e.message); return; }
 
   const aHas = partnerAHasData();
@@ -775,7 +928,7 @@ export async function downloadCompatibilityPDF(theme = 'light') {
 
   try {
     const jsPDFCtor = getJsPDF();
-    const pdf = await renderMultiPagePDF({ clone: shell, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95, firstPageHeader: '' });
+    const pdf = await renderMultiPagePDF({ clone: shell, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95, firstPageHeader: '', bgColor });
     pdf.save('kink-compatibility.pdf');
   } catch (err) {
     console.error('[pdf] render error:', err);
