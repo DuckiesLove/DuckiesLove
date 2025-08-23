@@ -23,7 +23,8 @@
  * 5) At the end of compatibility.html (just before </body>) import the module:
  *    <script type="module">
  *      import { downloadCompatibilityPDF } from '/js/pdfDownload.js';
- *      window.downloadCompatibilityPDF = downloadCompatibilityPDF; // optional convenience
+ *      // Optionally expose the function; pass 'dark' for a dark PDF
+ *      window.downloadCompatibilityPDF = downloadCompatibilityPDF;
  *    </script>
  *
  * 6) Flow to populate Column A and export:
@@ -35,7 +36,8 @@
  *        • ensures 5 columns: Category | Partner A | Match | Flag | Partner B
  *        • fills Flag:  ⭐ when Match ≥ 90; 🚩 when Match ≤ 50 OR (A is 4/5 while B is empty) OR vice-versa
  *        • spaces categories (no title cut) + keeps table rows intact across pages
- *        • renders a multi-page, true-black PDF without seams
+ *        • renders a multi-page PDF in your chosen theme (light by default) without seams
+ *    - Example: downloadCompatibilityPDF('dark') for a dark background
  */
 
 import { normalizeKey } from './compatNormalizeKey.js';
@@ -525,12 +527,15 @@ function partnerBHasData(){
 })();
 
 /* 1) Build safe clone (web page remains untouched) */
-function makeClone(){
+function makeClone(theme = 'light'){
   const src = document.querySelector(IDS.container);
   if (!src) throw new Error('#pdf-container not found');
 
   const shell = document.createElement('div');
-  Object.assign(shell.style,{background:'#000',color:'#fff',margin:0,padding:0,width:'100%',minHeight:'100vh',overflow:'auto'});
+  const themeColors = theme === 'dark'
+    ? { background: '#000', color: '#fff' }
+    : { background: '#fff', color: '#000' };
+  Object.assign(shell.style, themeColors, {margin:0,padding:0,width:'100%',minHeight:'100vh',overflow:'auto'});
 
   const clone = src.cloneNode(true);
   clone.classList.add('pdf-export');
@@ -742,7 +747,160 @@ export async function renderMultiPagePDF({ clone, jsPDFCtor, orientation=PDF_ORI
 }
 
 /* ============================== EXPORT ENTRY ============================== */
-export async function downloadCompatibilityPDF({ bgColor=null } = {}) {
+export async function downloadCompatibilityPDF(arg = undefined) {
+  let theme = 'dark';
+  let bgColor = null;
+  if (typeof arg === 'string') {
+    theme = arg || 'dark';
+  } else if (arg && typeof arg === 'object') {
+    ({ theme = 'dark', bgColor = null } = arg);
+  }
+
+  const THEMES = {
+    light:    { bg: [255, 255, 255], fg: [0, 0, 0],       title: [0, 0, 0] },
+    dark:     { bg: [0, 0, 0],       fg: [255, 255, 255], title: [255, 255, 255] },
+    midnight: { bg: [8, 10, 20],     fg: [240, 243, 255], title: [240, 243, 255] },
+  };
+
+  const chosen = THEMES[theme] || THEMES.dark;
+  const bg = normalizeColor(bgColor) || chosen.bg;
+  const fg = chosen.fg;
+  const titleColor = chosen.title;
+
+  const tidy = (s) => (s || '').replace(/\s+/g, ' ').trim();
+  const toNum = (v) => {
+    const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+  function clampTwoLines(s, perLine = 60) {
+    const t = tidy(s); if (!t) return '—';
+    if (t.length <= perLine) return t;
+    const first = t.slice(0, perLine).trim();
+    const rest  = t.slice(perLine).trim();
+    const second = rest.length > perLine ? (rest.slice(0, perLine - 1).trim() + '…') : rest;
+    return first + '\n' + second;
+  }
+  function normalizeColor(c) {
+    if (!c) return null;
+    if (Array.isArray(c) && c.length === 3) return c.map(n => Math.max(0, Math.min(255, n|0)));
+    if (typeof c === 'string' && /^#([0-9a-f]{6})$/i.test(c)) {
+      const hex = c.replace('#','');
+      return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+    }
+    return null;
+  }
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s = document.createElement('script');
+      s.src = src; s.onload = res; s.onerror = () => rej(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+  async function ensureLibs() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+    const hasAT =
+      (window.jspdf && window.jspdf.autoTable) ||
+      (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+    if (!hasAT) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+    }
+  }
+
+  function extractRows() {
+    const table = document.querySelector('table.results-table.compat') ||
+                  document.querySelector('#compatibilityTable') ||
+                  document.querySelector('table');
+
+    let rows = [];
+    if (table) {
+      const trs = [...table.querySelectorAll('tr')]
+        .filter(tr => tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0);
+      rows = trs.map(tr => [...tr.querySelectorAll('td')].map(td => tidy(td.textContent)));
+    } else {
+      rows = [...document.querySelectorAll('.results-table.compat .row')]
+        .map(r => [...r.children].map(c => tidy(c.textContent)));
+    }
+
+    return rows.map(cells => {
+      const category = cells[0] || '—';
+      const nums = cells.map(toNum).filter(n => n !== null);
+      const a = nums.length ? nums[0] : null;
+      const b = nums.length ? nums[nums.length - 1] : null;
+      let match = cells.find(c => /%$/.test(c)) || null;
+      if (!match && a !== null && b !== null) {
+        const pct = Math.round(100 - (Math.abs(a - b) / 5) * 100);
+        match = `${Math.max(0, Math.min(100, pct))}%`;
+      }
+      return [clampTwoLines(category, 60), a ?? '—', match ?? '—', b ?? '—'];
+    });
+  }
+
+  await ensureLibs();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+
+  const paint = () => {
+    doc.setFillColor(...bg);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    doc.setTextColor(...fg);
+  };
+
+  const title = 'Talk Kink • Compatibility Report';
+  const body  = extractRows();
+  if (!body.length) {
+    alert('No data rows found to export.');
+    return;
+  }
+
+  paint();
+  doc.setTextColor(...titleColor);
+  doc.setFontSize(32);
+  doc.text(title, pageW / 2, 50, { align: 'center' });
+  doc.setTextColor(...fg);
+
+  const runAutoTable = (opts) => {
+    if (typeof doc.autoTable === 'function') return doc.autoTable(opts);
+    if (window.jspdf && typeof window.jspdf.autoTable === 'function') return window.jspdf.autoTable(doc, opts);
+    throw new Error('jsPDF-AutoTable not available');
+  };
+
+  runAutoTable({
+    head: [['Category', 'Partner A', 'Match %', 'Partner B']],
+    body,
+    startY: 80,
+    margin: { left: 30, right: 30, top: 80, bottom: 40 },
+    styles: {
+      fontSize: 12,
+      cellPadding: 6,
+      textColor: fg,
+      fillColor: bg,
+      lineColor: fg,
+      lineWidth: 0.25,
+      overflow: 'linebreak'
+    },
+    headStyles: {
+      fontStyle: 'bold',
+      fillColor: bg,
+      textColor: fg
+    },
+    columnStyles: {
+      0: { cellWidth: 520, halign: 'left'   },
+      1: { cellWidth:  80, halign: 'center' },
+      2: { cellWidth:  90, halign: 'center' },
+      3: { cellWidth:  80, halign: 'center' }
+    },
+    tableWidth: 'wrap',
+    didDrawPage: paint
+  });
+
+  doc.save('compatibility-report.pdf');
+}
+
   try { await ensureLibs(); } catch (e) { console.error(e); alert(e.message); return; }
 
   const aHas = partnerAHasData();
@@ -758,7 +916,7 @@ export async function downloadCompatibilityPDF({ bgColor=null } = {}) {
     console.warn('Partner A (Column A) looks empty; generating PDF anyway.');
   }
 
-  const { shell, clone } = makeClone();
+  const { shell, clone } = makeClone(theme);
 
   // Remove rows/categories where both partners have zero/blank scores
   await filterZeroRowsAndEmptySections(clone);
@@ -797,7 +955,8 @@ export async function downloadCompatibilityPDF({ bgColor=null } = {}) {
       if (!partnerAHasData()) {
         console.warn('Partner A looks empty; generating PDF anyway.');
       }
-      await downloadCompatibilityPDF();
+      const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) || 'light';
+      await downloadCompatibilityPDF(theme);
     });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireBtn);

@@ -25,7 +25,7 @@ test('alerts and aborts when both partners have no data', async () => {
     };
 
     const mod = await import('../js/pdfDownload.js?no-data-test');
-    await mod.downloadCompatibilityPDF();
+    await mod.downloadCompatibilityPDF('light');
 
     assert.strictEqual(jsPdfCalled, false);
     assert.match(alertMsg, /no data/i);

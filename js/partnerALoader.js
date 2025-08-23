@@ -224,7 +224,8 @@ function guardDownload() {
       alert('Please upload Partner A data before downloading PDF.');
     } else if (typeof downloadCompatibilityPDF === 'function') {
       e.preventDefault();
-      downloadCompatibilityPDF();
+      const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) || 'light';
+      downloadCompatibilityPDF(theme);
     }
   });
 }
