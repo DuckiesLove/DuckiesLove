@@ -828,5 +828,62 @@ If you still “don’t see any change”, open browser DevTools → Console and
 })();
 </script>
 
+<!-- ===== REMOVE "Run Export (manual)" BUTTON (drop this before </body>) ===== -->
+<style>
+  /* 1) Hide any pre-rendered manual-export button immediately */
+  #manualExportBtn,
+  [data-role="manual-export"],
+  [data-manual-export],
+  .manual-export {
+    display: none !important;
+  }
+</style>
+
+<script>
+(function () {
+  // 2) If your app uses a flag, force-disable manual export creation
+  // (Safe even if not present in your code.)
+  try { window.ADD_MANUAL_EXPORT_BUTTON = false; } catch (_) {}
+
+  // 3) Proactively remove any manual-export button added by scripts
+  const KILL_SELECTORS = [
+    '#manualExportBtn',
+    '[data-role="manual-export"]',
+    '[data-manual-export]',
+    '.manual-export'
+  ];
+
+  function nukeManualButton() {
+    document.querySelectorAll(KILL_SELECTORS.join(',')).forEach(el => {
+      // Optional: if it has an attached listener, clean it
+      try { const clone = el.cloneNode(true); el.replaceWith(clone); } catch (_) {}
+      el.remove();
+    });
+  }
+
+  // Run ASAP and keep watch in case a framework re-inserts it
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', nukeManualButton, { once: true });
+  } else {
+    nukeManualButton();
+  }
+
+  const mo = new MutationObserver(() => nukeManualButton());
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+
+  // 4) (Optional) Re-bind your real export if needed
+  // Make sure your PDF export still hooks ONLY to the real download button.
+  // If your exporter attaches elsewhere, rebind it here.
+  const ensurePdfBind = () => {
+    const realBtn = document.querySelector('#downloadBtn, #downloadPdfBtn, [data-download-pdf]');
+    if (!realBtn) return;
+    // If your app already binds it, do nothing. Otherwise you can bind:
+    // realBtn.onclick = () => window.TK_exportPDF && window.TK_exportPDF();
+  };
+  ensurePdfBind();
+})();
+</script>
+<!-- ===== END REMOVE "Run Export (manual)" BUTTON ===== -->
+
 </body>
 </html>
