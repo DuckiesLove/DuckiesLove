@@ -1,0 +1,189 @@
+<!-- =========================================================
+TALK KINK • COMPATIBILITY REPORT — "FOUR COLS + BLACK PAGES"
+Paste at the end of your page to build a PDF with columns:
+Category | Partner A | Match % | Partner B
+(No Flag column; pages are solid black with white text.)
+========================================================= -->
+<script>
+(async function TK_FIX_EXPORT(){
+  /* -------------------- 1) Load libs if needed -------------------- */
+  function loadScript(src){
+    return new Promise((res, rej)=>{
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('Load failed '+src));
+      document.head.appendChild(s);
+    });
+  }
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
+  const hasAT = (window.jspdf && window.jspdf.autoTable) || (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+  if (!hasAT) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+  }
+
+  /* -------------------- 2) Helpers -------------------- */
+  const tidy = s => (s||'').replace(/\s+/g,' ').trim();
+  const toNum = v => { const n = Number(String(v??'').trim()); return Number.isFinite(n) ? n : null; };
+
+  // Dedupes "CategoryCategory" style duplicates & trims
+  function dedupeSmart(s){
+    const t = tidy(s);
+    if (!t) return t;
+    const m=t.match(/^(.+?)\1+$/); if(m) return m[1]; // exact repeat
+    const seedLen=Math.min(48, Math.max(8, Math.floor(t.length/4)));
+    const seed=t.slice(0,seedLen);
+    const p=t.indexOf(seed, seedLen);
+    return p>0 ? tidy(t.slice(0,p)) : t;
+  }
+
+  // Hard-wrap to at most 2 lines by characters (safer than measuring font)
+  function wrapTwoLines(s, maxCharsPerLine=72){
+    const words = tidy(s).split(' ');
+    const lines = [''];
+    for (const w of words){
+      if ((lines[lines.length-1] + ' ' + w).trim().length <= maxCharsPerLine){
+        lines[lines.length-1] = (lines[lines.length-1] ? lines[lines.length-1]+' ' : '') + w;
+      } else if (lines.length < 2){
+        lines.push(w);
+      } else {
+        // truncate with ellipsis
+        lines[1] = (lines[1] + ' …').replace(/\s+…$/, ' …');
+        break;
+      }
+    }
+    return lines.join('\n');
+  }
+
+  // Match % (0–5 scale difference)
+  const pct = (a,b) => {
+    const A=toNum(a), B=toNum(b);
+    if (A==null || B==null) return null;
+    return Math.round(100 - (Math.abs(A - B)/5)*100);
+  };
+
+  // Locate your comparison table rows from the DOM
+  function collectRowsFromDOM(){
+    // grab any tbody rows with data in them
+    const trs = [...document.querySelectorAll('tbody tr')].filter(tr=>tr.querySelectorAll('td').length);
+    const out = [];
+    for (const tr of trs){
+      const tds=[...tr.querySelectorAll('td')];
+      if (!tds.length) continue;
+
+      // Try to read explicit data markers if present
+      const aCell = tr.querySelector('td[data-cell="A"]') || tds[1];                 // second cell likely A
+      const bCell = tr.querySelector('td[data-cell="B"]') || tds[tds.length-1];      // last cell likely B
+      const catCell = tds[0];                                                       // first cell is category
+      const matchCell = tr.querySelector('td[data-cell="match"]');                  // optional existing %
+
+      let category = dedupeSmart(catCell?.textContent || tr.getAttribute('data-kink-id') || '');
+      let A = toNum(aCell?.textContent);
+      let B = toNum(bCell?.textContent);
+
+      // Some pages have an extra symbol column between match and B (old “Flag”).
+      // If the "B" we picked is not a number but the previous is a number, shift left.
+      if (B == null && tds.length >= 4) {
+        const maybeB = toNum(tds[tds.length-2]?.textContent);
+        if (maybeB != null) B = maybeB;
+      }
+
+      const P = matchCell ? tidy(matchCell.textContent).replace('%','') : pct(A,B);
+      out.push([
+        wrapTwoLines(category || '—', 68),
+        (A==null?'—':A),
+        (P==null?'—':(String(P)+'%')),
+        (B==null?'—':B)
+      ]);
+    }
+    return out;
+  }
+
+  /* -------------------- 3) Build rows -------------------- */
+  let rows = collectRowsFromDOM();
+
+  // Fallback from in-memory if DOM empty
+  if (!rows.length) {
+    const A = (window.partnerAData?.items) || (Array.isArray(window.partnerAData)?window.partnerAData:[]);
+    const B = (window.partnerBData?.items) || (Array.isArray(window.partnerBData)?window.partnerBData:[]);
+    const mA = new Map(A.map(i=>[(i.id||i.label), i]));
+    const mB = new Map(B.map(i=>[(i.id||i.label), i]));
+    const keys = new Map(); A.forEach(i=>keys.set(i.id||i.label, i.label||i.id)); B.forEach(i=>keys.set(i.id||i.label, i.label||i.id));
+    rows = [];
+    for (const [id,label] of keys){
+      const a=mA.get(id), b=mB.get(id);
+      const Av = toNum(a?.score), Bv = toNum(b?.score), P = pct(Av,Bv);
+      rows.push([wrapTwoLines(label||id||'—', 68), (Av??'—'), (P==null?'—':(String(P)+'%')), (Bv??'—')]);
+    }
+  }
+
+  if (!rows.length){
+    alert('No data rows found to export.');
+    return;
+  }
+
+  /* -------------------- 4) Make PDF (black background, white text) -------------------- */
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
+
+  // Title
+  doc.setTextColor(255,255,255);
+  doc.setFillColor(0,0,0);
+  doc.rect(0,0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(28);
+  doc.text('Talk Kink • Compatibility Report', doc.internal.pageSize.getWidth()/2, 60, { align:'center' });
+
+  // Safe dimensions (A4 landscape ~ 842pt width). Keep inside margins to avoid width warnings.
+  const margin = 36;
+  const catW = 520;  // wide left column for wrapped category
+  const aW   = 80;
+  const mW   = 90;
+  const bW   = 80;
+  const totalW = catW + aW + mW + bW; // = 770 which is <= 842 - 2*36 (safe)
+
+  const autoTable = (doc.autoTable ? doc.autoTable.bind(doc) : (window.jspdf.autoTable).bind(null, doc));
+
+  autoTable({
+    head: [['Category', 'Partner A', 'Match %', 'Partner B']], // <-- "Flag" is now "Partner B"
+    body: rows,
+    startY: 90,
+    margin: { left: margin, right: margin },
+    styles: {
+      font: 'helvetica',
+      fontStyle: 'normal',
+      textColor: [255,255,255],
+      fillColor: [0,0,0],
+      lineColor: [255,255,255],
+      lineWidth: 0.5,
+      cellPadding: 6,
+      valign: 'middle',
+      overflow: 'linebreak',
+      minCellHeight: 18
+    },
+    headStyles: {
+      fontStyle: 'bold',
+      fillColor: [0,0,0],
+      textColor: [255,255,255],
+      halign: 'left'
+    },
+    columnStyles: {
+      0: { cellWidth: catW, halign:'left'   }, // Category
+      1: { cellWidth: aW,   halign:'center' }, // Partner A
+      2: { cellWidth: mW,   halign:'center' }, // Match %
+      3: { cellWidth: bW,   halign:'center' }  // Partner B
+    },
+    didParseCell: (data)=>{
+      // Ensure body cells use black bg + white text (for some themes that override)
+      data.cell.styles.fillColor = [0,0,0];
+      data.cell.styles.textColor = [255,255,255];
+    },
+    willDrawCell: (data)=>{
+      // extra safety: keep consistent line height
+      data.cell.styles.fontSize = (data.section==='head'? 14 : 12);
+    }
+  });
+
+  doc.save('compatibility-report.pdf');
+})();
+</script>
