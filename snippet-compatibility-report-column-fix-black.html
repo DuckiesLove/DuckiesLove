@@ -1,0 +1,227 @@
+<!-- =========================================================
+TALK KINK • COMPATIBILITY REPORT — “COLUMN FIX + BLACK PAGES”
+Copy/paste this whole block at the END of your page (after your table renders).
+It will:
+• Build the PDF with these columns, in this exact order:
+  Category | Partner A | Match % | Flag | Partner B
+• Make sure Partner B shows the second partner’s numbers (not the flag).
+• Wrap long category labels to **max 2 lines** (no more doubles).
+• Center numbers so “Partner A” doesn’t hang.
+• Paint **every page** solid black (no white borders).
+• Auto-loads jsPDF + AutoTable if you don’t already include them.
+• Binds automatically to **#downloadPdfBtn**, **#downloadBtn**, or **[data-download-pdf]**.
+========================================================= -->
+
+<script>
+(function () {
+  /* ----------------------- 1) Libs ----------------------- */
+  function loadScript(src){
+    return new Promise((res,rej)=>{
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s=document.createElement("script");
+      s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Failed to load "+src));
+      document.head.appendChild(s);
+    });
+  }
+  async function ensureLibs(){
+    if(!(window.jspdf && window.jspdf.jsPDF)){
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+    const haveAT = (window.jspdf && window.jspdf.autoTable) ||
+                   (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+    if(!haveAT){
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
+  }
+  function useAutoTable(doc, opts){
+    if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+    if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
+    throw new Error("AutoTable missing");
+  }
+
+  /* ----------------------- 2) Utils ---------------------- */
+  const tidy = s => (s||"").replace(/\s+/g," ").trim();
+  const num  = v => { const n=Number(String(v??"").trim()); return Number.isFinite(n)?n:null; };
+  const pctMatch = (a,b)=>{ const A=num(a),B=num(b); if(A==null||B==null) return null; return Math.round(100 - Math.abs(A-B)/5*100); };
+  const flagFor = p => p==null? "—" : (p>=90?"★": (p>=60?"⚑": (p<=30?"🚩":"+P")));
+  // clamp long labels to 2 lines by rough char count (keeps it simple/robust)
+  function clampTwoLines(str, maxPerLine){
+    const t = tidy(str);
+    if (!t) return "—";
+    if (t.length <= maxPerLine*2) return t;
+    const a = t.slice(0, maxPerLine).trim();
+    const b = t.slice(maxPerLine, maxPerLine*2).trim();
+    return `${a}\n${b}…`;
+  }
+  // remove accidental duplicated label blobs (ABAB / copy-once more)
+  function dedupeSmart(s){
+    const t=tidy(s);
+    if(!t) return t;
+    const m=t.match(/^(.+?)\1+$/); if(m) return m[1];
+    const seedLen=Math.min(48, Math.max(8, Math.floor(t.length/4)));
+    const seed=t.slice(0,seedLen);
+    const p=t.indexOf(seed, seedLen);
+    return p>0 ? tidy(t.slice(0,p)) : t;
+  }
+
+  /* ---- 3) Get rows from DOM (preferred) or memory (fallback) ---- */
+  function guessTable(){
+    // If you know your table id, set it here. Otherwise we pick the first table with 5 columns.
+    const byId = document.querySelector("#compatibilityTable");
+    if (byId) return byId;
+    const tables = [...document.querySelectorAll("table")];
+    for (const t of tables){
+      const firstRow = t.querySelector("tbody tr td") ? t.querySelector("tbody tr") : t.querySelector("tr");
+      if (firstRow && firstRow.querySelectorAll("td").length >= 5) return t;
+    }
+    return tables[0] || null;
+  }
+
+  function rowsFromDOM(){
+    const table = guessTable();
+    if(!table) return [];
+    // Try explicit cells first
+    const trs = [...table.querySelectorAll("tbody tr")].length
+      ? [...table.querySelectorAll("tbody tr")]
+      : [...table.querySelectorAll("tr")].filter(r=>r.querySelectorAll("td").length);
+    const out = [];
+    for (const tr of trs){
+      const tds = [...tr.querySelectorAll("td")]; if(!tds.length) continue;
+      // Common layouts on this project:
+      // [Category, A, Match, Flag, B]  OR  [Category, A, (blank), (blank), B]
+      // Prefer data attributes if present:
+      const aCell = tr.querySelector('td[data-cell="A"]');
+      const bCell = tr.querySelector('td[data-cell="B"]');
+      const cat   = dedupeSmart((tds[0]?.textContent)||"");
+      const A     = num((aCell?.textContent) ?? (tds[1]?.textContent));
+      const B     = num((bCell?.textContent) ?? (tds[4]?.textContent ?? tds.at(-1)?.textContent));
+      const P     = pctMatch(A,B);
+      out.push([
+        clampTwoLines(cat, 56),          // Category (max 2 lines)
+        A==null?"—":A,                   // Partner A
+        P==null?"—":`${P}%`,             // Match %
+        flagFor(P),                      // Flag
+        B==null?"—":B                    // Partner B  (← THIS IS NOW THE SECOND PARTNER)
+      ]);
+    }
+    return out;
+  }
+
+  function rowsFromMemory(){
+    const A = (window.partnerAData?.items) || (Array.isArray(window.partnerAData) ? window.partnerAData : null);
+    const B = (window.partnerBData?.items) || (Array.isArray(window.partnerBData) ? window.partnerBData : null);
+    if(!A && !B) return [];
+    const mA = new Map((A||[]).map(i=>[(i.id||i.label), i]));
+    const mB = new Map((B||[]).map(i=>[(i.id||i.label), i]));
+    const keys = new Map();
+    (A||[]).forEach(i=>keys.set(i.id||i.label, i.label||i.id));
+    (B||[]).forEach(i=>keys.set(i.id||i.label, i.label||i.id));
+    const out=[];
+    for(const [id,label] of keys){
+      const a=mA.get(id), b=mB.get(id);
+      const Av=num(a?.score), Bv=num(b?.score);
+      const P=pctMatch(Av,Bv);
+      out.push([ clampTwoLines(label||id||"—", 56), Av??"—", P==null?"—":`${P}%`, flagFor(P), Bv??"—" ]);
+    }
+    return out;
+  }
+
+  /* ----------------------- 4) Export --------------------- */
+  async function exportPDF(ev){
+    ev?.preventDefault?.();
+    await ensureLibs();
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
+
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    // Paint **every page** black + title on top
+    const drawHeader = (data) => {
+      doc.setFillColor(0,0,0);
+      doc.rect(0,0,pageW,pageH,"F"); // solid black background
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(32);
+      doc.text("Talk Kink • Compatibility Report", pageW/2, 58, { align:"center", baseline:"middle" });
+    };
+
+    let body = rowsFromDOM();
+    if (!body.length) body = rowsFromMemory();
+    if (!body.length) { alert("No rows found to export."); return; }
+
+    // Column widths: Category grows; the 4 number-ish columns are fixed and centered
+    const fixed = 4*90;            // 4 small columns @ 90 each
+    const gap   = 4*10;            // little internal spacing
+    const catW  = Math.max(420, pageW - 72 - fixed - gap); // 72 ≈ left+right margins
+
+    useAutoTable(doc, {
+      head: [["Category", "Partner A", "Match %", "Flag", "Partner B"]],
+      body,
+      margin: { top: 90, left: 36, right: 36, bottom: 30 }, // fits on page; no white frame (we paint black)
+      startY: 96,
+      tableWidth: pageW - 72,
+      styles: {
+        fillColor:[0,0,0],
+        textColor:[255,255,255],
+        fontSize: 16, // readable, not oversized (prevents right cut-off)
+        cellPadding: 8,
+        halign: "center",
+        valign: "middle",
+        overflow: "linebreak"
+      },
+      headStyles: {
+        fillColor:[0,0,0],
+        textColor:[255,255,255],
+        fontStyle:"bold",
+        halign:"center"
+      },
+      columnStyles: {
+        0: { halign:"left", cellWidth: catW }, // Category wide + left-aligned
+        1: { cellWidth: 90 },                  // A
+        2: { cellWidth: 90 },                  // Match
+        3: { cellWidth: 90 },                  // Flag
+        4: { cellWidth: 90 }                   // B  (← your second partner lives here)
+      },
+      didDrawPage: drawHeader
+    });
+
+    doc.save("compatibility-report.pdf");
+  }
+
+  /* --------------------- 5) Bind click ------------------- */
+  function bind(){
+    const btn = document.querySelector("#downloadPdfBtn") ||
+                document.querySelector("#downloadBtn") ||
+                document.querySelector("[data-download-pdf]");
+    if (btn){
+      btn.removeEventListener("click", exportPDF);
+      btn.addEventListener("click", exportPDF);
+      console.log("[PDF] Download bound.", btn);
+    } else {
+      console.warn("[PDF] No download button found (use #downloadPdfBtn, #downloadBtn, or [data-download-pdf]).");
+    }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind); else bind();
+  new MutationObserver(bind).observe(document.documentElement, { childList:true, subtree:true });
+})();
+</script>
+
+<!-- ========================== HOW TO USE ==========================
+1) Make sure the page already shows your comparison table (any markup is fine).
+   If you have a specific table, add id="compatibilityTable" (optional but recommended).
+
+2) Ensure you have a download button with one of these:
+   <button id="downloadPdfBtn">Download PDF</button>
+   OR <button id="downloadBtn">Download PDF</button>
+   OR <button data-download-pdf>Download PDF</button>
+
+3) Paste this whole <script> block at the very end of the HTML (just before </body>).
+
+What this fixes:
+• Columns are EXACT: Category | Partner A | Match % | Flag | Partner B
+• “Partner B” column now shows the second partner’s numbers (not the flag).
+• Category labels clamp to **two lines** to avoid overflow and duplicates.
+• Numbers are vertically centered under their headers (no hanging).
+• All pages are painted black — no white borders.
+================================================================= -->
