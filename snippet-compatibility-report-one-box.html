@@ -1,0 +1,171 @@
+<!--
+TALK KINK • COMPATIBILITY REPORT — “ONE BOX” (directions + working code)
+
+WHAT THIS DOES
+- Finds your compatibility table on the page (or uses the one with the most numbers).
+- Builds rows as:  Category | Partner A | Match % | Flag | Partner B
+  • Partner A  = first number in the row
+  • Partner B  = last  number in the row
+  • Match %    = first % seen in the row, or computed from A & B if none
+  • Flag       = ★ ≥ 90, ⚑ ≥ 60, 🚩 ≤ 30, otherwise “+P”
+- Wraps long Category to AT MOST TWO LINES (adds … if truncated).
+- Exports a LANDSCAPE A4 PDF with TRUE BLACK background (no white borders).
+
+HOW TO USE (QUICK RUN — no page edits)
+1) Open your compatibility page in Chrome/Edge/Firefox.
+2) Press F12 → Console.
+3) Paste this entire block and hit Enter.
+   If a popup blocker stops the download, allow it and run again.
+
+HOW TO KEEP IT PERMANENTLY
+- Put this whole <script> before </body> on your page. It will download
+  the libraries if missing and immediately save the PDF.
+  (If you want it on a button instead, search for “AUTO_RUN” below.)
+
+CUSTOMIZE
+- Change column widths under “columnStyles”.
+- Change flag thresholds/symbols in flag() below.
+- Change title text in the didDrawPage() painter.
+
+SECURITY NOTE
+- This loads jsPDF + AutoTable via CDN. If your CSP blocks it, host those
+  two files locally and remove the dynamic loader (two load() calls).
+-->
+
+<script>
+(async () => {
+  /************* utilities *************/
+  const tidy = s => (s||"").replace(/\s+/g," ").trim();
+  const toNum = v => { const n = Number(String(v??"").trim()); return Number.isFinite(n)?n:null; };
+  const pct   = (a,b) => { const A=toNum(a), B=toNum(b); if(A==null||B==null) return null;
+                           return Math.round(100 - (Math.abs(A-B)/5)*100); };
+  const flag  = p => p==null ? "—" : (p>=90 ? "★" : (p>=60 ? "⚑" : (p<=30 ? "🚩" : "+P")));
+
+  // Load jsPDF + AutoTable when needed
+  const load = src => new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("Failed to load "+src));document.head.appendChild(s);});
+  if(!(window.jspdf && window.jspdf.jsPDF)) await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+  if(!((window.jspdf&&window.jspdf.autoTable)||(window.jsPDF&&window.jsPDF.API&&window.jsPDF.API.autoTable)))
+    await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+
+  /************* find a table *************/
+  const pickTable = () => {
+    // Prefer #compatibilityTable if present
+    const byId = document.getElementById("compatibilityTable");
+    if (byId) return byId;
+
+    // Else, pick the table with the most numeric-looking rows
+    let best=null, score=-1;
+    for (const t of document.querySelectorAll("table")) {
+      const rows = [...t.querySelectorAll("tbody tr")].length
+        ? [...t.querySelectorAll("tbody tr")]
+        : [...t.querySelectorAll("tr")].filter(r=>r.querySelector("td"));
+      const s = rows.filter(r => /\d/.test(r.textContent)).length;
+      if (s > score) { score = s; best = t; }
+    }
+    return best;
+  };
+
+  const table = pickTable();
+  if (!table) { alert("No table found on this page."); return; }
+
+  /************* extract rows *************/
+  const makeRows = () => {
+    const out = [];
+    const trs = [...table.querySelectorAll("tbody tr")].length
+      ? [...table.querySelectorAll("tbody tr")]
+      : [...table.querySelectorAll("tr")].filter(r=>r.querySelector("td"));
+
+    for (const tr of trs) {
+      const tds = [...tr.querySelectorAll("td")];
+      if (!tds.length) continue;
+
+      // Category = first cell's text (dedup any repeated copy)
+      const rawCat = tidy(tds[0]?.textContent || "");
+      if (!rawCat) continue;
+
+      // All numeric cells (first is A, last is B)
+      const nums = tds.map(td => toNum(td.textContent)).filter(v => v !== null);
+      const A = nums.length ? nums[0] : null;
+      const B = nums.length >= 2 ? nums[nums.length - 1] : null;
+
+      // Optional percentage found in row
+      const pctCell = tds.find(td => /%/.test(td.textContent));
+      const P = pctCell ? (tidy(pctCell.textContent).match(/\d+%/)?.[0] || "—")
+                        : (pct(A,B)==null ? "—" : pct(A,B)+"%");
+
+      out.push([rawCat, (A??"—"), P, flag(Number(String(P).replace("%",""))), (B??"—")]);
+    }
+    return out;
+  };
+
+  const rowsRaw = makeRows();
+  if (!rowsRaw.length) { alert("Found a table, but no usable rows."); return; }
+
+  /************* build PDF *************/
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+
+  // Paint black background (removes white borders)
+  const paint = () => {
+    doc.setFillColor(0,0,0);
+    doc.rect(0,0,W,H,"F");
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(32);
+    doc.text("Talk Kink • Compatibility Report", W/2, 56, { align: "center", baseline: "middle" });
+  };
+
+  // Table sizing
+  const marginLR   = 36;
+  const marginTop  = 90;
+  const marginBot  = 36;
+  const tableWidth = W - marginLR*2;
+
+  // Make Category wrap to 2 lines max for the actual column width
+  const narrowTotal = 90 + 90 + 90 + 90; // A + Match + Flag + B
+  const catWidth    = Math.max(420, tableWidth - narrowTotal - 12);
+
+  const body = rowsRaw.map(r => {
+    const twoLines = doc.splitTextToSize(r[0], catWidth).slice(0,2);
+    if (doc.splitTextToSize(r[0], catWidth).length > 2) {
+      // add ellipsis to last visible line
+      twoLines[1] = (twoLines[1]||"").replace(/\s+$/,"") + "…";
+    }
+    return [twoLines.join("\n"), r[1], r[2], r[3], r[4]];
+  });
+
+  const runAT = (doc.autoTable ? doc.autoTable.bind(doc) : window.jspdf.autoTable);
+
+  runAT({
+    head: [["Category","Partner A","Match %","Flag","Partner B"]],
+    body,
+    margin: { top: marginTop, left: marginLR, right: marginLR, bottom: marginBot },
+    tableWidth,
+    startY: marginTop + 10,
+    styles: {
+      fillColor:[0,0,0],
+      textColor:[255,255,255],
+      fontSize: 16,
+      cellPadding: 8,
+      halign: "center",
+      valign: "middle",
+      overflow: "linebreak",
+      lineColor: [255,255,255],
+      lineWidth: 0.25
+    },
+    headStyles: { fillColor:[0,0,0], textColor:[255,255,255], fontStyle:"bold", halign:"center" },
+    columnStyles: {
+      0:{ halign:"left",   cellWidth: catWidth }, // CATEGORY (wide, left)
+      1:{ halign:"center", cellWidth: 90        }, // PARTNER A
+      2:{ halign:"center", cellWidth: 90        }, // MATCH %
+      3:{ halign:"center", cellWidth: 90        }, // FLAG
+      4:{ halign:"center", cellWidth: 90        }  // PARTNER B (always last numeric)
+    },
+    didDrawPage: paint
+  });
+
+  // AUTO_RUN: save right now; to bind to a button instead, comment this line
+  doc.save("compatibility-report.pdf");
+})();
+</script>
