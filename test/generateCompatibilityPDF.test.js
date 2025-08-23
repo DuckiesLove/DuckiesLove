@@ -118,3 +118,28 @@ test('renders compatibility history section when history data present', async ()
   await generateCompatibilityPDF(data);
   assert.ok(textCalls.some(c => c[0] === 'Compatibility History'));
 });
+
+test('allows custom background and text colors', async () => {
+  const fillCalls = [];
+  const textColorCalls = [];
+  class JsPDFMock {
+    constructor() {
+      this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+    }
+    setFillColor(color) { fillCalls.push(color); }
+    setFont() {}
+    setDrawColor() {}
+    rect() {}
+    setTextColor(color) { textColorCalls.push(color); }
+    setFontSize() {}
+    text() {}
+    addPage() {}
+    save() {}
+  }
+  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
+  const { generateCompatibilityPDF } = await import('../js/generateCompatibilityPDF.js');
+  const data = { categories: [] };
+  await generateCompatibilityPDF(data, { backgroundColor: '#ABCDEF', textColor: '#123456' });
+  assert.strictEqual(fillCalls[0], '#ABCDEF');
+  assert.ok(textColorCalls.includes('#123456'));
+});
