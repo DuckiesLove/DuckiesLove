@@ -431,197 +431,157 @@
 
   // Expose manual trigger + run once
   window.__compatRunFill = runFill;
-  document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
+document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
 })();
 </script>
 
 <script>
 (function () {
-  // -------------------------- Utilities --------------------------
-  const log = (...a)=>console.log('[TK]', ...a);
-  const tidy = s => (s||'').replace(/\s+/g,' ').trim();
-  const toNum = v => {
-    if (v == null) return null;
-    const n = Number(String(v).replace(/[^\d\-]/g,''));
+  /* -------- utilities -------- */
+  const LOG = (...a) => console.log('[TK-PDF]', ...a);
+  const tidy = (s) => (s || '').replace(/\s+/g, ' ').trim();
+  const toNum = (v) => {
+    const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
     return Number.isFinite(n) ? n : null;
   };
-  function dedupeOnce(s){
+  function clampTwoLines(s, maxPerLine) {
     const t = tidy(s);
-    if (!t) return t;
-    // If the first half repeats at the second half, return once
-    const mid = Math.floor(t.length/2);
-    const left = tidy(t.slice(0,mid));
-    const right = tidy(t.slice(mid));
-    if (left && right.startsWith(left)) return left;
-    return t;
+    if (!t) return '—';
+    if (t.length <= maxPerLine) return t;
+    const first  = t.slice(0, maxPerLine).trim();
+    const rest   = t.slice(maxPerLine).trim();
+    const second = rest.length > maxPerLine ? (rest.slice(0, maxPerLine - 1).trim() + '…') : rest;
+    return first + '\n' + second;
   }
-  function clampCat(s, maxChars=95){
-    let t = dedupeOnce(s);
-    if (t.length > maxChars) t = t.slice(0, maxChars-1)+'…';
-    return t;
-  }
-  const pct = (a,b)=> (a==null||b==null) ? null : Math.round(100 - (Math.abs(a-b)/5)*100);
-
-  async function loadScript(src){
-    await new Promise((res,rej)=>{
-      if (document.querySelector(`script[src="${src}"]`)) return res();
-      const s=document.createElement('script');
-      s.src=src; s.onload=res; s.onerror=()=>rej(new Error('Failed to load '+src));
-      document.head.appendChild(s);
-    });
-  }
-
-  // -------------------------- Export core --------------------------
-  async function exportPDF() {
-    // Load libs if needed
-    if (!(window.jspdf && window.jspdf.jsPDF)){
+  function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`))return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Failed to load '+src));document.head.appendChild(s);});}
+  async function ensureLibs(){
+    if(!(window.jspdf&&window.jspdf.jsPDF)){
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
     }
-    if (!(window.jspdf?.autoTable || window.jsPDF?.API?.autoTable)){
+    const hasAT=(window.jspdf&&window.jspdf.autoTable)||(window.jsPDF&&window.jsPDF.API&&window.jsPDF.API.autoTable);
+    if(!hasAT){
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
     }
-
-    // Find the table
-    const table =
-      document.getElementById('compatibilityTable') ||
-      document.querySelector('table.results-table') ||
-      document.querySelector('table');
-    if (!table){ alert('No compatibility table found.'); return; }
-    log('Table =', table);
-
-    // Header mapping
-    let ths = [...table.querySelectorAll('thead th')];
-    if (!ths.length) ths = [...table.querySelectorAll('tr th')];
-    const labels = ths.map(th => tidy(th.textContent).toLowerCase());
-
-    // Defaults (sensible fallbacks)
-    const idx = { cat: 0, a: 1, match: null, b: null };
-    const find = k => labels.findIndex(x => x.includes(k));
-
-    const c = find('category');   if (c>-1) idx.cat = c;
-    const a = find('partner a');  if (a>-1) idx.a   = a;
-    const m = find('match');      if (m>-1) idx.match = m;
-
-    // Prefer explicit Partner B, else assume last column is B
-    const b = find('partner b');
-    if (b>-1) idx.b = b;
-    else if (ths.length) idx.b = ths.length-1;
-    else idx.b = 3;
-
-    log('Header map =', idx, labels);
-
-    // Collect rows
-    let trs = [...table.querySelectorAll('tbody tr')];
-    if (!trs.length) trs = [...table.querySelectorAll('tr')].filter(tr=>tr.querySelectorAll('td').length);
-
-    const body = [];
-    trs.forEach(tr=>{
-      const tds = [...tr.querySelectorAll('td')];
-      if (!tds.length) return;
-
-      const catRaw = tds[idx.cat]?.textContent || '';
-      const aRaw   = tds[idx.a]?.textContent   || '';
-      const mRaw   = (idx.match!=null ? tds[idx.match]?.textContent : '') || '';
-      const bRaw   = tds[idx.b]?.textContent   || '';
-
-      // Build cells
-      const CAT = clampCat(catRaw);
-      const A = toNum(aRaw);
-      const B = toNum(bRaw);
-      const M = (mRaw && /\d/.test(mRaw)) ? tidy(mRaw) : (pct(A,B)!=null ? pct(A,B)+'%' : '—');
-
-      // Keep non-empty
-      if (CAT || A!=null || B!=null){
-        body.push([ CAT || '—', A!=null?A:'—', M || '—', B!=null?B:'—' ]);
-      }
-    });
-
-    log('DOM rows =', body.length);
-    if (!body.length){ alert('No data rows found to export.'); return; }
-
-    // Build PDF (black bg, white text)
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const margin = 36;
-
-    // Per-page background
-    const paintPage = () => {
-      doc.setFillColor(0,0,0);
-      doc.rect(0,0,pageW,pageH,'F');
-      doc.setTextColor(255,255,255);
-    };
-    paintPage();
-
-    // Title
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(28);
-    doc.text('Talk Kink • Compatibility Report', pageW/2, 48, { align:'center' });
-
-    // Fit widths to avoid “could not fit page” autoTable error
-    const usable = pageW - margin*2;
-    const colOther = 70; // width for A, Match, B
-    const catWidth = Math.max(usable - (colOther*3) - 2, 420);
-
-    // Render table
-    (doc.autoTable || window.jspdf.autoTable)(doc, {
-      head: [[ 'Category', 'Partner A', 'Match %', 'Partner B' ]],
-      body,
-      startY: 76,
-      margin: { left: margin, right: margin, top: margin, bottom: margin },
-      styles: {
-        font: 'helvetica',
-        fontStyle: 'normal',
-        fontSize: 11,
-        textColor: [255,255,255],
-        fillColor: [0,0,0],
-        lineColor: [255,255,255],
-        lineWidth: 0.15,
-        cellPadding: 5,
-        overflow: 'linebreak',
-        valign: 'middle'
-      },
-      headStyles: {
-        fontStyle: 'bold',
-        fillColor: [0,0,0],
-        textColor: [255,255,255]
-      },
-      columnStyles: {
-        0: { cellWidth: catWidth, halign:'left'   }, // Category
-        1: { cellWidth: colOther, halign:'center' }, // Partner A
-        2: { cellWidth: colOther, halign:'center' }, // Match %
-        3: { cellWidth: colOther, halign:'center' }  // Partner B
-      },
-      didDrawPage: paintPage
-    });
-
-    doc.save('compatibility-report.pdf');
   }
 
-  // -------------------------- Bind + clean UI --------------------------
-  function bindButtons(){
-    const selectors = ['#downloadBtn', '#downloadPdfBtn', '[data-download-pdf]'];
-    for (const sel of selectors){
-      const btn = document.querySelector(sel);
-      if (btn){
+  /* -------- table parsing -------- */
+  function findTable(){
+    return document.querySelector('#compatibilityTable')
+        || document.querySelector('.results-table.compat')
+        || document.querySelector('table');
+  }
+  function extractRows(table){
+    const trs=[...table.querySelectorAll('tr')].filter(tr=>{
+      const hasTH=tr.querySelectorAll('th').length>0;
+      const tds=tr.querySelectorAll('td');
+      return !hasTH && tds.length>0;
+    });
+    const out=[];
+    trs.forEach(tr=>{
+      const cells=[...tr.querySelectorAll('td')].map(td=>tidy(td.textContent));
+      if(!cells.length) return;
+      const category=cells[0]||'—';
+      const nums=cells.map(toNum);
+      const idxs=nums.map((n,i)=>n!==null?i:-1).filter(i=>i>=0);
+      const a = idxs.length ? nums[idxs[0]] : null;
+      const b = idxs.length ? nums[idxs[idxs.length-1]] : null;
+      let match = cells.find(c=>/%$/.test(c));
+      if(!match && a!==null && b!==null){
+        const pct=Math.round(100 - (Math.abs(a-b)/5)*100);
+        match = `${Math.max(0,Math.min(100,pct))}%`;
+      }
+      if(!match) match='—';
+      out.push({category,a,match,b});
+    });
+    return out;
+  }
+
+  /* -------- PDF -------- */
+  function runAutoTable(doc,opts){
+    if(typeof doc.autoTable==='function') return doc.autoTable(opts);
+    if(window.jspdf && typeof window.jspdf.autoTable==='function') return window.jspdf.autoTable(doc,opts);
+    throw new Error('jsPDF-AutoTable not available');
+  }
+
+  async function exportPDF(){
+    try{
+      await ensureLibs();
+      const table=findTable();
+      if(!table){ alert('No table found.'); return; }
+      const rows=extractRows(table);
+      if(!rows.length){ alert('No data rows found to export.'); return; }
+
+      const catMax=Number(table.getAttribute('data-cat-max')||60);
+      const title = tidy(document.body.getAttribute('data-pdf-title')) || 'Talk Kink • Compatibility Report';
+      const fname = tidy(document.body.getAttribute('data-pdf-name'))  || 'compatibility-report.pdf';
+
+      const { jsPDF }=window.jspdf;
+      const doc = new jsPDF({orientation:'landscape', unit:'pt', format:'a4'});
+      const pageW=doc.internal.pageSize.getWidth();
+      const pageH=doc.internal.pageSize.getHeight();
+      const paint=()=>{doc.setFillColor(0,0,0);doc.rect(0,0,pageW,pageH,'F');doc.setTextColor(255,255,255);};
+
+      const body=rows.map(r=>[
+        clampTwoLines(r.category,catMax),
+        r.a!==null?String(r.a):'—',
+        r.match||'—',
+        r.b!==null?String(r.b):'—'
+      ]);
+
+      paint();
+      doc.setFontSize(32);
+      doc.text(title, pageW/2, 50, {align:'center'});
+
+      runAutoTable(doc,{
+        head: [['Category','Partner A','Match %','Partner B']],
+        body,
+        startY: 80,
+        margin: {left:30,right:30,top:80,bottom:40},
+        styles: {
+          fontSize: 12,
+          cellPadding: 6,
+          textColor: [255,255,255],
+          fillColor: [0,0,0],
+          lineColor: [255,255,255],
+          lineWidth: 0.25,
+          overflow: 'linebreak'
+        },
+        headStyles: {fontStyle:'bold', fillColor:[0,0,0], textColor:[255,255,255]},
+        columnStyles: {
+          0:{cellWidth:520, halign:'left'  }, // Category
+          1:{cellWidth: 80, halign:'center'}, // Partner A
+          2:{cellWidth: 90, halign:'center'}, // Match %
+          3:{cellWidth: 80, halign:'center'}  // Partner B
+        },
+        tableWidth: 'wrap',
+        didDrawPage: paint
+      });
+
+      doc.save(fname);
+    }catch(err){
+      console.error('[TK-PDF] Export failed:', err);
+      alert('PDF export failed: '+(err?.message||err));
+    }
+  }
+
+  /* -------- binding -------- */
+  let bindTimer=null;
+  function bind(){
+    clearTimeout(bindTimer);
+    bindTimer=setTimeout(()=>{
+      const btn=document.querySelector('#downloadBtn')||document.querySelector('#downloadPdfBtn')||document.querySelector('[data-download-pdf]');
+      if(btn){
         btn.removeEventListener('click', exportPDF);
         btn.addEventListener('click', exportPDF);
-        log('Bound to Download button:', btn);
-        break;
+        LOG('Bound Download PDF');
       }
-    }
-    // Remove “Run Export (manual)” if present
-    const manual = [...document.querySelectorAll('button,a')].find(el=>/run export \(manual\)/i.test(el.textContent||''));
-    if (manual) manual.remove();
+      const manual=[...document.querySelectorAll('button,a')].find(el=>/run export \(manual\)/i.test(el.textContent||''));
+      if(manual){ manual.remove(); LOG('Removed manual export button'); }
+    },200);
   }
-
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', bindButtons);
-  } else {
-    bindButtons();
-  }
-  new MutationObserver(bindButtons).observe(document.documentElement,{childList:true,subtree:true});
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+  const mo=new MutationObserver(bind);
+  mo.observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 
