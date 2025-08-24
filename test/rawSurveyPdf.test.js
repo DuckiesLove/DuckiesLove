@@ -19,7 +19,7 @@ function createDoc() {
 
 test('renders categories, scores, matches and flags', async () => {
   const { doc, textCalls } = createDoc();
-  const { generateCompatibilityPDF } = await import('../js/rawSurveyPdf.js');
+  const { generateCompatibilityPDF } = await import('../js/helpers/rawSurveyPdf.js');
   const partnerA = { Cat: { Item1: 5, Item2: 4 } };
   const partnerB = { Cat: { Item1: 5, Item2: 3 } };
   generateCompatibilityPDF(partnerA, partnerB, doc);
@@ -34,7 +34,7 @@ test('renders categories, scores, matches and flags', async () => {
 
 test('handles missing scores as N/A', async () => {
   const { doc, textCalls } = createDoc();
-  const { generateCompatibilityPDF } = await import('../js/rawSurveyPdf.js');
+  const { generateCompatibilityPDF } = await import('../js/helpers/rawSurveyPdf.js');
   const partnerA = { Cat: { Item1: 5 } };
   const partnerB = { Cat: {} };
   generateCompatibilityPDF(partnerA, partnerB, doc);

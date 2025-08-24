@@ -129,11 +129,13 @@ export async function downloadCompatibilityPDFCanvas({
   doc.save(filename);
 }
 
-(function bindPDF() {
+// Optional helper to bind the default download button
+export function bindCanvasPdfButton() {
   const btn = document.querySelector('#downloadBtn') ||
               document.querySelector('#downloadPdfBtn') ||
               document.querySelector('[data-download-pdf]');
   if (!btn) return;
   btn.addEventListener('click', () => downloadCompatibilityPDFCanvas());
-})();
+}
+
 
