@@ -1,0 +1,163 @@
+<!-- ==============================
+TALK KINK • COMPATIBILITY REPORT
+PDF EXPORT FIX
+=================================
+
+HOW TO USE:
+1. Paste this whole block into your page (before </body>).
+2. Keep your existing "Download PDF" button with id="downloadBtn"
+   (or change the selector inside the script).
+3. By default, the PDF will have a WHITE background with BLACK text.
+4. To switch themes, override CSS variables:
+   <body style="--pdf-bg:#000; --pdf-text:#fff">   (dark)
+   <body style="--pdf-bg:#fff; --pdf-text:#000">   (light, default)
+5. The script supports BOTH:
+   - Canvas snapshot export (WYSIWYG, uses html2canvas)
+   - Data-to-PDF export (vector text via jsPDF AutoTable)
+
+Pick which one you want by changing the line near the bottom:
+  window.TKPDF.downloadCompatibilityPDFCanvas();
+or
+  window.TKPDF.downloadCompatibilityPDF();
+-->
+
+<style id="tk-pdf-theme-patch">
+:root {
+  --pdf-bg:  #fff; /* default LIGHT */
+  --pdf-text:#000;
+}
+.pdf-export,
+#pdfWrapper,
+.pdf-container {
+  background: var(--pdf-bg) !important;
+  color:      var(--pdf-text) !important;
+}
+.pdf-export table {
+  background: var(--pdf-bg) !important;
+  color:      var(--pdf-text) !important;
+}
+</style>
+
+<script>
+(function(){
+  // --- Utility loaders ---
+  function loadScript(src){
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s = document.createElement('script');
+      s.src = src; s.onload = res; s.onerror = () => rej(new Error('Failed to load '+src));
+      document.head.appendChild(s);
+    });
+  }
+  function getJsPDF(){
+    return (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
+  }
+  async function ensureLibs(){
+    if (!window.html2canvas) {
+      try { await loadScript('/lib/html2canvas.min.js'); }
+      catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'); }
+    }
+    if (!window.html2canvas) throw new Error('html2canvas failed to load.');
+    if (!getJsPDF()) {
+      try { await loadScript('/lib/jspdf.umd.min.js'); }
+      catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
+    }
+    const hasAT = (window.jspdf && window.jspdf.autoTable) || (window.jsPDF && window.jsPDF.API?.autoTable);
+    if (!hasAT) {
+      try { await loadScript('/lib/jspdf.plugin.autotable.min.js'); }
+      catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js'); }
+    }
+  }
+
+  // --- Theme helpers ---
+  function cssVar(name, fallback = '') {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return v ? v.trim() : fallback;
+  }
+
+  // === Method 1: CANVAS SNAPSHOT (WYSIWYG, keeps styling) ===
+  async function downloadCompatibilityPDFCanvas({
+    selector = '#compatibilityTable',
+    filename = 'compatibility-report.pdf',
+    orientation = 'landscape',
+    format = 'a4',
+    scale = Math.max(2, Math.floor(window.devicePixelRatio || 2))
+  } = {}){
+    await ensureLibs();
+    const target = document.querySelector(selector)
+               || document.querySelector('.results-table.compat')
+               || document.body;
+    if (!target) { alert('Export target not found'); return; }
+
+    const bg = cssVar('--pdf-bg', '#fff');
+
+    const canvas = await window.html2canvas(target, {
+      backgroundColor: bg,
+      useCORS: true,
+      scale
+    });
+    const img = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf || window;
+    const doc = new jsPDF({ orientation, unit:'pt', format });
+
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const iw = canvas.width, ih = canvas.height;
+    const pageRatio = pw/ph, imgRatio = iw/ih;
+    let rw, rh;
+    if (imgRatio > pageRatio) { rw = pw; rh = pw/imgRatio; } else { rh = ph; rw = ph*imgRatio; }
+    const x = (pw - rw)/2, y = (ph - rh)/2;
+
+    doc.addImage(img, 'PNG', x, y, rw, rh);
+    doc.save(filename);
+  }
+
+  // === Method 2: DATA EXPORT (AutoTable, vector text, faster) ===
+  function extractRows() {
+    const table = document.querySelector('#compatibilityTable')
+               || document.querySelector('table.results-table.compat')
+               || document.querySelector('table');
+    if (!table) return [];
+    const trs = [...table.querySelectorAll('tr')]
+      .filter(tr => tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0);
+    return trs.map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.trim()));
+  }
+
+  async function downloadCompatibilityPDF({
+    filename='compatibility-report.pdf',
+    orientation='landscape',
+    format='a4'
+  }={}){
+    await ensureLibs();
+    const rows = extractRows();
+    if (!rows.length) { alert('No data rows'); return; }
+    const { jsPDF } = window.jspdf || window;
+    const doc = new jsPDF({ orientation, unit:'pt', format });
+    const pw = doc.internal.pageSize.getWidth();
+    doc.setTextColor(0,0,0);
+    doc.setFontSize(28);
+    doc.text('Talk Kink • Compatibility Report', pw/2, 48, { align:'center' });
+    doc.autoTable({
+      head: [['Category','Partner A','Match %','Partner B']],
+      body: rows,
+      startY: 70,
+      margin: { left:30, right:30 },
+      styles: { fontSize:12, cellPadding:6 }
+    });
+    doc.save(filename);
+  }
+
+  // --- Expose both ---
+  window.TKPDF = { downloadCompatibilityPDFCanvas, downloadCompatibilityPDF };
+
+  // --- Auto-bind to Download button ---
+  const btn = document.querySelector('#downloadBtn');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      // Choose ONE of these:
+      // window.TKPDF.downloadCompatibilityPDF();        // data export
+      window.TKPDF.downloadCompatibilityPDFCanvas();    // canvas export
+    });
+  }
+})();
+</script>
