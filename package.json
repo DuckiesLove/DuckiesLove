@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test",
+    "test": "NODE_TEST_WORKERS=1 node --test",
     "test:coverage": "node --test --experimental-test-coverage",
     "generate-token": "node scripts/generateToken.js",
     "generate:tokens": "node generateTokens.js",

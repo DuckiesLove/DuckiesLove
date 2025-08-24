@@ -789,27 +789,16 @@ export async function downloadCompatibilityPDF(arg = undefined) {
     }
     return null;
   }
-  function loadScript(src) {
-    return new Promise((res, rej) => {
-      if (document.querySelector(`script[src="${src}"]`)) return res();
-      const s = document.createElement('script');
-      s.src = src; s.onload = res; s.onerror = () => rej(new Error('Failed to load ' + src));
-      document.head.appendChild(s);
-    });
-  }
-  async function ensureLibs() {
-    if (!(window.jspdf && window.jspdf.jsPDF)) {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    async function ensureAutoTable() {
+      const hasAT =
+        (window.jspdf && window.jspdf.autoTable) ||
+        (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+      if (!hasAT) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+      }
     }
-    const hasAT =
-      (window.jspdf && window.jspdf.autoTable) ||
-      (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
-    if (!hasAT) {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
-    }
-  }
 
-  function extractRows() {
+    function extractRows() {
     const table = document.querySelector('table.results-table.compat') ||
                   document.querySelector('#compatibilityTable') ||
                   document.querySelector('table');
@@ -838,7 +827,19 @@ export async function downloadCompatibilityPDF(arg = undefined) {
     });
   }
 
-  await ensureLibs();
+    try {
+      await ensureLibs();
+    } catch (e) {
+      alert(e.message);
+      return;
+    }
+
+    if (!partnerAHasData() && !partnerBHasData()) {
+      alert('Both partners appear to have no data. Please load at least one survey before exporting.');
+      return;
+    }
+
+    await ensureAutoTable();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -901,43 +902,46 @@ export async function downloadCompatibilityPDF(arg = undefined) {
   doc.save('compatibility-report.pdf');
 }
 
-  try { await ensureLibs(); } catch (e) { console.error(e); alert(e.message); return; }
+if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.body) {
+  (async () => {
+    try { await ensureLibs(); } catch (e) { console.error(e); alert(e.message); return; }
 
-  const aHas = partnerAHasData();
-  const bHas = partnerBHasData();
+    const aHas = partnerAHasData();
+    const bHas = partnerBHasData();
 
-  if (!aHas && !bHas) {
-    alert('Both partners appear to have no data. Please load at least one survey before exporting.');
-    return;
-  }
+    if (!aHas && !bHas) {
+      alert('Both partners appear to have no data. Please load at least one survey before exporting.');
+      return;
+    }
 
-  // Warn if Partner A (Column A) is empty but continue with PDF generation
-  if (!aHas) {
-    console.warn('Partner A (Column A) looks empty; generating PDF anyway.');
-  }
+    // Warn if Partner A (Column A) is empty but continue with PDF generation
+    if (!aHas) {
+      console.warn('Partner A (Column A) looks empty; generating PDF anyway.');
+    }
 
-  const { shell, clone } = makeClone(theme);
+    const { shell, clone } = makeClone(theme);
 
-  // Remove rows/categories where both partners have zero/blank scores
-  await filterZeroRowsAndEmptySections(clone);
+    // Remove rows/categories where both partners have zero/blank scores
+    await filterZeroRowsAndEmptySections(clone);
 
-  // Ensure 5 columns and populate Flag (⭐/🚩) in the CLONE (web stays untouched)
-  ensureFlagColumnAndPopulate(clone);
+    // Ensure 5 columns and populate Flag (⭐/🚩) in the CLONE (web stays untouched)
+    ensureFlagColumnAndPopulate(clone);
 
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  try {
-    const jsPDFCtor = getJsPDF();
-    const pdf = await renderMultiPagePDF({ clone: shell, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95, firstPageHeader: '', bgColor });
-    pdf.save('kink-compatibility.pdf');
-  } catch (err) {
-    console.error('[pdf] render error:', err);
-    alert('Could not generate PDF. See console for details.');
-  } finally {
-    // cleanup overlay shell
-    const overlay = shell && shell.parentNode;
-    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
-  }
+    try {
+      const jsPDFCtor = getJsPDF();
+      const pdf = await renderMultiPagePDF({ clone: shell, jsPDFCtor, orientation: PDF_ORIENTATION, jpgQuality: 0.95, firstPageHeader: '', bgColor });
+      pdf.save('kink-compatibility.pdf');
+    } catch (err) {
+      console.error('[pdf] render error:', err);
+      alert('Could not generate PDF. See console for details.');
+    } finally {
+      // cleanup overlay shell
+      const overlay = shell && shell.parentNode;
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+  })();
 }
 
 /* =============================== BOOTSTRAP ================================ */

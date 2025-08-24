@@ -33,7 +33,7 @@ test('fails fast when html2canvas is unavailable', async () => {
       }
     };
 
-    const mod = await import('../js/pdfDownload.js');
+    const mod = await import('../js/pdfDownload.js?no-html2canvas');
     await mod.downloadCompatibilityPDF('light');
     assert.match(alertMsg, /html2canvas/i);
   } finally {
