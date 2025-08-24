@@ -13,8 +13,20 @@ test('alerts and aborts when both partners have no data', async () => {
 
     globalThis.alert = msg => { alertMsg = msg; };
     globalThis.window = {
-      html2canvas: () => {},
-      jspdf: { jsPDF: class { constructor(){ jsPdfCalled = true; } save(){} } },
+      jspdf: {
+        jsPDF: class {
+          constructor(){
+            jsPdfCalled = true;
+            this.internal = { pageSize: { getWidth(){ return 595; } } };
+          }
+          setTextColor(){}
+          setFontSize(){}
+          text(){}
+          autoTable(){}
+          save(){}
+        },
+        autoTable: () => {}
+      }
     };
     globalThis.document = {
       readyState: 'complete',
@@ -25,14 +37,13 @@ test('alerts and aborts when both partners have no data', async () => {
     };
 
     const mod = await import('../js/pdfDownload.js?no-data-test');
-    await mod.downloadCompatibilityPDF('light');
+    await mod.downloadCompatibilityPDF();
 
     assert.strictEqual(jsPdfCalled, false);
-    assert.match(alertMsg, /no data/i);
+    assert.match(alertMsg, /no data rows/i);
   } finally {
     if (originalGlobals.window) globalThis.window = originalGlobals.window; else delete globalThis.window;
     if (originalGlobals.document) globalThis.document = originalGlobals.document; else delete globalThis.document;
     if (originalGlobals.alert) globalThis.alert = originalGlobals.alert; else delete globalThis.alert;
   }
 });
-
