@@ -1,17 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert';
 
-test('alerts and aborts when both partners have no data', async () => {
+test('warns and aborts when both partners have no data', async () => {
   const originalGlobals = {
     window: globalThis.window,
     document: globalThis.document,
-    alert: globalThis.alert,
+    console: globalThis.console,
   };
   try {
-    let alertMsg = '';
+    let warnMsg = '';
     let jsPdfCalled = false;
 
-    globalThis.alert = msg => { alertMsg = msg; };
+    globalThis.console = { warn: msg => { warnMsg = msg; } };
     globalThis.window = {
       jspdf: {
         jsPDF: class {
@@ -28,10 +28,16 @@ test('alerts and aborts when both partners have no data', async () => {
         autoTable: () => {}
       }
     };
+    let disabledState = null;
+    const dummyBtn = {
+      toggleAttribute: (attr, val) => { if (attr === 'disabled') disabledState = val; },
+      setAttribute: () => {},
+      title: ''
+    };
     globalThis.document = {
       readyState: 'complete',
       querySelector: () => null,
-      querySelectorAll: () => [],
+      querySelectorAll: sel => sel === '#downloadBtn, #downloadPdfBtn, [data-download-pdf]' ? [dummyBtn] : [],
       head: { appendChild: () => {} },
       createElement: () => ({ setAttribute: () => {}, textContent: '', appendChild: () => {}, style: {} }),
     };
@@ -40,10 +46,11 @@ test('alerts and aborts when both partners have no data', async () => {
     await mod.downloadCompatibilityPDF();
 
     assert.strictEqual(jsPdfCalled, false);
-    assert.match(alertMsg, /no data rows/i);
+    assert.match(warnMsg, /no data rows/i);
+    assert.strictEqual(disabledState, true);
   } finally {
     if (originalGlobals.window) globalThis.window = originalGlobals.window; else delete globalThis.window;
     if (originalGlobals.document) globalThis.document = originalGlobals.document; else delete globalThis.document;
-    if (originalGlobals.alert) globalThis.alert = originalGlobals.alert; else delete globalThis.alert;
+    if (originalGlobals.console) globalThis.console = originalGlobals.console; else delete globalThis.console;
   }
 });
