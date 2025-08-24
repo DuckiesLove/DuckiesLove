@@ -788,5 +788,225 @@ Permanent Codex version
 })();
 </script>
 
+<script>
+/*
+  DARK PDF EXPORT (black background • white text • thick white grid)
+  - Fixes "AutoTable not available" by waiting for the plugin after jsPDF loads
+  - Works with both UMD (window.jspdf.jsPDF) and legacy (window.jsPDF) builds
+*/
+
+(function () {
+  const TITLE        = 'Talk Kink • Compatibility Report';
+  const FILE_NAME    = 'compatibility-dark.pdf';
+  const GRID_WIDTH   = 1.4;     // thick white lines
+  const CAT_PER_LINE = 60;      // wrap Category to max 2 lines
+
+  /* ------------ helpers: loading & detection ------------ */
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  function getJsPDFCtor() {
+    return (window.jspdf && window.jspdf.jsPDF)     // UMD (preferred)
+        || window.jsPDF                             // legacy global
+        || window.jspPDF                            // very old fallback
+        || null;
+  }
+
+  function hasAutoTable() {
+    return !!(
+      (window.jspdf && window.jspdf.autoTable) ||
+      (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable)
+    );
+  }
+
+  async function ensureLibs() {
+    // jsPDF first
+    if (!getJsPDFCtor()) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      // wait for UMD to attach
+      for (let i = 0; i < 80 && !getJsPDFCtor(); i++) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+    }
+    if (!getJsPDFCtor()) throw new Error('jsPDF failed to load');
+
+    // then AutoTable plugin
+    if (!hasAutoTable()) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+      for (let i = 0; i < 80 && !hasAutoTable(); i++) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+    }
+    if (!hasAutoTable()) throw new Error('jsPDF-AutoTable failed to load');
+  }
+
+  /* ---------------- data extraction ---------------- */
+  const tidy = s => (s || '').replace(/\s+/g, ' ').trim();
+  const toNum = v => {
+    const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+  const clampTwo = (s, perLine) => {
+    const t = tidy(s);
+    if (!t) return '—';
+    if (t.length <= perLine) return t;
+    const a = t.slice(0, perLine).trim();
+    const rest = t.slice(perLine).trim();
+    const b = rest.length > perLine ? rest.slice(0, perLine - 1).trim() + '…' : rest;
+    return a + '\n' + b;
+  };
+
+  function collectRows() {
+    const table = document.getElementById('compatibilityTable')
+      || document.querySelector('table.results-table.compat')
+      || document.querySelector('table');
+    if (!table) return [];
+
+    const trs = [...table.querySelectorAll('tr')].filter(tr =>
+      tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0
+    );
+
+    return trs.map(tr => {
+      const cells = [...tr.querySelectorAll('td')].map(td => tidy(td.textContent));
+      const cat   = cells[0] || '—';
+
+      const nums = cells.map(toNum).filter(n => n !== null);
+      const A    = nums.length ? nums[0] : null;
+      const B    = nums.length ? nums[nums.length - 1] : null;
+
+      let pct = cells.find(c => /%$/.test(c)) || null;
+      if (!pct && A != null && B != null) {
+        const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
+        pct = `${Math.max(0, Math.min(100, p))}%`;
+      }
+
+      return [clampTwo(cat, CAT_PER_LINE), A ?? '—', pct ?? '—', B ?? '—'];
+    });
+  }
+
+  /* ---------------- export ---------------- */
+  async function downloadDarkCompatibilityPDF() {
+    try {
+      await ensureLibs();
+
+      const rows = collectRows();
+      if (!rows.length) { alert('No rows found to export.'); return; }
+
+      const JsPDF = getJsPDFCtor();
+      const doc   = new JsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      // paint background before drawing table
+      const paintBg = () => {
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, pageW, pageH, 'F');
+        doc.setTextColor(255, 255, 255);
+      };
+
+      paintBg();
+      doc.setFontSize(28);
+      doc.text(TITLE, pageW / 2, 48, { align: 'center' });
+
+      const useAutoTable = (opts) => {
+        // try instance method
+        if (typeof doc.autoTable === 'function') return doc.autoTable(opts);
+        // UMD: window.jspdf.autoTable(doc, opts)
+        if (window.jspdf && typeof window.jspdf.autoTable === 'function') return window.jspdf.autoTable(doc, opts);
+        // Legacy: jsPDF.API.autoTable.call(doc, opts)
+        if (window.jsPDF && window.jsPDF.API && typeof window.jsPDF.API.autoTable === 'function') {
+          return window.jsPDF.API.autoTable.call(doc, opts);
+        }
+        throw new Error('AutoTable still not attached');
+      };
+
+      const marginLR = 30;
+      const usable   = pageW - marginLR * 2;
+      const Awidth   = 80, Mwidth = 90, Bwidth = 80;
+      const reserved = Awidth + Mwidth + Bwidth;
+      const CatWidth = Math.max(220, usable - reserved);
+
+      useAutoTable({
+        head: [['Category', 'Partner A', 'Match %', 'Partner B']],
+        body: rows,
+        theme: 'grid',
+        startY: 70,
+        margin: { left: marginLR, right: marginLR, top: 70, bottom: 40 },
+
+        // global styles
+        styles: {
+          fontSize: 11,
+          cellPadding: 6,
+          textColor: [255, 255, 255],   // white text
+          fillColor: [0, 0, 0],         // black cell bg
+          lineColor: [255, 255, 255],   // white grid
+          lineWidth: GRID_WIDTH,
+          halign: 'center',
+          valign: 'middle',
+          overflow: 'linebreak'
+        },
+        headStyles: { fillColor: [0,0,0], textColor: [255,255,255], fontStyle: 'bold', lineColor: [255,255,255], lineWidth: GRID_WIDTH },
+        bodyStyles: { fillColor: [0,0,0], textColor: [255,255,255], lineColor: [255,255,255], lineWidth: GRID_WIDTH },
+        footStyles: { fillColor: [0,0,0], textColor: [255,255,255], lineColor: [255,255,255], lineWidth: GRID_WIDTH },
+        alternateRowStyles: { fillColor: [0,0,0], textColor: [255,255,255] },
+
+        didParseCell: (data) => {
+          // enforce dark theme for any cell AutoTable tries to shade
+          const s = data.cell.styles;
+          s.fillColor = [0, 0, 0];
+          s.textColor = [255, 255, 255];
+          s.lineColor = [255, 255, 255];
+          s.lineWidth = GRID_WIDTH;
+        },
+
+        columnStyles: {
+          0: { cellWidth: CatWidth, halign: 'left'   },
+          1: { cellWidth: Awidth,   halign: 'center' },
+          2: { cellWidth: Mwidth,   halign: 'center' },
+          3: { cellWidth: Bwidth,   halign: 'center' }
+        },
+
+        willDrawPage: () => paintBg()
+      });
+
+      doc.save(FILE_NAME);
+    } catch (err) {
+      console.error('[TK-PDF] Export failed:', err);
+      alert('PDF export failed: ' + (err && err.message ? err.message : err));
+    }
+  }
+
+  // Bind to Download button(s)
+  function bind() {
+    const btn = document.querySelector('#downloadBtn')
+            || document.querySelector('#downloadPdfBtn')
+            || document.querySelector('[data-download-pdf]');
+    if (btn) {
+      btn.removeEventListener('click', downloadDarkCompatibilityPDF);
+      btn.addEventListener('click', (e) => { e.preventDefault(); downloadDarkCompatibilityPDF(); });
+      console.log('[TK-PDF] Bound Download PDF');
+    }
+    // optional: remove any "Run Export (manual)" control
+    const manual = [...document.querySelectorAll('button,a')].find(el => /run export \(manual\)/i.test(el.textContent || ''));
+    if (manual) manual.remove();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
+  new MutationObserver(bind).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
+
 </body>
 </html>
