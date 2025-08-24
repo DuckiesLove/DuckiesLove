@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Appearance Play Compatibility</title>
+</head>
+<body>
+<table id="compatibility-table" border="1" style="border-collapse:collapse; min-width:360px;">
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Partner A</th>
+      <th>Match</th>
+      <th>Partner B</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="4"><strong>Appearance Play</strong></td></tr>
+    <tr data-kink-id="choose_outfit">
+      <td>Choosing my partner’s outfit for the day or a scene</td>
+      <td data-cell="A">-</td>
+      <td data-cell="match">-</td>
+      <td data-cell="B">-</td>
+    </tr>
+    <tr data-kink-id="select_underwear">
+      <td>Selecting their underwear, lingerie, or base layers</td>
+      <td data-cell="A">-</td>
+      <td data-cell="match">-</td>
+      <td data-cell="B">-</td>
+    </tr>
+    <tr data-kink-id="style_hair">
+      <td>Styling their hair (braiding, brushing, tying, etc.)</td>
+      <td data-cell="A">-</td>
+      <td data-cell="match">-</td>
+      <td data-cell="B">-</td>
+    </tr>
+    <tr data-kink-id="head_coverings">
+      <td>Picking head coverings (bonnets, veils, hoods, hats) for mood or protocol</td>
+      <td data-cell="A">-</td>
+      <td data-cell="match">-</td>
+      <td data-cell="B">-</td>
+    </tr>
+    <tr data-kink-id="makeup_accessories">
+      <td>Offering makeup, polish, or accessories as part of ritual or play</td>
+      <td data-cell="A">-</td>
+      <td data-cell="match">-</td>
+      <td data-cell="B">-</td>
+    </tr>
+    <tr data-kink-id="themed_looks">
+      <td>Creating themed looks (slutty, innocent, doll-like, sharp, etc.)</td>
+      <td data-cell="A">-</td>
+      <td data-cell="match">-</td>
+      <td data-cell="B">-</td>
+    </tr>
+    <tr data-kink-id="role_costumes">
+      <td>Dressing them in role-specific costumes (maid, bunny, doll, etc.)</td>
+      <td data-cell="A">-</td>
+      <td data-cell="match">-</td>
+      <td data-cell="B">-</td>
+    </tr>
+    <tr data-kink-id="historical_outfits">
+      <td>Curating time-period or historical outfits (e.g., Victorian, 50s)</td>
+      <td data-cell="A">-</td>
+      <td data-cell="match">-</td>
+      <td data-cell="B">-</td>
+    </tr>
+    <tr data-kink-id="present_femme_masc">
+      <td>Helping them present more femme, masc, or androgynous by request</td>
+      <td data-cell="A">-</td>
+      <td data-cell="match">-</td>
+      <td data-cell="B">-</td>
+    </tr>
+  </tbody>
+</table>
+<script>
+(function(){
+  function toNum(v){
+    const n = Number(String(v).trim());
+    return Number.isFinite(n) ? n : null;
+  }
+  function percent(a,b){
+    const A = toNum(a), B = toNum(b);
+    if(A==null || B==null) return null;
+    return Math.round(100 - (Math.abs(A-B)/5)*100);
+  }
+  function renderRow(tr){
+    const a = tr.querySelector('td[data-cell="A"]');
+    const b = tr.querySelector('td[data-cell="B"]');
+    const m = tr.querySelector('td[data-cell="match"]');
+    if(!a || !b || !m) return;
+    const pct = percent(a.textContent, b.textContent);
+    m.textContent = pct==null ? '-' : pct + '%';
+  }
+  document.querySelectorAll('#compatibility-table tbody tr[data-kink-id]').forEach(renderRow);
+})();
+</script>
+</body>
+</html>
