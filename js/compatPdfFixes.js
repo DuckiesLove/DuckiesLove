@@ -113,10 +113,10 @@ export function applyCompatLayoutAndFlags(root = document.getElementById('pdf-co
     }
   });
 
-  // 4) Ensure container is full-width black
+  // 4) Ensure container is full-width with light background
   Object.assign(root.style, {
-    backgroundColor: '#000',
-    color: '#fff',
+    backgroundColor: '#fff',
+    color: '#000',
     width: '100%',
     maxWidth: '100%',
     margin: '0',

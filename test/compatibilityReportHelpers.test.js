@@ -24,7 +24,7 @@ function createDocMock() {
   };
 }
 
-test('drawMatchBar renders black bar with colored text and resets color', () => {
+test('drawMatchBar renders white bar with colored text and resets color', () => {
   const doc = createDocMock();
   drawMatchBar(doc, 10, 10, 100, 8, 50);
   doc.text('after', 0, 0); // simulate subsequent drawing
@@ -33,17 +33,17 @@ test('drawMatchBar renders black bar with colored text and resets color', () => 
   assert.deepStrictEqual(rectCalls[0], ['rect', [10, 10, 100, 8, 'F']]);
 // ✅ Final merged version
 const fillColorCall = doc.calls.find(c => c[0] === 'setFillColor');
-assert.deepStrictEqual(fillColorCall, ['setFillColor', [0, 0, 0]]);
+assert.deepStrictEqual(fillColorCall, ['setFillColor', [255, 255, 255]]);
 
 const colorCalls = doc.calls.filter(c => c[0] === 'setTextColor');
 assert.deepStrictEqual(colorCalls[0], ['setTextColor', ['red']]);
-assert.deepStrictEqual(colorCalls[colorCalls.length - 1], ['setTextColor', ['white']]);
+assert.deepStrictEqual(colorCalls[colorCalls.length - 1], ['setTextColor', ['black']]);
 
   const textCall = doc.calls.find(c => c[0] === 'text' && c[1][0] === '50%');
   assert.ok(textCall, 'percentage label should be rendered');
 });
 
-test('flag and partner B columns render in white after drawMatchBar', () => {
+test('flag and partner B columns render in black after drawMatchBar', () => {
   const doc = createDocMock();
   const items = [{ label: 'Test', partnerA: 4, partnerB: 0 }]; // results in a 🚩 flag
   const margin = 5;
@@ -53,11 +53,11 @@ test('flag and partner B columns render in white after drawMatchBar', () => {
 
   const flagIndex = doc.calls.findIndex(c => c[0] === 'text' && c[1][0] === '🚩');
   const lastColorBeforeFlag = doc.calls.slice(0, flagIndex).filter(c => c[0] === 'setTextColor').pop();
-  assert.deepStrictEqual(lastColorBeforeFlag, ['setTextColor', ['white']]);
+  assert.deepStrictEqual(lastColorBeforeFlag, ['setTextColor', ['black']]);
 
   const partnerBIndex = doc.calls.findIndex(c => c[0] === 'text' && c[1][0] === '0');
   const lastColorBeforePartnerB = doc.calls.slice(0, partnerBIndex).filter(c => c[0] === 'setTextColor').pop();
-  assert.deepStrictEqual(lastColorBeforePartnerB, ['setTextColor', ['white']]);
+  assert.deepStrictEqual(lastColorBeforePartnerB, ['setTextColor', ['black']]);
 });
 
 test('renderCategorySection renders each item and returns final y', () => {

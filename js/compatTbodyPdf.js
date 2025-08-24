@@ -139,10 +139,10 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
 
-      // Full-page black background with white text
-      doc.setFillColor(0,0,0);
+      // Light page background with dark text
+      doc.setFillColor(255,255,255);
       doc.rect(0,0,doc.internal.pageSize.width,doc.internal.pageSize.height,'F');
-      doc.setTextColor(255,255,255);
+      doc.setTextColor(0,0,0);
       doc.setFontSize(16);
       doc.text("Talk Kink • Compatibility Report", 14, 15);
 
@@ -156,11 +156,11 @@
           cellWidth: 'wrap',
           halign: 'center',
           valign: 'middle',
-          fillColor: [0,0,0],
-          textColor: [255,255,255],
+          fillColor: [255,255,255],
+          textColor: [0,0,0],
           fontStyle: 'normal'
         },
-        headStyles: { fillColor:[0,0,0], textColor:[255,255,255], fontStyle:'bold' },
+        headStyles: { fillColor:[255,255,255], textColor:[0,0,0], fontStyle:'bold' },
         columnStyles: {
           0:{ cellWidth:70, halign:'left' },
           1:{ cellWidth:20 },
@@ -168,10 +168,7 @@
           3:{ cellWidth:15 },
           4:{ cellWidth:20 }
         },
-        didParseCell: data => {
-          data.cell.styles.fillColor = [0,0,0];
-          data.cell.styles.textColor = [255,255,255];
-        }
+        didParseCell: data => {}
       });
 
       doc.save("compatibility_report.pdf");

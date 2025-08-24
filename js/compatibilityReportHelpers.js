@@ -2,7 +2,7 @@
 
 // Determine the font color used for the match percentage
 function getFontColor(percentage) {
-  if (percentage === null || percentage === undefined) return 'white';
+  if (percentage === null || percentage === undefined) return 'black';
   if (percentage >= 90) return 'green';
   if (percentage >= 60) return 'yellow';
   return 'red';
@@ -26,13 +26,13 @@ export function drawMatchBar(
   width,
   height,
   percentage,
-  resetColor = 'white'
+  resetColor = 'black'
 ) {
   const label = percentage !== null && percentage !== undefined ? `${percentage}%` : 'N/A';
   const textColor = getFontColor(percentage);
 
-  // Black background
-  doc.setFillColor(0, 0, 0);
+  // Light background to avoid solid black fills
+  doc.setFillColor(255, 255, 255);
   doc.rect(x, y, width, height, 'F');
 
   // Label centered inside the bar
@@ -45,7 +45,7 @@ export function drawMatchBar(
 }
 
 // Render the category header at the provided coordinates
-function renderCategoryHeader(doc, x, y, category, textColor = 'white') {
+function renderCategoryHeader(doc, x, y, category, textColor = 'black') {
   doc.setFontSize(13);
   doc.setTextColor(textColor);
   doc.text(category, x, y);
@@ -88,7 +88,7 @@ export function getMatchPercentage(a, b) {
 }
 
 // Helper: draw one row of the kink table
-function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = 'white') {
+function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = 'black') {
   const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
   const aNorm = normalizeScore(aScore);
   const bNorm = normalizeScore(bScore);
@@ -119,7 +119,7 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = '
 }
 
 // Render an entire category section including column headers
-export function renderCategorySection(doc, categoryLabel, items, layout, startY, textColor = 'white') {
+export function renderCategorySection(doc, categoryLabel, items, layout, startY, textColor = 'black') {
   const { colLabel, colA, colBar, colFlag, colB, barWidth } = layout;
 
   renderCategoryHeader(doc, colLabel, startY, categoryLabel, textColor);
