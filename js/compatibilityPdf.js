@@ -46,9 +46,10 @@ export async function generateCompatibilityPDF(data = { categories: [] }) {
   };
 
   const drawBackground = () => {
-    doc.setFillColor(0, 0, 0);
+    // Use a white page background with black text to avoid solid black exports
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, 297, 210, 'F');
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(0, 0, 0);
   };
 
   const drawBar = (match, x, baselineY, layout) => {
@@ -171,9 +172,10 @@ export async function generateCompatibilityPDFLandscape(data) {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
 
-  doc.setFillColor(0, 0, 0);
+  // Start with a white background so exported pages aren't solid black
+  doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
-  doc.setTextColor(255);
+  doc.setTextColor(0);
 
   let y = 20;
 
@@ -191,15 +193,16 @@ export async function generateCompatibilityPDFLandscape(data) {
     const score = combinedScore(kink.a ?? kink.partnerA, kink.b ?? kink.partnerB);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(255);
+    // Write item rows in black text on white background
+    doc.setTextColor(0);
     doc.text(kink.label || kink.kink, margin, y, { maxWidth: pageWidth - margin * 2 - 30 });
     doc.text(score, pageWidth - margin, y, { align: 'right' });
     y += 6;
     if (y > pageHeight - 20) {
       doc.addPage();
-      doc.setFillColor(0, 0, 0);
+      doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, pageWidth, pageHeight, 'F');
-      doc.setTextColor(255);
+      doc.setTextColor(0);
       y = 20;
     }
   });
