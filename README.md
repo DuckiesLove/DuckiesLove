@@ -100,51 +100,30 @@ stub now opens the browser's print dialog so you can choose **Save as PDF** if t
 library fails to load. Run a local web server and select **Download Data** again
 to download the PDF automatically.
 
-#### PDF Themes
-// Unified theme handling: supports CSS variables OR function argument
-export async function downloadCompatibilityPDF(arg = 'light') {
-  // 1. Defaults
-  let theme = (typeof arg === 'string') ? arg : 'light';
+#### PDF Export Modules
 
-  // 2. Read CSS variables (highest priority if set)
-  const cssBg   = getComputedStyle(document.body).getPropertyValue('--pdf-bg')?.trim();
-  const cssText = getComputedStyle(document.body).getPropertyValue('--pdf-text')?.trim();
-
-  // 3. Apply theme logic
-  let bg = [255, 255, 255]; // light default
-  let fg = [0, 0, 0];
-  if (theme === 'dark') {
-    bg = [0, 0, 0];
-    fg = [255, 255, 255];
-  }
-
-  // 4. Override with CSS vars if present
-  if (cssBg) bg = hexToRgb(cssBg) || bg;
-  if (cssText) fg = hexToRgb(cssText) || fg;
-
-  // ... (rest of your export logic: ensureLibs, extractRows, autoTable, etc.)
-}
-
-// helper
-function hexToRgb(hex) {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
-  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null;
-}
-
-You can also toggle themes programmatically. Passing `'light'` to
-`applyPrintStyles()` sets these variables for you, and pages with the
-`light-mode` class call this helper automatically.
-
-#### Example PDF Export
-
-Use `CompatibilityPDFExporter` to render any container to a PDF:
+The primary exporter uses **jsPDF + AutoTable** and lives in
+`js/pdfDownload.js`. It reads the comparison table directly and produces a
+vector-based PDF. Typical usage:
 
 ```javascript
-import { CompatibilityPDFExporter } from './js/pdfExportAdjustments.js';
+import { downloadCompatibilityPDF, bindPdfButton } from './js/pdfDownload.js';
 
-const exporter = new CompatibilityPDFExporter('#your-container');
-await exporter.generate(); // replace with your trigger
+// Bind the default download button (optional)
+bindPdfButton();
+
+// Or trigger the export manually
+await downloadCompatibilityPDF();
 ```
+
+Optional helpers are available under `js/helpers/` if you need alternate
+approaches:
+
+- `pdfCanvasSnapshot.js` – snapshot the table via html2canvas and insert the
+  image into jsPDF.
+- `rawSurveyPdf.js` – draw rows manually using jsPDF primitives.
+- `pdfExportAdjustments.js` – legacy html2canvas exporter retained for backward
+  compatibility.
 
 ## Automated Tests
 

@@ -1,10 +1,10 @@
-// 🧠 Kink Compatibility PDF Generator using unified layout
+// 🧠 Optional manual-drawing PDF generator using unified layout
 // Partner A = "Upload Your Survey"
 // Partner B = "Upload Partner's Survey"
 // Uses shared layout builder and category renderer for consistent formatting
 
-import { buildLayout } from './compatibilityReportHelpers.js';
-import { getFlagEmoji } from './matchFlag.js';
+import { buildLayout } from '../compatibilityReportHelpers.js';
+import { getFlagEmoji } from '../matchFlag.js';
 
 // ---- Helper functions ----
 
