@@ -2,10 +2,10 @@
 
 // Determine the font color used for the match percentage
 function getFontColor(percentage) {
-  if (percentage === null || percentage === undefined) return 'black';
-  if (percentage >= 90) return 'green';
-  if (percentage >= 60) return 'yellow';
-  return 'red';
+  if (percentage === null || percentage === undefined) return [0, 0, 0];
+  if (percentage >= 90) return [0, 128, 0];
+  if (percentage >= 60) return [255, 255, 0];
+  return [255, 0, 0];
 }
 
 // Flag logic
@@ -37,7 +37,7 @@ export function drawMatchBar(
 
   // Label centered inside the bar
   doc.setFontSize(7);
-  doc.setTextColor(textColor);
+  doc.setTextColor(...textColor);
   doc.text(label, x + width / 2, y + height / 2 + 1.8, { align: 'center' });
 
   // Reset text color for subsequent drawing

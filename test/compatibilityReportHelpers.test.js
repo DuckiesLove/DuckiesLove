@@ -36,7 +36,7 @@ const fillColorCall = doc.calls.find(c => c[0] === 'setFillColor');
 assert.deepStrictEqual(fillColorCall, ['setFillColor', [255, 255, 255]]);
 
 const colorCalls = doc.calls.filter(c => c[0] === 'setTextColor');
-assert.deepStrictEqual(colorCalls[0], ['setTextColor', ['red']]);
+assert.deepStrictEqual(colorCalls[0], ['setTextColor', [255, 0, 0]]);
 assert.deepStrictEqual(colorCalls[colorCalls.length - 1], ['setTextColor', ['black']]);
 
   const textCall = doc.calls.find(c => c[0] === 'text' && c[1][0] === '50%');
