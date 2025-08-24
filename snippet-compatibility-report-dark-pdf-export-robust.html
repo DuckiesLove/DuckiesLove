@@ -211,18 +211,16 @@
     }
   }
 
-  // --- Intercept the button to stop AutoTable handlers and use PURE export ---
-  const SELECTORS = '#downloadBtn, #downloadPdfBtn, [data-download-pdf]';
+  // --- Intercept and override any old AutoTable click handlers ---
+  const SELECTORS='#downloadBtn, #downloadPdfBtn, [data-download-pdf]';
   function bindPure(){
     const btn=document.querySelector(SELECTORS);
     if(!btn) return;
-    // Remove inline onclick and capture-phase intercept to block other listeners
-    btn.onclick=null;
-    btn.addEventListener('click', function onCap(e){
-      e.stopImmediatePropagation(); // stop any previous handlers that trigger AutoTable
-      e.preventDefault();
-      exportPDF();
-    }, true); // capture phase
+    // Replace node to drop all old listeners
+    const clone=btn.cloneNode(true);
+    btn.replaceWith(clone);
+    // Capture-phase listener to block site handlers that might re-bind
+    clone.addEventListener('click', (e)=>{ e.stopImmediatePropagation(); e.preventDefault(); exportPDF(); }, true);
     console.log('[TK-PDF] Bound Download PDF (PURE, AutoTable bypassed)');
   }
 
