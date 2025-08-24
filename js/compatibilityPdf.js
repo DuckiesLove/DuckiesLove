@@ -8,8 +8,14 @@ export async function generateCompatibilityPDF(data = { categories: [] }) {
     console.log('PDF function triggered');
   }
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape' });
+  const jsPDFCtor =
+    (window.jspdf && window.jspdf.jsPDF) ||
+    (window.jsPDF && window.jsPDF.jsPDF) ||
+    window.jsPDF;
+  if (!jsPDFCtor) {
+    throw new Error('jsPDF failed to load');
+  }
+  const doc = new jsPDFCtor({ orientation: 'landscape' });
 
   const config = {
     margin: 10,
@@ -145,8 +151,14 @@ if (typeof document !== 'undefined') {
 
 export async function generateCompatibilityPDFLandscape(data) {
   const categories = Array.isArray(data) ? data : data?.categories || [];
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const jsPDFCtor =
+    (window.jspdf && window.jspdf.jsPDF) ||
+    (window.jsPDF && window.jsPDF.jsPDF) ||
+    window.jsPDF;
+  if (!jsPDFCtor) {
+    throw new Error('jsPDF failed to load');
+  }
+  const doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
