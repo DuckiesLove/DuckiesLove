@@ -22,7 +22,11 @@ function _loadScript(src) {
 }
 
 function _getJsPDF() {
-  return (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF && window.jsPDF.jsPDF);
+  return (
+    (window.jspdf && window.jspdf.jsPDF) ||
+    window.jsPDF ||
+    (window.jsPDF && window.jsPDF.jsPDF)
+  );
 }
 
 async function _ensurePdfLibs() {
@@ -107,8 +111,8 @@ export async function downloadCompatibilityPDF({
     return;
   }
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation, unit: 'pt', format });
+  const JsPDF = _getJsPDF();
+  const doc = new JsPDF({ orientation, unit: 'pt', format });
 
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
