@@ -107,7 +107,10 @@ export async function downloadCompatibilityPDF({
 
   const rows = _extractRows();
   if (!rows.length) {
-    alert('No data rows found to export.');
+    console.warn('[pdf] No data rows found to export.');
+    document
+      .querySelectorAll('#downloadBtn, #downloadPdfBtn, [data-download-pdf]')
+      .forEach(btn => _setBtnState(btn, false));
     return;
   }
 
