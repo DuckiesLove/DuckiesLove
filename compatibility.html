@@ -80,6 +80,14 @@
       background: transparent !important;
     }
   </style>
+  <style>
+    /* Force LIGHT pdf colors by default; override via body[style] if you want dark */
+    :root { --pdf-bg:#fff; --pdf-text:#000; }
+    .pdf-export, #pdfWrapper, .pdf-container {
+      background: var(--pdf-bg) !important;
+      color: var(--pdf-text) !important;
+    }
+  </style>
 </head>
 <body class="theme-dark">
   <div class="main-container themed">
@@ -538,8 +546,6 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
       const { jsPDF }=window.jspdf;
       const doc = new jsPDF({orientation:'landscape', unit:'pt', format:'a4'});
       const pageW=doc.internal.pageSize.getWidth();
-      const pageH=doc.internal.pageSize.getHeight();
-      const paint=()=>{doc.setFillColor(0,0,0);doc.rect(0,0,pageW,pageH,'F');doc.setTextColor(255,255,255);};
 
       const body=rows.map(r=>[
         clampTwoLines(r.category,catMax),
@@ -548,9 +554,9 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
         r.b!==null?String(r.b):'—'
       ]);
 
-      paint();
-      doc.setFontSize(32);
-      doc.text(title, pageW/2, 50, {align:'center'});
+      doc.setTextColor(0,0,0);
+      doc.setFontSize(28);
+      doc.text(title, pageW/2, 48, {align:'center'});
 
       runAutoTable(doc,{
         head: [['Category','Partner A','Match %','Partner B']],
@@ -560,21 +566,20 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
         styles: {
           fontSize: 12,
           cellPadding: 6,
-          textColor: [255,255,255],
-          fillColor: [0,0,0],
-          lineColor: [255,255,255],
+          textColor: [0,0,0],
+          fillColor: [255,255,255],
+          lineColor: [0,0,0],
           lineWidth: 0.25,
           overflow: 'linebreak'
         },
-        headStyles: {fontStyle:'bold', fillColor:[0,0,0], textColor:[255,255,255]},
+        headStyles: {fontStyle:'bold', fillColor:[255,255,255], textColor:[0,0,0], lineColor:[0,0,0]},
         columnStyles: {
           0:{cellWidth:520, halign:'left'  }, // Category
           1:{cellWidth: 80, halign:'center'}, // Partner A
           2:{cellWidth: 90, halign:'center'}, // Match %
           3:{cellWidth: 80, halign:'center'}  // Partner B
         },
-        tableWidth: 'wrap',
-        didDrawPage: paint
+        tableWidth: 'wrap'
       });
 
       doc.save(fname);
