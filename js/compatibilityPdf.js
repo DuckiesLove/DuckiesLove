@@ -1,5 +1,6 @@
 import { getFlagEmoji } from './matchFlag.js';
 import { buildLayout, drawMatchBar, getMatchPercentage } from './compatibilityReportHelpers.js';
+import { shortenLabel } from './labelShortener.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
 export async function generateCompatibilityPDF(data = { categories: [] }) {
@@ -22,28 +23,6 @@ export async function generateCompatibilityPDF(data = { categories: [] }) {
   const usableWidth = pageWidth - startX * 2;
 
   const layout = buildLayout(startX, usableWidth);
-
-  const shortenLabel = (label) => {
-    const map = {
-      "Choosing my partner's outfit for the day or a scene": "Choosing outfit",
-      "Selecting their underwear, lingerie or base layers": "Picking underwear",
-      "Styling their hair (braiding, brushing, tying, etc.)": "Styling hair",
-      "Picking head coverings (veils, hoods, hats)": "Headwear",
-      "Offering makeup, polish, or accessories": "Makeup/accessories",
-      "Creating themed looks (slutty, innocent, etc)": "Themed looks",
-      "Dressing them in role-specific costumes": "Roleplay outfits",
-      "Curating time-period or historical outfits": "Historical outfits",
-      "Helping them present more femme/masc": "Femme/masc styling",
-      "Coordinating their look with mine": "Matching outfits",
-      "Implementing a 'dress ritual' or aesthetic preparation": "Dress ritual",
-      "Enforcing a visual protocol (e.g. no bra, pigtails)": "Visual protocol",
-      "Having my outfit selected for me by partner": "Partner-picked outfit",
-      "Wearing chosen lingerie/underwear": "Chosen lingerie",
-      "Having my hair brushed, braided, styled": "Hair styled by partner"
-    };
-    if (!label) return '';
-    return map[label] || label.slice(0, 40);
-  };
 
   const drawBackground = () => {
     // Use a white page background with black text to avoid solid black exports
