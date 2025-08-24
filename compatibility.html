@@ -989,9 +989,15 @@ Permanent Codex version
     const btn = document.querySelector('#downloadBtn')
             || document.querySelector('#downloadPdfBtn')
             || document.querySelector('[data-download-pdf]');
-    if (btn) {
-      btn.removeEventListener('click', downloadDarkCompatibilityPDF);
-      btn.addEventListener('click', (e) => { e.preventDefault(); downloadDarkCompatibilityPDF(); });
+    if (btn && !btn.dataset.tkPdfBound) {
+      // remove any inline handler and intercept clicks before other listeners fire
+      btn.onclick = null;
+      btn.addEventListener('click', (e) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        downloadDarkCompatibilityPDF();
+      }, true); // capture phase to block previous handlers
+      btn.dataset.tkPdfBound = 'true';
       console.log('[TK-PDF] Bound Download PDF');
     }
     // optional: remove any "Run Export (manual)" control
