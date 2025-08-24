@@ -210,15 +210,18 @@ export function bindPdfButton() {
   const btn = BTN_SELECTORS.map(sel => document.querySelector(sel)).find(Boolean);
   if (!btn || btn.hasAttribute(BOUND_ATTR)) return;
 
+  // Clear any inline onclick and intercept early to block previous handlers
+  btn.onclick = null;
   btn.addEventListener('click', ev => {
+    ev.stopImmediatePropagation();
+    ev.preventDefault();
     const ready = btn.getAttribute(READY_ATTR) === 'true';
     if (!ready) {
-      ev.preventDefault();
       console.warn('[pdf] Not ready: load both surveys before exporting.');
       return;
     }
     downloadCompatibilityPDF();
-  });
+  }, true);
 
   btn.setAttribute(BOUND_ATTR, 'true');
 
