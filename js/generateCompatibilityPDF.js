@@ -1,29 +1,5 @@
 import { renderCategorySection, buildLayout } from './compatibilityReportHelpers.js';
-
-// Shortened label lookup for verbose subcategory names
-const shortLabels = {
-  "Choosing my partner's outfit for the day or a scene": 'Choosing outfit',
-  "Selecting their underwear, lingerie or base layers": 'Picking underwear',
-  "Styling their hair (braiding, brushing, tying, etc.)": 'Styling hair',
-  "Picking head coverings (veils, hoods, hats)": 'Headwear',
-  "Offering makeup, polish, or accessories": 'Makeup/accessories',
-  "Creating themed looks (slutty, innocent, etc)": 'Themed looks',
-  "Dressing them in role-specific costumes": 'Roleplay outfits',
-  "Curating time-period or historical outfits": 'Historical outfits',
-  "Helping them present more femme/masc": 'Femme/masc styling',
-  "Coordinating their look with mine": 'Matching outfits',
-  "Implementing a 'dress ritual' or aesthetic preparation": 'Dress ritual',
-  "Enforcing a visual protocol (e.g. no bra, pigtails)": 'Visual protocol',
-  "Having my outfit selected for me by partner": 'Partner-picked outfit',
-  "Wearing chosen lingerie/underwear": 'Chosen lingerie',
-  "Having my hair brushed, braided, styled": 'Hair styled by partner'
-};
-
-// Subcategory label shortening (1–4 words)
-function shortenLabel(text = '') {
-  if (shortLabels[text]) return shortLabels[text];
-  return text.split(/\s+/).slice(0, 4).join(' ');
-}
+import { shortenLabel } from './labelShortener.js';
 
 // Default PDF layout settings
 const defaultPdfStyles = {
