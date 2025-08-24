@@ -171,7 +171,7 @@ function plan(width, height){
 
 async function renderTile(root, width, sliceCssHeight, yOffset, scale, html2canvasFn){
   return await html2canvasFn(root, {
-    backgroundColor:'#000',
+    backgroundColor:'#ffffff',
     scale,
     useCORS:true,
     allowTaint:true,
@@ -221,12 +221,12 @@ export async function downloadCompatibilityPDF(){
 
     if (slices <= 1){
       const canvas = await html2canvasFn(clone, {
-        backgroundColor:'#000', scale, useCORS:true, allowTaint:true,
+        backgroundColor:'#ffffff', scale, useCORS:true, allowTaint:true,
         scrollX:0, scrollY:0, windowWidth:width
       });
-      const img = canvas.toDataURL('image/jpeg', 0.92);
+      const img = canvas.toDataURL('image/png');
       const ratio = canvas.height / canvas.width;
-      pdf.addImage(img, 'JPEG', 0, 0, pageW, pageW * ratio, undefined, 'FAST');
+      pdf.addImage(img, 'PNG', 0, 0, pageW, pageW * ratio);
     } else {
       const cssSliceH = Math.ceil(targetSlicePx / scale);
       let y = 0;
@@ -234,10 +234,10 @@ export async function downloadCompatibilityPDF(){
         const remaining = height - y;
         const sliceH = Math.min(cssSliceH, remaining);
         const canvas = await renderTile(clone, width, sliceH, y, scale, html2canvasFn);
-        const img = canvas.toDataURL('image/jpeg', 0.9);
+        const img = canvas.toDataURL('image/png');
         const ratio = canvas.height / canvas.width;
         if (i>0) pdf.addPage();
-        pdf.addImage(img, 'JPEG', 0, 0, pageW, pageW * ratio, undefined, 'FAST');
+        pdf.addImage(img, 'PNG', 0, 0, pageW, pageW * ratio);
         y += sliceH;
       }
     }
