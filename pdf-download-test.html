@@ -101,7 +101,9 @@ async function setupPDFExport() {
       headStyles: {
         fillColor: [0, 0, 0],
         textColor: [255, 255, 255],
-        fontStyle: "bold"
+        fontStyle: "bold",
+        lineColor: [255, 255, 255],   // white header borders
+        lineWidth: 0.5
       },
       columnStyles: {
         0: { cellWidth: 420, halign: "left" },
