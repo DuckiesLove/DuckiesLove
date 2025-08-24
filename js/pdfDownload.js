@@ -159,12 +159,65 @@ export async function downloadCompatibilityPDF({
 }
 
 // --- Bind your existing Download button (optional auto-bind) ---
+const BTN_SELECTORS = ['#downloadBtn', '#downloadPdfBtn', '[data-download-pdf]'];
+const READY_ATTR = 'data-pdf-ready';
+const BOUND_ATTR = 'data-pdf-bound';
+
+const _isNum = s => Number.isFinite(Number(String(s || '').trim()));
+
+function _countPartnerCells(){
+  const rows = document.querySelectorAll(
+    '#compatibilityTable tbody tr, table.results-table.compat tbody tr, table tbody tr'
+  );
+  let aCount = 0, bCount = 0;
+  rows.forEach(tr => {
+    const aCell = tr.querySelector('td[data-cell="A"]');
+    const bCell = tr.querySelector('td[data-cell="B"]');
+    const tds = tr.querySelectorAll('td');
+    const aVal = aCell ? aCell.textContent : tds[1]?.textContent;
+    const bVal = bCell ? bCell.textContent : tds[tds.length - 1]?.textContent;
+    if (_isNum(aVal)) aCount++;
+    if (_isNum(bVal)) bCount++;
+  });
+  return { aCount, bCount };
+}
+
+function _setBtnState(btn, ready){
+  btn.toggleAttribute('disabled', !ready);
+  btn.setAttribute(READY_ATTR, ready ? 'true' : 'false');
+  btn.setAttribute('aria-disabled', String(!ready));
+  btn.title = ready ? 'Download PDF' : 'Load both surveys to enable';
+}
+
 export function bindPdfButton() {
-  const btn = document.querySelector('#downloadBtn') ||
-              document.querySelector('#downloadPdfBtn') ||
-              document.querySelector('[data-download-pdf]');
-  if (!btn) return;
-  btn.addEventListener('click', () => downloadCompatibilityPDF());
+  const btn = BTN_SELECTORS.map(sel => document.querySelector(sel)).find(Boolean);
+  if (!btn || btn.hasAttribute(BOUND_ATTR)) return;
+
+  btn.addEventListener('click', ev => {
+    const ready = btn.getAttribute(READY_ATTR) === 'true';
+    if (!ready) {
+      ev.preventDefault();
+      console.warn('[pdf] Not ready: load both surveys before exporting.');
+      return;
+    }
+    downloadCompatibilityPDF();
+  });
+
+  btn.setAttribute(BOUND_ATTR, 'true');
+
+  let pollTimer = null;
+  const checkAndUpdate = () => {
+    const { aCount, bCount } = _countPartnerCells();
+    const ready = aCount > 0 && bCount > 0 && aCount === bCount;
+    _setBtnState(btn, ready);
+  };
+
+  const mo = new MutationObserver(() => {
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(checkAndUpdate, 150);
+  });
+  mo.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  checkAndUpdate();
 }
 
 // Expose for non-module usage
