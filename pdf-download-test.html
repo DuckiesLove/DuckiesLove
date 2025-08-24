@@ -14,14 +14,30 @@
     <table>
       <thead>
         <tr>
-          <th>Column 1</th>
-          <th>Column 2</th>
+          <th>Category</th>
+          <th>Partner A</th>
+          <th>Match %</th>
+          <th>Partner B</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>Cell 1</td>
-          <td>Cell 2</td>
+          <td>Appearance Play</td>
+          <td>5</td>
+          <td>100%</td>
+          <td>5</td>
+        </tr>
+        <tr>
+          <td>Choosing my partner’s outfit for the day</td>
+          <td>5</td>
+          <td>100%</td>
+          <td>5</td>
+        </tr>
+        <tr>
+          <td>Selecting underwear/lingerie</td>
+          <td>1</td>
+          <td>80%</td>
+          <td>0</td>
         </tr>
       </tbody>
     </table>
@@ -42,39 +58,65 @@ async function setupPDFExport() {
   await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
   await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js");
 
-  const { jsPDF } = window.jspdf;
+  async function downloadDarkPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
 
-  function generatePDF() {
-    const doc = new jsPDF("p", "pt", "a4");
-    doc.setFontSize(16);
-    doc.text("Talk Kink • Compatibility Report", 40, 40);
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
 
-    // Build headers + body manually to avoid duplication
-    const headers = [];
-    const headCells = document.querySelectorAll("table thead tr th");
-    headCells.forEach(th => headers.push(th.textContent.trim()));
+    // Paint the whole page black
+    const paintPage = () => {
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageW, pageH, 'F');
+      doc.setTextColor(255, 255, 255);
+    };
 
-    const body = [];
-    document.querySelectorAll("table tbody tr").forEach(row => {
-      const rowData = [];
-      row.querySelectorAll("td").forEach(td => rowData.push(td.textContent.trim()));
-      body.push(rowData);
-    });
+    paintPage();
 
+    // Title
+    doc.setFontSize(28);
+    doc.text("Talk Kink • Compatibility Report", pageW / 2, 40, { align: "center" });
+
+    // Example table body
+    const body = [
+      ["Appearance Play", "5", "100%", "5"],
+      ["Choosing my partner’s outfit for the day", "5", "100%", "5"],
+      ["Selecting underwear/lingerie", "1", "80%", "0"]
+    ];
+
+    // Draw table
     doc.autoTable({
-      head: [headers],
-      body: body,
+      head: [["Category", "Partner A", "Match %", "Partner B"]],
+      body,
       startY: 60,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 5 },
-      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] }
+      styles: {
+        fontSize: 11,
+        cellPadding: 6,
+        textColor: [255, 255, 255],
+        fillColor: [0, 0, 0],
+        lineColor: [255, 255, 255],
+        lineWidth: 0.25
+      },
+      headStyles: {
+        fillColor: [0, 0, 0],
+        textColor: [255, 255, 255],
+        fontStyle: "bold"
+      },
+      columnStyles: {
+        0: { cellWidth: 420, halign: "left" },
+        1: { cellWidth: 80, halign: "center" },
+        2: { cellWidth: 90, halign: "center" },
+        3: { cellWidth: 80, halign: "center" }
+      },
+      didDrawPage: paintPage
     });
 
-    doc.save("compatibility_report.pdf");
+    doc.save("compatibility-dark.pdf");
   }
 
   const btn = document.querySelector("#downloadBtn, #downloadPdfBtn, [data-download-pdf]");
-  if (btn) btn.addEventListener("click", generatePDF);
+  if (btn) btn.addEventListener("click", downloadDarkPDF);
   else console.warn("No download button found.");
 }
 
