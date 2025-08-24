@@ -31,15 +31,21 @@ function _getJsPDF() {
 
 async function _ensurePdfLibs() {
   if (!_getJsPDF()) {
-    try { await _loadScript('/lib/jspdf.umd.min.js'); }
-    catch { await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
+    try { await _loadScript('/js/vendor/jspdf.umd.min.js'); }
+    catch {
+      try { await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
+      catch { /* ignore */ }
+    }
   }
   const hasAT =
     (window.jspdf && window.jspdf.autoTable) ||
     (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
   if (!hasAT) {
-    try { await _loadScript('/lib/jspdf.plugin.autotable.min.js'); }
-    catch { await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js'); }
+    try { await _loadScript('/js/vendor/jspdf.plugin.autotable.min.js'); }
+    catch {
+      try { await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js'); }
+      catch { /* ignore missing AutoTable */ }
+    }
   }
   if (!_getJsPDF()) throw new Error('jsPDF failed to load.');
 }
@@ -136,7 +142,62 @@ export async function downloadCompatibilityPDF({
   const runAutoTable = (opts) => {
     if (typeof doc.autoTable === 'function') return doc.autoTable(opts);
     if (window.jspdf && typeof window.jspdf.autoTable === 'function') return window.jspdf.autoTable(doc, opts);
-    throw new Error('jsPDF-AutoTable not available');
+
+    // Fallback: simple manual table drawing when AutoTable is unavailable
+    const { head, body, startY = 0, margin = {}, styles = {}, headStyles = {}, columnStyles = {}, tableLineColor = [0,0,0], tableLineWidth = 0.2, didDrawPage } = opts;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const top = margin.top || startY;
+    const left = margin.left || 0;
+    const bottom = margin.bottom || 0;
+    const pad = styles.cellPadding || 6;
+    const fontSize = styles.fontSize || 12;
+    const lineH = fontSize * 1.15;
+    const widths = head[0].map((_, i) => columnStyles[i]?.cellWidth || (pageW - left - (margin.right || 0)) / head[0].length);
+    const aligns = head[0].map((_, i) => columnStyles[i]?.halign || 'left');
+    let y = top;
+
+    function drawRow(cells, isHead){
+      let rowH = pad * 2;
+      const lines = cells.map(txt => {
+        const arr = String(txt).split('\n');
+        rowH = Math.max(rowH, pad * 2 + arr.length * lineH);
+        return arr;
+      });
+      if (y + rowH > pageH - bottom) {
+        doc.addPage();
+        if (typeof didDrawPage === 'function') didDrawPage(doc);
+        y = top;
+        if (!isHead) drawRow(head[0], true);
+      }
+      let x = left;
+      for (let i = 0; i < cells.length; i++) {
+        const w = widths[i];
+        doc.setDrawColor(...tableLineColor);
+        doc.setLineWidth(tableLineWidth);
+        const fill = isHead ? (headStyles.fillColor || styles.fillColor) : styles.fillColor;
+        const textCol = isHead ? (headStyles.textColor || styles.textColor) : styles.textColor;
+        if (fill) doc.setFillColor(...fill);
+        doc.rect(x, y, w, rowH, fill ? 'FD' : 'S');
+        if (textCol) doc.setTextColor(...textCol);
+        doc.setFontSize(fontSize);
+        const halign = aligns[i];
+        lines[i].forEach((line, idx) => {
+          let tx = x + pad;
+          if (halign === 'center') tx = x + w / 2;
+          else if (halign === 'right') tx = x + w - pad;
+          const ty = y + pad + lineH * (idx + 0.75);
+          const opt = {};
+          if (halign !== 'left') opt.align = halign;
+          doc.text(String(line), tx, ty, opt);
+        });
+        x += w;
+      }
+      y += rowH;
+    }
+
+    drawRow(head[0], true);
+    body.forEach(r => drawRow(r, false));
   };
 
   runAutoTable({
