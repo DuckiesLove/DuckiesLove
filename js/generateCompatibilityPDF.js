@@ -32,8 +32,14 @@ export function generateCompatibilityPDF(compatibilityData, styleOptions = {}) {
     ? compatibilityData
     : compatibilityData?.categories || [];
   const history = Array.isArray(compatibilityData) ? [] : compatibilityData?.history || [];
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const jsPDFCtor =
+    (window.jspdf && window.jspdf.jsPDF) ||
+    (window.jsPDF && window.jsPDF.jsPDF) ||
+    window.jsPDF;
+  if (!jsPDFCtor) {
+    throw new Error('jsPDF failed to load');
+  }
+  const doc = new jsPDFCtor({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
