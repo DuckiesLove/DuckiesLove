@@ -554,7 +554,7 @@ async function exportPNG() {
   const element = document.getElementById('pdf-container');
   if (!element) return;
   const canvas = await html2canvas(element, {
-    backgroundColor: '#000000',
+    backgroundColor: '#fff',
     scale: 2,
     useCORS: true
   });

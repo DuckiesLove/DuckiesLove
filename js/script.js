@@ -880,66 +880,14 @@ if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);
 
 function downloadPDF() {
   document.body.classList.add('exporting');
-  const current = localStorage.getItem('theme') || 'dark';
-  applyPrintStyles(current);
-
-  const element = document.getElementById('export-target') || document.getElementById('surveyContainer');
-  if (!element) return;
-  window.scrollTo(0, 0);
-  element.style.paddingBottom = '100px';
-
-  // Inject minimal styles to ensure full-width dark export
-  const style = document.createElement('style');
-  style.textContent = `
-    .pdf-wrapper {
-      background: #000 !important;
-      color: #fff !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      width: 100vw;
-      min-height: 100vh;
-      box-sizing: border-box;
-    }
-
-    html, body {
-      margin: 0 !important;
-      padding: 0 !important;
-      background: #000 !important;
-    }
-
-    * {
-      box-sizing: border-box !important;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-  `;
-  document.head.appendChild(style);
-
-  element.classList.add('pdf-wrapper');
-
-  const opt = {
-    margin: 40,
-    filename: 'kink-compatibility-results.pdf',
-    image: { type: 'jpeg', quality: 1 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#000',
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight
-    },
-    jsPDF: {
-      unit: 'px',
-      format: 'a4',
-      orientation: 'portrait',
-    },
-  };
-
-  html2pdf().set(opt).from(element).save().then(() => {
+  if (typeof window.downloadCompatibilityPDF === 'function') {
+    window.downloadCompatibilityPDF().finally(() => {
+      document.body.classList.remove('exporting');
+    });
+  } else {
+    console.error('downloadCompatibilityPDF not available');
     document.body.classList.remove('exporting');
-  });
+  }
 }
 
 

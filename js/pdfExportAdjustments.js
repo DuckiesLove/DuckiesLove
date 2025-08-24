@@ -1,3 +1,4 @@
+// Legacy html2canvas-based exporter. Prefer using downloadCompatibilityPDF from pdfDownload.js.
 export class CompatibilityPDFExporter {
   constructor(containerSelector = '#pdf-container, #compat-container') {
     this.containerSelector = containerSelector;
@@ -223,7 +224,7 @@ export class CompatibilityPDFExporter {
 
     try {
       const canvas = await html2canvas(clone, {
-        backgroundColor: '#000',
+        backgroundColor: '#fff',
         scale: 2,
         useCORS: true,
         scrollX: 0,
@@ -231,9 +232,9 @@ export class CompatibilityPDFExporter {
         windowWidth: cssWidth,
         windowHeight: Math.ceil(clone.getBoundingClientRect().height)
       });
-      const img = canvas.toDataURL('image/jpeg', 0.95);
+      const img = canvas.toDataURL('image/png');
       const ratio = canvas.height / canvas.width;
-      pdf.addImage(img, 'JPEG', 0, 0, pdfW, pdfW * ratio, undefined, 'FAST');
+      pdf.addImage(img, 'PNG', 0, 0, pdfW, pdfW * ratio, undefined, 'FAST');
       pdf.save('kink-compatibility.pdf');
     } finally {
       document.body.removeChild(clone);

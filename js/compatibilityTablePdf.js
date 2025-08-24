@@ -95,9 +95,9 @@
     const BODY_FS = 12;
     const CAT_FS  = 16;
 
-    // black page
-    doc.setFillColor(0,0,0); doc.rect(0,0,W,H,"F");
-    doc.setTextColor(255,255,255);
+    // light page background
+    doc.setFillColor(255,255,255); doc.rect(0,0,W,H,'F');
+    doc.setTextColor(0,0,0);
     doc.setFontSize(28);
     doc.text("Talk Kink • Compatibility Report", W/2, 42, {align:"center"});
 
@@ -114,14 +114,14 @@
         cellPadding: 8,
         halign: "center",
         valign: "middle",
-        textColor: [255,255,255],
-        fillColor: [0,0,0],
+        textColor: [0,0,0],
+        fillColor: [255,255,255],
       },
       headStyles: {
         fontSize: 14,
         fontStyle: "bold",
-        textColor: [255,255,255],
-        fillColor: [0,0,0],
+        textColor: [0,0,0],
+        fillColor: [255,255,255],
         halign: "center",
       },
       columnStyles: {
@@ -132,10 +132,6 @@
         4: { cellWidth: wB,     halign: "center"},
       },
       didParseCell: data => {
-        // enforce black fill & white text everywhere
-        data.cell.styles.fillColor = [0,0,0];
-        data.cell.styles.textColor = [255,255,255];
-
         // clamp Category to TWO lines, larger font
         if(data.section==="body" && data.column.index===0){
           const clean = tidy(Array.isArray(data.cell.text)?data.cell.text.join(" "):data.cell.text);
@@ -145,11 +141,6 @@
           data.cell.styles.fontSize = CAT_FS;
           data.cell.styles.lineHeight = 1.18;
         }
-      },
-      willDrawCell: (data) => {
-        const c = data.cell;
-        data.doc.setFillColor(0,0,0);
-        data.doc.rect(c.x, c.y, c.width, c.height, "F");
       },
       // prevent AutoTable from auto-squeezing widths (keeps alignment)
       horizontalPageBreak: true

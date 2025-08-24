@@ -86,8 +86,8 @@ function drawCategorySection(title, items, layout, startY, doc, theme) {
 
 export function generateCompatibilityPDF(partnerAData, partnerBData, doc, theme = {}) {
   const {
-    bgColor = '#000000',
-    textColor = '#ffffff',
+    bgColor = '#ffffff',
+    textColor = '#000000',
     barFillColor = '#000000',
     barTextColor = '#ffffff',
     font = 'helvetica'
