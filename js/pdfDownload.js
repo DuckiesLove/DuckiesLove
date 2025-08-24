@@ -1,6 +1,6 @@
-// --- DROP-IN FIX: stop using html2canvas (the cause of the black PDF) ---
+// --- DROP-IN FIX: stop using html2canvas (the cause of earlier black PDFs) ---
 // This generates the PDF directly with jsPDF + AutoTable from your DOM data.
-// Default is LIGHT PDF (white background, black text). No solid black fills.
+// Output uses a DARK theme: black pages, white text, white table borders.
 
 // USAGE:
 // 1) Include this file after your table is rendered.
@@ -93,7 +93,7 @@ function _extractRows() {
   });
 }
 
-// --- Main export (no canvas, no black page) ---
+  // --- Main export (dark pages rendered via jsPDF/AutoTable) ---
 export async function downloadCompatibilityPDF({
   filename = 'compatibility-report.pdf',
   orientation = 'landscape',
@@ -110,16 +110,22 @@ export async function downloadCompatibilityPDF({
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation, unit: 'pt', format });
 
-  // LIGHT THEME by default: white background, black text
-  // (Do NOT paint a full-page black rect.)
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+
+  const paintPage = () => {
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    doc.setTextColor(255, 255, 255);
+  };
+
+  paintPage();
 
   // Title
-  doc.setTextColor(0, 0, 0);
   doc.setFontSize(28);
   doc.text('Talk Kink • Compatibility Report', pageW / 2, 48, { align: 'center' });
 
-  // AutoTable (vector text; no rasterization; no black overlay)
+  // AutoTable (vector text; repaint each page background)
   const runAutoTable = (opts) => {
     if (typeof doc.autoTable === 'function') return doc.autoTable(opts);
     if (window.jspdf && typeof window.jspdf.autoTable === 'function') return window.jspdf.autoTable(doc, opts);
@@ -134,17 +140,18 @@ export async function downloadCompatibilityPDF({
     styles: {
       fontSize: 12,
       cellPadding: 6,
-      textColor: [0, 0, 0],
-      fillColor: [255, 255, 255],
-      lineColor: [0, 0, 0],
+      textColor: [255, 255, 255],
+      fillColor: [0, 0, 0],
+      lineColor: [255, 255, 255],
       lineWidth: 0.25,
       overflow: 'linebreak'
     },
     headStyles: {
       fontStyle: 'bold',
-      fillColor: [255, 255, 255],
-      textColor: [0, 0, 0],
-      lineColor: [0, 0, 0]
+      fillColor: [0, 0, 0],
+      textColor: [255, 255, 255],
+      lineColor: [255, 255, 255],
+      lineWidth: 0.5
     },
     columnStyles: {
       0: { cellWidth: 520, halign: 'left'   }, // Category
@@ -152,6 +159,9 @@ export async function downloadCompatibilityPDF({
       2: { cellWidth:  90, halign: 'center' }, // Match %
       3: { cellWidth:  80, halign: 'center' }  // Partner B
     },
+    tableLineColor: [255, 255, 255],
+    tableLineWidth: 0.5,
+    didDrawPage: paintPage,
     tableWidth: 'wrap'
   });
 
