@@ -151,6 +151,7 @@ function loadSavedSurvey() {
     mergeSurveyWithTemplate(surveyA, window.templateSurvey);
     normalizeRatings(surveyA);
     filterGeneralOptions(surveyA);
+    updateComparison();
   } catch (err) {
     console.warn('Failed to parse saved survey:', err);
   }
@@ -627,4 +628,5 @@ function exportJSON() {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadSavedSurvey();
+  updateComparison();
 });
