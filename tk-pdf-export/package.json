@@ -1,0 +1,9 @@
+{
+  "name": "tk-pdf-export",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "jspdf": "^2.5.1",
+    "jsdom": "^24.0.0"
+  }
+}
