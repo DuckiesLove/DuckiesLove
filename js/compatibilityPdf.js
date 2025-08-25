@@ -135,7 +135,14 @@ if (typeof document !== 'undefined') {
   const attachHandler = () => {
     const button = document.getElementById('downloadPdfBtn');
     if (button) {
-      button.addEventListener('click', () => generateCompatibilityPDF(window.compatibilityData));
+      button.addEventListener('click', async () => {
+        try {
+          if (typeof window.showSpinner === 'function') window.showSpinner();
+          await generateCompatibilityPDF(window.compatibilityData);
+        } finally {
+          if (typeof window.hideSpinner === 'function') window.hideSpinner();
+        }
+      });
     } else {
       console.error('Download button not found');
     }

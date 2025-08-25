@@ -20,6 +20,21 @@ const RATING_LABELS = {
   5: 'Love / Core Interest'
 };
 
+function showSpinner() {
+  const overlay = document.querySelector('.loading-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function hideSpinner() {
+  const overlay = document.querySelector('.loading-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+if (typeof window !== 'undefined') {
+  window.showSpinner = showSpinner;
+  window.hideSpinner = hideSpinner;
+}
+
 // ----- Compatibility history helpers -----
 function loadHistory() {
   try {
@@ -287,6 +302,7 @@ function buildKinkBreakdown(surveyA, surveyB = {}) {
 
 function loadFileA(file) {
   if (!file) return;
+  showSpinner();
   const reader = new FileReader();
   reader.onload = ev => {
     try {
@@ -300,8 +316,11 @@ function loadFileA(file) {
     } catch (err) {
       console.warn('Failed to load Survey A:', err);
       alert('Invalid JSON for Survey A.\nPlease upload the unmodified JSON file exported from this site.');
+    } finally {
+      hideSpinner();
     }
   };
+  reader.onerror = () => hideSpinner();
   reader.readAsText(file);
 }
 
@@ -310,6 +329,7 @@ function loadFileB(file) {
   if (!confirm('Have you reviewed consent with your partner?')) {
     return;
   }
+  showSpinner();
   const reader = new FileReader();
   reader.onload = ev => {
     try {
@@ -323,8 +343,11 @@ function loadFileB(file) {
     } catch (err) {
       console.warn('Failed to load Survey B:', err);
       alert('Invalid JSON for Survey B.\nPlease upload the unmodified JSON file exported from this site.');
+    } finally {
+      hideSpinner();
     }
   };
+  reader.onerror = () => hideSpinner();
   reader.readAsText(file);
 }
 
@@ -553,15 +576,20 @@ function downloadBlob(blob, filename) {
 async function exportPNG() {
   const element = document.getElementById('pdf-container');
   if (!element) return;
-  const canvas = await html2canvas(element, {
-    backgroundColor: '#fff',
-    scale: 2,
-    useCORS: true
-  });
-  const link = document.createElement('a');
-  link.download = 'kink-survey.png';
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+  showSpinner();
+  try {
+    const canvas = await html2canvas(element, {
+      backgroundColor: '#fff',
+      scale: 2,
+      useCORS: true
+    });
+    const link = document.createElement('a');
+    link.download = 'kink-survey.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } finally {
+    hideSpinner();
+  }
 }
 
 function exportHTML() {
