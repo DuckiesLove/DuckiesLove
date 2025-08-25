@@ -326,6 +326,9 @@ app.use((req, res, next) => {
     '/debug',
     '/check-session',
     '/favicon.ico',
+    '/compatibility.html',
+    '/css/',
+    '/js/',
   ];
   if (req.url === '/' || req.url === '/index.html') {
     return next();
