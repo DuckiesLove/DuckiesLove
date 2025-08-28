@@ -30,6 +30,9 @@ async function ensureLibs() {
     try { await loadScript('/lib/jspdf.umd.min.js'); }
     catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
   }
+  if (window.jspdf && window.jspdf.jsPDF) {
+    window.jsPDF = window.jspdf.jsPDF; // expose for plugins
+  }
   if (!getJsPDF()) throw new Error('jsPDF failed to load.');
 }
 

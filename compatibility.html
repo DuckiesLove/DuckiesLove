@@ -450,16 +450,16 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
   const FILE  = "compatibility-dark.pdf";
 
   const JSPDF_CDNS = [
+    "/js/vendor/jspdf.umd.min.js",
     "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
     "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
-    "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js",
-    "/js/vendor/jspdf.umd.min.js"
+    "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"
   ];
   const AT_CDNS = [
+    "/js/vendor/jspdf.plugin.autotable.min.js",
     "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js",
     "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js",
-    "https://unpkg.com/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js",
-    "/js/vendor/jspdf.plugin.autotable.min.js"
+    "https://unpkg.com/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"
   ];
 
   // small on-page logger (minimally invasive)
@@ -507,12 +507,18 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
   }
 
   async function ensureJsPDF(){
-    if (window.jspdf && window.jspdf.jsPDF) return;
+    if (window.jspdf && window.jspdf.jsPDF) {
+      window.jsPDF = window.jspdf.jsPDF; // expose for plugins
+      return;
+    }
     for (const u of JSPDF_CDNS){
       try {
         await loadScript(u);
         for (let i=0;i<40;i++){
-          if (window.jspdf && window.jspdf.jsPDF) return;
+          if (window.jspdf && window.jspdf.jsPDF) {
+            window.jsPDF = window.jspdf.jsPDF; // expose for plugins
+            return;
+          }
           await new Promise(r=>setTimeout(r,50));
         }
       } catch (e){ log(e.message); }
