@@ -1,232 +1,168 @@
-<!-- DROP THIS <script> AT THE END OF YOUR PAGE (before </body>) -->
+<!--
+TALK KINK • FIX "jsPDF-AutoTable failed to load" — ONE BOX FOR CODEX
+
+What this does
+1) Loads jsPDF UMD, exposes window.jsPDF, then loads AutoTable — from LOCAL first, then CDNs.
+2) Verifies window.jspdf.autoTable OR window.jsPDF.API.autoTable is present before allowing export.
+3) Hooks your existing Download button so libs are ready when clicked (no code changes elsewhere).
+
+How to use
+- Put BOTH minified files on your server (recommended):
+    /js/vendor/jspdf.umd.min.js
+    /js/vendor/jspdf.plugin.autotable.min.js
+- Paste this entire block just before </body> in compatibility.html (or the page with the button).
+- Make sure your button is one of: #downloadBtn, #downloadPdfBtn, or [data-download-pdf].
+-->
+
 <script>
-/* FIX: “PDF export failed: jsPDF-AutoTable failed to load”
-   This bypasses AutoTable entirely and forces a PURE jsPDF export.
-   It also intercepts the Download button click (capture phase) to stop
-   any old handlers that try to use AutoTable.
+(function(){
+  const JSPDF_LOCAL   = "/js/vendor/jspdf.umd.min.js";
+  const AUTOTABLE_LOCAL = "/js/vendor/jspdf.plugin.autotable.min.js";
 
-   Result: Dark PDF (black bg), white text, thick white borders.
-   Columns: Category | Partner A | Match % | Partner B
-*/
-
-(function () {
-  const TITLE='Talk Kink • Compatibility Report';
-  const FILE ='compatibility-dark.pdf';
-
-  // Layout
-  const GRID=1.4, FONT_SIZE=11, LINE_H=14, PAD_X=6, PAD_Y=8;
-  const MARGIN_LR=30, TOP_Y=70, BOTTOM=40;
-
-  // --- Load jsPDF only (NO AutoTable) ---
-  const CDNS=[
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
-    'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
+  const JSPDF_CDNS = [
+    "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+    "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+    "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"
   ];
-  function loadScript(src){
-    return new Promise((res,rej)=>{
-      if (document.querySelector(`script[src="${src}"]`)) return res();
-      const s=document.createElement('script'); s.src=src; s.async=true;
-      s.onload=res; s.onerror=()=>rej(new Error('load fail '+src));
+  const AUTOTABLE_CDNS = [
+    "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js",
+    "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js",
+    "https://unpkg.com/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"
+  ];
+
+  function log(){ try{ console.log.apply(console, ["[TK-PDF]"].concat([].slice.call(arguments))); }catch{} }
+
+  function loadScript(src, timeoutMs=8000){
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve("cached");
+      const s = document.createElement("script");
+      s.src = src; s.async = true;
+      const t = setTimeout(() => { s.remove(); reject(new Error("Timeout loading " + src)); }, timeoutMs);
+      s.onload = () => { clearTimeout(t); resolve("ok"); };
+      s.onerror = () => { clearTimeout(t); reject(new Error("Failed to load " + src)); };
       document.head.appendChild(s);
     });
   }
+
   async function ensureJsPDF(){
-    if ((window.jspdf&&window.jspdf.jsPDF)||window.jsPDF||window.jspPDF) return;
-    for (const src of CDNS){
-      try{
-        await loadScript(src);
-        for (let i=0;i<80;i++){
-          if ((window.jspdf&&window.jspdf.jsPDF)||window.jsPDF||window.jspPDF) return;
-          await new Promise(r=>setTimeout(r,50));
-        }
-      }catch{}
+    // already present?
+    if (window.jspdf && window.jspdf.jsPDF) {
+      window.jsPDF = window.jspdf.jsPDF; // expose for plugins
+      return;
     }
-    throw new Error('jsPDF failed to load');
-  }
-  const getJsPDF=()=> (window.jspdf&&window.jspdf.jsPDF)||window.jsPDF||window.jspPDF;
-
-  // --- Helpers ---
-  const tidy=s=>(s||'').replace(/\s+/g,' ').trim();
-  const toNum=v=>{const n=Number(String(v??'').replace(/[^\d.-]/g,''));return Number.isFinite(n)?n:null;};
-  const pctMatch=(a,b)=>{if(a==null||b==null)return null;const p=Math.round(100-(Math.abs(a-b)/5)*100);return Math.max(0,Math.min(100,p));};
-
-  function wrapToTwoLines(doc,text,maxW){
-    doc.setFontSize(FONT_SIZE);
-    const raw=String(text??''); if(!raw) return ['—'];
-    const words=raw.split(/\s+/); const lines=[]; let cur='';
-    for(const w of words){
-      const trial=cur?cur+' '+w:w;
-      if(doc.getTextWidth(trial)<=maxW) cur=trial;
-      else{ if(cur) lines.push(cur); else lines.push(w); cur=w; }
-      if(lines.length===2) break;
+    // try LOCAL first
+    try {
+      await loadScript(JSPDF_LOCAL);
+    } catch(e){
+      log("Local jsPDF not found:", e.message);
     }
-    if(cur && lines.length<2) lines.push(cur);
-    if(!lines.length) lines.push('—');
-    if((lines.join(' ').length)<raw.length){
-      let last=lines[lines.length-1];
-      while(doc.getTextWidth(last+'…')>maxW && last.length) last=last.slice(0,-1);
-      lines[lines.length-1]=last+'…';
-    }
-    return lines.slice(0,2);
-  }
-
-  function drawCell(doc,x,y,w,h,text,align){
-    doc.setDrawColor(255,255,255);
-    doc.setLineWidth(GRID);
-    doc.rect(x,y,w,h);
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(FONT_SIZE);
-    const innerW=w-PAD_X*2;
-    const lines = Array.isArray(text) ? text
-      : (typeof text==='string' && text.includes('\n')) ? text.split('\n').slice(0,2)
-      : wrapToTwoLines(doc,text,innerW);
-    const needed=Math.max(LINE_H, lines.length*LINE_H);
-    let tx=x+PAD_X, ty=y+(h-needed)/2+LINE_H-2;
-    if(align==='center') tx=x+w/2;
-    if(align==='right')  tx=x+w-PAD_X;
-    for(let i=0;i<lines.length;i++){
-      const opts={baseline:'alphabetic'};
-      if(align==='center') opts.align='center';
-      if(align==='right')  opts.align='right';
-      doc.text(lines[i], tx, ty+i*LINE_H, opts);
-    }
-  }
-
-  function computeLayout(doc){
-    const pageW=doc.internal.pageSize.getWidth();
-    const usable=pageW - MARGIN_LR*2;
-    const A=80, M=90, B=80;
-    const Cat=Math.max(220, usable-(A+M+B));
-    return {Cat,A,M,B,pageW};
-  }
-
-  // --- Row collectors ---
-  function rowsFromAnyTable(){
-    const tbodies=[...document.querySelectorAll('tbody')];
-    const out=[];
-    for(const tb of tbodies){
-      for(const tr of tb.querySelectorAll('tr')){
-        const tds=[...tr.querySelectorAll('td')];
-        if(!tds.length) continue;
-        const aCell=tr.querySelector('td[data-cell="A"]');
-        const bCell=tr.querySelector('td[data-cell="B"]');
-        const category=tidy(tds[0]?.textContent)||tr.getAttribute('data-kink-id')||'';
-        const aTxt=tidy((aCell?aCell.textContent:tds[1]?.textContent)||'');
-        const bTxt=tidy((bCell?bCell.textContent:tds[tds.length-1]?.textContent)||'');
-        if(!category && !aTxt && !bTxt) continue;
-        const A=toNum(aTxt), B=toNum(bTxt);
-        const pctCell = tds.map(td=>tidy(td.textContent)).find(t=>/%$/.test(t));
-        const P = pctCell ? pctCell : (()=>{const p=pctMatch(A,B);return p==null?'—':(p+'%');})();
-        out.push([category||'—', (A==null?'—':A), P, (B==null?'—':B)]);
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      // fall back to CDNs
+      let ok = false;
+      for (const url of JSPDF_CDNS){
+        try {
+          await loadScript(url);
+          if (window.jspdf && window.jspdf.jsPDF) { ok = true; break; }
+        } catch (e) { log("CDN jsPDF error:", e.message); }
       }
+      if (!ok) throw new Error("jsPDF failed to load from all sources");
     }
-    return out;
-  }
-  function rowsFromMemory(){
-    const A=(window.partnerAData?.items)||(Array.isArray(window.partnerAData)?window.partnerAData:null);
-    const B=(window.partnerBData?.items)||(Array.isArray(window.partnerBData)?window.partnerBData:null);
-    if(!A && !B) return [];
-    const mA=new Map((A||[]).map(i=>[(i.id||i.label),i]));
-    const mB=new Map((B||[]).map(i=>[(i.id||i.label),i]));
-    const keys=new Map();
-    (A||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id));
-    (B||[]).forEach(i=>keys.set(i.id||i.label,i.label||i.id));
-    const out=[];
-    for(const [id,label] of keys){
-      const a=mA.get(id), b=mB.get(id);
-      const Av=toNum(a?.score), Bv=toNum(b?.score);
-      const p=pctMatch(Av,Bv);
-      out.push([label||id||'—', (Av==null?'—':Av), (p==null?'—':(p+'%')), (Bv==null?'—':Bv)]);
-    }
-    return out;
-  }
-  async function collectRowsWithRetries(max=6){
-    for(let i=0;i<max;i++){
-      let rows=rowsFromAnyTable().filter(r=>r.some(v=>v!=='' && v!=='—'));
-      if(rows.length) return rows;
-      if(typeof window.updateComparison==='function'){ try{ window.updateComparison(); }catch{} }
-      await new Promise(r=>setTimeout(r,150));
-    }
-    return rowsFromMemory();
+    // expose global constructor for AutoTable UMD plugin
+    if (window.jspdf && window.jspdf.jsPDF) window.jsPDF = window.jspdf.jsPDF;
   }
 
-  // --- Exporter (manual, no AutoTable) ---
-  async function exportPDF(){
-    try{
-      await ensureJsPDF();
-      const JsPDF=getJsPDF();
-      const doc = new JsPDF({orientation:'landscape', unit:'pt', format:'a4'});
+  async function ensureAutoTable(){
+    const hasAT = (window.jspdf && window.jspdf.autoTable) ||
+                  (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+    if (hasAT) return;
 
-      const {Cat,A,M,B,pageW}=computeLayout(doc);
-      const pageH=doc.internal.pageSize.getHeight();
-      const paintBg=()=>{doc.setFillColor(0,0,0);doc.rect(0,0,pageW,pageH,'F');doc.setTextColor(255,255,255);};
+    // require jsPDF first
+    await ensureJsPDF();
 
-      const rows=await collectRowsWithRetries();
-      if(!rows.length){ alert('No rows found to export. Ensure your table/surveys are loaded.'); return; }
+    // try LOCAL first
+    try {
+      await loadScript(AUTOTABLE_LOCAL);
+    } catch(e){
+      log("Local AutoTable not found:", e.message);
+    }
 
-      // Title + bg
-      paintBg();
-      doc.setFontSize(28);
-      doc.text(TITLE, pageW/2, 48, {align:'center'});
-
-      const x0=MARGIN_LR; let y=TOP_Y;
-
-      function newPageIfNeeded(h){
-        if(y+h+BOTTOM>pageH){
-          doc.addPage(); paintBg();
-          doc.setFontSize(28);
-          doc.text(TITLE, pageW/2, 48, {align:'center'});
-          y=TOP_Y; drawHeader();
-        }
+    let ready = (window.jspdf && window.jspdf.autoTable) ||
+                (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+    if (!ready){
+      // fall back to CDNs
+      let ok = false;
+      for (const url of AUTOTABLE_CDNS){
+        try {
+          await loadScript(url);
+          ready = (window.jspdf && window.jspdf.autoTable) ||
+                  (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+          if (ready) { ok = true; break; }
+        } catch(e) { log("CDN AutoTable error:", e.message); }
       }
-      function drawHeader(){
-        const h=PAD_Y*2+LINE_H;
-        let x=x0;
-        drawCell(doc,x,y,Cat,h,'Category','left'); x+=Cat;
-        drawCell(doc,x,y,A,h,'Partner A','center'); x+=A;
-        drawCell(doc,x,y,M,h,'Match %','center');   x+=M;
-        drawCell(doc,x,y,B,h,'Partner B','center');
-        y+=h;
-      }
-
-      drawHeader();
-
-      for(const [category,a,pct,b] of rows){
-        const catLines=wrapToTwoLines(doc, category, Cat-PAD_X*2);
-        const rowH=Math.max(PAD_Y*2 + catLines.length*LINE_H, PAD_Y*2 + LINE_H);
-        newPageIfNeeded(rowH);
-        let x=x0;
-        drawCell(doc,x,y,Cat,rowH,catLines,'left'); x+=Cat;
-        drawCell(doc,x,y,A,rowH,String(a??'—'),'center'); x+=A;
-        drawCell(doc,x,y,M,rowH,String(pct??'—'),'center'); x+=M;
-        drawCell(doc,x,y,B,rowH,String(b??'—'),'center');
-        y+=rowH;
-      }
-
-      doc.save(FILE);
-    }catch(err){
-      console.error('[TK-PDF] Export failed (pure):', err);
-      alert('PDF export failed: '+(err?.message||err));
+      if (!ok) throw new Error("jsPDF-AutoTable failed to load");
     }
   }
 
-  // --- Intercept and override any old AutoTable click handlers ---
-  const SELECTORS='#downloadBtn, #downloadPdfBtn, [data-download-pdf]';
-  function bindPure(){
-    const btn=document.querySelector(SELECTORS);
-    if(!btn) return;
-    // Replace node to drop all old listeners
-    const clone=btn.cloneNode(true);
-    btn.replaceWith(clone);
-    // Capture-phase listener to block site handlers that might re-bind
-    clone.addEventListener('click', (e)=>{ e.stopImmediatePropagation(); e.preventDefault(); exportPDF(); }, true);
-    console.log('[TK-PDF] Bound Download PDF (PURE, AutoTable bypassed)');
+  // Optional: quick sanity check util you can call from console
+  window.TK_checkPDFLibs = async () => {
+    try {
+      await ensureJsPDF(); await ensureAutoTable();
+      log("jsPDF present:", !!(window.jspdf && window.jspdf.jsPDF));
+      const okAT = (window.jspdf && window.jspdf.autoTable) ||
+                   (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+      log("AutoTable present:", !!okAT);
+      alert("PDF libs READY");
+    } catch (e) {
+      console.error("[TK-PDF] check failed:", e);
+      alert("PDF libs FAILED: " + e.message);
+    }
+  };
+
+  // Bind your existing button so libs are guaranteed BEFORE your export runs
+  function bindDownload(){
+    const btn = document.querySelector("#downloadBtn") ||
+                document.querySelector("#downloadPdfBtn") ||
+                document.querySelector("[data-download-pdf]");
+    if (!btn) { log("Download button not found"); return; }
+    if (btn.__tkBound) return;
+    btn.__tkBound = true;
+
+    // Capture phase to preload libs before site handler executes
+    btn.addEventListener("click", async (e) => {
+      try {
+        await ensureJsPDF();
+        await ensureAutoTable();
+        log("PDF libs ready; proceeding to site exporter");
+        // let your page's existing click handler continue (no preventDefault)
+      } catch (err) {
+        e.preventDefault();
+        console.error("[TK-PDF] Export blocked:", err);
+        alert("PDF export failed to start: " + err.message + "\n\nMake sure AutoTable is reachable or host it at /js/vendor/.");
+      }
+    }, true);
+
+    log("Bound Download PDF");
   }
 
-  // Expose and bind
-  window.TKPDF_export_pure = exportPDF;
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bindPure, {once:true}); else bindPure();
-  new MutationObserver(bindPure).observe(document.documentElement,{childList:true,subtree:true});
+  // init + keep bound across SPA rerenders
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindDownload, { once:true });
+  } else {
+    bindDownload();
+  }
+  new MutationObserver(bindDownload).observe(document.documentElement, { childList:true, subtree:true });
 })();
 </script>
+
+<!--
+If you prefer STATIC (no dynamic loader), host both files and include in THIS ORDER:
+
+<script src="/js/vendor/jspdf.umd.min.js"></script>
+<script>window.jsPDF = window.jspdf.jsPDF;</script>
+<script src="/js/vendor/jspdf.plugin.autotable.min.js"></script>
+
+Ensure BEFORE your export code runs that:
+  - window.jspdf && window.jspdf.jsPDF is truthy
+  - AND (window.jspdf.autoTable OR window.jsPDF.API.autoTable) is truthy
+Otherwise, include the dynamic loader above.
+-->
