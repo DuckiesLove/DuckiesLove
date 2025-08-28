@@ -31,22 +31,39 @@ function _getJsPDF() {
 
 async function _ensurePdfLibs() {
   if (!_getJsPDF()) {
-    try { await _loadScript('/js/vendor/jspdf.umd.min.js'); }
-    catch {
-      try { await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
-      catch { /* ignore */ }
+    const jspdfSources = [
+      '/js/vendor/jspdf.umd.min.js',
+      './js/vendor/jspdf.umd.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    ];
+    for (const src of jspdfSources) {
+      try {
+        await _loadScript(src);
+        if (_getJsPDF()) break;
+      } catch {}
     }
   }
-  const hasAT =
+
+  let hasAT =
     (window.jspdf && window.jspdf.autoTable) ||
     (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
   if (!hasAT) {
-    try { await _loadScript('/js/vendor/jspdf.plugin.autotable.min.js'); }
-    catch {
-      try { await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js'); }
-      catch { /* ignore missing AutoTable */ }
+    const autoTableSources = [
+      '/js/vendor/jspdf.plugin.autotable.min.js',
+      './js/vendor/jspdf.plugin.autotable.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js',
+    ];
+    for (const src of autoTableSources) {
+      try {
+        await _loadScript(src);
+        hasAT =
+          (window.jspdf && window.jspdf.autoTable) ||
+          (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);
+        if (hasAT) break;
+      } catch {}
     }
   }
+
   if (!_getJsPDF()) throw new Error('jsPDF failed to load.');
 }
 
