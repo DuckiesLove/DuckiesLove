@@ -452,12 +452,14 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
   const JSPDF_CDNS = [
     "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
     "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
-    "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"
+    "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js",
+    "/js/vendor/jspdf.umd.min.js"
   ];
   const AT_CDNS = [
     "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js",
     "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js",
-    "https://unpkg.com/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"
+    "https://unpkg.com/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js",
+    "/js/vendor/jspdf.plugin.autotable.min.js"
   ];
 
   // small on-page logger (minimally invasive)
@@ -491,12 +493,15 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
 
   function loadScript(src, timeout=8000){
     return new Promise((res, rej)=>{
-      if (document.querySelector(`script[src="${src}"]`)) return res("cached");
+      if (document.querySelector(`script[src="${src}"]`)) {
+        log("script cached", src);
+        return res("cached");
+      }
       const s=document.createElement("script");
       s.src=src; s.async=true;
       const t=setTimeout(()=>{ s.remove(); rej(new Error("Timeout "+src)); }, timeout);
-      s.onload=()=>{ clearTimeout(t); res("ok"); };
-      s.onerror=()=>{ clearTimeout(t); rej(new Error("Load error "+src)); };
+      s.onload=()=>{ clearTimeout(t); log("loaded", src); res("ok"); };
+      s.onerror=()=>{ clearTimeout(t); log("load error", src); rej(new Error("Load error "+src)); };
       document.head.appendChild(s);
     });
   }
@@ -516,6 +521,7 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
   }
 
   async function ensureAutoTable(){
+    await ensureJsPDF();
     if ((window.jspdf && window.jspdf.autoTable) || (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable)) return;
     for (const u of AT_CDNS){
       try {
