@@ -44,6 +44,10 @@ async function _ensurePdfLibs() {
     }
   }
 
+  if (window.jspdf && window.jspdf.jsPDF) {
+    window.jsPDF = window.jspdf.jsPDF; // expose for plugins
+  }
+
   let hasAT =
     (window.jspdf && window.jspdf.autoTable) ||
     (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable);

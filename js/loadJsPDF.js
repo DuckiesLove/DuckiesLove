@@ -14,7 +14,7 @@ export async function loadJsPDF() {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     throw new Error('jsPDF failed to load');
   }
-
+  window.jsPDF = window.jspdf.jsPDF; // expose global constructor for plugins
   jsPDFLib = window.jspdf.jsPDF;
   return jsPDFLib;
 }
