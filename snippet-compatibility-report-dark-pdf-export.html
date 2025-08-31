@@ -1,0 +1,125 @@
+<!-- ================== TALK KINK DARK PDF EXPORT ==================
+This script makes your compatibility table export to a dark-mode PDF:
+- Black background
+- White text
+- Thick white grid lines
+- Landscape A4
+=============================================================== -->
+
+<!-- 1. Make sure you have a table with either:
+     id="compatibilityTable", or class="results-table compat", or any <table> -->
+<!-- 2. Add a button with id="downloadBtn" if you want a clickable export -->
+<!-- 3. Place this script just before </body>, or paste into DevTools console -->
+
+<script>
+(async function () {
+  console.log("[TK-PDF] Export script initializing...");
+
+  // ---- Ensure libraries (jsPDF + AutoTable) ----
+  async function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("Failed to load " + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
+    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+  }
+  if (!((window.jspdf && window.jspdf.autoTable) || (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable))) {
+    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+  }
+
+  const { jsPDF } = window.jspdf || window;
+
+  // ---- Find table rows ----
+  function findTable() {
+    return (
+      document.querySelector("#compatibilityTable") ||
+      document.querySelector(".results-table.compat") ||
+      document.querySelector("table")
+    );
+  }
+
+  function extractRows(table) {
+    const tidy = (s) => (s || "").replace(/\s+/g, " ").trim();
+    const trs = [...table.querySelectorAll("tr")]
+      .filter(tr => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0);
+
+    return trs.map(tr => {
+      const cells = [...tr.querySelectorAll("td")].map(td => tidy(td.textContent));
+      return [cells[0] || "—", cells[1] || "—", cells[2] || "—", cells[3] || "—"];
+    });
+  }
+
+  // ---- Paint full black background ----
+  function paintBg(doc) {
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageW, pageH, "F");
+    doc.setTextColor(255, 255, 255);
+  }
+
+  // ---- Export function ----
+  async function TKPDF_exportDark() {
+    const table = findTable();
+    if (!table) { alert("No table found."); return; }
+    const body = extractRows(table);
+    if (!body.length) { alert("No rows to export."); return; }
+
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+
+    paintBg(doc);
+    doc.setFontSize(24);
+    doc.text("Talk Kink • Compatibility Report", pageW / 2, 40, { align: "center" });
+
+    doc.autoTable({
+      head: [["Category", "Partner A", "Match %", "Partner B"]],
+      body,
+      startY: 60,
+      styles: {
+        fontSize: 12,
+        textColor: [255, 255, 255],
+        fillColor: [0, 0, 0],
+        lineColor: [255, 255, 255],
+        lineWidth: 1.2,
+      },
+      headStyles: {
+        fontStyle: "bold",
+        fillColor: [0, 0, 0],
+        textColor: [255, 255, 255],
+        lineColor: [255, 255, 255],
+        lineWidth: 1.5,
+      },
+      columnStyles: {
+        0: { cellWidth: 400, halign: "left" },
+        1: { cellWidth: 80, halign: "center" },
+        2: { cellWidth: 90, halign: "center" },
+        3: { cellWidth: 80, halign: "center" }
+      },
+      willDrawPage: () => paintBg(doc),
+    });
+
+    doc.save("compatibility-dark.pdf");
+  }
+
+  // ---- Bind button and console alias ----
+  window.TKPDF_forceDark = TKPDF_exportDark;
+  const btn = document.querySelector("#downloadBtn");
+  if (btn) {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      TKPDF_exportDark();
+    });
+    console.log("[TK-PDF] Bound Download PDF button");
+  } else {
+    console.log("[TK-PDF] No button found. Use TKPDF_forceDark() in console.");
+  }
+})();
+</script>
