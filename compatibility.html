@@ -442,19 +442,9 @@
 document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
 })();
 </script>
-<!-- HOW TO USE (Codex-ready):
-1. Place this entire <script>…</script> block at the bottom of compatibility.html (right before </body>).
-2. Make sure you have a table with id="compatibilityTable" (or class="results-table compat").
-3. Add a button with id="downloadBtn" — clicking it will download the PDF.
-4. Or, in DevTools console, call TKPDF_forceDark() manually.
-This will export a DARK MODE PDF: black background, white text, thick white lines.
--->
-
-<script>
-(async () => {
-  // Load required libraries
-  async function loadScript(src) {
-    return new Promise((resolve, reject) => {
+export async function downloadCompatibilityPDF() {
+  const loadScript = (src) =>
+    new Promise((resolve, reject) => {
       if (document.querySelector(`script[src="${src}"]`)) return resolve();
       const s = document.createElement("script");
       s.src = src;
@@ -462,92 +452,128 @@ This will export a DARK MODE PDF: black background, white text, thick white line
       s.onerror = () => reject(new Error("Failed to load " + src));
       document.head.appendChild(s);
     });
-  }
-  if (!window.jspdf) {
-    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-  }
-  if (!(window.jspdf?.autoTable || window.jsPDF?.API?.autoTable)) {
-    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
-  }
-  const { jsPDF } = window.jspdf;
 
-  // Helpers
-  function findTable() {
-    return document.querySelector("#compatibilityTable")
-        || document.querySelector(".results-table.compat")
-        || document.querySelector("table");
+  async function ensureLibs() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+    const hasAT =
+      (window.jspdf && window.jspdf.autoTable) ||
+      (window.jspdf &&
+        window.jspdf.jsPDF &&
+        window.jspdf.jsPDF.API &&
+        window.jspdf.jsPDF.API.autoTable);
+    if (!hasAT) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
   }
+
+  const tidy = (s) => (s || "").replace(/\s+/g, " ").trim();
+  const toNum = (v) => {
+    const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  };
+
   function extractRows(table) {
-    const trs = [...table.querySelectorAll("tr")]
-      .filter(tr => tr.querySelectorAll("td").length > 0);
-    return trs.map(tr => {
-      const cells = [...tr.querySelectorAll("td")].map(td => td.textContent.trim());
-      return [
-        cells[0] || "—",
-        cells[1] || "—",
-        cells[2] || "—",
-        cells[3] || "—"
-      ];
+    const trs = [...table.querySelectorAll("tr")].filter(
+      (tr) => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0
+    );
+    return trs.map((tr) => {
+      const cells = [...tr.querySelectorAll("td")].map((td) => tidy(td.textContent));
+      const category = cells[0] || "—";
+      const nums = cells.map(toNum).filter((n) => n !== null);
+      const A = nums.length ? nums[0] : null;
+      const B = nums.length ? nums[nums.length - 1] : null;
+      let pct = cells.find((c) => /%$/.test(c)) || null;
+      if (!pct && A != null && B != null) {
+        const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
+        pct = `${Math.max(0, Math.min(100, p))}%`;
+      }
+      return [category, A ?? "—", pct ?? "—", B ?? "—"];
     });
   }
 
-  async function exportDarkPDF() {
-    const table = findTable();
-    if (!table) { alert("No table found."); return; }
+  try {
+    await ensureLibs();
+    const { jsPDF } = window.jspdf;
+    const table =
+      document.querySelector("#compatibilityTable") ||
+      document.querySelector(".results-table.compat") ||
+      document.querySelector("table");
+    if (!table) {
+      alert("No table found on the page.");
+      return;
+    }
     const body = extractRows(table);
-    if (!body.length) { alert("No rows found."); return; }
+    if (!body.length) {
+      alert("No rows to export.");
+      return;
+    }
 
-    const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
 
-    function paintBg() {
-      doc.setFillColor(0,0,0);
-      doc.rect(0,0,pageW,pageH,"F");
-      doc.setTextColor(255,255,255);
-    }
+    const paintBg = () => {
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageW, pageH, "F");
+      doc.setTextColor(255, 255, 255);
+    };
 
-    // Title
     paintBg();
     doc.setFontSize(24);
-    doc.setTextColor(255,255,255);
-    doc.text("Talk Kink • Compatibility Report", pageW/2, 40, {align:"center"});
+    doc.text("Talk Kink • Compatibility Report", pageW / 2, 42, { align: "center" });
 
-    // Render table
-    const runAT = (opts) => (typeof doc.autoTable==="function")
-      ? doc.autoTable(opts)
-      : window.jspdf.autoTable(doc, opts);
+    const marginLR = 30;
+    const usable = pageW - marginLR * 2;
+    const Awidth = 90,
+      Mwidth = 110,
+      Bwidth = 90;
+    const CatWidth = Math.max(220, usable - (Awidth + Mwidth + Bwidth));
+
+    const runAT = (opts) => {
+      if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+      if (window.jspdf && typeof window.jspdf.autoTable === "function")
+        return window.jspdf.autoTable(doc, opts);
+      throw new Error("AutoTable not available");
+    };
 
     runAT({
-      head:[["Category","Partner A","Match %","Partner B"]],
+      head: [["Category", "Partner A", "Match %", "Partner B"]],
       body,
-      startY:60,
-      styles:{
-        fontSize:11,
-        textColor:[255,255,255],
-        fillColor:[0,0,0],
-        lineColor:[255,255,255],
-        lineWidth:1.2
+      startY: 64,
+      margin: { left: marginLR, right: marginLR, top: 64, bottom: 40 },
+      styles: {
+        fontSize: 11,
+        cellPadding: 6,
+        textColor: [255, 255, 255],
+        fillColor: [0, 0, 0],
+        lineColor: [255, 255, 255],
+        lineWidth: 1.2,
+        halign: "center",
+        valign: "middle",
+        overflow: "linebreak",
       },
-      headStyles:{
-        fontStyle:"bold",
-        textColor:[255,255,255],
-        fillColor:[0,0,0],
-        lineColor:[255,255,255],
-        lineWidth:1.5
+      headStyles: {
+        fillColor: [0, 0, 0],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        lineColor: [255, 255, 255],
+        lineWidth: 1.6,
       },
-      willDrawPage:paintBg
+      columnStyles: {
+        0: { cellWidth: CatWidth, halign: "left" },
+        1: { cellWidth: Awidth, halign: "center" },
+        2: { cellWidth: Mwidth, halign: "center" },
+        3: { cellWidth: Bwidth, halign: "center" },
+      },
+      tableWidth: usable,
+      willDrawPage: paintBg,
     });
 
     doc.save("compatibility-dark.pdf");
+  } catch (err) {
+    console.error("[TK-PDF] Export failed:", err);
+    alert("PDF export failed: " + (err?.message || err));
   }
-
-  // Bind
-  const btn = document.getElementById("downloadBtn");
-  if (btn) btn.onclick = exportDarkPDF;
-  window.TKPDF_forceDark = exportDarkPDF;
-})();
-</script>
-
-</body>
-</html>
+}
