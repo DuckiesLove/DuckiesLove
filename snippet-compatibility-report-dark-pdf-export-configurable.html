@@ -1,0 +1,202 @@
+<!-- Drop-in DARK PDF exporter (configurable). Paste before </body> or run the inner JS in DevTools. -->
+<script>
+(() => {
+  const DEFAULTS = {
+    title: "Talk Kink • Compatibility Report",
+    fileName: "compatibility-dark.pdf",
+    theme: {
+      pageBg: [0,0,0],          // black page background
+      text:   [255,255,255],    // white text
+      line:   [255,255,255],    // white borders
+      headFill:[0,0,0],         // header fill (black)
+      bodyFill:[0,0,0],         // body fill (black)
+      headLineWidth: 1.5,
+      bodyLineWidth: 1.2,
+      fontSize: 12,
+      titleSize: 26
+    },
+    layout: {
+      marginLR: 30,
+      startY: 68,
+      aWidth: 80,   // Partner A
+      mWidth: 90,   // Match %
+      bWidth: 80,   // Partner B
+      minCatWidth: 200
+    },
+    // Selectors to find the source table (first match wins)
+    tableSelectors: ["#compatibilityTable", ".results-table.compat", "table"],
+    // Optional: ID of a button to auto-bind (click to export)
+    bindButtonId: "downloadBtn",
+  };
+
+  // ---------------- utilities ----------------
+  const log = (...a)=>console.log("[TK-DARK]", ...a);
+  const tidy = s => (s||"").replace(/\s+/g," ").trim();
+
+  function loadScript(src){
+    return new Promise((res,rej)=>{
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = res;
+      s.onerror = () => rej(new Error("Failed to load "+src));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function ensureJsPDF(){
+    if (window.jspdf?.jsPDF) return;
+    const urls = [
+      "/js/vendor/jspdf.umd.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+    ];
+    for (const u of urls){ try { await loadScript(u); if (window.jspdf?.jsPDF) return; } catch {}
+    }
+    throw new Error("jsPDF failed to load");
+  }
+
+  async function ensureAutoTable(){
+    if (window.jspdf?.autoTable || window.jsPDF?.API?.autoTable) return;
+    const urls = [
+      "/js/vendor/jspdf.plugin.autotable.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js",
+    ];
+    for (const u of urls){ try { await loadScript(u); if (window.jspdf?.autoTable || window.jsPDF?.API?.autoTable) return; } catch {}
+    }
+    throw new Error("jsPDF-AutoTable failed to load");
+  }
+
+  function findTable(selectors){
+    for (const sel of selectors){
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function extractRows(table){
+    // use only TRs with TDs and no THs
+    const trs = [...table.querySelectorAll("tr")]
+      .filter(tr => tr.querySelectorAll("td").length && tr.querySelectorAll("th").length===0);
+
+    const rows = trs.map(tr => {
+      const tds = [...tr.querySelectorAll("td")].map(td => tidy(td.textContent));
+      const cat = tds[0] ?? "—";
+
+      // try to infer Partner A / B as first/last numbers
+      const nums = tds.map((v,i)=>({i, n: Number(String(v).replace(/[^\d.-]/g,""))}))
+                      .filter(x=>Number.isFinite(x.n));
+      const a = nums.length ? String(nums[0].n) : "—";
+      const b = nums.length ? String(nums[nums.length-1].n) : "—";
+
+      // match % cell if present
+      const m = tds.find(v=>/%$/.test(v)) || "—";
+      return [cat, a, m, b];
+    });
+
+    return rows;
+  }
+
+  function paintBackground(doc, rgb){
+    const w = doc.internal.pageSize.getWidth();
+    const h = doc.internal.pageSize.getHeight();
+    doc.setFillColor(...rgb);
+    doc.rect(0,0,w,h,"F");
+  }
+
+  function getAutoTable(doc){
+    if (typeof doc.autoTable === "function") return (opts)=>doc.autoTable(opts);
+    if (window.jspdf?.autoTable) return (opts)=>window.jspdf.autoTable(doc, opts);
+    throw new Error("AutoTable API missing");
+  }
+
+  // ---------------- main export ----------------
+  async function TKPDF_dark(userOptions = {}){
+    const opts = structuredClone(DEFAULTS);
+    // shallow merge user options
+    Object.assign(opts, userOptions);
+    Object.assign(opts.theme, userOptions.theme || {});
+    Object.assign(opts.layout, userOptions.layout || {});
+
+    // ensure libs
+    await ensureJsPDF();
+    await ensureAutoTable();
+
+    const { jsPDF } = window.jspdf;
+    const table = findTable(opts.tableSelectors);
+    if (!table) { alert("No table found to export."); return; }
+
+    const body = extractRows(table);
+    if (!body.length) { alert("No rows to export."); return; }
+
+    // build PDF
+    const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // page 1 bg + title
+    paintBackground(doc, opts.theme.pageBg);
+    doc.setTextColor(...opts.theme.text);
+    doc.setFontSize(opts.theme.titleSize);
+    doc.text(opts.title, pageW/2, 46, { align:"center" });
+
+    // widths
+    const { marginLR, startY, aWidth, mWidth, bWidth, minCatWidth } = opts.layout;
+    const usable = pageW - marginLR*2;
+    const catWidth = Math.max(minCatWidth, usable - (aWidth + mWidth + bWidth));
+
+    const runAT = getAutoTable(doc);
+    runAT({
+      head: [["Category","Partner A","Match %","Partner B"]],
+      body,
+      startY,
+      margin: { left: marginLR, right: marginLR, top: startY, bottom: 36 },
+      styles: {
+        fontSize: opts.theme.fontSize,
+        cellPadding: 6,
+        textColor: opts.theme.text,
+        fillColor: opts.theme.bodyFill,
+        lineColor: opts.theme.line,
+        lineWidth: opts.theme.bodyLineWidth,
+        overflow: "linebreak",
+        halign: "center",
+        valign: "middle",
+      },
+      headStyles: {
+        fontStyle: "bold",
+        fillColor: opts.theme.headFill,
+        textColor: opts.theme.text,
+        lineColor: opts.theme.line,
+        lineWidth: opts.theme.headLineWidth,
+        halign: "center",
+        valign: "middle",
+      },
+      columnStyles: {
+        0: { cellWidth: catWidth, halign: "left" },
+        1: { cellWidth: aWidth,   halign: "center" },
+        2: { cellWidth: mWidth,   halign: "center" },
+        3: { cellWidth: bWidth,   halign: "center" },
+      },
+      tableWidth: usable,
+      // draw black bg BEFORE table on each page
+      willDrawPage: () => {
+        paintBackground(doc, opts.theme.pageBg);
+        doc.setTextColor(...opts.theme.text);
+      }
+    });
+
+    doc.save(opts.fileName);
+  }
+
+  // Expose + optional binding
+  window.TKPDF_dark = TKPDF_dark;
+  const btnId = DEFAULTS.bindButtonId;
+  const btn = btnId ? document.getElementById(btnId) : null;
+  if (btn) {
+    btn.addEventListener("click", (e)=>{ e.preventDefault(); TKPDF_dark(); });
+    log("Bound #"+btnId+" to TKPDF_dark()");
+  } else {
+    log("No button bound. Run TKPDF_dark() in the console to export.");
+  }
+})();
+</script>
