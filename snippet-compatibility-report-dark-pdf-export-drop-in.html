@@ -1,73 +1,79 @@
 <!-- 
-Talk Kink • Compatibility Report PDF Exporter (Dark Mode)
+Talk Kink — Compatibility Report • Dark Mode Exporter
+====================================================
 
-What this does:
-- Loads jsPDF and AutoTable (from CDN if not already loaded).
-- Finds the compatibility table on the page (#compatibilityTable, .results-table.compat, or <table>).
-- Extracts rows and normalizes them into 4 columns: Category | Partner A | Match % | Partner B.
-- Generates a landscape A4 PDF with a solid black background, white text, and bold white grid lines.
-- You can trigger it by clicking a button with id="downloadBtn"
-  OR by running TKPDF_forceDark() in the browser console.
+📖 Directions:
+1. Make sure your table is present on the page 
+   (id="compatibilityTable", class="results-table compat", or just <table>).
 
-How to use:
-1. Make sure your page renders a table before running this.
-2. Paste this <script>…</script> block at the bottom of compatibility.html before </body>,
-   OR paste just the inner JS code into the browser console.
-3. Click the "Download PDF" button, or run TKPDF_forceDark() manually.
+2. Add a button with id="downloadBtn" somewhere in your HTML if you want 
+   users to click and download:
+     <button id="downloadBtn">Download PDF</button>
 
+3. Paste this <script> block before </body> in your HTML 
+   OR paste just the JS part in DevTools Console.
+
+4. Use either:
+   - Click the button (#downloadBtn), OR
+   - Run TKPDF_forceDark() in the console.
+
+A PDF called compatibility-dark.pdf will be downloaded.
 -->
-
 <script>
-(async function() {
-  const LOG = (...a) => console.log('[TK-PDF]', ...a);
-
-  async function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) return resolve();
-      const s = document.createElement('script');
+(async function () {
+  // loader
+  const load = (src) =>
+    new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s = document.createElement("script");
       s.src = src;
-      s.onload = resolve;
-      s.onerror = () => reject(new Error('Failed to load ' + src));
+      s.onload = res;
+      s.onerror = () => rej(new Error("Failed to load " + src));
       document.head.appendChild(s);
     });
-  }
 
   async function ensureLibs() {
     if (!(window.jspdf && window.jspdf.jsPDF)) {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
     }
-    if (!(window.jspdf && (window.jspdf.autoTable || (window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable)))) {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+    const hasAT =
+      (window.jspdf && window.jspdf.autoTable) ||
+      (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable);
+    if (!hasAT) {
+      await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
     }
   }
+
+  const tidy = (s) => (s || "").replace(/\s+/g, " ").trim();
+  const toNum = (v) => {
+    const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  };
 
   function findTable() {
     return (
-      document.querySelector('#compatibilityTable') ||
-      document.querySelector('.results-table.compat') ||
-      document.querySelector('table')
+      document.querySelector("#compatibilityTable") ||
+      document.querySelector(".results-table.compat") ||
+      document.querySelector("table")
     );
   }
 
-  function tidy(s) { return (s || '').replace(/\s+/g, ' ').trim(); }
-  function toNum(v) { const n = Number(String(v ?? '').replace(/[^\d.-]/g,'')); return Number.isFinite(n) ? n : null; }
-
   function extractRows(table) {
-    const trs = [...table.querySelectorAll('tr')]
-      .filter(tr => tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0);
-
-    return trs.map(tr => {
-      const cells = [...tr.querySelectorAll('td')].map(td => tidy(td.textContent));
-      const cat = cells[0] || '—';
-      const nums = cells.map(toNum).filter(n => n !== null);
+    const trs = [...table.querySelectorAll("tr")].filter(
+      (tr) => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0
+    );
+    return trs.map((tr) => {
+      const cells = [...tr.querySelectorAll("td")].map((td) => tidy(td.textContent));
+      const category = cells[0] || "—";
+      const nums = cells.map(toNum).filter((n) => n !== null);
       const A = nums.length ? nums[0] : null;
-      const B = nums.length ? nums[nums.length-1] : null;
-      let pct = cells.find(c => /%$/.test(c)) || null;
+      const B = nums.length ? nums[nums.length - 1] : null;
+      let pct = cells.find((c) => /%$/.test(c)) || null;
       if (!pct && A != null && B != null) {
         const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
         pct = `${Math.max(0, Math.min(100, p))}%`;
       }
-      return [cat, A ?? '—', pct ?? '—', B ?? '—'];
+      return [category, A ?? "—", pct ?? "—", B ?? "—"];
     });
   }
 
@@ -75,81 +81,90 @@ How to use:
     try {
       await ensureLibs();
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      const table = findTable();
+      if (!table) return alert("No table found.");
+      const body = extractRows(table);
+      if (!body.length) return alert("No rows to export.");
+
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
 
-      const paintBg = (d) => {
-        d.setFillColor(0,0,0);
-        d.rect(0,0,pageW,pageH,'F');
-        d.setTextColor(255,255,255);
+      const paintBg = () => {
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, pageW, pageH, "F");
+        doc.setTextColor(255, 255, 255);
       };
 
-      const table = findTable();
-      if (!table) return alert('No table found!');
-      const body = extractRows(table);
-      if (!body.length) return alert('No rows to export!');
-
-      // Title
-      paintBg(doc);
+      paintBg();
       doc.setFontSize(24);
-      doc.text('Talk Kink • Compatibility Report', pageW/2, 40, { align: 'center' });
+      doc.text("Talk Kink • Compatibility Report", pageW / 2, 42, { align: "center" });
 
       const marginLR = 30;
-      const usable = pageW - marginLR*2;
-      const Awidth = 80, Mwidth = 90, Bwidth = 80;
-      const reserved = Awidth + Mwidth + Bwidth;
-      const CatWidth = Math.max(200, usable - reserved);
+      const usable = pageW - marginLR * 2;
+      const Awidth = 90, Mwidth = 110, Bwidth = 90;
+      const CatWidth = Math.max(220, usable - (Awidth + Mwidth + Bwidth));
 
-      doc.autoTable({
-        head: [['Category','Partner A','Match %','Partner B']],
+      const runAT = (opts) => {
+        if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+        if (window.jspdf && typeof window.jspdf.autoTable === "function")
+          return window.jspdf.autoTable(doc, opts);
+        throw new Error("AutoTable not available");
+      };
+
+      runAT({
+        theme: "grid",
+        head: [["Category", "Partner A", "Match %", "Partner B"]],
         body,
-        startY: 60,
-        margin: { left: marginLR, right: marginLR },
+        startY: 64,
+        margin: { left: marginLR, right: marginLR, top: 64, bottom: 40 },
+        tableWidth: usable,
         styles: {
           fontSize: 11,
           cellPadding: 6,
-          textColor: [255,255,255],
-          fillColor: [0,0,0],
-          lineColor: [255,255,255],
-          lineWidth: 0.75,
-          halign: 'center',
-          valign: 'middle'
+          textColor: [255, 255, 255],
+          fillColor: [0, 0, 0],
+          lineColor: [255, 255, 255],
+          lineWidth: 1.2,
+          halign: "center",
+          valign: "middle",
         },
         headStyles: {
-          fillColor: [0,0,0],
-          textColor: [255,255,255],
-          fontStyle: 'bold',
-          lineColor: [255,255,255],
-          lineWidth: 1
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          lineColor: [255, 255, 255],
+          lineWidth: 1.6,
         },
         columnStyles: {
-          0: { cellWidth: CatWidth, halign: 'left' },
-          1: { cellWidth: Awidth,   halign: 'center' },
-          2: { cellWidth: Mwidth,   halign: 'center' },
-          3: { cellWidth: Bwidth,   halign: 'center' }
+          0: { cellWidth: CatWidth, halign: "left" },
+          1: { cellWidth: Awidth, halign: "center" },
+          2: { cellWidth: Mwidth, halign: "center" },
+          3: { cellWidth: Bwidth, halign: "center" },
         },
-        tableWidth: usable,
-        willDrawPage: () => paintBg(doc)
+        didParseCell: (data) => {
+          data.cell.styles.fillColor = [0, 0, 0];
+          data.cell.styles.textColor = [255, 255, 255];
+        },
+        willDrawPage: paintBg,
       });
 
-      doc.save('compatibility-dark.pdf');
-      LOG('Export complete.');
+      doc.save("compatibility-dark.pdf");
     } catch (err) {
-      console.error('[TK-PDF] Export failed:', err);
-      alert('PDF export failed: ' + (err?.message || err));
+      console.error("[TK-PDF] Export failed:", err);
+      alert("PDF export failed: " + (err?.message || err));
     }
   }
 
-  // Public API
   window.TKPDF_forceDark = TKPDF_exportDark;
 
-  // Bind button if exists
-  const btn = document.querySelector('#downloadBtn');
+  const btn = document.querySelector("#downloadBtn");
   if (btn) {
-    btn.onclick = (e) => { e.preventDefault(); TKPDF_exportDark(); };
-    LOG('Bound Download PDF button');
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      TKPDF_exportDark();
+    });
+    console.log("[TK-PDF] Bound Download PDF button");
   }
 })();
 </script>
-
