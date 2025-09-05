@@ -242,6 +242,14 @@ export async function downloadCompatibilityPDF({
       lineColor: [255, 255, 255],
       lineWidth: 0.5
     },
+    bodyStyles: {
+      fillColor: [0, 0, 0],
+      textColor: [255, 255, 255]
+    },
+    alternateRowStyles: {
+      fillColor: [0, 0, 0],
+      textColor: [255, 255, 255]
+    },
     columnStyles: {
       0: { cellWidth: 520, halign: 'left'   }, // Category
       1: { cellWidth:  80, halign: 'center' }, // Partner A

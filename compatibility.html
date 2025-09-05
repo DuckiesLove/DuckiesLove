@@ -580,15 +580,19 @@ A PDF called compatibility-dark.pdf will be downloaded.
           lineColor: [255, 255, 255],
           lineWidth: 1.6,
         },
+        bodyStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+        },
+        alternateRowStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+        },
         columnStyles: {
           0: { cellWidth: CatWidth, halign: "left" },
           1: { cellWidth: Awidth, halign: "center" },
           2: { cellWidth: Mwidth, halign: "center" },
           3: { cellWidth: Bwidth, halign: "center" },
-        },
-        didParseCell: (data) => {
-          data.cell.styles.fillColor = [0, 0, 0];
-          data.cell.styles.textColor = [255, 255, 255];
         },
         willDrawPage: paintBg,
       });

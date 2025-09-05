@@ -123,6 +123,10 @@ export async function downloadCompatibilityPDF(): Promise<void> {
         lineColor: [255, 255, 255],
         lineWidth: 1.6,
       },
+      bodyStyles: {
+        fillColor: [0, 0, 0],
+        textColor: [255, 255, 255],
+      },
       alternateRowStyles: {
         fillColor: [0, 0, 0],
         textColor: [255, 255, 255],
