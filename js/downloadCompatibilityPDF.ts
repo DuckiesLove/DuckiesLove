@@ -37,23 +37,54 @@ export async function downloadCompatibilityPDF(): Promise<void> {
 
   type Row = [string, number | "—", string | "—", number | "—"];
 
+  const isValidScore = (n: number | null): boolean =>
+    Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 5;
+
   function extractRows(table: HTMLTableElement): Row[] {
+    // rows that have <td> cells (some sites use <td> for headers)
     const trs = Array.from(table.querySelectorAll("tr")).filter(
-      (tr) => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0
+      (tr) => tr.querySelectorAll("td").length > 0
     );
-    return trs.map((tr) => {
+
+    const isHeaderLike = (cellTexts: string[]): boolean => {
+      const first = (cellTexts[0] || "").toLowerCase();
+      const joined = cellTexts.map((t) => (t || "").toLowerCase()).join(" | ");
+      if (first === "category") return true;
+      if (/partner a|partner b|match/.test(joined)) return true;
+      if (!cellTexts.some((t) => /\S/.test(t))) return true;
+      return false;
+    };
+
+    const rows: Row[] = [];
+
+    for (const tr of trs) {
       const cells = Array.from(tr.querySelectorAll("td")).map((td) => tidy(td.textContent));
+      if (!cells.length) continue;
+      if (isHeaderLike(cells)) continue;
+
       const category = cells[0] || "—";
-      const nums = cells.map(toNum).filter((n): n is number => n !== null);
-      const A = nums.length ? nums[0] : null;
-      const B = nums.length ? nums[nums.length - 1] : null;
+
+      const numeric = cells.map(toNum).filter((n): n is number => n !== null);
+      const Araw = numeric.length ? numeric[0] : null;
+      const Braw = numeric.length ? numeric[numeric.length - 1] : null;
+
+      const aValid = isValidScore(Araw);
+      const bValid = isValidScore(Braw);
+
       let pct = cells.find((c) => /%$/.test(c)) || null;
-      if (!pct && A != null && B != null) {
-        const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
+      if (!pct && aValid && bValid && Araw !== null && Braw !== null) {
+        const p = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
         pct = `${Math.max(0, Math.min(100, p))}%`;
       }
-      return [category, A ?? "—", pct ?? "—", B ?? "—"];
-    });
+      if (!pct) pct = "—";
+
+      const A: number | "—" = aValid && Araw !== null ? Araw : "—";
+      const B: number | "—" = bValid && Braw !== null ? Braw : "—";
+
+      rows.push([category, A, pct, B]);
+    }
+
+    return rows;
   }
 
   try {

@@ -49,6 +49,7 @@ A PDF called compatibility-dark.pdf will be downloaded.
     const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
     return Number.isFinite(n) ? n : null;
   };
+  const isValidScore = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
 
   function findTable() {
     return (
@@ -59,22 +60,45 @@ A PDF called compatibility-dark.pdf will be downloaded.
   }
 
   function extractRows(table) {
+    // rows that have <td> cells (some sites use <td> for headers)
     const trs = [...table.querySelectorAll("tr")].filter(
-      (tr) => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0
+      (tr) => tr.querySelectorAll("td").length > 0
     );
-    return trs.map((tr) => {
+
+    const isHeaderLike = (cellTexts) => {
+      const first = (cellTexts[0] || "").toLowerCase();
+      const joined = cellTexts.map((t) => (t || "").toLowerCase()).join(" | ");
+      if (first === "category") return true;
+      if (/partner a|partner b|match/.test(joined)) return true;
+      if (!cellTexts.some((t) => /\S/.test(t))) return true;
+      return false;
+    };
+
+    const rows = [];
+    for (const tr of trs) {
       const cells = [...tr.querySelectorAll("td")].map((td) => tidy(td.textContent));
+      if (!cells.length) continue;
+      if (isHeaderLike(cells)) continue;
+
       const category = cells[0] || "—";
-      const nums = cells.map(toNum).filter((n) => n !== null);
-      const A = nums.length ? nums[0] : null;
-      const B = nums.length ? nums[nums.length - 1] : null;
+      const numeric = cells.map(toNum).filter((n) => n !== null);
+      const Araw = numeric.length ? numeric[0] : null;
+      const Braw = numeric.length ? numeric[numeric.length - 1] : null;
+
+      const aValid = isValidScore(Araw);
+      const bValid = isValidScore(Braw);
+
       let pct = cells.find((c) => /%$/.test(c)) || null;
-      if (!pct && A != null && B != null) {
-        const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
+      if (!pct && aValid && bValid) {
+        const p = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
         pct = `${Math.max(0, Math.min(100, p))}%`;
       }
-      return [category, A ?? "—", pct ?? "—", B ?? "—"];
-    });
+      if (!pct) pct = "—";
+
+      rows.push([category, aValid ? Araw : "—", pct, bValid ? Braw : "—"]);
+    }
+
+    return rows;
   }
 
   async function TKPDF_exportDark() {
