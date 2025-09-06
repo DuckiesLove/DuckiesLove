@@ -1,0 +1,291 @@
+<!-- DROP-IN: Dark PDF export + "Unanswered" section
+Paste this whole <script> block just before </body>.
+It keeps your current dark layout and adds a second table at the end
+listing anything that’s 0 or unanswered, and marks who didn’t answer
+(Partner A, Partner B, or Both). The first column header will be set
+to the first section header it finds (e.g., “Appearance Play”)
+instead of the literal word “Category”.
+-->
+<script>
+(async function () {
+  const LOG = (...a) => console.log("[TK-PDF]", ...a);
+
+  // ---------- loader ----------
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = res;
+      s.onerror = () => rej(new Error("Failed to load " + src));
+      document.head.appendChild(s);
+    });
+  }
+  async function ensureLibs() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+    const hasAT =
+      (window.jspdf && window.jspdf.autoTable) ||
+      (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable);
+    if (!hasAT) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
+  }
+
+  // ---------- table discovery ----------
+  function findTable() {
+    return (
+      document.querySelector("#compatibilityTable") ||
+      document.querySelector(".results-table.compat") ||
+      document.querySelector("table")
+    );
+  }
+
+  // ---------- helpers ----------
+  const tidy = (s) => (s || "").replace(/\s+/g, " ").trim();
+
+  // collapse obvious duplicated words like "BloodBlood", "ScatScat", etc.
+  function dedupeWords(str) {
+    if (!str) return str;
+    let t = str;
+    // replace exact “FooFoo” style doubles
+    t = t.replace(/\b([A-Za-z/'’\-]+)\s*\1\b/g, "$1");
+    // if the whole string repeats twice (AB + AB), collapse it
+    if (t.length % 2 === 0) {
+      const half = t.length / 2;
+      const a = t.slice(0, half).trim();
+      const b = t.slice(half).trim();
+      if (a && a === b) t = a;
+    }
+    // special rename
+    if (/^cum$/i.test(t)) t = "Cum Play";
+    return t;
+  }
+
+  const toScore = (v) => {
+    const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
+    // treat 0 or non-1..5 as invalid/missing
+    return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+  };
+
+  // ---------- extract rows ----------
+  function extractRows(table) {
+    const trs = [...table.querySelectorAll("tr")].filter(
+      (tr) => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0
+    );
+
+    let firstSectionHeader = null;
+
+    const rows = trs.map((tr) => {
+      const tds = [...tr.querySelectorAll("td")];
+      const cells = tds.map((td) => dedupeWords(tidy(td.textContent)));
+
+      let category = cells[0] || "—";
+      category = dedupeWords(category);
+
+      // find numeric-ish cells
+      const numeric = cells
+        .map((c, i) => ({ i, v: c }))
+        .filter(({ v }) => /^-?\d+(\.\d+)?%?$/.test(String(v)));
+
+      // header row: only first col has text, no numeric cells elsewhere
+      const looksLikeHeader = numeric.length === 0 && cells.slice(1).every((c) => !c);
+      if (looksLikeHeader) {
+        if (!firstSectionHeader) firstSectionHeader = category;
+        return { type: "header", category };
+      }
+
+      // pull A/B from first and last numeric cell (common on this sheet)
+      const Araw = numeric.length ? numeric[0].v : null;
+      const Braw = numeric.length ? numeric[numeric.length - 1].v : null;
+      const A = toScore(Araw);
+      const B = toScore(Braw);
+
+      // Match % from any % cell, or compute if A & B valid
+      let pct = cells.find((c) => /%$/.test(c)) || null;
+      if (!pct && A != null && B != null) {
+        const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
+        pct = `${Math.max(0, Math.min(100, p))}%`;
+      }
+
+      return { type: "row", category, A, pct: pct || "—", B };
+    });
+
+    return { rows, firstSectionHeader };
+  }
+
+  // ---------- exporter ----------
+  async function TKPDF_forceDark() {
+    try {
+      await ensureLibs();
+      const { jsPDF } = window.jspdf;
+      const table = findTable();
+      if (!table) return alert("No table found on the page.");
+
+      const { rows, firstSectionHeader } = extractRows(table);
+
+      // Build main body + collect unanswered info
+      const body = [];
+      const unanswered = []; // { category, missA, missB }
+
+      // header label for first column
+      const firstColHeader = firstSectionHeader || "Category";
+
+      rows.forEach((r) => {
+        if (r.type === "header") {
+          // print header band row that spans all columns
+          body.push([
+            {
+              content: r.category,
+              colSpan: 4,
+              styles: { fontStyle: "bold", halign: "left", fillColor: [0, 0, 0], textColor: [255, 255, 255] },
+            },
+          ]);
+          return;
+        }
+        // normal row
+        const showA = r.A == null ? "—" : String(r.A);
+        const showB = r.B == null ? "—" : String(r.B);
+        body.push([r.category, showA, r.pct, showB]);
+
+        // collect unanswered (0/blank treated as unanswered because we only accept 1..5)
+        const missA = r.A == null;
+        const missB = r.B == null;
+        if (missA || missB) {
+          unanswered.push({ category: r.category, missA, missB });
+        }
+      });
+
+      // create doc
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      // global dark background
+      const paintBg = () => {
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, pageW, pageH, "F");
+        doc.setTextColor(255, 255, 255);
+      };
+      paintBg();
+
+      // title
+      doc.setFontSize(24);
+      doc.text("Talk Kink • Compatibility Report", pageW / 2, 42, { align: "center" });
+
+      // widths
+      const marginLR = 30;
+      const usable = pageW - marginLR * 2;
+      const Awidth = 95;
+      const Mwidth = 115;
+      const Bwidth = 95;
+      const CatWidth = Math.max(220, usable - (Awidth + Mwidth + Bwidth));
+
+      // draw main table
+      const runAT = (opts) => {
+        if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+        if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
+        throw new Error("AutoTable not available");
+      };
+
+      runAT({
+        head: [[firstColHeader, "Partner A", "Match %", "Partner B"]],
+        body,
+        startY: 64,
+        margin: { left: marginLR, right: marginLR, top: 64, bottom: 40 },
+        styles: {
+          fontSize: 11,
+          cellPadding: 6,
+          textColor: [255, 255, 255],
+          fillColor: [0, 0, 0],
+          lineColor: [255, 255, 255],
+          lineWidth: 1.2,
+          halign: "center",
+          valign: "middle",
+          overflow: "linebreak",
+        },
+        headStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          lineColor: [255, 255, 255],
+          lineWidth: 1.6,
+        },
+        columnStyles: {
+          0: { cellWidth: CatWidth, halign: "left" },
+          1: { cellWidth: Awidth, halign: "center" },
+          2: { cellWidth: Mwidth, halign: "center" },
+          3: { cellWidth: Bwidth, halign: "center" },
+        },
+        tableWidth: usable,
+        willDrawPage: paintBg,
+      });
+
+      // unanswered section
+      if (unanswered.length) {
+        const y = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 22 : 100;
+
+        // heading
+        doc.setFontSize(16);
+        doc.text("Unanswered (0 or blank)", marginLR, y - 8);
+
+        const missingBody = unanswered.map(({ category, missA, missB }) => {
+          let who = missA && missB ? "Both" : missA ? "Partner A" : "Partner B";
+          return [category, who];
+        });
+
+        runAT({
+          head: [[firstColHeader, "Who missed"]],
+          body: missingBody,
+          startY: y,
+          margin: { left: marginLR, right: marginLR, bottom: 40 },
+          styles: {
+            fontSize: 11,
+            cellPadding: 6,
+            textColor: [255, 255, 255],
+            fillColor: [0, 0, 0],
+            lineColor: [255, 255, 255],
+            lineWidth: 1.2,
+            halign: "left",
+            valign: "middle",
+            overflow: "linebreak",
+          },
+          headStyles: {
+            fillColor: [0, 0, 0],
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            lineColor: [255, 255, 255],
+            lineWidth: 1.6,
+          },
+          columnStyles: {
+            0: { cellWidth: Math.max(260, usable - 160) },
+            1: { cellWidth: 140, halign: "center" },
+          },
+          tableWidth: usable,
+          willDrawPage: paintBg,
+        });
+      }
+
+      doc.save("compatibility-dark.pdf");
+      LOG("Export complete with unanswered list.");
+    } catch (err) {
+      console.error("[TK-PDF] Export failed:", err);
+      alert("PDF export failed: " + (err?.message || err));
+    }
+  }
+
+  // public
+  window.TKPDF_forceDark = TKPDF_forceDark;
+
+  // bind button
+  const btn = document.querySelector("#downloadBtn");
+  if (btn) {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      TKPDF_forceDark();
+    });
+    LOG("Bound Download PDF button");
+  }
+})();
+</script>
