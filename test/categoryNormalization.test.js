@@ -46,7 +46,10 @@ test('extractRows normalizes category labels', async () => {
     const mod = await import('../js/pdfDownload.js');
     await mod.downloadCompatibilityPDF();
 
-    assert.deepStrictEqual(capturedBody.map(r => r[0]), ['Cum', 'Cum Play', 'Tears/cryingTears/crying']);
+    assert.deepStrictEqual(
+      capturedBody.map(r => r[0]),
+      ['Cum Play', 'Cum Play', 'Tears/cryingTears/crying']
+    );
   } finally {
     if (originalGlobals.window) globalThis.window = originalGlobals.window; else delete globalThis.window;
     if (originalGlobals.document) globalThis.document = originalGlobals.document; else delete globalThis.document;
