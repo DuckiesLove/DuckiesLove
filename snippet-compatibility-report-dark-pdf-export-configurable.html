@@ -32,6 +32,11 @@
   // ---------------- utilities ----------------
   const log = (...a)=>console.log("[TK-DARK]", ...a);
   const tidy = s => (s||"").replace(/\s+/g," ").trim();
+  const toNum = v => {
+    const n = Number(String(v ?? "").replace(/[^\d.-]/g,""));
+    return Number.isFinite(n) ? n : null;
+  };
+  const isValidScore = n => Number.isInteger(n) && n >= 1 && n <= 5;
 
   function loadScript(src){
     return new Promise((res,rej)=>{
@@ -76,24 +81,45 @@
   }
 
   function extractRows(table){
-    // use only TRs with TDs and no THs
-    const trs = [...table.querySelectorAll("tr")]
-      .filter(tr => tr.querySelectorAll("td").length && tr.querySelectorAll("th").length===0);
+    // rows that have <td> cells (some sites use <td> for headers)
+    const trs = [...table.querySelectorAll("tr")] 
+      .filter(tr => tr.querySelectorAll("td").length > 0);
 
-    const rows = trs.map(tr => {
+    const isHeaderLike = (cellTexts) => {
+      const first = (cellTexts[0] || "").toLowerCase();
+      const joined = cellTexts.map(t => (t || "").toLowerCase()).join(" | ");
+      if (first === "category") return true;
+      if (/partner a|partner b|match/.test(joined)) return true;
+      if (!cellTexts.some(t => /\S/.test(t))) return true;
+      return false;
+    };
+
+    const rows = [];
+    for (const tr of trs){
       const tds = [...tr.querySelectorAll("td")].map(td => tidy(td.textContent));
+      if (!tds.length) continue;
+      if (isHeaderLike(tds)) continue;
+
       const cat = tds[0] ?? "—";
+      const numeric = tds.map(toNum).filter(n => n !== null);
+      const Araw = numeric.length ? numeric[0] : null;
+      const Braw = numeric.length ? numeric[numeric.length-1] : null;
 
-      // try to infer Partner A / B as first/last numbers
-      const nums = tds.map((v,i)=>({i, n: Number(String(v).replace(/[^\d.-]/g,""))}))
-                      .filter(x=>Number.isFinite(x.n));
-      const a = nums.length ? String(nums[0].n) : "—";
-      const b = nums.length ? String(nums[nums.length-1].n) : "—";
+      const aValid = isValidScore(Araw);
+      const bValid = isValidScore(Braw);
 
-      // match % cell if present
-      const m = tds.find(v=>/%$/.test(v)) || "—";
-      return [cat, a, m, b];
-    });
+      const a = aValid && Araw !== null ? String(Araw) : "—";
+      const b = bValid && Braw !== null ? String(Braw) : "—";
+
+      let m = tds.find(v=>/%$/.test(v)) || null;
+      if (!m && aValid && bValid){
+        const p = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
+        m = `${Math.max(0, Math.min(100, p))}%`;
+      }
+      if (!m) m = "—";
+
+      rows.push([cat, a, m, b]);
+    }
 
     return rows;
   }

@@ -113,14 +113,53 @@ or
   }
 
   // === Method 2: DATA EXPORT (AutoTable, vector text, faster) ===
+  const tidy = (s) => (s || '').replace(/\s+/g, ' ').trim();
+  const toNum = (v) => {
+    const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+  const isValidScore = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
   function extractRows() {
     const table = document.querySelector('#compatibilityTable')
                || document.querySelector('table.results-table.compat')
                || document.querySelector('table');
     if (!table) return [];
     const trs = [...table.querySelectorAll('tr')]
-      .filter(tr => tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0);
-    return trs.map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.trim()));
+      .filter(tr => tr.querySelectorAll('td').length > 0);
+
+    const isHeaderLike = (cellTexts) => {
+      const first = (cellTexts[0] || '').toLowerCase();
+      const joined = cellTexts.map(t => (t || '').toLowerCase()).join(' | ');
+      if (first === 'category') return true;
+      if (/partner a|partner b|match/.test(joined)) return true;
+      if (!cellTexts.some(t => /\S/.test(t))) return true;
+      return false;
+    };
+
+    const rows = [];
+    for (const tr of trs) {
+      const cells = [...tr.querySelectorAll('td')].map(td => tidy(td.textContent));
+      if (!cells.length) continue;
+      if (isHeaderLike(cells)) continue;
+
+      const category = cells[0] || '—';
+      const numeric = cells.map(toNum).filter(n => n !== null);
+      const Araw = numeric.length ? numeric[0] : null;
+      const Braw = numeric.length ? numeric[numeric.length - 1] : null;
+
+      const aValid = isValidScore(Araw);
+      const bValid = isValidScore(Braw);
+
+      let pct = cells.find(c => /%$/.test(c)) || null;
+      if (!pct && aValid && bValid) {
+        const p = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
+        pct = `${Math.max(0, Math.min(100, p))}%`;
+      }
+      if (!pct) pct = '—';
+
+      rows.push([category, aValid ? Araw : '—', pct, bValid ? Braw : '—']);
+    }
+    return rows;
   }
 
   async function downloadCompatibilityPDF({

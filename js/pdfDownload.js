@@ -100,8 +100,24 @@ function _extractRows() {
 
   let rows = [];
   if (table) {
-    const trs = [...table.querySelectorAll('tr')].filter(tr => tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0);
-    rows = trs.map(tr => [...tr.querySelectorAll('td')].map(td => _tidy(td.textContent)));
+    const trs = [...table.querySelectorAll('tr')].filter(tr => tr.querySelectorAll('td').length > 0);
+
+    const isHeaderLike = (cellTexts) => {
+      const first = (cellTexts[0] || '').toLowerCase();
+      const joined = cellTexts.map(t => (t || '').toLowerCase()).join(' | ');
+      if (first === 'category') return true;
+      if (/partner a|partner b|match/.test(joined)) return true;
+      if (!cellTexts.some(t => /\S/.test(t))) return true;
+      return false;
+    };
+
+    rows = [];
+    for (const tr of trs) {
+      const cells = [...tr.querySelectorAll('td')].map(td => _tidy(td.textContent));
+      if (!cells.length) continue;
+      if (isHeaderLike(cells)) continue;
+      rows.push(cells);
+    }
   } else {
     // Fallback for non-table layouts (adjust selector if needed)
     rows = [...document.querySelectorAll('.results-table.compat .row')]
@@ -111,16 +127,25 @@ function _extractRows() {
   return rows.map(cells => {
     const category = cells[0] || '—';
     const nums = cells.map(_toNum).filter(n => n !== null);
-    const a = nums.length ? nums[0] : null;
-    const b = nums.length ? nums[nums.length - 1] : null;
+    const Araw = nums.length ? nums[0] : null;
+    const Braw = nums.length ? nums[nums.length - 1] : null;
 
-    // Use existing % cell if present, else compute from A/B (0–5 scale)
+    const aValid = Number.isInteger(Araw) && Araw >= 1 && Araw <= 5;
+    const bValid = Number.isInteger(Braw) && Braw >= 1 && Braw <= 5;
+
     let match = cells.find(c => /%$/.test(c)) || null;
-    if (!match && a !== null && b !== null) {
-      const pct = Math.round(100 - (Math.abs(a - b) / 5) * 100);
+    if (!match && aValid && bValid && Araw !== null && Braw !== null) {
+      const pct = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
       match = `${Math.max(0, Math.min(100, pct))}%`;
     }
-    return [_clampTwoLines(category, 60), a ?? '—', match ?? '—', b ?? '—'];
+    if (!match) match = '—';
+
+    return [
+      _clampTwoLines(category, 60),
+      aValid && Araw !== null ? Araw : '—',
+      match,
+      bValid && Braw !== null ? Braw : '—'
+    ];
   });
 }
 

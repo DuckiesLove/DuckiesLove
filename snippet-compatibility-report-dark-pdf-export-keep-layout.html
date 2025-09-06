@@ -57,28 +57,35 @@ How to use:
 
   // Parse table rows into structured objects
   function extractRows(table) {
-    const trs = [...table.querySelectorAll("tr")].filter(tr => {
-      const ths = tr.querySelectorAll("th").length;
-      const tds = tr.querySelectorAll("td").length;
-      return ths === 0 && tds > 0;
-    });
+    // rows that have <td> cells (some sites use <td> for headers)
+    const trs = [...table.querySelectorAll("tr")].filter(tr =>
+      tr.querySelectorAll("td").length > 0
+    );
+
+    const isHeaderLike = (cellTexts) => {
+      const first = (cellTexts[0] || "").toLowerCase();
+      const joined = cellTexts.map(t => (t || "").toLowerCase()).join(" | ");
+      if (first === "category") return true;
+      if (/partner a|partner b|match/.test(joined)) return true;
+      if (!cellTexts.some(t => /\S/.test(t))) return true;
+      return false;
+    };
 
     const rows = [];
     for (const tr of trs) {
       const cells = [...tr.querySelectorAll("td")].map(td => tidy(td.textContent));
       if (!cells.length) continue;
+      if (isHeaderLike(cells)) continue;
 
       const category = cells[0] || "—";
 
-      // locate numeric answers (not strictly “columns 2 & 4” — we scan)
-      const nums = cells.map(toNum).filter(n => n !== null);
-      const Araw = nums[0] ?? null;
-      const Braw = nums.length ? nums[nums.length - 1] : null;
+      const numeric = cells.map(toNum).filter(n => n !== null);
+      const Araw = numeric.length ? numeric[0] : null;
+      const Braw = numeric.length ? numeric[numeric.length - 1] : null;
 
       const aValid = isValidScore(Araw);
       const bValid = isValidScore(Braw);
 
-      // existing percent cell or compute if both valid
       let pct = cells.find(c => /%$/.test(c)) || null;
       if (!pct && aValid && bValid) {
         const p = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
@@ -90,7 +97,8 @@ How to use:
         category,
         A: aValid ? Araw : null,   // null if invalid/blank/0
         B: bValid ? Braw : null,
-        aValid, bValid,
+        aValid,
+        bValid,
         pct
       });
     }
