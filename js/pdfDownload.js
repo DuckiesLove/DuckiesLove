@@ -80,37 +80,41 @@ function _extractRows() {
   if (!table) return [];
 
   const trs = [...table.querySelectorAll('tr')].filter(
-    tr => tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0
+    (tr) => tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0
   );
 
-  return trs.map(tr => {
-    const cells = [...tr.querySelectorAll('td')].map(td =>
+  return trs.map((tr) => {
+    const cells = [...tr.querySelectorAll('td')].map((td) =>
       (td.textContent || '')
         .replace(/\s+/g, ' ')
-        .replace(/([A-Za-z])\1+/g, '$1')
+        .replace(/([A-Za-z]+)\s*\1/, '$1')
         .trim()
     );
 
     let category = cells[0] || '—';
-
     if (/^cum$/i.test(category)) category = 'Cum Play';
-    category = category.replace(/([A-Za-z]+)\s*\1/, '$1');
 
-    const toNum = v => {
+    const toNum = (v) => {
       const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
       return Number.isFinite(n) ? n : null;
     };
-    const nums = cells.map(toNum).filter(n => n !== null);
+    const nums = cells.map(toNum).filter((n) => n !== null);
+
+    // Section header: no numbers and only first cell has content
+    if (nums.length === 0 && cells.slice(1).every((c) => !c)) {
+      return { type: 'header', category };
+    }
+
     const A = nums.length ? nums[0] : null;
     const B = nums.length > 1 ? nums[nums.length - 1] : null;
 
-    let pct = cells.find(c => /%$/.test(c)) || null;
+    let pct = cells.find((c) => /%$/.test(c)) || null;
     if (!pct && A != null && B != null) {
       const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
       pct = `${Math.max(0, Math.min(100, p))}%`;
     }
 
-    return [category, A ?? '—', pct ?? '—', B ?? '—'];
+    return { type: 'row', category, A: A ?? '—', pct: pct ?? '—', B: B ?? '—' };
   });
 }
 
@@ -130,6 +134,28 @@ export async function downloadCompatibilityPDF({
       .forEach(btn => _setBtnState(btn, false));
     return;
   }
+
+  const body = [];
+  const headers = [];
+  rows.forEach(r => {
+    if (r.type === 'header') {
+      body.push([
+        {
+          content: r.category,
+          colSpan: 4,
+          styles: {
+            fontStyle: 'bold',
+            halign: 'left',
+            fillColor: [0, 0, 0],
+            textColor: [255, 255, 255]
+          }
+        }
+      ]);
+      headers.push(r.category);
+    } else {
+      body.push([r.category, r.A, r.pct, r.B]);
+    }
+  });
 
   const JsPDF = _getJsPDF();
   const doc = new JsPDF({ orientation, unit: 'pt', format });
@@ -213,7 +239,7 @@ export async function downloadCompatibilityPDF({
 
   runAutoTable({
     head: [['Category', 'Partner A', 'Match %', 'Partner B']],
-    body: rows,
+    body,
     startY: 70,
     margin: { left: 30, right: 30, top: 70, bottom: 40 },
     styles: {
