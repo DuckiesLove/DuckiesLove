@@ -28,92 +28,41 @@ export async function downloadCompatibilityPDF(): Promise<void> {
     }
   }
 
-  const tidy = (s: string | null | undefined): string => (s || "").replace(/\s+/g, " ").trim();
-
-  const toNum = (v: unknown): number | null => {
-    const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
-    return Number.isFinite(n) ? n : null;
-    };
-
   type Row = [string, number | "—", string | "—", number | "—"];
 
-  const isValidScore = (n: number | null): boolean =>
-    Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 5;
-
-  function normalizeCategory(raw: string): string {
-    let t = tidy(raw);
-
-    if (t.length % 2 === 0) {
-      const mid = t.length / 2;
-      const first = t.slice(0, mid).trim();
-      const second = t.slice(mid).trim();
-      if (first && first.toLowerCase() === second.toLowerCase()) {
-        t = first;
-      }
-    }
-
-    const parts = t.split(/\s{1,}/);
-    const half = Math.floor(parts.length / 2);
-    if (parts.length > 1 && parts.length % 2 === 0) {
-      const a = parts.slice(0, half).join(" ").trim();
-      const b = parts.slice(half).join(" ").trim();
-      if (a && a.toLowerCase() === b.toLowerCase()) t = a;
-    }
-
-    const RENAMES: Record<string, string> = {
-      cum: "Cum Play",
-    };
-    const key = t.toLowerCase();
-    if (RENAMES[key]) t = RENAMES[key];
-
-    return t;
-  }
-
   function extractRows(table: HTMLTableElement): Row[] {
-    // rows that have <td> cells (some sites use <td> for headers)
     const trs = Array.from(table.querySelectorAll("tr")).filter(
-      (tr) => tr.querySelectorAll("td").length > 0
+      (tr) => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0
     );
 
-    const isHeaderLike = (cellTexts: string[]): boolean => {
-      const first = (cellTexts[0] || "").toLowerCase();
-      const joined = cellTexts.map((t) => (t || "").toLowerCase()).join(" | ");
-      if (first === "category") return true;
-      if (/partner a|partner b|match/.test(joined)) return true;
-      if (!cellTexts.some((t) => /\S/.test(t))) return true;
-      return false;
-    };
+    return trs.map((tr) => {
+      const cells = Array.from(tr.querySelectorAll("td")).map((td) =>
+        (td.textContent || "")
+          .replace(/\s+/g, " ")
+          .replace(/([A-Za-z])\1+/g, "$1")
+          .trim()
+      );
 
-    const rows: Row[] = [];
+      let category = cells[0] || "—";
+      if (/^cum$/i.test(category)) category = "Cum Play";
+      category = category.replace(/([A-Za-z]+)\s*\1/, "$1");
 
-    for (const tr of trs) {
-      const cells = Array.from(tr.querySelectorAll("td")).map((td) => tidy(td.textContent));
-      if (!cells.length) continue;
-      if (isHeaderLike(cells)) continue;
-
-      const category = normalizeCategory(cells[0] || "—");
-
-      const numeric = cells.map(toNum).filter((n): n is number => n !== null);
-      const Araw = numeric.length ? numeric[0] : null;
-      const Braw = numeric.length ? numeric[numeric.length - 1] : null;
-
-      const aValid = isValidScore(Araw);
-      const bValid = isValidScore(Braw);
+      const toNum = (v: unknown): number | null => {
+        const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
+        return Number.isFinite(n) ? n : null;
+      };
+      const nums = cells.map(toNum).filter((n): n is number => n !== null);
+      const A = nums.length ? nums[0] : null;
+      const B = nums.length > 1 ? nums[nums.length - 1] : null;
 
       let pct = cells.find((c) => /%$/.test(c)) || null;
-      if (!pct && aValid && bValid && Araw !== null && Braw !== null) {
-        const p = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
+      if (!pct && A != null && B != null) {
+        const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
         pct = `${Math.max(0, Math.min(100, p))}%`;
       }
-      if (!pct) pct = "—";
 
-      const A: number | "—" = aValid && Araw !== null ? Araw : "—";
-      const B: number | "—" = bValid && Braw !== null ? Braw : "—";
-
-      rows.push([category, A, pct, B]);
-    }
-
-    return rows;
+      return [category, A ?? "—", pct ?? "—", B ?? "—"] as Row;
+    });
   }
 
   try {

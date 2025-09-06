@@ -488,13 +488,6 @@ A PDF called compatibility-dark.pdf will be downloaded.
     }
   }
 
-  const tidy = (s) => (s || "").replace(/\s+/g, " ").trim();
-  const toNum = (v) => {
-    const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
-    return Number.isFinite(n) ? n : null;
-  };
-  const isValidScore = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
-
   function findTable() {
     return (
       document.querySelector("#compatibilityTable") ||
@@ -504,44 +497,38 @@ A PDF called compatibility-dark.pdf will be downloaded.
   }
 
   function extractRows(table) {
-    // rows that have <td> cells (some sites use <td> for headers)
     const trs = [...table.querySelectorAll("tr")].filter(
-      (tr) => tr.querySelectorAll("td").length > 0
+      (tr) => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0
     );
 
-    const isHeaderLike = (cellTexts) => {
-      const first = (cellTexts[0] || "").toLowerCase();
-      const joined = cellTexts.map((t) => (t || "").toLowerCase()).join(" | ");
-      if (first === "category") return true;
-      if (/partner a|partner b|match/.test(joined)) return true;
-      if (!cellTexts.some((t) => /\S/.test(t))) return true;
-      return false;
-    };
+    return trs.map((tr) => {
+      const cells = [...tr.querySelectorAll("td")].map((td) =>
+        (td.textContent || "")
+          .replace(/\s+/g, " ")
+          .replace(/([A-Za-z])\1+/g, "$1")
+          .trim()
+      );
 
-    const rows = [];
-    for (const tr of trs) {
-      const cells = [...tr.querySelectorAll("td")].map((td) => tidy(td.textContent));
-      if (!cells.length) continue;
-      if (isHeaderLike(cells)) continue;
+      let category = cells[0] || "—";
+      if (/^cum$/i.test(category)) category = "Cum Play";
+      category = category.replace(/([A-Za-z]+)\s*\1/, "$1");
 
-      const category = cells[0] || "—";
-      const numeric = cells.map(toNum).filter((n) => n !== null);
-      const Araw = numeric.length ? numeric[0] : null;
-      const Braw = numeric.length ? numeric[numeric.length - 1] : null;
-
-      const aValid = isValidScore(Araw);
-      const bValid = isValidScore(Braw);
+      const toNum = (v) => {
+        const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
+        return Number.isFinite(n) ? n : null;
+      };
+      const nums = cells.map(toNum).filter((n) => n !== null);
+      const A = nums.length ? nums[0] : null;
+      const B = nums.length > 1 ? nums[nums.length - 1] : null;
 
       let pct = cells.find((c) => /%$/.test(c)) || null;
-      if (!pct && aValid && bValid) {
-        const p = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
+      if (!pct && A != null && B != null) {
+        const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
         pct = `${Math.max(0, Math.min(100, p))}%`;
       }
-      if (!pct) pct = "—";
 
-      rows.push([category, aValid ? Araw : "—", pct, bValid ? Braw : "—"]);
-    }
-    return rows;
+      return [category, A ?? "—", pct ?? "—", B ?? "—"];
+    });
   }
 
   async function TKPDF_exportDark() {
