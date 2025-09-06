@@ -71,110 +71,46 @@ async function _ensurePdfLibs() {
   if (!_getJsPDF()) throw new Error('jsPDF failed to load.');
 }
 
-// --- Helpers to read your table/div rows without html2canvas ---
-function _tidy(s) { return (s || '').replace(/\s+/g, ' ').trim(); }
-function _toNum(v) {
-  const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
-  return Number.isFinite(n) ? n : null;
-}
-function _clampTwoLines(s, perLine = 60) {
-  const t = _tidy(s);
-  if (!t) return '—';
-  if (t.length <= perLine) return t;
-  const first = t.slice(0, perLine).trim();
-  const rest  = t.slice(perLine).trim();
-  const second = rest.length > perLine ? (rest.slice(0, perLine - 1).trim() + '…') : rest;
-  return first + '\n' + second;
-}
-
-function _normalizeCategory(raw) {
-  let t = _tidy(raw);
-
-  if (t.length % 2 === 0) {
-    const mid = t.length / 2;
-    const first = t.slice(0, mid).trim();
-    const second = t.slice(mid).trim();
-    if (first && first.toLowerCase() === second.toLowerCase()) {
-      t = first;
-    }
-  }
-
-  const parts = t.split(/\s{1,}/);
-  const half = Math.floor(parts.length / 2);
-  if (parts.length > 1 && parts.length % 2 === 0) {
-    const a = parts.slice(0, half).join(' ').trim();
-    const b = parts.slice(half).join(' ').trim();
-    if (a && a.toLowerCase() === b.toLowerCase()) t = a;
-  }
-
-  const RENAMES = {
-    cum: 'Cum Play',
-  };
-  const key = t.toLowerCase();
-  if (RENAMES[key]) t = RENAMES[key];
-
-  return t;
-}
-
-/**
- * Extract rows from either a real <table> or div-based “rows”.
- * Returns array of [Category, Partner A, Match %, Partner B]
- */
+// --- Extract rows from a <table> ---
 function _extractRows() {
-  // Prefer a real table if present
   const table =
     document.querySelector('#compatibilityTable') ||
     document.querySelector('table.results-table.compat') ||
     document.querySelector('table');
+  if (!table) return [];
 
-  let rows = [];
-  if (table) {
-    const trs = [...table.querySelectorAll('tr')].filter(tr => tr.querySelectorAll('td').length > 0);
+  const trs = [...table.querySelectorAll('tr')].filter(
+    tr => tr.querySelectorAll('th').length === 0 && tr.querySelectorAll('td').length > 0
+  );
 
-    const isHeaderLike = (cellTexts) => {
-      const first = (cellTexts[0] || '').toLowerCase();
-      const joined = cellTexts.map(t => (t || '').toLowerCase()).join(' | ');
-      if (first === 'category') return true;
-      if (/partner a|partner b|match/.test(joined)) return true;
-      if (!cellTexts.some(t => /\S/.test(t))) return true;
-      return false;
+  return trs.map(tr => {
+    const cells = [...tr.querySelectorAll('td')].map(td =>
+      (td.textContent || '')
+        .replace(/\s+/g, ' ')
+        .replace(/([A-Za-z])\1+/g, '$1')
+        .trim()
+    );
+
+    let category = cells[0] || '—';
+
+    if (/^cum$/i.test(category)) category = 'Cum Play';
+    category = category.replace(/([A-Za-z]+)\s*\1/, '$1');
+
+    const toNum = v => {
+      const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
+      return Number.isFinite(n) ? n : null;
     };
+    const nums = cells.map(toNum).filter(n => n !== null);
+    const A = nums.length ? nums[0] : null;
+    const B = nums.length > 1 ? nums[nums.length - 1] : null;
 
-    rows = [];
-    for (const tr of trs) {
-      const cells = [...tr.querySelectorAll('td')].map(td => _tidy(td.textContent));
-      if (!cells.length) continue;
-      if (isHeaderLike(cells)) continue;
-      rows.push(cells);
+    let pct = cells.find(c => /%$/.test(c)) || null;
+    if (!pct && A != null && B != null) {
+      const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
+      pct = `${Math.max(0, Math.min(100, p))}%`;
     }
-  } else {
-    // Fallback for non-table layouts (adjust selector if needed)
-    rows = [...document.querySelectorAll('.results-table.compat .row')]
-      .map(r => [...r.children].map(c => _tidy(c.textContent)));
-  }
 
-  return rows.map(cells => {
-    const category = _normalizeCategory(cells[0] || '—');
-    const nums = cells.map(_toNum).filter(n => n !== null);
-    const Araw = nums.length ? nums[0] : null;
-    const Braw = nums.length ? nums[nums.length - 1] : null;
-
-    const aValid = Number.isInteger(Araw) && Araw >= 1 && Araw <= 5;
-    const bValid = Number.isInteger(Braw) && Braw >= 1 && Braw <= 5;
-
-    let match = cells.find(c => /%$/.test(c)) || null;
-    if (!match && aValid && bValid && Araw !== null && Braw !== null) {
-      const pct = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
-      match = `${Math.max(0, Math.min(100, pct))}%`;
-    }
-    if (!match) match = '—';
-
-    return [
-      _clampTwoLines(category, 60),
-      aValid && Araw !== null ? Araw : '—',
-      match,
-      bValid && Braw !== null ? Braw : '—'
-    ];
+    return [category, A ?? '—', pct ?? '—', B ?? '—'];
   });
 }
 
