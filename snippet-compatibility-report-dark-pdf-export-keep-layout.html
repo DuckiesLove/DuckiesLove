@@ -1,0 +1,271 @@
+<!--
+TALK KINK — DARK PDF EXPORT (keeps your layout untouched)
+
+What this does (per Codex summary):
+• Loads jsPDF + jsPDF-AutoTable from CDN if missing.
+• Reads your on-page table (by #compatibilityTable, .results-table.compat, or first <table>).
+• Treats scores as VALID only if they’re integers 1–5.
+  - Main table: includes rows where at least one partner has a valid score.
+  - Bottom section: “Categories with missing responses” listing who missed (Partner A, Partner B, or Both) when a value is 0, blank, or non-1..5.
+• Exports a landscape A4, solid black background, white text, thick white grid lines.
+• Binds to #downloadBtn and also exposes TKPDF_forceDark() for console use.
+
+How to use:
+1) Make sure your results table is present in the DOM.
+2) Ensure (or add) a button: <button id="downloadBtn">Download PDF</button>
+3) Paste this whole <script> block just before </body>.
+4) Click the button, or run TKPDF_forceDark() from DevTools.
+-->
+<script>
+(async function () {
+  /* ------------------ utilities ------------------ */
+  const LOG  = (...a) => console.log("[TK-PDF]", ...a);
+  const tidy = (s) => (s || "").replace(/\s+/g, " ").trim();
+  const toNum = (v) => {
+    const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  };
+  const isValidScore = (n) => Number.isInteger(n) && n >= 1 && n <= 5; // 0, blank, or non-1..5 => invalid/missing
+
+  const load = (src) =>
+    new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s = document.createElement("script");
+      s.src = src; s.onload = res; s.onerror = () => rej(new Error("Failed to load "+src));
+      document.head.appendChild(s);
+    });
+
+  async function ensureLibs() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+    const hasAT =
+      (window.jspdf && window.jspdf.autoTable) ||
+      (window.jspdf?.jsPDF?.API && window.jspdf.jsPDF.API.autoTable);
+    if (!hasAT) {
+      await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
+  }
+
+  function findTable() {
+    return (
+      document.querySelector("#compatibilityTable") ||
+      document.querySelector(".results-table.compat") ||
+      document.querySelector("table")
+    );
+  }
+
+  // Parse table rows into structured objects
+  function extractRows(table) {
+    const trs = [...table.querySelectorAll("tr")].filter(tr => {
+      const ths = tr.querySelectorAll("th").length;
+      const tds = tr.querySelectorAll("td").length;
+      return ths === 0 && tds > 0;
+    });
+
+    const rows = [];
+    for (const tr of trs) {
+      const cells = [...tr.querySelectorAll("td")].map(td => tidy(td.textContent));
+      if (!cells.length) continue;
+
+      const category = cells[0] || "—";
+
+      // locate numeric answers (not strictly “columns 2 & 4” — we scan)
+      const nums = cells.map(toNum).filter(n => n !== null);
+      const Araw = nums[0] ?? null;
+      const Braw = nums.length ? nums[nums.length - 1] : null;
+
+      const aValid = isValidScore(Araw);
+      const bValid = isValidScore(Braw);
+
+      // existing percent cell or compute if both valid
+      let pct = cells.find(c => /%$/.test(c)) || null;
+      if (!pct && aValid && bValid) {
+        const p = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
+        pct = `${Math.max(0, Math.min(100, p))}%`;
+      }
+      if (!pct) pct = "—";
+
+      rows.push({
+        category,
+        A: aValid ? Araw : null,   // null if invalid/blank/0
+        B: bValid ? Braw : null,
+        aValid, bValid,
+        pct
+      });
+    }
+    return rows;
+  }
+
+  function runAT(doc, opts) {
+    if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+    if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
+    throw new Error("AutoTable not available");
+  }
+
+  function paintBgFactory(doc, pageW, pageH) {
+    return () => {
+      doc.setFillColor(0,0,0);
+      doc.rect(0,0, pageW, pageH, "F");
+      doc.setTextColor(255,255,255);
+    };
+  }
+
+  async function exportDarkPDF() {
+    try {
+      await ensureLibs();
+      const { jsPDF } = window.jspdf;
+
+      const table = findTable();
+      if (!table) return alert("No table found on the page.");
+
+      const rows = extractRows(table);
+      if (!rows.length) return alert("No rows to export.");
+
+      // Split rows:
+      // - main “rated”: at least one valid score
+      // - missing list: anyone invalid -> mark Partner A / Partner B / Both
+      const rated = [];
+      const missing = [];
+      for (const r of rows) {
+        if (r.aValid || r.bValid) rated.push(r);
+        if (!r.aValid || !r.bValid) {
+          const who = (!r.aValid && !r.bValid) ? "Both" : (!r.aValid ? "Partner A" : "Partner B");
+          missing.push([r.category, who]);
+        }
+      }
+
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const paintBg = paintBgFactory(doc, pageW, pageH);
+
+      // Title
+      paintBg();
+      doc.setFontSize(24);
+      doc.text("Talk Kink • Compatibility Report", pageW/2, 42, { align: "center" });
+
+      // Layout sizing
+      const marginLR = 30;
+      const usable   = pageW - marginLR*2;
+      const Awidth=90, Mwidth=110, Bwidth=90;
+      const CatWidth = Math.max(220, usable - (Awidth + Mwidth + Bwidth));
+
+      // Main table (rated)
+      if (rated.length) {
+        const body = rated.map(r => [
+          r.category,
+          r.A != null ? String(r.A) : "—",
+          r.pct || "—",
+          r.B != null ? String(r.B) : "—"
+        ]);
+
+        runAT(doc, {
+          theme: "grid",
+          head: [["Category","Partner A","Match %","Partner B"]],
+          body,
+          startY: 64,
+          margin: { left: marginLR, right: marginLR, top: 64, bottom: 40 },
+          tableWidth: usable,
+          styles: {
+            fontSize: 11,
+            cellPadding: 6,
+            textColor: [255,255,255],
+            fillColor: [0,0,0],
+            lineColor: [255,255,255],
+            lineWidth: 1.2,
+            halign: "center",
+            valign: "middle",
+            overflow: "linebreak",
+          },
+          headStyles: {
+            fillColor: [0,0,0],
+            textColor: [255,255,255],
+            fontStyle: "bold",
+            lineColor: [255,255,255],
+            lineWidth: 1.6,
+          },
+          columnStyles: {
+            0: { cellWidth: CatWidth, halign: "left"   },
+            1: { cellWidth: Awidth,  halign: "center" },
+            2: { cellWidth: Mwidth,  halign: "center" },
+            3: { cellWidth: Bwidth,  halign: "center" },
+          },
+          // Hard-override to keep every cell black/white (no striping)
+          didParseCell: (data) => {
+            data.cell.styles.fillColor = [0,0,0];
+            data.cell.styles.textColor = [255,255,255];
+          },
+          willDrawPage: paintBg,
+        });
+      }
+
+      // Missing responses section
+      if (missing.length) {
+        // Where to start the missing table:
+        const headerY = (doc.lastAutoTable?.finalY || 64) + 32;
+        if (headerY > pageH - 140) { doc.addPage(); paintBg(); }
+
+        doc.setFontSize(16);
+        doc.text("Categories with missing responses", marginLR, (doc.lastAutoTable?.finalY || 64) + 32);
+
+        const listStartY = (doc.lastAutoTable?.finalY || 64) + 40;
+        runAT(doc, {
+          theme: "grid",
+          head: [["Category", "Who didn’t answer"]],
+          body: missing,
+          startY: listStartY,
+          margin: { left: marginLR, right: marginLR, bottom: 40 },
+          tableWidth: usable,
+          styles: {
+            fontSize: 11,
+            cellPadding: 6,
+            textColor: [255,255,255],
+            fillColor: [0,0,0],
+            lineColor: [255,255,255],
+            lineWidth: 1.2,
+            halign: "left",
+            valign: "middle",
+            overflow: "linebreak",
+          },
+          headStyles: {
+            fillColor: [0,0,0],
+            textColor: [255,255,255],
+            fontStyle: "bold",
+            lineColor: [255,255,255],
+            lineWidth: 1.6,
+          },
+          columnStyles: {
+            0: { cellWidth: Math.max(280, usable - 160), halign: "left" },
+            1: { cellWidth: 160, halign: "center" },
+          },
+          didParseCell: (data) => {
+            data.cell.styles.fillColor = [0,0,0];
+            data.cell.styles.textColor = [255,255,255];
+          },
+          willDrawPage: paintBg,
+        });
+      }
+
+      // If absolutely nothing to show
+      if (!rated.length && !missing.length) {
+        doc.setFontSize(14);
+        doc.text("No data to export.", marginLR, 100);
+      }
+
+      doc.save("compatibility-dark.pdf");
+      LOG("Saved: compatibility-dark.pdf");
+    } catch (err) {
+      console.error("[TK-PDF] Export failed:", err);
+      alert("PDF export failed: " + (err?.message || err));
+    }
+  }
+
+  // Public hook + button binding
+  window.TKPDF_forceDark = exportDarkPDF;
+  document.querySelector("#downloadBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    exportDarkPDF();
+  });
+})();
+</script>
