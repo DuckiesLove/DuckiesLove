@@ -87,6 +87,35 @@ function _clampTwoLines(s, perLine = 60) {
   return first + '\n' + second;
 }
 
+function _normalizeCategory(raw) {
+  let t = _tidy(raw);
+
+  if (t.length % 2 === 0) {
+    const mid = t.length / 2;
+    const first = t.slice(0, mid).trim();
+    const second = t.slice(mid).trim();
+    if (first && first.toLowerCase() === second.toLowerCase()) {
+      t = first;
+    }
+  }
+
+  const parts = t.split(/\s{1,}/);
+  const half = Math.floor(parts.length / 2);
+  if (parts.length > 1 && parts.length % 2 === 0) {
+    const a = parts.slice(0, half).join(' ').trim();
+    const b = parts.slice(half).join(' ').trim();
+    if (a && a.toLowerCase() === b.toLowerCase()) t = a;
+  }
+
+  const RENAMES = {
+    cum: 'Cum Play',
+  };
+  const key = t.toLowerCase();
+  if (RENAMES[key]) t = RENAMES[key];
+
+  return t;
+}
+
 /**
  * Extract rows from either a real <table> or div-based “rows”.
  * Returns array of [Category, Partner A, Match %, Partner B]
@@ -125,7 +154,7 @@ function _extractRows() {
   }
 
   return rows.map(cells => {
-    const category = cells[0] || '—';
+    const category = _normalizeCategory(cells[0] || '—');
     const nums = cells.map(_toNum).filter(n => n !== null);
     const Araw = nums.length ? nums[0] : null;
     const Braw = nums.length ? nums[nums.length - 1] : null;

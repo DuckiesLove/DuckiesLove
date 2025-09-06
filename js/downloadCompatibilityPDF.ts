@@ -40,6 +40,35 @@ export async function downloadCompatibilityPDF(): Promise<void> {
   const isValidScore = (n: number | null): boolean =>
     Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 5;
 
+  function normalizeCategory(raw: string): string {
+    let t = tidy(raw);
+
+    if (t.length % 2 === 0) {
+      const mid = t.length / 2;
+      const first = t.slice(0, mid).trim();
+      const second = t.slice(mid).trim();
+      if (first && first.toLowerCase() === second.toLowerCase()) {
+        t = first;
+      }
+    }
+
+    const parts = t.split(/\s{1,}/);
+    const half = Math.floor(parts.length / 2);
+    if (parts.length > 1 && parts.length % 2 === 0) {
+      const a = parts.slice(0, half).join(" ").trim();
+      const b = parts.slice(half).join(" ").trim();
+      if (a && a.toLowerCase() === b.toLowerCase()) t = a;
+    }
+
+    const RENAMES: Record<string, string> = {
+      cum: "Cum Play",
+    };
+    const key = t.toLowerCase();
+    if (RENAMES[key]) t = RENAMES[key];
+
+    return t;
+  }
+
   function extractRows(table: HTMLTableElement): Row[] {
     // rows that have <td> cells (some sites use <td> for headers)
     const trs = Array.from(table.querySelectorAll("tr")).filter(
@@ -62,7 +91,7 @@ export async function downloadCompatibilityPDF(): Promise<void> {
       if (!cells.length) continue;
       if (isHeaderLike(cells)) continue;
 
-      const category = cells[0] || "—";
+      const category = normalizeCategory(cells[0] || "—");
 
       const numeric = cells.map(toNum).filter((n): n is number => n !== null);
       const Araw = numeric.length ? numeric[0] : null;
