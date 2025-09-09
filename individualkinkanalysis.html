@@ -7,16 +7,36 @@
   <link rel="stylesheet" href="css/theme.css">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=EB+Garamond&display=swap" rel="stylesheet">
   <style>
-    /* Center upload and download controls vertically */
     .analysis-controls {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1.2rem;
-      margin-top: 2rem;
+      justify-content: center;
+      gap: 25px;
+      margin-top: 50px;
     }
-    .analysis-controls input[type="file"] {
+    .file-input {
+      display: none;
+    }
+    .file-label,
+    .btn {
+      display: inline-block;
+      background: transparent;
+      color: #fff;
+      border: 2px solid cyan;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
       text-align: center;
+      width: 320px;
+      transition: 0.3s;
+    }
+    .file-label:hover,
+    .btn:hover {
+      background: cyan;
+      color: black;
     }
   </style>
 </head>
@@ -26,14 +46,34 @@
     <p>Upload your survey data and generate a personal PDF report.</p>
 
     <div class="analysis-controls">
-      <!-- Upload survey JSON -->
-      <input id="ikaFile" type="file" accept="application/json" class="themed-button highlighted-box" />
+<!-- Instructions -->
+<p class="ika-instructions">
+  Upload your survey data and generate a personal PDF report.
+</p>
 
-      <!-- Rendered results -->
-      <div id="ikaResults"></div>
+<!-- Upload survey JSON styled as button -->
+<label for="ikaFile" class="themed-button highlighted-box">Upload Survey</label>
+<input id="ikaFile" type="file" accept="application/json" class="file-input" style="display:none" />
 
-      <!-- Download PDF -->
-      <button id="downloadPdfBtn" class="themed-button highlighted-box">Download PDF</button>
+<!-- Rendered results -->
+<div id="ikaResults"></div>
+
+<!-- Download PDF -->
+<button id="downloadPdfBtn" class="themed-button highlighted-box">Download PDF</button>
+
+<style>
+.ika-instructions {
+  text-align: center;
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.1em;
+  color: #fff;
+  margin-bottom: 20px;
+}
+.file-input {
+  display: none;
+}
+</style>
+
     </div>
   </div>
   <!--
