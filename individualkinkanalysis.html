@@ -7,16 +7,36 @@
   <link rel="stylesheet" href="css/theme.css">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=EB+Garamond&display=swap" rel="stylesheet">
   <style>
-    /* Center upload and download controls vertically */
     .analysis-controls {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1.2rem;
-      margin-top: 2rem;
+      justify-content: center;
+      gap: 25px;
+      margin-top: 50px;
     }
-    .analysis-controls input[type="file"] {
+    .file-input {
+      display: none;
+    }
+    .file-label,
+    .btn {
+      display: inline-block;
+      background: transparent;
+      color: #fff;
+      border: 2px solid cyan;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
       text-align: center;
+      width: 320px;
+      transition: 0.3s;
+    }
+    .file-label:hover,
+    .btn:hover {
+      background: cyan;
+      color: black;
     }
   </style>
 </head>
@@ -26,11 +46,12 @@
     <p>Upload your survey data and generate a personal PDF report.</p>
 
     <div class="analysis-controls">
-      <!-- Upload survey JSON -->
-      <input type="file" id="uploadSurvey" accept=".json" class="themed-button highlighted-box" />
+      <!-- File upload styled as button -->
+      <label for="uploadSurvey" class="file-label">Upload Survey</label>
+      <input type="file" id="uploadSurvey" accept=".json" class="file-input" />
 
       <!-- Download PDF -->
-      <button id="downloadBtn" class="themed-button highlighted-box">Download PDF</button>
+      <button id="downloadBtn" class="btn">Download PDF</button>
     </div>
 
     <!-- Diagnostics -->
