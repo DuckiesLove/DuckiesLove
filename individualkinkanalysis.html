@@ -7,63 +7,64 @@
   <link rel="stylesheet" href="css/theme.css">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=EB+Garamond&display=swap" rel="stylesheet">
   <style>
-    .analysis-controls {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 25px;
-      margin-top: 50px;
-    }
-    .file-input {
-      display: none;
-    }
-    .file-label,
-    .btn {
-      display: inline-block;
-      background: transparent;
-      color: #fff;
-      border: 2px solid cyan;
-      border-radius: 12px;
-      padding: 14px 28px;
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
+    /* Center everything */
+    .ika-container {
       text-align: center;
-      width: 320px;
-      transition: 0.3s;
+      margin-top: 40px;
     }
-    .file-label:hover,
-    .btn:hover {
-      background: cyan;
+
+    /* Title styling */
+    .ika-title {
+      font-family: 'Fredoka One', cursive;
+      color: #00ffff;
+      font-size: 2em;
+      margin-bottom: 15px;
+    }
+
+    /* Instructions centered */
+    .ika-instructions {
+      font-family: 'Fredoka One', cursive;
+      color: #fff;
+      font-size: 1.1em;
+      margin-bottom: 25px;
+    }
+
+    /* Button styles consistent with existing design */
+    .ika-btn {
+      display: inline-block;
+      margin: 10px auto;
+      padding: 15px 40px;
+      border: 2px solid #00ffff;
+      border-radius: 10px;
+      font-size: 1.2em;
+      font-family: 'Fredoka One', cursive;
+      background: black;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .ika-btn:hover {
+      background: #00ffff;
       color: black;
     }
   </style>
 </head>
 <body class="theme-dark">
-  <div class="container">
-    <h1>Individual Kink Analysis</h1>
-    <p>Upload your survey data and generate a personal PDF report.</p>
+  <div class="ika-container">
+    <h1 class="ika-title">Individual Kink Analysis</h1>
+    <p class="ika-instructions">
+      Upload your survey data and generate a personal PDF report.
+    </p>
 
-    <div class="analysis-controls">
-      <!-- File upload styled as button -->
-      <label for="uploadSurvey" class="file-label">Upload Survey</label>
-      <input type="file" id="uploadSurvey" accept=".json" class="file-input" />
+    <label for="ikaFile" class="ika-btn">Upload Survey</label>
+    <input id="ikaFile" type="file" accept="application/json" style="display:none">
 
-      <!-- Download PDF -->
-      <button id="downloadBtn" class="btn">Download PDF</button>
-    </div>
-
-    <!-- Diagnostics -->
-    <pre id="log" style="background:#111;color:#0f0;padding:10px;max-height:200px;overflow:auto;"></pre>
+    <button id="downloadPdfBtn" class="ika-btn">Download PDF</button>
   </div>
 
   <script>
   (async function(){
-    const log = (...a) => {
-      document.querySelector("#log").textContent += a.join(" ") + "\n";
-      console.log("[IK-PDF]", ...a);
-    };
+    const log = (...a) => console.log("[IK-PDF]", ...a);
 
     // --- load scripts ---
     function loadScript(src){
@@ -86,7 +87,7 @@
 
     // --- store uploaded survey ---
     let surveyData = null;
-    document.querySelector("#uploadSurvey").addEventListener("change", (e)=>{
+    document.querySelector("#ikaFile").addEventListener("change", (e)=>{
       const file = e.target.files[0];
       if(!file) return;
       const reader = new FileReader();
@@ -163,7 +164,7 @@
       log("Export complete.");
     }
 
-    document.querySelector("#downloadBtn").addEventListener("click", exportPDF);
+    document.querySelector("#downloadPdfBtn").addEventListener("click", exportPDF);
   })();
   </script>
 </body>
