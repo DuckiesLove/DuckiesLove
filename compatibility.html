@@ -443,31 +443,32 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(runFill, 250));
 })();
 </script>
 <!--
-TALK KINK • COMPATIBILITY REPORT — DARK PDF (ALL CELLS BLACK) + "UNANSWERED" LIST
-Copy/paste this WHOLE box into **compatibility.html** right before </body>.
-
+Talk Kink • Compatibility Report — Dark-Mode PDF (all-black cells)
 WHAT THIS DOES
-1) Loads jsPDF + jsPDF-AutoTable from CDN only if missing.
-2) Finds your results table (#compatibilityTable, .results-table.compat, or the first <table>).
-3) Exports a landscape A4, **pure black** table (white text, thick white grid).
-4) Treats scores 1–5 as valid. Anything 0 or blank = “unanswered”.
-5) Adds a second table at the end: **Unanswered Categories**, marking who skipped (✖) for Partner A/B.
-6) Binds to #downloadBtn automatically OR call TKPDF_forceDark() from the console.
+• Loads jsPDF + AutoTable from CDN only if missing
+• Finds your results table (#compatibilityTable, .results-table.compat, or first <table>)
+• Uses the FIRST section header on the page (e.g., “Appearance Play”) as the left column label
+• Exports a landscape A4 PDF with black background, white text, THICK white grid lines
+• Ensures the on-screen scores transfer exactly (including 0). 0/blank are also listed at the end as “Unanswered”.
+• Binds to #downloadBtn automatically, or call TKPDF_forceDark() from the console
 
-HOW TO USE
-- Ensure the results table is visible in the DOM.
-- Click the button with id="downloadBtn", or run TKPDF_forceDark() in the console.
-- A file named **compatibility-dark.pdf** will download.
+HOW TO USE (Codex-ready steps)
+1) Open compatibility.html
+2) Paste this entire <script> block just before </body>
+3) Ensure your results table is rendered in the DOM when the user clicks “Download PDF”
+4) Click the button with id="downloadBtn" (or run TKPDF_forceDark() in the console)
 
-SAFETY
-- This only reads visible table text; no server calls, no external data writes.
+RESULT
+• A file named compatibility-dark.pdf is downloaded with:
+  – main results table in dark theme
+  – a second table “Unanswered (0 or blank)” listing any category Partner A or B didn’t answer
 -->
 
 <script>
 (function () {
   const LOG = (...a) => console.log('[TK-PDF]', ...a);
 
-  // --- loader helpers -------------------------------------------------------
+  /* -------------------- loader -------------------- */
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[src="${src}"]`)) return resolve();
@@ -482,13 +483,14 @@ SAFETY
     if (!(window.jspdf && window.jspdf.jsPDF)) {
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
     }
-    // AutoTable available on jspdf.jsPDF.API.autoTable in UMD usage
-    if (!((window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable))) {
+    const hasAT =
+      (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable);
+    if (!hasAT) {
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
     }
   }
 
-  // --- table discovery -------------------------------------------------------
+  /* -------------------- DOM helpers -------------------- */
   function findTable() {
     return (
       document.querySelector('#compatibilityTable') ||
@@ -496,29 +498,32 @@ SAFETY
       document.querySelector('table')
     );
   }
-
-  // --- small utils -----------------------------------------------------------
   const tidy = (s) => (s || '').replace(/\s+/g, ' ').trim();
-  const toNum = (v) => {
-    const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
-    return Number.isFinite(n) ? n : null;
-  };
-  const isValidScore = (n) => n != null && Number.isInteger(n) && n >= 1 && n <= 5;
-  const isZeroOrBlank = (n) => n == null || n === 0;
 
-  // Optional: light de-dupe/fixes for repeated labels like "BloodBlood", "Cum" -> "Cum Play"
+  // Extract first integer-like token (supports 0..5)
+  function rawInt(v) {
+    const m = String(v ?? '').match(/-?\d+/);
+    if (!m) return null;
+    const n = parseInt(m[0], 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  const isValidScore = (n) => n != null && Number.isInteger(n) && n >= 1 && n <= 5;
+  const isZeroOrBlank = (raw) => raw == null || raw === 0;
+
+  // Label cleanup: dedupe words, tiny fixes, rename "Cum" -> "Cum Play"
   function cleanLabel(s) {
     let t = tidy(s);
-    t = t.replace(/\b([A-Za-z/’'-]+)\1\b/g, '$1');   // "BloodBlood" => "Blood"
+    t = t.replace(/\b([A-Za-z/’'-]+)\s*\1\b/g, '$1'); // e.g., "Blood Blood" -> "Blood"
     t = t.replace(/\bCum\b/g, 'Cum Play');
     return t;
   }
 
-  // --- extract rows + track unanswered --------------------------------------
+  /* -------------------- table parsing -------------------- */
   function extractRows(table) {
     const trs = [...table.querySelectorAll('tr')];
-    const rows = [];
-    const missing = [];
+    const rows = [];     // main table rows
+    const missing = [];  // [Category, missA, missB] for 0/blank
+    let firstSectionHeader = 'Category';
 
     for (const tr of trs) {
       const tds = [...tr.querySelectorAll('td')];
@@ -526,92 +531,107 @@ SAFETY
 
       const texts = tds.map(td => cleanLabel(td.textContent));
 
-      // Section header row (one meaningful cell spanning the row)
+      // Section header detection: one <td> that spans the row (or others empty)
       if (tds.length === 1 || (texts[0] && texts.slice(1).every(x => !x))) {
+        if (firstSectionHeader === 'Category') firstSectionHeader = texts[0];
         rows.push([{
           content: texts[0],
           colSpan: 4,
-          styles: { fontStyle: 'bold', halign: 'left', fillColor: [0, 0, 0], textColor: [255, 255, 255] }
+          styles: { fontStyle: 'bold', halign: 'left', fillColor: [0,0,0], textColor: [255,255,255] }
         }]);
         continue;
       }
 
-      // Normal row: Category | Partner A | Match % | Partner B
+      // Category text is first cell
       const category = cleanLabel(texts[0] || '—');
 
-      const nums = texts.map(toNum);
-      const numericIdx = nums.map((n, i) => (n !== null ? i : -1)).filter(i => i >= 0);
-      const a = numericIdx.length ? nums[numericIdx[0]] : null;
-      const b = numericIdx.length ? nums[numericIdx[numericIdx.length - 1]] : null;
+      // Pick Partner A = first numeric, Partner B = last numeric (from the row)
+      const raws = texts.map(rawInt);
+      const numIdx = raws.map((n, i) => (n !== null ? i : -1)).filter(i => i >= 0);
+      const aRaw = numIdx.length ? raws[numIdx[0]] : null;
+      const bRaw = numIdx.length ? raws[numIdx[numIdx.length - 1]] : null;
 
-      let match = texts.find(c => /%$/.test(c)) || '—';
-      if (!match && isValidScore(a) && isValidScore(b)) {
-        const pct = Math.round(100 - (Math.abs(a - b) / 5) * 100);
-        match = `${Math.max(0, Math.min(100, pct))}%`;
+      // What to SHOW in the PDF:
+      // - If it's 0, show "0" (to match the on-screen table)
+      // - If 1..5, show the number
+      // - Otherwise "—"
+      const aShow = (aRaw === 0) ? '0' : (isValidScore(aRaw) ? String(aRaw) : '—');
+      const bShow = (bRaw === 0) ? '0' : (isValidScore(bRaw) ? String(bRaw) : '—');
+
+      // Match %: use present % cell if any; else compute only when both scores are valid (1..5)
+      let matchCell = texts.find(c => /%$/.test(c)) || '—';
+      if (matchCell === '—' && isValidScore(aRaw) && isValidScore(bRaw)) {
+        const pct = Math.round(100 - (Math.abs(aRaw - bRaw) / 5) * 100);
+        matchCell = `${Math.max(0, Math.min(100, pct))}%`;
       }
 
-      const missA = isZeroOrBlank(a);
-      const missB = isZeroOrBlank(b);
+      // Missing (0 or blank) tracker
+      const missA = isZeroOrBlank(aRaw);
+      const missB = isZeroOrBlank(bRaw);
       if (missA || missB) {
         missing.push([category, missA ? '✖' : '—', missB ? '✖' : '—']);
       }
 
+      // Push row (ALL BLACK cells w/ white text)
       rows.push([
-        { content: category, styles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] } },
-        { content: isValidScore(a) ? String(a) : '—', styles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] } },
-        { content: match, styles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] } },
-        { content: isValidScore(b) ? String(b) : '—', styles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] } }
+        { content: category,  styles: { fillColor: [0,0,0], textColor: [255,255,255] } },
+        { content: aShow,     styles: { fillColor: [0,0,0], textColor: [255,255,255] } },
+        { content: matchCell, styles: { fillColor: [0,0,0], textColor: [255,255,255] } },
+        { content: bShow,     styles: { fillColor: [0,0,0], textColor: [255,255,255] } },
       ]);
     }
-
-    return { rows, missing };
+    return { rows, missing, firstSectionHeader };
   }
 
-  // --- export (dark mode) ----------------------------------------------------
+  /* -------------------- PDF export -------------------- */
   async function TKPDF_export() {
     try {
       await ensureLibs();
       const { jsPDF } = window.jspdf;
+
       const table = findTable();
       if (!table) return alert('No table found on the page.');
 
-      const { rows, missing } = extractRows(table);
+      const { rows, missing, firstSectionHeader } = extractRows(table);
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
-      const paintBg = () => { doc.setFillColor(0,0,0); doc.rect(0,0, pageW, pageH, 'F'); doc.setTextColor(255,255,255); };
+      const marginLR = 30;
+      const usable = pageW - marginLR * 2;
+
+      // Dark page painter (fixes "white boxes")
+      const paintBg = () => { doc.setFillColor(0,0,0); doc.rect(0,0,pageW,pageH,'F'); doc.setTextColor(255,255,255); };
 
       paintBg();
       doc.setFontSize(24);
-      doc.text('Talk Kink • Compatibility Report', pageW / 2, 42, { align: 'center' });
+      doc.text('Talk Kink • Compatibility Report', pageW/2, 42, { align: 'center' });
 
-      const marginLR = 30;
-      const usable = pageW - marginLR * 2;
+      // Column widths (kept constant to avoid overflow warnings)
       const Awidth = 90, Mwidth = 110, Bwidth = 90;
       const CatWidth = usable - (Awidth + Mwidth + Bwidth);
 
       doc.autoTable({
-        head: [['Category', 'Partner A', 'Match %', 'Partner B']],
+        head: [[firstSectionHeader, 'Partner A', 'Match %', 'Partner B']],
         body: rows,
         startY: 64,
         margin: { left: marginLR, right: marginLR },
         styles: {
           fontSize: 11,
           cellPadding: 6,
-          textColor: [255, 255, 255],
-          fillColor: [0, 0, 0],            // <- EVERY CELL BLACK
-          lineColor: [255, 255, 255],
+          textColor: [255,255,255],
+          fillColor: [0,0,0],
+          lineColor: [255,255,255],
           lineWidth: 1.2,
           halign: 'center',
           valign: 'middle',
           overflow: 'linebreak'
         },
         headStyles: {
-          fillColor: [0, 0, 0],
-          textColor: [255, 255, 255],
+          fillColor: [0,0,0],
+          textColor: [255,255,255],
           fontStyle: 'bold',
-          lineColor: [255, 255, 255],
+          lineColor: [255,255,255],
           lineWidth: 1.4
         },
         columnStyles: {
@@ -627,14 +647,14 @@ SAFETY
         doc.autoTable({
           head: [['Unanswered Categories (0 or blank)', 'Partner A', 'Partner B']],
           body: missing.map(r => r.map(c => ({ content: c, styles: { fillColor: [0,0,0], textColor: [255,255,255] } }))),
-          startY: doc.lastAutoTable.finalY + 20,
+          startY: (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 64) + 20,
           margin: { left: marginLR, right: marginLR },
           styles: {
             fontSize: 11,
             cellPadding: 6,
-            textColor: [255, 255, 255],
-            fillColor: [0, 0, 0],          // unanswered table also black
-            lineColor: [255, 255, 255],
+            textColor: [255,255,255],
+            fillColor: [0,0,0],
+            lineColor: [255,255,255],
             lineWidth: 1.2
           },
           headStyles: { fillColor: [0,0,0], textColor: [255,255,255], fontStyle: 'bold' },
@@ -651,13 +671,14 @@ SAFETY
     }
   }
 
-  // Expose + bind
+  // Public + button binding
   window.TKPDF_forceDark = TKPDF_export;
   const btn = document.querySelector('#downloadBtn');
-  if (btn) btn.addEventListener('click', e => { e.preventDefault(); TKPDF_export(); });
+  if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); TKPDF_export(); });
   LOG('Bound Download PDF');
 })();
 </script>
+
 
 </body>
 </html>
