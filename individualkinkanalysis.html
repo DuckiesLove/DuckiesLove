@@ -6,17 +6,32 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/theme.css">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=EB+Garamond&display=swap" rel="stylesheet">
+  <style>
+    /* Center upload and download controls vertically */
+    .analysis-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.2rem;
+      margin-top: 2rem;
+    }
+    .analysis-controls input[type="file"] {
+      text-align: center;
+    }
+  </style>
 </head>
 <body class="theme-dark">
   <div class="container">
     <h1>Individual Kink Analysis</h1>
     <p>Upload your survey data and generate a personal PDF report.</p>
 
-    <!-- Upload survey JSON -->
-    <input type="file" id="uploadSurvey" accept=".json" class="themed-button highlighted-box" />
+    <div class="analysis-controls">
+      <!-- Upload survey JSON -->
+      <input type="file" id="uploadSurvey" accept=".json" class="themed-button highlighted-box" />
 
-    <!-- Download PDF -->
-    <button id="downloadBtn" class="themed-button highlighted-box">Download PDF</button>
+      <!-- Download PDF -->
+      <button id="downloadBtn" class="themed-button highlighted-box">Download PDF</button>
+    </div>
 
     <!-- Diagnostics -->
     <pre id="log" style="background:#111;color:#0f0;padding:10px;max-height:200px;overflow:auto;"></pre>
