@@ -483,18 +483,25 @@ What it does:
   }
 
   const tidy = (s) => (s || "").replace(/\s+/g, " ").trim();
-  const toNum = (v) => {
+
+  const toScore = (v) => {
     const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
-    return Number.isFinite(n) ? n : null;
+    return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
   };
 
   function cleanLabel(label) {
     let t = tidy(label);
+    t = t.replace(/\b([A-Za-z/'’\-]+)\s*\1\b/g, "$1");
+    if (t.length % 2 === 0) {
+      const half = t.length / 2;
+      const a = t.slice(0, half).trim();
+      const b = t.slice(half).trim();
+      if (a && a === b) t = a;
+    }
     t = t.replace(/\b(Cum|CumCum)\b/gi, "Cum Play");
-    t = t.replace(/\b(\w+)\s+\1\b/gi, "$1");
     t = t.replace(/\bChosing\b/gi, "Choosing")
-         .replace(/\bmod\b/gi, "mood")
-         .replace(/\bhoks\b/gi, "hoods");
+         .replace(/\bbonets\b/gi, "bonnets")
+         .replace(/\bhods\b/gi, "hoods");
     return t;
   }
 
@@ -508,26 +515,44 @@ What it does:
 
   function extractRows(table) {
     const trs = [...table.querySelectorAll("tr")].filter(
-      (tr) => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0
+      (tr) => tr.querySelectorAll("td").length > 0
     );
 
+    let currentSection = "Category";
+    let firstSection = null;
     const out = [];
-    trs.forEach((tr) => {
-      const cells = [...tr.querySelectorAll("td")].map((td) => tidy(td.textContent));
-      const category = cleanLabel(cells[0] || "—");
-      const nums = cells.map(toNum);
-      const A = nums.length ? nums[0] : null;
-      const B = nums.length > 1 ? nums[nums.length - 1] : null;
 
-      let pct = cells.find((c) => /%$/.test(c)) || null;
+    trs.forEach((tr) => {
+      const tds = [...tr.querySelectorAll("td")];
+      const texts = tds.map((td) => tidy(td.textContent));
+
+      const isHeader =
+        tds.length === 1 || texts.slice(1).every((c) => !c.trim());
+      if (isHeader) {
+        currentSection = cleanLabel(texts[0] || currentSection);
+        if (!firstSection) firstSection = currentSection;
+        return;
+      }
+
+      const label = cleanLabel(texts[0] || "—");
+      const numeric = texts
+        .map((c, i) => ({ i, v: c }))
+        .filter(({ v }) => /^-?\d+(\.\d+)?%?$/.test(v));
+
+      const Araw = numeric.length ? numeric[0].v : null;
+      const Braw = numeric.length ? numeric[numeric.length - 1].v : null;
+      const A = toScore(Araw);
+      const B = toScore(Braw);
+
+      let pct = texts.find((c) => /%$/.test(c)) || null;
       if (!pct && A != null && B != null) {
         const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
         pct = `${Math.max(0, Math.min(100, p))}%`;
       }
 
-      out.push({ category, A, B, pct });
+      out.push({ category: currentSection, label, A, B, pct });
     });
-    return out;
+    return { rows: out, firstSection };
   }
 
   async function TKPDF_exportDark() {
@@ -537,22 +562,24 @@ What it does:
       const table = findTable();
       if (!table) return alert("No table found.");
 
-      const rows = extractRows(table);
+      const { rows, firstSection } = extractRows(table);
       if (!rows.length) return alert("No rows to export.");
 
       const rated = [];
       const missing = [];
 
       rows.forEach((r) => {
-        const validA = r.A >= 1 && r.A <= 5;
-        const validB = r.B >= 1 && r.B <= 5;
-        if (validA || validB) {
-          rated.push([r.category, validA ? r.A : "—", r.pct || "—", validB ? r.B : "—"]);
-        } else {
-          let who = [];
-          if (!validA) who.push("Partner A");
-          if (!validB) who.push("Partner B");
-          missing.push([r.category, who.length ? who.join(" & ") : "Both"]);
+        const showA = r.A == null ? "—" : String(r.A);
+        const showB = r.B == null ? "—" : String(r.B);
+        rated.push([r.label, showA, r.pct || "—", showB]);
+
+        const missA = r.A == null;
+        const missB = r.B == null;
+        if (missA || missB) {
+          missing.push([
+            `${r.category}: ${r.label}`,
+            missA && missB ? "Both" : missA ? "Partner A" : "Partner B",
+          ]);
         }
       });
 
@@ -582,7 +609,7 @@ What it does:
       };
 
       runAT({
-        head: [["Category", "Partner A", "Match %", "Partner B"]],
+        head: [[firstSection || "Category", "Partner A", "Match %", "Partner B"]],
         body: rated,
         startY: 64,
         margin: { left: marginLR, right: marginLR, top: 64, bottom: 40 },
@@ -616,10 +643,10 @@ What it does:
 
       if (missing.length) {
         runAT({
-          head: [["Unanswered (0 or blank)", "Missing"]],
+          head: [["Unanswered", "Who missed"]],
           body: missing,
           startY: doc.lastAutoTable.finalY + 40,
-          margin: { left: marginLR, right: marginLR },
+          margin: { left: marginLR, right: marginLR, bottom: 40 },
           styles: {
             fontSize: 11,
             cellPadding: 6,
