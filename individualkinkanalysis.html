@@ -10,9 +10,126 @@
 <body class="theme-dark">
   <div class="container">
     <h1>Individual Kink Analysis</h1>
-    <p>Welcome to your personal kink analysis page. This section will let you explore and review
-       your individual kink preferences in detail. Content and tools for analysis can be added here.</p>
-    <!-- Add future features like forms, charts, or upload buttons here -->
+    <p>Upload your survey data and generate a personal PDF report.</p>
+
+    <!-- Upload survey JSON -->
+    <input type="file" id="uploadSurvey" accept=".json" class="themed-button highlighted-box" />
+
+    <!-- Download PDF -->
+    <button id="downloadBtn" class="themed-button highlighted-box">Download PDF</button>
+
+    <!-- Diagnostics -->
+    <pre id="log" style="background:#111;color:#0f0;padding:10px;max-height:200px;overflow:auto;"></pre>
   </div>
+
+  <script>
+  (async function(){
+    const log = (...a) => {
+      document.querySelector("#log").textContent += a.join(" ") + "\n";
+      console.log("[IK-PDF]", ...a);
+    };
+
+    // --- load scripts ---
+    function loadScript(src){
+      return new Promise((res,rej)=>{
+        if(document.querySelector(`script[src="${src}"]`)) return res();
+        const s=document.createElement("script");
+        s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Fail "+src));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function ensureLibs(){
+      if(!(window.jspdf && window.jspdf.jsPDF)){
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      }
+      if(!((window.jspdf && window.jspdf.autoTable)||(window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable))){
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+      }
+    }
+
+    // --- store uploaded survey ---
+    let surveyData = null;
+    document.querySelector("#uploadSurvey").addEventListener("change", (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          surveyData = JSON.parse(reader.result);
+          log("Survey loaded:", file.name);
+        } catch(err){
+          log("Error parsing JSON:", err);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // --- PDF export ---
+    async function exportPDF(){
+      if(!surveyData){ alert("Please upload a survey JSON first."); return; }
+      await ensureLibs();
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({orientation:"landscape",unit:"pt",format:"a4"});
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      const paintBg = () => {
+        doc.setFillColor(0,0,0);
+        doc.rect(0,0,pageW,pageH,"F");
+        doc.setTextColor(255,255,255);
+      };
+
+      paintBg();
+      doc.setFontSize(22);
+      doc.text("Individual Kink Analysis Report", pageW/2, 40, {align:"center"});
+
+      // Convert surveyData into table rows
+      const rows = (surveyData.items||[]).map(item => [
+        item.label || "—",
+        (item.score ?? "—")
+      ]);
+
+      // AutoTable render
+      const runAT = (opts)=> (typeof doc.autoTable==="function") ? doc.autoTable(opts)
+        : (window.jspdf && typeof window.jspdf.autoTable==="function") ? window.jspdf.autoTable(doc,opts)
+        : (()=>{throw new Error("AutoTable missing")})();
+      
+      runAT({
+        head: [["Category","Score"]],
+        body: rows,
+        startY: 60,
+        styles:{
+          fontSize:11,
+          cellPadding:6,
+          textColor:[255,255,255],
+          fillColor:[0,0,0],
+          lineColor:[255,255,255],
+          lineWidth:0.8,
+          halign:"center",
+          valign:"middle"
+        },
+        headStyles:{
+          fontStyle:"bold",
+          fillColor:[0,0,0],
+          textColor:[255,255,255],
+          lineColor:[255,255,255],
+          lineWidth:1.2
+        },
+        columnStyles:{
+          0:{cellWidth:400,halign:"left"},
+          1:{cellWidth:80,halign:"center"}
+        },
+        willDrawPage: paintBg
+      });
+
+      doc.save("individual-kink-analysis.pdf");
+      log("Export complete.");
+    }
+
+    document.querySelector("#downloadBtn").addEventListener("click", exportPDF);
+  })();
+  </script>
 </body>
 </html>
+
