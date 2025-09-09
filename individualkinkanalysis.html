@@ -27,124 +27,215 @@
 
     <div class="analysis-controls">
       <!-- Upload survey JSON -->
-      <input type="file" id="uploadSurvey" accept=".json" class="themed-button highlighted-box" />
+      <input id="ikaFile" type="file" accept="application/json" class="themed-button highlighted-box" />
+
+      <!-- Rendered results -->
+      <div id="ikaResults"></div>
 
       <!-- Download PDF -->
-      <button id="downloadBtn" class="themed-button highlighted-box">Download PDF</button>
+      <button id="downloadPdfBtn" class="themed-button highlighted-box">Download PDF</button>
     </div>
-
-    <!-- Diagnostics -->
-    <pre id="log" style="background:#111;color:#0f0;padding:10px;max-height:200px;overflow:auto;"></pre>
   </div>
+  <!--
+INDIVIDUAL KINK ANALYSIS — DARK-MODE PDF EXPORT
+Drop this whole <script> block near the end of /individualkinkanalysis.html (before </body>).
 
-  <script>
-  (async function(){
-    const log = (...a) => {
-      document.querySelector("#log").textContent += a.join(" ") + "\n";
-      console.log("[IK-PDF]", ...a);
-    };
+What it does
+- Binds your “Download PDF” button (id="downloadPdfBtn") to export a dark-mode PDF.
+- Loads jsPDF + AutoTable from CDN if missing.
+- Gets scores from:
+    1) window.IKA_lastResults (if you already rendered on the page), OR
+    2) Recomputes from the uploaded file (#ikaFile) using window.IKA_scoreRoles & BANK.
+- Renders a clean PDF:
+    * Solid black background, white text, thick white grid lines
+    * Title, date/time, optional “Top Roles” summary
+    * Full sorted table: Rank | Role | %
+- Saves as individual-kink-analysis.pdf
 
-    // --- load scripts ---
-    function loadScript(src){
-      return new Promise((res,rej)=>{
-        if(document.querySelector(`script[src="${src}"]`)) return res();
-        const s=document.createElement("script");
-        s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Fail "+src));
-        document.head.appendChild(s);
-      });
-    }
+Requirements
+- Your page already has:
+    <input id="ikaFile" type="file" accept="application/json">
+    <div id="ikaResults"></div>
+    <button id="downloadPdfBtn">Download PDF</button>
+- The scoring script you added earlier defines window.IKA_scoreRoles and BANK
+  and (optionally) sets window.IKA_lastResults when results are rendered.
 
-    async function ensureLibs(){
-      if(!(window.jspdf && window.jspdf.jsPDF)){
-        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-      }
-      if(!((window.jspdf && window.jspdf.autoTable)||(window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable))){
-        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
-      }
-    }
+If scores aren’t rendered yet, this exporter will read the uploaded file and compute them.
 
-    // --- store uploaded survey ---
-    let surveyData = null;
-    document.querySelector("#uploadSurvey").addEventListener("change", (e)=>{
-      const file = e.target.files[0];
-      if(!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          surveyData = JSON.parse(reader.result);
-          log("Survey loaded:", file.name);
-        } catch(err){
-          log("Error parsing JSON:", err);
-        }
-      };
-      reader.readAsText(file);
+----------------------------------------------------------------------- -->
+<script>
+(function () {
+  const LOG = (...a) => console.log("[IKA-PDF]", ...a);
+  const byId = (id) => document.getElementById(id);
+
+  /* ------------------ loader helpers ------------------ */
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = res;
+      s.onerror = () => rej(new Error("Failed to load " + src));
+      document.head.appendChild(s);
     });
+  }
+  async function ensureLibs() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+    const hasAT =
+      (window.jspdf && window.jspdf.autoTable) ||
+      (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable);
+    if (!hasAT) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
+  }
 
-    // --- PDF export ---
-    async function exportPDF(){
-      if(!surveyData){ alert("Please upload a survey JSON first."); return; }
+  /* --------- try to get role results for PDF --------- */
+  async function getResultsForPdf() {
+    // 1) If your renderer saved them, use those
+    if (Array.isArray(window.IKA_lastResults) && window.IKA_lastResults.length) {
+      return window.IKA_lastResults;
+    }
+    // 2) If not, try to compute from uploaded file using your scoring engine
+    const fileEl = byId("ikaFile");
+    if (!(fileEl && fileEl.files && fileEl.files[0])) {
+      throw new Error("No results in memory and no file selected. Upload your survey JSON first.");
+    }
+      if (typeof window.IKA_scoreRoles !== "function" || !window.BANK) {
+        throw new Error(
+          "Scoring engine not found. Make sure the Individual Kink Analysis script is included before this " +
+          "exporter."
+        );
+      }
+    const raw = JSON.parse(await fileEl.files[0].text());
+    const answers = raw.answers || raw;
+    const results = window.IKA_scoreRoles(answers, window.BANK);
+    // Cache for later use on page
+    window.IKA_lastResults = results;
+    return results;
+  }
+
+  /* ------------------ PDF export ------------------ */
+  async function exportIKAPdf() {
+    try {
       await ensureLibs();
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({orientation:"landscape",unit:"pt",format:"a4"});
+
+      const results = await getResultsForPdf();
+      if (!results.length) throw new Error("No role results to export.");
+
+      // Sort again (defensive)
+      results.sort((a, b) => b.pct - a.pct || a.role.localeCompare(b.role));
+
+      // Prepare rows: Rank | Role | %
+      const body = results.map((r, i) => [String(i + 1), r.role, r.pct + "%"]);
+
+      // Build PDF (A4 landscape, dark)
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
 
+      // Black background painter (use willDrawPage to ensure background first)
       const paintBg = () => {
-        doc.setFillColor(0,0,0);
-        doc.rect(0,0,pageW,pageH,"F");
-        doc.setTextColor(255,255,255);
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, pageW, pageH, "F");
+        doc.setTextColor(255, 255, 255);
       };
 
       paintBg();
-      doc.setFontSize(22);
-      doc.text("Individual Kink Analysis Report", pageW/2, 40, {align:"center"});
 
-      // Convert surveyData into table rows
-      const rows = (surveyData.items||[]).map(item => [
-        item.label || "—",
-        (item.score ?? "—")
-      ]);
+      // Title + meta
+      const title = "Individual Kink Analysis";
+      const ts = new Date().toLocaleString();
+      doc.setFontSize(28);
+      doc.text(title, pageW / 2, 48, { align: "center" });
+      doc.setFontSize(11);
+      doc.text(`Generated: ${ts}`, pageW / 2, 66, { align: "center" });
 
-      // AutoTable render
-      const runAT = (opts)=> (typeof doc.autoTable==="function") ? doc.autoTable(opts)
-        : (window.jspdf && typeof window.jspdf.autoTable==="function") ? window.jspdf.autoTable(doc,opts)
-        : (()=>{throw new Error("AutoTable missing")})();
-      
+      // Optional top roles summary (top 5 nonzero)
+      const top5 = results.filter(r => r.pct > 0).slice(0, 5);
+      if (top5.length) {
+        doc.setFontSize(12);
+        const summary = top5.map(r => `${r.role} (${r.pct}%)`).join(" • ");
+        doc.text(summary, pageW / 2, 86, { align: "center" });
+      }
+
+      // Table widths
+      const marginLR = 30;
+      const usable = pageW - marginLR * 2;
+      const rankW = 60;
+      const pctW = 80;
+      const roleW = Math.max(220, usable - (rankW + pctW));
+
+      const runAT = (opts) => {
+        if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+        if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
+        throw new Error("jsPDF-AutoTable not available");
+      };
+
       runAT({
-        head: [["Category","Score"]],
-        body: rows,
-        startY: 60,
-        styles:{
-          fontSize:11,
-          cellPadding:6,
-          textColor:[255,255,255],
-          fillColor:[0,0,0],
-          lineColor:[255,255,255],
-          lineWidth:0.8,
-          halign:"center",
-          valign:"middle"
+        head: [["Rank", "Role", "%"]],
+        body,
+        startY: 108,
+        margin: { left: marginLR, right: marginLR, top: 108, bottom: 40 },
+        styles: {
+          fontSize: 11,
+          cellPadding: 6,
+          textColor: [255, 255, 255],
+          fillColor: [0, 0, 0],
+          lineColor: [255, 255, 255],
+          lineWidth: 1.0, // thick white grid
+          halign: "center",
+          valign: "middle",
+          overflow: "linebreak"
         },
-        headStyles:{
-          fontStyle:"bold",
-          fillColor:[0,0,0],
-          textColor:[255,255,255],
-          lineColor:[255,255,255],
-          lineWidth:1.2
+        headStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          lineColor: [255, 255, 255],
+          lineWidth: 1.4
         },
-        columnStyles:{
-          0:{cellWidth:400,halign:"left"},
-          1:{cellWidth:80,halign:"center"}
+        columnStyles: {
+          0: { cellWidth: rankW, halign: "right" }, // Rank
+          1: { cellWidth: roleW,  halign: "left"  }, // Role
+          2: { cellWidth: pctW,   halign: "right" }  // %
         },
+        tableWidth: usable,
         willDrawPage: paintBg
       });
 
       doc.save("individual-kink-analysis.pdf");
-      log("Export complete.");
+      LOG("Export complete.");
+    } catch (err) {
+      console.error("[IKA-PDF] Export failed:", err);
+      alert("PDF export failed: " + (err?.message || err));
     }
+  }
 
-    document.querySelector("#downloadBtn").addEventListener("click", exportPDF);
-  })();
-  </script>
+  /* --------------- bind button --------------- */
+  function bind() {
+    const btn =
+      byId("downloadPdfBtn") ||
+      byId("downloadBtn") || // fallback if you named it like the compatibility page
+      document.querySelector('[data-download-pdf]');
+    if (btn) {
+      btn.removeEventListener("click", exportIKAPdf);
+      btn.addEventListener("click", (e) => { e.preventDefault(); exportIKAPdf(); });
+      LOG("Bound Download PDF button");
+    } else {
+      LOG("Download PDF button not found (id='downloadPdfBtn').");
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bind);
+  } else {
+    bind();
+  }
+})();
+</script>
 </body>
 </html>
 
