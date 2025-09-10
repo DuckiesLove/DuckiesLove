@@ -10,7 +10,320 @@
 <body class="theme-dark">
 
 <!-- ✅ INDIVIDUAL KINK ANALYSIS — FIXED MARKUP + CENTERED CONTROLS + WORKING PDF EXPORT
-Paste this whole block near the end of /individualkinkanalysis.html (right before </body>).
+Paste this whole block near the end of /individualkinkanalysis.html (right before <!--
+INDIVIDUAL KINK ANALYSIS — QUESTION→ROLE MAPPING + SCORING (drop-in)
+Paste this WHOLE block near the end of /individualkinkanalysis.html (right before </body>).
+
+What you get
+- A clean, explicit “question → role(s)” mapping template (with weights).
+- A robust scoring engine that:
+    • reads your uploaded JSON (various shapes supported),
+    • converts Likert text to numbers (e.g., “Strongly agree” → 5),
+    • totals weighted points per role,
+    • returns normalized percentages (0–100%),
+    • stores results in window.IKA_lastResults (so your PDF exporter can consume them).
+- Minimal UI glue to render a quick preview list (optional) and keep your Download PDF flow working.
+
+HOW TO USE
+1) Paste this script.
+2) Fill out IKA_ROLE_MAP with your survey’s question IDs (or unique question text) and the roles they influence.
+   - Use the provided role catalog so names are consistent.
+   - Each mapping entry supports one or more roles with weights (default 1).
+3) Upload a survey JSON on the page and click “Download PDF” as usual.
+   - Your existing PDF exporter that calls window.IKA_scoreRoles(...) will now get real percentages.
+
+Tip: Start with 10–20 key questions, then expand the map over time. The engine auto-normalizes by total possible points, so different numbers of mappings still yield proper 0–100%.
+
+----------------------------------------------------------------------->
+<script>
+/* =========================
+ * 1) Role catalog (canonical names)
+ * ========================= */
+window.IKA_ROLES = [
+  // Core dynamics
+  "Dominant","Submissive","Switch",
+
+  // Bedroom dynamics
+  "Bedroom Dom","Bedroom Submissive","Bottom",
+  "Dom-Leaning Switch","Bottom-Leaning Switch","Service Top","Service Switch",
+  "Service Submissive","Service Slave","Master","Slave","Owner","Sir","Prince","Princess",
+
+  // Brat ecosystem
+  "Brat","Brat Tamer","Brat Enabler","Brat Handler",
+
+  // Primal / predator–prey
+  "Primal Predator","Primal Prey","Primal Switch",
+  "Primal Sadist","Primal Sadomasochist",
+
+  // Impact / pain
+  "Impact Top","Impact Bottom","Impact Switch",
+  "Sadist","Emotional Sadist","Intellectual Sadist","Emotional Masochist",
+  "Emotional Sadomasochist",
+
+  // Bondage / rope
+  "Bondage Top","Bondage Bottom","Bondage Switch",
+  "Rope Top","Rope Bottom","Rope Switch",
+
+  // Sensation & specialties
+  "Electro Top","Hypno Top","Hypno Bottom","Fire Top","Fire Bottom","Fire Switch",
+  "Needle Top","Needle Bottom","Needle Switch",
+  "Fisting Top","Fisting Bottom",
+
+  // Fetish families
+  "Foot Top","Foot Bottom","Foot Switch",
+  "Latex Top","Latex Bottom","Latex Switch",
+  "Leather Top","Leather Bottom",
+
+  // Fluids / body play
+  "Watersports Top","Watersports Bottom","Watersports Switch",
+  "Cum Princess","Cum Slut","Cock Worshipper",
+
+  // Relationship / scene attitudes
+  "Experimentalist","Voyeur","Exhibitionist","Non-monogamist","Vanilla",
+  "Cuckold","Edge Player","Pleasure Dom","Pleasure Sadist",
+
+  // Pet/age roles
+  "Pet","Caregiver","Ageplayer","Age Regressor","Little",
+
+  // Rope bunny (commonly used)
+  "Rope bunny"
+];
+
+/* ==========================================================
+ * 2) QUESTION → ROLE MAP (THIS IS WHAT YOU CUSTOMIZE)
+ *    Map either by stable question id OR by a unique substring
+ *    of the question text (engine will match either).
+ *    weight: how strongly this question contributes to the role.
+ *    Multiple roles per question supported.
+ * ========================================================== */
+window.IKA_ROLE_MAP = [
+  /* EXAMPLES — replace "Qxx" or "textIncludes" with YOUR survey’s keys/texts */
+
+  // Submissive & Service Submissive
+  { id: "Q12", roles: [{name:"Submissive", weight:1.0}, {name:"Service Submissive", weight:0.6}] },
+  { textIncludes: "Following rules or protocol", roles: [{name:"Submissive", weight:0.8}] },
+
+  // Dominant
+  { id: "Q07", roles: [{name:"Dominant", weight:1.0}] },
+  { textIncludes: "I enjoy being in charge", roles: [{name:"Dominant", weight:0.9}] },
+
+  // Brat & Brat Tamer
+  { textIncludes: "I like to playfully resist", roles: [{name:"Brat", weight:1.0}] },
+  { textIncludes: "I enjoy taming brats", roles: [{name:"Brat Tamer", weight:1.0}] },
+
+  // Impact
+  { id: "Q21", roles: [{name:"Impact Top", weight:1.0}] },
+  { textIncludes: "spanking or paddling", roles: [{name:"Impact Bottom", weight:1.0}] },
+
+  // Rope / bondage
+  { textIncludes: "being tied", roles: [{name:"Rope Bottom", weight:1.0},{name:"Bondage Bottom", weight:0.7}] },
+  { textIncludes: "tying others", roles: [{name:"Rope Top", weight:1.0},{name:"Bondage Top", weight:0.7}] },
+
+  // Primal
+  { textIncludes: "predator", roles: [{name:"Primal Predator", weight:1.0}] },
+  { textIncludes: "prey", roles: [{name:"Primal Prey", weight:1.0}] },
+
+  // Fetish examples
+  { textIncludes: "feet", roles: [{name:"Foot Bottom", weight:1.0}] },
+  { textIncludes: "latex", roles: [{name:"Latex Bottom", weight:1.0}] },
+  { textIncludes: "leather", roles: [{name:"Leather Bottom", weight:1.0}] },
+
+  // Exhibition/Voyeur
+  { textIncludes: "being watched", roles: [{name:"Exhibitionist", weight:1.0}] },
+  { textIncludes: "watching others", roles: [{name:"Voyeur", weight:1.0}] },
+
+  // Pet/age dynamics
+  { textIncludes: "pet play", roles: [{name:"Pet", weight:1.0}] },
+  { textIncludes: "age regress", roles: [{name:"Age Regressor", weight:1.0}] },
+  { textIncludes: "caregiver", roles: [{name:"Caregiver", weight:1.0}] },
+
+  // Vanilla / Experimentalist
+  { textIncludes: "I prefer gentle, non-kinky", roles: [{name:"Vanilla", weight:1.0}] },
+  { textIncludes: "I love trying new kinks", roles: [{name:"Experimentalist", weight:1.0}] },
+];
+
+/* Optional: Likert text → number (edit to match your survey) */
+const IKA_LIKERT = {
+  "strongly disagree": 1, "disagree": 2, "neutral": 3, "agree": 4, "strongly agree": 5,
+  "never": 1, "rarely": 2, "sometimes": 3, "often": 4, "always": 5
+};
+
+/* ===================================
+ * 3) Survey extraction helpers
+ *    We support several JSON shapes:
+ *    A) { answers: [{id:"Q1", value: 1..5|text, question:"..."}, ...] }
+ *    B) { answers: { Q1: 1..5|text, ... }, questions: {Q1:"..."} }
+ *    C) Any flat array of {question|label|text, value}
+ * =================================== */
+function toNumberLike(v) {
+  if (v == null) return null;
+  if (typeof v === "number") return v;
+  const s = String(v).trim().toLowerCase();
+  // direct number in string
+  const n = Number(s);
+  if (Number.isFinite(n)) return n;
+  // Likert mapping
+  if (IKA_LIKERT[s] != null) return IKA_LIKERT[s];
+  // pull digits if present (e.g., "5 - strongly agree")
+  const m = s.match(/(-?\d+(\.\d+)?)/);
+  if (m) return Number(m[1]);
+  return null; // not parseable
+}
+
+function extractAnswers(raw) {
+  const out = []; // [{id, text, value}]
+  if (!raw) return out;
+
+  // A) array of answers
+  if (Array.isArray(raw.answers)) {
+    for (const a of raw.answers) {
+      const id = a.id ?? a.qid ?? a.key ?? null;
+      const text = a.question ?? a.label ?? a.text ?? "";
+      const value = toNumberLike(a.value ?? a.answer ?? a.score);
+      if (id || text) out.push({ id, text, value });
+    }
+    return out;
+  }
+
+  // B) map answers + questions
+  if (raw.answers && typeof raw.answers === "object") {
+    const qmap = raw.questions || {};
+    for (const k of Object.keys(raw.answers)) {
+      const id = k;
+      const text = qmap[k] ?? "";
+      const value = toNumberLike(raw.answers[k]);
+      out.push({ id, text, value });
+    }
+    return out;
+  }
+
+  // C) flat array
+  if (Array.isArray(raw)) {
+    for (const a of raw) {
+      const id = a.id ?? a.qid ?? a.key ?? null;
+      const text = a.question ?? a.label ?? a.text ?? "";
+      const value = toNumberLike(a.value ?? a.answer ?? a.score);
+      if (id || text) out.push({ id, text, value });
+    }
+    return out;
+  }
+
+  return out;
+}
+
+/* ===================================
+ * 4) Scoring engine (exported)
+ * =================================== */
+window.IKA_scoreRoles = function scoreRoles(rawSurvey, opts = {}) {
+  const answers = extractAnswers(rawSurvey);
+  const byId = new Map();
+  const byText = [];
+  for (const a of answers) {
+    if (a.id) byId.set(String(a.id).trim(), a);
+    if (a.text) byText.push(a);
+  }
+
+  // init accumulators
+  const acc = new Map();    // role → actual points
+  const maxAcc = new Map(); // role → max possible points (weight * 5)
+
+  function bump(role, pts, maxPts) {
+    acc.set(role, (acc.get(role) || 0) + pts);
+    maxAcc.set(role, (maxAcc.get(role) || 0) + maxPts);
+  }
+
+  for (const rule of window.IKA_ROLE_MAP) {
+    const weightRoles = (rule.roles || []).map(r => ({ name: r.name, w: r.weight ?? 1 }));
+    if (weightRoles.length === 0) continue;
+
+    // find a matching answer
+    let a = null;
+
+    // prefer id
+    if (rule.id && byId.has(String(rule.id).trim())) {
+      a = byId.get(String(rule.id).trim());
+    }
+
+    // else, try unique substring match
+    if (!a && rule.textIncludes) {
+      const needle = String(rule.textIncludes).toLowerCase();
+      a = byText.find(x => (x.text || "").toLowerCase().includes(needle));
+    }
+
+    // if no answer found, still add to max (user could score up to 5)
+    const v = a ? (a.value ?? null) : null;
+    const val = (v == null ? null : Math.max(1, Math.min(5, Number(v)))); // clamp 1..5 if provided
+    for (const { name, w } of weightRoles) {
+      // Always grow the denominator by 5 * weight (so % stays comparable).
+      bump(name, (val ? val * w : 0), 5 * w);
+    }
+  }
+
+  // Convert to sorted result list
+  const results = [];
+  const catalog = new Set(window.IKA_ROLES);
+  // Include only roles we actually mapped or that received any max points
+  for (const [role, maxPts] of maxAcc.entries()) {
+    const pts = acc.get(role) || 0;
+    const pct = maxPts > 0 ? Math.round((pts / maxPts) * 100) : 0;
+    results.push({ role, pct, points: pts, max: maxPts });
+    // In case role wasn’t in the catalog, keep it anyway (mapping is source of truth)
+    catalog.add(role);
+  }
+
+  results.sort((a, b) => b.pct - a.pct || a.role.localeCompare(b.role));
+  window.IKA_lastResults = results; // let the PDF exporter consume it
+  return results;
+};
+
+/* ===================================
+ * 5) Small preview renderer (optional)
+ * =================================== */
+function renderPreview(targetEl, results) {
+  if (!targetEl) return;
+  if (!results || !results.length) { targetEl.innerHTML = ""; return; }
+  const top = results.slice(0, 10);
+  targetEl.innerHTML = `
+    <div style="margin:20px auto;max-width:900px">
+      <h3 style="color:#fff;font-family:'Fredoka One',cursive;margin-bottom:10px;">
+        Top Matches
+      </h3>
+      <div style="border:1px solid #22d3ee;border-radius:14px;padding:12px;">
+        ${top.map(r => `
+          <div style="display:flex;justify-content:space-between;color:#fff;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.1)">
+            <span>${r.role}</span><strong>${r.pct}%</strong>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+/* ===================================
+ * 6) Hook the file input to compute results immediately after upload
+ *    (keeps your “Download PDF” flow working — exporter will reuse IKA_lastResults)
+ * =================================== */
+(function bindIKAnalysis() {
+  const fileEl = document.getElementById("ikaFile");
+  const previewEl = document.getElementById("ikaResults"); // optional container
+
+  if (!fileEl) return;
+  fileEl.addEventListener("change", async () => {
+    const f = fileEl.files && fileEl.files[0];
+    if (!f) return;
+    try {
+      const raw = JSON.parse(await f.text());
+      const results = window.IKA_scoreRoles(raw);
+      renderPreview(previewEl, results);
+      console.log("[IKA] scored", results);
+    } catch (e) {
+      console.error("[IKA] Bad survey JSON:", e);
+      alert("Could not read that JSON file. Please export the survey data and try again.");
+    }
+  });
+})();
+</script>
+</body>).
 It replaces any broken/conflicted code that was printing JavaScript on the page. -->
 
 <!-- UI (centered) -->
@@ -380,5 +693,318 @@ If this block loads first, the exporter will stop throwing:
 })();
 </script>
 
+<!--
+INDIVIDUAL KINK ANALYSIS — QUESTION→ROLE MAPPING + SCORING (drop-in)
+Paste this WHOLE block near the end of /individualkinkanalysis.html (right before </body>).
+
+What you get
+- A clean, explicit “question → role(s)” mapping template (with weights).
+- A robust scoring engine that:
+    • reads your uploaded JSON (various shapes supported),
+    • converts Likert text to numbers (e.g., “Strongly agree” → 5),
+    • totals weighted points per role,
+    • returns normalized percentages (0–100%),
+    • stores results in window.IKA_lastResults (so your PDF exporter can consume them).
+- Minimal UI glue to render a quick preview list (optional) and keep your Download PDF flow working.
+
+HOW TO USE
+1) Paste this script.
+2) Fill out IKA_ROLE_MAP with your survey’s question IDs (or unique question text) and the roles they influence.
+   - Use the provided role catalog so names are consistent.
+   - Each mapping entry supports one or more roles with weights (default 1).
+3) Upload a survey JSON on the page and click “Download PDF” as usual.
+   - Your existing PDF exporter that calls window.IKA_scoreRoles(...) will now get real percentages.
+
+Tip: Start with 10–20 key questions, then expand the map over time. The engine auto-normalizes by total possible points, so different numbers of mappings still yield proper 0–100%.
+
+----------------------------------------------------------------------->
+<script>
+/* =========================
+ * 1) Role catalog (canonical names)
+ * ========================= */
+window.IKA_ROLES = [
+  // Core dynamics
+  "Dominant","Submissive","Switch",
+
+  // Bedroom dynamics
+  "Bedroom Dom","Bedroom Submissive","Bottom",
+  "Dom-Leaning Switch","Bottom-Leaning Switch","Service Top","Service Switch",
+  "Service Submissive","Service Slave","Master","Slave","Owner","Sir","Prince","Princess",
+
+  // Brat ecosystem
+  "Brat","Brat Tamer","Brat Enabler","Brat Handler",
+
+  // Primal / predator–prey
+  "Primal Predator","Primal Prey","Primal Switch",
+  "Primal Sadist","Primal Sadomasochist",
+
+  // Impact / pain
+  "Impact Top","Impact Bottom","Impact Switch",
+  "Sadist","Emotional Sadist","Intellectual Sadist","Emotional Masochist",
+  "Emotional Sadomasochist",
+
+  // Bondage / rope
+  "Bondage Top","Bondage Bottom","Bondage Switch",
+  "Rope Top","Rope Bottom","Rope Switch",
+
+  // Sensation & specialties
+  "Electro Top","Hypno Top","Hypno Bottom","Fire Top","Fire Bottom","Fire Switch",
+  "Needle Top","Needle Bottom","Needle Switch",
+  "Fisting Top","Fisting Bottom",
+
+  // Fetish families
+  "Foot Top","Foot Bottom","Foot Switch",
+  "Latex Top","Latex Bottom","Latex Switch",
+  "Leather Top","Leather Bottom",
+
+  // Fluids / body play
+  "Watersports Top","Watersports Bottom","Watersports Switch",
+  "Cum Princess","Cum Slut","Cock Worshipper",
+
+  // Relationship / scene attitudes
+  "Experimentalist","Voyeur","Exhibitionist","Non-monogamist","Vanilla",
+  "Cuckold","Edge Player","Pleasure Dom","Pleasure Sadist",
+
+  // Pet/age roles
+  "Pet","Caregiver","Ageplayer","Age Regressor","Little",
+
+  // Rope bunny (commonly used)
+  "Rope bunny"
+];
+
+/* ==========================================================
+ * 2) QUESTION → ROLE MAP (THIS IS WHAT YOU CUSTOMIZE)
+ *    Map either by stable question id OR by a unique substring
+ *    of the question text (engine will match either).
+ *    weight: how strongly this question contributes to the role.
+ *    Multiple roles per question supported.
+ * ========================================================== */
+window.IKA_ROLE_MAP = [
+  /* EXAMPLES — replace "Qxx" or "textIncludes" with YOUR survey’s keys/texts */
+
+  // Submissive & Service Submissive
+  { id: "Q12", roles: [{name:"Submissive", weight:1.0}, {name:"Service Submissive", weight:0.6}] },
+  { textIncludes: "Following rules or protocol", roles: [{name:"Submissive", weight:0.8}] },
+
+  // Dominant
+  { id: "Q07", roles: [{name:"Dominant", weight:1.0}] },
+  { textIncludes: "I enjoy being in charge", roles: [{name:"Dominant", weight:0.9}] },
+
+  // Brat & Brat Tamer
+  { textIncludes: "I like to playfully resist", roles: [{name:"Brat", weight:1.0}] },
+  { textIncludes: "I enjoy taming brats", roles: [{name:"Brat Tamer", weight:1.0}] },
+
+  // Impact
+  { id: "Q21", roles: [{name:"Impact Top", weight:1.0}] },
+  { textIncludes: "spanking or paddling", roles: [{name:"Impact Bottom", weight:1.0}] },
+
+  // Rope / bondage
+  { textIncludes: "being tied", roles: [{name:"Rope Bottom", weight:1.0},{name:"Bondage Bottom", weight:0.7}] },
+  { textIncludes: "tying others", roles: [{name:"Rope Top", weight:1.0},{name:"Bondage Top", weight:0.7}] },
+
+  // Primal
+  { textIncludes: "predator", roles: [{name:"Primal Predator", weight:1.0}] },
+  { textIncludes: "prey", roles: [{name:"Primal Prey", weight:1.0}] },
+
+  // Fetish examples
+  { textIncludes: "feet", roles: [{name:"Foot Bottom", weight:1.0}] },
+  { textIncludes: "latex", roles: [{name:"Latex Bottom", weight:1.0}] },
+  { textIncludes: "leather", roles: [{name:"Leather Bottom", weight:1.0}] },
+
+  // Exhibition/Voyeur
+  { textIncludes: "being watched", roles: [{name:"Exhibitionist", weight:1.0}] },
+  { textIncludes: "watching others", roles: [{name:"Voyeur", weight:1.0}] },
+
+  // Pet/age dynamics
+  { textIncludes: "pet play", roles: [{name:"Pet", weight:1.0}] },
+  { textIncludes: "age regress", roles: [{name:"Age Regressor", weight:1.0}] },
+  { textIncludes: "caregiver", roles: [{name:"Caregiver", weight:1.0}] },
+
+  // Vanilla / Experimentalist
+  { textIncludes: "I prefer gentle, non-kinky", roles: [{name:"Vanilla", weight:1.0}] },
+  { textIncludes: "I love trying new kinks", roles: [{name:"Experimentalist", weight:1.0}] },
+];
+
+/* Optional: Likert text → number (edit to match your survey) */
+const IKA_LIKERT = {
+  "strongly disagree": 1, "disagree": 2, "neutral": 3, "agree": 4, "strongly agree": 5,
+  "never": 1, "rarely": 2, "sometimes": 3, "often": 4, "always": 5
+};
+
+/* ===================================
+ * 3) Survey extraction helpers
+ *    We support several JSON shapes:
+ *    A) { answers: [{id:"Q1", value: 1..5|text, question:"..."}, ...] }
+ *    B) { answers: { Q1: 1..5|text, ... }, questions: {Q1:"..."} }
+ *    C) Any flat array of {question|label|text, value}
+ * =================================== */
+function toNumberLike(v) {
+  if (v == null) return null;
+  if (typeof v === "number") return v;
+  const s = String(v).trim().toLowerCase();
+  // direct number in string
+  const n = Number(s);
+  if (Number.isFinite(n)) return n;
+  // Likert mapping
+  if (IKA_LIKERT[s] != null) return IKA_LIKERT[s];
+  // pull digits if present (e.g., "5 - strongly agree")
+  const m = s.match(/(-?\d+(\.\d+)?)/);
+  if (m) return Number(m[1]);
+  return null; // not parseable
+}
+
+function extractAnswers(raw) {
+  const out = []; // [{id, text, value}]
+  if (!raw) return out;
+
+  // A) array of answers
+  if (Array.isArray(raw.answers)) {
+    for (const a of raw.answers) {
+      const id = a.id ?? a.qid ?? a.key ?? null;
+      const text = a.question ?? a.label ?? a.text ?? "";
+      const value = toNumberLike(a.value ?? a.answer ?? a.score);
+      if (id || text) out.push({ id, text, value });
+    }
+    return out;
+  }
+
+  // B) map answers + questions
+  if (raw.answers && typeof raw.answers === "object") {
+    const qmap = raw.questions || {};
+    for (const k of Object.keys(raw.answers)) {
+      const id = k;
+      const text = qmap[k] ?? "";
+      const value = toNumberLike(raw.answers[k]);
+      out.push({ id, text, value });
+    }
+    return out;
+  }
+
+  // C) flat array
+  if (Array.isArray(raw)) {
+    for (const a of raw) {
+      const id = a.id ?? a.qid ?? a.key ?? null;
+      const text = a.question ?? a.label ?? a.text ?? "";
+      const value = toNumberLike(a.value ?? a.answer ?? a.score);
+      if (id || text) out.push({ id, text, value });
+    }
+    return out;
+  }
+
+  return out;
+}
+
+/* ===================================
+ * 4) Scoring engine (exported)
+ * =================================== */
+window.IKA_scoreRoles = function scoreRoles(rawSurvey, opts = {}) {
+  const answers = extractAnswers(rawSurvey);
+  const byId = new Map();
+  const byText = [];
+  for (const a of answers) {
+    if (a.id) byId.set(String(a.id).trim(), a);
+    if (a.text) byText.push(a);
+  }
+
+  // init accumulators
+  const acc = new Map();    // role → actual points
+  const maxAcc = new Map(); // role → max possible points (weight * 5)
+
+  function bump(role, pts, maxPts) {
+    acc.set(role, (acc.get(role) || 0) + pts);
+    maxAcc.set(role, (maxAcc.get(role) || 0) + maxPts);
+  }
+
+  for (const rule of window.IKA_ROLE_MAP) {
+    const weightRoles = (rule.roles || []).map(r => ({ name: r.name, w: r.weight ?? 1 }));
+    if (weightRoles.length === 0) continue;
+
+    // find a matching answer
+    let a = null;
+
+    // prefer id
+    if (rule.id && byId.has(String(rule.id).trim())) {
+      a = byId.get(String(rule.id).trim());
+    }
+
+    // else, try unique substring match
+    if (!a && rule.textIncludes) {
+      const needle = String(rule.textIncludes).toLowerCase();
+      a = byText.find(x => (x.text || "").toLowerCase().includes(needle));
+    }
+
+    // if no answer found, still add to max (user could score up to 5)
+    const v = a ? (a.value ?? null) : null;
+    const val = (v == null ? null : Math.max(1, Math.min(5, Number(v)))); // clamp 1..5 if provided
+    for (const { name, w } of weightRoles) {
+      // Always grow the denominator by 5 * weight (so % stays comparable).
+      bump(name, (val ? val * w : 0), 5 * w);
+    }
+  }
+
+  // Convert to sorted result list
+  const results = [];
+  const catalog = new Set(window.IKA_ROLES);
+  // Include only roles we actually mapped or that received any max points
+  for (const [role, maxPts] of maxAcc.entries()) {
+    const pts = acc.get(role) || 0;
+    const pct = maxPts > 0 ? Math.round((pts / maxPts) * 100) : 0;
+    results.push({ role, pct, points: pts, max: maxPts });
+    // In case role wasn’t in the catalog, keep it anyway (mapping is source of truth)
+    catalog.add(role);
+  }
+
+  results.sort((a, b) => b.pct - a.pct || a.role.localeCompare(b.role));
+  window.IKA_lastResults = results; // let the PDF exporter consume it
+  return results;
+};
+
+/* ===================================
+ * 5) Small preview renderer (optional)
+ * =================================== */
+function renderPreview(targetEl, results) {
+  if (!targetEl) return;
+  if (!results || !results.length) { targetEl.innerHTML = ""; return; }
+  const top = results.slice(0, 10);
+  targetEl.innerHTML = `
+    <div style="margin:20px auto;max-width:900px">
+      <h3 style="color:#fff;font-family:'Fredoka One',cursive;margin-bottom:10px;">
+        Top Matches
+      </h3>
+      <div style="border:1px solid #22d3ee;border-radius:14px;padding:12px;">
+        ${top.map(r => `
+          <div style="display:flex;justify-content:space-between;color:#fff;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.1)">
+            <span>${r.role}</span><strong>${r.pct}%</strong>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+/* ===================================
+ * 6) Hook the file input to compute results immediately after upload
+ *    (keeps your “Download PDF” flow working — exporter will reuse IKA_lastResults)
+ * =================================== */
+(function bindIKAnalysis() {
+  const fileEl = document.getElementById("ikaFile");
+  const previewEl = document.getElementById("ikaResults"); // optional container
+
+  if (!fileEl) return;
+  fileEl.addEventListener("change", async () => {
+    const f = fileEl.files && fileEl.files[0];
+    if (!f) return;
+    try {
+      const raw = JSON.parse(await f.text());
+      const results = window.IKA_scoreRoles(raw);
+      renderPreview(previewEl, results);
+      console.log("[IKA] scored", results);
+    } catch (e) {
+      console.error("[IKA] Bad survey JSON:", e);
+      alert("Could not read that JSON file. Please export the survey data and try again.");
+    }
+  });
+})();
+</script>
 </body>
 </html>
