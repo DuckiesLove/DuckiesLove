@@ -46,216 +46,201 @@ It replaces any broken/conflicted code that was printing JavaScript on the page.
   <div id="ikaResults" hidden></div>
 </div>
 
-<!-- ✅ ADD THIS BLOCK *ABOVE* the existing PDF exporter on /individualkinkanalysis.html
-It provides the “scoring engine” the exporter needs:
- - window.BANK: a role → keywords map (extend anytime)
- - window.IKA__scoreRoles(answers, BANK): turns answers into role percentages
- - Auto-handles file uploads from #ikaFile, computes results, and stores them in window.IKA__lastResults
-Nothing else on your page needs to change. -->
+<!-- ✅ FIX: Define the scoring engine BEFORE the PDF exporter on /individualkinkanalysis.html
+Place this <script> block ABOVE your exporter. It provides:
+  • window.BANK
+  • window.IKA__scoreRoles  (and alias window.IKA_scoreRoles)
+  • wires #ikaFile to compute and cache window.IKA__lastResults
+If this block loads first, the exporter will stop throwing:
+“Scoring engine not found …”. -->
 
 <script>
-/* ----------------------------- ROLE KEYWORD BANK ----------------------------- */
-/* Each role has a set of keywords we try to spot in the question text.
-   When a question matches a role, we add that answer’s 0–5 score to that role.
-   Percentages are normalized by the max possible score for the questions that matched that role. */
-window.BANK = {
-  // Core dynamics
-  "Dominant": ["dominant","dom ","being in control","take control","giving orders","command"],
-  "Submissive": ["submissive","sub ","following orders","obedience","serve","serving"],
-  "Switch": ["switch","both dom and sub","either role"],
+(function () {
+  // If a scoring engine is already present, do nothing.
+  if (typeof window.IKA__scoreRoles === "function" && window.BANK) return;
 
-  // Bedroom / service
-  "Bedroom Dom": ["bedroom dom","taking the lead in bed","lead in the bedroom"],
-  "Bedroom Submissive": ["bedroom sub","being led in bed","led in the bedroom"],
-  "service submissive": ["service submissive","service sub","service tasks","acts of service"],
-  "service slave": ["service slave","slave tasks","household service","protocol service"],
-  "Service Top": ["service top","service giver","providing service (top)"],
-  "Service Switch": ["service switch"],
+  /* ----------------------------- ROLE KEYWORD BANK ----------------------------- */
+  window.BANK = {
+    "Dominant": ["dominant","dom ","being in control","take control","giving orders","command"],
+    "Submissive": ["submissive","sub ","following orders","obedience","serve","serving"],
+    "Switch": ["switch","both dom and sub","either role"],
 
-  // Bratty
-  "Brat": ["brat","bratting","playfully disobey"],
-  "Brat Tamer": ["brat tamer","taming brats","tame a brat"],
-  "Brat Enabler": ["brat enabler","encourage bratting","enable brats"],
-  "Brat Handler": ["brat handler","handling brats"],
+    "Bedroom Dom": ["bedroom dom","taking the lead in bed","lead in the bedroom"],
+    "Bedroom Submissive": ["bedroom sub","being led in bed","led in the bedroom"],
+    "service submissive": ["service submissive","service sub","service tasks","acts of service"],
+    "service slave": ["service slave","slave tasks","household service","protocol service"],
+    "Service Top": ["service top","service giver","providing service (top)"],
+    "Service Switch": ["service switch"],
 
-  // Care / CG/l
-  "Caregiver": ["caregiver","cg/l","caretaker","aftercare giver","nurture"],
-  "little": ["little","age regression","cgl","little space","coloring","stuffies"],
-  "Ageplayer": ["ageplay","age player","roleplay age","playing younger"],
-  "Age Regressor": ["age regress","regression","little space (non sexual)"],
+    "Brat": ["brat","bratting","playfully disobey"],
+    "Brat Tamer": ["brat tamer","taming brats","tame a brat"],
+    "Brat Enabler": ["brat enabler","encourage bratting","enable brats"],
+    "Brat Handler": ["brat handler","handling brats"],
 
-  // Degradation
-  "Degrader": ["degrade","insulting","humiliat","call them names"],
-  "degradee": ["being degraded","being insulted","being humiliated"],
+    "Caregiver": ["caregiver","cg/l","caretaker","aftercare giver","nurture"],
+    "little": ["little","age regression","cgl","little space","coloring","stuffies"],
+    "Ageplayer": ["ageplay","age player","roleplay age","playing younger"],
+    "Age Regressor": ["age regress","regression","little space (non sexual)"],
 
-  // Exhibition / voyeur
-  "Exhibitionist": ["exhibition","public","being watched","in public"],
-  "Voyeur": ["voyeur","watching others","watch them"],
+    "Degrader": ["degrade","insulting","humiliat","call them names"],
+    "degradee": ["being degraded","being insulted","being humiliated"],
 
-  // Pet / ownership
-  "Pet": ["pet play","petplay","puppy","kitten","pet role"],
-  "Master": ["master","owner (person)","owning a slave"],
-  "Slave": ["slave","being owned","total power exchange"],
+    "Exhibitionist": ["exhibition","public","being watched","in public"],
+    "Voyeur": ["voyeur","watching others","watch them"],
 
-  // Primal
-  "Primal Predator": ["primal predator","hunt partner","predator energy"],
-  "Primal Prey": ["primal prey","being hunted","prey energy"],
-  "Primal Switch": ["primal switch"],
-  "Primal Sadist": ["primal sadist","rough primal hurting"],
-  "Primal Sadomasochist": ["primal sado","primal sadomasochist"],
+    "Pet": ["pet play","petplay","puppy","kitten","pet role"],
+    "Master": ["master","owner (person)","owning a slave"],
+    "Slave": ["slave","being owned","total power exchange"],
 
-  // Impact
-  "Impact Top": ["spank","impact top","paddle","flogging","caning","whip (impact)"],
-  "Impact Bottom": ["spanked","impact bottom","taking impact","receive impact"],
-  "Impact Switch": ["impact switch"],
+    "Primal Predator": ["primal predator","hunt partner","predator energy"],
+    "Primal Prey": ["primal prey","being hunted","prey energy"],
+    "Primal Switch": ["primal switch"],
+    "Primal Sadist": ["primal sadist","rough primal hurting"],
+    "Primal Sadomasochist": ["primal sadomasochist"],
 
-  // Rope / bondage
-  "Rope Top": ["rope top","rigger","tying rope","shibari"],
-  "Rope Bottom": ["rope bottom","rope bunny","being tied"],
-  "Rope Switch": ["rope switch"],
-  "Bondage Top": ["bondage top","restrain","tie them"],
-  "Bondage Bottom": ["bondage bottom","being restrained","being tied"],
-  "Bondage Switch": ["bondage switch"],
+    "Impact Top": ["spank","impact top","paddle","flogging","caning","whip (impact)"],
+    "Impact Bottom": ["spanked","impact bottom","taking impact","receive impact"],
+    "Impact Switch": ["impact switch"],
 
-  // Sadomasochism (emotional / intellectual)
-  "Sadist": ["sadist","enjoy hurting (consensual)","inflict pain"],
-  "Masochist": ["masochist","enjoy pain","receiving pain"],
-  "Emotional Sadist": ["emotional sadist","emotional pain play"],
-  "Emotional Masochist": ["emotional masochist","emotional pain received"],
-  "Emotional Sadomasochist": ["emotional sadomasochist"],
-  "Intellectual Sadist": ["intellectual sadist","mind games"],
-  "Intellectual Sadomasochist": ["intellectual sadomasochist"],
+    "Rope Top": ["rope top","rigger","tying rope","shibari"],
+    "Rope Bottom": ["rope bottom","rope bunny","being tied"],
+    "Rope Switch": ["rope switch"],
+    "Bondage Top": ["bondage top","restrain","tie them"],
+    "Bondage Bottom": ["bondage bottom","being restrained","being tied"],
+    "Bondage Switch": ["bondage switch"],
 
-  // Sensory / edge / electro / needle / fire
-  "Edge Player": ["edge play","knife play","breath control","risky consensual"],
-  "Electro Top": ["electro top","estim","violet wand (top)"],
-  "Electro Bottom": ["electro bottom","estim on me","violet wand on me"],
-  "Needle Top": ["needle top","play piercing","needles (top)"],
-  "Needle Bottom": ["needle bottom","being pierced","needles (bottom)"],
-  "Needle Switch": ["needle switch"],
-  "Fire Top": ["fire top","fire cupping","fire play (top)"],
-  "Fire Bottom": ["fire bottom","fire cupping on me","fire play (bottom)"],
-  "Fire Switch": ["fire switch"],
+    "Sadist": ["sadist","enjoy hurting (consensual)","inflict pain"],
+    "Masochist": ["masochist","enjoy pain","receiving pain"],
+    "Emotional Sadist": ["emotional sadist","emotional pain play"],
+    "Emotional Masochist": ["emotional masochist","emotional pain received"],
+    "Emotional Sadomasochist": ["emotional sadomasochist"],
+    "Intellectual Sadist": ["intellectual sadist","mind games"],
+    "Intellectual Sadomasochist": ["intellectual sadomasochist"],
 
-  // Watersports
-  "Watersports Top": ["watersports top","pee on someone","urination (top)"],
-  "Watersports Bottom": ["watersports bottom","being peed on","urination (bottom)"],
-  "Watersports Switch": ["watersports switch"],
+    "Edge Player": ["edge play","knife play","breath control","risky consensual"],
+    "Electro Top": ["electro top","estim","violet wand (top)"],
+    "Electro Bottom": ["electro bottom","estim on me","violet wand on me"],
+    "Needle Top": ["needle top","play piercing","needles (top)"],
+    "Needle Bottom": ["needle bottom","being pierced","needles (bottom)"],
+    "Needle Switch": ["needle switch"],
+    "Fire Top": ["fire top","fire cupping","fire play (top)"],
+    "Fire Bottom": ["fire bottom","fire cupping on me","fire play (bottom)"],
+    "Fire Switch": ["fire switch"],
 
-  // Hypnosis
-  "Hypno Top": ["hypnosis top","hypno top","trance top"],
-  "hypno bottom": ["hypnosis bottom","hypno bottom","trance bottom"],
+    "Watersports Top": ["watersports top","pee on someone","urination (top)"],
+    "Watersports Bottom": ["watersports bottom","being peed on","urination (bottom)"],
+    "Watersports Switch": ["watersports switch"],
 
-  // Latex / leather / fetish aesthetics
-  "Latex Top": ["latex top","latex dominator"],
-  "Latex Bottom": ["latex bottom","wear latex (bottom)"],
-  "Latex Switch": ["latex switch"],
-  "Leather Top": ["leather top","old guard top","leather daddy"],
-  "Leather bottom": ["leather bottom","wear leather (bottom)"],
+    "Hypno Top": ["hypnosis top","hypno top","trance top"],
+    "hypno bottom": ["hypnosis bottom","hypno bottom","trance bottom"],
 
-  // Titles / honorifics
-  "Sir": ["call me sir","sir "],
-  "Daddy Dom": ["daddy dom","daddy","mommy domme"],
-  "Prince": ["prince role"],
-  "Princess": ["princess role"],
-  "Domme": ["domme","female dom"],
+    "Latex Top": ["latex top","latex dominator"],
+    "Latex Bottom": ["latex bottom","wear latex (bottom)"],
+    "Latex Switch": ["latex switch"],
+    "Leather Top": ["leather top","old guard top","leather daddy"],
+    "Leather bottom": ["leather bottom","wear leather (bottom)"],
 
-  // Pleasure / worship
-  "Pleasure Dom": ["pleasure dom","focus on partner pleasure (dom)"],
-  "Pleasure Sadist": ["pleasure sadist"],
-  "Cock Worshipper": ["cock worship","worship cock"],
-  "Cum Slut": ["cum slut","covered in cum"],
-  "Cum Princess": ["cum princess","cum focused"],
+    "Sir": ["call me sir","sir "],
+    "Daddy Dom": ["daddy dom","daddy","mommy domme"],
+    "Prince": ["prince role"],
+    "Princess": ["princess role"],
+    "Domme": ["domme","female dom"],
 
-  // Feet / fisting
-  "Foot Top": ["foot top","foot worship (giving)"],
-  "Foot Bottom": ["foot bottom","foot worship (receiving)"],
-  "Foot Switch": ["foot switch"],
-  "Fisting Top": ["fisting top","fist someone"],
-  "Fisting Bottom": ["fisting bottom","take a fist"],
+    "Pleasure Dom": ["pleasure dom","focus on partner pleasure (dom)"],
+    "Pleasure Sadist": ["pleasure sadist"],
+    "Cock Worshipper": ["cock worship","worship cock"],
+    "Cum Slut": ["cum slut","covered in cum"],
+    "Cum Princess": ["cum princess","cum focused"],
 
-  // Misc scene styles
-  "Experimentalist": ["experiment","try anything once","new kinks"],
-  "Exhibitionist ": ["exhibitionist "],  // allow alt label from user’s list
-  "Voyeur ": ["voyeur "]
-};
+    "Foot Top": ["foot top","foot worship (giving)"],
+    "Foot Bottom": ["foot bottom","foot worship (receiving)"],
+    "Foot Switch": ["foot switch"],
+    "Fisting Top": ["fisting top","fist someone"],
+    "Fisting Bottom": ["fisting bottom","take a fist"],
 
-/* --------------------------- SCORING IMPLEMENTATION --------------------------- */
-/* Accepts many common JSON shapes:
-   - { answers: [{ question:"...", score:3 }, ...] }
-   - { answers: [{ q:"...", value:4 }, ...] }
-   - { "Q text here": 5, "Another Q": 2, ... }   (object map)
-   - or even a plain array of {text/question/q,label, score/value/answer}
-*/
-window.IKA__scoreRoles = function IKA__scoreRoles(answers, BANK){
-  // normalize answers into [{text, score}]
-  let list = [];
-  if (Array.isArray(answers)) {
-    list = answers.map(a => ({
-      text: String(a?.question ?? a?.q ?? a?.text ?? a?.label ?? "").trim(),
-      score: Number(a?.score ?? a?.value ?? a?.answer ?? a?.rating ?? 0)
-    }));
-  } else if (answers && typeof answers === "object") {
-    list = Object.entries(answers).map(([k,v]) => ({
-      text: String(k).trim(),
-      score: Number(v ?? 0)
-    }));
-  }
+    "Experimentalist": ["experiment","try anything once","new kinks"]
+  };
 
-  // Clamp scores to 0..5
-  list.forEach(a => { if (!Number.isFinite(a.score)) a.score = 0; a.score = Math.max(0, Math.min(5, a.score)); });
-
-  // Precompile regex per keyword
-  const roleKeys = Object.keys(BANK);
-  const compiled = {};
-  roleKeys.forEach(role => {
-    compiled[role] = (BANK[role] || []).map(kw => new RegExp(String(kw).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), "i"));
-  });
-
-  // Tally
-  const totals = {}; const maxes = {};
-  roleKeys.forEach(r => { totals[r]=0; maxes[r]=0; });
-
-  for (const a of list) {
-    const t = (a.text || "").toLowerCase();
-    for (const role of roleKeys) {
-      const regs = compiled[role];
-      if (regs.length && regs.some(rx => rx.test(t))) {
-        totals[role] += a.score;
-        maxes[role]  += 5;           // each matching question could contribute up to 5
+  /* --------------------------- SCORING IMPLEMENTATION --------------------------- */
+  function normalizeAnswers(raw) {
+    // → [{ text, score }] with scores clamped 0..5
+    let list = [];
+    if (Array.isArray(raw)) {
+      list = raw.map(a => ({
+        text: String(a?.question ?? a?.q ?? a?.text ?? a?.label ?? "").trim(),
+        score: Number(a?.score ?? a?.value ?? a?.answer ?? a?.rating ?? 0)
+      }));
+    } else if (raw && typeof raw === "object") {
+      const maybe = raw.answers ?? raw;
+      if (Array.isArray(maybe)) {
+        list = maybe.map(a => ({
+          text: String(a?.question ?? a?.q ?? a?.text ?? a?.label ?? "").trim(),
+          score: Number(a?.score ?? a?.value ?? a?.answer ?? a?.rating ?? 0)
+        }));
+      } else {
+        list = Object.entries(maybe).map(([k,v]) => ({ text: String(k).trim(), score: Number(v ?? 0) }));
       }
     }
+    for (const a of list) {
+      if (!Number.isFinite(a.score)) a.score = 0;
+      a.score = Math.max(0, Math.min(5, a.score));
+    }
+    return list;
   }
 
-  // Build result list
-  const results = roleKeys.map(role => {
-    const pct = maxes[role] > 0 ? Math.round(100 * (totals[role] / maxes[role])) : 0;
-    return { role, pct, total: totals[role], max: maxes[role] };
-  }).sort((a,b) => b.pct - a.pct || a.role.localeCompare(b.role));
+  window.IKA__scoreRoles = function IKA__scoreRoles(answers, BANK) {
+    const list = normalizeAnswers(answers);
+    const roles = Object.keys(BANK || {});
+    const compiled = {};
+    for (const r of roles) compiled[r] = (BANK[r]||[]).map(kw => new RegExp(String(kw).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), "i"));
 
-  return results;
-};
+    const totals = {}, maxes = {};
+    for (const r of roles) { totals[r]=0; maxes[r]=0; }
 
-/* ------------------------------ FILE INTEGRATION ------------------------------ */
-/* When the user chooses a JSON file in #ikaFile, we compute results immediately
-   and store them for the exporter under window.IKA__lastResults. */
-(function wireUpload(){
-  const file = document.getElementById("ikaFile");
-  if (!file) return;
-  file.addEventListener("change", async () => {
-    try {
-      const f = file.files && file.files[0];
-      if (!f) return;
-      const raw = JSON.parse(await f.text());
-      const answers = raw?.answers ?? raw;   // tolerate both structures
-      const results = window.IKA__scoreRoles(answers, window.BANK);
-      window.IKA__lastResults = results;
-      console.log("[IKA] Parsed survey and computed", results.length, "role scores.");
-    } catch (e) {
-      console.error("[IKA] Failed to read/score file:", e);
-      alert("Could not read that JSON. Please export your survey and try again.");
+    for (const a of list) {
+      const t = (a.text||"").toLowerCase();
+      for (const r of roles) {
+        const hit = compiled[r].some(rx => rx.test(t));
+        if (hit) { totals[r]+=a.score; maxes[r]+=5; }
+      }
     }
-  });
+    const out = roles.map(r => ({
+      role: r,
+      pct: maxes[r] ? Math.round(100 * (totals[r]/maxes[r])) : 0,
+      total: totals[r], max: maxes[r]
+    })).sort((a,b)=> b.pct - a.pct || a.role.localeCompare(b.role));
+    return out;
+  };
+
+  // Back-compat alias for exporters that look for IKA_scoreRoles
+  window.IKA_scoreRoles = window.IKA__scoreRoles;
+
+  /* ------------------------------ FILE INTEGRATION ------------------------------ */
+  function wireUpload() {
+    const file = document.getElementById("ikaFile");
+    if (!file) return;
+    file.addEventListener("change", async () => {
+      try {
+        const f = file.files && file.files[0];
+        if (!f) return;
+        const raw = JSON.parse(await f.text());
+        const answers = raw?.answers ?? raw;
+        const results = window.IKA__scoreRoles(answers, window.BANK);
+        window.IKA__lastResults = results;
+        console.log("[IKA] Scored", results.length, "roles; cached in window.IKA__lastResults.");
+        
+      } catch (e) {
+        console.error("[IKA] Could not score file:", e);
+        alert("Could not read that JSON. Please export your survey and try again.");
+      }
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", wireUpload);
+  } else {
+    wireUpload();
+  }
 })();
 </script>
 <script>
