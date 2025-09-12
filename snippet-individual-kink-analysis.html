@@ -5,73 +5,76 @@
   <title>Individual Kink Analysis</title>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
   <style>
-    .ika-container {
-      max-width: 600px;
-      margin: 0 auto;
-      text-align: center;
-      padding: 2rem 1rem;
-    }
+  body { margin: 0; }
+  /* Full-page flex centering */
+  .ika-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh; /* Full height */
+    background-color: #000;
+    color: #fff;
+  }
 
-    .ika-title {
-      font-family: 'Fredoka One', cursive;
-      font-size: 2rem;
-      color: #00eaff;
-      margin-bottom: 0.5rem;
-    }
+  /* Container for title + buttons */
+  .ika-container {
+    text-align: center;
+  }
 
-    .ika-instructions {
-      font-family: 'Fredoka One', cursive;
-      font-size: 1rem;
-      color: #fff;
-      margin-bottom: 1.5rem;
-    }
+  /* Title */
+  .ika-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 2rem;
+    color: #00f0ff;
+    margin-bottom: 0.5rem;
+  }
 
-    .ika-btn {
-      display: block;
-      width: 250px;
-      margin: 10px auto;
-      padding: 12px 20px;
-      font-family: 'Fredoka One', cursive;
-      font-size: 1.1rem;
-      color: #fff;
-      background: transparent;
-      border: 2px solid #00eaff;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.2s ease-in-out;
-    }
+  /* Instructions */
+  .ika-instructions {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
 
-    .ika-btn:hover {
-      background: #00eaff;
-      color: #000;
-    }
-
-    #ikaResults {
-      margin-top: 20px;
-      font-family: monospace;
-      color: #fff;
-      font-size: 0.9rem;
-      text-align: left;
-    }
+  /* Buttons */
+  .ika-btn {
+    display: block;
+    margin: 0.75rem auto;
+    padding: 0.75rem 1.5rem;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    background: transparent;
+    border: 2px solid #00f0ff;
+    color: #fff;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    min-width: 220px;
+  }
+  .ika-btn:hover {
+    background: #00f0ff;
+    color: #000;
+  }
   </style>
 </head>
-<body style="background:#000; color:#fff;">
-  <!-- Individual Kink Analysis Page -->
+<body>
+<div class="ika-page">
   <div class="ika-container">
     <h1 class="ika-title">Individual Kink Analysis</h1>
     <p class="ika-instructions">
       Upload your survey data and generate a personal PDF report.
     </p>
 
-    <!-- Upload survey -->
+    <!-- Upload -->
     <label for="ikaFile" class="ika-btn">Upload Survey</label>
     <input id="ikaFile" type="file" accept="application/json" style="display:none">
 
-    <!-- Download PDF -->
+    <!-- Download -->
     <button id="downloadPdfBtn" class="ika-btn">Download PDF</button>
 
-    <!-- Results (optional preview) -->
+    <!-- Results preview if needed -->
     <div id="ikaResults"></div>
   </div>
+</div>
 </body>
 </html>
