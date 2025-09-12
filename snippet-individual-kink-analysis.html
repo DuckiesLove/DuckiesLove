@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Individual Kink Analysis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    .ika-container {
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+      padding: 2rem 1rem;
+    }
+
+    .ika-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: 2rem;
+      color: #00eaff;
+      margin-bottom: 0.5rem;
+    }
+
+    .ika-instructions {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1rem;
+      color: #fff;
+      margin-bottom: 1.5rem;
+    }
+
+    .ika-btn {
+      display: block;
+      width: 250px;
+      margin: 10px auto;
+      padding: 12px 20px;
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.1rem;
+      color: #fff;
+      background: transparent;
+      border: 2px solid #00eaff;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .ika-btn:hover {
+      background: #00eaff;
+      color: #000;
+    }
+
+    #ikaResults {
+      margin-top: 20px;
+      font-family: monospace;
+      color: #fff;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+  </style>
+</head>
+<body style="background:#000; color:#fff;">
+  <!-- Individual Kink Analysis Page -->
+  <div class="ika-container">
+    <h1 class="ika-title">Individual Kink Analysis</h1>
+    <p class="ika-instructions">
+      Upload your survey data and generate a personal PDF report.
+    </p>
+
+    <!-- Upload survey -->
+    <label for="ikaFile" class="ika-btn">Upload Survey</label>
+    <input id="ikaFile" type="file" accept="application/json" style="display:none">
+
+    <!-- Download PDF -->
+    <button id="downloadPdfBtn" class="ika-btn">Download PDF</button>
+
+    <!-- Results (optional preview) -->
+    <div id="ikaResults"></div>
+  </div>
+</body>
+</html>
