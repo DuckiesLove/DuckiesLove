@@ -10,6 +10,7 @@
 <body class="theme-dark">
 
 <!-- Individual Kink Analysis — compact, centered UI -->
+<div class="ika-page">
 <div class="ika-container">
   <h1 class="ika-title">Individual Kink Analysis</h1>
   <p class="ika-instructions">
@@ -26,12 +27,21 @@
   <!-- Optional: where you render preview/results -->
   <div id="ikaResults"></div>
 </div>
+</div>
 
 <style>
+/* ===== Full-page centered layout ===== */
+.ika-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
 /* ===== Compact layout & typography (dark theme friendly) ===== */
 .ika-container{
   max-width: 640px;          /* narrower content */
-  margin: 40px auto;         /* centered on page */
+  margin: 0 auto;            /* center horizontally */
   padding: 0 20px;
   text-align: center;
 }
