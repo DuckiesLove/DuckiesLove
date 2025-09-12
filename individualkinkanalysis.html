@@ -9,32 +9,79 @@
 </head>
 <body class="theme-dark">
 
-<!-- ✅ INDIVIDUAL KINK ANALYSIS — FIXED MARKUP + CENTERED CONTROLS + WORKING PDF EXPORT
-Paste this whole block near the end of /individualkinkanalysis.html (right before <!--
-INDIVIDUAL KINK ANALYSIS — QUESTION→ROLE MAPPING + SCORING (drop-in)
-Paste this WHOLE block near the end of /individualkinkanalysis.html (right before </body>).
+<!-- Individual Kink Analysis — compact, centered UI -->
+<div class="ika-container">
+  <h1 class="ika-title">Individual Kink Analysis</h1>
+  <p class="ika-instructions">
+    Upload your survey data and generate a personal PDF report.
+  </p>
 
-What you get
-- A clean, explicit “question → role(s)” mapping template (with weights).
-- A robust scoring engine that:
-    • reads your uploaded JSON (various shapes supported),
-    • converts Likert text to numbers (e.g., “Strongly agree” → 5),
-    • totals weighted points per role,
-    • returns normalized percentages (0–100%),
-    • stores results in window.IKA_lastResults (so your PDF exporter can consume them).
-- Minimal UI glue to render a quick preview list (optional) and keep your Download PDF flow working.
+  <!-- Upload (keeps the same input id expected by your JS) -->
+  <label for="ikaFile" class="ika-btn">Upload Survey</label>
+  <input id="ikaFile" type="file" accept="application/json" style="display:none" />
 
-HOW TO USE
-1) Paste this script.
-2) Fill out IKA_ROLE_MAP with your survey’s question IDs (or unique question text) and the roles they influence.
-   - Use the provided role catalog so names are consistent.
-   - Each mapping entry supports one or more roles with weights (default 1).
-3) Upload a survey JSON on the page and click “Download PDF” as usual.
-   - Your existing PDF exporter that calls window.IKA_scoreRoles(...) will now get real percentages.
+  <!-- Download (keeps the same button id expected by your JS) -->
+  <button id="downloadPdfBtn" class="ika-btn">Download PDF</button>
 
-Tip: Start with 10–20 key questions, then expand the map over time. The engine auto-normalizes by total possible points, so different numbers of mappings still yield proper 0–100%.
+  <!-- Optional: where you render preview/results -->
+  <div id="ikaResults"></div>
+</div>
 
------------------------------------------------------------------------>
+<style>
+/* ===== Compact layout & typography (dark theme friendly) ===== */
+.ika-container{
+  max-width: 640px;          /* narrower content */
+  margin: 40px auto;         /* centered on page */
+  padding: 0 20px;
+  text-align: center;
+}
+
+.ika-title{
+  font-family: 'Fredoka One', cursive, system-ui, -apple-system, sans-serif;
+  font-size: 2rem;           /* smaller title */
+  line-height: 1.2;
+  margin: 0 0 8px 0;
+  color: #22d3ee;            /* cyan to match theme */
+}
+
+.ika-instructions{
+  font-family: 'Fredoka One', cursive, system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  color: #fff;
+  margin: 0 0 22px 0;
+}
+
+/* Buttons: consistent look, slightly smaller */
+.ika-btn{
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin: 12px auto;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 2px solid #22d3ee;
+  background: transparent;
+  color: #fff;
+  font-family: 'Fredoka One', cursive, system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background .15s ease, transform .03s ease;
+}
+.ika-btn:hover{ background: rgba(34,211,238,.16); }
+.ika-btn:active{ transform: translateY(1px); }
+
+/* Rendered results section */
+#ikaResults{
+  margin-top: 16px;
+  text-align: left;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  color: #e5e7eb;
+  font-size: .95rem;
+  line-height: 1.5;
+}
+
+label[for="ikaFile"]{ user-select: none; }
+</style>
 <script>
 /* =========================
  * 1) Role catalog (canonical names)
