@@ -326,38 +326,79 @@ function renderPreview(targetEl, results) {
 </body>).
 It replaces any broken/conflicted code that was printing JavaScript on the page. -->
 
-<!-- UI (centered) -->
-<style>
-  .ika-wrap{max-width:1100px;margin:0 auto;padding:24px 16px;text-align:center}
-  .ika-title{font-size:clamp(30px,5vw,64px);margin:8px 0 6px}
-  .ika-instructions{font-size:clamp(16px,2.2vw,24px);opacity:.9;margin:0 0 28px}
-  .ika-row{display:flex;flex-direction:column;gap:22px;align-items:center;justify-content:center}
-  .ika-btn{display:inline-block;min-width:min(680px,85vw);padding:18px 28px;border-radius:18px;
-           border:2px solid var(--accent,#00e6ff);background:transparent;color:#fff;
-           font-weight:800;font-size:clamp(18px,2.6vw,32px);cursor:pointer}
-  .ika-btn:hover{transform:translateY(-1px)}
-  /* make label look like the other buttons */
-  label.ika-btn{user-select:none}
-  /* hide the real file input */
-  #ikaFile{display:none}
-</style>
-
-<div class="ika-wrap">
+<!-- Individual Kink Analysis — compact, centered UI -->
+<div class="ika-container">
   <h1 class="ika-title">Individual Kink Analysis</h1>
-  <p class="ika-instructions">Upload your survey data and generate a personal PDF report.</p>
+  <p class="ika-instructions">
+    Upload your survey data and generate a personal PDF report.
+  </p>
 
-  <div class="ika-row">
-    <!-- Upload (styled label drives the hidden file input) -->
-    <label for="ikaFile" class="ika-btn">Upload Survey</label>
-    <input id="ikaFile" type="file" accept="application/json">
+  <!-- Upload (keeps the same input id expected by your JS) -->
+  <label for="ikaFile" class="ika-btn">Upload Survey</label>
+  <input id="ikaFile" type="file" accept="application/json" style="display:none" />
 
-    <!-- Download -->
-    <button id="downloadPdfBtn" class="ika-btn">Download PDF</button>
-  </div>
+  <!-- Download (keeps the same button id expected by your JS) -->
+  <button id="downloadPdfBtn" class="ika-btn">Download PDF</button>
 
-  <!-- Optional place your page renderer puts results; exporter will use it if present -->
-  <div id="ikaResults" hidden></div>
+  <!-- Optional: where you render preview/results -->
+  <div id="ikaResults"></div>
 </div>
+
+<style>
+/* ===== Compact layout & typography (dark theme friendly) ===== */
+.ika-container{
+  max-width: 640px;          /* narrower content */
+  margin: 40px auto;         /* centered on page */
+  padding: 0 20px;
+  text-align: center;
+}
+
+.ika-title{
+  font-family: 'Fredoka One', cursive, system-ui, -apple-system, sans-serif;
+  font-size: 2rem;           /* smaller title */
+  line-height: 1.2;
+  margin: 0 0 8px 0;
+  color: #22d3ee;            /* cyan to match theme */
+}
+
+.ika-instructions{
+  font-family: 'Fredoka One', cursive, system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  color: #fff;
+  margin: 0 0 22px 0;
+}
+
+/* Buttons: consistent look, slightly smaller */
+.ika-btn{
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin: 12px auto;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 2px solid #22d3ee;
+  background: transparent;
+  color: #fff;
+  font-family: 'Fredoka One', cursive, system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background .15s ease, transform .03s ease;
+}
+.ika-btn:hover{ background: rgba(34,211,238,.16); }
+.ika-btn:active{ transform: translateY(1px); }
+
+/* Rendered results section */
+#ikaResults{
+  margin-top: 16px;
+  text-align: left;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  color: #e5e7eb;
+  font-size: .95rem;
+  line-height: 1.5;
+}
+
+label[for="ikaFile"]{ user-select: none; }
+</style>
 
 <!-- ✅ FIX: Define the scoring engine BEFORE the PDF exporter on /individualkinkanalysis.html
 Place this <script> block ABOVE your exporter. It provides:
