@@ -35,15 +35,15 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  height: 100vh;
+  background: #000;
 }
 
 /* ===== Compact layout & typography (dark theme friendly) ===== */
-.ika-container{
-  max-width: 640px;          /* narrower content */
-  margin: 0 auto;            /* center horizontally */
-  padding: 0 20px;
+.ika-container {
   text-align: center;
+  max-width: 600px;
+  width: 100%;
 }
 
 .ika-title{
@@ -54,31 +54,26 @@
   color: #22d3ee;            /* cyan to match theme */
 }
 
-.ika-instructions{
-  font-family: 'Fredoka One', cursive, system-ui, -apple-system, sans-serif;
-  font-size: 1rem;
+.ika-instructions {
+  margin-bottom: 20px;
+  font-family: 'Fredoka One', cursive;
   color: #fff;
-  margin: 0 0 22px 0;
+  font-size: 1.1em;
 }
 
-/* Buttons: consistent look, slightly smaller */
-.ika-btn{
+/* Buttons: consistent look */
+.ika-btn {
   display: block;
-  width: 100%;
-  max-width: 320px;
   margin: 12px auto;
-  padding: 12px 18px;
-  border-radius: 12px;
-  border: 2px solid #22d3ee;
-  background: transparent;
+  padding: 12px 24px;
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.1em;
+  background: #000;
+  border: 2px solid cyan;
+  border-radius: 8px;
   color: #fff;
-  font-family: 'Fredoka One', cursive, system-ui, -apple-system, sans-serif;
-  font-size: 1rem;
   cursor: pointer;
-  transition: background .15s ease, transform .03s ease;
 }
-.ika-btn:hover{ background: rgba(34,211,238,.16); }
-.ika-btn:active{ transform: translateY(1px); }
 
 /* Rendered results section */
 #ikaResults{
