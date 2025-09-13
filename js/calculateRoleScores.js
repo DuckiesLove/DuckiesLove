@@ -1,58 +1,59 @@
-const roles = [
-  'dominant',
-  'switch',
-  'sadist',
-  'emotional sadist',
-  'primal (hunter)',
-  'emotional primal',
-  'owner',
-  'handler',
-  'caregiver',
-  'service top',
-  'mindfuck dominant / manipulator',
-  'objectifier / dehumanizer',
-  'masochist',
-  'emotional masochist',
-  'prey',
-  'emotional prey',
-  'pet',
-  'little',
-  'service submissive',
-  'brat',
-  'internal conflict sub',
-  'performance sub',
-  'mindfuck enthusiast / manipulation sub'
+import { ROLE_MAP } from './roleMappings.js';
+
+export const roles = [
+  'Dominant',
+  'Submissive',
+  'Switch',
+  'Master',
+  'Slave',
+  'Owner',
+  'Brat',
+  'Brat Tamer',
+  'Brat Handler',
+  'Experimentalist',
+  'Emotional Sadist',
+  'Emotional Masochist',
+  'Intellectual Sadist',
+  'Primal Predator',
+  'Primal Prey',
+  'Rope Top',
+  'Rope Bottom',
+  'Rope Switch',
+  'Service Top',
+  'Service Submissive',
+  'Service Switch',
+  'Latex Top',
+  'Latex Bottom',
+  'Leather Top',
+  'Leather Bottom',
+  'Watersports Switch',
+  'Daddy Dom',
+  'Cum Princess',
+  'Cock Worshipper',
+  'Bondage Top',
+  'Bondage Bottom',
+  'Impact Top',
+  'Impact Bottom',
+  'Sadist',
+  'Masochist',
+  'Pet',
+  'Caregiver'
 ];
 
-function calculateRoleScores(surveyData, maxRating = 5) {
+export function calculateRoleScores(surveyAnswers) {
   const scores = {};
-  const counts = {};
-  roles.forEach(r => {
-    scores[r] = 0;
-    counts[r] = 0;
-  });
-
-  for (const category in surveyData) {
-    const items = surveyData[category];
-    for (const item of items) {
-      if (item && typeof item.rating === 'number' && item.rating > 0 && Array.isArray(item.roles)) {
-        for (const role of item.roles) {
-          const roleName = (typeof role === 'string' ? role : role.name).toLowerCase();
-          if (scores[roleName] === undefined) continue;
-          scores[roleName] += item.rating;
-          counts[roleName] += maxRating;
-        }
-      }
+  for (const ans of surveyAnswers || []) {
+    const rolesForQuestion = ROLE_MAP[ans.question];
+    if (!rolesForQuestion || typeof ans.value !== 'number') continue;
+    for (const role of rolesForQuestion) {
+      scores[role] = (scores[role] || 0) + ans.value;
     }
   }
-
-  const results = roles.map(role => ({
-    name: role,
-    percent: counts[role] > 0 ? Math.round((scores[role] / counts[role]) * 100) : 0
-  }));
-
-  results.sort((a, b) => b.percent - a.percent);
-  return results;
+  const max = Math.max(0, ...Object.values(scores));
+  return roles
+    .map(role => ({
+      name: role,
+      percent: max > 0 && scores[role] ? Math.round((scores[role] / max) * 100) : 0
+    }))
+    .sort((a, b) => b.percent - a.percent);
 }
-
-export { calculateRoleScores, roles };

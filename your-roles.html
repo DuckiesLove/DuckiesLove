@@ -26,18 +26,6 @@
     import { initTheme, applyPrintStyles } from './js/theme.js';
     initTheme();
 
-    function flattenSurvey(survey) {
-      const items = [];
-      Object.entries(survey).forEach(([category, cat]) => {
-        ['Giving', 'Receiving', 'General'].forEach(role => {
-          if (Array.isArray(cat[role])) {
-            cat[role].forEach(it => items.push({ category, ...it }));
-          }
-        });
-      });
-      return items;
-    }
-
     function titleCase(str) {
       return str.replace(/\b\w/g, c => c.toUpperCase());
     }
@@ -107,8 +95,8 @@
       reader.onload = ev => {
         try {
           const parsed = JSON.parse(ev.target.result);
-          const survey = parsed.survey || parsed;
-          const scores = calculateRoleScores({ all: flattenSurvey(survey) });
+          const answers = parsed.answers || parsed;
+          const scores = calculateRoleScores(answers);
           const container = document.getElementById('export-target');
           if (!scores.length) {
             container.textContent = 'No role data found.';
