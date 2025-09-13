@@ -5,5 +5,21 @@ export const ROLE_MAP = {
   "Do you enjoy receiving pain?": ["Masochist", "Impact Bottom", "Emotional Masochist"],
   "Do you enjoy roleplaying as a pet?": ["Pet", "Owner", "Caregiver"],
   "Do you enjoy acting bratty?": ["Brat"],
-  "Do you enjoy taming bratty partners?": ["Brat Tamer", "Brat Handler"]
+  "Do you enjoy taming bratty partners?": ["Brat Tamer", "Brat Handler"],
+  "prefer one partner only": ["Monogamy"],
+  "keep metamours separate": ["Parallel Poly"],
+  "partners & metamours are close friends": ["Kitchen Table Poly"],
+  "exclusivity inside our group": ["Polyfidelity"],
+  "independence with multiple partners": ["Solo Poly"],
+  "group relationships (3–4 people)": ["Triad / Throuple","Quad"],
+  "honesty with multiple partners (ENM)": ["Ethical Non-Monogamy (ENM)"],
+  "long-distance partner I see rarely": ["Comet"],
+  "reject labels, prioritize autonomy (RA)": ["Relationship Anarchy (RA)"],
+  "prioritize a primary partner (hierarchy)": ["Hierarchical Poly"],
+  "mostly mono with some openness": ["Monogamish"],
+  "I am mono but my partner is poly": ["Mono-Polyamorous"],
+  "poly webs": ["Poly Webs"],
+  "polycule": ["Polycule"],
+  "garden party poly": ["Garden Party Poly"],
+  "vee relationship": ["Vee"]
 };

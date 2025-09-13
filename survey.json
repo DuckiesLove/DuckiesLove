@@ -1,0 +1,44 @@
+{
+  "sections": [
+    {
+      "section": "Relationship Styles",
+      "questions": [
+        {
+          "id": "monogamy_pref",
+          "q": "Do you prefer one partner only (monogamy)?",
+          "type": "radio",
+          "options": ["Yes", "No"],
+          "map": { "Yes": ["Monogamy"], "No": [] }
+        },
+        {
+          "id": "ktp_pref",
+          "q": "Would you want your partners and metamours to be close friends (Kitchen Table Poly)?",
+          "type": "radio",
+          "options": ["Yes", "No"],
+          "map": { "Yes": ["Kitchen Table Poly"], "No": [] }
+        },
+        {
+          "id": "parallel_pref",
+          "q": "Do you prefer metamours to remain separate (Parallel Poly)?",
+          "type": "radio",
+          "options": ["Yes", "No"],
+          "map": { "Yes": ["Parallel Poly"], "No": [] }
+        },
+        {
+          "id": "polyfidelity_pref",
+          "q": "Would you prefer exclusivity inside your group (Polyfidelity)?",
+          "type": "radio",
+          "options": ["Yes", "No"],
+          "map": { "Yes": ["Polyfidelity"], "No": [] }
+        },
+        {
+          "id": "solo_poly_pref",
+          "q": "Do you want independence even when non-monogamous (Solo Poly)?",
+          "type": "radio",
+          "options": ["Yes", "No"],
+          "map": { "Yes": ["Solo Poly"], "No": [] }
+        }
+      ]
+    }
+  ]
+}
