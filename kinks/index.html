@@ -633,5 +633,162 @@
       })
       .catch(err => console.error("Session check failed:", err));
   </script>
+
+<!--
+KINKS PAGE — “UNSQUISH + CENTER” HOTFIX
+Paste this whole block near the end of /kinks/index.html (right before </body>).
+
+What this does
+1) Centers the survey UI and lets it grow to a comfortable width (no more skinny column).
+2) Removes any fixed heights/clamps/overflows that were cutting off or squishing the category tracker.
+3) Makes long sections scroll naturally (page scroll) instead of being trapped in a short inner scroller.
+4) Works without renaming your existing elements; it targets common wrappers and “tracker” panels.
+
+How to use
+- Paste this once.
+- Hard refresh with DevTools → Network → “Disable cache” (Ctrl/Cmd+Shift+R).
+- If you still see a squished panel, keep the DevTools open and watch the console logs
+  (the script lists which elements it unclamped).
+-->
+
+<style>
+  /* 1) Global sanity so widths behave predictably */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* 2) Center the main survey area and give it breathing room */
+  #surveyRoot,
+  .kinks-root,
+  .kinks-wrapper,
+  .survey-wrapper,
+  .compat-container,
+  main.kinks,
+  [data-kinks-root] {
+    display: block !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: min(1100px, 92vw) !important;   /* roomy but responsive */
+  }
+
+  /* 3) Make each category section full width inside the centered container */
+  .kinks-category,
+  .category-section,
+  section[data-category],
+  .kink-category-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* 4) Never clamp height on containers that likely hold lists/tracker */
+  #surveyRoot, .kinks-root, .kinks-wrapper,
+  .categories, .category-list, .results,
+  .tracker, .category-tracker, [class*="tracker"] {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important; /* let the PAGE scroll, not the inner box */
+  }
+
+  /* 5) Basic dark-friendly styling (optional, safe) */
+  .kinks-category {
+    border: 1px solid #00e5ff33;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin: 12px 0;
+    color: #fff;
+    background: #0a0f14;
+  }
+  .kinks-category h3 {
+    margin: 0 0 6px 0;
+    font-weight: 700;
+    color: #7ef9ff;
+  }
+  .kinks-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-top: 1px dashed #00e5ff22;
+  }
+  .kinks-item:first-of-type { border-top: 0; }
+</style>
+
+<script>
+(() => {
+  const LOG = (...a) => console.log("[KINKS-UNSQUISH]", ...a);
+
+  // 6) Unclamp anything that forces short/squished tracker panes
+  function unclampOnce(root = document) {
+    const selectors = [
+      '#surveyRoot', '.kinks-root', '.kinks-wrapper', '.survey-wrapper',
+      '.categories', '.category-list', '.results', '.tracker', '.category-tracker',
+      '[class*="tracker"]', '[data-kinks-root]', 'main.kinks'
+    ];
+
+    const seen = new Set();
+    selectors.forEach(sel => {
+      root.querySelectorAll(sel).forEach(el => {
+        if (seen.has(el)) return;
+        seen.add(el);
+
+        // Remove inline clamps
+        const before = { h: el.style.height, mh: el.style.maxHeight, ov: el.style.overflow };
+        if (el.style.height)     el.style.height = "";
+        if (el.style.maxHeight)  el.style.maxHeight = "";
+        if (el.style.overflow)   el.style.overflow = "";
+
+        // Force our desired behavior
+        el.style.setProperty('max-height', 'none', 'important');
+        el.style.setProperty('height', 'auto', 'important');
+        el.style.setProperty('overflow', 'visible', 'important');
+
+        // Common “clamp” classes used by frameworks
+        const clampClasses = [
+          'is-clamped','clamped','scroll','scrollable','scroller','overflow',
+          'overflow-auto','overflow-y','max-h','h-fixed','panel'
+        ];
+        clampClasses.forEach(c => { if (el.classList.contains(c)) el.classList.remove(c); });
+
+        LOG('unclamped', el, before);
+      });
+    });
+
+    // Center primary containers
+    const centers = root.querySelectorAll('#surveyRoot, .kinks-root, .kinks-wrapper, .survey-wrapper, main.kinks, [data-kinks-root]');
+    centers.forEach(el => {
+      el.style.setProperty('margin-left', 'auto', 'important');
+      el.style.setProperty('margin-right', 'auto', 'important');
+      el.style.setProperty('width', 'min(1100px, 92vw)', 'important');
+    });
+  }
+
+  // Run once now
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => unclampOnce(document));
+  } else {
+    unclampOnce(document);
+  }
+
+  // 7) Keep fixing if the app re-renders after “Start Survey”
+  const mo = new MutationObserver(muts => {
+    let touched = false;
+    for (const m of muts) {
+      if (m.addedNodes && m.addedNodes.length) { touched = true; break; }
+      if (m.type === 'attributes' && (m.attributeName === 'style' || m.attributeName === 'class')) { touched = true; break; }
+    }
+    if (touched) unclampOnce(document);
+  });
+  mo.observe(document.documentElement, { subtree: true, childList: true, attributes: true });
+
+  // 8) Optional: if you have a Start Survey button, ensure it triggers after DOM
+  const startBtn = document.querySelector('#startSurvey');
+  if (startBtn && !startBtn.dataset.kinksEnhBound) {
+    startBtn.dataset.kinksEnhBound = '1';
+    startBtn.addEventListener('click', () => {
+      // Give your app a moment to inject DOM, then unclamp again
+      setTimeout(() => unclampOnce(document), 120);
+    });
+    LOG('bound Start Survey for post-render unclamp');
+  }
+})();
+</script>
 </body>
 </html>
