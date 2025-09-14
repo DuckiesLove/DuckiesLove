@@ -1,0 +1,248 @@
+<!-- ===== KINKS SURVEY: RESILIENT LOADER + DIAGNOSTICS (drop-in) ===== -->
+<style>
+  /* Prevent “missing categories” that are actually being clipped */
+  #surveyRoot, .kinks-root {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .kinks-diagnostics {
+    font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color: #e8ffff;
+    background: #071317;
+    border: 1px solid #00d5ff55;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin: 18px auto 8px;
+    max-width: 960px;
+    white-space: pre-wrap;
+  }
+  .kinks-category {
+    border: 1px solid #00e5ff33;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin: 10px auto;
+    max-width: 960px;
+    color: #fff;
+    background: #0a0f14;
+  }
+  .kinks-category h3 {
+    margin: 0 0 6px 0;
+    font-weight: 700;
+    color: #7ef9ff;
+  }
+  .kinks-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-top: 1px dashed #00e5ff22;
+  }
+  .kinks-item:first-of-type { border-top: 0; }
+  .kinks-item label { cursor: pointer; }
+</style>
+
+<div id="kinksDiagnostics" class="kinks-diagnostics" style="display:none"></div>
+
+<script>
+(function(){
+  const LOG = (...a)=>console.log("[KINKS]", ...a);
+
+  /*** 1) Where to render ***/
+  function findRoot(){
+    return document.querySelector("#surveyRoot") ||
+           document.querySelector(".kinks-root") ||
+           (function(){ const d=document.createElement("div"); d.id="surveyRoot"; document.body.prepend(d); return d; })();
+  }
+
+  /*** 2) Fetch categories JSON with retries & fallbacks ***/
+  async function fetchKinksJSON(){
+    const candidates = [
+      "/data/kinks.json",
+      "/kinks.json",
+      "./data/kinks.json",
+      "./kinks.json"
+    ];
+    const errors = [];
+    for (const url of candidates){
+      try{
+        const res = await fetch(url, {cache:"no-store"});
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        // guard against HTML error pages
+        if (text.trim().startsWith("<")) throw new Error("Got HTML, not JSON");
+        const json = JSON.parse(text);
+        return {json, source:url, errors};
+      }catch(e){
+        errors.push(`${url}: ${e.message}`);
+      }
+    }
+    throw new Error("All fetch attempts failed:\n- " + errors.join("\n- "));
+  }
+
+  /*** 3) Validate/normalize the JSON so one bad row doesn’t stop render ***/
+  function normalizeBank(raw){
+    // Expected shapes supported:
+    //  A) [{ category:"Appearance Play", items:[{id:"x", label:"...", type:"scale"}] }]
+    //  B) { "Appearance Play": [ {id,label,type} ] }
+    const out = [];
+    const skipped = [];
+
+    function pushCategory(name, items){
+      const safeName = String(name ?? "").trim();
+      if (!safeName) { skipped.push({where:"category-name", item:name}); return; }
+      const normItems = [];
+      for (const it of (items || [])){
+        const id    = String(it?.id ?? it?.key ?? it?.name ?? "").trim();
+        const label = String(it?.label ?? it?.text ?? "").trim();
+        const type  = String(it?.type ?? it?.input ?? "scale").trim(); // default 1–5
+        if (!id || !label){
+          skipped.push({where:`item in ${safeName}`, item:it});
+          continue;
+        }
+        normItems.push({id, label, type});
+      }
+      if (normItems.length) out.push({category: safeName, items: normItems});
+      else skipped.push({where:`empty-category ${safeName}`, item:items});
+    }
+
+    if (Array.isArray(raw)){
+      for (const cat of raw){
+        pushCategory(cat?.category ?? cat?.name, cat?.items);
+      }
+    }else if (raw && typeof raw === "object"){
+      for (const [name, items] of Object.entries(raw)){
+        pushCategory(name, items);
+      }
+    }else{
+      throw new Error("Unsupported JSON structure for kinks bank.");
+    }
+    return {bank: out, skipped};
+  }
+
+  /*** 4) Render everything safely ***/
+  function renderSurvey(root, bank){
+    root.innerHTML = ""; // clear previous render
+    for (const cat of bank){
+      const section = document.createElement("section");
+      section.className = "kinks-category";
+      section.innerHTML = `<h3>${escapeHTML(cat.category)}</h3>`;
+      for (const item of cat.items){
+        const row = document.createElement("div");
+        row.className = "kinks-item";
+        const inputId = `k_${item.id}`;
+        const control = renderInput(inputId, item);
+        row.appendChild(control);
+        const label = document.createElement("label");
+        label.setAttribute("for", inputId);
+        label.textContent = item.label;
+        row.appendChild(label);
+        section.appendChild(row);
+      }
+      root.appendChild(section);
+    }
+  }
+
+  function renderInput(id, item){
+    // type “scale” default → 1–5; type “bool” → checkbox; type “text” → text
+    const wrap = document.createElement("div");
+    if ((item.type || "scale") === "scale"){
+      const sel = document.createElement("select");
+      sel.id = id;
+      sel.name = item.id;
+      for (let v=1; v<=5; v++){
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        sel.appendChild(opt);
+      }
+      wrap.appendChild(sel);
+    }else if (item.type === "bool"){
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.id = id;
+      cb.name = item.id;
+      wrap.appendChild(cb);
+    }else{
+      const t = document.createElement("input");
+      t.type = "text";
+      t.id   = id;
+      t.name = item.id;
+      wrap.appendChild(t);
+    }
+    return wrap;
+  }
+
+  /*** 5) Diagnostics panel ***/
+  function showDiagnostics(info){
+    const box = document.getElementById("kinksDiagnostics");
+    if (!box) return;
+    const {source, countCats, countItems, skipped, fetchErrors} = info;
+    const lines = [];
+    if (fetchErrors?.length){
+      lines.push("⚠️ Fetch attempts:", ...fetchErrors.map(e => "  • " + e));
+    }
+    lines.push(
+      `Source: ${source || "(inline)"}`,
+      `Categories loaded: ${countCats}`,
+      `Total items: ${countItems}`
+    );
+    if (skipped?.length){
+      lines.push(`Skipped (${skipped.length}):`);
+      for (const s of skipped.slice(0, 25)){
+        lines.push(`  • ${s.where} → ${safePreview(s.item)}`);
+      }
+      if (skipped.length > 25){
+        lines.push(`  … and ${skipped.length - 25} more`);
+      }
+    }
+    box.textContent = lines.join("\n");
+    box.style.display = "block";
+  }
+
+  function safePreview(x){
+    try { return JSON.stringify(x).slice(0, 160); } catch(_){ return String(x); }
+  }
+  function escapeHTML(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  /*** 6) Bootstrap ***/
+  async function boot(){
+    const root = findRoot();
+
+    let json, source, fetchErrors = [];
+    try{
+      const got = await fetchKinksJSON();
+      json   = got.json;
+      source = got.source;
+      fetchErrors = got.errors || [];
+    }catch(e){
+      // If network fails, fall back to any inline global (window.KINKS_BANK)
+      if (window.KINKS_BANK) {
+        json = window.KINKS_BANK;
+        source = "window.KINKS_BANK (fallback)";
+        fetchErrors = [e.message];
+      } else {
+        showDiagnostics({source:"(none)", countCats:0, countItems:0, skipped:[], fetchErrors:[e.message]});
+        throw e;
+      }
+    }
+
+    const {bank, skipped} = normalizeBank(json);
+    renderSurvey(root, bank);
+
+    const countCats = bank.length;
+    const countItems = bank.reduce((n,c)=>n + c.items.length, 0);
+
+    showDiagnostics({source, countCats, countItems, skipped, fetchErrors});
+    LOG(`Rendered ${countCats} categories / ${countItems} items from ${source}`);
+  }
+
+  if (document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+<!-- ===== END DROP-IN ===== -->
