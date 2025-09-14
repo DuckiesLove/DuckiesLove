@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert';
+
+test('kink survey available without authentication', async t => {
+  process.env.PORT = 0;
+  const { server, cleanup } = await import(`../server.js?${Math.random()}`);
+  const base = `http://localhost:${server.address().port}`;
+  t.after(() => {
+    server.close();
+    clearInterval(cleanup);
+  });
+
+  const res = await fetch(`${base}/kinks/`);
+  assert.strictEqual(res.status, 200);
+  const text = await res.text();
+  assert.match(text, /Talk Kink/);
+
+  const jsonRes = await fetch(`${base}/data/kinks.json`);
+  assert.strictEqual(jsonRes.status, 200);
+  const data = await jsonRes.json();
+  assert.ok(Array.isArray(data.categories) || data.length);
+});
