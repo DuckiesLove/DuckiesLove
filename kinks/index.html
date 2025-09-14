@@ -389,6 +389,241 @@
   }
   </style>
 
+<!--
+ TALK KINKS — FIX "MISSING CATEGORIES" ON /kinks/
+ Copy/paste this whole block near the end of /kinks/index.html (right before </body>).
+
+ STEPS (Codex todo)
+ 1) Ensure your data file exists at one of:
+      /data/kinks.json   (preferred)
+      /kinks.json
+    If it’s elsewhere, add its URL to DATA_URLS below.
+
+ 2) Add (or keep) a render container on the page:
+      <div id="surveyRoot"></div>
+    This script will create it if missing.
+
+ 3) Paste THIS block. It:
+    • Fetches the JSON with fallbacks + “no-store” cache to avoid stale data
+    • Accepts two shapes:
+        A) [ { category, items:[ {id,label,type?} ] }, ... ]
+        B) { "Category Name": [ {id,label,type?}, ... ], ... }
+    • Skips only truly bad rows (no id/label), never aborts the whole render
+    • Shows a Diagnostics panel with counts + any skipped rows
+    • Kills CSS clipping that hides long lists
+
+ 4) Reload the page with DevTools → Network → “Disable cache” enabled, then click Start Survey.
+    If it still looks short, read the diagnostics box and Console table for “skipped”.
+
+ 5) Optional: If your Start Survey button doesn’t render anything, ensure it binds:
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelector('#startSurvey')?.addEventListener('click', KINKS_boot);
+      });
+
+ That’s all! If your dataset is valid, ALL categories/items will render or be reported as skipped with reasons.
+ -->
+
+<style>
+  /* Prevent clipping: show full list */
+  #surveyRoot, .kinks-root { max-height: none !important; overflow: visible !important; }
+
+  /* Simple dark styling (tweak to your theme) */
+  .kinks-diagnostics{
+    font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color: #e8ffff; background: #071317; border: 1px solid #00d5ff55;
+    border-radius: 10px; padding: 10px 12px; margin: 18px auto 8px; max-width: 960px; white-space: pre-wrap;
+  }
+  .kinks-category{
+    border: 1px solid #00e5ff33; border-radius: 12px; padding: 12px 14px;
+    margin: 10px auto; max-width: 960px; color: #fff; background: #0a0f14;
+  }
+  .kinks-category h3{ margin:0 0 6px 0; font-weight:700; color:#7ef9ff; }
+  .kinks-item{ display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px dashed #00e5ff22; }
+  .kinks-item:first-of-type{ border-top:0; }
+  .kinks-item label{ cursor:pointer; }
+</style>
+
+<div id="kinksDiagnostics" class="kinks-diagnostics" style="display:none"></div>
+<div id="surveyRoot"></div>
+
+<script>
+(function(){
+  const LOG = (...a)=>console.log("[KINKS]", ...a);
+
+  /* --------------- 1) CONFIG: where to look for data --------------- */
+  const DATA_URLS = [
+    "/data/kinks.json",
+    "/kinks.json",
+    "./data/kinks.json",
+    "./kinks.json"
+  ];
+
+  /* --------------- 2) UTILITIES --------------- */
+  const tidy = (s)=>String(s??"").replace(/\s+/g," ").trim();
+  const isObj = (x)=>x && typeof x==="object" && !Array.isArray(x);
+
+  function ensureRoot(){
+    let r = document.querySelector("#surveyRoot") || document.querySelector(".kinks-root");
+    if (!r){ r = document.createElement("div"); r.id="surveyRoot"; document.body.prepend(r); }
+    return r;
+  }
+
+  async function fetchJSONWithFallbacks(){
+    const errors = [];
+    for (const url of DATA_URLS){
+      try{
+        const res = await fetch(url, { cache:"no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        if (text.trim().startsWith("<")) throw new Error("Got HTML, not JSON");
+        const json = JSON.parse(text);
+        return { json, source:url, errors };
+      }catch(e){ errors.push(`${url}: ${e.message}`); }
+    }
+    if (window.KINKS_BANK) {
+      return { json: window.KINKS_BANK, source:"window.KINKS_BANK (fallback)", errors };
+    }
+    throw new Error("All fetch attempts failed:\n- " + errors.join("\n- "));
+  }
+
+  function normalizeBank(raw){
+    // Accepts:
+    //  A) [ {category, items:[{id,label,type?}]} ]
+    //  B) { \"Category\":[{id,label,type?}], ... }
+    const out = [];
+    const skipped = [];
+
+    function pushCat(name, items){
+      const cat = tidy(name);
+      if (!cat){ skipped.push({where:"category-name-missing", item:name}); return; }
+      const good = [];
+      for (const it of (items||[])){
+        const id = tidy(it?.id || it?.key || it?.name || "");
+        const label = tidy(it?.label || it?.text || "");
+        const type = tidy(it?.type || it?.input || "scale");
+        if (!id || !label){ skipped.push({where:`item-missing-id-or-label:${cat}`, item:it}); continue; }
+        good.push({ id, label, type });
+      }
+      if (good.length) out.push({ category: cat, items: good });
+      else skipped.push({ where:`empty-category:${cat}`, item:items });
+    }
+
+    if (Array.isArray(raw)){
+      raw.forEach(x=>pushCat(x?.category ?? x?.name, x?.items));
+    } else if (isObj(raw)){
+      Object.entries(raw).forEach(([k,v])=>pushCat(k, v));
+    } else {
+      throw new Error("Unsupported JSON shape. Use array-of-categories or object map.");
+    }
+
+    return { bank: out, skipped };
+  }
+
+  function renderSurvey(root, bank){
+    root.innerHTML = "";
+    for (const cat of bank){
+      const sec = document.createElement("section");
+      sec.className = "kinks-category";
+      sec.innerHTML = `<h3>${escapeHTML(cat.category)}</h3>`;
+      for (const item of cat.items){
+        const row = document.createElement("div");
+        row.className = "kinks-item";
+        const inputId = `k_${item.id}`;
+        row.appendChild(renderInput(inputId, item));
+        const label = document.createElement("label");
+        label.setAttribute("for", inputId);
+        label.textContent = item.label;
+        row.appendChild(label);
+        sec.appendChild(row);
+      }
+      root.appendChild(sec);
+    }
+  }
+
+  function renderInput(id, item){
+    const wrap = document.createElement("div");
+    const type = (item.type || "scale").toLowerCase();
+    if (type === "scale"){   // 1–5 selector
+      const sel = document.createElement("select"); sel.id=id; sel.name=item.id;
+      for (let v=1; v<=5; v++){ const o=document.createElement("option"); o.value=v; o.textContent=v; sel.appendChild(o); }
+      wrap.appendChild(sel);
+    } else if (type === "bool"){ // checkbox
+      const cb = document.createElement("input"); cb.type="checkbox"; cb.id=id; cb.name=item.id; wrap.appendChild(cb);
+    } else { // free text fallback
+      const t = document.createElement("input"); t.type="text"; t.id=id; t.name=item.id; wrap.appendChild(t);
+    }
+    return wrap;
+  }
+
+  function escapeHTML(s){
+    return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]));
+  }
+
+  function showDiagnostics(info){
+    const box = document.getElementById("kinksDiagnostics");
+    if (!box) return;
+    const { source, countCats, countItems, skipped, fetchErrors } = info;
+    const lines = [];
+    if (fetchErrors?.length){
+      lines.push("⚠️ Fetch attempts:", ...fetchErrors.map(e=>"  • "+e));
+    }
+    lines.push(
+      `Source: ${source || "(inline)"}`,
+      `Categories loaded: ${countCats}`,
+      `Total items: ${countItems}`
+    );
+    if (skipped?.length){
+      lines.push(`Skipped (${skipped.length}):`);
+      for (const s of skipped.slice(0, 25)){
+        lines.push(`  • ${s.where} → ${safePreview(s.item)}`);
+      }
+      if (skipped.length > 25) lines.push(`  … and ${skipped.length-25} more`);
+    }
+    box.textContent = lines.join("\n");
+    box.style.display = "block";
+  }
+
+  function safePreview(x){ try{ return JSON.stringify(x).slice(0,160); }catch(_){ return String(x); } }
+
+  /* --------------- 3) BOOTSTRAP --------------- */
+  async function KINKS_boot(){
+    const root = ensureRoot();
+    let json, source, errors=[];
+    try{
+      const got = await fetchJSONWithFallbacks();
+      json = got.json; source = got.source; errors = got.errors || [];
+    }catch(e){
+      showDiagnostics({ source:"(none)", countCats:0, countItems:0, skipped:[], fetchErrors:[e.message] });
+      console.error("[KINKS] Fetch failed:", e);
+      return;
+    }
+
+    let bank, skipped;
+    try{
+      const norm = normalizeBank(json);
+      bank = norm.bank; skipped = norm.skipped;
+    }catch(e){
+      showDiagnostics({ source, countCats:0, countItems:0, skipped:[{where:"normalize-error", item:e.message}], fetchErrors:errors });
+      console.error("[KINKS] Normalize failed:", e);
+      return;
+    }
+
+    renderSurvey(root, bank);
+    const countCats = bank.length;
+    const countItems = bank.reduce((n,c)=>n+c.items.length, 0);
+    showDiagnostics({ source, countCats, countItems, skipped, fetchErrors:errors });
+    LOG(`Rendered ${countCats} categories / ${countItems} items from ${source}`);
+  }
+
+  // Expose the boot function so Start Survey can call it
+  window.KINKS_boot = KINKS_boot;
+
+  // Auto-run if you want immediate render on load (optional):
+  // if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", KINKS_boot);
+  // else KINKS_boot();
+})();
+</script>
+
     <script>
     fetch("/check-session", { credentials: "include" })
       .then(res => {

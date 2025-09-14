@@ -1,0 +1,15 @@
+[
+  {
+    "category": "Appearance Play",
+    "items": [
+      { "id": "costumes", "label": "Costumes", "type": "scale" },
+      { "id": "makeup", "label": "Makeup Games", "type": "scale" }
+    ]
+  },
+  {
+    "category": "Behavioral Play",
+    "items": [
+      { "id": "petplay", "label": "Pet Play", "type": "bool" }
+    ]
+  }
+]
