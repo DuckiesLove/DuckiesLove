@@ -1,4 +1,3 @@
-```js
 /* ============================================================================
   calculateRoleScores.js — CLEAN, CONFLICT-FREE REPLACEMENT
   - No imports required (ROLE_MAP is defined here)
@@ -14,7 +13,11 @@
 const _LOG = (...a) => console.log("[IKA-SCORE]", ...a);
 
 function _norm(s) {
-  return String(s ?? "").toLowerCase().replace(/[_\s]+/g, " ").trim();
+  return String(s ?? "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[_\s]+/g, " ")
+    .trim();
 }
 
 function _isAffirmative(v) {
@@ -127,7 +130,7 @@ const ROLE_MAP = {
   // Relationship styles
   "prefer one partner only": ["Monogamy"],
   "keep metamours separate": ["Parallel Poly"],
-  "partners and metamours close friends": ["Kitchen Table Poly"],
+  "partners and metamours are close friends": ["Kitchen Table Poly"],
   "exclusivity inside group": ["Polyfidelity"],
   "independence even when non-monogamous": ["Solo Poly"],
   "group relationships 3 or 4 people": ["Triad / Throuple","Quad"],
@@ -207,15 +210,16 @@ function IKA_scoreRoles(rawSurvey) {
 
   for (const it of items) {
     const text = _norm(`${it.q} ${it.label} ${it.text}`);
-    const val  = it.value;
-    const num  = Number(val);
+    const val = it.value;
+    const num = Number(val);
     const isNum = Number.isFinite(num);
     const yes = _isAffirmative(val);
 
     for (const m of needles) {
       if (m.needle && text.includes(m.needle)) {
-        if (yes || (isNum && num >= 4)) {
-          const add = POINTS.YES + (isNum ? Math.max(0, (num - 3)) * POINTS.SCALE_EXTRA : 0);
+        if (yes || (isNum && num >= 3)) {
+          const add =
+            POINTS.YES + (isNum ? Math.max(0, num - 3) * POINTS.SCALE_EXTRA : 0);
           for (const role of m.roles) {
             if (scores.has(role)) scores.set(role, scores.get(role) + add);
           }
@@ -252,5 +256,4 @@ export function calculateRoleScores(rawSurvey) {
   // Return a simplified shape if you prefer
   return IKA_scoreRoles(rawSurvey).map(({ role, pct }) => ({ name: role, percent: pct }));
 }
-```
 

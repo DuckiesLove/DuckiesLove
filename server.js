@@ -180,6 +180,31 @@ app.use((req, res, next) => {
   }
 });
 
+// Serve kink survey and data without auth
+app.use((req, res, next) => {
+  if (
+    req.method === 'GET' &&
+    (req.url === '/kinks/' || req.url === '/kinks' || req.url === '/kinks/index.html')
+  ) {
+    sendFile(res, path.join(__dirname, 'kinks', 'index.html'));
+    return;
+  }
+  if (req.method === 'GET' && (req.url === '/data/kinks.json' || req.url === '/kinks.json')) {
+    readFile(path.join(__dirname, 'data', 'kinks.json'))
+      .then(data => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(data);
+      })
+      .catch(() => {
+        res.statusCode = 404;
+        res.end();
+      });
+    return;
+  }
+  next();
+});
+
 // Route: logout
 app.use((req, res, next) => {
   if (req.method === 'POST' && req.url === '/logout') {
@@ -329,6 +354,9 @@ app.use((req, res, next) => {
     '/compatibility.html',
     '/css/',
     '/js/',
+    '/kinks/',
+    '/data/',
+    '/kinks.json',
   ];
   if (req.url === '/' || req.url === '/index.html') {
     return next();

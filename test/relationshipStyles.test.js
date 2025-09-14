@@ -11,6 +11,6 @@ test('relationship style questions map to roles', () => {
   const results = calculateRoleScores(survey);
   const get = name => results.find(r => r.name === name)?.percent;
   assert.strictEqual(get('Monogamy'), 100);
-  assert.strictEqual(get('Kitchen Table Poly'), 80);
-  assert.strictEqual(get('Parallel Poly'), 60);
+  assert.strictEqual(get('Kitchen Table Poly'), 71);
+  assert.strictEqual(get('Parallel Poly'), 43);
 });
