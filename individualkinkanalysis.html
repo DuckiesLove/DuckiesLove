@@ -583,7 +583,144 @@ Otherwise, safe fallbacks included below will run.
 })();
 </script>
 <!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
-<script src="js/tk-safe-bootstrap.js"></script>
+<script>
+/* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
+(function () {
+  const LOG = (...a) => console.log("[TK-SAFE]", ...a);
+
+  /* A. QUICK SANITY CHECKS — find & warn about merge markers (these often lock pages) */
+  try {
+    const html = document.documentElement.innerHTML;
+    if (html.includes("<<<<<<<") || html.includes("=======") || html.includes(">>>>>>>")) {
+      console.warn("[TK-SAFE] Merge conflict markers detected in DOM. Remove them to avoid broken JS/CSS.");
+    }
+  } catch (_) {}
+
+  /* B. ONE-TIME INIT GUARD (prevents duplicate event bind/render loops) */
+  if (window.__TK_INITED__) {
+    LOG("Init skipped: already initialized.");
+    return;
+  }
+  window.__TK_INITED__ = true;
+
+  /* C. SAFE-MODE FLAGS (use ?safe=1 or ?nopdf=1 or ?noscore=1 to bypass heavy work) */
+  const params = new URLSearchParams(location.search);
+  const SAFE_MODE  = params.has("safe");
+  const NO_PDF     = SAFE_MODE || params.has("nopdf");
+  const NO_SCORE   = SAFE_MODE || params.has("noscore");
+
+  if (SAFE_MODE) LOG("SAFE MODE ON: skipping scoring/render and lazy-loading libraries.");
+
+  /* D. SMALL UTILITIES */
+  const byId = (id) => document.getElementById(id);
+  function once(el, type, handler, opts) {
+    // prevent stacked duplicate listeners after HMR/partials
+    el && el.addEventListener(type, function f(e) {
+      el.removeEventListener(type, f, opts);
+      handler(e);
+    }, opts);
+  }
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement("script");
+      s.src = src; s.async = true; s.defer = true;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("Failed to load " + src));
+      document.head.appendChild(s);
+    });
+  }
+  function idle(fn) {
+    // yield back to the browser to keep UI responsive
+    return (window.requestIdleCallback || ((cb)=>setTimeout(cb,0)))(fn);
+  }
+
+  /* E. LAZY LOADERS FOR HEAVY LIBS (loaded only on click) */
+  async function ensureJsPDF() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+  }
+  async function ensureAutoTable() {
+    // Only after jsPDF UMD maps window.jspdf.jsPDF
+    await ensureJsPDF();
+    const hasAT = (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)
+               || (window.jspdf && window.jspdf.autoTable);
+    if (!hasAT) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
+  }
+
+  /* F. DEFENSIVE BINDINGS (buttons used across pages) */
+  idle(() => {
+    // PDF buttons (compatibility, IKA, etc.)
+    const dl1 = byId("downloadBtn");
+    const dl2 = byId("downloadPdfBtn");
+    const anyDownload = dl1 || dl2;
+
+    if (anyDownload) {
+      const handler = async (e) => {
+        e.preventDefault();
+        if (NO_PDF) { alert("PDF disabled (safe mode). Add ?safe=0 or remove ?nopdf."); return; }
+        try {
+          // Lazy load heavy libs only now
+          await ensureAutoTable();
+          // Yield once more before heavy export:
+          await new Promise(r => setTimeout(r, 0));
+          // Call your existing exporter (must be defined elsewhere)
+          if (typeof window.TKPDF_export === "function") {
+            await window.TKPDF_export();
+          } else if (typeof window.TKPDF_forceDark === "function") {
+            await window.TKPDF_forceDark();
+          } else if (typeof window.exportIKAPdf === "function") {
+            await window.exportIKAPdf();
+          } else {
+            alert("Export function not found. Expected TKPDF_export/TKPDF_forceDark/exportIKAPdf.");
+          }
+        } catch (err) {
+          console.error("[TK-SAFE] PDF export failed:", err);
+          alert("PDF export failed: " + (err?.message || err));
+        }
+      };
+
+      // Bind once to whichever exists
+      if (dl1) once(dl1, "click", handler);
+      if (dl2) once(dl2, "click", handler);
+      LOG("Bound PDF button(s).");
+    }
+
+    // File upload styled label (IKA)
+    const fileInput = byId("ikaFile");
+    const fileLabel = document.querySelector('label[for="ikaFile"]');
+    if (fileInput && fileLabel) {
+      once(fileLabel, "click", () => fileInput.click());
+      LOG("Bound Upload Survey label→input.");
+    }
+  });
+
+  /* G. STOP RUNNING EXPENSIVE WORK ON LOAD (scoring/rendering) */
+  // Wrap your page’s auto-render or scoring in this gate:
+  window.TK_canRunHeavy = function () {
+    if (SAFE_MODE) return false;
+    // Avoid running more than once
+    if (window.__TK_HEAVY_RAN__) return false;
+    window.__TK_HEAVY_RAN__ = true;
+    return true;
+  };
+
+  // Example usage for your pages (leave here; your code can call it):
+  // if (window.TK_canRunHeavy()) {
+  //   // run scoring/render here or schedule with idle(...)
+  //   idle(() => window.renderResults && window.renderResults());
+  // }
+
+  /* H. GLOBAL CATCH FOR ACCIDENTAL LONG TASKS */
+  // If something still locks the UI, advise safe mode.
+  window.addEventListener("error", (e) => {
+    console.warn("[TK-SAFE] Window error:", e.message);
+  });
+})();
+</script>
 <!-- ---------- End Safe Bootstrap ---------- -->
 </body>
 </html>
