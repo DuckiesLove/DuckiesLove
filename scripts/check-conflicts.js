@@ -1,37 +1,26 @@
-import { spawnSync } from "node:child_process";
+import { execSync } from "node:child_process";
 
-const args = [
-  "grep",
-  "-n",
-  "-e",
-  "^<<<<<<<",
-  "-e",
-  "^=======$",
-  "-e",
-  "^>>>>>>>",
-  "--",
-  ".",
-  ":!node_modules",
-  ":!.git",
-];
+const patterns = ['^<<<<<<<', '^=======$', '^>>>>>>>'];
 
-const result = spawnSync("git", args, { encoding: "utf8" });
+try {
+  const args = patterns.map((p) => `-e "${p}"`).join(' ');
+  const out = execSync(
+    `git grep -n ${args} -- . ":!node_modules" ":!.git"`,
+    { stdio: "pipe" }
+  ).toString().trim();
 
-if (result.status === 0) {
-  const output = result.stdout.trim();
-  if (output) {
-    console.error(`\n❌ Conflict markers found:\n${output}\n`);
+  if (out) {
+    console.error("\n❌ Conflict markers found:\n" + out + "\n");
     process.exit(1);
   }
-  console.log("✅ No conflict markers");
-  process.exit(0);
-}
 
-if (result.status === 1) {
   console.log("✅ No conflict markers");
-  process.exit(0);
-}
+} catch (e) {
+  if (e.status === 1) {
+    console.log("✅ No conflict markers");
+    process.exit(0);
+  }
 
-const message = result.stderr?.toString().trim() || result.error?.message || "Unknown error";
-console.error(`check failed: ${message}`);
-process.exit(result.status ?? 2);
+  console.error("check failed:", e.message);
+  process.exit(2);
+}
