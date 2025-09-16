@@ -328,7 +328,12 @@
   /* A. QUICK SANITY CHECKS — find & warn about merge markers (these often lock pages) */
   try {
     const html = document.documentElement.innerHTML;
-    if (html.includes("<<<<<<<") || html.includes("=======") || html.includes(">>>>>>>")) {
+    const MERGE_MARKERS = [
+      "<".repeat(7),
+      "=".repeat(7),
+      ">".repeat(7),
+    ];
+    if (MERGE_MARKERS.some((marker) => html.includes(marker))) {
       console.warn("[TK-SAFE] Merge conflict markers detected in DOM. Remove them to avoid broken JS/CSS.");
     }
   } catch (_) {}
