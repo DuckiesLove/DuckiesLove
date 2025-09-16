@@ -242,13 +242,19 @@
     function selectAllCategories() {
       document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => cb.checked = true);
       document.getElementById('warning').textContent = '';
-      document.getElementById('startSurveyBtn').disabled = false;
+      const startButton = document.getElementById('startSurveyBtn');
+      if (startButton) {
+        startButton.disabled = false;
+      }
     }
 
     function deselectAllCategories() {
       document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => cb.checked = false);
       document.getElementById('warning').textContent = '';
-      document.getElementById('startSurveyBtn').disabled = true;
+      const startButton = document.getElementById('startSurveyBtn');
+      if (startButton) {
+        startButton.disabled = true;
+      }
     }
 
     function togglePanel() {
@@ -267,11 +273,25 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       const startBtn = document.getElementById('startSurveyBtn');
-      document.getElementById('selectAll').addEventListener('click', selectAllCategories);
-      document.getElementById('deselectAll').addEventListener('click', deselectAllCategories);
-      document.getElementById('panelToggle').addEventListener('click', togglePanel);
+      const selectAllBtn = document.getElementById('selectAll') || document.getElementById('selectAllBtn');
+      const deselectAllBtn = document.getElementById('deselectAll') || document.getElementById('deselectAllBtn');
+      const panelToggleBtn = document.getElementById('panelToggle');
 
-      startBtn.addEventListener('click', startSurvey);
+      if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', selectAllCategories);
+      }
+
+      if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', deselectAllCategories);
+      }
+
+      if (panelToggleBtn) {
+        panelToggleBtn.addEventListener('click', togglePanel);
+      }
+
+      if (startBtn) {
+        startBtn.addEventListener('click', startSurvey);
+      }
 
       document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
         label.setAttribute('title', label.textContent.trim());
@@ -280,11 +300,15 @@
       document.querySelectorAll('.category-checkbox').forEach(cb => {
         cb.addEventListener('change', () => {
           document.getElementById('warning').textContent = '';
-          startBtn.disabled = !document.querySelector('.category-checkbox:checked');
+          if (startBtn) {
+            startBtn.disabled = !document.querySelector('.category-checkbox:checked');
+          }
         });
       });
 
-      startBtn.disabled = !document.querySelector('.category-checkbox:checked');
+      if (startBtn) {
+        startBtn.disabled = !document.querySelector('.category-checkbox:checked');
+      }
 
       document.getElementById('trackCategoryBtn').addEventListener('click', () => {
         const remaining = surveyCategories.length - currentCategoryIndex;
