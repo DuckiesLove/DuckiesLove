@@ -181,6 +181,16 @@
           opt.textContent = i;
           select.appendChild(opt);
         }
+        const numericRating = Number.isFinite(k.rating) ? Math.min(Math.max(k.rating, 0), 5) : 0;
+        select.value = String(numericRating);
+        const updateRating = () => {
+          const parsed = parseInt(select.value, 10);
+          const clamped = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 5) : 0;
+          k.rating = clamped;
+          select.value = String(clamped);
+        };
+        select.addEventListener('change', updateRating);
+        select.addEventListener('input', updateRating);
         select.addEventListener('mouseenter', () => tooltip.style.display = 'block');
         select.addEventListener('mouseleave', () => tooltip.style.display = 'none');
 
@@ -226,14 +236,24 @@
         alert('Failed to load template: unsupported protocol');
         return;
       }
-      surveyCategories = selectedNames.map(name => ({
-        name,
-        kinks: [
-          ...(allData[name]?.Giving || []),
-          ...(allData[name]?.Receiving || []),
-          ...(allData[name]?.General || [])
-        ]
-      }));
+      surveyCategories = selectedNames.map(name => {
+        const source = allData[name] || {};
+        const merged = [
+          ...(source.Giving || []),
+          ...(source.Receiving || []),
+          ...(source.General || [])
+        ];
+        const kinks = merged
+          .map(item => {
+            const label = item?.name || item?.label || item?.text;
+            if (!label) return null;
+            const rawRating = typeof item?.rating === 'string' ? parseInt(item.rating, 10) : item?.rating;
+            const initial = Number.isFinite(rawRating) ? Math.min(Math.max(rawRating, 0), 5) : 0;
+            return { name: label, rating: initial };
+          })
+          .filter(Boolean);
+        return { name, kinks };
+      });
       currentCategoryIndex = 0;
       document.getElementById('panelContainer').style.display = 'none';
       showCategory();
@@ -332,8 +352,8 @@
 
         categories.forEach(cat => {
           cat.kinks.forEach(kink => {
-            const selector = document.querySelector(`select[aria-label="Rate ${kink.name}"]`);
-            responses[kink.name] = parseInt(selector.value || 0);
+            const value = Number.isFinite(kink.rating) ? kink.rating : 0;
+            responses[kink.name] = value;
           });
         });
 
