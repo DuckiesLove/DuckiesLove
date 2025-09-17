@@ -207,13 +207,14 @@ If your table rows use <td data-cell="A">…</td> and <td data-cell="B">…</td>
   /* A. QUICK SANITY CHECKS — find & warn about merge markers (these often lock pages) */
   try {
     const html = document.documentElement.innerHTML;
-    const MERGE_MARKERS = [
-      "<".repeat(7),
-      "=".repeat(7),
-      ">".repeat(7),
-    ];
-    if (MERGE_MARKERS.some((marker) => html.includes(marker))) {
-      console.warn("[TK-SAFE] Merge conflict markers detected in DOM. Remove them to avoid broken JS/CSS.");
+    const HEAD = '<'.repeat(7);
+    const SEP = '='.repeat(7);
+    const TAIL = '>'.repeat(7);
+    if (html.includes(HEAD) && html.includes(SEP) && html.includes(TAIL)) {
+      const conflictPattern = new RegExp(`${HEAD}[\s\S]*?${SEP}[\s\S]*?${TAIL}`);
+      if (conflictPattern.test(html)) {
+        console.warn("[TK-SAFE] Merge conflict markers detected in DOM. Remove them to avoid broken JS/CSS.");
+      }
     }
   } catch (_) {}
 
