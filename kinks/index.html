@@ -102,216 +102,346 @@
   </script>
 
   <!-- Survey Logic -->
-  <script>
+  <script type="module">
+    import {
+      clamp0to5,
+      safeBoot,
+      normalizeKinksOnce,
+      wireCategoryControlsSafely,
+      computeCategoriesLeftDebounced
+    } from '../src/hotfix-freeze.js';
+
+    const CACHE_BUST_TAG = '2025-09-16-freeze2';
+    const TEMPLATE_URL = `../template-survey.json?v=${CACHE_BUST_TAG}`;
+
     let surveyCategories = [];
     let currentCategoryIndex = 0;
+    let bootPromise = null;
+    let cachedSurveyData = null;
+    let normalizedLibrary = null;
 
-    async function startSurvey() {
-      const warning = document.getElementById('warning');
-      const selected = [...document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked')]
-        .map(i => i.value);
-
-      if (!selected.length) {
-        warning.textContent = 'Please select at least one category.';
-        return;
+    const categoriesLeftEl = document.getElementById('categoriesLeft');
+    const updateCategoriesLeftImmediate = (value) => {
+      if (categoriesLeftEl) {
+        categoriesLeftEl.textContent = value;
       }
-      warning.textContent = '';
-      localStorage.setItem('selectedKinks', JSON.stringify(selected));
-      await renderSurvey(selected);
-      collapsePanel();
+    };
+    const debouncedCategoriesLeft = computeCategoriesLeftDebounced(
+      updateCategoriesLeftImmediate,
+      150
+    );
+    const updateCategoriesLeft = (value) => {
+      const nextValue = typeof value === 'number'
+        ? value
+        : Math.max(surveyCategories.length - currentCategoryIndex, 0);
+      updateCategoriesLeftImmediate(nextValue);
+      debouncedCategoriesLeft(nextValue);
+      return nextValue;
+    };
+    window.updateCategoriesLeftUI = updateCategoriesLeft;
+
+    const tooltipHtml = [
+      '0 - Not for me / Hard Limit',
+      '1 - Dislike / Haven’t Considered',
+      '2 - Would Try for Partner',
+      '3 - Curious / Might Enjoy',
+      '4 - Like / Regular Interest',
+      '5 - Love / Core Interest'
+    ].join('<br>');
+
+    function getWarningElement() {
+      return document.getElementById('warning');
+    }
+
+    function updateStartButtonState() {
+      const startButton = document.getElementById('startSurveyBtn');
+      if (startButton) {
+        const hasSelection = !!document.querySelector('.category-checkbox:checked');
+        startButton.disabled = !hasSelection;
+      }
     }
 
     function showCategory() {
       const surveyContainer = document.getElementById('surveyContainer');
       const finalScreen = document.getElementById('finalScreen');
+      if (!surveyContainer) return;
+
       if (currentCategoryIndex >= surveyCategories.length) {
         surveyContainer.style.display = 'none';
+        const progressBanner = document.getElementById('progressBanner');
+        if (progressBanner) progressBanner.style.display = 'none';
         if (finalScreen) finalScreen.style.display = 'block';
-        const leftBtn = document.getElementById('categoriesLeft');
-        if (leftBtn) leftBtn.textContent = 0;
+        updateCategoriesLeft(0);
         return;
       }
 
       if (finalScreen) finalScreen.style.display = 'none';
       const category = surveyCategories[currentCategoryIndex];
-      document.getElementById('categoryTitle').textContent = category.name;
+      const title = document.getElementById('categoryTitle');
+      if (title) title.textContent = category.name;
       const list = document.getElementById('kinkList');
-      list.innerHTML = '';
+      if (list) {
+        list.innerHTML = '';
+        category.kinks.forEach(k => {
+          const row = document.createElement('div');
+          row.className = 'kink-row';
+          const span = document.createElement('span');
+          span.textContent = k.name;
 
-      category.kinks.forEach(k => {
-        const row = document.createElement('div');
-        row.className = 'kink-row';
-        const span = document.createElement('span');
-        span.textContent = k.name;
+          const selectWrapper = document.createElement('div');
+          selectWrapper.style.position = 'relative';
+          selectWrapper.style.display = 'inline-block';
 
-        const selectWrapper = document.createElement('div');
-        selectWrapper.style.position = 'relative';
-        selectWrapper.style.display = 'inline-block';
+          const tooltip = document.createElement('div');
+          tooltip.className = 'rating-tooltip';
+          tooltip.innerHTML = tooltipHtml;
+          tooltip.style.position = 'absolute';
+          tooltip.style.left = '-260px';
+          tooltip.style.top = '50%';
+          tooltip.style.transform = 'translateY(-50%)';
+          tooltip.style.display = 'none';
+          tooltip.style.width = '240px';
+          tooltip.style.padding = '8px';
+          tooltip.style.background = 'var(--bg-color)';
+          tooltip.style.color = 'var(--text-color)';
+          tooltip.style.border = '1px solid var(--accent-color)';
+          tooltip.style.borderRadius = '6px';
+          tooltip.style.fontSize = '0.85rem';
+          tooltip.style.zIndex = '10';
 
-        const tooltip = document.createElement('div');
-        tooltip.className = 'rating-tooltip';
-        tooltip.innerHTML = `
-  0 - Not for me / Hard Limit<br>
-  1 - Dislike / Haven’t Considered<br>
-  2 - Would Try for Partner<br>
-  3 - Curious / Might Enjoy<br>
-  4 - Like / Regular Interest<br>
-  5 - Love / Core Interest
-`;
-        tooltip.style.position = 'absolute';
-        tooltip.style.left = '-260px';
-        tooltip.style.top = '50%';
-        tooltip.style.transform = 'translateY(-50%)';
-        tooltip.style.display = 'none';
-        tooltip.style.width = '240px';
-        tooltip.style.padding = '8px';
-        tooltip.style.background = 'var(--bg-color)';
-        tooltip.style.color = 'var(--text-color)';
-        tooltip.style.border = '1px solid var(--accent-color)';
-        tooltip.style.borderRadius = '6px';
-        tooltip.style.fontSize = '0.85rem';
-        tooltip.style.zIndex = '10';
+          const select = document.createElement('select');
+          select.setAttribute('aria-label', `Rate ${k.name}`);
+          select.classList.add('rating-select');
+          for (let i = 0; i <= 5; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i;
+            select.appendChild(opt);
+          }
+          const numericRating = Number.isFinite(k.rating) ? clamp0to5(k.rating) : 0;
+          select.value = String(numericRating);
+          const updateRating = () => {
+            const parsed = Number.parseInt(select.value, 10);
+            const clamped = Number.isFinite(parsed) ? clamp0to5(parsed) : 0;
+            k.rating = clamped;
+            select.value = String(clamped);
+          };
+          select.addEventListener('change', updateRating);
+          select.addEventListener('input', updateRating);
+          select.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; });
+          select.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
 
-        const select = document.createElement('select');
-        select.setAttribute('aria-label', `Rate ${k.name}`);
-        select.classList.add('rating-select');
-        for (let i = 0; i <= 5; i++) {
-          const opt = document.createElement('option');
-          opt.value = i;
-          opt.textContent = i;
-          select.appendChild(opt);
-        }
-        const numericRating = Number.isFinite(k.rating) ? Math.min(Math.max(k.rating, 0), 5) : 0;
-        select.value = String(numericRating);
-        const updateRating = () => {
-          const parsed = parseInt(select.value, 10);
-          const clamped = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 5) : 0;
-          k.rating = clamped;
-          select.value = String(clamped);
-        };
-        select.addEventListener('change', updateRating);
-        select.addEventListener('input', updateRating);
-        select.addEventListener('mouseenter', () => tooltip.style.display = 'block');
-        select.addEventListener('mouseleave', () => tooltip.style.display = 'none');
-
-        selectWrapper.appendChild(tooltip);
-        selectWrapper.appendChild(select);
-        row.appendChild(span);
-        row.appendChild(selectWrapper);
-        list.appendChild(row);
-      });
-
-      document.getElementById('progressBanner').style.display = 'flex';
-      document.getElementById('progressLabel').textContent = `Category ${currentCategoryIndex + 1} of ${surveyCategories.length}`;
-      document.getElementById('progressFill').style.width = `${(currentCategoryIndex / surveyCategories.length) * 100}%`;
-      const leftBtn = document.getElementById('categoriesLeft');
-      if (leftBtn) {
-        leftBtn.textContent = surveyCategories.length - currentCategoryIndex;
+          selectWrapper.appendChild(tooltip);
+          selectWrapper.appendChild(select);
+          row.appendChild(span);
+          row.appendChild(selectWrapper);
+          list.appendChild(row);
+        });
       }
+
+      const progressBanner = document.getElementById('progressBanner');
+      if (progressBanner) progressBanner.style.display = 'flex';
+      const progressLabel = document.getElementById('progressLabel');
+      if (progressLabel) {
+        progressLabel.textContent = `Category ${currentCategoryIndex + 1} of ${surveyCategories.length}`;
+      }
+      const progressFill = document.getElementById('progressFill');
+      if (progressFill) {
+        progressFill.style.width = `${(currentCategoryIndex / surveyCategories.length) * 100}%`;
+      }
+      const remaining = surveyCategories.length - currentCategoryIndex;
+      updateCategoriesLeft(remaining);
+
       surveyContainer.style.display = 'block';
       surveyContainer.scrollIntoView({ behavior: 'smooth' });
       const exportControls = document.getElementById('exportControls');
-      exportControls.style.display = (currentCategoryIndex === surveyCategories.length - 1) ? 'block' : 'none';
-    }
-
-    async function renderSurvey(selectedNames) {
-      let allData;
-      if (location.protocol.startsWith('http')) {
-        try {
-          const res = await fetch('../template-survey.json', { cache: 'no-store' });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          allData = await res.json();
-        } catch (err) {
-          if (window.templateSurvey) {
-            console.warn('Failed to load template, using embedded copy:', err);
-            allData = window.templateSurvey;
-          } else {
-            alert('Failed to load template: ' + err.message);
-            return;
-          }
-        }
-      } else if (window.templateSurvey) {
-        allData = window.templateSurvey;
-      } else {
-        alert('Failed to load template: unsupported protocol');
-        return;
+      if (exportControls) {
+        exportControls.style.display = (currentCategoryIndex === surveyCategories.length - 1) ? 'block' : 'none';
       }
-      surveyCategories = selectedNames.map(name => {
-        const source = allData[name] || {};
-        const merged = [
-          ...(source.Giving || []),
-          ...(source.Receiving || []),
-          ...(source.General || [])
-        ];
-        const kinks = merged
-          .map(item => {
-            const label = item?.name || item?.label || item?.text;
-            if (!label) return null;
-            const rawRating = typeof item?.rating === 'string' ? parseInt(item.rating, 10) : item?.rating;
-            const initial = Number.isFinite(rawRating) ? Math.min(Math.max(rawRating, 0), 5) : 0;
-            return { name: label, rating: initial };
-          })
-          .filter(Boolean);
-        return { name, kinks };
-      });
-      currentCategoryIndex = 0;
-      document.getElementById('panelContainer').style.display = 'none';
-      showCategory();
-    }
-
-    function selectAllCategories() {
-      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => cb.checked = true);
-      document.getElementById('warning').textContent = '';
-      const startButton = document.getElementById('startSurveyBtn');
-      if (startButton) {
-        startButton.disabled = false;
-      }
-    }
-
-    function deselectAllCategories() {
-      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => cb.checked = false);
-      document.getElementById('warning').textContent = '';
-      const startButton = document.getElementById('startSurveyBtn');
-      if (startButton) {
-        startButton.disabled = true;
-      }
-    }
-
-    function togglePanel() {
-      const panel = document.getElementById('categorySurveyPanel');
-      panel.classList.toggle('open');
-      const toggle = document.getElementById('panelToggle');
-      toggle.setAttribute('aria-expanded', panel.classList.contains('open'));
     }
 
     function collapsePanel() {
       const panel = document.getElementById('categorySurveyPanel');
-      panel.classList.remove('open');
+      if (panel) panel.classList.remove('open');
       const toggle = document.getElementById('panelToggle');
       if (toggle) toggle.setAttribute('aria-expanded', 'false');
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function togglePanel() {
+      const panel = document.getElementById('categorySurveyPanel');
+      if (!panel) return;
+      panel.classList.toggle('open');
+      const toggle = document.getElementById('panelToggle');
+      if (toggle) toggle.setAttribute('aria-expanded', panel.classList.contains('open') ? 'true' : 'false');
+    }
+
+    function selectAllCategories() {
+      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
+        cb.checked = true;
+      });
+      const warning = getWarningElement();
+      if (warning) warning.textContent = '';
+      updateStartButtonState();
+      updateCategoriesLeft();
+    }
+
+    function deselectAllCategories() {
+      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+      });
+      const warning = getWarningElement();
+      if (warning) warning.textContent = '';
+      updateStartButtonState();
+      updateCategoriesLeft();
+    }
+
+    window.selectAllCategories = selectAllCategories;
+    window.deselectAllCategories = deselectAllCategories;
+
+    async function loadSurveyData() {
+      if (cachedSurveyData) return cachedSurveyData;
+      if (location.protocol.startsWith('http')) {
+        try {
+          const res = await fetch(TEMPLATE_URL, { cache: 'no-store' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          cachedSurveyData = await res.json();
+        } catch (err) {
+          if (window.templateSurvey) {
+            console.warn('Failed to load template, using embedded copy:', err);
+            cachedSurveyData = window.templateSurvey;
+          } else {
+            throw new Error(`Failed to load template: ${err?.message || err}`);
+          }
+        }
+      } else if (window.templateSurvey) {
+        cachedSurveyData = window.templateSurvey;
+      } else {
+        throw new Error('Failed to load template: unsupported protocol');
+      }
+      return cachedSurveyData;
+    }
+
+    function buildNormalizedLibrary(allData) {
+      const library = new Map();
+      const aggregated = [];
+      const segments = [];
+
+      if (Array.isArray(allData)) {
+        allData.forEach(cat => {
+          if (!cat) return;
+          const name = cat.category || cat.name || '';
+          const items = Array.isArray(cat.items) ? cat.items : [];
+          segments.push({ key: name, length: items.length });
+          aggregated.push(...items);
+        });
+      } else if (allData && typeof allData === 'object') {
+        Object.entries(allData).forEach(([name, source]) => {
+          const giving = Array.isArray(source?.Giving) ? source.Giving : [];
+          const receiving = Array.isArray(source?.Receiving) ? source.Receiving : [];
+          const general = Array.isArray(source?.General) ? source.General : [];
+          const merged = [...giving, ...receiving, ...general];
+          segments.push({ key: name, length: merged.length });
+          aggregated.push(...merged);
+        });
+      }
+
+      const normalizedAggregated = normalizeKinksOnce(aggregated);
+      let cursor = 0;
+      segments.forEach(({ key, length }) => {
+        const slice = normalizedAggregated.slice(cursor, cursor + length);
+        cursor += length;
+        const kinks = slice
+          .map(item => {
+            const label = item?.name || item?.label || item?.text;
+            if (!label) return null;
+            const rating = typeof item?.rating === 'number'
+              ? clamp0to5(item.rating)
+              : Number.isFinite(Number(item?.rating))
+              ? clamp0to5(Number(item.rating))
+              : null;
+            return { name: label, rating };
+          })
+          .filter(Boolean);
+        library.set(key, kinks);
+      });
+
+      return library;
+    }
+
+    async function renderSurvey(selectedNames) {
+      const allData = await loadSurveyData();
+      if (!normalizedLibrary) {
+        normalizedLibrary = buildNormalizedLibrary(allData);
+      }
+
+      surveyCategories = selectedNames.map(name => {
+        const entries = normalizedLibrary.get(name) || [];
+        return {
+          name,
+          kinks: entries.map(item => ({
+            name: item.name,
+            rating: typeof item.rating === 'number' ? clamp0to5(item.rating) : 0
+          }))
+        };
+      });
+
+      currentCategoryIndex = 0;
+      const panelContainer = document.getElementById('panelContainer');
+      if (panelContainer) panelContainer.style.display = 'none';
+      showCategory();
+    }
+
+    async function startSurvey() {
+      const warning = getWarningElement();
+      const selected = Array.from(document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked'))
+        .map(i => i.value);
+
+      if (!selected.length) {
+        if (warning) warning.textContent = 'Please select at least one category.';
+        return;
+      }
+      if (warning) warning.textContent = '';
+
+      try {
+        localStorage.setItem('selectedKinks', JSON.stringify(selected));
+      } catch (err) {
+        console.warn('Failed to persist selection', err);
+      }
+
+      if (bootPromise) return bootPromise;
+
+      bootPromise = (async () => {
+        try {
+          await safeBoot(async () => {
+            await renderSurvey(selected);
+          });
+          collapsePanel();
+        } catch (err) {
+          const message = err?.message || String(err);
+          alert(message.startsWith('Failed to load template') ? message : `Failed to start survey: ${message}`);
+          throw err;
+        } finally {
+          updateStartButtonState();
+        }
+      })();
+
+      bootPromise.finally(() => {
+        bootPromise = null;
+      });
+
+      return bootPromise;
+    }
+
+    const init = () => {
       const startBtn = document.getElementById('startSurveyBtn');
-      const selectAllBtn = document.getElementById('selectAll') || document.getElementById('selectAllBtn');
-      const deselectAllBtn = document.getElementById('deselectAll') || document.getElementById('deselectAllBtn');
-      const panelToggleBtn = document.getElementById('panelToggle');
-
-      if (selectAllBtn) {
-        selectAllBtn.addEventListener('click', selectAllCategories);
-      }
-
-      if (deselectAllBtn) {
-        deselectAllBtn.addEventListener('click', deselectAllCategories);
-      }
-
-      if (panelToggleBtn) {
-        panelToggleBtn.addEventListener('click', togglePanel);
-      }
-
       if (startBtn) {
-        startBtn.addEventListener('click', startSurvey);
+        startBtn.addEventListener('click', event => {
+          event.preventDefault();
+          startSurvey().catch(err => console.error('[survey] start failed', err));
+        });
       }
+
+      wireCategoryControlsSafely(document);
 
       document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
         label.setAttribute('title', label.textContent.trim());
@@ -319,56 +449,74 @@
 
       document.querySelectorAll('.category-checkbox').forEach(cb => {
         cb.addEventListener('change', () => {
-          document.getElementById('warning').textContent = '';
-          if (startBtn) {
-            startBtn.disabled = !document.querySelector('.category-checkbox:checked');
-          }
+          const warning = getWarningElement();
+          if (warning) warning.textContent = '';
+          updateStartButtonState();
+          updateCategoriesLeft();
         });
       });
 
-      if (startBtn) {
-        startBtn.disabled = !document.querySelector('.category-checkbox:checked');
+      updateStartButtonState();
+      updateCategoriesLeft();
+
+      const panelToggleBtn = document.getElementById('panelToggle');
+      if (panelToggleBtn) {
+        panelToggleBtn.addEventListener('click', togglePanel);
       }
 
-      document.getElementById('trackCategoryBtn').addEventListener('click', () => {
-        const remaining = surveyCategories.length - currentCategoryIndex;
-        alert(`${remaining} categories left`);
-      });
+      const trackBtn = document.getElementById('trackCategoryBtn');
+      if (trackBtn) {
+        trackBtn.addEventListener('click', () => {
+          const remaining = Math.max(surveyCategories.length - currentCategoryIndex, 0);
+          alert(`${remaining} categories left`);
+        });
+      }
 
-      document.getElementById('nextCategoryBtn').addEventListener('click', () => {
-        currentCategoryIndex++;
-        showCategory();
-      });
+      const nextBtn = document.getElementById('nextCategoryBtn');
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          currentCategoryIndex++;
+          showCategory();
+        });
+      }
 
-      document.getElementById('skipCategoryBtn').addEventListener('click', () => {
-        currentCategoryIndex++;
-        showCategory();
-      });
+      const skipBtn = document.getElementById('skipCategoryBtn');
+      if (skipBtn) {
+        skipBtn.addEventListener('click', () => {
+          currentCategoryIndex++;
+          showCategory();
+        });
+      }
 
       const exportBtn = document.getElementById('exportAndCompareBtn');
-      exportBtn.addEventListener('click', () => {
-        const responses = {};
-        const categories = surveyCategories;
-
-        categories.forEach(cat => {
-          cat.kinks.forEach(kink => {
-            const value = Number.isFinite(kink.rating) ? kink.rating : 0;
-            responses[kink.name] = value;
+      if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+          const responses = {};
+          surveyCategories.forEach(cat => {
+            cat.kinks.forEach(kink => {
+              const value = Number.isFinite(kink.rating) ? kink.rating : 0;
+              responses[kink.name] = value;
+            });
           });
+
+          const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(responses, null, 2));
+          const dl = document.createElement('a');
+          dl.setAttribute('href', dataStr);
+          dl.setAttribute('download', 'kink-survey.json');
+          dl.click();
+
+          setTimeout(() => {
+            window.location.href = '/compatibility.html';
+          }, 300);
         });
+      }
+    };
 
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(responses, null, 2));
-        const dl = document.createElement('a');
-        dl.setAttribute('href', dataStr);
-        dl.setAttribute('download', 'kink-survey.json');
-        dl.click();
-
-      setTimeout(() => {
-        window.location.href = '/compatibility.html';
-      }, 300);
-    });
-  });
-
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+      init();
+    }
   </script>
 
 <style>
