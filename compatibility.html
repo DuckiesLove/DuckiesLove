@@ -146,8 +146,31 @@
         url: '/check-session',          // change if your API path differs
         redirectTo: '/token.html',      // where to send on 401
         credentials: 'include',         // send cookies if present
-        log: false                      // set true to log non-401 statuses
+        log: false,                     // set true to log non-401 statuses
+        skipHosts: undefined,           // overrideable allow list of static hosts
+        skipHostSuffixes: undefined,    // overrideable suffix allow list (e.g. github.io)
+        skipOnFileProtocol: true,       // skip when opened via file:// by default
+        force: false                    // set true to bypass the skip guards
       }, (opts || {}));
+
+      const host = (window.location && window.location.hostname || '').toLowerCase();
+      const proto = (window.location && window.location.protocol) || '';
+
+      const defaultHosts = ['talkkink.org', 'www.talkkink.org'];
+      const defaultSuffixes = ['github.io'];
+      const skipHosts = Array.isArray(cfg.skipHosts) && cfg.skipHosts.length ? cfg.skipHosts : defaultHosts;
+      const skipSuffixes = Array.isArray(cfg.skipHostSuffixes) && cfg.skipHostSuffixes.length ? cfg.skipHostSuffixes : defaultSuffixes;
+
+      const matchesHost = !!host && skipHosts.some(h => h && host === String(h).toLowerCase());
+      const matchesSuffix = !!host && skipSuffixes.some(s => s && host.endsWith(String(s).toLowerCase()));
+      const isFile = cfg.skipOnFileProtocol !== false && proto === 'file:';
+
+      if (!cfg.force && (isFile || matchesHost || matchesSuffix)) {
+        if (cfg.log) {
+          console.info('[session] skipped check-session fetch for host:', host || '(unknown host)');
+        }
+        return;
+      }
 
       try {
         fetch(cfg.url, { credentials: cfg.credentials })
