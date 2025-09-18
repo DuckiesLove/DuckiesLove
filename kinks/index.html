@@ -93,493 +93,188 @@
   <!-- Panel Container (still hidden until needed) -->
   <div id="panelContainer" class="panel-container" style="display:none;"></div>
 
-  <script src="../js/template-survey.js"></script>
-  <!-- Theme Handling -->
+  <!-- Theme & Survey Logic -->
   <script type="module">
     import { initTheme, applyThemeColors } from '../js/theme.js';
+
     initTheme();
     window.applyThemeColors = applyThemeColors;
-  </script>
 
-  <!-- Survey Logic -->
-  <script type="module">
-    import {
-      clamp0to5,
-      safeBoot,
-      normalizeKinksOnce,
-      wireCategoryControlsSafely,
-      computeCategoriesLeftDebounced
-    } from '../src/hotfix-freeze.js';
-
-    const CACHE_BUST_TAG = '2025-09-16-freeze2';
-    const TEMPLATE_URL = `../template-survey.json?v=${CACHE_BUST_TAG}`;
-
-    let surveyCategories = [];
-    let currentCategoryIndex = 0;
-    let bootPromise = null;
-    let cachedSurveyData = null;
-    let normalizedLibrary = null;
-
-    const categoriesLeftEl = document.getElementById('categoriesLeft');
-    const updateCategoriesLeftImmediate = (value) => {
-      if (categoriesLeftEl) {
-        categoriesLeftEl.textContent = value;
-      }
-    };
-    const debouncedCategoriesLeft = computeCategoriesLeftDebounced(
-      updateCategoriesLeftImmediate,
-      150
-    );
-    const updateCategoriesLeft = (value) => {
-      const nextValue = typeof value === 'number'
-        ? value
-        : Math.max(surveyCategories.length - currentCategoryIndex, 0);
-      updateCategoriesLeftImmediate(nextValue);
-      debouncedCategoriesLeft(nextValue);
-      return nextValue;
-    };
-    window.updateCategoriesLeftUI = updateCategoriesLeft;
-
-    const tooltipHtml = [
-      '0 - Not for me / Hard Limit',
-      '1 - Dislike / Haven’t Considered',
-      '2 - Would Try for Partner',
-      '3 - Curious / Might Enjoy',
-      '4 - Like / Regular Interest',
-      '5 - Love / Core Interest'
-    ].join('<br>');
-
-    function getWarningElement() {
-      return document.getElementById('warning');
-    }
-
-    function updateStartButtonState() {
+    const onReady = () => {
       const startButton = document.getElementById('startSurveyBtn');
-      if (startButton) {
-        const hasSelection = !!document.querySelector('.category-checkbox:checked');
-        startButton.disabled = !hasSelection;
-      }
-    }
-
-    function showCategory() {
-      const surveyContainer = document.getElementById('surveyContainer');
-      const finalScreen = document.getElementById('finalScreen');
-      if (!surveyContainer) return;
-
-      if (currentCategoryIndex >= surveyCategories.length) {
-        surveyContainer.style.display = 'none';
-        const progressBanner = document.getElementById('progressBanner');
-        if (progressBanner) progressBanner.style.display = 'none';
-        if (finalScreen) finalScreen.style.display = 'block';
-        updateCategoriesLeft(0);
-        return;
-      }
-
-      if (finalScreen) finalScreen.style.display = 'none';
-      const category = surveyCategories[currentCategoryIndex];
-      const title = document.getElementById('categoryTitle');
-      if (title) title.textContent = category.name;
-      const list = document.getElementById('kinkList');
-      if (list) {
-        list.innerHTML = '';
-        category.kinks.forEach(k => {
-          const row = document.createElement('div');
-          row.className = 'kink-row';
-          const span = document.createElement('span');
-          span.textContent = k.name;
-
-          const selectWrapper = document.createElement('div');
-          selectWrapper.style.position = 'relative';
-          selectWrapper.style.display = 'inline-block';
-
-          const tooltip = document.createElement('div');
-          tooltip.className = 'rating-tooltip';
-          tooltip.innerHTML = tooltipHtml;
-          tooltip.style.position = 'absolute';
-          tooltip.style.left = '-260px';
-          tooltip.style.top = '50%';
-          tooltip.style.transform = 'translateY(-50%)';
-          tooltip.style.display = 'none';
-          tooltip.style.width = '240px';
-          tooltip.style.padding = '8px';
-          tooltip.style.background = 'var(--bg-color)';
-          tooltip.style.color = 'var(--text-color)';
-          tooltip.style.border = '1px solid var(--accent-color)';
-          tooltip.style.borderRadius = '6px';
-          tooltip.style.fontSize = '0.85rem';
-          tooltip.style.zIndex = '10';
-
-          const select = document.createElement('select');
-          select.setAttribute('aria-label', `Rate ${k.name}`);
-          select.classList.add('rating-select');
-          for (let i = 0; i <= 5; i++) {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = i;
-            select.appendChild(opt);
-          }
-          const numericRating = Number.isFinite(k.rating) ? clamp0to5(k.rating) : 0;
-          select.value = String(numericRating);
-          const updateRating = () => {
-            const parsed = Number.parseInt(select.value, 10);
-            const clamped = Number.isFinite(parsed) ? clamp0to5(parsed) : 0;
-            k.rating = clamped;
-            select.value = String(clamped);
-          };
-          select.addEventListener('change', updateRating);
-          select.addEventListener('input', updateRating);
-          select.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; });
-          select.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
-
-          selectWrapper.appendChild(tooltip);
-          selectWrapper.appendChild(select);
-          row.appendChild(span);
-          row.appendChild(selectWrapper);
-          list.appendChild(row);
-        });
-      }
-
-      const progressBanner = document.getElementById('progressBanner');
-      if (progressBanner) progressBanner.style.display = 'flex';
-      const progressLabel = document.getElementById('progressLabel');
-      if (progressLabel) {
-        progressLabel.textContent = `Category ${currentCategoryIndex + 1} of ${surveyCategories.length}`;
-      }
-      const progressFill = document.getElementById('progressFill');
-      if (progressFill) {
-        progressFill.style.width = `${(currentCategoryIndex / surveyCategories.length) * 100}%`;
-      }
-      const remaining = surveyCategories.length - currentCategoryIndex;
-      updateCategoriesLeft(remaining);
-
-      surveyContainer.style.display = 'block';
-      surveyContainer.scrollIntoView({ behavior: 'smooth' });
-      const exportControls = document.getElementById('exportControls');
-      if (exportControls) {
-        exportControls.style.display = (currentCategoryIndex === surveyCategories.length - 1) ? 'block' : 'none';
-      }
-    }
-
-    function collapsePanel() {
-      const panel = document.getElementById('categorySurveyPanel');
-      if (panel) panel.classList.remove('open');
-      const toggle = document.getElementById('panelToggle');
-      if (toggle) toggle.setAttribute('aria-expanded', 'false');
-    }
-
-    function togglePanel() {
-      const panel = document.getElementById('categorySurveyPanel');
-      if (!panel) return;
-      panel.classList.toggle('open');
-      const toggle = document.getElementById('panelToggle');
-      if (toggle) toggle.setAttribute('aria-expanded', panel.classList.contains('open') ? 'true' : 'false');
-    }
-
-    function selectAllCategories() {
-      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
-        cb.checked = true;
-      });
-      const warning = getWarningElement();
-      if (warning) warning.textContent = '';
-      updateStartButtonState();
-      updateCategoriesLeft();
-    }
-
-    function deselectAllCategories() {
-      document.querySelectorAll('#categorySurveyPanel input[type="checkbox"]').forEach(cb => {
-        cb.checked = false;
-      });
-      const warning = getWarningElement();
-      if (warning) warning.textContent = '';
-      updateStartButtonState();
-      updateCategoriesLeft();
-    }
-
-    window.selectAllCategories = selectAllCategories;
-    window.deselectAllCategories = deselectAllCategories;
-
-    async function loadSurveyData() {
-      if (cachedSurveyData) return cachedSurveyData;
-      if (location.protocol.startsWith('http')) {
-        try {
-          const res = await fetch(TEMPLATE_URL, { cache: 'no-store' });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          cachedSurveyData = await res.json();
-        } catch (err) {
-          if (window.templateSurvey) {
-            console.warn('Failed to load template, using embedded copy:', err);
-            cachedSurveyData = window.templateSurvey;
-          } else {
-            throw new Error(`Failed to load template: ${err?.message || err}`);
-          }
-        }
-      } else if (window.templateSurvey) {
-        cachedSurveyData = window.templateSurvey;
-      } else {
-        throw new Error('Failed to load template: unsupported protocol');
-      }
-      return cachedSurveyData;
-    }
-
-    function buildNormalizedLibrary(allData) {
-      const library = new Map();
-      const aggregated = [];
-      const segments = [];
-
-      if (Array.isArray(allData)) {
-        allData.forEach(cat => {
-          if (!cat) return;
-          const name = cat.category || cat.name || '';
-          const items = Array.isArray(cat.items) ? cat.items : [];
-          segments.push({ key: name, length: items.length });
-          aggregated.push(...items);
-        });
-      } else if (allData && typeof allData === 'object') {
-        Object.entries(allData).forEach(([name, source]) => {
-          const giving = Array.isArray(source?.Giving) ? source.Giving : [];
-          const receiving = Array.isArray(source?.Receiving) ? source.Receiving : [];
-          const general = Array.isArray(source?.General) ? source.General : [];
-          const merged = [...giving, ...receiving, ...general];
-          segments.push({ key: name, length: merged.length });
-          aggregated.push(...merged);
-        });
-      }
-
-      const normalizedAggregated = normalizeKinksOnce(aggregated);
-      let cursor = 0;
-      segments.forEach(({ key, length }) => {
-        const slice = normalizedAggregated.slice(cursor, cursor + length);
-        cursor += length;
-        const kinks = slice
-          .map(item => {
-            const label = item?.name || item?.label || item?.text;
-            if (!label) return null;
-            const rating = typeof item?.rating === 'number'
-              ? clamp0to5(item.rating)
-              : Number.isFinite(Number(item?.rating))
-              ? clamp0to5(Number(item.rating))
-              : null;
-            return { name: label, rating };
-          })
-          .filter(Boolean);
-        library.set(key, kinks);
-      });
-
-      return library;
-    }
-
-    async function renderSurvey(selectedNames) {
-      const allData = await loadSurveyData();
-      if (!normalizedLibrary) {
-        normalizedLibrary = buildNormalizedLibrary(allData);
-      }
-
-      surveyCategories = selectedNames.map(name => {
-        const entries = normalizedLibrary.get(name) || [];
-        return {
-          name,
-          kinks: entries.map(item => ({
-            name: item.name,
-            rating: typeof item.rating === 'number' ? clamp0to5(item.rating) : 0
-          }))
-        };
-      });
-
-      currentCategoryIndex = 0;
-      const panelContainer = document.getElementById('panelContainer');
-      if (panelContainer) panelContainer.style.display = 'none';
-      showCategory();
-    }
-
-    async function startSurvey() {
-      const warning = getWarningElement();
-      const selected = Array.from(document.querySelectorAll('#categorySurveyPanel input[name="category"]:checked'))
-        .map(i => i.value);
-
-      if (!selected.length) {
-        if (warning) warning.textContent = 'Please select at least one category.';
-        return;
-      }
-      if (warning) warning.textContent = '';
-
-      try {
-        localStorage.setItem('selectedKinks', JSON.stringify(selected));
-      } catch (err) {
-        console.warn('Failed to persist selection', err);
-      }
-
-      if (bootPromise) return bootPromise;
-
-      bootPromise = (async () => {
-        try {
-          await safeBoot(async () => {
-            await renderSurvey(selected);
-          });
-          collapsePanel();
-        } catch (err) {
-          const message = err?.message || String(err);
-          alert(message.startsWith('Failed to load template') ? message : `Failed to start survey: ${message}`);
-          throw err;
-        } finally {
-          updateStartButtonState();
-        }
-      })();
-
-      bootPromise.finally(() => {
-        bootPromise = null;
-      });
-
-      return bootPromise;
-    }
-
-    const init = () => {
-      const startBtn = document.getElementById('startSurveyBtn');
-      if (startBtn) {
-        startBtn.addEventListener('click', event => {
-          event.preventDefault();
-          startSurvey().catch(err => console.error('[survey] start failed', err));
-        });
-      }
-
-      wireCategoryControlsSafely(document);
-
-      document.querySelectorAll('#categorySurveyPanel .category-list label').forEach(label => {
-        label.setAttribute('title', label.textContent.trim());
-      });
-
-      document.querySelectorAll('.category-checkbox').forEach(cb => {
-        cb.addEventListener('change', () => {
-          const warning = getWarningElement();
-          if (warning) warning.textContent = '';
-          updateStartButtonState();
-          updateCategoriesLeft();
-        });
-      });
-
-      updateStartButtonState();
-      updateCategoriesLeft();
-
+      const warningEl = document.getElementById('warning');
+      const diagnosticsEl = document.getElementById('kinksDiagnostics');
+      const panelEl = document.getElementById('categorySurveyPanel');
       const panelToggleBtn = document.getElementById('panelToggle');
+      const categoriesLeftEl = document.getElementById('categoriesLeft');
+
+      const getCheckboxes = () => Array.from(document.querySelectorAll('.category-checkbox'))
+        .filter(cb => cb instanceof HTMLInputElement);
+
+      const getSelectedCategories = () => getCheckboxes()
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+      const showWarning = (message = '') => {
+        if (warningEl) warningEl.textContent = message;
+      };
+
+      const updateStartButtonState = () => {
+        if (startButton) {
+          startButton.disabled = getSelectedCategories().length === 0;
+        }
+      };
+
+      const updateCategoriesCounter = () => {
+        if (categoriesLeftEl) {
+          categoriesLeftEl.textContent = String(getSelectedCategories().length || 0);
+        }
+      };
+
+      const setDiagnosticsLoading = () => {
+        if (diagnosticsEl) {
+          diagnosticsEl.textContent = 'Loading categories...';
+          diagnosticsEl.style.display = 'block';
+        }
+      };
+
+      const collapsePanel = () => {
+        if (!panelEl) return;
+        panelEl.classList.remove('open');
+        if (panelToggleBtn) {
+          panelToggleBtn.setAttribute('aria-expanded', 'false');
+        }
+      };
+
+      const togglePanel = () => {
+        if (!panelEl) return;
+        const isOpen = panelEl.classList.toggle('open');
+        if (panelToggleBtn) {
+          panelToggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+      };
+
+      const persistSelection = (values) => {
+        try {
+          localStorage.setItem('selectedKinks', JSON.stringify(values));
+        } catch (err) {
+          console.warn('[survey] Failed to persist selection', err);
+        }
+      };
+
+      const bindCheckboxes = () => {
+        getCheckboxes().forEach(cb => {
+          cb.addEventListener('change', () => {
+            showWarning('');
+            updateStartButtonState();
+            updateCategoriesCounter();
+          });
+        });
+      };
+
+      const getBoot = () => (typeof window.KINKS_boot === 'function' ? window.KINKS_boot : null);
+
+      let bootPromise = null;
+
+      const startSurvey = (event) => {
+        event?.preventDefault?.();
+        const selected = getSelectedCategories();
+        if (!selected.length) {
+          showWarning('Please select at least one category.');
+          return;
+        }
+
+        showWarning('');
+        persistSelection(selected);
+        setDiagnosticsLoading();
+
+        const boot = getBoot();
+        if (!boot) {
+          console.error('[survey] KINKS_boot is not available');
+          showWarning('Survey loader is unavailable. Please refresh and try again.');
+          return;
+        }
+
+        if (!bootPromise) {
+          if (startButton) startButton.disabled = true;
+          bootPromise = Promise.resolve()
+            .then(() => boot({ categories: selected }))
+            .then(() => {
+              collapsePanel();
+            })
+            .catch(err => {
+              console.error('[survey] failed to start', err);
+              showWarning(err?.message || 'Failed to start the survey.');
+            })
+            .finally(() => {
+              bootPromise = null;
+              updateStartButtonState();
+            });
+        }
+        return bootPromise;
+      };
+
+      if (startButton) {
+        startButton.addEventListener('click', startSurvey);
+      }
+
       if (panelToggleBtn) {
         panelToggleBtn.addEventListener('click', togglePanel);
       }
 
-      const trackBtn = document.getElementById('trackCategoryBtn');
-      if (trackBtn) {
-        trackBtn.addEventListener('click', () => {
-          const remaining = Math.max(surveyCategories.length - currentCategoryIndex, 0);
-          alert(`${remaining} categories left`);
-        });
-      }
-
-      const nextBtn = document.getElementById('nextCategoryBtn');
-      if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-          currentCategoryIndex++;
-          showCategory();
-        });
-      }
-
-      const skipBtn = document.getElementById('skipCategoryBtn');
-      if (skipBtn) {
-        skipBtn.addEventListener('click', () => {
-          currentCategoryIndex++;
-          showCategory();
-        });
-      }
-
-      const exportBtn = document.getElementById('exportAndCompareBtn');
-      if (exportBtn) {
-        exportBtn.addEventListener('click', () => {
-          const responses = {};
-          surveyCategories.forEach(cat => {
-            cat.kinks.forEach(kink => {
-              const value = Number.isFinite(kink.rating) ? kink.rating : 0;
-              responses[kink.name] = value;
-            });
+      const selectAllBtn = document.getElementById('selectAll');
+      if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', () => {
+          getCheckboxes().forEach(cb => {
+            cb.checked = true;
           });
-
-          const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(responses, null, 2));
-          const dl = document.createElement('a');
-          dl.setAttribute('href', dataStr);
-          dl.setAttribute('download', 'kink-survey.json');
-          dl.click();
-
-          setTimeout(() => {
-            window.location.href = '/compatibility.html';
-          }, 300);
+          showWarning('');
+          updateStartButtonState();
+          updateCategoriesCounter();
         });
       }
+
+      const deselectAllBtn = document.getElementById('deselectAll');
+      if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', () => {
+          getCheckboxes().forEach(cb => {
+            cb.checked = false;
+          });
+          showWarning('');
+          updateStartButtonState();
+          updateCategoriesCounter();
+        });
+      }
+
+      window.selectAllCategories = () => {
+        getCheckboxes().forEach(cb => {
+          cb.checked = true;
+        });
+        showWarning('');
+        updateStartButtonState();
+        updateCategoriesCounter();
+      };
+
+      window.deselectAllCategories = () => {
+        getCheckboxes().forEach(cb => {
+          cb.checked = false;
+        });
+        showWarning('');
+        updateStartButtonState();
+        updateCategoriesCounter();
+      };
+
+      bindCheckboxes();
+      updateStartButtonState();
+      updateCategoriesCounter();
     };
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init, { once: true });
+      document.addEventListener('DOMContentLoaded', onReady, { once: true });
     } else {
-      init();
+      onReady();
     }
   </script>
-
-<style>
-  #surveyContainer {
-    display: block;
-    margin: 0 auto;
-    max-width: 1000px;
-    padding: 20px;
-  }
-
-  #categoryTitle {
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin-bottom: 16px;
-    color: var(--text-color, #fff);
-    text-align: left;
-  }
-
-  .rating-tooltip {
-    display: none;
-    position: absolute;
-    background: #000;
-    color: #eee;
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    white-space: nowrap;
-    z-index: 10;
-  }
-
-  .kink-row {
-    position: relative;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .kink-row span {
-    flex: 1 1 70%;
-    font-size: 1rem;
-    color: var(--text-color, #fff);
-  }
-
-
-  select.rating-select {
-    flex: 0 0 120px;
-    background-color: var(--bg-color, #000);
-    color: var(--text-color, #fff);
-    border: 1px solid var(--accent-color, #ff3399);
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 1rem;
-  }
-
-  /* Fix dropdown background on theme switch */
-  select option {
-    background-color: var(--bg-color, #000);
-    color: var(--text-color, #fff);
-  }
-  </style>
 
 <!--
  TALK KINKS — FIX "MISSING CATEGORIES" ON /kinks/
@@ -633,6 +328,7 @@
   .kinks-item{ display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px dashed #00e5ff22; }
   .kinks-item:first-of-type{ border-top:0; }
   .kinks-item label{ cursor:pointer; }
+  .kinks-empty{ margin:20px auto; padding:16px 18px; max-width:960px; text-align:center; border:1px dashed #00e5ff55; border-radius:12px; color:#e8ffff; background:#071317; }
 </style>
 
 <div id="kinksDiagnostics" class="kinks-diagnostics" style="display:none"></div>
@@ -652,6 +348,7 @@
 
   /* --------------- 2) UTILITIES --------------- */
   const tidy = (s)=>String(s??"").replace(/\s+/g," ").trim();
+  const normalizeName = (s)=>tidy(s).toLowerCase();
   const isObj = (x)=>x && typeof x==="object" && !Array.isArray(x);
 
   function ensureRoot(){
@@ -713,6 +410,13 @@
 
   function renderSurvey(root, bank){
     root.innerHTML = "";
+    if (!Array.isArray(bank) || bank.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "kinks-empty";
+      empty.textContent = "No categories are available for the current selection.";
+      root.appendChild(empty);
+      return;
+    }
     for (const cat of bank){
       const sec = document.createElement("section");
       sec.className = "kinks-category";
@@ -754,22 +458,54 @@
   function showDiagnostics(info){
     const box = document.getElementById("kinksDiagnostics");
     if (!box) return;
-    const { source, countCats, countItems, skipped, fetchErrors } = info;
+    const {
+      source,
+      countCats,
+      countItems,
+      skipped,
+      fetchErrors,
+      requested,
+      missing,
+      availableCount
+    } = info || {};
+    const safeCountCats = Number.isFinite(countCats) ? countCats : 0;
+    const safeCountItems = Number.isFinite(countItems) ? countItems : 0;
+    const safeAvailable = Number.isFinite(availableCount) ? availableCount : safeCountCats;
+    const requestedList = Array.isArray(requested) ? requested.filter(Boolean) : [];
+    const missingList = Array.isArray(missing) ? missing.filter(Boolean) : [];
+    const skippedList = Array.isArray(skipped) ? skipped : [];
+    const fetchList = Array.isArray(fetchErrors) ? fetchErrors.filter(Boolean) : [];
+
     const lines = [];
-    if (fetchErrors?.length){
-      lines.push("⚠️ Fetch attempts:", ...fetchErrors.map(e=>"  • "+e));
+    if (fetchList.length){
+      lines.push("⚠️ Fetch attempts:", ...fetchList.map(e=>"  • "+e));
     }
     lines.push(
       `Source: ${source || "(inline)"}`,
-      `Categories loaded: ${countCats}`,
-      `Total items: ${countItems}`
+      `Available categories: ${safeAvailable}`,
+      `Categories rendered: ${safeCountCats}`,
+      `Total items: ${safeCountItems}`
     );
-    if (skipped?.length){
-      lines.push(`Skipped (${skipped.length}):`);
-      for (const s of skipped.slice(0, 25)){
+    if (requestedList.length){
+      lines.push(`Requested categories: ${requestedList.length}`);
+    }
+    if (missingList.length){
+      lines.push(`Missing categories (${missingList.length}):`);
+      missingList.slice(0, 25).forEach(name => {
+        lines.push(`  • ${name}`);
+      });
+      if (missingList.length > 25){
+        lines.push(`  … and ${missingList.length - 25} more`);
+      }
+    }
+    if (skippedList.length){
+      lines.push(`Skipped (${skippedList.length}):`);
+      for (const s of skippedList.slice(0, 25)){
         lines.push(`  • ${s.where} → ${safePreview(s.item)}`);
       }
-      if (skipped.length > 25) lines.push(`  … and ${skipped.length-25} more`);
+      if (skippedList.length > 25){
+        lines.push(`  … and ${skippedList.length - 25} more`);
+      }
     }
     box.textContent = lines.join("\n");
     box.style.display = "block";
@@ -778,14 +514,37 @@
   function safePreview(x){ try{ return JSON.stringify(x).slice(0,160); }catch(_){ return String(x); } }
 
   /* --------------- 3) BOOTSTRAP --------------- */
-  async function KINKS_boot(){
+  async function KINKS_boot(options = {}){
     const root = ensureRoot();
+    const rawRequested = Array.isArray(options?.categories) ? options.categories : [];
+    const requestedMap = new Map();
+    for (const value of rawRequested){
+      if (typeof value !== "string") continue;
+      const trimmed = tidy(value);
+      const normalized = normalizeName(trimmed);
+      if (!normalized) continue;
+      if (!requestedMap.has(normalized)) {
+        requestedMap.set(normalized, trimmed);
+      }
+    }
+    const requestedOrder = Array.from(requestedMap.keys());
+    const requestedValues = Array.from(requestedMap.values());
+
     let json, source, errors=[];
     try{
       const got = await fetchJSONWithFallbacks();
       json = got.json; source = got.source; errors = got.errors || [];
     }catch(e){
-      showDiagnostics({ source:"(none)", countCats:0, countItems:0, skipped:[], fetchErrors:[e.message] });
+      showDiagnostics({
+        source:"(none)",
+        countCats:0,
+        countItems:0,
+        skipped:[],
+        fetchErrors:[e.message],
+        requested: requestedValues,
+        missing: requestedValues,
+        availableCount: 0
+      });
       console.error("[KINKS] Fetch failed:", e);
       return;
     }
@@ -795,16 +554,62 @@
       const norm = normalizeBank(json);
       bank = norm.bank; skipped = norm.skipped;
     }catch(e){
-      showDiagnostics({ source, countCats:0, countItems:0, skipped:[{where:"normalize-error", item:e.message}], fetchErrors:errors });
+      showDiagnostics({
+        source,
+        countCats:0,
+        countItems:0,
+        skipped:[{where:"normalize-error", item:e.message}],
+        fetchErrors:errors,
+        requested: requestedValues,
+        missing: requestedValues,
+        availableCount: Array.isArray(json) ? json.length : (json && typeof json === "object" ? Object.keys(json).length : 0)
+      });
       console.error("[KINKS] Normalize failed:", e);
       return;
     }
 
-    renderSurvey(root, bank);
-    const countCats = bank.length;
-    const countItems = bank.reduce((n,c)=>n+c.items.length, 0);
-    showDiagnostics({ source, countCats, countItems, skipped, fetchErrors:errors });
+    const availableCount = bank.length;
+    let filteredBank = bank;
+    const missing = [];
+
+    if (requestedOrder.length){
+      const lookup = new Map();
+      for (const cat of bank){
+        const key = normalizeName(cat?.category);
+        if (key && !lookup.has(key)) lookup.set(key, cat);
+      }
+      filteredBank = [];
+      const seen = new Set();
+      for (const key of requestedOrder){
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const found = lookup.get(key);
+        if (found){
+          filteredBank.push(found);
+        } else {
+          missing.push(requestedMap.get(key) || key);
+        }
+      }
+    }
+
+    renderSurvey(root, filteredBank);
+    const countCats = filteredBank.length;
+    const countItems = filteredBank.reduce((n,c)=>n + c.items.length, 0);
+    showDiagnostics({
+      source,
+      countCats,
+      countItems,
+      skipped,
+      fetchErrors:errors,
+      requested: requestedValues,
+      missing,
+      availableCount
+    });
+    if (missing.length){
+      LOG("Missing categories:", missing);
+    }
     LOG(`Rendered ${countCats} categories / ${countItems} items from ${source}`);
+    return { source, countCats, countItems, skipped, missing, requested: requestedValues, categories: filteredBank };
   }
 
   // Expose the boot function so Start Survey can call it
