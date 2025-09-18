@@ -820,7 +820,7 @@
     fetch("/check-session", { credentials: "include" })
       .then(res => {
         if (res.status === 401) {
-          window.location.href = "/token.html";
+          console.info("Session check: unauthenticated user", res);
         }
       })
       .catch(err => console.error("Session check failed:", err));
