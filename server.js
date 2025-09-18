@@ -95,6 +95,106 @@ function cookieParser(req, _res, next) {
 }
 app.use(cookieParser);
 
+const STATIC_CACHE_CONTROL = 'no-store';
+const STATIC_MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.htm': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.pdf': 'application/pdf',
+  '.txt': 'text/plain; charset=utf-8',
+};
+
+function registerStaticDir(mountPath, dirName, { index } = {}) {
+  const resolvedDir = path.join(__dirname, dirName);
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      next();
+      return;
+    }
+
+    const { pathname } = new URL(req.url, 'http://localhost');
+    if (!pathname.startsWith(mountPath)) {
+      next();
+      return;
+    }
+
+    let relativePath = pathname.slice(mountPath.length);
+    if (relativePath.startsWith('/')) relativePath = relativePath.slice(1);
+
+    if (!relativePath || relativePath.endsWith('/')) {
+      if (index) {
+        relativePath = path.posix.join(relativePath || '', index);
+      } else if (!relativePath) {
+        next();
+        return;
+      }
+    }
+
+    const normalized = path.normalize(relativePath).replace(/^([\\/]*\.{2})+/g, '');
+    const targetPath = path.join(resolvedDir, normalized);
+    if (!targetPath.startsWith(resolvedDir)) {
+      next();
+      return;
+    }
+
+    fs.stat(targetPath, (statErr, stat) => {
+      if (statErr) {
+        if (statErr.code === 'ENOENT') {
+          next();
+        } else {
+          console.error(`[static] Failed stat for ${targetPath}:`, statErr);
+          res.statusCode = 500;
+          res.end();
+        }
+        return;
+      }
+
+      if (!stat.isFile()) {
+        next();
+        return;
+      }
+
+      const ext = path.extname(targetPath).toLowerCase();
+      res.setHeader('Cache-Control', STATIC_CACHE_CONTROL);
+      res.setHeader('Content-Type', STATIC_MIME_TYPES[ext] || 'application/octet-stream');
+      res.setHeader('Content-Length', stat.size);
+
+      if (req.method === 'HEAD') {
+        res.statusCode = 200;
+        res.end();
+        return;
+      }
+
+      const stream = fs.createReadStream(targetPath);
+      stream.on('error', err => {
+        console.error(`[static] Failed to read ${targetPath}:`, err);
+        if (!res.headersSent) {
+          res.statusCode = 500;
+          res.end();
+        } else {
+          res.destroy(err);
+        }
+      });
+      res.statusCode = 200;
+      stream.pipe(res);
+    });
+  });
+}
+
+registerStaticDir('/css', 'css');
+registerStaticDir('/js', 'js');
+registerStaticDir('/src', 'src');
+registerStaticDir('/data', 'data');
+registerStaticDir('/kinks', 'kinks', { index: 'index.html' });
+
 // Route: admin generate token
 app.use((req, res, next) => {
   if (req.method === 'POST' && req.url === '/admin/generate-token') {
@@ -354,6 +454,7 @@ app.use((req, res, next) => {
     '/compatibility.html',
     '/css/',
     '/js/',
+    '/src/',
     '/kinks/',
     '/data/',
     '/kinks.json',
