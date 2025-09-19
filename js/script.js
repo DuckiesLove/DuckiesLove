@@ -459,6 +459,7 @@ async function startNewSurvey() {
   if (panelContainer) panelContainer.style.display = 'none';
   surveyContainer.style.display = 'none';
   finalScreen.style.display = 'none';
+  if (exportControls) exportControls.style.display = 'none';
   progressBanner.style.display = 'none';
   const initialize = data => initializeSurvey(data);
 
@@ -649,6 +650,7 @@ function showKinks(category) {
   }
   surveyContainer.style.display = 'block';
   finalScreen.style.display = 'none';
+  if (exportControls) exportControls.style.display = 'none';
   const categoryData = surveyA[category];
   updateProgress();
   const items = getUnifiedItems(categoryData).filter(shouldDisplayItem);
@@ -734,6 +736,7 @@ function nextCategory() {
     currentCategory = null;
     surveyContainer.style.display = 'none';
     finalScreen.style.display = 'flex';
+    if (exportControls) exportControls.style.display = 'flex';
     progressBanner.style.display = 'none';
     setTimeout(() => {
       downloadPDF();
@@ -808,6 +811,7 @@ function buildPanelLayout() {
   panelContainer.style.display = 'block';
   surveyContainer.style.display = 'none';
   finalScreen.style.display = 'none';
+  if (exportControls) exportControls.style.display = 'none';
   progressBanner.style.display = 'none';
   const lastOpen = localStorage.getItem('lastPanel');
   categoryOrder.forEach((cat, idx) => {
