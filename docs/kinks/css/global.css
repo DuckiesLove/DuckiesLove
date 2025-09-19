@@ -1,0 +1,37 @@
+@import url('./style.css');
+
+.page-title {
+  font-family: 'Fredoka One', sans-serif;
+  font-size: 2.5rem;
+  color: var(--text-color);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+/* 🔧 Adjust font sizing and wrapping so long button labels fit */
+#uploadYourSurvey,
+#uploadPartnerSurvey {
+  font-size: 1.1rem;
+  padding: 1.2rem;
+  line-height: 1.3;
+  white-space: normal;
+  word-break: break-word;
+  text-align: center;
+  max-width: 300px;
+  height: auto;
+}
+
+
+/* Hide heading after the Download PDF button */
+#downloadBtn + h1 {
+  display: none;
+}
+
