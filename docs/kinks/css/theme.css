@@ -1,0 +1,220 @@
+:root {
+  --bg-color: #000000;
+  --panel-color: #000;
+  --text-color: #f0f0f0;
+  --accent-text: #7df9ff;
+  --button-bg: #444;
+  --button-text: #ffffff;
+  --button-hover-bg: #666;
+  --progress-fill-color: #00e676;
+}
+
+.theme-lightforest,
+.light-mode {
+  --bg-color: #9ca59d;
+  --panel-color: #e9f1ec;
+  --text-color: #1b2a1a;
+  --button-bg: #558c75;
+  --button-text: #ffffff;
+  --button-hover-bg: #446d60;
+  --progress-fill-color: #558c75;
+}
+
+.theme-darkviolet,
+.dark-mode {
+  --bg-color: #000000;
+  --panel-color: #000;
+  --text-color: #f0f0f0;
+  --button-bg: #444;
+  --button-text: #ffffff;
+  --button-hover-bg: #666;
+  --progress-fill-color: #00e676;
+}
+
+.theme-blue {
+  --bg-color: #000000;
+  --panel-color: #000000;
+  --text-color: #ffffff;
+  --button-bg: #000000;
+  --button-text: #ffffff;
+  --button-hover-bg: #333333;
+  --progress-fill-color: #000000;
+}
+
+.theme-blue-sky {
+  --bg-color: #b8c1cc;
+  --panel-color: #cde6ff;
+  --text-color: #002244;
+  --button-bg: #99c9f2;
+  --button-text: #002244;
+  --button-hover-bg: #b5d8ff;
+  --progress-fill-color: #99c9f2;
+}
+
+.theme-echoes-beyond {
+  --bg-color: #101a31;
+  --panel-color: #1b263b;
+  --text-color: #fca311;
+  --button-bg: #334863;
+  --button-text: #fca311;
+  --button-hover-bg: #1f3352;
+  --progress-fill-color: #334863;
+}
+
+.theme-love-notes-lipstick {
+  --bg-color: #311847;
+  --panel-color: #3f206b;
+  --text-color: #ff6bd6;
+  --button-bg: #ff6bd6;
+  --button-text: #311847;
+  --button-hover-bg: #c44fb0;
+  --progress-fill-color: #ff6bd6;
+}
+
+.theme-rainbow {
+  --bg-color: #cccccc;
+  --panel-color: #ffffff;
+  --text-color: #000000;
+  --button-bg: rgba(255, 255, 255, 0.9);
+  --button-text: #000000;
+  --button-hover-bg: rgba(255, 255, 255, 0.7);
+  --progress-fill-color: #603636;
+}
+
+/* New simplified themes */
+body.theme-dark {
+  --bg-color: #000000;
+  --text-color: #00ffff !important; /* electric blue */
+  --accent-color: #00ffff !important;
+  --accent-text: var(--accent-color);
+  --theme-accent: var(--accent-color);
+  --border-color: #00ffff !important;
+  --button-bg: #000000;
+  --button-hover: #00ffff;
+  --button-text: #00ffff;
+  --link-color: var(--accent-color);
+  --hover-bg: #333;
+  --hover-text: #ffffff;
+  --panel-bg: #000000;
+  --card-bg: #000000;
+  background-color: var(--bg-color);
+  color: var(--text-color) !important;
+  font-family: 'Fredoka One', cursive;
+}
+body.theme-dark *,
+body.theme-dark *::before,
+body.theme-dark *::after {
+  text-shadow: none !important;
+  filter: none !important;
+}
+body.theme-dark select,
+body.theme-dark option {
+  color: var(--text-color);
+}
+.theme-lipstick {
+  --bg-color: #1a001f;
+  --text-color: #fceaff;
+  --accent-color: #ff90cb;
+  --accent-text: #ff90cb;
+  --theme-accent: #ff90cb;
+  --highlight-color: #a200ff;
+  --button-bg: #ff4ecb;
+  --button-text: #1a001f;
+  --border-color: #ff91f0;
+  --link-color: #ffb3ec;
+  --hover-bg: #a200ff;
+  --hover-text: #ffffff;
+  --panel-bg: #300030;
+  --card-bg: #2a002a;
+}
+.theme-lipstick select,
+.theme-lipstick option {
+  color: #ff90cb;
+}
+.theme-forest {
+  --bg-color: #f0f7f1;
+  --text-color: #1d3b1d;
+  --accent-color: #a8e6a3;
+  --accent-text: #a8e6a3;
+  --theme-accent: #a8e6a3;
+  --button-bg: #a6d5b5;
+  --button-text: #1d3b1d;
+  --border-color: #81b89b;
+  --link-color: #297c58;
+  --hover-bg: #82c8a0;
+  --hover-text: #fff;
+  --panel-bg: #e6f3ea;
+  --card-bg: #d9efe1;
+}
+.theme-forest select,
+.theme-forest option {
+  color: #a8e6a3;
+}
+
+body.theme-dark button,
+body.theme-dark .start-button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: 1px solid var(--border-color);
+}
+body.theme-dark a {
+  color: var(--link-color);
+}
+body.theme-dark .panel,
+body.theme-dark .card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+
+.theme-dark .villain-quote,
+.theme-forest .villain-quote,
+.theme-lipstick .villain-quote {
+  color: var(--accent-text);
+  border-color: var(--accent-text);
+}
+
+.theme-dark .villain-quote {
+  --villain-font: 'Fredoka One';
+}
+
+.theme-forest .villain-quote {
+  --villain-font: 'EB Garamond';
+}
+
+.theme-lipstick .villain-quote {
+  --villain-font: 'Fredoka One';
+}
+
+body.theme-lipstick {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+body.theme-lipstick button,
+body.theme-lipstick .start-button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: 2px solid var(--border-color);
+}
+body.theme-lipstick .panel,
+body.theme-lipstick .card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.theme-forest {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+body.theme-forest button,
+body.theme-forest .start-button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: 1px solid var(--border-color);
+}
+body.theme-forest .panel,
+body.theme-forest .card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+

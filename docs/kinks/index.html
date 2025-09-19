@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- TK-DOCS START -->
+<style id="tk-fallback">
+  :root{ --tk-fg:#e6f2ff; --tk-accent:#00e6ff; }
+  body{ background:#000; color:var(--fg, var(--tk-fg)); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+  .themed-title,.category-panel,.themed-text{ color:var(--fg, var(--tk-fg)); }
+  .themed-button{ background:var(--accent, var(--tk-accent)); color:#000; border:0; padding:.5rem .75rem; border-radius:.5rem; }
+</style>
+<!-- TK-DOCS END -->
+  <link rel="stylesheet" href="./css/style.css?v=1758253846" id="tk-style-root" />
+  <link rel="stylesheet" href="./css/theme.css?v=1758253846" id="tk-theme-root" />
+  <script type="module" id="tk-theme-module" src="./js/theme.js?v=1758253846"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Talk Kink</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=EB+Garamond&display=swap" rel="stylesheet">
+</head>
+<body class="theme-dark has-category-panel">
+
+<!-- TK-DOCS START -->
+<script>
+(function(){
+  const LOCAL = "./data/kinks.json?v=1758253846";
+  const ofetch = window.fetch ? window.fetch.bind(window) : null;
+  if (ofetch) {
+    window.fetch = async function(input, init){
+      try{
+        const url = (typeof input === "string") ? input : (input && input.url) || "";
+        if (/\/data\/kinks\.json(\?|$)/.test(url) || /(^|\/)kinks\.json(\?|$)/.test(url)) {
+          return ofetch(LOCAL, init);
+        }
+      }catch(_){ }
+      return ofetch(input, init);
+    };
+  }
+})();
+</script>
+<!-- TK-DOCS END -->
+
+  <div class="landing-wrapper">
+    <h1 class="themed-title">Talk Kink</h1>
+    <select id="themeSelector">
+      <option value="dark">Dark</option>
+      <option value="lipstick">Lipstick</option>
+      <option value="forest">Forest</option>
+    </select>
+<button id="startSurveyBtn" class="themed-button start-survey-btn" disabled>Start Survey</button>
+
+    <div id="warning" class="warning"></div>
+  </div>
+  <button id="panelToggle" class="panel-toggle" aria-label="Toggle category panel" aria-controls="categorySurveyPanel" aria-expanded="true">☰</button>
+
+  <!-- Category selection panel -->
+  <div id="categorySurveyPanel" class="category-panel open" role="region" aria-label="Category selection">
+    <h2>Select the categories you want to include:</h2>
+    <div class="category-buttons top-buttons">
+      <button id="selectAll" class="themed-button category-button">Select All</button>
+      <button id="deselectAll" class="themed-button category-button">Deselect All</button>
+    </div>
+    <div class="category-list" role="list">
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Appearance Play"><span>Appearance Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Behavioral Play"><span>Behavioral Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Body Fluids and Functions"><span>Body Fluids and Functions</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Body Modification"><span>Body Modification</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Body Part / Fetish Play"><span>Body Part / Fetish Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Body Part Torture"><span>Body Part Torture</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Bondage and Suspension"><span>Bondage and Suspension</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Breath Play"><span>Breath Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Chastity Devices"><span>Chastity Devices</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Communication"><span>Communication</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Cosplay &amp; Identity Play"><span>Cosplay &amp; Identity Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Gender Play &amp; Transformation"><span>Gender Play &amp; Transformation</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Headspace &amp; Regression"><span>Headspace &amp; Regression</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="High-Intensity Kinks (SSC-Aware)"><span>High-Intensity Kinks (SSC-Aware)</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Impact Play"><span>Impact Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Medical Play"><span>Medical Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Mindfuck &amp; Manipulation"><span>Mindfuck &amp; Manipulation</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Mouth Play"><span>Mouth Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Orgasm Control &amp; Sexual Manipulation"><span>Orgasm Control &amp; Sexual Manipulation</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Other"><span>Other</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Performance &amp; Internal Struggle"><span>Performance &amp; Internal Struggle</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Pet Play"><span>Pet Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Primal &amp; Bratting"><span>Primal &amp; Bratting</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Protocol and Ritual"><span>Protocol and Ritual</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Psychological Primal / Prey"><span>Psychological Primal / Prey</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Relationship Preferences"><span>Relationship Preferences</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Roleplaying"><span>Roleplaying</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Sensation Play"><span>Sensation Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Service and Restrictive Behaviour"><span>Service and Restrictive Behaviour</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Sexual Activity"><span>Sexual Activity</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Shibari &amp; Rope Bondage"><span>Shibari &amp; Rope Bondage</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Virtual &amp; Long-Distance Play"><span>Virtual &amp; Long-Distance Play</span></label>
+      <label role="listitem"><input class="category-checkbox" type="checkbox" name="category" value="Voyeurism/Exhibitionism"><span>Voyeurism/Exhibitionism</span></label>
+    </div>
+  </div>
+
+  <!-- Progress and Survey Display -->
+  <div id="progressBanner" class="progress-container" style="display:none;">
+    <div class="progress-label" id="progressLabel"></div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <button id="trackCategoryBtn" class="themed-button category-button">
+      Categories Left: <span id="categoriesLeft">0</span>
+    </button>
+  </div>
+
+  <div id="surveyContainer" style="display:none;">
+    <h2 id="categoryTitle"></h2>
+    <p id="categoryDescription"></p>
+    <div id="kinkList"></div>
+    <div class="nav-buttons">
+      <button id="skipCategoryBtn" class="themed-button">Skip Category</button>
+      <button id="nextCategoryBtn" class="themed-button">Next Category</button>
+    </div>
+  </div>
+
+  <div
+    id="finalScreen"
+    class="final-screen"
+    style="display:none; align-items:center; justify-content:center; flex-direction:column; gap:1.5rem; text-align:center; margin:40px auto 0;"
+  >
+    <h2>Survey complete!</h2>
+    <p>
+      You've reviewed every selected category. Download your answers to compare with a partner or continue to the
+      data tools for your next steps.
+    </p>
+    <div id="exportControls" style="display:none; gap:1rem; justify-content:center; flex-wrap:wrap;">
+      <button id="exportAndCompareBtn" class="themed-button">Download & Compare</button>
+    </div>
+  </div>
+
+  <!-- Panel Container (still hidden until needed) -->
+  <div id="panelContainer" class="panel-container" style="display:none;"></div>
+
+  <!-- Theme & Survey Logic -->
+  <script type="module">
+    import { initTheme, applyThemeColors } from './js/theme.js?v=1758253846';
+
+    initTheme();
+    window.applyThemeColors = applyThemeColors;
+
+    const onReady = () => {
+      const startButton = document.getElementById('startSurveyBtn');
+      const warningEl = document.getElementById('warning');
+      const diagnosticsEl = document.getElementById('kinksDiagnostics');
+      const panelEl = document.getElementById('categorySurveyPanel');
+      const panelToggleBtn = document.getElementById('panelToggle');
+      const categoriesLeftEl = document.getElementById('categoriesLeft');
+
+      const getCheckboxes = () => Array.from(document.querySelectorAll('.category-checkbox'))
+        .filter(cb => cb instanceof HTMLInputElement);
+
+      const getSelectedCategories = () => getCheckboxes()
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+      const showWarning = (message = '') => {
+        if (warningEl) warningEl.textContent = message;
+      };
+
+      const updateStartButtonState = () => {
+        if (startButton) {
+          startButton.disabled = getSelectedCategories().length === 0;
+        }
+      };
+
+      const updateCategoriesCounter = () => {
+        if (categoriesLeftEl) {
+          categoriesLeftEl.textContent = String(getSelectedCategories().length || 0);
+        }
+      };
+
+      const setDiagnosticsLoading = () => {
+        if (diagnosticsEl) {
+          diagnosticsEl.textContent = 'Loading categories...';
+          diagnosticsEl.style.display = 'block';
+        }
+      };
+
+      const collapsePanel = () => {
+        if (!panelEl) return;
+        panelEl.classList.remove('open');
+        if (panelToggleBtn) {
+          panelToggleBtn.setAttribute('aria-expanded', 'false');
+        }
+      };
+
+      const togglePanel = () => {
+        if (!panelEl) return;
+        const isOpen = panelEl.classList.toggle('open');
+        if (panelToggleBtn) {
+          panelToggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+      };
+
+      const persistSelection = (values) => {
+        try {
+          localStorage.setItem('selectedKinks', JSON.stringify(values));
+        } catch (err) {
+          console.warn('[survey] Failed to persist selection', err);
+        }
+      };
+
+      const bindCheckboxes = () => {
+        getCheckboxes().forEach(cb => {
+          cb.addEventListener('change', () => {
+            showWarning('');
+            updateStartButtonState();
+            updateCategoriesCounter();
+          });
+        });
+      };
+
+      const getBoot = () => (typeof window.KINKS_boot === 'function' ? window.KINKS_boot : null);
+
+      let bootPromise = null;
+
+      const startSurvey = (event) => {
+        event?.preventDefault?.();
+        const selected = getSelectedCategories();
+        if (!selected.length) {
+          showWarning('Please select at least one category.');
+          return;
+        }
+
+        showWarning('');
+        persistSelection(selected);
+        setDiagnosticsLoading();
+
+        const boot = getBoot();
+        if (!boot) {
+          console.error('[survey] KINKS_boot is not available');
+          showWarning('Survey loader is unavailable. Please refresh and try again.');
+          return;
+        }
+
+        if (!bootPromise) {
+          if (startButton) startButton.disabled = true;
+          bootPromise = Promise.resolve()
+            .then(() => boot({ categories: selected }))
+            .then(() => {
+              collapsePanel();
+            })
+            .catch(err => {
+              console.error('[survey] failed to start', err);
+              showWarning(err?.message || 'Failed to start the survey.');
+            })
+            .finally(() => {
+              bootPromise = null;
+              updateStartButtonState();
+            });
+        }
+        return bootPromise;
+      };
+
+      if (startButton) {
+        startButton.addEventListener('click', startSurvey);
+      }
+
+      if (panelToggleBtn) {
+        panelToggleBtn.addEventListener('click', togglePanel);
+      }
+
+      const selectAllBtn = document.getElementById('selectAll');
+      if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', () => {
+          getCheckboxes().forEach(cb => {
+            cb.checked = true;
+          });
+          showWarning('');
+          updateStartButtonState();
+          updateCategoriesCounter();
+        });
+      }
+
+      const deselectAllBtn = document.getElementById('deselectAll');
+      if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', () => {
+          getCheckboxes().forEach(cb => {
+            cb.checked = false;
+          });
+          showWarning('');
+          updateStartButtonState();
+          updateCategoriesCounter();
+        });
+      }
+
+      window.selectAllCategories = () => {
+        getCheckboxes().forEach(cb => {
+          cb.checked = true;
+        });
+        showWarning('');
+        updateStartButtonState();
+        updateCategoriesCounter();
+      };
+
+      window.deselectAllCategories = () => {
+        getCheckboxes().forEach(cb => {
+          cb.checked = false;
+        });
+        showWarning('');
+        updateStartButtonState();
+        updateCategoriesCounter();
+      };
+
+      bindCheckboxes();
+      updateStartButtonState();
+      updateCategoriesCounter();
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', onReady, { once: true });
+    } else {
+      onReady();
+    }
+  </script>
+
+<!--
+ TALK KINKS — FIX "MISSING CATEGORIES" ON /kinks/
+ Copy/paste this whole block near the end of /kinks/index.html (right before </body>).
+
+ STEPS (Codex todo)
+ 1) Ensure your data file exists at one of:
+      /data/kinks.json   (preferred)
+      /kinks.json
+    If it’s elsewhere, add its URL to DATA_URLS below.
+
+ 2) Add (or keep) a render container on the page:
+      <div id="surveyRoot"></div>
+    This script will create it if missing.
+
+ 3) Paste THIS block. It:
+    • Fetches the JSON with fallbacks + “no-store” cache to avoid stale data
+    • Accepts two shapes:
+        A) [ { category, items:[ {id,label,type?} ] }, ... ]
+        B) { "Category Name": [ {id,label,type?}, ... ], ... }
+    • Skips only truly bad rows (no id/label), never aborts the whole render
+    • Shows a Diagnostics panel with counts + any skipped rows
+    • Kills CSS clipping that hides long lists
+
+ 4) Reload the page with DevTools → Network → “Disable cache” enabled, then click Start Survey.
+    If it still looks short, read the diagnostics box and Console table for “skipped”.
+
+ 5) Optional: If your Start Survey button doesn’t render anything, ensure it binds:
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelector('#startSurvey')?.addEventListener('click', KINKS_boot);
+      });
+
+ That’s all! If your dataset is valid, ALL categories/items will render or be reported as skipped with reasons.
+ -->
+
+<style>
+  /* Prevent clipping: show full list */
+  #surveyRoot, .kinks-root { max-height: none !important; overflow: visible !important; }
+
+  /* Simple dark styling (tweak to your theme) */
+  .kinks-diagnostics{
+    font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color: #e8ffff; background: #071317; border: 1px solid #00d5ff55;
+    border-radius: 10px; padding: 10px 12px; margin: 18px auto 8px; max-width: 960px; white-space: pre-wrap;
+  }
+  .kinks-category{
+    border: 1px solid #00e5ff33; border-radius: 12px; padding: 12px 14px;
+    margin: 10px auto; max-width: 960px; color: #fff; background: #0a0f14;
+  }
+  .kinks-category h3{ margin:0 0 6px 0; font-weight:700; color:#7ef9ff; }
+  .kinks-item{ display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px dashed #00e5ff22; }
+  .kinks-item:first-of-type{ border-top:0; }
+  .kinks-item label{ cursor:pointer; }
+  .kinks-empty{ margin:20px auto; padding:16px 18px; max-width:960px; text-align:center; border:1px dashed #00e5ff55; border-radius:12px; color:#e8ffff; background:#071317; }
+</style>
+
+<div id="kinksDiagnostics" class="kinks-diagnostics" style="display:none"></div>
+<div id="surveyRoot"></div>
+
+<script>
+(function(){
+  const LOG = (...a)=>console.log("[KINKS]", ...a);
+
+  /* --------------- 1) CONFIG: where to look for data --------------- */
+  const DATA_URLS = [
+    "/data/kinks.json",
+    "/kinks.json",
+    "./data/kinks.json",
+    "./kinks.json"
+  ];
+
+  /* --------------- 2) UTILITIES --------------- */
+  const tidy = (s)=>String(s??"").replace(/\s+/g," ").trim();
+  const normalizeName = (s)=>tidy(s).toLowerCase();
+  const isObj = (x)=>x && typeof x==="object" && !Array.isArray(x);
+
+  function ensureRoot(){
+    let r = document.querySelector("#surveyRoot") || document.querySelector(".kinks-root");
+    if (!r){ r = document.createElement("div"); r.id="surveyRoot"; document.body.prepend(r); }
+    return r;
+  }
+
+  async function fetchJSONWithFallbacks(){
+    const errors = [];
+    for (const url of DATA_URLS){
+      try{
+        const res = await fetch(url, { cache:"no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        if (text.trim().startsWith("<")) throw new Error("Got HTML, not JSON");
+        const json = JSON.parse(text);
+        return { json, source:url, errors };
+      }catch(e){ errors.push(`${url}: ${e.message}`); }
+    }
+    if (window.KINKS_BANK) {
+      return { json: window.KINKS_BANK, source:"window.KINKS_BANK (fallback)", errors };
+    }
+    throw new Error("All fetch attempts failed:\n- " + errors.join("\n- "));
+  }
+
+  function normalizeBank(raw){
+    // Accepts:
+    //  A) [ {category, items:[{id,label,type?}]} ]
+    //  B) { \"Category\":[{id,label,type?}], ... }
+    const out = [];
+    const skipped = [];
+
+    function pushCat(name, items){
+      const cat = tidy(name);
+      if (!cat){ skipped.push({where:"category-name-missing", item:name}); return; }
+      const good = [];
+      for (const it of (items||[])){
+        const id = tidy(it?.id || it?.key || it?.name || "");
+        const label = tidy(it?.label || it?.text || "");
+        const type = tidy(it?.type || it?.input || "scale");
+        if (!id || !label){ skipped.push({where:`item-missing-id-or-label:${cat}`, item:it}); continue; }
+        good.push({ id, label, type });
+      }
+      if (good.length) out.push({ category: cat, items: good });
+      else skipped.push({ where:`empty-category:${cat}`, item:items });
+    }
+
+    if (Array.isArray(raw)){
+      raw.forEach(x=>pushCat(x?.category ?? x?.name, x?.items));
+    } else if (isObj(raw)){
+      Object.entries(raw).forEach(([k,v])=>pushCat(k, v));
+    } else {
+      throw new Error("Unsupported JSON shape. Use array-of-categories or object map.");
+    }
+
+    return { bank: out, skipped };
+  }
+
+  function renderSurvey(root, bank){
+    root.innerHTML = "";
+    if (!Array.isArray(bank) || bank.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "kinks-empty";
+      empty.textContent = "No categories are available for the current selection.";
+      root.appendChild(empty);
+      return;
+    }
+    for (const cat of bank){
+      const sec = document.createElement("section");
+      sec.className = "kinks-category";
+      sec.innerHTML = `<h3>${escapeHTML(cat.category)}</h3>`;
+      for (const item of cat.items){
+        const row = document.createElement("div");
+        row.className = "kinks-item";
+        const inputId = `k_${item.id}`;
+        row.appendChild(renderInput(inputId, item));
+        const label = document.createElement("label");
+        label.setAttribute("for", inputId);
+        label.textContent = item.label;
+        row.appendChild(label);
+        sec.appendChild(row);
+      }
+      root.appendChild(sec);
+    }
+  }
+
+  function renderInput(id, item){
+    const wrap = document.createElement("div");
+    const type = (item.type || "scale").toLowerCase();
+    if (type === "scale"){   // 1–5 selector
+      const sel = document.createElement("select"); sel.id=id; sel.name=item.id;
+      for (let v=1; v<=5; v++){ const o=document.createElement("option"); o.value=v; o.textContent=v; sel.appendChild(o); }
+      wrap.appendChild(sel);
+    } else if (type === "bool"){ // checkbox
+      const cb = document.createElement("input"); cb.type="checkbox"; cb.id=id; cb.name=item.id; wrap.appendChild(cb);
+    } else { // free text fallback
+      const t = document.createElement("input"); t.type="text"; t.id=id; t.name=item.id; wrap.appendChild(t);
+    }
+    return wrap;
+  }
+
+  function escapeHTML(s){
+    return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]));
+  }
+
+  function showDiagnostics(info){
+    const box = document.getElementById("kinksDiagnostics");
+    if (!box) return;
+    const {
+      source,
+      countCats,
+      countItems,
+      skipped,
+      fetchErrors,
+      requested,
+      missing,
+      availableCount
+    } = info || {};
+    const safeCountCats = Number.isFinite(countCats) ? countCats : 0;
+    const safeCountItems = Number.isFinite(countItems) ? countItems : 0;
+    const safeAvailable = Number.isFinite(availableCount) ? availableCount : safeCountCats;
+    const requestedList = Array.isArray(requested) ? requested.filter(Boolean) : [];
+    const missingList = Array.isArray(missing) ? missing.filter(Boolean) : [];
+    const skippedList = Array.isArray(skipped) ? skipped : [];
+    const fetchList = Array.isArray(fetchErrors) ? fetchErrors.filter(Boolean) : [];
+
+    const lines = [];
+    if (fetchList.length){
+      lines.push("⚠️ Fetch attempts:", ...fetchList.map(e=>"  • "+e));
+    }
+    lines.push(
+      `Source: ${source || "(inline)"}`,
+      `Available categories: ${safeAvailable}`,
+      `Categories rendered: ${safeCountCats}`,
+      `Total items: ${safeCountItems}`
+    );
+    if (requestedList.length){
+      lines.push(`Requested categories: ${requestedList.length}`);
+    }
+    if (missingList.length){
+      lines.push(`Missing categories (${missingList.length}):`);
+      missingList.slice(0, 25).forEach(name => {
+        lines.push(`  • ${name}`);
+      });
+      if (missingList.length > 25){
+        lines.push(`  … and ${missingList.length - 25} more`);
+      }
+    }
+    if (skippedList.length){
+      lines.push(`Skipped (${skippedList.length}):`);
+      for (const s of skippedList.slice(0, 25)){
+        lines.push(`  • ${s.where} → ${safePreview(s.item)}`);
+      }
+      if (skippedList.length > 25){
+        lines.push(`  … and ${skippedList.length - 25} more`);
+      }
+    }
+    box.textContent = lines.join("\n");
+    box.style.display = "block";
+  }
+
+  function safePreview(x){ try{ return JSON.stringify(x).slice(0,160); }catch(_){ return String(x); } }
+
+  /* --------------- 3) BOOTSTRAP --------------- */
+  async function KINKS_boot(options = {}){
+    const root = ensureRoot();
+    const rawRequested = Array.isArray(options?.categories) ? options.categories : [];
+    const requestedMap = new Map();
+    for (const value of rawRequested){
+      if (typeof value !== "string") continue;
+      const trimmed = tidy(value);
+      const normalized = normalizeName(trimmed);
+      if (!normalized) continue;
+      if (!requestedMap.has(normalized)) {
+        requestedMap.set(normalized, trimmed);
+      }
+    }
+    const requestedOrder = Array.from(requestedMap.keys());
+    const requestedValues = Array.from(requestedMap.values());
+
+    let json, source, errors=[];
+    try{
+      const got = await fetchJSONWithFallbacks();
+      json = got.json; source = got.source; errors = got.errors || [];
+    }catch(e){
+      showDiagnostics({
+        source:"(none)",
+        countCats:0,
+        countItems:0,
+        skipped:[],
+        fetchErrors:[e.message],
+        requested: requestedValues,
+        missing: requestedValues,
+        availableCount: 0
+      });
+      console.error("[KINKS] Fetch failed:", e);
+      return;
+    }
+
+    let bank, skipped;
+    try{
+      const norm = normalizeBank(json);
+      bank = norm.bank; skipped = norm.skipped;
+    }catch(e){
+      showDiagnostics({
+        source,
+        countCats:0,
+        countItems:0,
+        skipped:[{where:"normalize-error", item:e.message}],
+        fetchErrors:errors,
+        requested: requestedValues,
+        missing: requestedValues,
+        availableCount: Array.isArray(json) ? json.length : (json && typeof json === "object" ? Object.keys(json).length : 0)
+      });
+      console.error("[KINKS] Normalize failed:", e);
+      return;
+    }
+
+    const availableCount = bank.length;
+    let filteredBank = bank;
+    const missing = [];
+
+    if (requestedOrder.length){
+      const lookup = new Map();
+      for (const cat of bank){
+        const key = normalizeName(cat?.category);
+        if (key && !lookup.has(key)) lookup.set(key, cat);
+      }
+      filteredBank = [];
+      const seen = new Set();
+      for (const key of requestedOrder){
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const found = lookup.get(key);
+        if (found){
+          filteredBank.push(found);
+        } else {
+          missing.push(requestedMap.get(key) || key);
+        }
+      }
+    }
+
+    renderSurvey(root, filteredBank);
+    const countCats = filteredBank.length;
+    const countItems = filteredBank.reduce((n,c)=>n + c.items.length, 0);
+    showDiagnostics({
+      source,
+      countCats,
+      countItems,
+      skipped,
+      fetchErrors:errors,
+      requested: requestedValues,
+      missing,
+      availableCount
+    });
+    if (missing.length){
+      LOG("Missing categories:", missing);
+    }
+    LOG(`Rendered ${countCats} categories / ${countItems} items from ${source}`);
+    return { source, countCats, countItems, skipped, missing, requested: requestedValues, categories: filteredBank };
+  }
+
+  // Expose the boot function so Start Survey can call it
+  window.KINKS_boot = KINKS_boot;
+
+  // Auto-run if you want immediate render on load (optional):
+  // if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", KINKS_boot);
+  // else KINKS_boot();
+})();
+</script>
+
+    <script>
+    fetch("/check-session", { credentials: "include" })
+      .then(res => {
+        if (res.status === 401) {
+          console.info("Session check: unauthenticated user", res);
+        }
+      })
+      .catch(err => console.error("Session check failed:", err));
+  </script>
+
+<!--
+KINKS PAGE — “UNSQUISH + CENTER” HOTFIX
+Paste this whole block near the end of /kinks/index.html (right before </body>).
+
+What this does
+1) Centers the survey UI and lets it grow to a comfortable width (no more skinny column).
+2) Removes any fixed heights/clamps/overflows that were cutting off or squishing the category tracker.
+3) Makes long sections scroll naturally (page scroll) instead of being trapped in a short inner scroller.
+4) Works without renaming your existing elements; it targets common wrappers and “tracker” panels.
+
+How to use
+- Paste this once.
+- Hard refresh with DevTools → Network → “Disable cache” (Ctrl/Cmd+Shift+R).
+- If you still see a squished panel, keep the DevTools open and watch the console logs
+  (the script lists which elements it unclamped).
+-->
+
+<style>
+  /* 1) Global sanity so widths behave predictably */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* 2) Center the main survey area and give it breathing room */
+  #surveyRoot,
+  .kinks-root,
+  .kinks-wrapper,
+  .survey-wrapper,
+  .compat-container,
+  main.kinks,
+  [data-kinks-root] {
+    display: block !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: min(1100px, 92vw) !important;   /* roomy but responsive */
+  }
+
+  /* 3) Make each category section full width inside the centered container */
+  .kinks-category,
+  .category-section,
+  section[data-category],
+  .kink-category-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* 4) Never clamp height on containers that likely hold lists/tracker */
+  #surveyRoot, .kinks-root, .kinks-wrapper,
+  .categories, .category-list, .results,
+  .tracker, .category-tracker, [class*="tracker"] {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important; /* let the PAGE scroll, not the inner box */
+  }
+
+  /* 5) Basic dark-friendly styling (optional, safe) */
+  .kinks-category {
+    border: 1px solid #00e5ff33;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin: 12px 0;
+    color: #fff;
+    background: #0a0f14;
+  }
+  .kinks-category h3 {
+    margin: 0 0 6px 0;
+    font-weight: 700;
+    color: #7ef9ff;
+  }
+  .kinks-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-top: 1px dashed #00e5ff22;
+  }
+  .kinks-item:first-of-type { border-top: 0; }
+</style>
+
+<script>
+(() => {
+  const LOG = (...a) => console.log("[KINKS-UNSQUISH]", ...a);
+
+  // 6) Unclamp anything that forces short/squished tracker panes
+  function unclampOnce(root = document) {
+    const selectors = [
+      '#surveyRoot', '.kinks-root', '.kinks-wrapper', '.survey-wrapper',
+      '.categories', '.category-list', '.results', '.tracker', '.category-tracker',
+      '[class*="tracker"]', '[data-kinks-root]', 'main.kinks'
+    ];
+
+    const seen = new Set();
+    selectors.forEach(sel => {
+      root.querySelectorAll(sel).forEach(el => {
+        if (seen.has(el)) return;
+        seen.add(el);
+
+        // Remove inline clamps
+        const before = { h: el.style.height, mh: el.style.maxHeight, ov: el.style.overflow };
+        if (el.style.height)     el.style.height = "";
+        if (el.style.maxHeight)  el.style.maxHeight = "";
+        if (el.style.overflow)   el.style.overflow = "";
+
+        // Force our desired behavior
+        el.style.setProperty('max-height', 'none', 'important');
+        el.style.setProperty('height', 'auto', 'important');
+        el.style.setProperty('overflow', 'visible', 'important');
+
+        // Common “clamp” classes used by frameworks
+        const clampClasses = [
+          'is-clamped','clamped','scroll','scrollable','scroller','overflow',
+          'overflow-auto','overflow-y','max-h','h-fixed','panel'
+        ];
+        clampClasses.forEach(c => { if (el.classList.contains(c)) el.classList.remove(c); });
+
+        LOG('unclamped', el, before);
+      });
+    });
+
+    // Center primary containers
+    const centers = root.querySelectorAll('#surveyRoot, .kinks-root, .kinks-wrapper, .survey-wrapper, main.kinks, [data-kinks-root]');
+    centers.forEach(el => {
+      el.style.setProperty('margin-left', 'auto', 'important');
+      el.style.setProperty('margin-right', 'auto', 'important');
+      el.style.setProperty('width', 'min(1100px, 92vw)', 'important');
+    });
+  }
+
+  // Run once now
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => unclampOnce(document));
+  } else {
+    unclampOnce(document);
+  }
+
+  // 7) Keep fixing if the app re-renders after “Start Survey”
+  const mo = new MutationObserver(muts => {
+    let touched = false;
+    for (const m of muts) {
+      if (m.addedNodes && m.addedNodes.length) { touched = true; break; }
+      if (m.type === 'attributes' && (m.attributeName === 'style' || m.attributeName === 'class')) { touched = true; break; }
+    }
+    if (touched) unclampOnce(document);
+  });
+  mo.observe(document.documentElement, { subtree: true, childList: true, attributes: true });
+
+  // 8) Optional: if you have a Start Survey button, ensure it triggers after DOM
+  const startBtn = document.querySelector('#startSurvey');
+  if (startBtn && !startBtn.dataset.kinksEnhBound) {
+    startBtn.dataset.kinksEnhBound = '1';
+    startBtn.addEventListener('click', () => {
+      // Give your app a moment to inject DOM, then unclamp again
+      setTimeout(() => unclampOnce(document), 120);
+    });
+    LOG('bound Start Survey for post-render unclamp');
+  }
+})();
+</script>
+<!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
+<script>
+/* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
+(function () {
+  const LOG = (...a) => console.log("[TK-SAFE]", ...a);
+
+  /* A. QUICK SANITY CHECKS — find & warn about merge markers (these often lock pages) */
+  try {
+    const html = document.documentElement.innerHTML;
+    const HEAD = '<'.repeat(7);
+    const SEP = '='.repeat(7);
+    const TAIL = '>'.repeat(7);
+    if (html.includes(HEAD) && html.includes(SEP) && html.includes(TAIL)) {
+      const conflictPattern = new RegExp(`${HEAD}[\s\S]*?${SEP}[\s\S]*?${TAIL}`);
+      if (conflictPattern.test(html)) {
+        console.warn("[TK-SAFE] Merge conflict markers detected in DOM. Remove them to avoid broken JS/CSS.");
+      }
+    }
+  } catch (_) {}
+
+  /* B. ONE-TIME INIT GUARD (prevents duplicate event bind/render loops) */
+  if (window.__TK_INITED__) {
+    LOG("Init skipped: already initialized.");
+    return;
+  }
+  window.__TK_INITED__ = true;
+
+  /* C. SAFE-MODE FLAGS (use ?safe=1 or ?nopdf=1 or ?noscore=1 to bypass heavy work) */
+  const params = new URLSearchParams(location.search);
+  const SAFE_MODE  = params.has("safe");
+  const NO_PDF     = SAFE_MODE || params.has("nopdf");
+  const NO_SCORE   = SAFE_MODE || params.has("noscore");
+
+  if (SAFE_MODE) LOG("SAFE MODE ON: skipping scoring/render and lazy-loading libraries.");
+
+  /* D. SMALL UTILITIES */
+  const byId = (id) => document.getElementById(id);
+  function once(el, type, handler, opts) {
+    // prevent stacked duplicate listeners after HMR/partials
+    el && el.addEventListener(type, function f(e) {
+      el.removeEventListener(type, f, opts);
+      handler(e);
+    }, opts);
+  }
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement("script");
+      s.src = src; s.async = true; s.defer = true;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("Failed to load " + src));
+      document.head.appendChild(s);
+    });
+  }
+  function idle(fn) {
+    // yield back to the browser to keep UI responsive
+    return (window.requestIdleCallback || ((cb)=>setTimeout(cb,0)))(fn);
+  }
+
+  /* E. LAZY LOADERS FOR HEAVY LIBS (loaded only on click) */
+  async function ensureJsPDF() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    }
+  }
+  async function ensureAutoTable() {
+    // Only after jsPDF UMD maps window.jspdf.jsPDF
+    await ensureJsPDF();
+    const hasAT = (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)
+               || (window.jspdf && window.jspdf.autoTable);
+    if (!hasAT) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    }
+  }
+
+  /* F. DEFENSIVE BINDINGS (buttons used across pages) */
+  idle(() => {
+    // PDF buttons (compatibility, IKA, etc.)
+    const dl1 = byId("downloadBtn");
+    const dl2 = byId("downloadPdfBtn");
+    const anyDownload = dl1 || dl2;
+
+    if (anyDownload) {
+      const handler = async (e) => {
+        e.preventDefault();
+        if (NO_PDF) { alert("PDF disabled (safe mode). Add ?safe=0 or remove ?nopdf."); return; }
+        try {
+          // Lazy load heavy libs only now
+          await ensureAutoTable();
+          // Yield once more before heavy export:
+          await new Promise(r => setTimeout(r, 0));
+          // Call your existing exporter (must be defined elsewhere)
+          if (typeof window.TKPDF_export === "function") {
+            await window.TKPDF_export();
+          } else if (typeof window.TKPDF_forceDark === "function") {
+            await window.TKPDF_forceDark();
+          } else if (typeof window.exportIKAPdf === "function") {
+            await window.exportIKAPdf();
+          } else {
+            alert("Export function not found. Expected TKPDF_export/TKPDF_forceDark/exportIKAPdf.");
+          }
+        } catch (err) {
+          console.error("[TK-SAFE] PDF export failed:", err);
+          alert("PDF export failed: " + (err?.message || err));
+        }
+      };
+
+      // Bind once to whichever exists
+      if (dl1) once(dl1, "click", handler);
+      if (dl2) once(dl2, "click", handler);
+      LOG("Bound PDF button(s).");
+    }
+
+    // File upload styled label (IKA)
+    const fileInput = byId("ikaFile");
+    const fileLabel = document.querySelector('label[for="ikaFile"]');
+    if (fileInput && fileLabel) {
+      once(fileLabel, "click", () => fileInput.click());
+      LOG("Bound Upload Survey label→input.");
+    }
+  });
+
+  /* G. STOP RUNNING EXPENSIVE WORK ON LOAD (scoring/rendering) */
+  // Wrap your page’s auto-render or scoring in this gate:
+  window.TK_canRunHeavy = function () {
+    if (SAFE_MODE) return false;
+    // Avoid running more than once
+    if (window.__TK_HEAVY_RAN__) return false;
+    window.__TK_HEAVY_RAN__ = true;
+    return true;
+  };
+
+  // Example usage for your pages (leave here; your code can call it):
+  // if (window.TK_canRunHeavy()) {
+  //   // run scoring/render here or schedule with idle(...)
+  //   idle(() => window.renderResults && window.renderResults());
+  // }
+
+  /* H. GLOBAL CATCH FOR ACCIDENTAL LONG TASKS */
+  // If something still locks the UI, advise safe mode.
+  window.addEventListener("error", (e) => {
+    console.warn("[TK-SAFE] Window error:", e.message);
+  });
+})();
+</script>
+<!-- ---------- End Safe Bootstrap ---------- -->
+
+</body>
+</html>
