@@ -1,0 +1,165 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Offline /kinks/ Harness</title>
+<style>
+  body{font:14px system-ui, -apple-system, Segoe UI, Roboto, Arial;background:#0b0b0b;color:#e6f2ff;margin:0}
+  header{padding:12px 16px;border-bottom:1px solid #2c2c2c;display:flex;gap:8px;align-items:center}
+  button{background:#00e6ff;color:#000;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+  #log{white-space:pre-wrap;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+       background:#111;margin:12px;border:1px solid #333;border-radius:8px;padding:12px;min-height:160px}
+  iframe{width:100%;height:calc(100vh - 220px);border:0;background:#000}
+  .ok{color:#92ff92}.bad{color:#ff9696}.muted{opacity:.75}
+</style>
+<header>
+  <strong>Offline /kinks/ Harness</strong>
+  <button id="btnRun">Run Test</button>
+  <button id="btnAssets">Asset Check</button>
+  <button id="btnUnfreeze">Unfreeze UI</button>
+  <button id="btnClearSW">Reset SW & caches</button>
+  <span id="status" class="muted" style="margin-left:8px"></span>
+</header>
+<div id="log">Ready. Click “Run Test”.</div>
+<iframe id="app" src="/kinks/"></iframe>
+
+<script>
+const log = (...a)=>{ const el=document.getElementById('log'); el.textContent += "\n" + a.join(" "); el.scrollTop = el.scrollHeight; };
+const status = (t)=>document.getElementById('status').textContent = t;
+
+function withFrame(fn){
+  const f = document.getElementById('app');
+  if (!f || !f.contentWindow) throw new Error("iframe not ready");
+  const w = f.contentWindow, d = w.document;
+  return fn(w,d);
+}
+
+// Hook export inside the iframe (capture Blob/data: JSON)
+function hookExport(w){
+  if (w.__TK_HOOKED) return; w.__TK_HOOKED = true;
+  const orig = w.URL.createObjectURL.bind(w.URL);
+  w.URL.createObjectURL = (blob)=>{ try{ blob.text().then(t=>w.__TK_LAST_JSON=t).catch(()=>{});}catch{} return orig(blob); };
+  const clickOrig = w.HTMLElement.prototype.click;
+  w.HTMLElement.prototype.click = function(...args){
+    try{
+      if (this.tagName==='A' && this.hasAttribute('download')) {
+        const href=this.getAttribute('href')||'';
+        if (href.startsWith('data:application/json')) {
+          try { w.__TK_LAST_JSON = decodeURIComponent(href.split(',')[1]); } catch {}
+        }
+      }
+    }catch{}
+    return clickOrig.apply(this,args);
+  };
+}
+
+async function assetCheck(){
+  const out = await withFrame(async (w,d)=>{
+    const paths = ["/css/style.css","/css/theme.css","/js/theme.js","/data/kinks.json"];
+    const res = [];
+    for (const p of paths){
+      try{ const r = await w.fetch(p,{cache:"no-store"}); res.push([p,r.status,r.ok,r.headers.get("content-type")||""]); }
+      catch(e){ res.push([p,"FAIL",false,String(e)]); }
+    }
+    return res;
+  });
+  log("Asset check:");
+  out.forEach(r=>log(" ", ...r));
+  return out.every(([,s,ok]) => s===200 && ok===true);
+}
+
+async function unfreeze(){
+  return withFrame(async (w,d)=>{
+    d.querySelector("#start,#startSurvey")?.removeAttribute("disabled");
+    d.querySelectorAll(".spinner,[data-loading],[aria-busy='true']").forEach(n=>n.remove());
+    return true;
+  });
+}
+
+async function clearSW(){
+  return withFrame(async (w)=>{
+    if ('caches' in w) { const ks = await w.caches.keys(); await Promise.all(ks.map(k=>w.caches.delete(k))); }
+    const r = await w.navigator.serviceWorker?.getRegistration?.(); if (r) await r.unregister();
+  });
+}
+
+function info(){
+  return withFrame((w,d)=>{
+    const start = d.querySelector("#start,#startSurvey");
+    const selects = Array.from(d.querySelectorAll("select")).length;
+    return { startFound: !!start, startDisabled: start?.disabled ?? null, selects };
+  });
+}
+
+async function selectSome(n=15){
+  return withFrame(async (w,d)=>{
+    const sels = Array.from(d.querySelectorAll("select"));
+    let c=0;
+    for (const el of sels.slice(0,n)){
+      const v = el.querySelector("option[value='3']") ? "3" : (el.querySelector("option[value='4']")?"4":"2");
+      if (el.value !== v) { el.value = v; el.dispatchEvent(new Event("change",{bubbles:true})); c++; }
+    }
+    return c;
+  });
+}
+
+async function clickExport(){
+  return withFrame(async (w,d)=>{
+    hookExport(w);
+    const el = d.querySelector('button:has-text("Export"), a:has-text("Export"), button:has-text("Download"), a:has-text("Download"), button:has-text("Save"), a:has-text("Save")');
+    if (el) { el.click(); return true; }
+    // fallback: try a simple text match over buttons/links
+    const cands = Array.from(d.querySelectorAll("button,a")).find(n=>/export|download|save/i.test(n.textContent||""));
+    if (cands) { cands.click(); return true; }
+    return false;
+  });
+}
+
+function previewJSON(){
+  return withFrame((w)=>{
+    const txt = w.__TK_LAST_JSON;
+    if (!txt) return { size:0, ok:false, reason:"no JSON captured" };
+    try{
+      const obj = JSON.parse(txt);
+      const arr = Array.isArray(obj) ? obj : (obj && Array.isArray(obj.kinks) ? obj.kinks : []);
+      return { size: txt.length, ok:true, sample: arr.slice(0,3), arr };
+    }catch(e){
+      return { size: txt.length, ok:false, reason:"invalid JSON: "+e.message };
+    }
+  });
+}
+
+function verifyClamp(arr){
+  let bad = [];
+  for (let i=0;i<arr.length;i++){
+    const r = arr[i]?.rating;
+    if (r==null) continue;
+    const n = +r;
+    if (!Number.isFinite(n) || n<0 || n>5) bad.push({i, rating:r});
+  }
+  return { ok: bad.length===0, bad };
+}
+
+async function runTest(){
+  status("running…"); log("=== RUN ===");
+  const aOK = await assetCheck();
+  if (!aOK) log("Assets missing; the page may still render but styles/data might be off.");
+  let inf = info(); log("info:", JSON.stringify(inf));
+  if (inf.selects===0 && inf.startFound) { await unfreeze(); withFrame((w,d)=>d.querySelector("#start,#startSurvey")?.click()); await new Promise(r=>setTimeout(r,400)); }
+  const changed = await selectSome(15); log("selected:", changed);
+  const clicked = await clickExport(); log("export clicked:", clicked);
+  await new Promise(r=>setTimeout(r,400));
+  const prev = previewJSON();
+  if (!prev.ok) { log("JSON:", prev.reason); status("done"); return; }
+  log("export bytes:", prev.size);
+  const clamp = verifyClamp(prev.arr||[]);
+  if (clamp.ok) log("%cclamp: OK (0–5)", "color:#92ff92");
+  else log("%cclamp: FAIL → " + JSON.stringify(clamp.bad.slice(0,10)), "color:#ff9696");
+  status("done");
+}
+
+document.getElementById('btnRun').onclick = runTest;
+document.getElementById('btnAssets').onclick = assetCheck;
+document.getElementById('btnUnfreeze').onclick = unfreeze;
+document.getElementById('btnClearSW').onclick = async()=>{ await clearSW(); location.reload(); };
+
+status("ready");
+</script>
