@@ -1,9 +1,11 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-const PORT = process.env.PORT || 8080;
+
+const PORT = parseInt(process.env.PORT || "8080", 10);
 const ROOT = process.cwd();
 const MIME = { ".html":"text/html",".css":"text/css",".js":"application/javascript",".json":"application/json",".png":"image/png",".svg":"image/svg+xml",".ico":"image/x-icon",".txt":"text/plain" };
+
 const srv = http.createServer((req,res)=>{
   try{
     let p = decodeURI(req.url.split("?")[0]);
@@ -16,17 +18,15 @@ const srv = http.createServer((req,res)=>{
     fs.createReadStream(file).pipe(res);
   }catch(e){ res.writeHead(500); res.end("Server error"); }
 });
-srv.listen(PORT, "127.0.0.1", async ()=>{
-  console.log(`Local server ready → http://127.0.0.1:${PORT}/tests/offline-kinks-test.html`);
-  // try to open default browser (best-effort)
-  const { spawn } = await import("node:child_process");
+
+srv.listen(PORT, "127.0.0.1", async () => {
   const url = `http://127.0.0.1:${PORT}/tests/offline-kinks-test.html`;
-  const cmd = process.platform === "win32" ? ["cmd", "/c", "start", "", url]
-            : process.platform === "darwin" ? ["open", url]
-            : ["xdg-open", url];
+  console.log(`Local server ready → ${url}`);
   try {
-    const child = spawn(cmd[0], cmd.slice(1), { stdio:"ignore", detached:true });
-    child.on("error", ()=>{});
-    child.unref();
+    const { spawn } = await import("node:child_process");
+    const cmd = process.platform === "win32" ? ["cmd","/c","start","",url]
+              : process.platform === "darwin" ? ["open",url]
+              : ["xdg-open",url];
+    spawn(cmd[0], cmd.slice(1), { stdio:"ignore", detached:true }).unref();
   } catch {}
 });
