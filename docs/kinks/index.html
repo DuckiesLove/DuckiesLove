@@ -137,7 +137,16 @@
 
   <!-- Theme & Survey Logic -->
   <script type="module">
-    import { initTheme, applyThemeColors } from './js/theme.js?v=1758253846';
+    const getThemeModule = async () => {
+      try {
+        return await import('./js/theme.js?v=1758253846');
+      } catch (err) {
+        console.warn('[survey] Failed to load theme module', err);
+        return {};
+      }
+    };
+
+    const { initTheme = () => {}, applyThemeColors = () => {} } = await getThemeModule();
 
     initTheme();
     window.applyThemeColors = applyThemeColors;
