@@ -812,6 +812,73 @@ How to use
   }
 })();
 </script>
+<script>
+// TK-CLICKFIX — make category checkboxes clickable
+(() => {
+  const d = document;
+
+  // 0) quiet the spammy logger
+  const _log = console.log.bind(console);
+  console.log = (...a) => {
+    if (String(a?.[0] ?? "").includes("[KINKS-UNSQUISH]")) return;
+    _log(...a);
+  };
+
+  // 1) kill full-screen overlays that eat clicks
+  const overlays = [];
+  for (const el of d.querySelectorAll("body *")) {
+    const cs = getComputedStyle(el);
+    if (cs.position === "fixed") {
+      const r = el.getBoundingClientRect();
+      const covers =
+        r.left <= 0 && r.top <= 0 &&
+        r.right >= innerWidth - 1 &&
+        r.bottom >= innerHeight - 1 &&
+        cs.visibility !== "hidden" && +cs.opacity > 0.001 &&
+        cs.pointerEvents !== "none";
+      if (covers) {
+        el.dataset.tkPrevPE = cs.pointerEvents;
+        el.style.pointerEvents = "none";
+        el.style.zIndex = "0";
+        overlays.push(el);
+      }
+    }
+  }
+  _log("[TK] overlays disabled:", overlays.length);
+
+  // 2) ensure panel can receive clicks
+  const panel = d.querySelector(".category-panel") || d.body;
+  if (panel) {
+    panel.style.pointerEvents = "auto";
+    panel.style.zIndex = "2147483647";
+  }
+
+  // 3) remove generic blockers
+  d.querySelectorAll("[inert]").forEach(n => n.removeAttribute("inert"));
+  d.querySelectorAll("[aria-busy='true'],[data-loading]").forEach(n => n.remove());
+
+  // 4) re-enable all inputs & ancestors
+  const inputs = d.querySelectorAll("input,select,button");
+  inputs.forEach(el => { el.disabled = false; el.style.pointerEvents = "auto"; });
+  const cbs = Array.from(d.querySelectorAll(".category-panel input[type='checkbox'], input[type='checkbox']"));
+  cbs.forEach(cb => { let p = cb; for (let i=0; i<5 && p; i++) { p.style.pointerEvents = "auto"; p = p.parentElement; } });
+
+  // 5) if something still sits on top of a checkbox, detect & neutralize it
+  const offenders = new Set();
+  for (const cb of cbs.slice(0, 20)) {
+    const r = cb.getBoundingClientRect();
+    const topEl = d.elementFromPoint(r.left + 8, r.top + r.height/2);
+    if (topEl && topEl !== cb && !cb.contains(topEl) && !topEl.contains(cb)) offenders.add(topEl);
+  }
+  offenders.forEach(el => { el.style.pointerEvents = "none"; el.style.zIndex = "0"; });
+  _log("[TK] elementFromPoint offenders disabled:", offenders.size);
+
+  // 6) sanity: toggle a few boxes
+  cbs.slice(0, 5).forEach(cb => { cb.click(); cb.click(); });
+
+  _log("[TK] clickfix applied. Try clicking the category checkboxes now.");
+})();
+</script>
 <!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
 <script>
 /* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
