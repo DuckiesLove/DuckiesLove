@@ -195,6 +195,8 @@ registerStaticDir('/src', 'src');
 registerStaticDir('/data', 'data');
 registerStaticDir('/kinks', 'kinks', { index: 'index.html' });
 
+app.use(servePublicHtml);
+
 // Route: admin generate token
 app.use((req, res, next) => {
   if (req.method === 'POST' && req.url === '/admin/generate-token') {
@@ -484,12 +486,59 @@ function sendFile(res, filePath, status = 200) {
     .then(data => {
       res.statusCode = status;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      if (res.req?.method === 'HEAD') {
+        res.setHeader('Content-Length', data.length);
+        res.end();
+        return;
+      }
       res.end(data);
     })
     .catch(() => {
       res.statusCode = 404;
       res.end();
     });
+}
+
+function servePublicHtml(req, res, next) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    next();
+    return;
+  }
+
+  const { pathname } = new URL(req.url, 'http://localhost');
+  if (pathname === '/' || pathname === '/index.html') {
+    sendFile(res, path.join(__dirname, 'index.html'));
+    return;
+  }
+
+  if (!pathname.endsWith('.html')) {
+    next();
+    return;
+  }
+
+  if (pathname === '/token.html' || pathname.startsWith('/protected/')) {
+    next();
+    return;
+  }
+
+  const normalized = path
+    .normalize(pathname)
+    .replace(/^([\\/]*\.{2})+/g, '')
+    .replace(/^\\+/g, '')
+    .replace(/^\/+/, '');
+  const targetPath = path.join(__dirname, normalized);
+  if (!targetPath.startsWith(__dirname)) {
+    next();
+    return;
+  }
+
+  fs.stat(targetPath, (err, stat) => {
+    if (err || !stat.isFile()) {
+      next();
+      return;
+    }
+    sendFile(res, targetPath);
+  });
 }
 
 // Fallback
