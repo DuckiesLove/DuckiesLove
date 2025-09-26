@@ -12,7 +12,8 @@
     "generate-pdf:landscape": "node --input-type=module -e \"globalThis.window={};await import('./js/vendor/jspdf.umd.min.js');await (await import('./js/compatibilityPdf.js')).generateCompatibilityPDFLandscape({categories: []})\"",
     "check:conflicts": "node scripts/check-conflicts.js",
     "precommit": "npm run check:conflicts",
-    "reason:kinks": "node scripts/reason-kinks-json.mjs"
+    "reason:kinks": "node scripts/reason-kinks-json.mjs",
+    "kinks:flatten": "node scripts/flatten_kinks.mjs"
   },
   "keywords": [],
   "author": "",
