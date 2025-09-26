@@ -2,19 +2,33 @@
 <html lang="en">
 <head>
   <script>
-    /*! TK watchdog: fail-open if boot stalls */
-    !function(){var t=setTimeout(function(){try{var d=document;
-    var s=d.createElement("style");s.textContent="body{background:#000;color:#e6f2ff}.spinner,[aria-busy=true],[data-loading]{display:none!important}";d.head.appendChild(s);
-    var start=d.querySelector("#start,#startSurvey,#startSurveyBtn");if(start)start.removeAttribute("disabled");
-    var box=d.createElement("div");box.id="tk-watch";box.style.cssText="position:fixed;top:10px;right:10px;z-index:2147483647;background:#111;color:#fff;border:1px solid #444;border-radius:8px;padding:8px;max-width:460px;font:12px system-ui";
-    box.innerHTML="<b>Still loading…</b><div id=tkw style=\"opacity:.8;margin-top:4px\">Checking data/kinks.json…</div>";d.body.appendChild(box);
-    fetch("/data/kinks.json?v="+Date.now(),{cache:"no-store"}).then(r=>r.text()).then(txt=>{
-     if(/^<!doctype html/i.test(txt)||/<html[\\s>]/i.test(txt)){d.getElementById("tkw").textContent="Server sent HTML instead of JSON. Publish data/kinks.json or stop rewriting /data/. Start enabled.";return}
-     try{var j=JSON.parse(txt);var arr=Array.isArray(j)?j:(j&&Array.isArray(j.kinks)?j.kinks:[]);d.getElementById("tkw").textContent="Data OK ("+arr.length+"). Start enabled; proceed."}catch(e){d.getElementById("tkw").textContent="data/kinks.json is invalid JSON"}
-    }).catch(e=>{d.getElementById("tkw").textContent="Fetch failed: "+e})
-    }catch(e){}} ,2500);
-    window.addEventListener("load",function(){clearTimeout(t)},{once:true});
-    }();
+    /*! TK watchdog: fail-open + SW reset flag */
+    (function(){
+      try{
+        if (location.search.includes("tkreset=1")) {
+          if ("caches" in window) caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))).then(()=>{}));
+          navigator.serviceWorker&&navigator.serviceWorker.getRegistration&&navigator.serviceWorker.getRegistration().then(r=>r&&r.unregister());
+        }
+      }catch(e){}
+      var fired=false;
+      function unstick(){ if(fired) return; fired=true;
+        try{
+          var d=document, $=d.querySelector.bind(d), $$=(s)=>Array.from(d.querySelectorAll(s));
+          d.querySelectorAll('.spinner,[aria-busy=true],[data-loading]').forEach(n=>n.remove());
+          var start=$('#start,#startSurvey,#startSurveyBtn'); if(start) start.removeAttribute('disabled');
+          var box=d.createElement('div'); box.id='tk-watch'; box.style.cssText='position:fixed;top:10px;right:10px;z-index:2147483647;background:#111;color:#fff;border:1px solid #444;border-radius:8px;padding:8px;max-width:460px;font:12px system-ui';
+          box.innerHTML='<b>Recovering…</b><div id=tkw style="opacity:.8;margin-top:4px">Checking /data/kinks.json…</div>'; d.body.appendChild(box);
+          var tkw=box.querySelector('#tkw');
+          fetch('/data/kinks.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(t=>{
+            if(/^<!doctype html/i.test(t)||/<html[\s>]/i.test(t)){ if(tkw) tkw.textContent='Server sent HTML instead of JSON (rewrite). Start enabled; proceed.'; return; }
+            try{ var j=JSON.parse(t); var arr=Array.isArray(j)?j:(j&&Array.isArray(j.kinks)?j.kinks:[]); if(tkw) tkw.textContent='Data OK ('+arr.length+'). Start enabled; proceed.' }
+            catch(e){ if(tkw) tkw.textContent='JSON invalid. Start enabled; proceed.' }
+          }).catch(()=>{ if(tkw) tkw.textContent='Fetch failed. Start enabled; proceed.' });
+        }catch(e){}
+      }
+      var t=setTimeout(unstick, 2500);
+      window.addEventListener('load', function(){ clearTimeout(t); }, {once:true});
+    })();
   </script>
   <!-- TK-HOTFIX START -->
   <base href="/" />
@@ -37,6 +51,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=EB+Garamond&display=swap" rel="stylesheet">
 </head>
 <body class="theme-dark has-category-panel">
+  <script id="kinks-embedded-data" type="application/json">[]</script>
   <div class="landing-wrapper">
     <h1 class="themed-title">Talk Kink</h1>
     <select id="themeSelector">
@@ -1073,8 +1088,8 @@ How to use
 </script>
 <!-- TK-HOTFIX END -->
 
-<!-- TK-GUARD -->
-<script type="module" src="/js/kinks_data_guard.js"></script>
+  <!-- TK guard: dim missing categories; enable Start when valid -->
+  <script type="module" src="/js/kinks_data_guard.js"></script>
 
 
 <!-- TK fail-open (safe: idle unless boot stalls) -->
