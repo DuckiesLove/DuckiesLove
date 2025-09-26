@@ -1,121 +1,90 @@
-// TK data guard for /kinks/
-// - Fetch /data/kinks.json
-// - Disable/dim categories that have no rows in data
-// - Auto-select one available category; enable Start when any available is checked
-// - Show a small notice listing missing categories
-(async () => {
-  const d = document;
-  const $ = (s, r=d) => r.querySelector(s);
-  const $$ = (s, r=d) => Array.from(r.querySelectorAll(s));
-  const norm = (t) => String(t||"").trim().replace(/\s+/g,' ').toLowerCase();
+/*! TK data guard: robustify /kinks/ UI */
+(function(){
+  const d=document,$=(s,r=d)=>r.querySelector(s),$$=(s,r=d)=>Array.from(r.querySelectorAll(s));
+  const norm=s=>String(s||"").trim().replace(/\s+/g," ").toLowerCase();
 
-  // style for disabled categories + notice
-  if (!$('#tk-guard-style')) {
-    const st = d.createElement('style');
-    st.id = 'tk-guard-style';
-    st.textContent = `
-      .tk-missing{opacity:.45; filter:grayscale(.3);}
-      .tk-missing input{pointer-events:none !important}
-      #tk-guard-note{background:#111;color:#e6f2ff;border:1px solid #333;padding:.5rem .75rem;border-radius:.5rem;margin:.75rem 0;line-height:1.3}
+  async function getData(){
+    // try live JSON; if HTML/invalid/404, fall back to embedded or fallback file
+    const tryUrls=[
+      "/data/kinks.json?v="+Date.now(),
+      "/kinks.json?v="+Date.now()
+    ];
+    for (const u of tryUrls){
+      try{
+        const r=await fetch(u,{cache:"no-store"}); const ct=r.headers.get("content-type")||"";
+        const t=await r.text();
+        if (!r.ok) continue;
+        if (/^<!doctype html/i.test(t)||/<html[\s>]/i.test(t)||/text\/html/i.test(ct)) continue;
+        try{
+          const j=JSON.parse(t);
+          return Array.isArray(j)?j:(j&&Array.isArray(j.kinks)?j.kinks:[]);
+        }catch{}
+      }catch{}
+    }
+    // embedded <script type="application/json" id="kinks-embedded-data">
+    try{
+      const emb=$("#kinks-embedded-data");
+      if (emb) { const j=JSON.parse(emb.textContent||"[]"); return Array.isArray(j)?j:(j.kinks||[]); }
+    }catch{}
+    // final local fallback (very small) so UI is usable
+    try{
+      const r=await fetch("/data/kinks.fallback.json?v="+Date.now(),{cache:"no-store"});
+      if (r.ok) return await r.json();
+    }catch{}
+    return [];
+  }
+
+  function paintNotice(avail, missing, total){
+    if ($("#tk-guard-note")) return;
+    const st=d.createElement("style");
+    st.textContent=`
+      .tk-missing{opacity:.45;filter:grayscale(.3)}
+      .tk-missing input{pointer-events:none!important}
+      #tk-guard-note{background:#111;color:#e6f2ff;border:1px solid #333;padding:.6rem .8rem;border-radius:.6rem;margin:.75rem 0;font:12px system-ui}
       #tk-guard-note b{color:#00e6ff}
     `;
     d.head.appendChild(st);
+    const host=$(".category-panel")||d.body;
+    const note=d.createElement("div");note.id="tk-guard-note";
+    const a=avail.map(x=>x.label).join(", ")||"none";
+    const m=missing.map(x=>x.label).join(", ")||"none";
+    note.innerHTML=`Data categories available: <b>${avail.length}</b> / UI categories: <b>${avail.length+missing.length}</b>. `+
+                   `Active: <b>${a}</b>. Disabled for now: ${m}.`;
+    host.prepend(note);
   }
 
-  // Load the live data
-  async function loadData(){
-    try{
-      const r = await fetch('/data/kinks.json?v=' + Date.now(), {cache:'no-store'});
-      if (!r.ok) throw new Error('HTTP '+r.status);
-      const j = await r.json();
-      const arr = Array.isArray(j) ? j : (j && Array.isArray(j.kinks) ? j.kinks : []);
-      const cats = new Set(arr.map(x => norm(x.category || x.cat)));
-      return {arr, cats};
-    }catch(e){
-      console.warn('[TK-GUARD] data fetch failed:', e);
-      return {arr:[], cats:new Set()};
-    }
+  function wireStart(){
+    const start=$("#start,#startSurvey,#startSurveyBtn"); if(!start) return;
+    const upd=()=>{ const any=$$(".category-panel input[type='checkbox']").some(cb=>!cb.disabled&&cb.checked); start.disabled=!any; };
+    $$(".category-panel input[type='checkbox']").forEach(cb=>cb.addEventListener("change",upd));
+    upd();
   }
 
-  // Extract UI categories and their checkboxes
-  function getUICategories(){
-    const panel = $('.category-panel') || d;
-    const items = [];
-    panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
-      let label = '';
-      // try siblings/parent text for label
-      const p = cb.closest('div,li,label') || cb.parentElement;
-      label = (p?.textContent || '').replace(/\s+/g,' ').trim();
-      // trim leading checkbox char if present
-      label = label.replace(/^\W+/, '');
-      // keep only the first phrase before double spaces to avoid extra text
-      items.push({ cb, label, key: norm(label), row: p || cb.parentElement });
+  async function run(){
+    // Give normal boot a head start; bail if selects have appeared
+    let waited=0; const id=setInterval(()=>{ waited+=150; if ($$("select").length>0){clearInterval(id)} },150);
+    setTimeout(()=>clearInterval(id), 1800);
+
+    const data=await getData();
+    const cats=new Set(data.map(k=>norm(k.category||k.cat)));
+    const ui=[];
+    ($(".category-panel")||d).querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+      const container=cb.closest("label,li,div")||cb.parentElement;
+      const label=(container?.textContent||"").replace(/\s+/g," ").trim();
+      const key=norm(label);
+      if (key) ui.push({cb,label,key,row:container});
     });
-    // de-dup by key (some DOMs may have nested text)
-    const seen = new Set();
-    return items.filter(it => it.key && !seen.has(it.key) && (seen.add(it.key), true));
+
+    // Dim / disable categories not present in data
+    const avail=ui.filter(x=>cats.has(x.key)), missing=ui.filter(x=>!cats.has(x.key));
+    missing.forEach(x=>{ x.cb.checked=false; x.cb.disabled=true; x.row?.classList?.add("tk-missing"); });
+    // Auto-select first available if none selected
+    if (!avail.some(x=>x.cb.checked) && avail.length){ avail[0].cb.checked=true; avail[0].cb.dispatchEvent(new Event("change",{bubbles:true})); }
+    paintNotice(avail, missing, data.length);
+    wireStart();
+    console.log(`[TK-GUARD] data items=${data.length} availCats=${avail.length} missingCats=${missing.length}`);
   }
 
-  // Update Start button state
-  function wireStart(cats){
-    const start = $('#start,#startSurvey');
-    if (!start) return;
-    const update = () => {
-      const any = $$('.category-panel input[type="checkbox"]').some(cb => !cb.disabled && cb.checked);
-      start.disabled = !any;
-    };
-    $$('.category-panel input[type="checkbox"]').forEach(cb => cb.addEventListener('change', update));
-    update();
-  }
-
-  // Insert/replace notice
-  function showNotice(missing){
-    let note = $('#tk-guard-note');
-    if (!note) {
-      note = d.createElement('div');
-      note.id = 'tk-guard-note';
-      const host = $('.category-panel') || d.body;
-      host.prepend(note);
-    }
-    if (missing.length) {
-      note.innerHTML = `Some categories are temporarily unavailable because the current data file only includes <b>${missing.available.join(', ') || 'no'}</b> categories. The others are disabled for now: ${missing.missing.join(', ')}.`;
-      note.hidden = false;
-    } else {
-      note.hidden = true;
-    }
-  }
-
-  // Main
-  const { cats } = await loadData();
-  const ui = getUICategories();
-  if (!ui.length) return; // nothing to do
-
-  // Split available vs missing
-  const available = ui.filter(it => cats.has(it.key));
-  const missing = ui.filter(it => !cats.has(it.key));
-
-  // Disable missing visually and functionally
-  missing.forEach(it => {
-    it.cb.disabled = true;
-    it.row?.classList?.add('tk-missing');
-    it.cb.checked = false;
-  });
-
-  // Auto-select first available if none is selected yet
-  const hasSelection = available.some(it => it.cb.checked);
-  if (!hasSelection && available.length) {
-    available[0].cb.checked = true;
-    available[0].cb.dispatchEvent(new Event('change',{bubbles:true}));
-  }
-
-  // Enable/disable Start based on a real selection
-  wireStart(cats);
-
-  // Show a small explanatory banner
-  showNotice({
-    available: available.map(it => it.label),
-    missing:   missing.map(it => it.label)
-  });
-
-  console.log(`[TK-GUARD] UI categories: ${ui.length}, available: ${available.length}, missing: ${missing.length}`);
+  if (document.readyState==="complete"||document.readyState==="interactive") run();
+  else document.addEventListener("DOMContentLoaded", run, {once:true});
 })();
