@@ -87,7 +87,17 @@ function cookieParser(req, _res, next) {
   if (header) {
     header.split(';').forEach(part => {
       const [k, ...v] = part.trim().split('=');
-      if (k) cookies[k] = decodeURIComponent(v.join('=') || '');
+      if (!k) return;
+      const rawValue = v.join('=') || '';
+      try {
+        cookies[k] = decodeURIComponent(rawValue);
+      } catch (err) {
+        console.warn(
+          `[cookieParser] Failed to decode value for ${k}:`,
+          err instanceof Error ? err.message : err
+        );
+        cookies[k] = rawValue;
+      }
     });
   }
   req.cookies = cookies;
