@@ -260,13 +260,6 @@
         }
       };
 
-      const setDiagnosticsLoading = () => {
-        if (diagnosticsEl) {
-          diagnosticsEl.textContent = 'Loading categories...';
-          diagnosticsEl.style.display = 'block';
-        }
-      };
-
       const collapsePanel = () => {
         if (!panelEl) return;
         panelEl.classList.remove('open');
@@ -301,9 +294,7 @@
         });
       };
 
-      const getBoot = () => (typeof window.KINKS_boot === 'function' ? window.KINKS_boot : null);
-
-      let bootPromise = null;
+      const SURVEY_ROUTE = '/kinksurvey/';
 
       const startSurvey = (event) => {
         event?.preventDefault?.();
@@ -315,32 +306,13 @@
 
         showWarning('');
         persistSelection(selected);
-        setDiagnosticsLoading();
-
-        const boot = getBoot();
-        if (!boot) {
-          console.error('[survey] KINKS_boot is not available');
-          showWarning('Survey loader is unavailable. Please refresh and try again.');
-          return;
+        try {
+          sessionStorage.setItem('tkSelectedCategories', JSON.stringify(selected));
+        } catch (err) {
+          console.warn('[survey] Failed to persist session selection', err);
         }
-
-        if (!bootPromise) {
-          if (startButton) startButton.disabled = true;
-          bootPromise = Promise.resolve()
-            .then(() => boot({ categories: selected }))
-            .then(() => {
-              collapsePanel();
-            })
-            .catch(err => {
-              console.error('[survey] failed to start', err);
-              showWarning(err?.message || 'Failed to start the survey.');
-            })
-            .finally(() => {
-              bootPromise = null;
-              updateStartButtonState();
-            });
-        }
-        return bootPromise;
+        collapsePanel();
+        window.location.assign(SURVEY_ROUTE);
       };
 
       if (startButton) {
