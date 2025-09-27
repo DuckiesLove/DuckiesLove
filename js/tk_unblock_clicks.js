@@ -1,5 +1,8 @@
-/*! TK unblock: neutralize full-viewport overlays & keep taps working */
+/*! TK unblock: neutralize overlays & keep survey controls interactive */
 (function(){
+  const START_SELECTOR = '#start,#startSurvey,#startSurveyBtn';
+  const BOX_SELECTOR = '.category-panel input[type="checkbox"],input[name="category"][type="checkbox"]';
+
   // Make touchend/touchcancel non-passive so tap handlers can preventDefault when needed
   try{
     const ET=(window.EventTarget||window.Node||function(){}).prototype;
@@ -14,67 +17,122 @@
     };
   }catch{}
 
+  function $(sel, root=document){ return root.querySelector(sel); }
+  function $$(sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
+
+  function recoverAttributes(){
+    try {
+      $$('[inert]').forEach(node => node.removeAttribute('inert'));
+      $$(BOX_SELECTOR).forEach(box => { box.disabled = false; box.style.pointerEvents = 'auto'; });
+      const start = $(START_SELECTOR);
+      if (start) {
+        start.disabled = !!start.disabled && start.disabled; // leave as-is; syncStart adjusts below
+        start.style.pointerEvents = 'auto';
+      }
+    } catch {}
+  }
+
   // Turn full-screen overlays inert (pointer-events: none)
-  function neutralize(){
+  function neutralizeOverlays(){
     try{
-      Array.from(document.querySelectorAll('body *')).forEach(el=>{
+      $$("body *").forEach(el=>{
         const cs=getComputedStyle(el);
-        const r=el.getBoundingClientRect();
-        const big=r.width>innerWidth*0.85 && r.height>innerHeight*0.85;
-        if ((['fixed','absolute','sticky'].includes(cs.position) || big) &&
-            cs.pointerEvents!=='none' && +cs.zIndex>=1) {
-          el.style.pointerEvents='none';
+        if(cs.pointerEvents==='none' || cs.visibility==='hidden' || cs.display==='none') return;
+        const rect=el.getBoundingClientRect();
+        const covers = rect.left <= 0 && rect.top <= 0 &&
+                       rect.right >= innerWidth - 1 && rect.bottom >= innerHeight - 1;
+        const fixed = cs.position==='fixed';
+        if ((fixed && covers) || (cs.position==='fixed' && +cs.zIndex>2000000000)){
+          el.classList.add('tk-overlay-off');
         }
       });
     }catch{}
   }
 
-  // Enable/disable Start depending on category selections
-  function enableStart(){
+  function getBoxes(){
+    return $$(BOX_SELECTOR).filter(el => el instanceof HTMLInputElement);
+  }
+
+  function syncStart(){
     try{
-      const start=document.querySelector('#start,#startSurvey');
-      if (!start) return;
-      const any=!!document.querySelector('.category-panel input[type="checkbox"]:checked');
-      start.disabled=!any; start.removeAttribute('aria-disabled');
+      const start=$(START_SELECTOR);
+      if(!start) return;
+      const any=getBoxes().some(box => box.checked);
+      start.disabled=!any;
+      start.setAttribute('aria-disabled', String(!any));
+      if (!any) {
+        start.style.opacity = '0.5';
+      } else {
+        start.style.opacity = '1';
+      }
     }catch{}
   }
 
-  // Fallback Select All / Deselect All handlers by button text (idempotent)
-  function bindFallbackButtons(){
-    const btns=[...document.querySelectorAll('button,[role="button"]')];
-    const boxes=()=>[...document.querySelectorAll('.category-panel input[type="checkbox"]')];
+  function dispatchToggle(value){
+    getBoxes().forEach(box => {
+      if (box.checked === value) return;
+      box.checked = value;
+      box.dispatchEvent(new Event('change', { bubbles:true }));
+    });
+    syncStart();
+  }
 
-    const selectAll   = btns.find(b => /select\s*all/i.test(b.textContent||'')) || null;
-    const deselectAll = btns.find(b => /deselect\s*all/i.test(b.textContent||'')) || null;
-
-    if (selectAll && !selectAll.dataset.tkBound) {
-      selectAll.addEventListener('click', e=>{
-        e.preventDefault();
-        boxes().forEach(b=>{ if (!b.checked) { b.checked=true; b.dispatchEvent(new Event('change',{bubbles:true})); } });
-        enableStart();
-      }, true);
+  function wireButtons(){
+    const selectAll=$('#selectAll');
+    if (selectAll && !selectAll.dataset.tkBound){
+      selectAll.addEventListener('click', e=>{ e.preventDefault(); dispatchToggle(true); });
       selectAll.dataset.tkBound='1';
     }
-    if (deselectAll && !deselectAll.dataset.tkBound) {
-      deselectAll.addEventListener('click', e=>{
-        e.preventDefault();
-        boxes().forEach(b=>{ if (b.checked) { b.checked=false; b.dispatchEvent(new Event('change',{bubbles:true})); } });
-        enableStart();
-      }, true);
+    const deselectAll=$('#deselectAll');
+    if (deselectAll && !deselectAll.dataset.tkBound){
+      deselectAll.addEventListener('click', e=>{ e.preventDefault(); dispatchToggle(false); });
       deselectAll.dataset.tkBound='1';
     }
   }
 
-  // Keep Start in sync when user checks/unchecks a category
-  document.addEventListener('change', e=>{
-    if (e.target && e.target.matches('.category-panel input[type="checkbox"]')) enableStart();
-  }, true);
-
-  // Run now & after load (covers SPA/layout shifts)
-  if (document.readyState==='loading') {
-    document.addEventListener('DOMContentLoaded', ()=>{ neutralize(); bindFallbackButtons(); enableStart(); }, {once:true});
-  } else {
-    neutralize(); bindFallbackButtons(); enableStart();
+  function wireStartFallback(){
+    const start=$(START_SELECTOR);
+    if(!start || start.dataset.tkFallbackBound) return;
+    start.addEventListener('click', async e=>{
+      if (e.defaultPrevented) return;
+      const chosen=getBoxes().filter(box=>box.checked).map(box=>box.value);
+      if (!chosen.length) { syncStart(); return; }
+      if (typeof window.KINKS_boot !== 'function') return;
+      e.preventDefault();
+      try {
+        start.disabled = true;
+        await window.KINKS_boot({ categories: chosen });
+      } catch (err) {
+        console.error('[TK] fallback start failed:', err);
+      } finally {
+        syncStart();
+      }
+    }, false);
+    start.dataset.tkFallbackBound='1';
   }
-  window.addEventListener('load', ()=>setTimeout(()=>{ neutralize(); bindFallbackButtons(); enableStart(); }, 120), {once:true});
+
+  function bindCheckboxChanges(){
+    document.addEventListener('change', e=>{
+      if (e.target instanceof HTMLInputElement && e.target.matches(BOX_SELECTOR)){
+        syncStart();
+      }
+    }, true);
+  }
+
+  function prime(){
+    recoverAttributes();
+    neutralizeOverlays();
+    wireButtons();
+    wireStartFallback();
+    syncStart();
+  }
+
+  bindCheckboxChanges();
+
+  if (document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', prime, {once:true});
+  } else {
+    prime();
+  }
+  window.addEventListener('load', ()=>setTimeout(prime, 100), {once:true});
 })();

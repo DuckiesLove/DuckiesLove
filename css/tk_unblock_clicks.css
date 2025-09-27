@@ -1,9 +1,24 @@
 /* TK: keep primary controls interactive even if an overlay is present */
-button,.themed-button,[role="button"],#start,#startSurvey{
+button,
+.themed-button,
+[role="button"],
+#start,
+#startSurvey,
+#startSurveyBtn{
   position: relative;
   z-index: 2147483640 !important;
   pointer-events: auto !important;
 }
+.category-panel,
+.category-panel * {
+  pointer-events: auto !important;
+}
+
 .category-panel input[type="checkbox"]{
   pointer-events: auto !important;
+}
+
+.tk-overlay-off {
+  pointer-events: none !important;
+  z-index: 0 !important;
 }
