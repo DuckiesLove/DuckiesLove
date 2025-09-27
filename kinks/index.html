@@ -106,6 +106,8 @@
   <!-- TK: system-font fallback (loads after main CSS) -->
   <link rel="stylesheet" href="/css/font-failopen.css">
   <link rel="stylesheet" href="/css/touch-passive.css">
+  <!-- TK: force-visible fallback -->
+  <link rel="stylesheet" href="/css/tk_force_visible.css">
 </head>
 <body class="theme-dark has-category-panel">
   <script id="kinks-embedded-data" type="application/json">[]</script>
@@ -1155,5 +1157,7 @@ How to use
 
 <!-- TK fail-open (safe: idle unless boot stalls) -->
 <script type="module" src="/js/tk_failopen.js"></script>
+  <!-- TK: reveal fallback -->
+  <script src="/js/tk_reveal.js"></script>
 </body>
 </html>
