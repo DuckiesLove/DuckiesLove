@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kink Compatibility PDF</title>
   <link rel="stylesheet" href="css/auto-pdf.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/fonts-failopen.css" />
   <script src="js/template-survey.js"></script>
   <script type="module" src="js/auto-pdf.js"></script>
   <style>
     /* Base title look (web + PDF) */
     .site-title {
-      font-family: "Fredoka One", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-family: var(--tk-font-display, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif);
       color: #fff;
       text-align: center;
       /* Proportional sizing: scales with viewport but capped */
