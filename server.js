@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
+import http from 'http';
 import https from 'https';
 import { readFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -10,6 +11,51 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
+let requestHandler = app;
+
+if (typeof app !== 'function') {
+  const middlewareStack = [];
+  const originalUse = typeof app.use === 'function' ? app.use.bind(app) : null;
+
+  if (originalUse) {
+    app.use = function overrideUse(...args) {
+      const maybeFn = args[args.length - 1];
+      if (typeof maybeFn === 'function') {
+        middlewareStack.push(maybeFn);
+      }
+      return originalUse(...args);
+    };
+  }
+
+  requestHandler = (req, res) => {
+    let index = 0;
+    const run = () => {
+      const mw = middlewareStack[index++];
+      if (!mw) {
+        if (!res.writableEnded) {
+          res.end();
+        }
+        return;
+      }
+      if (mw.length >= 4) {
+        run();
+        return;
+      }
+      try {
+        mw(req, res, run);
+      } catch (error) {
+        console.error('[server] Middleware error:', error);
+        if (res.headersSent) {
+          res.destroy(error);
+        } else {
+          res.statusCode = 500;
+          res.end();
+        }
+      }
+    };
+    run();
+  };
+}
 const port = Number.isNaN(parseInt(process.env.PORT, 10))
   ? 3000
   : parseInt(process.env.PORT, 10);
@@ -581,36 +627,44 @@ const cleanup = setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
+function startHttpServer() {
+  return new Promise((resolve, reject) => {
+    const serverInstance = http.createServer(requestHandler);
+    serverInstance.once('error', reject);
+    serverInstance.listen(port, () => resolve(serverInstance));
+  });
+}
+
+async function startHttpsServer() {
+  const keyPath =
+    process.env.TLS_KEY_PATH || path.join(__dirname, 'localhost-key.pem');
+  const certPath =
+    process.env.TLS_CERT_PATH || path.join(__dirname, 'localhost-cert.pem');
+  const [key, cert] = await Promise.all([readFile(keyPath), readFile(certPath)]);
+  return new Promise((resolve, reject) => {
+    const serverInstance = https.createServer({ key, cert }, requestHandler);
+    serverInstance.once('error', reject);
+    serverInstance.listen(port, () => resolve(serverInstance));
+  });
+}
+
 let server;
 if (NODE_ENV !== 'production') {
   try {
-    const key = fs.readFileSync(
-      process.env.TLS_KEY_PATH || path.join(__dirname, 'localhost-key.pem')
-    );
-    const cert = fs.readFileSync(
-      process.env.TLS_CERT_PATH || path.join(__dirname, 'localhost-cert.pem')
-    );
-    server = await new Promise(resolve => {
-      const s = https.createServer({ key, cert }, app).listen(port, () =>
-        resolve(s)
-      );
-    });
+    server = await startHttpsServer();
     console.log(
       `Auth server running on https://localhost:${server.address().port}`
     );
-  } catch {
-    console.warn('TLS certificates not found, falling back to HTTP');
-    server = await new Promise(resolve => {
-      const s = app.listen(port, () => resolve(s));
-    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn('TLS setup failed, falling back to HTTP:', message);
+    server = await startHttpServer();
     console.log(
       `Auth server running on http://localhost:${server.address().port}`
     );
   }
 } else {
-  server = await new Promise(resolve => {
-    const s = app.listen(port, () => resolve(s));
-  });
+  server = await startHttpServer();
   console.log(
     `Auth server running on http://localhost:${server.address().port}`
   );
