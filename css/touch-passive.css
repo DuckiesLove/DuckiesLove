@@ -1,0 +1,4 @@
+/* TK: keep scrolling smooth and non-blocking */
+html, body { touch-action: pan-x pan-y; overscroll-behavior: contain; }
+.scroll-y { touch-action: pan-y; }
+.scroll-x { touch-action: pan-x; }
