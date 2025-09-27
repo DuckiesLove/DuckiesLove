@@ -1,0 +1,5 @@
+/* loads early, very small; only kicks in if colors are black/transparent */
+html.tk-diag-fallback, html.tk-diag-fallback body {
+  background:#000!important; color:#e6f2ff!important;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
