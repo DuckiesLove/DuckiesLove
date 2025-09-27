@@ -1,7 +1,7 @@
 /*! Talk Kink kinksurvey enhancements */
 (function(){
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $all = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const $ = (sel, root = document) => root?.querySelector?.(sel) || null;
+  const $$ = (sel, root = document) => (root?.querySelectorAll ? Array.from(root.querySelectorAll(sel)) : []);
   const el = (tag, attrs = {}, html = "") => {
     const node = document.createElement(tag);
     Object.entries(attrs).forEach(([key, value]) => {
@@ -13,28 +13,49 @@
     return node;
   };
 
+  const START_SELECTORS = ['#startSurvey','#start','#startBtn','#startSurveyBtn','[data-start]'];
+
+  function findStartButton(){
+    for (const sel of START_SELECTORS) {
+      const btn = $(sel);
+      if (btn) return btn;
+    }
+    return null;
+  }
+
+  function moveThemeInto(row, legacyWrap){
+    if (!row) return;
+    const scopes = legacyWrap ? [legacyWrap, document] : [document];
+    let select = null;
+    for (const scope of scopes){
+      select = $('#themeSelector', scope) || $('.theme-select', scope) || $('select[name="theme"]', scope);
+      if (select) break;
+    }
+    if (!select){
+      row.style.display = 'none';
+      return;
+    }
+    const label = el('label',{class:'tk-theme'});
+    label.append('Theme');
+    label.appendChild(select);
+    row.appendChild(label);
+  }
+
   function ensureHero(){
-    // If an old hero exists, replace it to avoid duplicates/styles from prior patches
-    $all('.tk-hero').forEach(n=>n.remove());
+    $$('.tk-hero').forEach(node => node.remove());
 
     const legacyWrap = $('.landing-wrapper');
-    const wrap = legacyWrap?.parentElement || $('.wrap, main, .page, .kinks-root, body');
-    const anchor = legacyWrap || $('#categoryPanel') || $('.category-panel') || wrap?.firstChild;
+    const wrap = legacyWrap?.parentElement || $('main') || $('.wrap') || $('.page') || $('.kinks-root') || document.body;
+    const anchor = legacyWrap || $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel') || wrap?.firstChild;
     if (!wrap || !anchor) return;
 
     const hero = el('section',{class:'tk-hero','aria-label':'Main actions'});
     hero.appendChild(el('h1',{class:'tk-title'},'Talk Kink — Survey'));
 
     const heroTop = el('div',{class:'tk-heroTop'});
-    const startSelectors = ['#startSurvey','#startBtn','#start','#startSurveyBtn','[data-start]'];
-    let startNode = null;
-    for (const sel of startSelectors) {
-      const candidate = $(sel);
-      if (candidate) { startNode = candidate; break; }
-    }
-
+    let startNode = findStartButton();
     let usingExistingStart = false;
-    if (legacyWrap && startNode && legacyWrap.contains(startNode)) {
+    if (legacyWrap && startNode && legacyWrap.contains(startNode)){
       startNode.classList.add('tk-btn','xl');
       heroTop.appendChild(startNode);
       usingExistingStart = true;
@@ -54,6 +75,7 @@
 
     const themeRow = el('div',{class:'tk-heroRow', id:'tkThemeRow'});
     hero.appendChild(themeRow);
+    moveThemeInto(themeRow, legacyWrap);
 
     if (anchor && anchor.parentNode === wrap) {
       wrap.insertBefore(hero, anchor);
@@ -61,47 +83,143 @@
       wrap.insertBefore(hero, wrap.firstChild);
     }
 
-    // Move any existing theme selector into the theme row
-    const themeContainer = $('#tkThemeRow', hero);
-    const existingTheme =
-      (legacyWrap && $('#themeSelector', legacyWrap)) ||
-      $('#themeSelector') ||
-      $('.theme-select') ||
-      $('select[name="theme"]');
-    if (existingTheme) {
-      const label = el('label',{class:'tk-theme'},`Theme`);
-      label.appendChild(existingTheme);
-      themeContainer.appendChild(label);
-    } else {
-      // No theme selector present—hide the row
-      themeContainer.style.display='none';
-    }
-
-    // Preserve warnings/info blocks that previously lived inside the landing wrapper
-    if (legacyWrap) {
+    if (legacyWrap){
       const warning = $('#warning', legacyWrap) || $('#warning');
-      if (warning && hero !== warning.parentNode) {
+      if (warning && warning !== hero && warning.parentNode !== hero){
         hero.appendChild(warning);
       }
+      legacyWrap.remove();
     }
 
-    legacyWrap?.remove();
-
-    // Scroll/focus to panel Start on big Start click if we had to create a synthetic button
-    if (!usingExistingStart) {
-      const go = ()=> {
-        const panel = $('#categoryPanel') || $('.category-panel');
-        const start = $('#startBtn') || $('#startSurvey') || $('#startSurveyBtn') || $('[data-start]');
-        if (panel) panel.scrollIntoView({behavior:'smooth', block:'start'});
-        setTimeout(()=> start && start.focus && start.focus(), 300);
-      };
-      startNode?.addEventListener('click', go);
+    if (!usingExistingStart){
+      startNode?.addEventListener('click', () => {
+        const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
+        const realStart = findStartButton();
+        panel?.scrollIntoView({behavior:'smooth', block:'start'});
+        setTimeout(() => realStart?.focus?.(), 280);
+      });
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureHero);
-  } else {
+  function ensureObserver(listHost){
+    if (!listHost || listHost.__tkObserver) return;
+    const observer = new MutationObserver(() => {
+      if (listHost.querySelector('input[type="checkbox"]')){
+        observer.disconnect();
+        listHost.__tkObserver = null;
+        enhancePanel();
+      }
+    });
+    observer.observe(listHost,{childList:true, subtree:true});
+    listHost.__tkObserver = observer;
+  }
+
+  function enhancePanel(){
+    const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
+    if (!panel) return;
+
+    const listHost = panel.querySelector('.category-list') || panel;
+    const checkboxes = Array.from(listHost.querySelectorAll('input[type="checkbox"]'));
+    if (!checkboxes.length){
+      ensureObserver(listHost);
+      return;
+    }
+
+    if (panel.dataset.tkEnhanced === '1'){
+      updateCounter(panel);
+      return;
+    }
+    panel.dataset.tkEnhanced = '1';
+
+    panel.classList.add('tk-wide-panel');
+    panel.querySelector('.tk-catbar')?.remove();
+
+    const topBar = el('div',{class:'tk-catbar'});
+    const selectAll = $('#selectAll', panel) || panel.querySelector('button#selectAll');
+    const deselectAll = $('#deselectAll', panel) || panel.querySelector('button#deselectAll');
+    const originalRow = selectAll?.parentElement === deselectAll?.parentElement ? selectAll?.parentElement : null;
+
+    if (selectAll) topBar.appendChild(selectAll);
+    if (deselectAll) topBar.appendChild(deselectAll);
+
+    const counter = el('div',{class:'tk-counter', id:'tkCatCounter'},'0 selected / 0 total');
+    topBar.appendChild(counter);
+    panel.insertBefore(topBar, listHost);
+
+    if (originalRow && originalRow !== topBar){
+      const hasContent = Array.from(originalRow.childNodes).some(node => {
+        if (node === topBar) return true;
+        if (node.nodeType === 1) return true;
+        if (node.nodeType === 3 && node.textContent.trim()) return true;
+        return false;
+      });
+      if (!hasContent) originalRow.remove();
+    }
+
+    const items = checkboxes.map(cb => {
+      const label = cb.closest('label');
+      let text = '';
+      if (label) {
+        text = label.textContent || '';
+      } else {
+        text = cb.getAttribute('aria-label') || cb.getAttribute('data-label') || cb.value || cb.id || '';
+      }
+      text = text.replace(/\s+/g,' ').trim();
+      return {cb, text: text || 'Category'};
+    });
+
+    items.sort((a, b) => a.text.localeCompare(b.text, undefined, {sensitivity:'base'}));
+
+    const grid = el('div',{class:'tk-catgrid'});
+    let lastLetter = '';
+    items.forEach(({cb, text}) => {
+      const letter = (text[0] || '').toUpperCase();
+      if (letter && letter !== lastLetter){
+        grid.appendChild(el('div',{class:'tk-letter'}, letter));
+        lastLetter = letter;
+      }
+      const row = el('label',{class:'tk-cat'});
+      row.appendChild(cb);
+      const span = el('span',{class:'lbl'});
+      span.textContent = text;
+      row.appendChild(span);
+      grid.appendChild(row);
+    });
+
+    listHost.innerHTML = '';
+    listHost.appendChild(grid);
+
+    const update = () => {
+      const total = items.length;
+      const selected = items.reduce((count, item) => count + (item.cb.checked ? 1 : 0), 0);
+      counter.textContent = `${selected} selected / ${total} total`;
+    };
+
+    items.forEach(item => item.cb.addEventListener('change', update));
+    selectAll?.addEventListener('click', () => setTimeout(update, 0));
+    deselectAll?.addEventListener('click', () => setTimeout(update, 0));
+
+    update();
+  }
+
+  function updateCounter(panel){
+    const counter = panel.querySelector('#tkCatCounter');
+    if (!counter) return;
+    const checkboxes = panel.querySelectorAll('input[type="checkbox"]');
+    const total = checkboxes.length;
+    let selected = 0;
+    checkboxes.forEach(cb => { if (cb.checked) selected += 1; });
+    counter.textContent = `${selected} selected / ${total} total`;
+  }
+
+  function boot(){
     ensureHero();
+    enhancePanel();
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  } else {
+    boot();
   }
 })();

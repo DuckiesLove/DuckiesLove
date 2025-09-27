@@ -1,3 +1,15 @@
+:root{
+  --tk-fg:#e6feff;
+  --tk-accent:#00e6ff;
+  --tk-panel-bg:#0b1a20;
+  --tk-panel-bg2:#0a1418;
+  --tk-panel-bd:#00e6ff44;
+  --tk-chip:#0d2730;
+  --tk-btn-bd:#00e6ff77;
+  --tk-btn-bg:transparent;
+  --tk-btn-fg:var(--tk-fg);
+}
+
 .tk-hero{
   display:flex; flex-direction:column; align-items:center; gap:18px;
   margin:6px auto 26px; text-align:center;
@@ -5,36 +17,82 @@
 .tk-heroTop{display:flex; justify-content:center}
 .tk-heroRow{display:flex; gap:14px; flex-wrap:wrap; justify-content:center}
 
-/* Title like the screenshot */
 .tk-title{
-  font-weight:900; letter-spacing:.3px;
-  font-size: clamp(28px, 4.6vw, 54px);
-  margin: 8px 0 6px;
-  color: #d6fbff;
-  text-shadow: 0 2px 0 #001317;
+  font-weight:900; letter-spacing:.25px;
+  font-size:clamp(28px, 4.6vw, 54px);
+  margin:10px 0 8px;
+  color:#d7fbff;
+  text-shadow:0 2px 0 #001219;
 }
 
 .tk-btn{
   display:inline-block; padding:14px 22px; border:2px solid var(--tk-btn-bd);
   border-radius:12px; background:var(--tk-btn-bg); color:var(--tk-btn-fg);
-  cursor:pointer; font-weight:800; letter-spacing:.2px; transition:.15s;
+  font-weight:800; letter-spacing:.2px; cursor:pointer; transition:.15s ease;
+  box-shadow:0 0 0 1px #00141a inset;
 }
-.tk-btn:hover{transform:translateY(-1px)}
+.tk-btn:hover{transform:translateY(-1px); background:#07212a}
 .tk-btn.xl{padding:16px 26px; font-size:1.05rem}
 
-/* Pill links row (Compatibility / IKA / Request…) */
 .tk-pill{
-  display:inline-block; padding:12px 18px;
-  border:2px solid var(--tk-btn-bd); border-radius:12px;
-  background: transparent; color: var(--tk-fg); text-decoration:none;
-  font-weight:800; letter-spacing:.15px;
-  box-shadow: 0 0 0 1px #00141a inset;
+  display:inline-block; padding:12px 18px; border:2px solid var(--tk-btn-bd);
+  border-radius:12px; color:var(--tk-fg); text-decoration:none; font-weight:800;
+  background:transparent; box-shadow:0 0 0 1px #00141a inset;
 }
-.tk-pill:hover{background:#032029; transform:translateY(-1px)}
+.tk-pill:hover{background:#082029; transform:translateY(-1px)}
 
-/* Theme row */
 .tk-theme{display:flex; align-items:center; gap:10px; color:#c6f6ff; font-weight:700}
 .tk-theme select{
   background:#071a1f; color:#eaffff; border:2px solid var(--tk-btn-bd);
   border-radius:10px; padding:8px 12px; outline:none;
 }
+
+/* Wider, easier-to-see category panel */
+.tk-wide-panel{
+  width:min(980px, 94vw) !important;
+  background:linear-gradient(180deg,var(--tk-panel-bg),var(--tk-panel-bg2));
+  border:1px solid var(--tk-panel-bd);
+  border-radius:14px; padding:14px !important;
+  box-shadow:0 10px 40px #0009, 0 0 0 1px #00141a inset;
+  color:var(--tk-fg);
+}
+
+/* Counter bar */
+.tk-catbar{
+  display:flex; align-items:center; justify-content:flex-start;
+  gap:12px; padding:10px 8px 12px;
+}
+.tk-catbar button{min-width:0}
+.tk-counter{
+  display:inline-flex; align-items:center; gap:7px; font-weight:800;
+  background:var(--tk-chip); border:1px solid #00e6ff22; color:var(--tk-fg);
+  padding:6px 10px; border-radius:10px;
+}
+
+/* Category list: grid + headings */
+.tk-catgrid{
+  display:grid; grid-template-columns:repeat(2, minmax(300px, 1fr));
+  gap:14px 18px; margin-top:8px;
+}
+@media (max-width: 860px){
+  .tk-catgrid{grid-template-columns:1fr}
+}
+.tk-letter{
+  grid-column:1/-1; display:flex; align-items:center; gap:10px;
+  font-weight:900; color:#aaf9ff; margin:12px 0 4px;
+}
+.tk-letter::after{
+  content:""; height:1px; background:#00e6ff22; flex:1;
+}
+
+/* Each checkbox row prettier */
+.tk-cat{
+  display:flex; align-items:center; gap:12px;
+  background:#07191f; border:1px solid #00e6ff22; border-radius:12px;
+  padding:12px 14px;
+}
+.tk-cat input[type="checkbox"]{width:18px; height:18px}
+.tk-cat .lbl{font-weight:800; letter-spacing:.15px}
+
+/* Make original category panel easier to read */
+.category-panel{color:var(--tk-fg)}
