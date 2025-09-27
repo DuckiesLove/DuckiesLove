@@ -8,12 +8,22 @@
   <link rel="stylesheet" href="css/theme.css" />
 <link rel="stylesheet" href="/css/font-failopen.css">
 
+<!-- TK: home-start-router CSS -->
+<style>
+  /* Ensure Start button is clickable if some styles disabled it */
+  #startSurvey, #startSurveyBtn, #start {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+  }
+</style>
+<!-- /TK: home-start-router CSS -->
+
 </head>
 <body class="theme-dark">
   <div class="landing-wrapper">
     <h1 class="themed-header">Talk Kink Survey</h1>
     <div class="landing-buttons">
-      <a id="startSurvey" href="kinks/" class="themed-button highlighted-box">Start Survey</a>
+      <a id="startSurvey" href="/kinksurvey/" class="themed-button highlighted-box">Start Survey</a>
       <a href="compatibility.html" class="themed-button highlighted-box">Compatibility Page</a>
       <a href="individualkinkanalysis.html" class="themed-button highlighted-box">Individual Kink Analysis</a>
       <a href="https://discord.gg/Ub8ebnQP9a" class="themed-button highlighted-box" target="_blank">Request to Join Mischief Manor</a>
@@ -184,42 +194,45 @@
 })();
 </script>
 <!-- ---------- End Safe Bootstrap ---------- -->
-<!-- TK: start->/ (home only) -->
+<!-- TK: home-start-router JS -->
 <script>
 (function(){
+  var TARGET = '/kinksurvey/'; // ⇐ destination: https://talkkink.org/kinksurvey/
   function go(e){
-    try{ e && e.preventDefault(); }catch(_){ }
-    try{ location.assign('/'); }catch(_){ location.href = '/'; }
+    try { e && e.preventDefault && e.preventDefault(); } catch(_) {}
+    try { location.assign(TARGET); } catch(_) { location.href = TARGET; }
   }
-  function bind(el){
-    if(!el) return false;
-    try{ el.removeAttribute('disabled'); }catch(_){ }
-    el.style && (el.style.pointerEvents = 'auto');
-    el.addEventListener('click', go, { passive: false });
+  function looksLikeStart(el){
+    if (!el) return false;
+    var id = (el.id || '').toLowerCase();
+    if (id === 'startsurvey' || id === 'startsurveybtn' || id === 'start') return true;
+    var txt = (el.textContent || '').toLowerCase();
+    return txt === 'start survey' || (txt.includes('start') && txt.includes('survey'));
+  }
+  function wire(el){
+    if (!el || el.dataset.tkStartWired === '1') return false;
+    el.dataset.tkStartWired = '1';
+    try { el.removeAttribute('disabled'); } catch(_) {}
+    if (el.style) el.style.pointerEvents = 'auto';
+    if (el.tagName === 'A') {
+      el.setAttribute('href', TARGET);
+    } else {
+      el.addEventListener('click', go, { passive: false });
+    }
     return true;
   }
-
-  var ids = ['startSurvey','startSurveyBtn','start'];
-  var bound = false;
-
-  // Try common IDs first
-  for (var i=0; i<ids.length && !bound; i++){
-    bound = bind(document.getElementById(ids[i]));
+  function sweep(){
+    var nodes = Array.from(document.querySelectorAll('#startSurvey, #startSurveyBtn, #start, a, button'));
+    nodes.forEach(function(n){ if (looksLikeStart(n)) wire(n); });
   }
-
-  // Then try by text match
-  if (!bound) {
-    var nodes = Array.from(document.querySelectorAll('a,button'));
-    for (var j=0; j<nodes.length && !bound; j++){
-      var el = nodes[j];
-      var txt = (el.textContent || '').trim().toLowerCase();
-      if (txt === 'start survey' || (txt.includes('start') && txt.includes('survey'))) {
-        bound = bind(el);
-      }
-    }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', sweep, { once: true });
+  } else {
+    sweep();
   }
+  new MutationObserver(sweep).observe(document.documentElement, { childList: true, subtree: true });
 })();
 </script>
-<!-- /TK: start->/ (home only) -->
+<!-- /TK: home-start-router JS -->
 </body>
 </html>
