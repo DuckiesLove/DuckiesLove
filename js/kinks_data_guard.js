@@ -34,7 +34,7 @@
     return [];
   }
 
-  function paintNotice(avail, missing, total){
+  function paintNotice(avail, missing, total, message){
     if ($("#tk-guard-note")) return;
     const st=d.createElement("style");
     st.textContent=`
@@ -46,10 +46,14 @@
     d.head.appendChild(st);
     const host=$(".category-panel")||d.body;
     const note=d.createElement("div");note.id="tk-guard-note";
-    const a=avail.map(x=>x.label).join(", ")||"none";
-    const m=missing.map(x=>x.label).join(", ")||"none";
-    note.innerHTML=`Data categories available: <b>${avail.length}</b> / UI categories: <b>${avail.length+missing.length}</b>. `+
-                   `Active: <b>${a}</b>. Disabled for now: ${m}.`;
+    if (message){
+      note.textContent=message;
+    } else {
+      const a=avail.map(x=>x.label).join(", ")||"none";
+      const m=missing.map(x=>x.label).join(", ")||"none";
+      note.innerHTML=`Data categories available: <b>${avail.length}</b> / UI categories: <b>${avail.length+missing.length}</b>. `+
+                     `Active: <b>${a}</b>. Disabled for now: ${m}.`;
+    }
     host.prepend(note);
   }
 
@@ -66,17 +70,35 @@
     setTimeout(()=>clearInterval(id), 1800);
 
     const data=await getData();
-    const cats=new Set(data.map(k=>norm(k.category||k.cat)));
+    const cats=new Set();
+    (Array.isArray(data)?data:[]).forEach(k=>{
+      const key=norm(k?.category||k?.cat);
+      if (key) cats.add(key);
+    });
     const ui=[];
-    ($(".category-panel")||d).querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    const panel=$(".category-panel")||d;
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
       const container=cb.closest("label,li,div")||cb.parentElement;
       const label=(container?.textContent||"").replace(/\s+/g," ").trim();
       const key=norm(label);
       if (key) ui.push({cb,label,key,row:container});
     });
 
+    if (!cats.size){
+      paintNotice([], [], 0, "Unable to load survey categories. All options remain selectable so you can start manually.");
+      wireStart();
+      console.warn("[TK-GUARD] No category data fetched; leaving checkboxes enabled.");
+      return;
+    }
+
     // Dim / disable categories not present in data
     const avail=ui.filter(x=>cats.has(x.key)), missing=ui.filter(x=>!cats.has(x.key));
+    if (!avail.length){
+      paintNotice([], [], data.length||0, "Survey data did not match any listed categories. Everything stays enabled.");
+      wireStart();
+      console.warn("[TK-GUARD] Category data available but no matches found; skipping disable logic.");
+      return;
+    }
     missing.forEach(x=>{ x.cb.checked=false; x.cb.disabled=true; x.row?.classList?.add("tk-missing"); });
     // Auto-select first available if none selected
     if (!avail.some(x=>x.cb.checked) && avail.length){ avail[0].cb.checked=true; avail[0].cb.dispatchEvent(new Event("change",{bubbles:true})); }
