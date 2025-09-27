@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Talk Kink — New Survey</title>
+<style>
+  :root{
+    --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --soft:#0a0f14; --line:#00e5ff33;
+    --btn:#06161a; --btnb:#00e6ff; --btnfg:#eaffff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:1000px;margin:32px auto;padding:0 16px}
+  h1{font-size:clamp(28px,5vw,48px);margin:0 0 20px 0;text-align:center}
+  .btn{display:inline-block;padding:14px 22px;border:2px solid var(--btnb);border-radius:10px;background:var(--btn);color:var(--btnfg);cursor:pointer;font-weight:700;transition:.15s}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .btn:hover{transform:translateY(-1px)}
+  .panel{display:grid;gap:14px;grid-template-columns:1fr;max-height:none;border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:16px}
+  .panel h2{margin:0 0 6px 0}
+  .row{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#060b0f}
+  .row label{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600}
+  .topbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-start;margin:10px 0 18px}
+  .status{opacity:.8}
+  .notice{margin:14px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:#071317}
+  .center{display:flex;justify-content:center}
+  .flow{display:flex;gap:12px;flex-wrap:wrap}
+  .survey{margin-top:24px;border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:16px}
+  .catTitle{margin:0 0 8px 0;color:#7ef9ff}
+  .item{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px dashed #00e5ff22}
+  .item:first-child{border-top:0}
+  select,input[type="text"]{padding:6px 8px;border:1px solid #115; border-radius:8px;background:#06161a;color:var(--fg)}
+  .nav{margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+  a.home{color:var(--accent)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Talk Kink — New Survey</h1>
+
+    <div class="panel" id="categoryPanel" aria-label="Category selection">
+      <div class="topbar">
+        <button class="btn" id="selectAll">Select All</button>
+        <button class="btn" id="deselectAll">Deselect All</button>
+        <span class="status" id="statusMsg">Loading categories…</span>
+      </div>
+      <div id="categoryList" class="flow" role="list"></div>
+      <div class="center">
+        <button class="btn" id="startBtn" disabled>Start Survey</button>
+      </div>
+    </div>
+
+    <div id="diag" class="notice" style="display:none"></div>
+
+    <div id="survey" class="survey" style="display:none">
+      <h2 class="catTitle" id="catTitle"></h2>
+      <div id="items"></div>
+      <div class="nav">
+        <button class="btn" id="skipBtn">Skip Category</button>
+        <button class="btn" id="nextBtn">Next Category</button>
+      </div>
+    </div>
+
+    <div id="done" class="notice" style="display:none">
+      <h3>Survey complete!</h3>
+      <p>You’ve reached the end of the selected categories. <a class="home" href="/">Back to home</a></p>
+    </div>
+  </div>
+
+<script>
+(async function(){
+  // ---- Config: prefer your existing dataset under /data/kinks.json ----
+  const DATA_URLS = [
+    '/data/kinks.json',
+    '/kinks.json',
+    './data/kinks.json',
+    './kinks.json'
+  ];
+
+  const el = (id)=>document.getElementById(id);
+  const $panel = el('categoryPanel');
+  const $list  = el('categoryList');
+  const $status= el('statusMsg');
+  const $diag  = el('diag');
+  const $start = el('startBtn');
+  const $survey= el('survey');
+  const $title = el('catTitle');
+  const $items = el('items');
+  const $done  = el('done');
+
+  const state = { cats:[], sel:[], idx:0 };
+
+  function tidy(s){ return String(s??'').replace(/\s+/g,' ').trim(); }
+
+  function looksHTML(t){ return /^\s*<!doctype html/i.test(t)||/<html[\s>]/i.test(t); }
+
+  async function getData(){
+    const errs=[];
+    for (const u of DATA_URLS){
+      try{
+        const res = await fetch(u,{cache:'no-store'});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const txt = await res.text();
+        if (looksHTML(txt)) throw new Error('HTML fallback received');
+        const j = JSON.parse(txt);
+        return {json:j, src:u, errs};
+      }catch(e){ errs.push(u+': '+e.message); }
+    }
+    throw new Error('All dataset fetches failed:\n- '+errs.join('\n- '));
+  }
+
+  function normalize(raw){
+    const out = [];
+    const push = (name, items)=>{
+      const cat = tidy(name); if(!cat) return;
+      const good=[];
+      (items||[]).forEach(it=>{
+        const id=tidy(it?.id||it?.key||it?.name||'');
+        const label=tidy(it?.label||it?.text||'');
+        const type=tidy(it?.type||'scale');
+        if(id && label) good.push({id,label,type});
+      });
+      if(good.length) out.push({category:cat, items:good});
+    };
+    if (Array.isArray(raw)) raw.forEach(x=>push(x?.category ?? x?.name, x?.items));
+    else if (raw && typeof raw==='object') Object.entries(raw).forEach(([k,v])=>push(k,v));
+    return out;
+  }
+
+  function renderPanel(cats){
+    $list.innerHTML='';
+    cats.forEach(c=>{
+      const id='cb_'+Math.random().toString(36).slice(2,7);
+      const row=document.createElement('div'); row.className='row'; row.setAttribute('role','listitem');
+      row.innerHTML=`<label for="${id}"><input id="${id}" type="checkbox" value="${c.category}"> ${c.category}</label>`;
+      $list.appendChild(row);
+    });
+    updateStart();
+  }
+
+  function selected(){
+    return Array.from($list.querySelectorAll('input[type="checkbox"]')).filter(cb=>cb.checked).map(cb=>cb.value);
+  }
+
+  function updateStart(){
+    const any = selected().length>0;
+    $start.disabled = !any;
+    $status.textContent = any ? `${selected().length} selected` : 'Choose one or more categories';
+  }
+
+  function showDiag(msg){ $diag.style.display='block'; $diag.textContent=msg; }
+
+  function renderCategory(i){
+    const c = state.sel[i];
+    if(!c){ $survey.style.display='none'; $done.style.display='block'; return; }
+    $done.style.display='none';
+    $survey.style.display='block';
+    $title.textContent = c.category;
+    $items.innerHTML='';
+    c.items.forEach(it=>{
+      const row=document.createElement('div'); row.className='item';
+      const inputId='k_'+it.id;
+      let control='';
+      if ((it.type||'').toLowerCase()==='bool'){
+        control = `<input type="checkbox" id="${inputId}" name="${it.id}">`;
+      } else if ((it.type||'').toLowerCase()==='text'){
+        control = `<input type="text" id="${inputId}" name="${it.id}" placeholder="Your note">`;
+      } else {
+        control = `<select id="${inputId}" name="${it.id}">${[1,2,3,4,5].map(v=>`<option>${v}</option>`).join('')}</select>`;
+      }
+      row.innerHTML = `${control} <label for="${inputId}">${it.label}</label>`;
+      $items.appendChild(row);
+    });
+  }
+
+  // Bindings
+  $list.addEventListener('change', updateStart);
+  el('selectAll').addEventListener('click', ()=>{ $list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); updateStart(); });
+  el('deselectAll').addEventListener('click', ()=>{ $list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); updateStart(); });
+
+  $start.addEventListener('click', ()=>{
+    const want = new Set(selected().map(s=>s.toLowerCase()));
+    state.sel = state.cats.filter(c=>want.has(c.category.toLowerCase()));
+    state.idx = 0;
+    if (!state.sel.length){
+      showDiag('No matching categories in dataset.'); return;
+    }
+    $panel.style.display='none';
+    renderCategory(state.idx);
+  });
+
+  el('skipBtn').addEventListener('click', ()=>{ state.idx++; renderCategory(state.idx); });
+  el('nextBtn').addEventListener('click', ()=>{ state.idx++; renderCategory(state.idx); });
+
+  // Boot
+  try{
+    const {json,src,errs} = await getData();
+    state.cats = normalize(json);
+    renderPanel(state.cats);
+    $status.textContent = `Loaded ${state.cats.length} categories`;
+    if (errs?.length) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
+  }catch(e){
+    showDiag(e.message + '\nYou can still use this page once /data/kinks.json is published.');
+    $status.textContent = 'Dataset unavailable';
+  }
+})();
+</script>
+</body>
+</html>
