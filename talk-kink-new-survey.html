@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Talk Kink — New Survey</title>
+<style>
+  :root{
+    --bg:#000; --fg:#e6ffff; --accent:#00e6ff;
+    /* Slightly different panel color (teal/blue) for contrast */
+    --panelStart:#0f2834;
+    --panelEnd:#0b1f27;
+    --panelEdge:#23e0ff80;       /* glow/edge */
+    --row:#0a1820;               /* rows inside panel */
+    --soft:#081218; --line:#00e5ff44;
+    --btn:#071a1f; --btnb:#00e6ff; --btnfg:#eaffff;
+    --barBg:#062028; --barFill:#13e0ff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:1000px;margin:32px auto;padding:0 16px}
+  h1{font-size:clamp(28px,5vw,48px);margin:0 0 20px 0;text-align:center}
+
+  .btn{
+    display:inline-block;padding:14px 22px;border:2px solid var(--btnb);
+    border-radius:10px;background:var(--btn);color:var(--btnfg);
+    cursor:pointer;font-weight:700;transition:.15s
+  }
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .btn:hover{transform:translateY(-1px)}
+
+  /* HIGH-CONTRAST CATEGORY PANEL (slightly different color) */
+  .panel{
+    display:grid;gap:14px;grid-template-columns:1fr;max-height:none;
+    border:1px solid var(--panelEdge);border-radius:14px;
+    background:linear-gradient(180deg, var(--panelStart) 0%, var(--panelEnd) 100%);
+    padding:16px;
+    box-shadow:0 0 0 1px #00141a inset, 0 10px 28px #00121aa6;
+  }
+  .panel h2{margin:0 0 6px 0}
+  .row{
+    border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;background:var(--row)
+  }
+  .row label{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600}
+  .topbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-start;margin:10px 0 18px}
+  .status{opacity:.9}
+
+  .notice{margin:14px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:#071317}
+  .center{display:flex;justify-content:center}
+  .flow{display:flex;gap:12px;flex-wrap:wrap}
+
+  .survey{margin-top:24px;border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:16px}
+  .catTitle{margin:0 0 8px 0;color:#7ef9ff}
+
+  /* Item rows */
+  .item{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px dashed #00e5ff22}
+  .item:first-child{border-top:0}
+  select,input[type="text"]{
+    padding:6px 8px;border:1px solid #144; border-radius:8px;background:#071820;color:var(--fg)
+  }
+
+  /* PROGRESS header */
+  .progress{
+    margin:8px 0 16px 0; padding:10px 12px; border-radius:10px;
+    background:linear-gradient(180deg,#0b2530 0%, #0b1e26 100%);
+    border:1px solid #0cf2ff33;
+  }
+  .progressTop{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;
+    font-weight:600
+  }
+  .bar{height:10px;border-radius:999px;background:var(--barBg);overflow:hidden;border:1px solid #093642}
+  .fill{height:100%;width:0%;background:linear-gradient(90deg,#08d7ff 0%, var(--barFill) 100%);box-shadow:0 0 6px #13e0ff}
+  .counter{opacity:.95}
+  a.home{color:var(--accent)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Talk Kink — New Survey</h1>
+
+    <!-- Category selection panel -->
+    <div class="panel" id="categoryPanel" aria-label="Category selection">
+      <div class="topbar">
+        <button class="btn" id="selectAll">Select All</button>
+        <button class="btn" id="deselectAll">Deselect All</button>
+        <span class="status" id="statusMsg">Loading categories…</span>
+      </div>
+      <div id="categoryList" class="flow" role="list"></div>
+      <div class="center">
+        <button class="btn" id="startBtn" disabled>Start Survey</button>
+      </div>
+    </div>
+
+    <div id="diag" class="notice" style="display:none"></div>
+
+    <!-- Survey UI -->
+    <div id="survey" class="survey" style="display:none">
+      <!-- Category counter + progress -->
+      <div class="progress" role="group" aria-label="Progress">
+        <div class="progressTop">
+          <div class="counter" id="catCounter">Category 1 of 1</div>
+          <div class="counter" id="qCounter">0 of 0 answered</div>
+        </div>
+        <div class="bar" aria-label="Questions progress">
+          <div class="fill" id="qFill" style="width:0%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+        </div>
+      </div>
+
+      <h2 class="catTitle" id="catTitle"></h2>
+      <div id="items"></div>
+      <div class="nav" style="margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn" id="skipBtn">Skip Category</button>
+        <button class="btn" id="nextBtn">Next Category</button>
+      </div>
+    </div>
+
+    <div id="done" class="notice" style="display:none">
+      <h3>Survey complete!</h3>
+      <p>You’ve reached the end of the selected categories. <a class="home" href="/">Back to home</a></p>
+    </div>
+  </div>
+
+<script>
+(async function(){
+  /* ---------- data fetch ---------- */
+  const DATA_URLS = ['/data/kinks.json','/kinks.json','./data/kinks.json','./kinks.json'];
+
+  const el = (id)=>document.getElementById(id);
+  const $panel = el('categoryPanel');
+  const $list  = el('categoryList');
+  const $status= el('statusMsg');
+  const $diag  = el('diag');
+  const $start = el('startBtn');
+  const $survey= el('survey');
+  const $title = el('catTitle');
+  const $items = el('items');
+  const $done  = el('done');
+  const $catCounter = el('catCounter');
+  const $qCounter   = el('qCounter');
+  const $qFill      = el('qFill');
+
+  const state = { cats:[], sel:[], idx:0 };
+
+  function tidy(s){ return String(s??'').replace(/\s+/g,' ').trim(); }
+  function looksHTML(t){ return /^\s*<!doctype html/i.test(t)||/<html[\s>]/i.test(t); }
+
+  async function getData(){
+    const errs=[];
+    for (const u of DATA_URLS){
+      try{
+        const res = await fetch(u,{cache:'no-store'});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const txt = await res.text();
+        if (looksHTML(txt)) throw new Error('HTML fallback received');
+        const j = JSON.parse(txt);
+        return {json:j, src:u, errs};
+      }catch(e){ errs.push(u+': '+e.message); }
+    }
+    throw new Error('All dataset fetches failed:\n- '+errs.join('\n- '));
+  }
+
+  function normalize(raw){
+    const out = [];
+    const push = (name, items)=>{
+      const cat = tidy(name); if(!cat) return;
+      const good=[];
+      (items||[]).forEach(it=>{
+        const id=tidy(it?.id||it?.key||it?.name||'');
+        const label=tidy(it?.label||it?.text||'');
+        const type=tidy(it?.type||'scale');
+        if(id && label) good.push({id,label,type});
+      });
+      if(good.length) out.push({category:cat, items:good});
+    };
+    if (Array.isArray(raw)) raw.forEach(x=>push(x?.category ?? x?.name, x?.items));
+    else if (raw && typeof raw==='object') Object.entries(raw).forEach(([k,v])=>push(k,v));
+    return out;
+  }
+
+  function renderPanel(cats){
+    $list.innerHTML='';
+    cats.forEach(c=>{
+      const id='cb_'+Math.random().toString(36).slice(2,7);
+      const row=document.createElement('div'); row.className='row'; row.setAttribute('role','listitem');
+      row.innerHTML=`<label for="${id}"><input id="${id}" type="checkbox" value="${c.category}"> ${c.category}</label>`;
+      $list.appendChild(row);
+    });
+    updateStart();
+  }
+
+  function selected(){
+    return Array.from($list.querySelectorAll('input[type="checkbox"]')).filter(cb=>cb.checked).map(cb=>cb.value);
+  }
+  function updateStart(){
+    const any = selected().length>0;
+    $start.disabled = !any;
+    $status.textContent = any ? `${selected().length} selected` : 'Choose one or more categories';
+  }
+
+  function showDiag(msg){ $diag.style.display='block'; $diag.textContent=msg; }
+
+  /* ---------- progress helpers ---------- */
+  function isAnswered(ctrl){
+    const tag = ctrl.tagName;
+    if (tag === 'SELECT') {
+      // Count as answered when select is set to any 1–5
+      return ['1','2','3','4','5'].includes(ctrl.value);
+    }
+    if (ctrl.type === 'checkbox') {
+      // Checked = answered; unchecked = not answered
+      return ctrl.checked === true;
+    }
+    if (ctrl.type === 'text') {
+      return ctrl.value.trim().length > 0;
+    }
+    return false;
+  }
+
+  function setupQProgress(controls){
+    function update(){
+      const total = controls.length;
+      let answered = 0;
+      controls.forEach(c => { if (isAnswered(c)) answered++; });
+      $qCounter.textContent = `${answered} of ${total} answered`;
+      const pct = total ? Math.round((answered/total)*100) : 0;
+      $qFill.style.width = pct+'%';
+      $qFill.setAttribute('aria-valuenow', pct);
+    }
+    controls.forEach(c => c.addEventListener('change', update));
+    update();
+  }
+
+  function renderCategory(i){
+    const c = state.sel[i];
+    if(!c){ $survey.style.display='none'; $done.style.display='block'; return; }
+    $done.style.display='none';
+    $survey.style.display='block';
+
+    // Category counter
+    $catCounter.textContent = `Category ${i+1} of ${state.sel.length}`;
+
+    $title.textContent = c.category;
+    $items.innerHTML='';
+    c.items.forEach(it=>{
+      const row=document.createElement('div'); row.className='item';
+      const inputId='k_'+it.id;
+      let control='';
+      const t=(it.type||'').toLowerCase();
+      if (t==='bool'){
+        control = `<input type="checkbox" id="${inputId}" name="${it.id}">`;
+      } else if (t==='text'){
+        control = `<input type="text" id="${inputId}" name="${it.id}" placeholder="Your note">`;
+      } else {
+        /* SCALE with placeholder so progress starts at 0 until user picks 1–5 */
+        control =
+          `<select id="${inputId}" name="${it.id}">
+             <option value="" selected disabled hidden>–</option>
+             <option value="1">1</option>
+             <option value="2">2</option>
+             <option value="3">3</option>
+             <option value="4">4</option>
+             <option value="5">5</option>
+           </select>`;
+      }
+      row.innerHTML = `${control} <label for="${inputId}">${it.label}</label>`;
+      $items.appendChild(row);
+    });
+
+    // Progress for questions in this category
+    const controls = Array.from($items.querySelectorAll('select,input[type="checkbox"],input[type="text"]'));
+    setupQProgress(controls);
+  }
+
+  /* ---------- bindings ---------- */
+  $list.addEventListener('change', updateStart);
+  document.getElementById('selectAll').addEventListener('click', ()=>{ $list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); updateStart(); });
+  document.getElementById('deselectAll').addEventListener('click', ()=>{ $list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); updateStart(); });
+
+  $start.addEventListener('click', ()=>{
+    const want = new Set(selected().map(s=>s.toLowerCase()));
+    state.sel = state.cats.filter(c=>want.has(c.category.toLowerCase()));
+    state.idx = 0;
+    if (!state.sel.length){ showDiag('No matching categories in dataset.'); return; }
+    $panel.style.display='none';
+    renderCategory(state.idx);
+  });
+
+  document.getElementById('skipBtn').addEventListener('click', ()=>{ state.idx++; renderCategory(state.idx); });
+  document.getElementById('nextBtn').addEventListener('click', ()=>{ state.idx++; renderCategory(state.idx); });
+
+  /* ---------- boot ---------- */
+  try{
+    const {json,src,errs} = await getData();
+    state.cats = normalize(json);
+    renderPanel(state.cats);
+    $status.textContent = `Loaded ${state.cats.length} categories`;
+    if (errs?.length) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
+  }catch(e){
+    showDiag(e.message + '\nYou can still use this page once /data/kinks.json is published.');
+    $status.textContent = 'Dataset unavailable';
+  }
+})();
+</script>
+</body>
+</html>
