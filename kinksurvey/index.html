@@ -1,127 +1,160 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Talk Kink — New Survey</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Talk Kink — Survey</title>
+
+<!-- Reuse site styles for familiar look; local CSS below makes panel behave like /kinks/ -->
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/theme.css">
+
 <style>
-  :root{
-    --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --soft:#0a0f14; --line:#00e5ff33;
-    --btn:#06161a; --btnb:#00e6ff; --btnfg:#eaffff;
+  :root { --panel-w: 320px; --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
+  html,body{height:100%} body{margin:0;background:#000;color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+
+  /* LEFT SIDE PANEL (classic /kinks/ feel) */
+  #panelToggle{
+    position:fixed; left:12px; top:12px; z-index:10010;
+    background:#06161a; border:1px solid var(--line); color:var(--fg);
+    border-radius:10px; padding:8px 12px; cursor:pointer;
   }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  .wrap{max-width:1000px;margin:32px auto;padding:0 16px}
-  h1{font-size:clamp(28px,5vw,48px);margin:0 0 20px 0;text-align:center}
-  .btn{display:inline-block;padding:14px 22px;border:2px solid var(--btnb);border-radius:10px;background:var(--btn);color:var(--btnfg);cursor:pointer;font-weight:700;transition:.15s}
-  .btn[disabled]{opacity:.45;cursor:not-allowed}
-  .btn:hover{transform:translateY(-1px)}
-  .panel{display:grid;gap:14px;grid-template-columns:1fr;max-height:none;border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:16px}
-  .panel h2{margin:0 0 6px 0}
-  .row{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#060b0f}
-  .row label{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600}
-  .topbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-start;margin:10px 0 18px}
-  .status{opacity:.8}
-  .notice{margin:14px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:#071317}
-  .center{display:flex;justify-content:center}
-  .flow{display:flex;gap:12px;flex-wrap:wrap}
-  .survey{margin-top:24px;border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:16px}
-  .catTitle{margin:0 0 8px 0;color:#7ef9ff}
-  .item{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px dashed #00e5ff22}
-  .item:first-child{border-top:0}
-  select,input[type="text"]{padding:6px 8px;border:1px solid #115; border-radius:8px;background:#06161a;color:var(--fg)}
-  .nav{margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end}
-  a.home{color:var(--accent)}
+  .category-panel{
+    position:fixed; inset:0 auto 0 0; width:var(--panel-w);
+    background:#000; border-right:1px solid var(--line);
+    padding:14px 14px 18px; overflow:auto; z-index:10000;
+    transform:translateX(0); transition:transform .25s ease;
+  }
+  .category-panel:not(.open){ transform:translateX(calc(-1 * var(--panel-w))); }
+
+  /* Shift content when panel open */
+  .content{
+    margin-left:max(var(--panel-w), 22vw);
+    padding:24px 16px;
+  }
+  .content.full{ margin-left:0; }
+
+  .themed-button, .category-button{
+    padding:12px 18px; border:2px solid rgba(0,230,255,.55);
+    border-radius:10px; background:transparent; color:#eaffff;
+    font-weight:700; letter-spacing:.2px; cursor:pointer;
+  }
+  .themed-button:hover, .category-button:hover{
+    border-color:rgba(0,230,255,.9); box-shadow:0 0 0 2px rgba(0,230,255,.18) inset;
+  }
+
+  .category-list{ display:grid; grid-template-columns:1fr; gap:10px; }
+  .category-list label{
+    display:flex; gap:10px; align-items:center; padding:8px 10px;
+    border:1px solid var(--line); border-radius:10px; background:#060b0f; cursor:pointer;
+  }
+
+  .panel-title{ margin:6px 0 10px; font-weight:800; color:#7ef9ff; }
+  .top-buttons{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+  .survey-box{
+    border:1px solid var(--line); border-radius:12px; background:#0a0f14; padding:16px;
+    max-width:1000px; margin:0 auto;
+  }
+  .catTitle{ margin:0 0 8px; color:#7ef9ff }
+  .item{ display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px dashed #00e5ff22; }
+  .item:first-child{ border-top:0; }
+  select,input[type=text]{ padding:6px 8px; border:1px solid #115; border-radius:8px; background:#06161a; color:var(--fg); }
+
+  .notice{ margin:14px 0; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; background:#071317; }
 </style>
 </head>
-<body>
-  <div class="wrap">
-    <h1>Talk Kink — New Survey</h1>
+<body class="theme-dark has-category-panel">
 
-    <div class="panel" id="categoryPanel" aria-label="Category selection">
-      <div class="topbar">
-        <button class="btn" id="selectAll">Select All</button>
-        <button class="btn" id="deselectAll">Deselect All</button>
-        <span class="status" id="statusMsg">Loading categories…</span>
-      </div>
-      <div id="categoryList" class="flow" role="list"></div>
-      <div class="center">
-        <button class="btn" id="startBtn" disabled>Start Survey</button>
-      </div>
-    </div>
+<button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="true">☰</button>
 
-    <div id="diag" class="notice" style="display:none"></div>
+<aside id="categorySurveyPanel" class="category-panel open" role="region" aria-label="Category selection">
+  <h2 class="panel-title">Select categories</h2>
+  <div class="top-buttons">
+    <button id="selectAll" class="themed-button category-button">Select All</button>
+    <button id="deselectAll" class="themed-button category-button">Deselect All</button>
+  </div>
+  <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
+  <div id="categoryList" class="category-list" role="list"></div>
+  <div style="display:flex;justify-content:center;margin-top:12px">
+    <button id="start" class="themed-button start-survey-btn" disabled>Start Survey</button>
+  </div>
+  <div id="diag" class="notice" style="display:none"></div>
+</aside>
 
-    <div id="survey" class="survey" style="display:none">
-      <h2 class="catTitle" id="catTitle"></h2>
-      <div id="items"></div>
-      <div class="nav">
-        <button class="btn" id="skipBtn">Skip Category</button>
-        <button class="btn" id="nextBtn">Next Category</button>
-      </div>
-    </div>
-
-    <div id="done" class="notice" style="display:none">
-      <h3>Survey complete!</h3>
-      <p>You’ve reached the end of the selected categories. <a class="home" href="/">Back to home</a></p>
+<main id="content" class="content">
+  <div class="survey-box" id="survey" style="display:none">
+    <h2 class="catTitle" id="catTitle"></h2>
+    <div id="items"></div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:12px">
+      <button class="themed-button" id="skip">Skip Category</button>
+      <button class="themed-button" id="next">Next Category</button>
     </div>
   </div>
 
+  <div id="done" class="notice" style="display:none; max-width:1000px; margin:18px auto 0">
+    <h3>Survey complete!</h3>
+    <p>You’ve reached the end of the selected categories. <a href="/" style="color:#00e6ff">Back to home</a></p>
+  </div>
+</main>
+
 <script>
 (async function(){
-  // ---- Config: prefer your existing dataset under /data/kinks.json ----
-  const DATA_URLS = [
-    '/data/kinks.json',
-    '/kinks.json',
-    './data/kinks.json',
-    './kinks.json'
-  ];
+  // Keep your existing data sources (will use your published dataset when present)
+  const DATA_URLS=['/data/kinks.json','/kinks.json','./data/kinks.json','./kinks.json'];
 
-  const el = (id)=>document.getElementById(id);
-  const $panel = el('categoryPanel');
-  const $list  = el('categoryList');
-  const $status= el('statusMsg');
-  const $diag  = el('diag');
-  const $start = el('startBtn');
-  const $survey= el('survey');
-  const $title = el('catTitle');
-  const $items = el('items');
-  const $done  = el('done');
+  // Elements
+  const $ = (id)=>document.getElementById(id);
+  const panel = $('categorySurveyPanel');
+  const toggle = $('panelToggle');
+  const content = $('content');
+  const list = $('categoryList');
+  const status = $('statusMsg');
+  const startBtn = $('start');
+  const diag = $('diag');
+  const survey = $('survey');
+  const title = $('catTitle');
+  const items = $('items');
+  const done = $('done');
 
-  const state = { cats:[], sel:[], idx:0 };
+  // Toggle panel open/closed (like /kinks/)
+  toggle.addEventListener('click', ()=>{
+    const isOpen = panel.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    content.classList.toggle('full', !isOpen);
+  });
 
-  function tidy(s){ return String(s??'').replace(/\s+/g,' ').trim(); }
+  const S = { cats:[], sel:[], i:0 };
 
-  function looksHTML(t){ return /^\s*<!doctype html/i.test(t)||/<html[\s>]/i.test(t); }
+  const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
+  const looksHTML = t => /^\s*<!doctype html/i.test(t) || /<html[\s>]/i.test(t);
 
-  async function getData(){
+  async function fetchData(){
     const errs=[];
     for (const u of DATA_URLS){
       try{
-        const res = await fetch(u,{cache:'no-store'});
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const txt = await res.text();
-        if (looksHTML(txt)) throw new Error('HTML fallback received');
-        const j = JSON.parse(txt);
-        return {json:j, src:u, errs};
-      }catch(e){ errs.push(u+': '+e.message); }
+        const r = await fetch(u,{cache:'no-store'});
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const txt = await r.text();
+        if (looksHTML(txt)) throw new Error('HTML fallback');
+        return { json: JSON.parse(txt), src:u, errs };
+      }catch(e){ errs.push(u+': '+(e?.message||e)); }
     }
     throw new Error('All dataset fetches failed:\n- '+errs.join('\n- '));
   }
 
   function normalize(raw){
-    const out = [];
-    const push = (name, items)=>{
-      const cat = tidy(name); if(!cat) return;
-      const good=[];
+    const out=[];
+    const push=(name,items)=>{
+      const cat=tidy(name); if(!cat) return;
+      const arr=[];
       (items||[]).forEach(it=>{
         const id=tidy(it?.id||it?.key||it?.name||'');
         const label=tidy(it?.label||it?.text||'');
         const type=tidy(it?.type||'scale');
-        if(id && label) good.push({id,label,type});
+        if(id && label) arr.push({id,label,type});
       });
-      if(good.length) out.push({category:cat, items:good});
+      if(arr.length) out.push({category:cat, items:arr});
     };
     if (Array.isArray(raw)) raw.forEach(x=>push(x?.category ?? x?.name, x?.items));
     else if (raw && typeof raw==='object') Object.entries(raw).forEach(([k,v])=>push(k,v));
@@ -129,80 +162,85 @@
   }
 
   function renderPanel(cats){
-    $list.innerHTML='';
+    list.innerHTML='';
     cats.forEach(c=>{
       const id='cb_'+Math.random().toString(36).slice(2,7);
-      const row=document.createElement('div'); row.className='row'; row.setAttribute('role','listitem');
-      row.innerHTML=`<label for="${id}"><input id="${id}" type="checkbox" value="${c.category}"> ${c.category}</label>`;
-      $list.appendChild(row);
+      const row=document.createElement('label');
+      row.setAttribute('role','listitem');
+      row.innerHTML = `<input class="category-checkbox" type="checkbox" id="${id}" value="${c.category}"> <span>${c.category}</span>`;
+      list.appendChild(row);
     });
     updateStart();
   }
 
-  function selected(){
-    return Array.from($list.querySelectorAll('input[type="checkbox"]')).filter(cb=>cb.checked).map(cb=>cb.value);
-  }
+  const selected = () => Array.from(document.querySelectorAll('.category-checkbox')).filter(cb=>cb.checked).map(cb=>cb.value);
 
   function updateStart(){
-    const any = selected().length>0;
-    $start.disabled = !any;
-    $status.textContent = any ? `${selected().length} selected` : 'Choose one or more categories';
+    const n = selected().length;
+    startBtn.disabled = !n;
+    status.textContent = n ? `${n} selected` : 'Choose one or more categories';
   }
 
-  function showDiag(msg){ $diag.style.display='block'; $diag.textContent=msg; }
+  function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; }
 
-  function renderCategory(i){
-    const c = state.sel[i];
-    if(!c){ $survey.style.display='none'; $done.style.display='block'; return; }
-    $done.style.display='none';
-    $survey.style.display='block';
-    $title.textContent = c.category;
-    $items.innerHTML='';
+  function renderCat(i){
+    const c = S.sel[i];
+    if(!c){
+      survey.style.display='none';
+      done.style.display='block';
+      return;
+    }
+    done.style.display='none';
+    survey.style.display='block';
+    title.textContent=c.category;
+    items.innerHTML='';
     c.items.forEach(it=>{
       const row=document.createElement('div'); row.className='item';
-      const inputId='k_'+it.id;
-      let control='';
-      if ((it.type||'').toLowerCase()==='bool'){
-        control = `<input type="checkbox" id="${inputId}" name="${it.id}">`;
-      } else if ((it.type||'').toLowerCase()==='text'){
-        control = `<input type="text" id="${inputId}" name="${it.id}" placeholder="Your note">`;
-      } else {
-        control = `<select id="${inputId}" name="${it.id}">${[1,2,3,4,5].map(v=>`<option>${v}</option>`).join('')}</select>`;
-      }
-      row.innerHTML = `${control} <label for="${inputId}">${it.label}</label>`;
-      $items.appendChild(row);
+      const id='k_'+it.id;
+      let ctl='';
+      const t=(it.type||'').toLowerCase();
+      if (t==='bool') ctl = `<input type="checkbox" id="${id}" name="${it.id}">`;
+      else if (t==='text') ctl = `<input type="text" id="${id}" name="${it.id}" placeholder="Your note">`;
+      else ctl = `<select id="${id}" name="${it.id}">${[1,2,3,4,5].map(v=>`<option>${v}</option>`).join('')}</select>`;
+      row.innerHTML = `${ctl} <label for="${id}">${it.label}</label>`;
+      items.appendChild(row);
     });
   }
 
   // Bindings
-  $list.addEventListener('change', updateStart);
-  el('selectAll').addEventListener('click', ()=>{ $list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); updateStart(); });
-  el('deselectAll').addEventListener('click', ()=>{ $list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); updateStart(); });
-
-  $start.addEventListener('click', ()=>{
-    const want = new Set(selected().map(s=>s.toLowerCase()));
-    state.sel = state.cats.filter(c=>want.has(c.category.toLowerCase()));
-    state.idx = 0;
-    if (!state.sel.length){
-      showDiag('No matching categories in dataset.'); return;
-    }
-    $panel.style.display='none';
-    renderCategory(state.idx);
+  document.addEventListener('change', (e)=>{
+    if (e.target && e.target.classList && e.target.classList.contains('category-checkbox')) updateStart();
+  });
+  document.getElementById('selectAll').addEventListener('click', ()=>{
+    document.querySelectorAll('.category-checkbox').forEach(cb=>cb.checked=true); updateStart();
+  });
+  document.getElementById('deselectAll').addEventListener('click', ()=>{
+    document.querySelectorAll('.category-checkbox').forEach(cb=>cb.checked=false); updateStart();
   });
 
-  el('skipBtn').addEventListener('click', ()=>{ state.idx++; renderCategory(state.idx); });
-  el('nextBtn').addEventListener('click', ()=>{ state.idx++; renderCategory(state.idx); });
+  startBtn.addEventListener('click', ()=>{
+    const want = new Set(selected().map(s=>s.toLowerCase()));
+    S.sel = S.cats.filter(c=>want.has(c.category.toLowerCase()));
+    S.i = 0;
+    if (!S.sel.length){ showDiag('No matching categories in dataset.'); return; }
+    // Collapse the panel like the classic page
+    panel.classList.remove('open');
+    content.classList.add('full');
+    renderCat(S.i);
+  });
+  document.getElementById('skip').addEventListener('click', ()=>{ S.i++; renderCat(S.i); });
+  document.getElementById('next').addEventListener('click', ()=>{ S.i++; renderCat(S.i); });
 
   // Boot
   try{
-    const {json,src,errs} = await getData();
-    state.cats = normalize(json);
-    renderPanel(state.cats);
-    $status.textContent = `Loaded ${state.cats.length} categories`;
+    const {json,src,errs} = await fetchData();
+    S.cats = normalize(json);
+    renderPanel(S.cats);
+    status.textContent = `Loaded ${S.cats.length} categories`;
     if (errs?.length) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
   }catch(e){
-    showDiag(e.message + '\nYou can still use this page once /data/kinks.json is published.');
-    $status.textContent = 'Dataset unavailable';
+    showDiag((e?.message||e) + '\nThis page will populate once /data/kinks.json is published.');
+    status.textContent = 'Dataset unavailable';
   }
 })();
 </script>
