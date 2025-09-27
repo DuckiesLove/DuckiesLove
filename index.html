@@ -184,5 +184,42 @@
 })();
 </script>
 <!-- ---------- End Safe Bootstrap ---------- -->
+<!-- TK: start->/ (home only) -->
+<script>
+(function(){
+  function go(e){
+    try{ e && e.preventDefault(); }catch(_){ }
+    try{ location.assign('/'); }catch(_){ location.href = '/'; }
+  }
+  function bind(el){
+    if(!el) return false;
+    try{ el.removeAttribute('disabled'); }catch(_){ }
+    el.style && (el.style.pointerEvents = 'auto');
+    el.addEventListener('click', go, { passive: false });
+    return true;
+  }
+
+  var ids = ['startSurvey','startSurveyBtn','start'];
+  var bound = false;
+
+  // Try common IDs first
+  for (var i=0; i<ids.length && !bound; i++){
+    bound = bind(document.getElementById(ids[i]));
+  }
+
+  // Then try by text match
+  if (!bound) {
+    var nodes = Array.from(document.querySelectorAll('a,button'));
+    for (var j=0; j<nodes.length && !bound; j++){
+      var el = nodes[j];
+      var txt = (el.textContent || '').trim().toLowerCase();
+      if (txt === 'start survey' || (txt.includes('start') && txt.includes('survey'))) {
+        bound = bind(el);
+      }
+    }
+  }
+})();
+</script>
+<!-- /TK: start->/ (home only) -->
 </body>
 </html>
