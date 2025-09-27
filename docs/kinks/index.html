@@ -17,7 +17,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Talk Kink</title>
-<link rel="stylesheet" href="/css/fonts-failopen.css">
+<link rel="stylesheet" href="/css/font-failopen.css">
 
 </head>
 <body class="theme-dark has-category-panel">
@@ -49,7 +49,7 @@
       <option value="lipstick">Lipstick</option>
       <option value="forest">Forest</option>
     </select>
-<button id="startSurveyBtn" class="themed-button start-survey-btn" disabled>Start Survey</button>
+<button id="startSurvey" data-legacy-id="startSurveyBtn" class="themed-button start-survey-btn" disabled>Start Survey</button>
 
     <div id="warning" class="warning"></div>
   </div>
@@ -155,7 +155,7 @@
     window.applyThemeColors = applyThemeColors;
 
     const onReady = () => {
-      const startButton = document.getElementById('startSurveyBtn');
+      const startButton = document.getElementById('startSurvey') || document.getElementById('startSurveyBtn');
       const warningEl = document.getElementById('warning');
       const diagnosticsEl = document.getElementById('kinksDiagnostics');
       const panelEl = document.getElementById('categorySurveyPanel');
@@ -358,7 +358,7 @@
 
  5) Optional: If your Start Survey button doesn’t render anything, ensure it binds:
       document.addEventListener('DOMContentLoaded', () => {
-        document.querySelector('#startSurvey')?.addEventListener('click', KINKS_boot);
+        document.querySelector('#startSurvey,#startSurveyBtn')?.addEventListener('click', KINKS_boot);
       });
 
  That’s all! If your dataset is valid, ALL categories/items will render or be reported as skipped with reasons.
