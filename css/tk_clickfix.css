@@ -1,0 +1,8 @@
+/* TalkKink /kinks/ – click-through & start-button shielding */
+.category-panel, .category-panel * { pointer-events: auto !important; cursor: auto !important; }
+.category-panel { position: relative; z-index: 10000 !important; }
+
+/* If Start is disabled, it must not sit on top and steal clicks */
+#startSurvey[disabled],
+#startSurveyBtn[disabled] { pointer-events: none !important; }
+
