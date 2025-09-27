@@ -17,6 +17,13 @@ test('kink survey available without authentication', async t => {
 
   const jsonRes = await fetch(`${base}/data/kinks.json`);
   assert.strictEqual(jsonRes.status, 200);
+  assert.match(jsonRes.headers.get('content-type') || '', /^application\/json/i);
   const data = await jsonRes.json();
   assert.ok(Array.isArray(data.categories) || data.length);
+
+  const fallbackRes = await fetch(`${base}/kinks.json`);
+  assert.strictEqual(fallbackRes.status, 200);
+  assert.match(fallbackRes.headers.get('content-type') || '', /^application\/json/i);
+  const fallbackData = await fallbackRes.json();
+  assert.deepStrictEqual(fallbackData, data);
 });

@@ -43,16 +43,29 @@ function serveFile(res, filePath) {
 http.createServer((req, res) => {
   try {
     const reqPath = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
-    let filePath = path.join(ROOT, reqPath);
+
+    let relativePath = reqPath;
+    if (relativePath === "/") {
+      relativePath = "/index.html";
+    } else if (relativePath.endsWith("/")) {
+      relativePath += "index.html";
+    }
+
+    const normalized = path
+      .normalize(relativePath)
+      .replace(/^([\\/]*\.\.[\\/])+/, "");
+    const safeRelative = normalized.startsWith(path.sep)
+      ? normalized.slice(1)
+      : normalized;
+
+    let filePath = path.join(ROOT, safeRelative);
+
+    if (reqPath === "/kinks.json") {
+      filePath = path.join(ROOT, "data", "kinks.json");
+    }
 
     // security: prevent path traversal
     if (!filePath.startsWith(ROOT)) return send(res, 403, "Forbidden");
-
-    // default to index for trailing slash
-    if (reqPath.endsWith("/")) filePath = path.join(filePath, "index.html");
-
-    // if requesting root, try index.html
-    if (reqPath === "/") filePath = path.join(ROOT, "index.html");
 
     fs.stat(filePath, (err, stat) => {
       if (!err && stat.isFile()) return serveFile(res, filePath);

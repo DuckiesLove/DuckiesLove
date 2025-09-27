@@ -341,17 +341,31 @@ app.use((req, res, next) => {
 // Serve kink survey and data without auth
 app.use((req, res, next) => {
   if (
-    req.method === 'GET' &&
+    (req.method === 'GET' || req.method === 'HEAD') &&
     (req.url === '/kinks/' || req.url === '/kinks' || req.url === '/kinks/index.html')
   ) {
+    if (req.method === 'HEAD') {
+      res.statusCode = 200;
+      res.end();
+      return;
+    }
     sendFile(res, path.join(__dirname, 'kinks', 'index.html'));
     return;
   }
-  if (req.method === 'GET' && (req.url === '/data/kinks.json' || req.url === '/kinks.json')) {
+  if (
+    (req.method === 'GET' || req.method === 'HEAD') &&
+    (req.url === '/data/kinks.json' || req.url === '/kinks.json')
+  ) {
     readFile(path.join(__dirname, 'data', 'kinks.json'))
       .then(data => {
+        const size = data.length;
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Length', size);
+        if (req.method === 'HEAD') {
+          res.end();
+          return;
+        }
         res.end(data);
       })
       .catch(() => {
