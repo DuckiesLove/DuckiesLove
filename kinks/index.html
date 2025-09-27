@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- TK: log gate (filters/throttles [KINKS-UNSQUISH]) -->
+  <script src="/js/tk_log_gate.js"></script>
   <!-- TK: grouped→flat JSON shim -->
   <script src="/js/kinks_fetch_compat.js"></script>
   <script>
@@ -776,7 +778,7 @@ How to use
 
 <script>
 (() => {
-  const LOG = (...a) => console.log("[KINKS-UNSQUISH]", ...a);
+  const LOG = (...a) => { try { if (typeof window !== 'undefined' && !window.__tk_shouldLog) return; } catch {} console.log('[KINKS-UNSQUISH]', ...a); };
 
   // 6) Unclamp anything that forces short/squished tracker panes
   function unclampOnce(root = document) {
@@ -860,8 +862,12 @@ How to use
 
   // 0) quiet the spammy logger
   const _log = console.log.bind(console);
+  const allowUnsquish = () => {
+    try { return typeof window !== 'undefined' && window.__tk_shouldLog; }
+    catch (_) { return false; }
+  };
   console.log = (...a) => {
-    if (String(a?.[0] ?? "").includes("[KINKS-UNSQUISH]")) return;
+    if (String(a?.[0] ?? "").includes("[KINKS-UNSQUISH]") && !allowUnsquish()) return;
     _log(...a);
   };
 
