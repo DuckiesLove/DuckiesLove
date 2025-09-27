@@ -222,4 +222,10 @@
   } else {
     boot();
   }
+
+  try {
+    window.tkKinkSurveyBoot = boot;
+  } catch (err) {
+    /* noop */
+  }
 })();
