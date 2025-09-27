@@ -1,5 +1,6 @@
 // Diagnose why /kinks/ won't render: missing JSON vs HTML rewrite (Node 18+)
-const BASE = process.env.KINKS_BASE || "https://talkkink.org";
+const baseArg = process.argv[2];
+const BASE = baseArg || process.env.KINKS_BASE || "https://talkkink.org";
 const paths = ["/data/kinks.json","/kinks.json","./data/kinks.json","./kinks.json"];
 
 const urlOf = p => new URL(p, BASE).toString();
@@ -19,13 +20,25 @@ async function probe(u) {
 
 (async () => {
   const results = [];
-  for (const p of paths) results.push(await probe(urlOf(p)));
+  const seen = new Set();
+  for (const p of paths) {
+    const url = urlOf(p);
+    if (seen.has(url)) continue;
+    seen.add(url);
+    results.push(await probe(url));
+  }
+
+  console.error(`ℹ️ Checking JSON endpoints for ${BASE}`);
 
   // nothing reachable
   const ok200 = results.filter(r => r.ok);
   if (ok200.length === 0) {
-    console.error("❌ No JSON endpoint returned 200.", results.map(r => ({url:r.url, status:r.status})));
-    console.error("Likely: data/kinks.json not published or blocked by server.");
+    console.error("❌ No JSON endpoint returned 200.");
+    for (const r of results) {
+      const detail = r.err ? ` (${r.err})` : "";
+      console.error(`   • ${r.url} → ${r.status}${detail}`);
+    }
+    console.error("Likely: data/kinks.json is unpublished, blocked by the server, or the domain is unreachable.");
     process.exit(1);
   }
 
