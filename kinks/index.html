@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- TK: passive event shim -->
+  <script src="/js/tk_passive_events.js"></script>
   <!-- TK: hard-block Google Fonts early -->
   <script src="/js/tk_block_fonts.js"></script>
   <!-- TK-LOG-GATE inline -->
@@ -103,6 +105,7 @@
   <title>Talk Kink</title>
   <!-- TK: system-font fallback (loads after main CSS) -->
   <link rel="stylesheet" href="/css/font-failopen.css">
+  <link rel="stylesheet" href="/css/touch-passive.css">
 </head>
 <body class="theme-dark has-category-panel">
   <script id="kinks-embedded-data" type="application/json">[]</script>
