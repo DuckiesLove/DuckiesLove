@@ -100,7 +100,14 @@
 
   // Silence the noisy logger so DevTools stays responsive
   const origLog = console.log.bind(console);
-  console.log = (...a)=> { if (String(a?.[0]??'').includes('[KINKS-UNSQUISH]')) return; origLog(...a); };
+  const allowUnsquish = () => {
+    try { return typeof window !== 'undefined' && window.__tk_shouldLog; }
+    catch (_) { return false; }
+  };
+  console.log = (...a)=> {
+    if (String(a?.[0]??'').includes('[KINKS-UNSQUISH]') && !allowUnsquish()) return;
+    origLog(...a);
+  };
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') run();
   else d.addEventListener('DOMContentLoaded', run, { once:true });
