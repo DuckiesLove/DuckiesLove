@@ -1,0 +1,7 @@
+/* TK: Let clicks pass through the empty parts of the category column */
+.category-panel.open {
+  pointer-events: none !important;
+}
+.category-panel.open * {
+  pointer-events: auto !important;
+}
