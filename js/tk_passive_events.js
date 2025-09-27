@@ -13,7 +13,7 @@
   } catch {}
   if (!supportsPassive) return;
 
-  const PASSIVE_EVENTS = new Set(['touchstart','touchmove','touchend','touchcancel','wheel','mousewheel']);
+  const PASSIVE_EVENTS = new Set(['touchstart','touchmove','wheel','mousewheel']);
   const ET = (window.EventTarget || window.Node || function(){}).prototype;
   const origAdd = ET.addEventListener;
 
