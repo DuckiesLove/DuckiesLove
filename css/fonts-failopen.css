@@ -1,0 +1,15 @@
+/* TK fonts fail-open: force system stacks; safe across OSes */
+:root{
+  --tk-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+  --tk-font-serif: Georgia, "Times New Roman", Times, serif;
+  --tk-font-display: var(--tk-font-sans);
+}
+/* Make body and form controls safe immediately */
+html, body { font-family: var(--tk-font-sans) !important; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+/* Typical title classes (override if present) */
+h1, h2, h3, .title, .themed-title, .page-title { font-family: var(--tk-font-display) !important; }
+.serif, .prose, .copy { font-family: var(--tk-font-serif) !important; }
+/* When JS flags fallback mode, harden overrides */
+html.tk-font-fallback *, html.tk-font-fallback input, html.tk-font-fallback button, html.tk-font-fallback select, html.tk-font-fallback textarea {
+  font-family: inherit !important;
+}

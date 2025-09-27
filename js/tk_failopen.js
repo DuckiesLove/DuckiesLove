@@ -112,3 +112,39 @@
   if (document.readyState === 'complete' || document.readyState === 'interactive') run();
   else d.addEventListener('DOMContentLoaded', run, { once:true });
 })();
+
+/*! TK font fail-open: never let webfonts block interactivity */
+(function(){
+  function killGoogleFontLinks(){
+    var links = Array.from(document.querySelectorAll('link[rel="stylesheet"][href*="fonts.googleapis"], link[href*="fonts.gstatic"]'));
+    if (!links.length) return false;
+    links.forEach(l => { try { l.disabled = true; l.parentNode && l.parentNode.removeChild(l); } catch(e){} });
+    document.documentElement.classList.add('tk-font-fallback');
+    return true;
+  }
+
+  // If the CSS was already stripped, nothing to do.
+  // Otherwise, give fonts ~400ms; if still around, remove them.
+  var done = false;
+  function arm(){
+    if (done) return;
+    done = true;
+    setTimeout(killGoogleFontLinks, 400);
+  }
+
+  // Run ASAP
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', arm, { once:true });
+  } else {
+    arm();
+  }
+
+  // Also fail-open if the Font Loading API reports trouble
+  try {
+    if (document.fonts && document.fonts.status === 'loading') {
+      const t = setTimeout(() => { killGoogleFontLinks(); }, 700);
+      document.fonts.addEventListener('loadingdone', () => clearTimeout(t), { once:true });
+      document.fonts.addEventListener('loadingerror', () => { clearTimeout(t); killGoogleFontLinks(); }, { once:true });
+    }
+  } catch {}
+})();
