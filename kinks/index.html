@@ -1,6 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- TK-LOG-GATE inline -->
+  <script>
+  (function(){
+    try {
+      // Opt-in debug: ?tkdebug=1 or localStorage.tkdebug="1"
+      var sp = new URL(location.href).searchParams;
+      var TK_DEBUG = (sp.get('tkdebug') === '1') || (localStorage.getItem('tkdebug') === '1');
+      window.__tk_shouldLog = !!TK_DEBUG;
+
+      var lastUS = 0, THROTTLE = 1200; // throttle UNSQUISH logs to ≤ ~1/s
+      function gate(fn){
+        return function(){ 
+          try {
+            for (var i=0;i<arguments.length;i++){
+              var a = arguments[i];
+              if (typeof a === 'string' && a.indexOf('[KINKS-UNSQUISH]') !== -1){
+                if (!window.__tk_shouldLog) return;           // drop entirely unless debug
+                var now = Date.now(); if (now - lastUS < THROTTLE) return; // throttle
+                lastUS = now; 
+                break;
+              }
+            }
+          } catch(e){}
+          return fn.apply(this, arguments);
+        };
+      }
+      ['log','info','debug'].forEach(function(k){
+        if (typeof console[k] === 'function') {
+          var orig = console[k].bind(console);
+          // Make hard to undo later
+          Object.defineProperty(console, k, { configurable:false, enumerable:true, writable:false, value: gate(orig) });
+        }
+      });
+
+      // Small badge when debug is ON, so you know logs are flowing
+      if (window.__tk_shouldLog) {
+        var b = document.createElement('div');
+        b.textContent = 'tkdebug=1 (UNSQUISH throttled)';
+        b.style.cssText='position:fixed;bottom:10px;left:10px;z-index:2147483647;background:#0b0;color:#000;padding:4px 8px;border-radius:6px;font:12px system-ui';
+        (document.readyState==='loading')
+          ? document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(b); setTimeout(()=>b.remove(),1500); }, {once:true})
+          : (document.body.appendChild(b), setTimeout(()=>b.remove(),1500));
+      }
+    } catch(e){}
+  })();
+  </script>
+
   <!-- TK: log gate (filters/throttles [KINKS-UNSQUISH]) -->
   <script src="/js/tk_log_gate.js"></script>
   <!-- TK: grouped→flat JSON shim -->
