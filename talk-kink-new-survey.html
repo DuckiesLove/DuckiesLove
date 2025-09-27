@@ -3,75 +3,96 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Talk Kink — New Survey</title>
+<title>Talk Kink — Survey</title>
 <style>
   :root{
     --bg:#000; --fg:#e6ffff; --accent:#00e6ff;
-    /* Slightly different panel color (teal/blue) for contrast */
-    --panelStart:#0f2834;
-    --panelEnd:#0b1f27;
-    --panelEdge:#23e0ff80;       /* glow/edge */
-    --row:#0a1820;               /* rows inside panel */
-    --soft:#081218; --line:#00e5ff44;
+    --panelStart:#0f2834; --panelEnd:#0b1f27; --panelEdge:#23e0ff80;
+    --row:#0a1820; --soft:#08161c; --line:#00e5ff44;
     --btn:#071a1f; --btnb:#00e6ff; --btnfg:#eaffff;
     --barBg:#062028; --barFill:#13e0ff;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  .wrap{max-width:1000px;margin:32px auto;padding:0 16px}
-  h1{font-size:clamp(28px,5vw,48px);margin:0 0 20px 0;text-align:center}
 
+  /* WIDER PAGE */
+  .wrap{max-width:1440px;margin:28px auto;padding:0 20px}
+
+  h1{font-size:clamp(28px,5vw,48px);margin:0 0 18px 0;text-align:center}
+
+  /* HERO BUTTONS (centered) */
+  .hero{
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+    margin:8px auto 22px; text-align:center;
+  }
+  .heroRow{display:flex; gap:16px; flex-wrap:wrap; justify-content:center}
   .btn{
     display:inline-block;padding:14px 22px;border:2px solid var(--btnb);
-    border-radius:10px;background:var(--btn);color:var(--btnfg);
-    cursor:pointer;font-weight:700;transition:.15s
+    border-radius:12px;background:var(--btn);color:var(--btnfg);
+    cursor:pointer;font-weight:800;letter-spacing:.2px;transition:.15s
   }
   .btn[disabled]{opacity:.45;cursor:not-allowed}
   .btn:hover{transform:translateY(-1px)}
+  .btn.xl{padding:16px 26px;font-size:1.05rem}
+  .hero select{
+    padding:12px 14px;border:2px solid var(--btnb);border-radius:12px;
+    background:#05151a;color:var(--fg);font-weight:700
+  }
 
-  /* HIGH-CONTRAST CATEGORY PANEL (slightly different color) */
+  /* BIGGER, WIDER CATEGORY PANEL */
   .panel{
-    display:grid;gap:14px;grid-template-columns:1fr;max-height:none;
-    border:1px solid var(--panelEdge);border-radius:14px;
+    border:1px solid var(--panelEdge);border-radius:18px;
     background:linear-gradient(180deg, var(--panelStart) 0%, var(--panelEnd) 100%);
-    padding:16px;
     box-shadow:0 0 0 1px #00141a inset, 0 10px 28px #00121aa6;
+    padding:16px;
+    /* full width of the wide container */
+    width:100%;
+    max-height:78vh; overflow:auto; margin:0 auto;
   }
-  .panel h2{margin:0 0 6px 0}
+  .panelHeader{
+    position:sticky; top:0; z-index:5; padding:10px 12px; margin:-16px -16px 12px;
+    background:linear-gradient(180deg,#0d2b36 0%, #0c2028 100%);
+    border-bottom:1px solid #00f0ff33; border-radius:18px 18px 0 0;
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+  }
+  .status{opacity:.9; font-weight:700}
+
+  .alphaGroup{margin:14px 0 18px}
+  .alphaHeader{
+    position:sticky; top:56px; z-index:2;
+    padding:6px 10px; margin:0 0 10px 0; width:fit-content;
+    background:#04222b; border:1px solid #0cf2ff33; border-radius:999px; font-weight:900; color:#90f7ff
+  }
+  /* MORE COLUMNS ON WIDE VIEW — panel fills the 1440px container */
+  .alphaGrid{display:grid; gap:12px; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));}
   .row{
-    border:1px solid var(--line);border-radius:12px;
-    padding:12px 14px;background:var(--row)
+    border:1px solid var(--line);border-radius:12px;background:var(--row);
+    padding:12px 14px; transition:.12s box-shadow, .12s transform;
   }
-  .row label{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600}
-  .topbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-start;margin:10px 0 18px}
-  .status{opacity:.9}
+  .row:hover{box-shadow:0 0 0 1px #00e5ff55; transform:translateY(-1px)}
+  .row label{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:700}
 
-  .notice{margin:14px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:#071317}
-  .center{display:flex;justify-content:center}
-  .flow{display:flex;gap:12px;flex-wrap:wrap}
+  .notice{margin:14px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;background:#071317}
+  .center{display:flex;justify-content:center;margin-top:10px}
 
-  .survey{margin-top:24px;border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:16px}
+  /* SURVEY */
+  .survey{margin-top:24px;border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:16px}
   .catTitle{margin:0 0 8px 0;color:#7ef9ff}
-
-  /* Item rows */
   .item{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px dashed #00e5ff22}
   .item:first-child{border-top:0}
   select,input[type="text"]{
     padding:6px 8px;border:1px solid #144; border-radius:8px;background:#071820;color:var(--fg)
   }
 
-  /* PROGRESS header */
+  /* PROGRESS */
   .progress{
-    margin:8px 0 16px 0; padding:10px 12px; border-radius:10px;
+    margin:8px 0 16px 0; padding:10px 12px; border-radius:12px;
     background:linear-gradient(180deg,#0b2530 0%, #0b1e26 100%);
     border:1px solid #0cf2ff33;
   }
-  .progressTop{
-    display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;
-    font-weight:600
-  }
-  .bar{height:10px;border-radius:999px;background:var(--barBg);overflow:hidden;border:1px solid #093642}
+  .progressTop{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;font-weight:700}
+  .bar{height:12px;border-radius:999px;background:var(--barBg);overflow:hidden;border:1px solid #093642}
   .fill{height:100%;width:0%;background:linear-gradient(90deg,#08d7ff 0%, var(--barFill) 100%);box-shadow:0 0 6px #13e0ff}
   .counter{opacity:.95}
   a.home{color:var(--accent)}
@@ -79,26 +100,47 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Talk Kink — New Survey</h1>
+    <h1>Talk Kink — Survey</h1>
 
-    <!-- Category selection panel -->
-    <div class="panel" id="categoryPanel" aria-label="Category selection">
-      <div class="topbar">
+    <!-- HERO BUTTONS (center) -->
+    <section class="hero" aria-label="Main actions">
+      <div class="heroRow">
+        <button class="btn xl" id="heroStart">Start Survey</button>
+      </div>
+      <div class="heroRow">
+        <a class="btn" href="/compatibility/">Compatibility Page</a>
+        <a class="btn" href="/ika/">Individual Kink Analysis</a>
+        <a class="btn" href="/apply/">Request to Join Mischief Manor</a>
+      </div>
+      <div class="heroRow" aria-label="Theme">
+        <label style="display:flex;gap:10px;align-items:center">
+          <span style="font-weight:800">Theme</span>
+          <select id="themeSelect">
+            <option value="dark" selected>Dark</option>
+            <option value="lipstick">Lipstick</option>
+            <option value="forest">Forest</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- WIDE CATEGORY PANEL -->
+    <section class="panel" id="categoryPanel" aria-label="Category selection">
+      <div class="panelHeader">
         <button class="btn" id="selectAll">Select All</button>
         <button class="btn" id="deselectAll">Deselect All</button>
         <span class="status" id="statusMsg">Loading categories…</span>
       </div>
-      <div id="categoryList" class="flow" role="list"></div>
+      <div id="categoryList"></div>
       <div class="center">
-        <button class="btn" id="startBtn" disabled>Start Survey</button>
+        <button class="btn xl" id="startBtn" disabled>Start Survey</button>
       </div>
-    </div>
+    </section>
 
     <div id="diag" class="notice" style="display:none"></div>
 
-    <!-- Survey UI -->
-    <div id="survey" class="survey" style="display:none">
-      <!-- Category counter + progress -->
+    <!-- SURVEY -->
+    <section id="survey" class="survey" style="display:none">
       <div class="progress" role="group" aria-label="Progress">
         <div class="progressTop">
           <div class="counter" id="catCounter">Category 1 of 1</div>
@@ -115,12 +157,12 @@
         <button class="btn" id="skipBtn">Skip Category</button>
         <button class="btn" id="nextBtn">Next Category</button>
       </div>
-    </div>
+    </section>
 
-    <div id="done" class="notice" style="display:none">
+    <section id="done" class="notice" style="display:none">
       <h3>Survey complete!</h3>
       <p>You’ve reached the end of the selected categories. <a class="home" href="/">Back to home</a></p>
-    </div>
+    </section>
   </div>
 
 <script>
@@ -133,6 +175,7 @@
   const $list  = el('categoryList');
   const $status= el('statusMsg');
   const $diag  = el('diag');
+  const $heroStart = el('heroStart');
   const $start = el('startBtn');
   const $survey= el('survey');
   const $title = el('catTitle');
@@ -144,8 +187,8 @@
 
   const state = { cats:[], sel:[], idx:0 };
 
-  function tidy(s){ return String(s??'').replace(/\s+/g,' ').trim(); }
-  function looksHTML(t){ return /^\s*<!doctype html/i.test(t)||/<html[\s>]/i.test(t); }
+  const tidy = (s)=>String(s??'').replace(/\s+/g,' ').trim();
+  const looksHTML = (t)=>/^\s*<!doctype html/i.test(t)||/<html[\s>]/i.test(t);
 
   async function getData(){
     const errs=[];
@@ -180,13 +223,36 @@
     return out;
   }
 
+  /* ========== RENDER: WIDE, ALPHABETICAL PANEL ========== */
+  function groupAlpha(cats){
+    const grouped = new Map();
+    cats.forEach(c=>{
+      const ch = c.category.charAt(0).toUpperCase();
+      const key = /[A-Z]/.test(ch) ? ch : '#';
+      if(!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(c);
+    });
+    for (const [, arr] of grouped) arr.sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
+    const letters = Array.from(grouped.keys()).filter(l=>l!=='#').sort();
+    if (grouped.has('#')) letters.push('#');
+    return {grouped, letters};
+  }
+
   function renderPanel(cats){
     $list.innerHTML='';
-    cats.forEach(c=>{
-      const id='cb_'+Math.random().toString(36).slice(2,7);
-      const row=document.createElement('div'); row.className='row'; row.setAttribute('role','listitem');
-      row.innerHTML=`<label for="${id}"><input id="${id}" type="checkbox" value="${c.category}"> ${c.category}</label>`;
-      $list.appendChild(row);
+    const {grouped, letters} = groupAlpha(cats);
+    letters.forEach(letter=>{
+      const box = document.createElement('section'); box.className='alphaGroup';
+      const h = document.createElement('div'); h.className='alphaHeader'; h.textContent = letter;
+      const grid = document.createElement('div'); grid.className='alphaGrid';
+      grouped.get(letter).forEach(c=>{
+        const id='cb_'+Math.random().toString(36).slice(2,7);
+        const row=document.createElement('div'); row.className='row'; row.setAttribute('role','listitem');
+        row.innerHTML=`<label for="${id}"><input id="${id}" type="checkbox" value="${c.category}" checked> ${c.category}</label>`;
+        grid.appendChild(row);
+      });
+      box.appendChild(h); box.appendChild(grid);
+      $list.appendChild(box);
     });
     updateStart();
   }
@@ -195,30 +261,19 @@
     return Array.from($list.querySelectorAll('input[type="checkbox"]')).filter(cb=>cb.checked).map(cb=>cb.value);
   }
   function updateStart(){
-    const any = selected().length>0;
-    $start.disabled = !any;
-    $status.textContent = any ? `${selected().length} selected` : 'Choose one or more categories';
+    const sel = selected().length;
+    $start.disabled = sel===0;
+    $status.textContent = `${sel} selected / ${state.cats.length} total`;
   }
-
   function showDiag(msg){ $diag.style.display='block'; $diag.textContent=msg; }
 
-  /* ---------- progress helpers ---------- */
+  /* ---------- per-category progress ---------- */
   function isAnswered(ctrl){
-    const tag = ctrl.tagName;
-    if (tag === 'SELECT') {
-      // Count as answered when select is set to any 1–5
-      return ['1','2','3','4','5'].includes(ctrl.value);
-    }
-    if (ctrl.type === 'checkbox') {
-      // Checked = answered; unchecked = not answered
-      return ctrl.checked === true;
-    }
-    if (ctrl.type === 'text') {
-      return ctrl.value.trim().length > 0;
-    }
+    if (ctrl.tagName === 'SELECT') return ['1','2','3','4','5'].includes(ctrl.value);
+    if (ctrl.type === 'checkbox') return ctrl.checked === true;
+    if (ctrl.type === 'text') return ctrl.value.trim().length > 0;
     return false;
   }
-
   function setupQProgress(controls){
     function update(){
       const total = controls.length;
@@ -238,26 +293,22 @@
     if(!c){ $survey.style.display='none'; $done.style.display='block'; return; }
     $done.style.display='none';
     $survey.style.display='block';
-
-    // Category counter
     $catCounter.textContent = `Category ${i+1} of ${state.sel.length}`;
-
     $title.textContent = c.category;
     $items.innerHTML='';
     c.items.forEach(it=>{
       const row=document.createElement('div'); row.className='item';
       const inputId='k_'+it.id;
-      let control='';
+      let node='';
       const t=(it.type||'').toLowerCase();
       if (t==='bool'){
-        control = `<input type="checkbox" id="${inputId}" name="${it.id}">`;
+        node = `<input type="checkbox" id="${inputId}" name="${it.id}">`;
       } else if (t==='text'){
-        control = `<input type="text" id="${inputId}" name="${it.id}" placeholder="Your note">`;
+        node = `<input type="text" id="${inputId}" name="${it.id}" placeholder="Your note">`;
       } else {
-        /* SCALE with placeholder so progress starts at 0 until user picks 1–5 */
-        control =
+        node =
           `<select id="${inputId}" name="${it.id}">
-             <option value="" selected disabled hidden>–</option>
+             <option value="" selected hidden>–</option>
              <option value="1">1</option>
              <option value="2">2</option>
              <option value="3">3</option>
@@ -265,23 +316,36 @@
              <option value="5">5</option>
            </select>`;
       }
-      row.innerHTML = `${control} <label for="${inputId}">${it.label}</label>`;
+      row.innerHTML = `${node} <label for="${inputId}">${it.label}</label>`;
       $items.appendChild(row);
     });
-
-    // Progress for questions in this category
     const controls = Array.from($items.querySelectorAll('select,input[type="checkbox"],input[type="text"]'));
     setupQProgress(controls);
   }
 
   /* ---------- bindings ---------- */
-  $list.addEventListener('change', updateStart);
-  document.getElementById('selectAll').addEventListener('click', ()=>{ $list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); updateStart(); });
-  document.getElementById('deselectAll').addEventListener('click', ()=>{ $list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); updateStart(); });
+  $panel.addEventListener('change', (e)=>{
+    if (e.target && e.target.matches('input[type="checkbox"]')) updateStart();
+  });
+  document.getElementById('selectAll').addEventListener('click', ()=>{
+    $panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); updateStart();
+  });
+  document.getElementById('deselectAll').addEventListener('click', ()=>{
+    $panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); updateStart();
+  });
 
-  $start.addEventListener('click', ()=>{
+  // HERO start -> scroll to panel, focus Start button
+  $heroStart.addEventListener('click', ()=>{
+    $panel.scrollIntoView({behavior:'smooth', block:'start'});
+    setTimeout(()=> $start.focus(), 400);
+  });
+
+  document.getElementById('startBtn').addEventListener('click', ()=>{
     const want = new Set(selected().map(s=>s.toLowerCase()));
-    state.sel = state.cats.filter(c=>want.has(c.category.toLowerCase()));
+    state.sel = state.cats
+      .slice()
+      .filter(c=>want.has(c.category.toLowerCase()))
+      .sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'})); // alphabetical in survey too
     state.idx = 0;
     if (!state.sel.length){ showDiag('No matching categories in dataset.'); return; }
     $panel.style.display='none';
@@ -295,8 +359,8 @@
   try{
     const {json,src,errs} = await getData();
     state.cats = normalize(json);
+    state.cats.sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
     renderPanel(state.cats);
-    $status.textContent = `Loaded ${state.cats.length} categories`;
     if (errs?.length) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
   }catch(e){
     showDiag(e.message + '\nYou can still use this page once /data/kinks.json is published.');
