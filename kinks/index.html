@@ -526,7 +526,51 @@
     }
 
     if (Array.isArray(raw)){
-      raw.forEach(x=>pushCat(x?.category ?? x?.name, x?.items));
+      const grouped = new Map();
+      const order = [];
+      const ensureBucket = (cat)=>{
+        if (!grouped.has(cat)){
+          grouped.set(cat, []);
+          order.push(cat);
+        }
+        return grouped.get(cat);
+      };
+
+      for (const entry of raw){
+        const items = entry?.items;
+        if (Array.isArray(items)){
+          pushCat(entry?.category ?? entry?.name, items);
+          continue;
+        }
+
+        const catRaw = entry?.category ?? entry?.name;
+        const cat = tidy(catRaw);
+        const id = tidy(entry?.id || entry?.key || entry?.name || "");
+        const label = tidy(entry?.label || entry?.text || "");
+        const type = tidy(entry?.type || entry?.input || "scale");
+
+        if (!cat){
+          skipped.push({ where:"category-name-missing", item:entry });
+          continue;
+        }
+        if (!id || !label){
+          skipped.push({ where:`item-missing-id-or-label:${cat}`, item:entry });
+          continue;
+        }
+
+        ensureBucket(cat).push({ id, label, type });
+      }
+
+      for (const cat of order){
+        const items = grouped.get(cat) || [];
+        if (!items.length) continue;
+        const existing = out.find(c=>c.category === tidy(cat));
+        if (existing){
+          existing.items.push(...items);
+        } else {
+          pushCat(cat, items);
+        }
+      }
     } else if (isObj(raw)){
       Object.entries(raw).forEach(([k,v])=>pushCat(k, v));
     } else {
