@@ -86,9 +86,15 @@
       startRow.appendChild(startNode);
       usingExistingStart = true;
     } else {
-      startNode = el('button',{class:'tk-btn xl cta tk-cta', id:'tkHeroStart', type:'button'},'Start Survey');
+      startNode = el('button',{
+        class:'tk-btn xl cta tk-cta',
+        id:'tkHeroStart',
+        type:'button',
+      },'Start Survey');
       startRow.appendChild(startNode);
     }
+
+    startNode?.setAttribute?.('data-ksv-start','');
 
     const navRow = el('div',{class:'tk-row row row-nav'});
     navRow.appendChild(el('a',{class:'tk-pill cta tk-cta', href:'/compatibility/'},'Compatibility Page'));
@@ -120,7 +126,7 @@
         if (openPanel){
           event?.preventDefault?.();
           event?.stopImmediatePropagation?.();
-          openPanel({ focusFirst: true });
+          openPanel({ focusFirst: true, trigger: startNode });
           return;
         }
         const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
