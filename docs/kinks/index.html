@@ -52,8 +52,25 @@
     </select>
 <button id="startSurvey" data-legacy-id="startSurveyBtn" class="themed-button start-survey-btn" disabled>Start Survey</button>
 
-    <div id="warning" class="warning"></div>
+  <div id="warning" class="warning"></div>
   </div>
+  <div class="tk-toolbar" id="tkToolbar">
+    <button class="tk-btn tk-toolbar-btn primary" id="tkOpenDrawer" aria-haspopup="dialog" aria-controls="tkCategoryDrawer" aria-expanded="false">☰ Categories</button>
+    <span class="tk-chip" id="tkSelChip">0 selected</span>
+  </div>
+  <div id="tkDrawerBackdrop" tabindex="-1" aria-hidden="true"></div>
+  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-label="Select categories" aria-hidden="true">
+    <div class="tk-drawer-header">
+      <div class="tk-drawer-title">Select categories</div>
+      <div class="tk-drawer-actions">
+        <span class="tk-chip" id="tkCount">0 selected / 0 total</span>
+        <button class="tk-btn tk-toolbar-btn" id="tkCloseDrawer" title="Close">✕</button>
+      </div>
+    </div>
+    <div class="tk-drawer-body">
+      <div id="tkDrawerContent"></div>
+    </div>
+  </aside>
   <button id="panelToggle" class="panel-toggle" aria-label="Toggle category panel" aria-controls="categorySurveyPanel" aria-expanded="true">☰</button>
 
   <!-- Category selection panel -->
@@ -139,6 +156,144 @@
   <!-- Panel Container (still hidden until needed) -->
   <div id="panelContainer" class="panel-container" style="display:none;"></div>
 
+  <script>
+  (function(){
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+    const body = document.body;
+    const openBtn = $('#tkOpenDrawer');
+    const closeBtn = $('#tkCloseDrawer');
+    const backdrop = $('#tkDrawerBackdrop');
+    const drawer = $('#tkCategoryDrawer');
+    const content = $('#tkDrawerContent');
+    const chip = $('#tkSelChip');
+    const countBadge = $('#tkCount');
+
+    const applyCounts = (selected, total) => {
+      if (chip) chip.textContent = `${selected} selected`;
+      if (countBadge) countBadge.textContent = `${selected} selected / ${total} total`;
+    };
+
+    const allCheckboxes = () => {
+      const nodes = $$('input[type="checkbox"]', content);
+      return nodes.filter(cb =>
+        cb.classList.contains('category-checkbox') ||
+        cb.name === 'category' ||
+        cb.closest('.category-list')
+      );
+    };
+
+    const refreshCounts = () => {
+      const boxes = allCheckboxes();
+      const total = boxes.length;
+      const selected = boxes.filter(cb => cb.checked).length;
+      applyCounts(selected, total);
+    };
+
+    window.tkUpdateCategoryChip = applyCounts;
+
+    const focusableSelector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+    function openDrawer(){
+      body.classList.add('tk-drawer-open');
+      openBtn?.setAttribute('aria-expanded','true');
+      drawer?.setAttribute('aria-hidden','false');
+      backdrop?.setAttribute('aria-hidden','false');
+      setTimeout(() => {
+        const focusTarget = drawer?.querySelector(focusableSelector) || drawer;
+        focusTarget?.focus?.();
+      }, 10);
+      refreshCounts();
+    }
+
+    function closeDrawer(){
+      body.classList.remove('tk-drawer-open');
+      openBtn?.setAttribute('aria-expanded','false');
+      drawer?.setAttribute('aria-hidden','true');
+      backdrop?.setAttribute('aria-hidden','true');
+      openBtn?.focus?.();
+    }
+
+    const toggleDrawer = () => {
+      if (body.classList.contains('tk-drawer-open')){
+        closeDrawer();
+      } else {
+        openDrawer();
+      }
+    };
+
+    openBtn?.addEventListener('click', toggleDrawer);
+    closeBtn?.addEventListener('click', closeDrawer);
+    backdrop?.addEventListener('click', closeDrawer);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && body.classList.contains('tk-drawer-open')){
+        closeDrawer();
+      }
+    });
+
+    const changeHandler = (e) => {
+      if (e.target && e.target.matches('input[type="checkbox"]')){
+        refreshCounts();
+      }
+    };
+    content?.addEventListener('change', changeHandler);
+
+    const observer = new MutationObserver(() => refreshCounts());
+    if (content){
+      observer.observe(content, {childList:true, subtree:true, attributes:true, attributeFilter:['checked']});
+    }
+
+    const findCategoryRoot = () =>
+      document.getElementById('categorySurveyPanel')
+      || $('.category-panel')
+      || $('.category-list')?.closest('div')
+      || null;
+
+    function moveCategoryListOnce(){
+      const root = findCategoryRoot();
+      if (!root) return false;
+      const list = root.querySelector('.category-list');
+      if (!list) return false;
+      const catbar = root.querySelector('.tk-catbar');
+      if (content && catbar && !content.contains(catbar)) {
+        content.appendChild(catbar);
+      }
+      if (content && !content.contains(list)) {
+        content.appendChild(list);
+      }
+      if (root !== list){
+        root.classList.add('tk-original-panel-hidden');
+      }
+      refreshCounts();
+      return true;
+    }
+
+    function ready(){
+      if (!moveCategoryListOnce()){
+        let tries = 0;
+        const t = setInterval(() => {
+          if (moveCategoryListOnce() || ++tries > 25){
+            clearInterval(t);
+          }
+        }, 150);
+      }
+    }
+
+    if (document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', ready, {once:true});
+    } else {
+      ready();
+    }
+
+    window.tkCategoriesDrawer = {
+      open: openDrawer,
+      close: closeDrawer,
+      refresh: refreshCounts
+    };
+  })();
+  </script>
+
   <!-- Theme & Survey Logic -->
   <script type="module">
     const getThemeModule = async () => {
@@ -159,8 +314,8 @@
       const startButton = document.getElementById('startSurvey') || document.getElementById('startSurveyBtn');
       const warningEl = document.getElementById('warning');
       const diagnosticsEl = document.getElementById('kinksDiagnostics');
-      const panelEl = document.getElementById('categorySurveyPanel');
       const panelToggleBtn = document.getElementById('panelToggle');
+      const getDrawerApi = () => window.tkCategoriesDrawer;
       const categoriesLeftEl = document.getElementById('categoriesLeft');
 
       const getCheckboxes = () => Array.from(document.querySelectorAll('.category-checkbox'))
@@ -187,18 +342,23 @@
       };
 
       const collapsePanel = () => {
-        if (!panelEl) return;
-        panelEl.classList.remove('open');
+        const drawer = getDrawerApi();
+        drawer?.close?.();
         if (panelToggleBtn) {
           panelToggleBtn.setAttribute('aria-expanded', 'false');
         }
       };
 
       const togglePanel = () => {
-        if (!panelEl) return;
-        const isOpen = panelEl.classList.toggle('open');
-        if (panelToggleBtn) {
-          panelToggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        const drawer = getDrawerApi();
+        if (!drawer) return;
+        const isOpen = document.body.classList.contains('tk-drawer-open');
+        if (isOpen) {
+          drawer.close?.();
+          panelToggleBtn?.setAttribute('aria-expanded', 'false');
+        } else {
+          drawer.open?.();
+          panelToggleBtn?.setAttribute('aria-expanded', 'true');
         }
       };
 
@@ -216,6 +376,7 @@
             showWarning('');
             updateStartButtonState();
             updateCategoriesCounter();
+            getDrawerApi()?.refresh?.();
           });
         });
       };
@@ -258,6 +419,7 @@
           showWarning('');
           updateStartButtonState();
           updateCategoriesCounter();
+          getDrawerApi()?.refresh?.();
         });
       }
 
@@ -270,6 +432,7 @@
           showWarning('');
           updateStartButtonState();
           updateCategoriesCounter();
+          getDrawerApi()?.refresh?.();
         });
       }
 
@@ -280,6 +443,7 @@
         showWarning('');
         updateStartButtonState();
         updateCategoriesCounter();
+        getDrawerApi()?.refresh?.();
       };
 
       window.deselectAllCategories = () => {
@@ -289,11 +453,13 @@
         showWarning('');
         updateStartButtonState();
         updateCategoriesCounter();
+        getDrawerApi()?.refresh?.();
       };
 
       bindCheckboxes();
       updateStartButtonState();
       updateCategoriesCounter();
+      getDrawerApi()?.refresh?.();
     };
 
     if (document.readyState === 'loading') {

@@ -8,6 +8,10 @@
   --tk-btn-bd:#00e6ff77;
   --tk-btn-bg:transparent;
   --tk-btn-fg:var(--tk-fg);
+  --tk-toolbar-bg:#06090c;
+  --tk-toolbar-panel:#0c1820;
+  --tk-toolbar-panel2:#0f212c;
+  --tk-toolbar-shadow:0 10px 30px rgba(0,0,0,.45);
 }
 
 .tk-hero{
@@ -46,6 +50,94 @@
   background:#071a1f; color:#eaffff; border:2px solid var(--tk-btn-bd);
   border-radius:10px; padding:8px 12px; outline:none;
 }
+
+/* Pop-out categories toolbar + drawer */
+.tk-toolbar{
+  position:sticky; top:0; z-index:40;
+  display:flex; gap:12px; align-items:center; justify-content:center;
+  background:linear-gradient(to bottom, rgba(6,9,12,.95), rgba(6,9,12,.6) 60%, rgba(6,9,12,0));
+  padding:12px 12px 16px;
+  backdrop-filter:blur(6px);
+}
+
+.tk-toolbar .tk-chip{margin-left:4px}
+
+.tk-btn.tk-toolbar-btn{
+  appearance:none;
+  border:2px solid var(--tk-accent);
+  color:var(--tk-fg);
+  background:transparent;
+  border-radius:12px;
+  padding:10px 16px;
+  font:600 16px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  cursor:pointer;
+  transition:transform .05s ease, box-shadow .2s ease, background .2s ease;
+  box-shadow:0 0 0 0 rgba(0,230,255,.35) inset;
+}
+
+.tk-btn.tk-toolbar-btn:hover{background:rgba(0,230,255,.08)}
+.tk-btn.tk-toolbar-btn:active{transform:translateY(1px)}
+.tk-btn.tk-toolbar-btn.primary{background:rgba(0,230,255,.12)}
+
+#tkDrawerBackdrop{
+  position:fixed; inset:0; background:rgba(0,0,0,.45);
+  backdrop-filter:blur(2px); z-index:60; display:none;
+}
+
+#tkCategoryDrawer{
+  position:fixed; left:0; top:0; height:100dvh; width:min(420px,92vw);
+  background:linear-gradient(180deg, var(--tk-toolbar-panel2), #0a151d);
+  color:var(--tk-fg);
+  border-right:2px solid rgba(0,230,255,.35);
+  box-shadow:var(--tk-toolbar-shadow);
+  transform:translateX(-100%);
+  transition:transform .22s ease;
+  z-index:61;
+  display:grid; grid-template-rows:auto 1fr;
+}
+
+.tk-drawer-header{
+  padding:14px 14px 10px; border-bottom:1px solid rgba(0,230,255,.18);
+  display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;
+}
+
+.tk-drawer-title{
+  font:700 18px/1.25 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  letter-spacing:.2px;
+}
+
+.tk-drawer-actions{
+  display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
+}
+
+.tk-chip{
+  font:700 13px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  color:var(--tk-fg);
+  background:rgba(0,230,255,.12);
+  border:1px solid rgba(0,230,255,.3);
+  padding:6px 10px;
+  border-radius:999px;
+}
+
+.tk-drawer-body{overflow:auto; padding:12px 12px 16px;}
+
+body.tk-drawer-open #tkDrawerBackdrop{display:block}
+body.tk-drawer-open #tkCategoryDrawer{transform:translateX(0)}
+
+.tk-original-panel-hidden{display:none !important}
+
+#tkCategoryDrawer .category-list label,
+#tkCategoryDrawer .category-list .category-row{
+  display:grid; grid-template-columns:auto 1fr; align-items:center;
+  gap:10px; padding:10px 12px; margin:8px 0;
+  border:1px solid rgba(0,230,255,.18);
+  border-radius:12px;
+  background:rgba(255,255,255,.02);
+}
+
+#tkCategoryDrawer .category-list label:hover{background:rgba(255,255,255,.05)}
+
+#tkDrawerContent .category-list{margin:0}
 
 /* Wider, easier-to-see category panel */
 .tk-wide-panel{
