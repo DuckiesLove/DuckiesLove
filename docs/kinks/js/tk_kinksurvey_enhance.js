@@ -116,27 +116,37 @@
 
   function enhancePanel(){
     const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
-    if (!panel) return;
+    const drawerContent = $('#tkDrawerContent');
+    const enhanceScope = drawerContent || panel;
+    if (!enhanceScope) return;
 
-    const listHost = panel.querySelector('.category-list') || panel;
+    const listHost = enhanceScope.querySelector('.category-list')
+      || panel?.querySelector?.('.category-list');
+    if (!listHost){
+      ensureObserver(panel || enhanceScope);
+      return;
+    }
+
     const checkboxes = Array.from(listHost.querySelectorAll('input[type="checkbox"]'));
     if (!checkboxes.length){
       ensureObserver(listHost);
       return;
     }
 
-    if (panel.dataset.tkEnhanced === '1'){
-      updateCounter(panel);
+    const datasetNode = panel || enhanceScope;
+    if (datasetNode.dataset.tkEnhanced === '1'){
+      updateCounter(datasetNode);
       return;
     }
-    panel.dataset.tkEnhanced = '1';
+    datasetNode.dataset.tkEnhanced = '1';
 
-    panel.classList.add('tk-wide-panel');
-    panel.querySelector('.tk-catbar')?.remove();
+    panel?.classList.add('tk-wide-panel');
+
+    listHost.parentElement?.querySelector('.tk-catbar')?.remove();
 
     const topBar = el('div',{class:'tk-catbar'});
-    const selectAll = $('#selectAll', panel) || panel.querySelector('button#selectAll');
-    const deselectAll = $('#deselectAll', panel) || panel.querySelector('button#deselectAll');
+    const selectAll = $('#selectAll', enhanceScope) || $('#selectAll', panel) || enhanceScope.querySelector('button#selectAll');
+    const deselectAll = $('#deselectAll', enhanceScope) || $('#deselectAll', panel) || enhanceScope.querySelector('button#deselectAll');
     const originalRow = selectAll?.parentElement === deselectAll?.parentElement ? selectAll?.parentElement : null;
 
     if (selectAll) topBar.appendChild(selectAll);
@@ -144,7 +154,9 @@
 
     const counter = el('div',{class:'tk-counter', id:'tkCatCounter'},'0 selected / 0 total');
     topBar.appendChild(counter);
-    panel.insertBefore(topBar, listHost);
+
+    const parentForList = listHost.parentElement || enhanceScope;
+    parentForList.insertBefore(topBar, listHost);
 
     if (originalRow && originalRow !== topBar){
       const hasContent = Array.from(originalRow.childNodes).some(node => {
@@ -193,6 +205,9 @@
       const total = items.length;
       const selected = items.reduce((count, item) => count + (item.cb.checked ? 1 : 0), 0);
       counter.textContent = `${selected} selected / ${total} total`;
+      if (typeof window.tkUpdateCategoryChip === 'function') {
+        window.tkUpdateCategoryChip(selected, total);
+      }
     };
 
     items.forEach(item => item.cb.addEventListener('change', update));
@@ -203,13 +218,17 @@
   }
 
   function updateCounter(panel){
-    const counter = panel.querySelector('#tkCatCounter');
+    const counter = panel?.querySelector?.('#tkCatCounter') || document.querySelector('#tkCatCounter');
     if (!counter) return;
-    const checkboxes = panel.querySelectorAll('input[type="checkbox"]');
+    const scope = document.querySelector('#tkDrawerContent') || panel || document;
+    const checkboxes = scope.querySelectorAll('input[type="checkbox"]');
     const total = checkboxes.length;
     let selected = 0;
     checkboxes.forEach(cb => { if (cb.checked) selected += 1; });
     counter.textContent = `${selected} selected / ${total} total`;
+    if (typeof window.tkUpdateCategoryChip === 'function') {
+      window.tkUpdateCategoryChip(selected, total);
+    }
   }
 
   function boot(){
