@@ -2,6 +2,7 @@
 (function(){
   const $ = (sel, root = document) => root?.querySelector?.(sel) || null;
   const $$ = (sel, root = document) => (root?.querySelectorAll ? Array.from(root.querySelectorAll(sel)) : []);
+  const byText = (sel, re, root = document) => $$(sel, root).find(node => re.test((node.textContent || "").trim())) || null;
   const el = (tag, attrs = {}, html = "") => {
     const node = document.createElement(tag);
     Object.entries(attrs).forEach(([key, value]) => {
@@ -14,6 +15,27 @@
   };
 
   const START_SELECTORS = ['#startSurvey','#start','#startBtn','#startSurveyBtn','[data-start]'];
+  const isKinkSurvey = /^\/kinksurvey\/?$/i.test(location.pathname || "");
+  if (!isKinkSurvey) return;
+
+  if (document.body) document.body.dataset.kinksurvey = '1';
+
+  removeRequestButtons();
+
+  function removeRequestButtons(){
+    const killers = [
+      '#requestJoinBtn',
+      'button[data-action="request-join"]',
+      'a[href="/join"]',
+      'a[href*="mischief"][href*="join"]',
+      'a[href*="request"][href*="join"]'
+    ];
+    killers.forEach(sel => {
+      $$(sel).forEach(node => node.remove());
+    });
+    const byLabel = byText('a,button', /request\s+to\s+join\s+mischief\s+manor/i);
+    if (byLabel) byLabel.remove();
+  }
 
   function findStartButton(){
     for (const sel of START_SELECTORS) {
@@ -49,32 +71,31 @@
     const anchor = legacyWrap || $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel') || wrap?.firstChild;
     if (!wrap || !anchor) return;
 
-    const hero = el('section',{class:'tk-hero','aria-label':'Main actions'});
+    const hero = el('section',{class:'tk-hero','aria-label':'Main actions', id:'tk-hero'});
     hero.appendChild(el('h1',{class:'tk-title'},'Talk Kink — Survey'));
 
-    const heroTop = el('div',{class:'tk-heroTop'});
+    const startRow = el('div',{class:'row row-start'});
+    hero.appendChild(startRow);
     let startNode = findStartButton();
     let usingExistingStart = false;
     if (legacyWrap && startNode && legacyWrap.contains(startNode)){
-      startNode.classList.add('tk-btn','xl');
-      heroTop.appendChild(startNode);
+      startNode.classList.add('tk-btn','xl','cta');
+      startRow.appendChild(startNode);
       usingExistingStart = true;
     } else {
-      startNode = el('button',{class:'tk-btn xl', id:'tkHeroStart', type:'button'},'Start Survey');
-      heroTop.appendChild(startNode);
+      startNode = el('button',{class:'tk-btn xl cta', id:'tkHeroStart', type:'button'},'Start Survey');
+      startRow.appendChild(startNode);
     }
-    hero.appendChild(heroTop);
 
-    const pillRow = el('div',{class:'tk-heroRow'});
-    pillRow.innerHTML = `
-      <a class="tk-pill" href="/compatibility/">Compatibility Page</a>
-      <a class="tk-pill" href="/ika/">Individual Kink Analysis</a>
-    `;
-    hero.appendChild(pillRow);
+    const navRow = el('div',{class:'row row-nav'});
+    navRow.appendChild(el('a',{class:'tk-pill cta', href:'/compatibility/'},'Compatibility Page'));
+    navRow.appendChild(el('a',{class:'tk-pill cta', href:'/ika/'},'Individual Kink Analysis'));
+    hero.appendChild(navRow);
 
-    const themeRow = el('div',{class:'tk-heroRow', id:'tkThemeRow'});
+    const themeRow = el('div',{class:'row row-theme', id:'tkThemeRow'});
     hero.appendChild(themeRow);
     moveThemeInto(themeRow, legacyWrap);
+    if (!themeRow.childElementCount) themeRow.remove();
 
     if (anchor && anchor.parentNode === wrap) {
       wrap.insertBefore(hero, anchor);
