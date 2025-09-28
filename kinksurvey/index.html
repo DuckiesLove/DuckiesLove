@@ -58,7 +58,7 @@
 </style>
 
 <style>
-  :root { --panel-w: 320px; --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
+  :root { --panel-w: 320px; --tk-drawer-w: clamp(340px, 92vw, 980px); --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
   html,body{height:100%}
   body{
     margin:0;
@@ -88,7 +88,49 @@
     text-align:center;
   }
 
-  body.panel-open, body.drawer-open{ overflow:hidden; }
+  body.panel-open, body.drawer-open, body.tk-drawer-open{ overflow:hidden; }
+
+  .category-panel.tk-as-drawer{
+    position:fixed !important;
+    top:0; left:0; right:auto; bottom:0;
+    width:var(--tk-drawer-w);
+    max-width:var(--tk-drawer-w);
+    border-right:1px solid #00e6ff55;
+    box-shadow:0 0 0 1px #00e6ff22 inset;
+    transform:translateX(-104%);
+    transition:transform .28s ease;
+    z-index:10000;
+  }
+
+  body.tk-drawer-open .category-panel.tk-as-drawer{ transform:translateX(0); }
+
+  #tkScrim{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.35);
+    backdrop-filter:blur(1px);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease;
+    z-index:9999;
+  }
+
+  body.tk-drawer-open #tkScrim{
+    opacity:1;
+    pointer-events:auto;
+  }
+
+  .tk-close-drawer{
+    position:sticky;
+    top:0;
+    margin:10px 10px 8px auto;
+    padding:.55rem .9rem;
+    border-radius:10px;
+    cursor:pointer;
+    background:#0a0f14;
+    color:#aefcff;
+    border:1px solid #00e6ff55;
+  }
 
   /* Shift content when panel open */
   .content{
@@ -189,22 +231,93 @@
   const items = $('items');
   const done = $('done');
 
+  let scrim = document.getElementById('tkScrim');
+  if (!scrim){
+    scrim = document.createElement('div');
+    scrim.id = 'tkScrim';
+    document.body.appendChild(scrim);
+  }
+
+  if (panel){
+    panel.classList.add('tk-as-drawer');
+    panel.setAttribute('aria-expanded','false');
+    if (!panel.querySelector('.tk-close-drawer')){
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'tk-close-drawer';
+      closeBtn.textContent = 'Close ✕';
+      closeBtn.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
+      panel.prepend(closeBtn);
+    }
+  }
+
+  const triggerSelectors = '#startSurvey,#startSurveyBtn,#start,#tkHeroStart,[data-start-survey="1"]';
+
   function setDrawerState(open){
     const want = Boolean(open);
     if (panel){
       panel.classList.toggle('open', want);
+      panel.setAttribute('aria-expanded', want ? 'true' : 'false');
     }
     document.body.classList.toggle('panel-open', want);
+    document.body.classList.toggle('tk-drawer-open', want);
     toggle?.setAttribute('aria-expanded', want ? 'true' : 'false');
+    if (scrim){
+      scrim.style.opacity = want ? '1' : '0';
+      scrim.style.pointerEvents = want ? 'auto' : 'none';
+    }
   }
+
+  function openDrawer(options = {}){
+    const { focusFirst = true } = options;
+    setDrawerState(true);
+    if (focusFirst){
+      const focusTarget = panel?.querySelector('input,button,select,textarea,[tabindex]:not([tabindex="-1"])');
+      if (focusTarget){
+        setTimeout(()=>focusTarget.focus({ preventScroll: true }), 60);
+      }
+    }
+  }
+
+  function closeDrawer(options = {}){
+    const { focusToggle = false } = options;
+    setDrawerState(false);
+    if (focusToggle && toggle){
+      setTimeout(()=>toggle.focus({ preventScroll: true }), 60);
+    }
+  }
+
+  window.tkKinksurveyOpenPanel = (opts) => openDrawer(opts || {});
+  window.tkKinksurveyClosePanel = (opts) => closeDrawer(opts || {});
+
+  setDrawerState(false);
+
+  if (scrim && !scrim.dataset.tkBind){
+    scrim.dataset.tkBind = '1';
+    scrim.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
+  }
+
+  window.addEventListener('keydown', (event)=>{
+    if (event.key === 'Escape') closeDrawer({ focusToggle: true });
+  });
 
   // Toggle panel open/closed (like /kinks/)
   if (toggle && !toggle.dataset.tkBind){
-    toggle.addEventListener('click', ()=>{
-      const isOpen = !panel.classList.contains('open');
-      setDrawerState(isOpen);
+    toggle.dataset.tkBind = '1';
+    toggle.addEventListener('click', (event)=>{
+      event.preventDefault();
+      const isOpen = document.body.classList.contains('tk-drawer-open');
+      if (isOpen) closeDrawer({ focusToggle: false });
+      else openDrawer({ focusFirst: true });
     });
   }
+
+  document.addEventListener('click', (event)=>{
+    const trigger = event.target.closest(triggerSelectors);
+    if (!trigger || !panel || panel.contains(trigger)) return;
+    event.preventDefault();
+    openDrawer({ focusFirst: true });
+  });
 
   const S = { cats:[], sel:[], i:0 };
 
@@ -306,7 +419,7 @@
     S.i = 0;
     if (!S.sel.length){ showDiag('No matching categories in dataset.'); return; }
     // Collapse the panel like the classic page
-    setDrawerState(false);
+    closeDrawer({ focusToggle: false });
     renderCat(S.i);
   });
   document.getElementById('skip').addEventListener('click', ()=>{ S.i++; renderCat(S.i); });
