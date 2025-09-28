@@ -16,6 +16,8 @@
 
 <!-- TK /kinksurvey: keep hero centered & make category panel a fixed full-page drawer -->
 <style id="tk-kinksurvey-layout-fix">
+  :root{ --tk-drawer-w: min(980px, 72vw); }
+
   /* scope to this page only */
   body[data-kinksurvey] { contain: paint; }
 
@@ -34,10 +36,13 @@
   body[data-kinksurvey] .action-row a,
   body[data-kinksurvey] .action-row button{ margin:0 !important; }
 
-  /* Full-page drawer for the category panel (doesn't change page layout) */
+  /* Drawer hugs the left edge so hero/actions stay clickable on the right */
   #tkDrawer{
     position:fixed;
-    inset:0;
+    top:0;
+    left:0;
+    bottom:0;
+    width:var(--tk-drawer-w);
     transform:translateX(-100%);
     transition:transform .28s ease;
     pointer-events:none;
@@ -49,10 +54,31 @@
     position:absolute; inset:0;
     background:#071317;
     overflow:auto;
-    border-left:1px solid #00e6ff55;
+    border-right:1px solid #00e6ff55;
     box-shadow:0 0 0 1px #00e6ff22 inset;
   }
+  #tkDrawer .close-btn{
+    position:sticky; top:0; right:0; margin-left:auto;
+    display:inline-block; padding:.55rem .9rem; border-radius:10px;
+    background:#0a0f14; color:#aefcff; border:1px solid #00e6ff55;
+    cursor:pointer; z-index:1; margin:10px;
+  }
+
   body.drawer-open{ overflow:hidden; }
+  .drawer-open .tk-hero{
+    position:fixed;
+    right:clamp(12px, 3vw, 32px);
+    top:12vh;
+    width:min(28vw, 440px);
+    text-align:right;
+    z-index:2147483646;
+  }
+  .drawer-open .tk-hero .action-row{ justify-content:flex-end; gap:22px; }
+
+  @media (max-width: 900px){
+    .drawer-open .tk-hero{ top:6vh; width:44vw; }
+    .drawer-open .tk-hero .action-row{ gap:14px; }
+  }
 
   /* mobile nicety */
   @media (max-width: 720px){
@@ -64,85 +90,106 @@
 <script id="tk-kinksurvey-layout-fix-js">
 (function(){
   if (!/^\/kinksurvey\/?$/.test(location.pathname)) return;
-  document.body.setAttribute('data-kinksurvey','1');
 
-  // 1) Build the drawer shell (so it never participates in layout)
-  var drawer = document.getElementById('tkDrawer');
-  if (!drawer){
-    drawer = document.createElement('div');
-    drawer.id = 'tkDrawer';
-    drawer.innerHTML = '<div class="sheet" id="tkDrawerSheet"></div>';
-    document.body.appendChild(drawer);
-  }
+  function init(){
+    var body = document.body;
+    if (!body) return;
+    body.setAttribute('data-kinksurvey','1');
 
-  // 2) Move the existing category panel into the drawer (out of flow)
-  var panel = document.getElementById('categorySurveyPanel') || document.querySelector('.category-panel');
-  if (panel && panel.parentNode !== drawer.querySelector('#tkDrawerSheet')){
-    drawer.querySelector('#tkDrawerSheet').appendChild(panel);
-  }
-
-  // 3) Start Survey opens the drawer (no layout shift)
-  function bindStart(node){
-    if (node && !node.dataset.tkBind){
-      if (node.closest && node.closest('#tkDrawer')) return;
-      node.dataset.tkBind = '1';
-      node.addEventListener('click', function(e){
-        if (node.tagName !== 'BUTTON') e.preventDefault();
-        drawer.classList.add('open');
-        panel && panel.classList.add('open');
-        document.body.classList.add('drawer-open');
-        document.body.classList.add('panel-open');
-        var toggle = document.getElementById('panelToggle');
-        toggle && toggle.setAttribute('aria-expanded','true');
-      });
+    // 1) Build the drawer shell (so it never participates in layout)
+    var drawer = document.getElementById('tkDrawer');
+    if (!drawer){
+      drawer = document.createElement('div');
+      drawer.id = 'tkDrawer';
+      drawer.innerHTML = '<div class="sheet" id="tkDrawerSheet"></div>';
+      body.appendChild(drawer);
     }
-  }
-  bindStart(document.getElementById('startSurvey'));
-  bindStart(document.getElementById('start'));
-  bindStart(document.getElementById('startSurveyBtn'));
-  bindStart(document.getElementById('tkHeroStart'));
+    var sheet = drawer.querySelector('#tkDrawerSheet');
+    if (sheet && !document.getElementById('tkDrawerClose')){
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.id = 'tkDrawerClose';
+      closeBtn.className = 'close-btn';
+      closeBtn.textContent = 'Close ✕';
+      sheet.insertBefore(closeBtn, sheet.firstChild);
+      closeBtn.addEventListener('click', function(){ toggleDrawer(false); });
+    }
 
-  var heroObserver = null;
-  if (!document.getElementById('tkHeroStart')){
-    heroObserver = new MutationObserver(function(){
-      var heroStart = document.getElementById('tkHeroStart');
-      if (heroStart){
-        bindStart(heroStart);
-        if (heroObserver){
-          heroObserver.disconnect();
-          heroObserver = null;
+    // 2) Move the existing category panel into the drawer (out of flow)
+    var panel = document.getElementById('categorySurveyPanel') || document.querySelector('.category-panel');
+    if (panel && sheet && panel.parentNode !== sheet){
+      sheet.appendChild(panel);
+    }
+
+    function toggleDrawer(open){
+      var want = Boolean(open);
+      drawer.classList.toggle('open', want);
+      if (panel){
+        panel.classList.toggle('open', want);
+      }
+      body.classList.toggle('drawer-open', want);
+      body.classList.toggle('panel-open', want);
+      var toggle = document.getElementById('panelToggle');
+      toggle && toggle.setAttribute('aria-expanded', want ? 'true' : 'false');
+    }
+
+    // 3) Start Survey opens the drawer (no layout shift)
+    function bindStart(node){
+      if (node && !node.dataset.tkBind){
+        if (node.closest && node.closest('#tkDrawer')) return;
+        node.dataset.tkBind = '1';
+        node.addEventListener('click', function(e){
+          if (node.tagName !== 'BUTTON') e.preventDefault();
+          toggleDrawer(true);
+        });
+      }
+    }
+    bindStart(document.getElementById('startSurvey'));
+    bindStart(document.getElementById('start'));
+    bindStart(document.getElementById('startSurveyBtn'));
+    bindStart(document.getElementById('tkHeroStart'));
+
+    var heroObserver = null;
+    if (!document.getElementById('tkHeroStart')){
+      heroObserver = new MutationObserver(function(){
+        var heroStart = document.getElementById('tkHeroStart');
+        if (heroStart){
+          bindStart(heroStart);
+          if (heroObserver){
+            heroObserver.disconnect();
+            heroObserver = null;
+          }
         }
+      });
+      heroObserver.observe(body,{childList:true, subtree:true});
+    }
+
+    // 4) Click outside panel to close (optional)
+    drawer.addEventListener('click', function(e){
+      if (e.target === drawer){
+        toggleDrawer(false);
       }
     });
-    heroObserver.observe(document.body,{childList:true, subtree:true});
-  }
+    window.addEventListener('keydown', function(e){ if (e.key === 'Escape') toggleDrawer(false); });
 
-  // 4) Click outside panel to close (optional)
-  drawer.addEventListener('click', function(e){
-    if (e.target === drawer){
-      drawer.classList.remove('open');
-      panel && panel.classList.remove('open');
-      document.body.classList.remove('drawer-open');
-      document.body.classList.remove('panel-open');
-      var toggle = document.getElementById('panelToggle');
-      toggle && toggle.setAttribute('aria-expanded','false');
-    }
-  });
-
-  // 5) Ensure the two lower buttons are in a centering row; if not, auto-wrap them
-  var row = document.querySelector('.action-row');
-  if (!row){
-    var compat = Array.from(document.querySelectorAll('a,button')).find(function(el){ return /compatibility\s*page/i.test(el.textContent||''); });
-    var ika    = Array.from(document.querySelectorAll('a,button')).find(function(el){ return /individual\s*kink\s*analysis/i.test(el.textContent||''); });
-    if (compat && ika && compat.parentNode === ika.parentNode){
-      row = document.createElement('div');
-      row.className = 'action-row';
-      var parent = compat.parentNode;
-      parent.insertBefore(row, compat);
-      row.appendChild(compat);
-      row.appendChild(ika);
+    // 5) Ensure the two lower buttons are in a centering row; if not, auto-wrap them
+    var row = document.querySelector('.action-row');
+    if (!row){
+      var compat = Array.from(document.querySelectorAll('a,button')).find(function(el){ return /compatibility\s*page/i.test(el.textContent||''); });
+      var ika    = Array.from(document.querySelectorAll('a,button')).find(function(el){ return /individual\s*kink\s*analysis/i.test(el.textContent||''); });
+      if (compat && ika && compat.parentNode === ika.parentNode){
+        row = document.createElement('div');
+        row.className = 'action-row';
+        var parent = compat.parentNode;
+        parent.insertBefore(row, compat);
+        row.appendChild(compat);
+        row.appendChild(ika);
+      }
     }
   }
+
+  if (document.body) init();
+  else document.addEventListener('DOMContentLoaded', init, { once:true });
 })();
 </script>
 
@@ -269,7 +316,7 @@
   const $ = (id)=>document.getElementById(id);
   const panel = $('categorySurveyPanel');
   const toggle = $('panelToggle');
-  const drawer = document.getElementById('tkDrawer');
+  const getDrawer = () => document.getElementById('tkDrawer');
   const list = $('categoryList');
   const status = $('statusMsg');
   const startBtn = $('start');
@@ -281,6 +328,7 @@
 
   function setDrawerState(open){
     const want = Boolean(open);
+    const drawer = getDrawer();
     if (drawer){
       drawer.classList.toggle('open', want);
     }
@@ -294,6 +342,7 @@
 
   // Toggle panel open/closed (like /kinks/)
   toggle.addEventListener('click', ()=>{
+    const drawer = getDrawer();
     const isOpen = drawer ? !drawer.classList.contains('open') : !panel.classList.contains('open');
     setDrawerState(isOpen);
   });
