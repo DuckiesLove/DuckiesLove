@@ -90,6 +90,16 @@
 
   body.panel-open, body.drawer-open, body.tk-drawer-open{ overflow:hidden; }
 
+  body.tk-drawer-ready:not(.tk-drawer-open) #categorySurveyPanel{
+    visibility:hidden;
+    pointer-events:none;
+  }
+
+  body.tk-drawer-open #categorySurveyPanel{
+    visibility:visible;
+    pointer-events:auto;
+  }
+
   .category-panel.tk-as-drawer{
     position:fixed !important;
     top:0; left:0; right:auto; bottom:0;
@@ -183,7 +193,7 @@
 
 <button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="false">☰</button>
 
-<aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection">
+<aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection" aria-hidden="true">
   <h2 class="panel-title">Select categories</h2>
   <div class="top-buttons">
     <button id="selectAll" class="themed-button category-button">Select All</button>
@@ -258,6 +268,7 @@
     if (panel){
       panel.classList.toggle('open', want);
       panel.setAttribute('aria-expanded', want ? 'true' : 'false');
+      panel.setAttribute('aria-hidden', want ? 'false' : 'true');
     }
     document.body.classList.toggle('panel-open', want);
     document.body.classList.toggle('tk-drawer-open', want);
@@ -290,6 +301,7 @@
   window.tkKinksurveyOpenPanel = (opts) => openDrawer(opts || {});
   window.tkKinksurveyClosePanel = (opts) => closeDrawer(opts || {});
 
+  document.body.classList.add('tk-drawer-ready');
   setDrawerState(false);
 
   if (scrim && !scrim.dataset.tkBind){
