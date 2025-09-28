@@ -16,74 +16,84 @@
 
 <!-- TK/kinksurvey: center hero + real off-canvas panel -->
 <style>
-  /* Page scope */
+  /* Scope to this page only */
   body.tk-ksv { overflow-x: hidden; }
-  body.tk-ksv.has-category-panel { padding-left: 0; }
 
-  /* 1) HERO LAYOUT (title + buttons) */
-  #tkHero {
-    display: grid;
-    place-items: center;
-    gap: min(2.2rem, 4vw);
-    margin: min(7vh, 8rem) auto 0;
-    max-width: min(1100px, 92vw);
+  /* Hero section */
+  #ksvHeroStack{
+    display:grid;
+    place-items:center;
+    gap: clamp(18px, 2.6vh, 28px);
+    margin: clamp(28px, 6vh, 72px) auto 4vh;
+    padding: 0 4vw;
+    max-width: 1100px;
     transition: transform 280ms ease;
   }
-  #tkHero .tk-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: min(1.25rem, 3vw);
+  #ksvHeroStack h1{
+    margin:0 0 clamp(10px, 2vh, 16px) 0;
+    font-size: clamp(42px, 6.2vw, 84px);
+    font-weight: 800;
+    letter-spacing:.02em;
+    color:#fff;
+    text-align:center;
   }
-  /* Make CTAs consistent without fighting your theme */
-  #tkHero .tk-cta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 84px;
-    padding: 18px 28px;
-    border-radius: 16px;
-    line-height: 1.1;
-    box-sizing: border-box;
-    text-align: center;
-    white-space: nowrap;
+  .ksvButtons{
+    display:grid;
+    width: min(920px, 92vw);
+    gap: clamp(14px, 1.8vh, 18px);
+  }
+  .ksvBtn{
+    display:flex; align-items:center; justify-content:center;
+    height: clamp(64px, 11vh, 84px);
+    padding: 14px 22px;
+    border-radius: 14px;
+    border: 2px solid rgba(0,230,255,.9);
+    background: rgba(0,0,0,.25);
+    box-shadow: 0 0 0 2px rgba(0,230,255,.15) inset, 0 6px 24px rgba(0,0,0,.35);
+    color:#d9ffff; font-weight:800;
+    font-size: clamp(18px, 2.6vw, 28px);
+    line-height:1; text-decoration:none; text-align:center;
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  }
+  .ksvBtn:hover{ transform: translateY(-1px); background: rgba(0,230,255,.08); }
+  .ksvBtn:active{ transform: translateY(0); }
+
+  .ksvThemeRow{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 12px;
+    justify-content:center;
+    width: min(920px, 92vw);
+  }
+  .ksvThemeRow label{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    align-items:center;
+    font-weight:600;
+    color:#d9ffff;
   }
 
-  /* 2) REAL OFF-CANVAS PANEL (does not affect centering while closed) */
-  .category-panel {
-    position: fixed !important;
-    top: 0; left: 0;
-    height: 100vh;
-    width: clamp(320px, 34vw, 480px);
-    max-width: 92vw;
+  /* OFF-CANVAS CATEGORY PANEL (real off-canvas so it doesn't push hero) */
+  .category-panel{
+    position: fixed !important; top:0; left:0;
+    height:100vh; width: clamp(320px, 36vw, 520px); max-width:92vw;
     background: var(--tk-panel-bg, rgba(5,18,24,.98));
     border-right: 1px solid rgba(0,230,255,.35);
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-    transform: translateX(-110%);
-    visibility: hidden;
-    pointer-events: none;
+    overflow:auto; -webkit-overflow-scrolling:touch;
+    transform: translateX(-110%); visibility:hidden; pointer-events:none;
     transition: transform 280ms ease, visibility 0s linear 280ms;
     z-index: 2147483000;
   }
-  .category-panel.open {
-    transform: translateX(0);
-    visibility: visible;
-    pointer-events: auto;
-    transition: transform 280ms ease;
-  }
+  .category-panel.open{ transform: translateX(0); visibility:visible; pointer-events:auto; transition: transform 280ms ease; }
 
-  /* 3) Nudge hero a bit when panel is open so it doesn't sit under the edge */
-  body.tk-panel-open #tkHero {
-    transform: translateX(clamp(12px, 2vw, 24px));
-  }
+  /* Slight nudge so hero isn’t tucked under the open panel edge */
+  body.tk-panel-open #ksvHeroStack{ transform: translateX(clamp(8px, 1.6vw, 22px)); }
 
-  /* Small screens: keep things simple */
+  /* Small screens */
   @media (max-width: 720px) {
-    #tkHero { gap: 1.4rem; margin-top: 6vh; }
-    #tkHero .tk-cta { min-height: 72px; }
-    body.tk-panel-open #tkHero { transform: translateX(8px); }
+    #ksvHeroStack{ gap: 18px; margin-top: 6vh; }
+    .ksvThemeRow{ flex-direction:column; align-items:center; }
   }
 </style>
 
@@ -480,7 +490,7 @@
 <!-- Self-heal: if hero didn't appear quickly (stale inline/partial), retry loading once -->
 <script>
 setTimeout(() => {
-  if (!document.getElementById('tkHero')) {
+  if (!document.getElementById('ksvHeroStack')) {
     const s = document.createElement('script');
     s.type = 'module';
     s.src = '/js/tk_kinksurvey_enhance.js?v=ks-20240927b&retry=1';
