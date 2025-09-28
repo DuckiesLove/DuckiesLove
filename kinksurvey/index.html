@@ -568,8 +568,8 @@ setTimeout(() => {
 }, 800);
 </script>
 
-<style>
-  /* Backdrop below panel */
+<style id="ksv-overrides">
+  /* Backdrop */
   #ksv-backdrop{
     position:fixed; inset:0; z-index:2147483646;
     background:rgba(0,0,0,.55);
@@ -577,7 +577,7 @@ setTimeout(() => {
   }
   #ksv-backdrop.is-open{ opacity:1; pointer-events:auto; }
 
-  /* Slide-out panel (highest z-index so nothing sits on top) */
+  /* Slide-out panel */
   #ksv-panel{
     position:fixed; top:0; right:0; height:100dvh;
     width:min(620px,92vw); max-width:620px;
@@ -589,18 +589,20 @@ setTimeout(() => {
   }
   #ksv-panel.is-open{ transform:translateX(0); }
 
-  /* If ANY site CSS tries to dim/disable the panel or its children, override it. */
+  /* If any stylesheet tries to blur/dim/disable the panel, kill it */
   #ksv-panel.is-open,
   #ksv-panel.is-open *{
     opacity:1 !important;
     filter:none !important;
+    -webkit-filter:none !important;
     pointer-events:auto !important;
     user-select:auto !important;
   }
 
-  /* Kill “fold on focus” rules some themes add */
+  /* Some themes “fold” panels on focus-within; keep it open */
   :where(#ksv-panel:focus-within, .ksv-shell:focus-within #ksv-panel){ transform:translateX(0)!important; }
 
+  /* Prevent body scroll while open */
   body.ksv-lock{ overflow:hidden; }
 
   /* Header + Close button */
@@ -624,19 +626,36 @@ setTimeout(() => {
   #ksv-close:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(0,255,255,.35); }
 
   #ksv-content{ padding:8px 12px 20px; }
-  /* Slight card styling for the imported category UI (optional) */
   #ksv-panel .ksv-soft-card{ background:rgba(255,255,255,.02); border-radius:12px; border:1px solid rgba(0,255,255,.15); }
+
+  /* >>> HARD OVERRIDES against site-level blur/dim layers <<< */
+  html.ksv-open, body.ksv-open{
+    filter:none !important; -webkit-filter:none !important; opacity:1 !important;
+    pointer-events:auto !important;
+  }
+  html.ksv-open *, body.ksv-open *{
+    filter:none !important; -webkit-filter:none !important; opacity:1 !important;
+  }
+  /* Hide common “dim/scrim/backdrop” elements except our own */
+  html.ksv-open .modal-backdrop:not(#ksv-backdrop),
+  html.ksv-open .overlay:not(#ksv-backdrop),
+  html.ksv-open .dimmer:not(#ksv-backdrop),
+  html.ksv-open .scrim:not(#ksv-backdrop),
+  html.ksv-open [data-overlay]:not(#ksv-backdrop),
+  html.ksv-open [data-dimmer]:not(#ksv-backdrop){
+    display:none !important;
+  }
 </style>
 
 <script>
 (function(){
   const d = document;
 
-  // 1) Hook the Start Survey button
+  // Locate the "Start Survey" trigger
   const startBtn = [...d.querySelectorAll('a,button,input[type="button"],input[type="submit"]')]
     .find(el => /start\s*survey/i.test((el.textContent || el.value || '').trim()));
 
-  // 2) Find the categories block (heuristic: container with many checkboxes near “Select categories”)
+  // Find the existing categories UI
   function findCategoriesContainer(){
     const head = [...d.querySelectorAll('h1,h2,h3,legend,[role="heading"],.heading,.title,section,div')]
       .find(el => /select\s+categories/i.test((el.textContent || '').trim()));
@@ -648,7 +667,6 @@ setTimeout(() => {
 
     if (node && count(node) >= 5) return node;
 
-    // Fallback: pick the element with the most checkboxes
     let best = null, max = 0;
     for (const el of d.querySelectorAll('section,form,article,div')){
       const c = count(el); if (c > max){ max = c; best = el; }
@@ -657,9 +675,9 @@ setTimeout(() => {
   }
 
   const cats = findCategoriesContainer();
-  if (!cats) return; // nothing to move
+  if (!cats) return;
 
-  // 3) Build overlay/panel once
+  // Build overlay once
   let backdrop = d.getElementById('ksv-backdrop');
   if (!backdrop){
     backdrop = d.createElement('div');
@@ -696,39 +714,62 @@ setTimeout(() => {
   const content = d.getElementById('ksv-content');
   const closeBtn = d.getElementById('ksv-close');
 
-  // 4) Move the existing categories UI into our panel (keeps all logic)
+  // Move the existing categories UI into the panel
   if (!content.contains(cats)){
     cats.classList.add('ksv-soft-card');
     content.appendChild(cats);
   }
 
-  // Helper: remove anything that disables interactivity (inert, inline pointer-events/opacity, etc.)
+  /* ————— Hard kill any page-level blur/dim that affects the whole document ————— */
+  function forceUndim(){
+    document.documentElement.classList.add('ksv-open');
+    document.body.classList.add('ksv-open');
+
+    // In case a theme sets inline styles with !important on body/html
+    [document.documentElement, document.body].forEach(el => {
+      el.removeAttribute('inert');
+      el.style.setProperty('filter','none','important');
+      el.style.setProperty('-webkit-filter','none','important');
+      el.style.setProperty('opacity','1','important');
+      el.style.setProperty('pointer-events','auto','important');
+    });
+
+    // Strip “blur/dim/disabled” classes from body if present
+    [...document.body.classList].forEach(c => {
+      if (/(blur|dim|disabled|inactive)/i.test(c)) document.body.classList.remove(c);
+    });
+  }
+  function relaxUndim(){
+    document.documentElement.classList.remove('ksv-open');
+    document.body.classList.remove('ksv-open');
+    [document.documentElement, document.body].forEach(el => {
+      el.style.removeProperty('filter');
+      el.style.removeProperty('-webkit-filter');
+      el.style.removeProperty('opacity');
+      el.style.removeProperty('pointer-events');
+    });
+  }
+
   function scrubInteractivityBlocks(root){
-    // Remove inert flags
     root.removeAttribute('inert');
     root.querySelectorAll('[inert]').forEach(n => n.removeAttribute('inert'));
-
-    // If some theme sets aria-disabled on containers, clear it
     root.querySelectorAll('[aria-disabled="true"]').forEach(n => n.removeAttribute('aria-disabled'));
-
-    // Don’t arbitrarily enable disabled form controls; only clear pointer-events/opacity blocks
     root.querySelectorAll('[style]').forEach(n => {
       const s = n.getAttribute('style');
       if (/pointer-events\s*:\s*none/i.test(s)) n.style.pointerEvents = 'auto';
-      // Only lift explicit low opacity on containers; children are already force-opaque in CSS
       if (/opacity\s*:\s*0\.\d+/i.test(s)) n.style.opacity = '1';
-      if (/filter\s*:/i.test(s)) n.style.filter = 'none';
+      if (/filter\s*:/i.test(s)) { n.style.filter = 'none'; n.style.webkitFilter = 'none'; }
     });
   }
 
   function openPanel(){
+    forceUndim();
     scrubInteractivityBlocks(panel);
     panel.classList.add('is-open');
     backdrop.classList.add('is-open');
     panel.setAttribute('aria-hidden','false');
-    d.body.classList.add('ksv-lock');
+    document.body.classList.add('ksv-lock');
     setTimeout(() => {
-      // Focus inside for accessibility
       (panel.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])') || closeBtn)
         ?.focus({preventScroll:true});
     }, 10);
@@ -738,19 +779,17 @@ setTimeout(() => {
     panel.classList.remove('is-open');
     backdrop.classList.remove('is-open');
     panel.setAttribute('aria-hidden','true');
-    d.body.classList.remove('ksv-lock');
+    document.body.classList.remove('ksv-lock');
+    relaxUndim();
     startBtn?.focus?.({preventScroll:true});
   }
 
-  // 5) Wire it up
   startBtn?.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
   closeBtn.addEventListener('click', closePanel);
   backdrop.addEventListener('click', closePanel);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closePanel();
-  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closePanel(); });
 
-  // Guard against page-level click-away handlers closing immediately
+  // Guard against global click-away handlers
   panel.addEventListener('click', (e) => e.stopPropagation());
   document.addEventListener('click', (e) => {
     if (!backdrop.classList.contains('is-open')) return;
