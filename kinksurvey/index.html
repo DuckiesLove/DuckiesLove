@@ -14,73 +14,56 @@
 <link rel="stylesheet" href="/css/theme.css">
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
 
-<!-- TK /kinksurvey — refine hero centering and link row alignment -->
-<style id="tk-kinksurvey-center">
-  /* Scope to /kinksurvey only */
-  body[data-kinksurvey="1"] .tk-hero {
-    display: grid;
-    grid-template-rows: auto auto auto;
-    place-items: center;
-    row-gap: 28px;
-    min-height: 68vh;
-    width: min(960px, 92vw);
-    margin-inline: auto;
+<!-- TK /kinksurvey — hard-center the link row under Start -->
+<style id="tk-kinksurvey-center-fix">
+  /* scope to this page only */
+  body[data-kinksurvey="1"] .tk-hero{
+    display:grid;
+    grid-template-rows:auto auto auto;
+    justify-items:center;      /* center contents horizontally */
+    align-items:center;        /* center each row's items vertically */
+    row-gap:28px;
+    width:100%;
+    margin:0 auto;
   }
 
-  /* Title */
-  body[data-kinksurvey="1"] .tk-hero h1,
-  body[data-kinksurvey="1"] .tk-hero .themed-title {
-    text-align: center;
-    margin: 0;
-    width: 100%;
+  /* Start button stays centered */
+  body[data-kinksurvey="1"] #startSurvey{
+    margin:0 !important;
   }
 
-  /* Start button block */
-  body[data-kinksurvey="1"] #startSurvey {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 260px;
-    margin: 0 auto;
+  /* >>> This is the important part: the two links as one centered row */
+  body[data-kinksurvey="1"] .tk-hero .links{
+    display:flex !important;
+    justify-content:center !important;   /* center the pair */
+    align-items:center;
+    gap:40px;                             /* space between the two buttons */
+    width:100%;
+    max-width:900px;                      /* keeps the pair visually centered */
+    margin:0 auto !important;             /* center the row itself */
+    text-align:center;
   }
 
-  /* Center the two links as ONE row with equal spacing */
-  body[data-kinksurvey="1"] .tk-hero .links {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    gap: 36px;
-    width: 100%;
+  /* kill any inherited margins/pushes on the buttons themselves */
+  body[data-kinksurvey="1"] .tk-hero .links a,
+  body[data-kinksurvey="1"] .tk-hero .links button{
+    margin:0 !important;
   }
 
-  body[data-kinksurvey="1"] .tk-hero .links a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    min-width: 280px;
-  }
-
-  /* Mobile: stack the two links cleanly */
-  @media (max-width: 720px) {
-    body[data-kinksurvey="1"] .tk-hero {
-      row-gap: 22px;
-      min-height: 62vh;
+  /* mobile: stack them neatly */
+  @media (max-width: 720px){
+    body[data-kinksurvey="1"] .tk-hero{ row-gap:22px; }
+    body[data-kinksurvey="1"] .tk-hero .links{
+      flex-direction:column;
+      gap:16px;
+      max-width:420px;
     }
-    body[data-kinksurvey="1"] .tk-hero .links {
-      flex-direction: column;
-      gap: 16px;
-    }
-    body[data-kinksurvey="1"] .tk-hero .links a,
-    body[data-kinksurvey="1"] #startSurvey {
-      width: min(92vw, 420px);
-    }
+    body[data-kinksurvey="1"] .tk-hero .links a{ width:100%; }
   }
 </style>
 
 <script>
-  // Make sure this page is flagged so the styles only apply here
+  // Ensure the page is tagged so the styles only apply here
   if (/^\/kinksurvey\/?$/.test(location.pathname)) {
     document.body.setAttribute('data-kinksurvey','1');
   }
