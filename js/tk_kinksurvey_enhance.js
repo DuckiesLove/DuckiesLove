@@ -87,7 +87,7 @@
       startRow.appendChild(startNode);
     }
 
-    const navRow = el('div',{class:'row row-nav'});
+    const navRow = el('div',{class:'row row-nav action-row'});
     navRow.appendChild(el('a',{class:'tk-pill cta', href:'/compatibility/'},'Compatibility Page'));
     navRow.appendChild(el('a',{class:'tk-pill cta', href:'/ika/'},'Individual Kink Analysis'));
     hero.appendChild(navRow);
@@ -115,6 +115,11 @@
       startNode?.addEventListener('click', () => {
         const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
         const toggle = $('#panelToggle') || $('.panel-toggle');
+        const drawer = $('#tkDrawer');
+        if (drawer){
+          drawer.classList.add('open');
+          document.body?.classList?.add('drawer-open');
+        }
         if (panel){
           panel.classList.add('open');
           document.body?.classList?.add('panel-open');
