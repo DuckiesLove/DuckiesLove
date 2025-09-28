@@ -131,6 +131,41 @@
   }
 </style>
 
+<!-- TK /kinksurvey — nudge landing buttons left + make them taller -->
+<style>
+  /* Scope to this page only */
+  body.tk-kink-left {
+    /* tweak this if you want a little more/less left shift */
+    --kinks-left-nudge: -5vw;
+    /* control minimum button height */
+    --cta-min-h: 68px;
+  }
+
+  /* The row holding your three buttons */
+  body.tk-kink-left .cta-row {
+    width: min(1200px, 94vw);
+    margin: 0 auto;
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    transform: translateX(var(--kinks-left-nudge));
+  }
+
+  /* Make the buttons taller + comfy */
+  body.tk-kink-left .cta-tall,
+  body.tk-kink-left .cta-row .themed-button,
+  body.tk-kink-left .cta-row a.button,
+  body.tk-kink-left .cta-row button {
+    min-height: var(--cta-min-h);
+    padding: 18px 34px;
+    font-size: clamp(18px, 1.8vw, 24px);
+    line-height: 1.15;
+    border-radius: 16px;
+  }
+</style>
+
 <style>
   :root { --panel-w: 320px; --tk-drawer-w: clamp(340px, 92vw, 980px); --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
   html,body{height:100%}
@@ -607,13 +642,39 @@ document.addEventListener('DOMContentLoaded', () => {
       /compat|individual/i.test(el.textContent || '')
     );
 
-    if (candidates.length && !landing.querySelector('.kinksurvey-actions')) {
-      const row = document.createElement('div');
-      row.className = 'kinksurvey-actions';
+    let secondaryRow = landing.querySelector('.kinksurvey-actions');
+    if (candidates.length && !secondaryRow) {
+      secondaryRow = document.createElement('div');
+      secondaryRow.className = 'kinksurvey-actions';
       // insert row right after the Start button
-      startBtn.insertAdjacentElement('afterend', row);
-      candidates.forEach(btn => row.appendChild(btn));
+      startBtn.insertAdjacentElement('afterend', secondaryRow);
+      candidates.forEach(btn => secondaryRow.appendChild(btn));
     }
+
+    let ctaRow =
+      secondaryRow ||
+      (startBtn ? startBtn.closest('.cta-row, .kinksurvey-actions') : null);
+
+    if (!ctaRow && startBtn) {
+      const parent = startBtn.parentElement;
+      if (
+        parent &&
+        !parent.classList.contains('landing-wrapper') &&
+        parent.id !== 'kinksLanding'
+      ) {
+        ctaRow = parent;
+      }
+    }
+
+    if (ctaRow && !ctaRow.classList.contains('cta-row')) {
+      ctaRow.classList.add('cta-row');
+    }
+
+    document
+      .querySelectorAll(
+        '.landing-wrapper a, .landing-wrapper button, .cta-row a, .cta-row button'
+      )
+      .forEach(el => el.classList.add('cta-tall'));
   })();
 });
 </script>
