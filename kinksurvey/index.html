@@ -25,19 +25,23 @@
     border-radius:10px; padding:8px 12px; cursor:pointer;
   }
   .category-panel{
-    position:fixed; inset:0 auto 0 0; width:var(--panel-w);
+    position:fixed; inset:0;
+    width:100vw; max-width:100vw;
     background:#000; border-right:1px solid var(--line);
     padding:14px 14px 18px; overflow:auto; z-index:10000;
-    transform:translateX(0); transition:transform .25s ease;
+    transform:translateX(-100%); transition:transform .3s ease;
   }
-  .category-panel:not(.open){ transform:translateX(calc(-1 * var(--panel-w))); }
+  .category-panel.open{ transform:translateX(0); }
+
+  body.panel-open{ overflow:hidden; }
 
   /* Shift content when panel open */
   .content{
-    margin-left:max(var(--panel-w), 22vw);
+    margin:0 auto;
     padding:24px 16px;
+    max-width:1000px;
   }
-  .content.full{ margin-left:0; }
+  .content.full{ margin:0 auto; }
 
   .themed-button, .category-button{
     padding:12px 18px; border:2px solid rgba(0,230,255,.55);
@@ -71,9 +75,9 @@
 </head>
 <body class="theme-dark has-category-panel">
 
-<button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="true">☰</button>
+<button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="false">☰</button>
 
-<aside id="categorySurveyPanel" class="category-panel open" role="region" aria-label="Category selection">
+<aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection">
   <h2 class="panel-title">Select categories</h2>
   <div class="top-buttons">
     <button id="selectAll" class="themed-button category-button">Select All</button>
@@ -87,7 +91,7 @@
   <div id="diag" class="notice" style="display:none"></div>
 </aside>
 
-<main id="content" class="content">
+<main id="content" class="content full">
   <div class="survey-box" id="survey" style="display:none">
     <h2 class="catTitle" id="catTitle"></h2>
     <div id="items"></div>
@@ -112,7 +116,6 @@
   const $ = (id)=>document.getElementById(id);
   const panel = $('categorySurveyPanel');
   const toggle = $('panelToggle');
-  const content = $('content');
   const list = $('categoryList');
   const status = $('statusMsg');
   const startBtn = $('start');
@@ -126,7 +129,7 @@
   toggle.addEventListener('click', ()=>{
     const isOpen = panel.classList.toggle('open');
     toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    content.classList.toggle('full', !isOpen);
+    document.body.classList.toggle('panel-open', isOpen);
   });
 
   const S = { cats:[], sel:[], i:0 };
@@ -230,7 +233,8 @@
     if (!S.sel.length){ showDiag('No matching categories in dataset.'); return; }
     // Collapse the panel like the classic page
     panel.classList.remove('open');
-    content.classList.add('full');
+    document.body.classList.remove('panel-open');
+    toggle.setAttribute('aria-expanded','false');
     renderCat(S.i);
   });
   document.getElementById('skip').addEventListener('click', ()=>{ S.i++; renderCat(S.i); });

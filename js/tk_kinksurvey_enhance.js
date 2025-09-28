@@ -94,6 +94,12 @@
     if (!usingExistingStart){
       startNode?.addEventListener('click', () => {
         const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
+        const toggle = $('#panelToggle') || $('.panel-toggle');
+        if (panel){
+          panel.classList.add('open');
+          document.body?.classList?.add('panel-open');
+        }
+        toggle?.setAttribute?.('aria-expanded','true');
         const realStart = findStartButton();
         panel?.scrollIntoView({behavior:'smooth', block:'start'});
         setTimeout(() => realStart?.focus?.(), 280);
