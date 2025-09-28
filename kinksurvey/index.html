@@ -57,6 +57,35 @@
   }
 </style>
 
+<!-- TK /kinksurvey — center landing content -->
+<style>
+  /* scope to kinksurvey only */
+  body.tk-kinksurvey .landing-wrapper,
+  body.tk-kinksurvey #kinksLanding {
+    /* center block and keep it tidy on very wide screens */
+    width: min(1100px, 92vw);
+    margin-inline: auto;
+
+    /* center title & buttons */
+    display: grid;
+    place-items: center;
+    text-align: center;
+    gap: 28px;
+
+    /* give it comfortable vertical balance without pushing *too* low */
+    padding-block: clamp(32px, 8vh, 96px);
+  }
+
+  /* row that holds the two secondary buttons under Start */
+  body.tk-kinksurvey .kinksurvey-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+</style>
+
 <style>
   :root { --panel-w: 320px; --tk-drawer-w: clamp(340px, 92vw, 980px); --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
   html,body{height:100%}
@@ -469,6 +498,58 @@
     }
   } catch (_) {}
 })();
+</script>
+<!-- TK /kinksurvey — center landing content -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  (function () {
+    // Only act on /kinksurvey/
+    if (!/^\/kinksurvey\/?$/i.test(location.pathname)) return;
+    document.body.classList.add('tk-kinksurvey');
+
+    // Find the main area (works with either .landing-wrapper or a generic container)
+    const landing =
+      document.querySelector('.landing-wrapper') ||
+      document.querySelector('#kinksLanding') ||
+      (function () {
+        // last resort: build a wrapper around the first <h1> + buttons we find
+        const h1 = document.querySelector('h1');
+        if (!h1) return null;
+        const wrap = document.createElement('div');
+        wrap.className = 'landing-wrapper';
+        h1.before(wrap);
+        wrap.appendChild(h1);
+        // move following siblings (likely the start button + links) into the wrapper
+        const toMove = [];
+        let n = wrap.nextElementSibling;
+        while (n && toMove.length < 10) { toMove.push(n); n = n.nextElementSibling; }
+        toMove.forEach(el => wrap.appendChild(el));
+        return wrap;
+      })();
+
+    if (!landing) return;
+
+    // Group the two secondary buttons into a centered row below "Start Survey"
+    const startBtn = landing.querySelector('#startSurvey, .start-survey-btn, button, a[href*="start"]');
+    if (!startBtn) return;
+
+    // Collect likely secondary actions by their text (compat + individual analysis)
+    const candidates = Array.from(
+      landing.querySelectorAll('a,button')
+    ).filter(el =>
+      el !== startBtn &&
+      /compat|individual/i.test(el.textContent || '')
+    );
+
+    if (candidates.length && !landing.querySelector('.kinksurvey-actions')) {
+      const row = document.createElement('div');
+      row.className = 'kinksurvey-actions';
+      // insert row right after the Start button
+      startBtn.insertAdjacentElement('afterend', row);
+      candidates.forEach(btn => row.appendChild(btn));
+    }
+  })();
+});
 </script>
 <!-- load enhancer last so it can find the existing DOM (versioned URL to beat stale caches) -->
 <script type="module" src="/js/tk_kinksurvey_enhance.js?v=ks-20240927b"></script>
