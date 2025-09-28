@@ -567,5 +567,200 @@ setTimeout(() => {
   }
 }, 800);
 </script>
+
+<style>
+  /* ----- Overlay & Panel ----- */
+  #ksv-backdrop{
+    position:fixed; inset:0; z-index:2147483645;
+    background:rgba(0,0,0,.55);
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  #ksv-backdrop.is-open{ opacity:1; pointer-events:auto; }
+
+  #ksv-panel{
+    position:fixed; top:0; right:0; height:100dvh;
+    width:min(620px,92vw); max-width:620px;
+    z-index:2147483646; background:#0c0f10; color:#dffcff;
+    transform:translateX(110%); transition:transform .28s ease;
+    box-shadow:-2px 0 24px rgba(0,0,0,.45);
+    border-left:2px solid rgba(0,255,255,.25);
+    display:flex; flex-direction:column; overflow:auto; -webkit-overflow-scrolling:touch;
+  }
+  #ksv-panel.is-open{ transform:translateX(0); }
+
+  /* Kill any legacy CSS that folded the drawer on focus/target */
+  :where(#ksv-panel:focus-within, .ksv-shell:focus-within #ksv-panel){ transform:translateX(0)!important; }
+
+  body.ksv-lock{ overflow:hidden; }
+
+  /* ----- Panel header + Close button ----- */
+  #ksv-header{
+    position:sticky; top:0; z-index:1; display:flex; align-items:center; justify-content:space-between;
+    gap:12px; padding:12px 12px 10px;
+    background:linear-gradient(180deg, rgba(12,15,16,1) 70%, rgba(12,15,16,0) 100%);
+    border-bottom:1px solid rgba(0,255,255,.15);
+  }
+  #ksv-title{
+    font:700 18px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    letter-spacing:.2px; color:#dffcff;
+  }
+  #ksv-close{
+    -webkit-tap-highlight-color:transparent;
+    appearance:none; cursor:pointer;
+    border:2px solid rgba(0,255,255,.55); color:#a9fbff; background:rgba(0,255,255,.08);
+    font:700 16px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    border-radius:14px; padding:10px 14px;
+    box-shadow:0 0 0 0 rgba(0,255,255,.35);
+    transition:box-shadow .15s ease, transform .05s ease, background .15s ease;
+  }
+  #ksv-close:hover{ background:rgba(0,255,255,.12); }
+  #ksv-close:active{ transform:translateY(1px); }
+  #ksv-close:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(0,255,255,.35); }
+
+  /* Content inside panel */
+  #ksv-content{ padding:8px 12px 20px; }
+
+  /* Optional: make the category cards a touch more contrasted */
+  #ksv-panel .ksv-soft-card{
+    background:rgba(255,255,255,.02);
+    border-radius:12px; border:1px solid rgba(0,255,255,.15);
+  }
+</style>
+
+<script>
+(function(){
+  const d = document;
+
+  const findStartButtons = () => {
+    const candidates = [...d.querySelectorAll('a,button,input[type="button"],input[type="submit"]')];
+    return candidates.filter(el => /start\s*survey/i.test((el.textContent || el.value || '').trim()));
+  };
+
+  // Find the "Select categories" heading, then climb to a container that holds checkboxes
+  const findCategoriesContainer = () => {
+    const headLike = [...d.querySelectorAll('h1,h2,h3,legend,[role="heading"],.heading,.title,section,div')]
+      .find(el => /select\s+categories/i.test((el.textContent || '').trim()));
+    if (!headLike) return null;
+
+    // Climb until we find a parent with at least 5 checkboxes (heuristic)
+    let node = headLike.closest('section,form,article,div') || headLike;
+    const checkboxCount = el => el.querySelectorAll('input[type="checkbox"]').length;
+
+    let safety = 0;
+    while (node && checkboxCount(node) < 5 && safety++ < 8) node = node.parentElement;
+    if (node && checkboxCount(node) >= 5) return node;
+
+    // Fallback: pick the element on page with *max* checkboxes
+    const allDivs = [...d.querySelectorAll('section,form,article,div')];
+    let best = null, max = 0;
+    for (const el of allDivs){
+      const c = checkboxCount(el);
+      if (c > max){ max = c; best = el; }
+    }
+    return max >= 5 ? best : null;
+  };
+
+  const cats = findCategoriesContainer();
+  if (!cats) return; // Nothing to do if we can't find categories
+
+  const startButtons = findStartButtons().filter(btn => !cats.contains(btn));
+  const primaryTrigger = startButtons[0] || null;
+
+  // --- Build overlay skeleton (once) ---
+  let backdrop = d.getElementById('ksv-backdrop');
+  if (!backdrop){
+    backdrop = d.createElement('div');
+    backdrop.id = 'ksv-backdrop';
+    d.body.appendChild(backdrop);
+  }
+
+  let panel = d.getElementById('ksv-panel');
+  if (!panel){
+    panel = d.createElement('div');
+    panel.id = 'ksv-panel';
+    panel.setAttribute('aria-hidden','true');
+
+    const header = d.createElement('div');
+    header.id = 'ksv-header';
+
+    const title = d.createElement('div');
+    title.id = 'ksv-title';
+    title.textContent = 'Select categories';
+
+    const close = d.createElement('button');
+    close.id = 'ksv-close';
+    close.type = 'button';
+    close.setAttribute('aria-label','Close categories panel');
+    close.textContent = 'Close ✕';
+
+    header.appendChild(title);
+    header.appendChild(close);
+
+    const content = d.createElement('div');
+    content.id = 'ksv-content';
+
+    panel.appendChild(header);
+    panel.appendChild(content);
+
+    d.body.appendChild(panel);
+  }
+
+  const content = d.getElementById('ksv-content');
+  const closeBtn = d.getElementById('ksv-close');
+
+  // Move the existing categories UI *into* our panel content
+  // (keeps functionality, just hides it until the panel opens)
+  if (!content.contains(cats)){
+    // Optional: tag the top-level container for a subtle card style
+    cats.classList.add('ksv-soft-card');
+    content.appendChild(cats);
+  }
+
+  // --- Open / Close logic ---
+  let lastTrigger = null;
+
+  const openPanel = (trigger) => {
+    lastTrigger = trigger || lastTrigger || primaryTrigger;
+    panel.classList.add('is-open');
+    backdrop.classList.add('is-open');
+    panel.setAttribute('aria-hidden','false');
+    d.body.classList.add('ksv-lock');
+
+    // Focus first interactive control inside
+    setTimeout(() => {
+      const focusable = panel.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])');
+      (focusable || closeBtn).focus({preventScroll:true});
+    }, 10);
+  };
+
+  const closePanel = () => {
+    panel.classList.remove('is-open');
+    backdrop.classList.remove('is-open');
+    panel.setAttribute('aria-hidden','true');
+    d.body.classList.remove('ksv-lock');
+    lastTrigger?.focus?.({preventScroll:true});
+  };
+
+  // Wire triggers
+  startButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openPanel(btn);
+    });
+  });
+  closeBtn.addEventListener('click', closePanel);
+  backdrop.addEventListener('click', closePanel);
+  d.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closePanel();
+  });
+
+  // Guard against global "click-outside" listeners closing immediately
+  panel.addEventListener('click', (e) => e.stopPropagation());
+  d.addEventListener('click', (e) => {
+    if (!backdrop.classList.contains('is-open')) return;
+    if (panel.contains(e.target)) e.stopPropagation();
+  }, true);
+})();
+</script>
 </body>
 </html>
