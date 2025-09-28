@@ -31,7 +31,7 @@
   }
   #ksvHeroStack h1{
     margin:0 0 clamp(10px, 2vh, 16px) 0;
-    font-size: clamp(42px, 6.2vw, 84px);
+    font-size: clamp(42px, 6.5vw, 96px);
     font-weight: 800;
     letter-spacing:.02em;
     color:#fff;
@@ -39,11 +39,18 @@
   }
   .ksvButtons{
     display:grid;
-    width: min(920px, 92vw);
+    width:100%;
+    max-width:none;
+    margin:0 auto;
     gap: clamp(14px, 1.8vh, 18px);
   }
   .ksvBtn{
     display:flex; align-items:center; justify-content:center;
+    box-sizing:border-box;
+    width: clamp(280px, 72vw, 920px);
+    max-width:920px;
+    margin-left:auto;
+    margin-right:auto;
     height: clamp(64px, 11vh, 84px);
     padding: 14px 22px;
     border-radius: 14px;

@@ -66,6 +66,18 @@
     row.appendChild(label);
   }
 
+  function forceClosePanel(){
+    const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
+    const toggle = $('#panelToggle') || $('.panel-toggle');
+    if (panel){
+      panel.classList.remove('open');
+      panel.setAttribute('aria-expanded','false');
+      panel.setAttribute('aria-hidden','true');
+    }
+    document.body?.classList?.remove('panel-open','tk-panel-open','drawer-open','tk-drawer-open');
+    toggle?.setAttribute?.('aria-expanded','false');
+  }
+
   function ensureHero(){
     $$('#tkHero, #tk-hero, .tk-hero, #ksvHeroStack').forEach(node => node.remove());
 
@@ -80,7 +92,7 @@
     const stack = el('div',{class:'ksvButtons'});
     hero.appendChild(stack);
 
-    const startNode = el('button',{class:'ksvBtn', id:'tkHeroStart', type:'button'},'Start Survey');
+    const startNode = el('button',{class:'ksvBtn start-survey-btn', id:'tkHeroStart', type:'button'},'Start Survey');
     startNode.removeAttribute('disabled');
     stack.appendChild(startNode);
 
@@ -108,30 +120,41 @@
       legacyWrap.remove();
     }
 
-    startNode?.addEventListener('click', (event) => {
-      const openPanel = typeof window?.tkKinksurveyOpenPanel === 'function' ? window.tkKinksurveyOpenPanel : null;
-      if (openPanel){
-        event?.preventDefault?.();
-        event?.stopImmediatePropagation?.();
-        openPanel({ focusFirst: true });
-        return;
-      }
-      const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
-      const toggle = $('#panelToggle') || $('.panel-toggle');
-      const drawer = $('#tkDrawer');
-      if (drawer){
-        drawer.classList.add('open');
-        document.body?.classList?.add('drawer-open','tk-drawer-open','tk-panel-open');
-      }
-      if (panel){
-        panel.classList.add('open');
-        document.body?.classList?.add('panel-open','tk-drawer-open','tk-panel-open');
-      }
-      toggle?.setAttribute?.('aria-expanded','true');
-      const realStart = findStartButton();
-      panel?.scrollIntoView({behavior:'smooth', block:'start'});
-      setTimeout(() => realStart?.focus?.(), 280);
-    });
+    if (startNode && !startNode.dataset.ksvBound){
+      startNode.dataset.ksvBound = '1';
+      startNode.addEventListener('click', (event) => {
+        const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
+        const isAlreadyOpen = panel?.classList?.contains('open');
+        if (isAlreadyOpen){
+          const focusTarget = panel?.querySelector('input,button,select,textarea,[tabindex]:not([tabindex="-1"])');
+          if (focusTarget){
+            setTimeout(() => focusTarget.focus({ preventScroll: true }), 60);
+          }
+          return;
+        }
+        const openPanel = typeof window?.tkKinksurveyOpenPanel === 'function' ? window.tkKinksurveyOpenPanel : null;
+        if (openPanel){
+          event?.preventDefault?.();
+          event?.stopImmediatePropagation?.();
+          openPanel({ focusFirst: true });
+          return;
+        }
+        const toggle = $('#panelToggle') || $('.panel-toggle');
+        const drawer = $('#tkDrawer');
+        if (drawer){
+          drawer.classList.add('open');
+          document.body?.classList?.add('drawer-open','tk-drawer-open','tk-panel-open');
+        }
+        if (panel){
+          panel.classList.add('open');
+          document.body?.classList?.add('panel-open','tk-drawer-open','tk-panel-open');
+        }
+        toggle?.setAttribute?.('aria-expanded','true');
+        const realStart = findStartButton();
+        panel?.scrollIntoView({behavior:'smooth', block:'start'});
+        setTimeout(() => realStart?.focus?.(), 280);
+      });
+    }
   }
 
   function ensureObserver(listHost){
@@ -372,6 +395,7 @@
   }
 
   function boot(){
+    forceClosePanel();
     ensureHero();
     enhancePanel();
     setupFullscreenDrawer();
