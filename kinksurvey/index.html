@@ -19,9 +19,7 @@
   body.panel-open #tk-hero,
   body.panel-open .tk-hero,
   body.drawer-open #tk-hero,
-  body.drawer-open .tk-hero,
-  body.tk-drawer-open #tk-hero,
-  body.tk-drawer-open .tk-hero{
+  body.drawer-open .tk-hero{
     margin-left:auto;
     margin-right:clamp(16px, 4vw, 48px);
     max-width:min(460px, 38vw);
@@ -34,9 +32,7 @@
   body.panel-open #tk-hero .row,
   body.panel-open .tk-hero .row,
   body.drawer-open #tk-hero .row,
-  body.drawer-open .tk-hero .row,
-  body.tk-drawer-open #tk-hero .row,
-  body.tk-drawer-open .tk-hero .row{
+  body.drawer-open .tk-hero .row{
     justify-content:flex-end;
     gap:20px;
   }
@@ -45,9 +41,7 @@
     body.panel-open #tk-hero,
     body.panel-open .tk-hero,
     body.drawer-open #tk-hero,
-    body.drawer-open .tk-hero,
-    body.tk-drawer-open #tk-hero,
-    body.tk-drawer-open .tk-hero{
+    body.drawer-open .tk-hero{
       margin:18px auto;
       max-width:min(92vw, 520px);
       text-align:center;
@@ -57,16 +51,14 @@
     body.panel-open #tk-hero .row,
     body.panel-open .tk-hero .row,
     body.drawer-open #tk-hero .row,
-    body.drawer-open .tk-hero .row,
-    body.tk-drawer-open #tk-hero .row,
-    body.tk-drawer-open .tk-hero .row{
+    body.drawer-open .tk-hero .row{
       justify-content:center;
     }
   }
 </style>
 
 <style>
-  :root { --panel-w: 320px; --tk-drawer-w: min(980px, 90vw); --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
+  :root { --panel-w: 320px; --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
   html,body{height:100%}
   body{
     margin:0;
@@ -95,50 +87,8 @@
     overflow:auto;
     text-align:center;
   }
-  .category-panel.tk-drawer{
-    position:fixed !important;
-    inset:0 auto 0 0 !important;
-    width:var(--tk-drawer-w) !important;
-    max-width:var(--tk-drawer-w) !important;
-    transform:translateX(-102%);
-    transition:transform .28s ease;
-    border-right:1px solid #00e6ff55 !important;
-    box-shadow:0 0 0 1px #00e6ff22 inset;
-    z-index:10000;
-  }
-  body.tk-drawer-open .category-panel.tk-drawer{
-    transform:translateX(0);
-  }
 
-  #tkScrim{
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.35);
-    backdrop-filter:blur(1px);
-    opacity:0;
-    pointer-events:none;
-    transition:opacity .2s ease;
-    z-index:9999;
-  }
-  body.tk-drawer-open #tkScrim{
-    opacity:1;
-    pointer-events:auto;
-  }
-
-  .tk-close-drawer{
-    position:sticky;
-    top:0;
-    margin:10px 10px 8px auto;
-    padding:.55rem .9rem;
-    border-radius:10px;
-    background:#0a0f14;
-    color:#aefcff;
-    border:1px solid #00e6ff55;
-    cursor:pointer;
-    display:inline-block;
-  }
-
-  body.panel-open, body.drawer-open, body.tk-drawer-open{ overflow:hidden; }
+  body.panel-open, body.drawer-open{ overflow:hidden; }
 
   /* Shift content when panel open */
   .content{
@@ -239,70 +189,20 @@
   const items = $('items');
   const done = $('done');
 
-  const body = document.body;
-  let scrim = document.getElementById('tkScrim');
-  if (!scrim){
-    scrim = document.createElement('div');
-    scrim.id = 'tkScrim';
-    body.appendChild(scrim);
-  }
-
-  const focusFirstInteractive = () => {
-    if (!panel) return;
-    const firstCb = panel.querySelector('input[type="checkbox"], button, [tabindex]:not([tabindex="-1"])');
-    if (firstCb) setTimeout(()=>firstCb.focus({preventScroll:true}), 50);
-  };
-
-  function openDrawer(){
-    body.classList.add('panel-open','tk-drawer-open');
-    panel?.classList.add('open');
-    panel?.setAttribute('aria-expanded','true');
-    toggle?.setAttribute('aria-expanded','true');
-    focusFirstInteractive();
-  }
-
-  function closeDrawer(){
-    body.classList.remove('panel-open','tk-drawer-open');
-    panel?.classList.remove('open');
-    panel?.setAttribute('aria-expanded','false');
-    toggle?.setAttribute('aria-expanded','false');
-  }
-
   function setDrawerState(open){
-    open ? openDrawer() : closeDrawer();
-  }
-
-  if (panel){
-    panel.classList.add('tk-drawer');
-    panel.classList.remove('open');
-    panel.setAttribute('aria-expanded','false');
-    body.classList.remove('panel-open','tk-drawer-open');
-    if (!panel.querySelector('.tk-close-drawer')){
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'tk-close-drawer';
-      closeBtn.type = 'button';
-      closeBtn.textContent = 'Close ✕';
-      closeBtn.addEventListener('click', closeDrawer);
-      panel.prepend(closeBtn);
+    const want = Boolean(open);
+    if (panel){
+      panel.classList.toggle('open', want);
     }
-    window.addEventListener('pageshow', () => { closeDrawer(); }, { once:true });
-  }
-
-  scrim?.addEventListener('click', closeDrawer);
-  window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeDrawer(); });
-
-  const sp = new URLSearchParams(location.search);
-  if (sp.get('start') === '1' || location.hash === '#start'){
-    setTimeout(() => openDrawer(), 0);
+    document.body.classList.toggle('panel-open', want);
+    toggle?.setAttribute('aria-expanded', want ? 'true' : 'false');
   }
 
   // Toggle panel open/closed (like /kinks/)
   if (toggle && !toggle.dataset.tkBind){
-    toggle.dataset.tkBind = '1';
-    toggle.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const isOpen = body.classList.contains('tk-drawer-open');
-      setDrawerState(!isOpen);
+    toggle.addEventListener('click', ()=>{
+      const isOpen = !panel.classList.contains('open');
+      setDrawerState(isOpen);
     });
   }
 
