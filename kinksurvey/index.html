@@ -136,6 +136,36 @@
   body.tk-drawer-open,
   body.tk-panel-open { overflow:hidden; }
 
+  .category-panel .ksv-close{
+    position:sticky;
+    top:0;
+    z-index:1;
+    display:flex;
+    justify-content:flex-end;
+    padding:12px 12px 0 12px;
+    background:linear-gradient(180deg, rgba(10,15,20,1) 70%, rgba(10,15,20,0) 100%);
+  }
+
+  [data-ksv-close]{
+    -webkit-tap-highlight-color:transparent;
+    appearance:none;
+    border:2px solid rgba(0,255,255,.55);
+    color:#a9fbff;
+    background:rgba(0,255,255,.08);
+    font:700 16px/1.1 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,sans-serif;
+    border-radius:14px;
+    padding:10px 14px;
+    cursor:pointer;
+    box-shadow:0 0 0 0 rgba(0,255,255,.35);
+    transition:box-shadow .15s ease, transform .05s ease, background .15s ease;
+  }
+  [data-ksv-close]:hover{ background:rgba(0,255,255,.12); }
+  [data-ksv-close]:active{ transform:translateY(1px); }
+  [data-ksv-close]:focus-visible{
+    outline:none;
+    box-shadow:0 0 0 3px rgba(0,255,255,.35);
+  }
+
   #tkScrim{
     position:fixed;
     inset:0;
@@ -216,7 +246,7 @@
 
 <button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="false">☰</button>
 
-<aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection" aria-hidden="true">
+<aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection" aria-hidden="true" data-ksv-panel>
   <h2 class="panel-title">Select categories</h2>
   <div class="top-buttons">
     <button id="selectAll" class="themed-button category-button">Select All</button>
@@ -270,40 +300,63 @@
     scrim.id = 'tkScrim';
     document.body.appendChild(scrim);
   }
+  scrim.setAttribute('data-ksv-backdrop','');
 
   if (panel){
     panel.setAttribute('aria-expanded','false');
-    if (!panel.querySelector('.tk-close-drawer')){
+    panel.setAttribute('data-ksv-panel','');
+    if (!panel.querySelector('[data-ksv-close]')){
+      const stickyRow = document.createElement('div');
+      stickyRow.className = 'ksv-close';
       const closeBtn = document.createElement('button');
       closeBtn.type = 'button';
       closeBtn.className = 'tk-close-drawer';
+      closeBtn.setAttribute('data-ksv-close','');
+      closeBtn.setAttribute('aria-label','Close categories panel');
       closeBtn.textContent = 'Close ✕';
       closeBtn.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
-      panel.prepend(closeBtn);
+      stickyRow.appendChild(closeBtn);
+      panel.prepend(stickyRow);
     }
   }
 
-  const triggerSelectors = '#startSurvey,#startSurveyBtn,#start,#tkHeroStart,[data-start-survey="1"]';
+  const triggerSelectors = ['#startSurvey','#startSurveyBtn','#start','#tkHeroStart','[data-start-survey="1"]'];
+  const triggerSelectorList = triggerSelectors.join(',');
+  const findOpenTrigger = () => {
+    const explicit = document.querySelector('[data-ksv-start]');
+    if (explicit) return explicit;
+    for (const sel of triggerSelectors){
+      const node = document.querySelector(sel);
+      if (node) return node;
+    }
+    return null;
+  };
+
+  let lastOpenTrigger = null;
 
   function setDrawerState(open){
     const want = Boolean(open);
     if (panel){
       panel.classList.toggle('open', want);
+      panel.classList.toggle('is-open', want);
       panel.setAttribute('aria-expanded', want ? 'true' : 'false');
       panel.setAttribute('aria-hidden', want ? 'false' : 'true');
     }
     document.body.classList.toggle('panel-open', want);
     document.body.classList.toggle('tk-panel-open', want);
     document.body.classList.toggle('tk-drawer-open', want);
+    document.body.classList.toggle('ksv-lock', want);
     toggle?.setAttribute('aria-expanded', want ? 'true' : 'false');
     if (scrim){
       scrim.style.opacity = want ? '1' : '0';
       scrim.style.pointerEvents = want ? 'auto' : 'none';
+      scrim.classList.toggle('is-open', want);
     }
   }
 
   function openDrawer(options = {}){
-    const { focusFirst = true } = options;
+    const { focusFirst = true, trigger = null, focusTarget = null } = options;
+    lastOpenTrigger = trigger || focusTarget || lastOpenTrigger || findOpenTrigger();
     setDrawerState(true);
     if (focusFirst){
       const focusTarget = panel?.querySelector('input,button,select,textarea,[tabindex]:not([tabindex="-1"])');
@@ -316,9 +369,13 @@
   function closeDrawer(options = {}){
     const { focusToggle = false } = options;
     setDrawerState(false);
-    if (focusToggle && toggle){
-      setTimeout(()=>toggle.focus({ preventScroll: true }), 60);
+    if (focusToggle){
+      const focusReturn = options.focusTarget || lastOpenTrigger || findOpenTrigger() || toggle;
+      if (focusReturn){
+        setTimeout(()=>focusReturn.focus({ preventScroll: true }), 60);
+      }
     }
+    lastOpenTrigger = null;
   }
 
   window.tkKinksurveyOpenPanel = (opts) => openDrawer(opts || {});
@@ -331,8 +388,13 @@
     scrim.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
   }
 
+  if (panel && !panel.dataset.tkStopProp){
+    panel.dataset.tkStopProp = '1';
+    panel.addEventListener('click', (event)=>event.stopPropagation());
+  }
+
   window.addEventListener('keydown', (event)=>{
-    if (event.key === 'Escape') closeDrawer({ focusToggle: true });
+    if (event.key === 'Escape' && panel?.classList.contains('open')) closeDrawer({ focusToggle: true });
   });
 
   // Toggle panel open/closed (like /kinks/)
@@ -341,16 +403,16 @@
     toggle.addEventListener('click', (event)=>{
       event.preventDefault();
       const isOpen = panel?.classList.contains('open');
-      if (isOpen) closeDrawer({ focusToggle: false });
-      else openDrawer({ focusFirst: true });
+      if (isOpen) closeDrawer({ focusToggle: true, focusTarget: toggle });
+      else openDrawer({ focusFirst: true, trigger: toggle });
     });
   }
 
   document.addEventListener('click', (event)=>{
-    const trigger = event.target.closest(triggerSelectors);
+    const trigger = event.target.closest(triggerSelectorList);
     if (!trigger || !panel || panel.contains(trigger)) return;
     event.preventDefault();
-    openDrawer({ focusFirst: true });
+    openDrawer({ focusFirst: true, trigger });
   });
 
   const S = { cats:[], sel:[], i:0 };

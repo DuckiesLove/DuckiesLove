@@ -92,7 +92,12 @@
     const stack = el('div',{class:'ksvButtons'});
     hero.appendChild(stack);
 
-    const startNode = el('button',{class:'ksvBtn start-survey-btn', id:'tkHeroStart', type:'button'},'Start Survey');
+    const startNode = el('button',{
+      class:'ksvBtn start-survey-btn',
+      id:'tkHeroStart',
+      type:'button',
+      'data-ksv-start':'',
+    },'Start Survey');
     startNode.removeAttribute('disabled');
     stack.appendChild(startNode);
 
@@ -136,7 +141,7 @@
         if (openPanel){
           event?.preventDefault?.();
           event?.stopImmediatePropagation?.();
-          openPanel({ focusFirst: true });
+          openPanel({ focusFirst: true, trigger: startNode });
           return;
         }
         const toggle = $('#panelToggle') || $('.panel-toggle');
