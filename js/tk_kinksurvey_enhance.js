@@ -21,6 +21,8 @@
   if (document.body){
     document.body.dataset.kinksurvey = '1';
     document.body.classList.add('tk-ksv');
+    document.body.classList.remove('tk-no-js');
+    document.body.classList.add('tk-js');
   }
 
   removeRequestButtons();

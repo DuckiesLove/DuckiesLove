@@ -19,6 +19,21 @@
   /* Scope to this page only */
   body.tk-ksv { overflow-x: hidden; }
 
+  body.tk-no-js #panelToggle{ display:none; }
+  body.tk-no-js .category-panel{
+    position:static;
+    transform:none;
+    visibility:visible;
+    pointer-events:auto;
+    width:min(720px,92vw);
+    margin:0 auto 32px;
+    border-radius:16px;
+    border:1px solid rgba(0,230,255,.35);
+  }
+  body.tk-no-js .category-panel .ksv-close{ display:none; }
+  body.tk-no-js .content{ padding-top:0; }
+  body.tk-no-js #ksvHeroStack{ margin-top: clamp(32px, 8vh, 96px); }
+
   /* Hero section */
   #ksvHeroStack{
     display:grid;
@@ -44,6 +59,13 @@
     max-width:none;
     margin:0 auto;
     gap: clamp(14px, 1.8vh, 18px);
+  }
+  .ksvFallbackNote{
+    color:#8fefff;
+    font-weight:600;
+    max-width:720px;
+    margin:4px auto 0;
+    opacity:.85;
   }
   .ksvBtn{
     display:flex; align-items:center; justify-content:center;
@@ -82,7 +104,7 @@
   }
 
   /* OFF-CANVAS CATEGORY PANEL (real off-canvas so it doesn't push hero) */
-  .category-panel{
+  body.tk-js .category-panel{
     position: fixed !important; top:0; left:0;
     height:100vh; width: clamp(320px, 36vw, 520px); max-width:92vw;
     background: var(--tk-panel-bg, rgba(5,18,24,.98));
@@ -91,11 +113,13 @@
     transform: translateX(-110%); visibility:hidden; pointer-events:none;
     transition: transform 280ms ease, visibility 0s linear 280ms;
     z-index: 2147483000;
+    border-radius:0;
+    margin:0;
   }
-  .category-panel.open{ transform: translateX(0); visibility:visible; pointer-events:auto; transition: transform 280ms ease; }
+  body.tk-js .category-panel.open{ transform: translateX(0); visibility:visible; pointer-events:auto; transition: transform 280ms ease; }
 
   /* Slight nudge so hero isn’t tucked under the open panel edge */
-  body.tk-panel-open #ksvHeroStack{ transform: translateX(clamp(8px, 1.6vw, 22px)); }
+  body.tk-js.tk-panel-open #ksvHeroStack{ transform: translateX(clamp(8px, 1.6vw, 22px)); }
 
   /* Small screens */
   @media (max-width: 720px) {
@@ -119,7 +143,7 @@
   }
 
   /* LEFT SIDE PANEL (classic /kinks/ feel) */
-  #panelToggle{
+  body.tk-js #panelToggle{
     position:fixed; left:12px; top:12px; z-index:2147483648;
     background:#06161a; border:1px solid var(--line); color:var(--fg);
     border-radius:10px; padding:8px 12px; cursor:pointer;
@@ -131,10 +155,10 @@
     text-align:center;
   }
 
-  body.panel-open,
-  body.drawer-open,
-  body.tk-drawer-open,
-  body.tk-panel-open { overflow:hidden; }
+  body.tk-js.panel-open,
+  body.tk-js.drawer-open,
+  body.tk-js.tk-drawer-open,
+  body.tk-js.tk-panel-open { overflow:hidden; }
 
   .category-panel .ksv-close{
     position:sticky;
@@ -242,7 +266,18 @@
   .notice{ margin:14px 0; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; background:#071317; text-align:center; }
 </style>
 </head>
-<body class="theme-dark has-category-panel">
+<body class="theme-dark has-category-panel tk-no-js">
+
+<section id="ksvHeroStack" data-ksv-fallback>
+  <h1>Talk Kink Survey</h1>
+  <div class="ksvButtons">
+    <a class="ksvBtn" href="#categorySurveyPanel">Select Categories</a>
+    <a class="ksvBtn" href="/compat">Compatibility Page</a>
+    <a class="ksvBtn" href="/ika">Individual Kink Analysis</a>
+  </div>
+  <p class="ksvFallbackNote">The survey loads automatically when JavaScript is available. If nothing happens, scroll down to choose categories manually or refresh the page.</p>
+  <noscript><p class="ksvFallbackNote">JavaScript is required to load the category list and run the survey.</p></noscript>
+</section>
 
 <button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="false">☰</button>
 
@@ -293,6 +328,11 @@
   const title = $('catTitle');
   const items = $('items');
   const done = $('done');
+
+  if (document.body){
+    document.body.classList.remove('tk-no-js');
+    document.body.classList.add('tk-js');
+  }
 
   let scrim = document.getElementById('tkScrim');
   if (!scrim){
