@@ -18,7 +18,10 @@
   const isKinkSurvey = /^\/kinksurvey\/?$/i.test(location.pathname || "");
   if (!isKinkSurvey) return;
 
-  if (document.body) document.body.dataset.kinksurvey = '1';
+  if (document.body){
+    document.body.dataset.kinksurvey = '1';
+    document.body.classList.add('tk-ksv');
+  }
 
   removeRequestButtons();
 
@@ -64,35 +67,35 @@
   }
 
   function ensureHero(){
-    $$('.tk-hero').forEach(node => node.remove());
+    $$('#tkHero, #tk-hero, .tk-hero').forEach(node => node.remove());
 
     const legacyWrap = $('.landing-wrapper');
     const wrap = legacyWrap?.parentElement || $('main') || $('.wrap') || $('.page') || $('.kinks-root') || document.body;
     const anchor = legacyWrap || $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel') || wrap?.firstChild;
     if (!wrap || !anchor) return;
 
-    const hero = el('section',{class:'tk-hero','aria-label':'Main actions', id:'tk-hero'});
+    const hero = el('div',{class:'tk-hero','aria-label':'Main actions', id:'tkHero'});
     hero.appendChild(el('h1',{class:'tk-title'},'Talk Kink — Survey'));
 
-    const startRow = el('div',{class:'row row-start'});
+    const startRow = el('div',{class:'tk-row row row-start'});
     hero.appendChild(startRow);
     let startNode = findStartButton();
     let usingExistingStart = false;
     if (legacyWrap && startNode && legacyWrap.contains(startNode)){
-      startNode.classList.add('tk-btn','xl','cta');
+      startNode.classList.add('tk-btn','xl','cta','tk-cta');
       startRow.appendChild(startNode);
       usingExistingStart = true;
     } else {
-      startNode = el('button',{class:'tk-btn xl cta', id:'tkHeroStart', type:'button'},'Start Survey');
+      startNode = el('button',{class:'tk-btn xl cta tk-cta', id:'tkHeroStart', type:'button'},'Start Survey');
       startRow.appendChild(startNode);
     }
 
-    const navRow = el('div',{class:'row row-nav'});
-    navRow.appendChild(el('a',{class:'tk-pill cta', href:'/compatibility/'},'Compatibility Page'));
-    navRow.appendChild(el('a',{class:'tk-pill cta', href:'/ika/'},'Individual Kink Analysis'));
+    const navRow = el('div',{class:'tk-row row row-nav'});
+    navRow.appendChild(el('a',{class:'tk-pill cta tk-cta', href:'/compatibility/'},'Compatibility Page'));
+    navRow.appendChild(el('a',{class:'tk-pill cta tk-cta', href:'/ika/'},'Individual Kink Analysis'));
     hero.appendChild(navRow);
 
-    const themeRow = el('div',{class:'row row-theme', id:'tkThemeRow'});
+    const themeRow = el('div',{class:'tk-row row row-theme', id:'tkThemeRow'});
     hero.appendChild(themeRow);
     moveThemeInto(themeRow, legacyWrap);
     if (!themeRow.childElementCount) themeRow.remove();
@@ -125,11 +128,11 @@
         const drawer = $('#tkDrawer');
         if (drawer){
           drawer.classList.add('open');
-          document.body?.classList?.add('drawer-open','tk-drawer-open');
+          document.body?.classList?.add('drawer-open','tk-drawer-open','tk-panel-open');
         }
         if (panel){
           panel.classList.add('open');
-          document.body?.classList?.add('panel-open','tk-drawer-open');
+          document.body?.classList?.add('panel-open','tk-drawer-open','tk-panel-open');
         }
         toggle?.setAttribute?.('aria-expanded','true');
         const realStart = findStartButton();
@@ -309,7 +312,7 @@
       const api = window.tkCategoriesDrawer;
       if (api?.open) api.open();
       else {
-        body.classList.add('tk-drawer-open');
+        body.classList.add('tk-drawer-open','tk-panel-open');
         drawer.setAttribute('aria-hidden','false');
         backdrop?.setAttribute('aria-hidden','false');
       }
@@ -322,7 +325,7 @@
       const api = window.tkCategoriesDrawer;
       if (api?.close) api.close();
       else {
-        body.classList.remove('tk-drawer-open');
+        body.classList.remove('tk-drawer-open','tk-panel-open');
         drawer.setAttribute('aria-hidden','true');
         backdrop?.setAttribute('aria-hidden','true');
       }
