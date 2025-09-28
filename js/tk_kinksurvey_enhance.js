@@ -69,7 +69,6 @@
     pillRow.innerHTML = `
       <a class="tk-pill" href="/compatibility/">Compatibility Page</a>
       <a class="tk-pill" href="/ika/">Individual Kink Analysis</a>
-      <a class="tk-pill" href="/apply/">Request to Join Mischief Manor</a>
     `;
     hero.appendChild(pillRow);
 
