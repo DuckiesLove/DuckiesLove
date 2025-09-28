@@ -57,78 +57,48 @@
   }
 </style>
 
-<!-- TK /kinksurvey — fix title, equal/taller CTAs, centered layout -->
+<!-- TK /kinksurvey — nudge hero left & unify CTA sizes -->
 <style>
-  /* Scope to this page only */
-  body.tk-ksv {
-    --hero-left-nudge: -8vw;      /* move the hero to the left a bit more */
-    --cta-min-h: 92px;            /* unified CTA sizing */
+  /* Scope to only this page */
+  body.tk-ksv{
+    /* how far to move the hero left; make more negative to shift further */
+    --hero-left-nudge: -10vw;
+
+    /* base CTA look (your theme still applies) */
+    --cta-min-h: 92px;
     --cta-pad-y: 22px;
     --cta-pad-x: 36px;
     --cta-radius: 18px;
     --cta-font: clamp(22px, 2.3vw, 30px);
-    --cta-w: clamp(280px, 36vw, 520px); /* same width for Start + the two links */
   }
 
-  /* Title + buttons wrapper */
-  body.tk-ksv .tk-hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 28px;
-    width: 100%;
-  }
-
-  /* Row for the two lower buttons */
-  body.tk-ksv .tk-hero .cta-row {
-    display: flex;
-    gap: 28px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  /* If a previous patch created these wrappers, we use them; otherwise this still helps. */
-  body.tk-ksv .cta-start,
-  body.tk-ksv .cta-row {
+  /* Nudge title + CTA blocks left */
+  body.tk-ksv .tk-nudge {
     transform: translateX(var(--hero-left-nudge));
   }
 
-  /* Unify button look/size (force, to override theme differences) */
-  body.tk-ksv .tk-cta {
+  /* Normalize button styling; final width/height set by JS below */
+  body.tk-ksv .tk-cta{
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    min-height: var(--cta-min-h) !important;
     padding: var(--cta-pad-y) var(--cta-pad-x) !important;
     border-radius: var(--cta-radius) !important;
     font-size: var(--cta-font) !important;
     line-height: 1.15 !important;
-    width: var(--cta-w) !important;
-    min-width: var(--cta-w) !important;
+    min-height: var(--cta-min-h) !important;
     box-sizing: border-box !important;
+    text-align: center !important;
+    white-space: nowrap;
   }
-  /* If a theme wraps a child button inside the link, normalize that too */
-  body.tk-ksv .tk-cta > * {
+  body.tk-ksv .tk-cta > *{
     font-size: inherit !important;
     line-height: inherit !important;
   }
 
-  /* When the category panel is open, remove the left nudge so everything is visible */
-  body.tk-ksv.tk-panel-open .cta-start,
-  body.tk-ksv.tk-panel-open .cta-row {
-    transform: none !important;
-  }
-
-  /* On small screens, always center (no nudge) */
-  @media (max-width: 900px) {
-    body.tk-ksv .cta-start,
-    body.tk-ksv .cta-row {
-      transform: none !important;
-    }
-    body.tk-ksv .tk-cta {
-      width: 92vw !important;
-      min-width: 0 !important;
-    }
+  /* Small screens: no nudge; let buttons expand fluidly */
+  @media (max-width: 900px){
+    body.tk-ksv .tk-nudge { transform: none !important; }
   }
 </style>
 
@@ -595,114 +565,78 @@
   } catch (_) {}
 })();
 </script>
-<!-- TK /kinksurvey — fix title, equal/taller CTAs, centered layout -->
+<!-- TK /kinksurvey — nudge hero left & unify CTA sizes -->
 <script>
 (function () {
   // Only run on /kinksurvey/
-  if (!/^\/kinksurvey\/?$/i.test(location.pathname)) return;
+  if (!/\/kinksurvey\/?$/i.test(location.pathname)) return;
+
   document.body.classList.add('tk-ksv');
 
-  const START_SELECTORS = '#tkHeroStart, #startSurvey, #startSurveyBtn, .start-survey-btn, button.start-survey-btn';
-  const LOWER_CTA_SELECTORS = 'a[href*="compat"], a[href*="analysis"], a[href*="kink-analysis"], a[href*="individual"]';
-  const PANEL_ROOT_SELECTORS = '#categorySurveyPanel, .category-panel';
+  // 1) Find the title and main CTAs (robust selectors)
+  const h1 = document.querySelector('h1');
+  const startBtn =
+    document.querySelector('#startSurvey, #startSurveyBtn, .start-survey-btn, button[onclick*="start"]');
 
-  const isInPanel = (node) => Boolean(node?.closest(PANEL_ROOT_SELECTORS));
+  // try common hrefs/keywords for the two link buttons
+  const compatLink =
+    document.querySelector('a[href*="compat" i], a[href*="compare" i], a[href*="compatibility" i]');
+  const analysisLink =
+    document.querySelector('a[href*="analysis" i], a[href*="ika" i], a[href*="kink-analysis" i]');
 
-  const getTitleNode = () => document.querySelector('.tk-hero h1, .tk-hero .themed-title, h1, .themed-title');
-  const updateTitle = () => {
-    const node = getTitleNode();
-    if (!node) return null;
-    const txt = (node.textContent || '').trim();
-    const cleaned = txt.replace(/\s*[—-]\s*Survey\s*$/i, '');
-    if (cleaned && cleaned !== txt) node.textContent = cleaned;
-    return node;
-  };
-  updateTitle();
+  const ctas = [startBtn, compatLink, analysisLink].filter(Boolean);
 
-  const ensureHero = () => {
-    let hero = document.querySelector('.tk-hero');
-    if (!hero) {
-      const titleNode = updateTitle();
-      if (titleNode && titleNode.parentElement) {
-        hero = document.createElement('div');
-        hero.className = 'tk-hero';
-        titleNode.insertAdjacentElement('afterend', hero);
-      }
-    }
-    return hero;
-  };
+  // 2) Tag elements so CSS can style/nudge them
+  if (h1) h1.classList.add('tk-nudge');
+  if (startBtn) startBtn.classList.add('tk-cta', 'tk-nudge');
+  if (compatLink) compatLink.classList.add('tk-cta', 'tk-nudge');
+  if (analysisLink) analysisLink.classList.add('tk-cta', 'tk-nudge');
 
-  const markCTA = (el) => {
+  // Also try nudging their _containers_ so the row shifts with them
+  [startBtn, compatLink, analysisLink].forEach(el=>{
     if (!el) return;
-    el.classList.add('tk-cta');
-  };
+    const p = el.parentElement;
+    if (p && !p.classList.contains('tk-cta')) p.classList.add('tk-nudge');
+  });
 
-  function applyLayout() {
-    const hero = ensureHero();
-    if (!hero) return false;
+  // 3) Make all CTAs the same width/height (based on the largest)
+  function unifyCTA() {
+    if (!ctas.length) return;
 
-    updateTitle();
-
-    let startRow = hero.querySelector('.cta-start');
-    if (!startRow) {
-      startRow = hero.querySelector('.row-start') || hero.querySelector('.row');
-      if (startRow) {
-        startRow.classList.add('cta-start');
-      } else {
-        startRow = document.createElement('div');
-        startRow.className = 'cta-start';
-        hero.appendChild(startRow);
-      }
-    }
-
-    const startCandidates = Array.from(document.querySelectorAll(START_SELECTORS))
-      .filter((btn) => !isInPanel(btn));
-    const startBtn = startCandidates.find((btn) => hero.contains(btn)) || startCandidates[0] || null;
-    if (startBtn) {
-      if (startBtn.parentElement !== startRow) startRow.appendChild(startBtn);
-      markCTA(startBtn);
-    }
-
-    let row = hero.querySelector('.cta-row');
-    if (!row) {
-      row = hero.querySelector('.row-nav');
-      if (row) row.classList.add('cta-row');
-    }
-    if (!row) {
-      row = document.createElement('div');
-      row.className = 'cta-row';
-      hero.appendChild(row);
-    }
-
-    const lowerButtons = Array.from(document.querySelectorAll(LOWER_CTA_SELECTORS))
-      .filter((btn) => !isInPanel(btn));
-    lowerButtons.forEach((btn) => {
-      if (btn.parentElement !== row && !row.contains(btn)) {
-        row.appendChild(btn);
-      }
-      markCTA(btn);
+    // clear previous fixed sizes so we can measure natural sizes
+    ctas.forEach(el => {
+      el.style.width = '';
+      el.style.minWidth = '';
+      el.style.minHeight = '';
     });
 
-    return Boolean(startBtn || lowerButtons.length);
-  }
+    requestAnimationFrame(() => {
+      let maxW = 0, maxH = 0;
 
-  if (!applyLayout()) {
-    const waitForHero = new MutationObserver(() => {
-      if (applyLayout()) waitForHero.disconnect();
+      ctas.forEach(el => {
+        const r = el.getBoundingClientRect();
+        maxW = Math.max(maxW, r.width);
+        maxH = Math.max(maxH, r.height);
+      });
+
+      ctas.forEach(el => {
+        el.style.width = maxW + 'px';
+        el.style.minWidth = maxW + 'px';
+        el.style.minHeight = maxH + 'px';
+      });
     });
-    waitForHero.observe(document.body, { childList: true, subtree: true });
   }
 
-  const panel = document.querySelector(PANEL_ROOT_SELECTORS);
-  const updatePanelState = () => {
-    const open = panel && (panel.classList.contains('open') || panel.getAttribute('aria-expanded') === 'true');
-    document.body.classList.toggle('tk-panel-open', !!open);
-  };
-  updatePanelState();
-  if (panel) {
-    const mo = new MutationObserver(updatePanelState);
-    mo.observe(panel, { attributes: true, attributeFilter: ['class', 'aria-expanded', 'style'] });
-  }
+  window.addEventListener('load', unifyCTA, { once: true });
+
+  let t;
+  window.addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(unifyCTA, 120);
+  });
+
+  // run once in case fonts are already in cache
+  unifyCTA();
 })();
 </script>
 <!-- load enhancer last so it can find the existing DOM (versioned URL to beat stale caches) -->
