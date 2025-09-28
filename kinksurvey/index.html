@@ -14,141 +14,76 @@
 <link rel="stylesheet" href="/css/theme.css">
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
 
-<!-- TK /kinksurvey: keep hero accessible when the panel opens -->
-<style id="tk-kinksurvey-hero-adjustments">
-  body.panel-open #tk-hero,
-  body.panel-open .tk-hero,
-  body.drawer-open #tk-hero,
-  body.drawer-open .tk-hero{
-    margin-left:auto;
-    margin-right:clamp(16px, 4vw, 48px);
-    max-width:min(460px, 38vw);
-    text-align:right;
-    align-items:flex-end;
-    position:relative;
-    z-index:201;
-  }
-
-  body.panel-open #tk-hero .row,
-  body.panel-open .tk-hero .row,
-  body.drawer-open #tk-hero .row,
-  body.drawer-open .tk-hero .row{
-    justify-content:flex-end;
-    gap:20px;
-  }
-
-  @media (max-width: 900px){
-    body.panel-open #tk-hero,
-    body.panel-open .tk-hero,
-    body.drawer-open #tk-hero,
-    body.drawer-open .tk-hero{
-      margin:18px auto;
-      max-width:min(92vw, 520px);
-      text-align:center;
-      align-items:center;
-    }
-
-    body.panel-open #tk-hero .row,
-    body.panel-open .tk-hero .row,
-    body.drawer-open #tk-hero .row,
-    body.drawer-open .tk-hero .row{
-      justify-content:center;
-    }
-  }
-</style>
-
-<!-- TK /kinksurvey — nudge hero left & unify CTA sizes -->
+<!-- TK/kinksurvey: center hero + real off-canvas panel -->
 <style>
-  /* Scope to only this page */
-  body.tk-ksv{
-    /* how far to move the hero left; make more negative to shift further */
-    --hero-left-nudge: -10vw;
-
-    /* base CTA look (your theme still applies) */
-    --cta-min-h: 92px;
-    --cta-pad-y: 22px;
-    --cta-pad-x: 36px;
-    --cta-radius: 18px;
-    --cta-font: clamp(22px, 2.3vw, 30px);
-  }
-
-  /* Nudge title + CTA blocks left */
-  body.tk-ksv .tk-nudge {
-    transform: translateX(var(--hero-left-nudge));
-  }
-
-  /* Normalize button styling; final width/height set by JS below */
-  body.tk-ksv .tk-cta{
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: var(--cta-pad-y) var(--cta-pad-x) !important;
-    border-radius: var(--cta-radius) !important;
-    font-size: var(--cta-font) !important;
-    line-height: 1.15 !important;
-    min-height: var(--cta-min-h) !important;
-    box-sizing: border-box !important;
-    text-align: center !important;
-    white-space: nowrap;
-  }
-  body.tk-ksv .tk-cta > *{
-    font-size: inherit !important;
-    line-height: inherit !important;
-  }
-
-  /* Small screens: no nudge; let buttons expand fluidly */
-  @media (max-width: 900px){
-    body.tk-ksv .tk-nudge { transform: none !important; }
-  }
-</style>
-
-<!-- TK /kinksurvey — center landing & ignore hidden drawer offset -->
-<style>
-  /* Scope to /kinksurvey only */
+  /* Page scope */
   body.tk-ksv { overflow-x: hidden; }
+  body.tk-ksv.has-category-panel { padding-left: 0; }
 
-  /* Center the landing stack */
-  body.tk-ksv .landing-wrapper,
-  body.tk-ksv #kinksLanding {
-    width: min(1100px, 92vw);
-    margin: 8vh auto 0;
+  /* 1) HERO LAYOUT (title + buttons) */
+  #tkHero {
     display: grid;
     place-items: center;
-    gap: 26px;
-    text-align: center;
+    gap: min(2.2rem, 4vw);
+    margin: min(7vh, 8rem) auto 0;
+    max-width: min(1100px, 92vw);
+    transition: transform 280ms ease;
   }
-
-  /* ROW for the 2 secondary buttons (if you’re grouping them) */
-  body.tk-ksv .kinksurvey-actions {
+  #tkHero .tk-row {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 24px;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: min(1.25rem, 3vw);
+  }
+  /* Make CTAs consistent without fighting your theme */
+  #tkHero .tk-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 84px;
+    padding: 18px 28px;
+    border-radius: 16px;
+    line-height: 1.1;
+    box-sizing: border-box;
+    text-align: center;
+    white-space: nowrap;
   }
 
-  /* --------- Drawer offset fix ---------
-     While the category drawer is CLOSED, kill any reserved left space
-     some layouts add for the panel (margin-left / width calc / transforms). */
-  body.tk-ksv:not(.tk-drawer-open) #app,
-  body.tk-ksv:not(.tk-drawer-open) main,
-  body.tk-ksv:not(.tk-drawer-open) .page,
-  body.tk-ksv:not(.tk-drawer-open) .kinks-root,
-  body.tk-ksv:not(.tk-drawer-open) .survey-wrapper,
-  body.tk-ksv:not(.tk-drawer-open) .compat-container,
-  body.tk-ksv:not(.tk-drawer-open) .with-panel,
-  body.tk-ksv:not(.tk-drawer-open) .landing-wrapper {
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-    width: 100% !important;
-    transform: none !important;
-  }
-
-  /* Keep the drawer visually off-canvas when closed (don’t let it nudge layout) */
-  body.tk-ksv:not(.tk-drawer-open) #categorySurveyPanel,
-  body.tk-ksv:not(.tk-drawer-open) .category-panel {
-    transform: translateX(-110%) !important;
+  /* 2) REAL OFF-CANVAS PANEL (does not affect centering while closed) */
+  .category-panel {
+    position: fixed !important;
+    top: 0; left: 0;
+    height: 100vh;
+    width: clamp(320px, 34vw, 480px);
+    max-width: 92vw;
+    background: var(--tk-panel-bg, rgba(5,18,24,.98));
+    border-right: 1px solid rgba(0,230,255,.35);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(-110%);
     visibility: hidden;
+    pointer-events: none;
+    transition: transform 280ms ease, visibility 0s linear 280ms;
+    z-index: 2147483000;
+  }
+  .category-panel.open {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+    transition: transform 280ms ease;
+  }
+
+  /* 3) Nudge hero a bit when panel is open so it doesn't sit under the edge */
+  body.tk-panel-open #tkHero {
+    transform: translateX(clamp(12px, 2vw, 24px));
+  }
+
+  /* Small screens: keep things simple */
+  @media (max-width: 720px) {
+    #tkHero { gap: 1.4rem; margin-top: 6vh; }
+    #tkHero .tk-cta { min-height: 72px; }
+    body.tk-panel-open #tkHero { transform: translateX(8px); }
   }
 </style>
 
@@ -173,41 +108,16 @@
     border-radius:10px; padding:8px 12px; cursor:pointer;
   }
   .category-panel{
-    position:relative;
-    width:100%;
-    max-width:none;
-    min-height:100%;
     background:#071317;
     padding:14px 14px 18px;
     overflow:auto;
     text-align:center;
   }
 
-  body.panel-open, body.drawer-open, body.tk-drawer-open{ overflow:hidden; }
-
-  body.tk-drawer-ready:not(.tk-drawer-open) #categorySurveyPanel{
-    visibility:hidden;
-    pointer-events:none;
-  }
-
-  body.tk-drawer-open #categorySurveyPanel{
-    visibility:visible;
-    pointer-events:auto;
-  }
-
-  .category-panel.tk-as-drawer{
-    position:fixed !important;
-    top:0; left:0; right:auto; bottom:0;
-    width:var(--tk-drawer-w);
-    max-width:var(--tk-drawer-w);
-    border-right:1px solid #00e6ff55;
-    box-shadow:0 0 0 1px #00e6ff22 inset;
-    transform:translateX(-104%);
-    transition:transform .28s ease;
-    z-index:10000;
-  }
-
-  body.tk-drawer-open .category-panel.tk-as-drawer{ transform:translateX(0); }
+  body.panel-open,
+  body.drawer-open,
+  body.tk-drawer-open,
+  body.tk-panel-open { overflow:hidden; }
 
   #tkScrim{
     position:fixed;
@@ -220,7 +130,8 @@
     z-index:9999;
   }
 
-  body.tk-drawer-open #tkScrim{
+  body.tk-drawer-open #tkScrim,
+  body.tk-panel-open #tkScrim{
     opacity:1;
     pointer-events:auto;
   }
@@ -344,7 +255,6 @@
   }
 
   if (panel){
-    panel.classList.add('tk-as-drawer');
     panel.setAttribute('aria-expanded','false');
     if (!panel.querySelector('.tk-close-drawer')){
       const closeBtn = document.createElement('button');
@@ -366,6 +276,7 @@
       panel.setAttribute('aria-hidden', want ? 'false' : 'true');
     }
     document.body.classList.toggle('panel-open', want);
+    document.body.classList.toggle('tk-panel-open', want);
     document.body.classList.toggle('tk-drawer-open', want);
     toggle?.setAttribute('aria-expanded', want ? 'true' : 'false');
     if (scrim){
@@ -396,7 +307,6 @@
   window.tkKinksurveyOpenPanel = (opts) => openDrawer(opts || {});
   window.tkKinksurveyClosePanel = (opts) => closeDrawer(opts || {});
 
-  document.body.classList.add('tk-drawer-ready');
   setDrawerState(false);
 
   if (scrim && !scrim.dataset.tkBind){
@@ -413,7 +323,7 @@
     toggle.dataset.tkBind = '1';
     toggle.addEventListener('click', (event)=>{
       event.preventDefault();
-      const isOpen = document.body.classList.contains('tk-drawer-open');
+      const isOpen = panel?.classList.contains('open');
       if (isOpen) closeDrawer({ focusToggle: false });
       else openDrawer({ focusFirst: true });
     });
@@ -565,86 +475,12 @@
   } catch (_) {}
 })();
 </script>
-<!-- TK /kinksurvey — nudge hero left & unify CTA sizes -->
-<script>
-(function () {
-  // Only run on /kinksurvey/
-  if (!/\/kinksurvey\/?$/i.test(location.pathname)) return;
-
-  document.body.classList.add('tk-ksv');
-
-  // 1) Find the title and main CTAs (robust selectors)
-  const h1 = document.querySelector('h1');
-  const startBtn =
-    document.querySelector('#startSurvey, #startSurveyBtn, .start-survey-btn, button[onclick*="start"]');
-
-  // try common hrefs/keywords for the two link buttons
-  const compatLink =
-    document.querySelector('a[href*="compat" i], a[href*="compare" i], a[href*="compatibility" i]');
-  const analysisLink =
-    document.querySelector('a[href*="analysis" i], a[href*="ika" i], a[href*="kink-analysis" i]');
-
-  const ctas = [startBtn, compatLink, analysisLink].filter(Boolean);
-
-  // 2) Tag elements so CSS can style/nudge them
-  if (h1) h1.classList.add('tk-nudge');
-  if (startBtn) startBtn.classList.add('tk-cta', 'tk-nudge');
-  if (compatLink) compatLink.classList.add('tk-cta', 'tk-nudge');
-  if (analysisLink) analysisLink.classList.add('tk-cta', 'tk-nudge');
-
-  // Also try nudging their _containers_ so the row shifts with them
-  [startBtn, compatLink, analysisLink].forEach(el=>{
-    if (!el) return;
-    const p = el.parentElement;
-    if (p && !p.classList.contains('tk-cta')) p.classList.add('tk-nudge');
-  });
-
-  // 3) Make all CTAs the same width/height (based on the largest)
-  function unifyCTA() {
-    if (!ctas.length) return;
-
-    // clear previous fixed sizes so we can measure natural sizes
-    ctas.forEach(el => {
-      el.style.width = '';
-      el.style.minWidth = '';
-      el.style.minHeight = '';
-    });
-
-    requestAnimationFrame(() => {
-      let maxW = 0, maxH = 0;
-
-      ctas.forEach(el => {
-        const r = el.getBoundingClientRect();
-        maxW = Math.max(maxW, r.width);
-        maxH = Math.max(maxH, r.height);
-      });
-
-      ctas.forEach(el => {
-        el.style.width = maxW + 'px';
-        el.style.minWidth = maxW + 'px';
-        el.style.minHeight = maxH + 'px';
-      });
-    });
-  }
-
-  window.addEventListener('load', unifyCTA, { once: true });
-
-  let t;
-  window.addEventListener('resize', () => {
-    clearTimeout(t);
-    t = setTimeout(unifyCTA, 120);
-  });
-
-  // run once in case fonts are already in cache
-  unifyCTA();
-})();
-</script>
 <!-- load enhancer last so it can find the existing DOM (versioned URL to beat stale caches) -->
 <script type="module" src="/js/tk_kinksurvey_enhance.js?v=ks-20240927b"></script>
 <!-- Self-heal: if hero didn't appear quickly (stale inline/partial), retry loading once -->
 <script>
 setTimeout(() => {
-  if (!document.getElementById('tk-hero')) {
+  if (!document.getElementById('tkHero')) {
     const s = document.createElement('script');
     s.type = 'module';
     s.src = '/js/tk_kinksurvey_enhance.js?v=ks-20240927b&retry=1';

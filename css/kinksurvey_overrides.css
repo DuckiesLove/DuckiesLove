@@ -14,12 +14,19 @@
   --tk-toolbar-shadow:0 10px 30px rgba(0,0,0,.45);
 }
 
+body[data-kinksurvey="1"].has-category-panel,
+body.tk-ksv.has-category-panel{padding-left:0;}
+
 body[data-kinksurvey="1"] .tk-hero{
   display:flex; flex-direction:column; align-items:center; gap:28px;
   margin:18px auto 26px; text-align:center;
 }
-body[data-kinksurvey="1"] .tk-hero .row{display:flex; flex-wrap:wrap; justify-content:center; gap:28px;}
-body[data-kinksurvey="1"] .tk-hero .row .cta{display:inline-flex; align-items:center; justify-content:center; text-align:center;}
+body[data-kinksurvey="1"] .tk-hero .row,
+body[data-kinksurvey="1"] .tk-hero .tk-row{display:flex; flex-wrap:wrap; justify-content:center; gap:28px;}
+body[data-kinksurvey="1"] .tk-hero .row .cta,
+body[data-kinksurvey="1"] .tk-hero .tk-row .cta,
+body[data-kinksurvey="1"] .tk-hero .row .tk-cta,
+body[data-kinksurvey="1"] .tk-hero .tk-row .tk-cta{display:inline-flex; align-items:center; justify-content:center; text-align:center;}
 body[data-kinksurvey="1"] #startSurvey{display:inline-flex; margin-inline:auto;}
 .tk-hero{
   display:flex; flex-direction:column; align-items:center; gap:18px;
