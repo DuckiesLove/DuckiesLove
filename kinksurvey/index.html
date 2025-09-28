@@ -762,6 +762,13 @@ setTimeout(() => {
     });
   }
 
+  const legacyOpen = typeof window.tkKinksurveyOpenPanel === 'function'
+    ? window.tkKinksurveyOpenPanel
+    : null;
+  const legacyClose = typeof window.tkKinksurveyClosePanel === 'function'
+    ? window.tkKinksurveyClosePanel
+    : null;
+
   function openPanel(){
     forceUndim();
     scrubInteractivityBlocks(panel);
@@ -770,8 +777,11 @@ setTimeout(() => {
     panel.setAttribute('aria-hidden','false');
     document.body.classList.add('ksv-lock');
     setTimeout(() => {
-      (panel.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])') || closeBtn)
-        ?.focus({preventScroll:true});
+      (
+        panel.querySelector('input[type="checkbox"]:not([disabled])') ||
+        panel.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])') ||
+        closeBtn
+      )?.focus({preventScroll:true});
     }, 10);
   }
 
@@ -784,7 +794,30 @@ setTimeout(() => {
     startBtn?.focus?.({preventScroll:true});
   }
 
-  startBtn?.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+  const overlayAwareOpen = (opts) => {
+    if (panel){
+      openPanel(opts);
+    }else if (legacyOpen){
+      legacyOpen(opts);
+    }
+  };
+
+  const overlayAwareClose = (opts) => {
+    if (panel){
+      closePanel(opts);
+    }else if (legacyClose){
+      legacyClose(opts);
+    }
+  };
+
+  window.tkKinksurveyOpenPanel = overlayAwareOpen;
+  window.tkKinksurveyClosePanel = overlayAwareClose;
+
+  startBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    overlayAwareOpen({ trigger: startBtn });
+  });
   closeBtn.addEventListener('click', closePanel);
   backdrop.addEventListener('click', closePanel);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closePanel(); });
