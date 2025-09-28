@@ -14,6 +14,60 @@
 <link rel="stylesheet" href="/css/theme.css">
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
 
+<!-- TK /kinksurvey — force centered hero layout -->
+<style id="tk-kinksurvey-center">
+  /* Scope to this page only */
+  body[data-kinksurvey="1"] h1,
+  body[data-kinksurvey="1"] .themed-title {
+    text-align: center;
+    margin: 4vh 0 1.5vh;
+    width: 100%;
+  }
+
+  /* Center the whole hero block in the viewport */
+  body[data-kinksurvey="1"] .tk-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;        /* vertical center */
+    min-height: 68vh;               /* height target for centering */
+    gap: 28px;
+    margin-top: 0 !important;       /* override earlier margin */
+    width: min(960px, 92vw);        /* keep a nice max width */
+    margin-inline: auto;            /* horizontal center */
+  }
+
+  /* Rows inside hero */
+  body[data-kinksurvey="1"] .tk-hero .row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;        /* horizontal center */
+    gap: 28px;
+    width: 100%;
+  }
+
+  /* Buttons look consistent when reflowed */
+  body[data-kinksurvey="1"] .tk-hero .cta,
+  body[data-kinksurvey="1"] #startSurvey {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin: 0 auto;
+  }
+</style>
+
+<script>
+/* Ensure the page is flagged so the CSS above only applies here */
+(() => {
+  if (!/^\/kinksurvey\/?$/.test(location.pathname)) return;
+  document.body.setAttribute('data-kinksurvey','1');
+
+  // If our hero container exists (from the previous patch), nothing else to do.
+  // This keeps any existing click handlers intact.
+})();
+</script>
+
 <style>
   :root { --panel-w: 320px; --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
   html,body{height:100%}
