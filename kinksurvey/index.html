@@ -61,12 +61,13 @@
 <style>
   /* Scope to this page only */
   body.tk-ksv {
-    --hero-left-nudge: -4vw;      /* move left a bit to compensate for hidden panel */
-    --cta-min-h: 86px;            /* button height */
-    --cta-pad-y: 20px;            /* vertical padding */
-    --cta-pad-x: 38px;            /* horizontal padding */
+    --hero-left-nudge: -8vw;      /* move the hero to the left a bit more */
+    --cta-min-h: 92px;            /* unified CTA sizing */
+    --cta-pad-y: 22px;
+    --cta-pad-x: 36px;
     --cta-radius: 18px;
-    --cta-font: clamp(20px, 2.1vw, 28px);
+    --cta-font: clamp(22px, 2.3vw, 30px);
+    --cta-w: clamp(280px, 36vw, 520px); /* same width for Start + the two links */
   }
 
   /* Title + buttons wrapper */
@@ -78,17 +79,17 @@
     width: 100%;
   }
 
-  /* Row for Start button only */
-  body.tk-ksv .tk-hero .cta-start {
-    transform: translateX(var(--hero-left-nudge));
-  }
-
   /* Row for the two lower buttons */
   body.tk-ksv .tk-hero .cta-row {
     display: flex;
     gap: 28px;
     flex-wrap: wrap;
     justify-content: center;
+  }
+
+  /* If a previous patch created these wrappers, we use them; otherwise this still helps. */
+  body.tk-ksv .cta-start,
+  body.tk-ksv .cta-row {
     transform: translateX(var(--hero-left-nudge));
   }
 
@@ -102,6 +103,8 @@
     border-radius: var(--cta-radius) !important;
     font-size: var(--cta-font) !important;
     line-height: 1.15 !important;
+    width: var(--cta-w) !important;
+    min-width: var(--cta-w) !important;
     box-sizing: border-box !important;
   }
   /* If a theme wraps a child button inside the link, normalize that too */
@@ -120,7 +123,11 @@
   @media (max-width: 900px) {
     body.tk-ksv .cta-start,
     body.tk-ksv .cta-row {
-      transform: none;
+      transform: none !important;
+    }
+    body.tk-ksv .tk-cta {
+      width: 92vw !important;
+      min-width: 0 !important;
     }
   }
 </style>
