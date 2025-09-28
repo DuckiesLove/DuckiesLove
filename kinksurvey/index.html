@@ -569,104 +569,97 @@ setTimeout(() => {
 </script>
 
 <style>
-  /* ----- Overlay & Panel ----- */
+  /* Backdrop below panel */
   #ksv-backdrop{
-    position:fixed; inset:0; z-index:2147483645;
+    position:fixed; inset:0; z-index:2147483646;
     background:rgba(0,0,0,.55);
-    opacity:0; pointer-events:none; transition:opacity .2s ease;
+    opacity:0; pointer-events:none; transition:opacity .18s ease;
   }
   #ksv-backdrop.is-open{ opacity:1; pointer-events:auto; }
 
+  /* Slide-out panel (highest z-index so nothing sits on top) */
   #ksv-panel{
     position:fixed; top:0; right:0; height:100dvh;
     width:min(620px,92vw); max-width:620px;
-    z-index:2147483646; background:#0c0f10; color:#dffcff;
-    transform:translateX(110%); transition:transform .28s ease;
+    z-index:2147483647; background:#0c0f10; color:#dffcff;
+    transform:translateX(110%); transition:transform .24s ease;
     box-shadow:-2px 0 24px rgba(0,0,0,.45);
     border-left:2px solid rgba(0,255,255,.25);
     display:flex; flex-direction:column; overflow:auto; -webkit-overflow-scrolling:touch;
   }
   #ksv-panel.is-open{ transform:translateX(0); }
 
-  /* Kill any legacy CSS that folded the drawer on focus/target */
+  /* If ANY site CSS tries to dim/disable the panel or its children, override it. */
+  #ksv-panel.is-open,
+  #ksv-panel.is-open *{
+    opacity:1 !important;
+    filter:none !important;
+    pointer-events:auto !important;
+    user-select:auto !important;
+  }
+
+  /* Kill “fold on focus” rules some themes add */
   :where(#ksv-panel:focus-within, .ksv-shell:focus-within #ksv-panel){ transform:translateX(0)!important; }
 
   body.ksv-lock{ overflow:hidden; }
 
-  /* ----- Panel header + Close button ----- */
+  /* Header + Close button */
   #ksv-header{
     position:sticky; top:0; z-index:1; display:flex; align-items:center; justify-content:space-between;
     gap:12px; padding:12px 12px 10px;
     background:linear-gradient(180deg, rgba(12,15,16,1) 70%, rgba(12,15,16,0) 100%);
     border-bottom:1px solid rgba(0,255,255,.15);
   }
-  #ksv-title{
-    font:700 18px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
-    letter-spacing:.2px; color:#dffcff;
-  }
+  #ksv-title{ font:700 18px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; letter-spacing:.2px; color:#dffcff; }
   #ksv-close{
     -webkit-tap-highlight-color:transparent;
     appearance:none; cursor:pointer;
     border:2px solid rgba(0,255,255,.55); color:#a9fbff; background:rgba(0,255,255,.08);
     font:700 16px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
     border-radius:14px; padding:10px 14px;
-    box-shadow:0 0 0 0 rgba(0,255,255,.35);
     transition:box-shadow .15s ease, transform .05s ease, background .15s ease;
   }
   #ksv-close:hover{ background:rgba(0,255,255,.12); }
   #ksv-close:active{ transform:translateY(1px); }
   #ksv-close:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(0,255,255,.35); }
 
-  /* Content inside panel */
   #ksv-content{ padding:8px 12px 20px; }
-
-  /* Optional: make the category cards a touch more contrasted */
-  #ksv-panel .ksv-soft-card{
-    background:rgba(255,255,255,.02);
-    border-radius:12px; border:1px solid rgba(0,255,255,.15);
-  }
+  /* Slight card styling for the imported category UI (optional) */
+  #ksv-panel .ksv-soft-card{ background:rgba(255,255,255,.02); border-radius:12px; border:1px solid rgba(0,255,255,.15); }
 </style>
 
 <script>
 (function(){
   const d = document;
 
-  const findStartButtons = () => {
-    const candidates = [...d.querySelectorAll('a,button,input[type="button"],input[type="submit"]')];
-    return candidates.filter(el => /start\s*survey/i.test((el.textContent || el.value || '').trim()));
-  };
+  // 1) Hook the Start Survey button
+  const startBtn = [...d.querySelectorAll('a,button,input[type="button"],input[type="submit"]')]
+    .find(el => /start\s*survey/i.test((el.textContent || el.value || '').trim()));
 
-  // Find the "Select categories" heading, then climb to a container that holds checkboxes
-  const findCategoriesContainer = () => {
-    const headLike = [...d.querySelectorAll('h1,h2,h3,legend,[role="heading"],.heading,.title,section,div')]
+  // 2) Find the categories block (heuristic: container with many checkboxes near “Select categories”)
+  function findCategoriesContainer(){
+    const head = [...d.querySelectorAll('h1,h2,h3,legend,[role="heading"],.heading,.title,section,div')]
       .find(el => /select\s+categories/i.test((el.textContent || '').trim()));
-    if (!headLike) return null;
+    if (!head) return null;
 
-    // Climb until we find a parent with at least 5 checkboxes (heuristic)
-    let node = headLike.closest('section,form,article,div') || headLike;
-    const checkboxCount = el => el.querySelectorAll('input[type="checkbox"]').length;
+    const count = el => el.querySelectorAll('input[type="checkbox"]').length;
+    let node = head.closest('section,form,article,div') || head, hops = 0;
+    while (node && count(node) < 5 && hops++ < 8) node = node.parentElement;
 
-    let safety = 0;
-    while (node && checkboxCount(node) < 5 && safety++ < 8) node = node.parentElement;
-    if (node && checkboxCount(node) >= 5) return node;
+    if (node && count(node) >= 5) return node;
 
-    // Fallback: pick the element on page with *max* checkboxes
-    const allDivs = [...d.querySelectorAll('section,form,article,div')];
+    // Fallback: pick the element with the most checkboxes
     let best = null, max = 0;
-    for (const el of allDivs){
-      const c = checkboxCount(el);
-      if (c > max){ max = c; best = el; }
+    for (const el of d.querySelectorAll('section,form,article,div')){
+      const c = count(el); if (c > max){ max = c; best = el; }
     }
     return max >= 5 ? best : null;
-  };
+  }
 
   const cats = findCategoriesContainer();
-  if (!cats) return; // Nothing to do if we can't find categories
+  if (!cats) return; // nothing to move
 
-  const startButtons = findStartButtons().filter(btn => !cats.contains(btn));
-  const primaryTrigger = startButtons[0] || null;
-
-  // --- Build overlay skeleton (once) ---
+  // 3) Build overlay/panel once
   let backdrop = d.getElementById('ksv-backdrop');
   if (!backdrop){
     backdrop = d.createElement('div');
@@ -693,70 +686,73 @@ setTimeout(() => {
     close.setAttribute('aria-label','Close categories panel');
     close.textContent = 'Close ✕';
 
-    header.appendChild(title);
-    header.appendChild(close);
-
     const content = d.createElement('div');
     content.id = 'ksv-content';
 
-    panel.appendChild(header);
-    panel.appendChild(content);
-
+    header.appendChild(title); header.appendChild(close);
+    panel.appendChild(header); panel.appendChild(content);
     d.body.appendChild(panel);
   }
-
   const content = d.getElementById('ksv-content');
   const closeBtn = d.getElementById('ksv-close');
 
-  // Move the existing categories UI *into* our panel content
-  // (keeps functionality, just hides it until the panel opens)
+  // 4) Move the existing categories UI into our panel (keeps all logic)
   if (!content.contains(cats)){
-    // Optional: tag the top-level container for a subtle card style
     cats.classList.add('ksv-soft-card');
     content.appendChild(cats);
   }
 
-  // --- Open / Close logic ---
-  let lastTrigger = null;
+  // Helper: remove anything that disables interactivity (inert, inline pointer-events/opacity, etc.)
+  function scrubInteractivityBlocks(root){
+    // Remove inert flags
+    root.removeAttribute('inert');
+    root.querySelectorAll('[inert]').forEach(n => n.removeAttribute('inert'));
 
-  const openPanel = (trigger) => {
-    lastTrigger = trigger || lastTrigger || primaryTrigger;
+    // If some theme sets aria-disabled on containers, clear it
+    root.querySelectorAll('[aria-disabled="true"]').forEach(n => n.removeAttribute('aria-disabled'));
+
+    // Don’t arbitrarily enable disabled form controls; only clear pointer-events/opacity blocks
+    root.querySelectorAll('[style]').forEach(n => {
+      const s = n.getAttribute('style');
+      if (/pointer-events\s*:\s*none/i.test(s)) n.style.pointerEvents = 'auto';
+      // Only lift explicit low opacity on containers; children are already force-opaque in CSS
+      if (/opacity\s*:\s*0\.\d+/i.test(s)) n.style.opacity = '1';
+      if (/filter\s*:/i.test(s)) n.style.filter = 'none';
+    });
+  }
+
+  function openPanel(){
+    scrubInteractivityBlocks(panel);
     panel.classList.add('is-open');
     backdrop.classList.add('is-open');
     panel.setAttribute('aria-hidden','false');
     d.body.classList.add('ksv-lock');
-
-    // Focus first interactive control inside
     setTimeout(() => {
-      const focusable = panel.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])');
-      (focusable || closeBtn).focus({preventScroll:true});
+      // Focus inside for accessibility
+      (panel.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])') || closeBtn)
+        ?.focus({preventScroll:true});
     }, 10);
-  };
+  }
 
-  const closePanel = () => {
+  function closePanel(){
     panel.classList.remove('is-open');
     backdrop.classList.remove('is-open');
     panel.setAttribute('aria-hidden','true');
     d.body.classList.remove('ksv-lock');
-    lastTrigger?.focus?.({preventScroll:true});
-  };
+    startBtn?.focus?.({preventScroll:true});
+  }
 
-  // Wire triggers
-  startButtons.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      openPanel(btn);
-    });
-  });
+  // 5) Wire it up
+  startBtn?.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
   closeBtn.addEventListener('click', closePanel);
   backdrop.addEventListener('click', closePanel);
-  d.addEventListener('keydown', (e) => {
+  document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closePanel();
   });
 
-  // Guard against global "click-outside" listeners closing immediately
+  // Guard against page-level click-away handlers closing immediately
   panel.addEventListener('click', (e) => e.stopPropagation());
-  d.addEventListener('click', (e) => {
+  document.addEventListener('click', (e) => {
     if (!backdrop.classList.contains('is-open')) return;
     if (panel.contains(e.target)) e.stopPropagation();
   }, true);
