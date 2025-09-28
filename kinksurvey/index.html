@@ -880,89 +880,90 @@ setTimeout(() => {
   */
 </style>
 
-<!-- DROP THIS WHOLE SNIPPET near the end of /kinksurvey/ (right before </body>). 
-     It locks the panel open on the left and shows a small 3-button rail in the
-     empty space to the right. The big landing buttons are hidden while the panel
-     is open. Only the Close button collapses the panel. -->
+<!-- PATCH: Right-side mini buttons appear ONLY while the category panel is open.
+     Panel stays “locked” (no ESC / no scrim click) until Close is pressed.
+     Paste this whole block near the end of /kinksurvey/index.html (right before </body>). -->
 
 <style>
-  /* ===== Right-rail layout when the panel is open ===== */
-  body.kinksurvey-page.tk-panel-open { overflow: hidden; }
-
-  /* Keep the scrim high, but our panel/rail higher so clicks work */
-  #tkScrim { z-index: 9999 !important; }
-
-  /* Panel pinned left, above scrim */
-  body.kinksurvey-page.tk-panel-open .category-panel{
-    position:fixed !important;
-    inset:0 auto 0 0 !important;               /* top:0 right:auto bottom:0 left:0 */
-    width:calc(100vw - clamp(240px,26vw,380px)) !important;
-    height:100vh !important;
-    overflow:auto !important;
-    z-index:2147483000 !important;
+  :root{
+    /* tune this to fit the blank space on the right of your open panel */
+    --tk-rail-w: clamp(220px, 24vw, 340px);
+    --tk-cyan: #09d0d6;
   }
 
-  /* Hide existing large landing CTAs while panel is open (we also add a helper
-     class via JS to be extra sure). Add more selectors if you have custom ones. */
+  /* Keep page from scrolling under the panel */
+  body.kinksurvey-page.tk-panel-open { overflow: hidden; }
+
+  /* Scrim stays high, but our panel & rail stay higher so they’re clickable */
+  #tkScrim{ z-index: 9999 !important; }
+
+  /* Pin the category panel on the left and keep it above the scrim */
+  body.kinksurvey-page.tk-panel-open .category-panel{
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;                 /* top:0 right:auto bottom:0 left:0 */
+    width: calc(100vw - var(--tk-rail-w)) !important;
+    height: 100vh !important;
+    overflow: auto !important;
+    z-index: 2147483000 !important;
+    /* optional: subtle right edge separator */
+    box-shadow: 1px 0 0 0 rgba(9,208,214,.25);
+  }
+
+  /* Hide the big landing row while the panel is open */
   body.kinksurvey-page.tk-panel-open .hero-actions,
   body.kinksurvey-page.tk-panel-open .cta-row,
   body.kinksurvey-page.tk-panel-open .landing-actions,
   body.kinksurvey-page.tk-panel-open .survey-actions,
-  body.kinksurvey-page.tk-panel-open .tk-landing-actions { 
-    visibility:hidden !important; 
-    pointer-events:none !important; 
+  body.kinksurvey-page.tk-panel-open .tk-landing-actions{
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
 
-  /* Right-side actions rail (appears only when panel is open) */
+  /* Right-side mini actions rail */
   #tkSideActions{
-    position:fixed;
-    right:0; top:0; height:100vh;
-    width:clamp(240px,26vw,380px);
-    padding:1.2rem 1rem;
-    display:none;                                /* only on open */
-    align-items:flex-start;
-    justify-content:flex-start;
-    gap:1rem;
-    z-index:2147483000;                           /* above scrim */
-    background:rgba(0,0,0,.30);                   /* subtle mask over background */
-    box-shadow: inset 0 0 0 1px rgba(9,208,214,.25);
+    position: fixed;
+    right: 0; top: 0; height: 100vh;
+    width: var(--tk-rail-w);
+    padding: 1rem .9rem;
+    display: none;                                 /* only shows when panel is open */
+    flex-direction: column; gap: .8rem;
+    background: rgba(0,0,0,.30);
+    box-shadow: inset 0 0 0 1px rgba(9,208,214,.20);
+    z-index: 2147483000;                           /* above scrim */
   }
-  body.kinksurvey-page.tk-panel-open #tkSideActions{ display:flex; }
+  body.kinksurvey-page.tk-panel-open #tkSideActions{ display: flex; }
 
-  #tkSideActions .tk-side-stack{ 
-    margin-top:5.5rem;    /* push below page title */
-    width:100%; display:flex; flex-direction:column; gap:0.9rem;
-  }
+  /* Push buttons a bit below the title area */
+  #tkSideActions .tk-side-stack{ margin-top: 5.25rem; display:flex; flex-direction:column; gap:.8rem; }
 
-  /* Compact buttons — wipe out global styles to avoid giant sizing */
-  #tkSideActions .tk-mini-btn{ 
-    all: unset; 
-    display:inline-flex; align-items:center; justify-content:center;
-    width:100%; min-height:46px; padding:0.85rem 1rem;
-    border-radius:14px; border:2px solid var(--tk-cyan, #09d0d6);
-    background:rgba(0,0,0,.22); color:var(--tk-cyan, #09d0d6);
-    font-weight:800; letter-spacing:.02em; 
-    font-size:clamp(14px,1.35vw,18px); text-align:center; cursor:pointer;
-    transition:transform .08s ease, box-shadow .12s ease, background .12s ease;
+  /* Compact buttons that won’t inherit giant landing styles */
+  #tkSideActions .tk-mini-btn{
+    all: unset;
+    width: 100%;
+    min-height: 44px;
+    padding: .75rem .9rem;
+    border-radius: 12px;
+    border: 2px solid var(--tk-cyan);
+    background: rgba(0,0,0,.22);
+    color: var(--tk-cyan);
+    font: 800 clamp(14px,1.3vw,17px)/1.1 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: .02em;
+    text-align: center;
+    cursor: pointer;
+    transition: transform .08s ease, box-shadow .12s ease, background .12s ease;
   }
-  #tkSideActions .tk-mini-btn:hover{ 
-    transform:translateY(-1px); box-shadow:0 0 0 3px rgba(9,208,214,.18);
-  }
-  #tkSideActions .tk-mini-btn.primary{
-    background:var(--tk-cyan, #09d0d6); color:#001315;
-  }
-  #tkSideActions .tk-mini-btn.primary:hover{
-    box-shadow:0 0 0 5px rgba(9,208,214,.22);
-  }
+  #tkSideActions .tk-mini-btn:hover{ transform: translateY(-1px); box-shadow: 0 0 0 3px rgba(9,208,214,.18); }
+  #tkSideActions .tk-mini-btn.primary{ background: var(--tk-cyan); color: #001315; }
+  #tkSideActions .tk-mini-btn.primary:hover{ box-shadow: 0 0 0 5px rgba(9,208,214,.22); }
 
-  /* Mobile: no right rail (panel takes full screen) */
-  @media (max-width:1100px){
-    body.kinksurvey-page.tk-panel-open .category-panel{ width:100vw !important; }
-    body.kinksurvey-page.tk-panel-open #tkSideActions{ display:none !important; }
+  /* Mobile: no right rail; panel takes full width */
+  @media (max-width: 1100px){
+    body.kinksurvey-page.tk-panel-open .category-panel{ width: 100vw !important; }
+    body.kinksurvey-page.tk-panel-open #tkSideActions{ display: none !important; }
   }
 </style>
 
-<!-- Right-rail buttons shown only while the panel is open -->
+<!-- Right-rail actions (only visible while the panel is open) -->
 <div id="tkSideActions" aria-hidden="true">
   <div class="tk-side-stack">
     <button id="tkSideStart" class="tk-mini-btn primary">Start Survey</button>
@@ -975,32 +976,32 @@ setTimeout(() => {
 (function(){
   document.body.classList.add('kinksurvey-page');
 
-  // Keep the panel above the scrim whenever it opens
-  function raisePanel(){ 
-    const p=document.querySelector('.category-panel'); 
-    if(p) p.style.zIndex='2147483000';
+  // Keep panel above scrim whenever it opens
+  function raisePanel(){
+    const p = document.querySelector('.category-panel');
+    if(p) p.style.zIndex = '2147483000';
   }
 
-  // Don’t let clicks on the scrim dismiss the panel
-  const scrim=document.getElementById('tkScrim');
+  // LOCK the panel: ignore scrim clicks & ESC (Close button is the only exit)
+  const scrim = document.getElementById('tkScrim');
   if(scrim){
-    scrim.addEventListener('click',e=>{ e.stopPropagation(); e.preventDefault(); }, true);
+    scrim.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); }, true);
   }
-  // Also ignore ESC to "lock" the panel until Close is pressed
-  window.addEventListener('keydown',e=>{
-    if(document.body.classList.contains('tk-panel-open') && e.key==='Escape'){ e.preventDefault(); }
+  window.addEventListener('keydown', e => {
+    if(document.body.classList.contains('tk-panel-open') && e.key === 'Escape'){ e.preventDefault(); }
   }, true);
 
-  // Wire Close buttons (your page already has one; we support several common selectors)
+  // Make sure Close buttons really close it
   function closePanel(){
     document.body.classList.remove('tk-panel-open');
-    const p=document.querySelector('.category-panel'); if(p) p.style.zIndex='200';
+    const p = document.querySelector('.category-panel');
+    if(p) p.style.zIndex = '200';
   }
   [...document.querySelectorAll('#tkPanelClose,[data-action="close-panel"],.tk-panel-close,.category-panel .close')]
-    .forEach(btn=>btn.addEventListener('click',closePanel));
+    .forEach(b => b.addEventListener('click', closePanel));
 
-  // Right-rail "Start Survey" should trigger the real start action
-  document.getElementById('tkSideStart').addEventListener('click',()=>{
+  // Right-rail "Start Survey" mirrors your real start button/event
+  document.getElementById('tkSideStart').addEventListener('click', () => {
     const real =
       document.querySelector('[data-start-survey]') ||
       document.querySelector('[data-action="start-survey"]') ||
@@ -1009,39 +1010,31 @@ setTimeout(() => {
     if(real){ real.click(); } else { window.dispatchEvent(new CustomEvent('tk:start-survey')); }
   });
 
-  // When panel opens, keep it on top and hide large landing CTAs by tagging their wrappers
-  function tagLandingCTAs(){
-    const labels=['Start Survey','Compatibility Page','Individual Kink Analysis'];
-    document.querySelectorAll('a,button').forEach(el=>{
-      const t=(el.textContent||'').trim();
-      if(labels.some(l=>t.includes(l))){
-        // climb up until we reach a block with multiple children
-        let w=el; for(let i=0;i<3 && w && w.parentElement;i++){ w=w.parentElement; if(w.children.length>1) break; }
+  // When the panel opens (body gains tk-panel-open), keep it raised and hide big CTAs
+  const watch = new MutationObserver(() => {
+    if(document.body.classList.contains('tk-panel-open')){ raisePanel(); }
+  });
+  watch.observe(document.body, { attributes:true, attributeFilter:['class'] });
+
+  // Tag the large landing CTA wrapper once so our CSS can hide it while open
+  (function tagLandingCTAs(){
+    const labels = ['Start Survey','Compatibility Page','Individual Kink Analysis'];
+    document.querySelectorAll('a,button').forEach(el => {
+      const t = (el.textContent||'').trim();
+      if(labels.some(l => t.includes(l))){
+        let w = el;
+        for(let i=0;i<3 && w && w.parentElement;i++){
+          w = w.parentElement;
+          if(w.children.length > 1) break;
+        }
         if(w) w.classList.add('tk-landing-actions');
       }
     });
-  }
-  tagLandingCTAs();
-
-  // Watch for open/close state
-  const watch=new MutationObserver(()=>{
-    if(document.body.classList.contains('tk-panel-open')){ raisePanel(); }
-  });
-  watch.observe(document.body,{attributes:true,attributeFilter:['class']});
+  })();
 
   // If already open on load
   if(document.body.classList.contains('tk-panel-open')) raisePanel();
 })();
-</script>
-
-<script>
-  // 🧪 Quick self-check in the console:
-  // 1) Click “Start Survey” so <body> gets .tk-panel-open
-  // 2) Then run:
-  //    getComputedStyle(document.querySelector('.category-panel,#categoryPanel,.kink-categories-panel')).zIndex
-  //    → should be "2147483000"
-  //    getComputedStyle(document.querySelector('#tkScrim')).zIndex
-  //    → should be "9999" (or "500" if you enabled OPTION B)
 </script>
 </body>
 </html>
