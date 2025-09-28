@@ -112,8 +112,26 @@
     }
 
     if (!usingExistingStart){
-      startNode?.addEventListener('click', () => {
+      startNode?.addEventListener('click', (event) => {
+        const openPanel = typeof window?.tkKinksurveyOpenPanel === 'function' ? window.tkKinksurveyOpenPanel : null;
+        if (openPanel){
+          event?.preventDefault?.();
+          event?.stopImmediatePropagation?.();
+          openPanel({ focusFirst: true });
+          return;
+        }
         const panel = $('#categorySurveyPanel') || $('.category-panel') || $('#categoryPanel');
+        const toggle = $('#panelToggle') || $('.panel-toggle');
+        const drawer = $('#tkDrawer');
+        if (drawer){
+          drawer.classList.add('open');
+          document.body?.classList?.add('drawer-open','tk-drawer-open');
+        }
+        if (panel){
+          panel.classList.add('open');
+          document.body?.classList?.add('panel-open','tk-drawer-open');
+        }
+        toggle?.setAttribute?.('aria-expanded','true');
         const realStart = findStartButton();
         panel?.scrollIntoView({behavior:'smooth', block:'start'});
         setTimeout(() => realStart?.focus?.(), 280);
