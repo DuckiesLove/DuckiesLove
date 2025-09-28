@@ -797,5 +797,64 @@ setTimeout(() => {
   }, true);
 })();
 </script>
+<!-- 🔧 HOTFIX: put this at the very BOTTOM of /kinksurvey/ (right before </body>)
+     Goal: make the categories panel sit ABOVE the full-screen #tkScrim overlay.
+     Why: when <body> gets .tk-panel-open the site shows #tkScrim (z-index: 9999, pointer-events: auto),
+           but .category-panel is only z-index: 200 → the scrim captures all clicks and the panel
+           looks “slightly transparent / unusable”.
+     Fix: raise the panel’s stacking context (or, optionally, lower the scrim on this page). -->
+
+<style id="tk-panel-zfix">
+  /* ✅ Raise the categories panel above the scrim (target common selectors) */
+  body.tk-panel-open .category-panel,
+  body.tk-panel-open #categoryPanel,
+  body.tk-panel-open .kink-categories-panel {
+    /* keep it clickable and fully opaque even if global styles try to dim/blur */
+    position: relative;                  /* ensure z-index creates a stacking context */
+    z-index: 2147483000 !important;      /* higher than any app overlay/scrim */
+    opacity: 1 !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    pointer-events: auto !important;
+  }
+
+  /* (Optional) also make all children fully interactive if any dim/blur is inherited */
+  body.tk-panel-open .category-panel *,
+  body.tk-panel-open #categoryPanel *,
+  body.tk-panel-open .kink-categories-panel * {
+    opacity: 1 !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    pointer-events: auto !important;
+  }
+
+  /* 🧯 Safety: if any framework adds 'inert' during open, neutralize it */
+  body.tk-panel-open .category-panel[inert],
+  body.tk-panel-open #categoryPanel[inert],
+  body.tk-panel-open .kink-categories-panel[inert] {
+    inert: false;
+  }
+
+  /* ———————————————————————————————————————————————————————————————
+     (OPTION B – use ONE of these, only if you prefer lowering the scrim)
+     This keeps the scrim visible but ensures it’s below the panel on this page.
+     Comment OUT the block above if you choose this approach exclusively.
+  -------------------------------------------------------------------- */
+  /*
+  body.tk-panel-open #tkScrim {
+    z-index: 500 !important;   // lower than the panel but still above page content
+  }
+  */
+</style>
+
+<script>
+  // 🧪 Quick self-check in the console:
+  // 1) Click “Start Survey” so <body> gets .tk-panel-open
+  // 2) Then run:
+  //    getComputedStyle(document.querySelector('.category-panel,#categoryPanel,.kink-categories-panel')).zIndex
+  //    → should be "2147483000"
+  //    getComputedStyle(document.querySelector('#tkScrim')).zIndex
+  //    → should be "9999" (or "500" if you enabled OPTION B)
+</script>
 </body>
 </html>
