@@ -231,9 +231,117 @@
     }
   }
 
+  function setupFullscreenDrawer(){
+    const drawer = $('#tkCategoryDrawer');
+    const body = document.body;
+    if (!drawer || !body || drawer.dataset.tkFullscreen === '1') return;
+    drawer.dataset.tkFullscreen = '1';
+
+    const backdrop = $('#tkDrawerBackdrop');
+    const closeBtn = $('#tkCloseDrawer', drawer) || $('#tkCloseDrawer');
+    const actionsBar = drawer.querySelector('.tk-drawer-actions');
+
+    let startNow = $('#tkStartNow', drawer);
+    if (!startNow && actionsBar){
+      startNow = el('button',{id:'tkStartNow', class:'tk-btn primary', type:'button'},'Start Now');
+      actionsBar.prepend(startNow);
+    }
+
+    const allCategoryBoxes = () =>
+      Array.from(drawer.querySelectorAll('input[type="checkbox"]')).filter(cb =>
+        cb.classList.contains('category-checkbox') ||
+        cb.name === 'category' ||
+        cb.closest('.category-list')
+      );
+
+    const selectedCategories = () =>
+      allCategoryBoxes()
+        .filter(cb => cb.checked)
+        .map(cb => cb.value || cb.getAttribute('value') || (cb.nextElementSibling?.textContent || '').trim())
+        .filter(Boolean);
+
+    const focusDrawer = () => {
+      setTimeout(() => {
+        const focusTarget = drawer.querySelector('input,button,select,textarea,[tabindex]') || drawer;
+        focusTarget?.focus?.();
+      }, 10);
+    };
+
+    const openFullscreen = () => {
+      const api = window.tkCategoriesDrawer;
+      if (api?.open) api.open();
+      else {
+        body.classList.add('tk-drawer-open');
+        drawer.setAttribute('aria-hidden','false');
+        backdrop?.setAttribute('aria-hidden','false');
+      }
+      body.classList.add('tk-fullscreen','tk-body-lock');
+      backdrop?.setAttribute('aria-hidden','true');
+      focusDrawer();
+    };
+
+    const closeFullscreen = () => {
+      const api = window.tkCategoriesDrawer;
+      if (api?.close) api.close();
+      else {
+        body.classList.remove('tk-drawer-open');
+        drawer.setAttribute('aria-hidden','true');
+        backdrop?.setAttribute('aria-hidden','true');
+      }
+      body.classList.remove('tk-fullscreen','tk-body-lock');
+    };
+
+    const startButton =
+      $('#startSurvey') ||
+      $('#start') ||
+      $('#startSurveyBtn') ||
+      ($$('button').find(btn => /start\s*survey/i.test(btn.textContent || '')) || null);
+
+    if (startButton){
+      startButton.addEventListener('click', (event) => {
+        event?.preventDefault?.();
+        event?.stopImmediatePropagation?.();
+        openFullscreen();
+      }, {capture:true});
+    }
+
+    startNow?.addEventListener('click', async (event) => {
+      event?.preventDefault?.();
+      const cats = selectedCategories();
+      if (!cats.length){
+        alert('Please select at least one category.');
+        return;
+      }
+      try {
+        if (typeof window.KINKS_boot === 'function'){
+          await Promise.resolve(window.KINKS_boot({categories: cats}));
+        } else {
+          console.warn('[TK] KINKS_boot not found; continuing anyway.');
+        }
+      } catch (err) {
+        console.error('[TK] Failed to start survey:', err);
+        alert('Failed to start the survey. See console for details.');
+        return;
+      }
+      closeFullscreen();
+    });
+
+    closeBtn?.addEventListener('click', (event) => {
+      event?.preventDefault?.();
+      closeFullscreen();
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && body.classList.contains('tk-fullscreen')){
+        closeFullscreen();
+      }
+    });
+  }
+
   function boot(){
     ensureHero();
     enhancePanel();
+    setupFullscreenDrawer();
   }
 
   if (document.readyState === 'loading'){

@@ -124,6 +124,22 @@
 body.tk-drawer-open #tkDrawerBackdrop{display:block}
 body.tk-drawer-open #tkCategoryDrawer{transform:translateX(0)}
 
+.tk-fullscreen #tkCategoryDrawer{
+  left:0;
+  top:0;
+  width:100vw;
+  max-width:100vw;
+  height:100dvh;
+  transform:translateX(0) !important;
+  border-right:none;
+  border-radius:0;
+  z-index:9999;
+}
+
+.tk-fullscreen #tkDrawerBackdrop{display:none !important}
+.tk-fullscreen #tkToolbar{display:none !important}
+.tk-body-lock{overflow:hidden}
+
 .tk-original-panel-hidden{display:none !important}
 
 #tkCategoryDrawer .category-list label,
