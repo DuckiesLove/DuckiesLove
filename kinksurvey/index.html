@@ -107,6 +107,30 @@
   }
 </style>
 
+<!-- TK /kinksurvey — left layout + title fix -->
+<style>
+  /* Only affect /kinksurvey when left layout is active */
+  body.tk-kink-left .landing-wrapper,
+  body.tk-kink-left #kinksLanding {
+    width: min(1100px, 92vw);
+    margin-left: clamp(20px, 6vw, 120px) !important;
+    margin-right: auto !important;
+    display: grid;
+    gap: 26px;
+    justify-items: start !important;
+    align-items: start !important;
+    text-align: left !important;
+  }
+
+  body.tk-kink-left .kinksurvey-actions {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: flex-start !important;
+    align-items: center;
+  }
+</style>
+
 <style>
   :root { --panel-w: 320px; --tk-drawer-w: clamp(340px, 92vw, 980px); --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
   html,body{height:100%}
@@ -526,7 +550,17 @@ document.addEventListener('DOMContentLoaded', () => {
   (function () {
     // Only act on /kinksurvey/
     if (!/^\/kinksurvey\/?$/i.test(location.pathname)) return;
-    document.body.classList.add('tk-kinksurvey');
+    document.body.classList.add('tk-kinksurvey', 'tk-kink-left');
+
+    const heading =
+      document.querySelector('.landing-wrapper h1') ||
+      document.querySelector('#kinksTitle') ||
+      document.querySelector('.kinks-title, .themed-title, h1');
+
+    if (heading) {
+      heading.textContent = 'Talk Kink';
+      heading.style.maxWidth = '100%';
+    }
 
     const startSelectors = '#startSurvey, .start-survey-btn, button.start-survey';
     const startTrigger = document.querySelector(startSelectors);
