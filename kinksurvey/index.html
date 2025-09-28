@@ -57,14 +57,75 @@
   }
 </style>
 
+<!-- TK /kinksurvey — center hero, taller buttons, consistent left-nudge -->
+<style>
+  /* Only affect /kinksurvey/ */
+  body.tk-ksv {
+    /* Tune this to shift left/right if needed */
+    --hero-left-nudge: -6vw;
+    /* Button height + padding */
+    --cta-min-h: 72px;
+    --cta-pad-y: 18px;
+    --cta-pad-x: 36px;
+    --cta-radius: 18px;
+    --cta-font: clamp(18px, 1.9vw, 24px);
+  }
+
+  /* Title + button area stacked & centered */
+  body.tk-ksv .tk-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    width: 100%;
+  }
+
+  /* Row that holds ONLY the Start button */
+  body.tk-ksv .tk-hero .cta-start {
+    transform: translateX(var(--hero-left-nudge));
+  }
+
+  /* Row that holds the two lower buttons */
+  body.tk-ksv .tk-hero .cta-row {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+    transform: translateX(var(--hero-left-nudge));
+  }
+
+  /* Taller, comfier buttons */
+  body.tk-ksv .tk-cta {
+    min-height: var(--cta-min-h);
+    padding: var(--cta-pad-y) var(--cta-pad-x);
+    border-radius: var(--cta-radius);
+    font-size: var(--cta-font);
+    line-height: 1.15;
+  }
+
+  /* If the category panel opens, remove the nudge so both areas stay visible */
+  body.tk-ksv.tk-panel-open .cta-start,
+  body.tk-ksv.tk-panel-open .cta-row {
+    transform: none !important;
+  }
+
+  /* On narrow screens, keep things centered (no nudge) */
+  @media (max-width: 900px) {
+    body.tk-ksv .cta-start,
+    body.tk-ksv .cta-row {
+      transform: none;
+    }
+  }
+</style>
+
 <!-- TK /kinksurvey — center landing & ignore hidden drawer offset -->
 <style>
   /* Scope to /kinksurvey only */
-  body.tk-kinksurvey { overflow-x: hidden; }
+  body.tk-ksv { overflow-x: hidden; }
 
   /* Center the landing stack */
-  body.tk-kinksurvey .landing-wrapper,
-  body.tk-kinksurvey #kinksLanding {
+  body.tk-ksv .landing-wrapper,
+  body.tk-ksv #kinksLanding {
     width: min(1100px, 92vw);
     margin: 8vh auto 0;
     display: grid;
@@ -74,7 +135,7 @@
   }
 
   /* ROW for the 2 secondary buttons (if you’re grouping them) */
-  body.tk-kinksurvey .kinksurvey-actions {
+  body.tk-ksv .kinksurvey-actions {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -85,14 +146,14 @@
   /* --------- Drawer offset fix ---------
      While the category drawer is CLOSED, kill any reserved left space
      some layouts add for the panel (margin-left / width calc / transforms). */
-  body.tk-kinksurvey:not(.tk-drawer-open) #app,
-  body.tk-kinksurvey:not(.tk-drawer-open) main,
-  body.tk-kinksurvey:not(.tk-drawer-open) .page,
-  body.tk-kinksurvey:not(.tk-drawer-open) .kinks-root,
-  body.tk-kinksurvey:not(.tk-drawer-open) .survey-wrapper,
-  body.tk-kinksurvey:not(.tk-drawer-open) .compat-container,
-  body.tk-kinksurvey:not(.tk-drawer-open) .with-panel,
-  body.tk-kinksurvey:not(.tk-drawer-open) .landing-wrapper {
+  body.tk-ksv:not(.tk-drawer-open) #app,
+  body.tk-ksv:not(.tk-drawer-open) main,
+  body.tk-ksv:not(.tk-drawer-open) .page,
+  body.tk-ksv:not(.tk-drawer-open) .kinks-root,
+  body.tk-ksv:not(.tk-drawer-open) .survey-wrapper,
+  body.tk-ksv:not(.tk-drawer-open) .compat-container,
+  body.tk-ksv:not(.tk-drawer-open) .with-panel,
+  body.tk-ksv:not(.tk-drawer-open) .landing-wrapper {
     margin-left: 0 !important;
     padding-left: 0 !important;
     width: 100% !important;
@@ -100,69 +161,10 @@
   }
 
   /* Keep the drawer visually off-canvas when closed (don’t let it nudge layout) */
-  body.tk-kinksurvey:not(.tk-drawer-open) #categorySurveyPanel,
-  body.tk-kinksurvey:not(.tk-drawer-open) .category-panel {
+  body.tk-ksv:not(.tk-drawer-open) #categorySurveyPanel,
+  body.tk-ksv:not(.tk-drawer-open) .category-panel {
     transform: translateX(-110%) !important;
     visibility: hidden;
-  }
-</style>
-
-<!-- TK /kinksurvey — left layout + title fix -->
-<style>
-  /* Only affect /kinksurvey when left layout is active */
-  body.tk-kink-left .landing-wrapper,
-  body.tk-kink-left #kinksLanding {
-    width: min(1100px, 92vw);
-    margin-left: clamp(20px, 6vw, 120px) !important;
-    margin-right: auto !important;
-    display: grid;
-    gap: 26px;
-    justify-items: start !important;
-    align-items: start !important;
-    text-align: left !important;
-  }
-
-  body.tk-kink-left .kinksurvey-actions {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-    justify-content: flex-start !important;
-    align-items: center;
-  }
-</style>
-
-<!-- TK /kinksurvey — nudge landing buttons left + make them taller -->
-<style>
-  /* Scope to this page only */
-  body.tk-kink-left {
-    /* tweak this if you want a little more/less left shift */
-    --kinks-left-nudge: -5vw;
-    /* control minimum button height */
-    --cta-min-h: 68px;
-  }
-
-  /* The row holding your three buttons */
-  body.tk-kink-left .cta-row {
-    width: min(1200px, 94vw);
-    margin: 0 auto;
-    display: flex;
-    gap: 28px;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    transform: translateX(var(--kinks-left-nudge));
-  }
-
-  /* Make the buttons taller + comfy */
-  body.tk-kink-left .cta-tall,
-  body.tk-kink-left .cta-row .themed-button,
-  body.tk-kink-left .cta-row a.button,
-  body.tk-kink-left .cta-row button {
-    min-height: var(--cta-min-h);
-    padding: 18px 34px;
-    font-size: clamp(18px, 1.8vw, 24px);
-    line-height: 1.15;
-    border-radius: 16px;
   }
 </style>
 
@@ -579,104 +581,85 @@
   } catch (_) {}
 })();
 </script>
-<!-- TK /kinksurvey — center landing content -->
+<!-- TK /kinksurvey — center hero, taller buttons, consistent left-nudge -->
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  (function () {
-    // Only act on /kinksurvey/
-    if (!/^\/kinksurvey\/?$/i.test(location.pathname)) return;
-    document.body.classList.add('tk-kinksurvey', 'tk-kink-left');
+(function () {
+  if (!/^\/kinksurvey\/?$/i.test(location.pathname)) return;
 
-    const heading =
-      document.querySelector('.landing-wrapper h1') ||
-      document.querySelector('#kinksTitle') ||
-      document.querySelector('.kinks-title, .themed-title, h1');
+  document.body.classList.add('tk-ksv');
 
-    if (heading) {
-      heading.textContent = 'Talk Kink';
-      heading.style.maxWidth = '100%';
-    }
+  const START_SELECTORS = '#tkHeroStart, #startSurvey, #startSurveyBtn, .start-survey-btn, button.start-survey';
+  const LOWER_CTA_SELECTORS = 'a[href*="compat"], a[href*="analysis"], a[href*="kink-analysis"], a[href*="individual"]';
+  const PANEL_ROOT_SELECTORS = '#categorySurveyPanel, .category-panel';
 
-    const startSelectors = '#startSurvey, .start-survey-btn, button.start-survey';
-    const startTrigger = document.querySelector(startSelectors);
-    if (startTrigger) {
-      startTrigger.addEventListener('click', () => {
-        document.body.classList.add('tk-drawer-open');
-        // Your existing code that actually opens the drawer continues to run as before.
-      });
-    }
+  const isInPanel = (node) => Boolean(node?.closest(PANEL_ROOT_SELECTORS));
 
-    // Find the main area (works with either .landing-wrapper or a generic container)
-    const landing =
-      document.querySelector('.landing-wrapper') ||
-      document.querySelector('#kinksLanding') ||
-      (function () {
-        // last resort: build a wrapper around the first <h1> + buttons we find
-        const h1 = document.querySelector('h1');
-        if (!h1) return null;
-        const wrap = document.createElement('div');
-        wrap.className = 'landing-wrapper';
-        h1.before(wrap);
-        wrap.appendChild(h1);
-        // move following siblings (likely the start button + links) into the wrapper
-        const toMove = [];
-        let n = wrap.nextElementSibling;
-        while (n && toMove.length < 10) { toMove.push(n); n = n.nextElementSibling; }
-        toMove.forEach(el => wrap.appendChild(el));
-        return wrap;
-      })();
+  function applyLayout() {
+    const hero = document.querySelector('.tk-hero');
+    if (!hero) return false;
 
-    if (!landing) return;
-
-    // Group the two secondary buttons into a centered row below "Start Survey"
-    const startBtn =
-      landing.querySelector(startSelectors) ||
-      landing.querySelector('button, a[href*="start"]');
-    if (!startBtn) return;
-
-    // Collect likely secondary actions by their text (compat + individual analysis)
-    const candidates = Array.from(
-      landing.querySelectorAll('a,button')
-    ).filter(el =>
-      el !== startBtn &&
-      /compat|individual/i.test(el.textContent || '')
-    );
-
-    let secondaryRow = landing.querySelector('.kinksurvey-actions');
-    if (candidates.length && !secondaryRow) {
-      secondaryRow = document.createElement('div');
-      secondaryRow.className = 'kinksurvey-actions';
-      // insert row right after the Start button
-      startBtn.insertAdjacentElement('afterend', secondaryRow);
-      candidates.forEach(btn => secondaryRow.appendChild(btn));
-    }
-
-    let ctaRow =
-      secondaryRow ||
-      (startBtn ? startBtn.closest('.cta-row, .kinksurvey-actions') : null);
-
-    if (!ctaRow && startBtn) {
-      const parent = startBtn.parentElement;
-      if (
-        parent &&
-        !parent.classList.contains('landing-wrapper') &&
-        parent.id !== 'kinksLanding'
-      ) {
-        ctaRow = parent;
+    let startRow = hero.querySelector('.cta-start');
+    if (!startRow) {
+      startRow = hero.querySelector('.row-start') || hero.querySelector('.row');
+      if (startRow) {
+        startRow.classList.add('cta-start');
+      } else {
+        startRow = document.createElement('div');
+        startRow.className = 'cta-start';
+        hero.appendChild(startRow);
       }
     }
 
-    if (ctaRow && !ctaRow.classList.contains('cta-row')) {
-      ctaRow.classList.add('cta-row');
+    const startCandidates = Array.from(hero.querySelectorAll(START_SELECTORS)).concat(
+      Array.from(document.querySelectorAll(START_SELECTORS))
+    );
+    const startBtn = startCandidates.find((btn) => btn && !isInPanel(btn));
+    if (startBtn) {
+      if (startBtn.parentElement !== startRow) startRow.appendChild(startBtn);
+      startBtn.classList.add('tk-cta');
     }
 
-    document
-      .querySelectorAll(
-        '.landing-wrapper a, .landing-wrapper button, .cta-row a, .cta-row button'
-      )
-      .forEach(el => el.classList.add('cta-tall'));
-  })();
-});
+    let row = hero.querySelector('.cta-row');
+    if (!row) {
+      row = hero.querySelector('.row-nav');
+      if (row) row.classList.add('cta-row');
+    }
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'cta-row';
+      hero.appendChild(row);
+    }
+
+    const lowerButtons = Array.from(document.querySelectorAll(LOWER_CTA_SELECTORS))
+      .filter((btn) => !isInPanel(btn));
+    lowerButtons.forEach((btn) => {
+      if (btn.parentElement !== row && !row.contains(btn)) {
+        row.appendChild(btn);
+      }
+      btn.classList.add('tk-cta');
+    });
+
+    return Boolean(startBtn || lowerButtons.length);
+  }
+
+  if (!applyLayout()) {
+    const waitForHero = new MutationObserver(() => {
+      if (applyLayout()) waitForHero.disconnect();
+    });
+    waitForHero.observe(document.body, { childList: true, subtree: true });
+  }
+
+  const panel = document.querySelector(PANEL_ROOT_SELECTORS);
+  if (panel) {
+    const update = () => {
+      const open = panel.classList.contains('open') || panel.getAttribute('aria-expanded') === 'true';
+      document.body.classList.toggle('tk-panel-open', open);
+    };
+    update();
+    const mo = new MutationObserver(update);
+    mo.observe(panel, { attributes: true, attributeFilter: ['class', 'aria-expanded', 'style'] });
+  }
+})();
 </script>
 <!-- load enhancer last so it can find the existing DOM (versioned URL to beat stale caches) -->
 <script type="module" src="/js/tk_kinksurvey_enhance.js?v=ks-20240927b"></script>
