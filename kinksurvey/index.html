@@ -57,32 +57,53 @@
   }
 </style>
 
-<!-- TK /kinksurvey — center landing content -->
+<!-- TK /kinksurvey — center landing & ignore hidden drawer offset -->
 <style>
-  /* scope to kinksurvey only */
+  /* Scope to /kinksurvey only */
+  body.tk-kinksurvey { overflow-x: hidden; }
+
+  /* Center the landing stack */
   body.tk-kinksurvey .landing-wrapper,
   body.tk-kinksurvey #kinksLanding {
-    /* center block and keep it tidy on very wide screens */
     width: min(1100px, 92vw);
-    margin-inline: auto;
-
-    /* center title & buttons */
+    margin: 8vh auto 0;
     display: grid;
     place-items: center;
+    gap: 26px;
     text-align: center;
-    gap: 28px;
-
-    /* give it comfortable vertical balance without pushing *too* low */
-    padding-block: clamp(32px, 8vh, 96px);
   }
 
-  /* row that holds the two secondary buttons under Start */
+  /* ROW for the 2 secondary buttons (if you’re grouping them) */
   body.tk-kinksurvey .kinksurvey-actions {
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 24px;
     flex-wrap: wrap;
+  }
+
+  /* --------- Drawer offset fix ---------
+     While the category drawer is CLOSED, kill any reserved left space
+     some layouts add for the panel (margin-left / width calc / transforms). */
+  body.tk-kinksurvey:not(.tk-drawer-open) #app,
+  body.tk-kinksurvey:not(.tk-drawer-open) main,
+  body.tk-kinksurvey:not(.tk-drawer-open) .page,
+  body.tk-kinksurvey:not(.tk-drawer-open) .kinks-root,
+  body.tk-kinksurvey:not(.tk-drawer-open) .survey-wrapper,
+  body.tk-kinksurvey:not(.tk-drawer-open) .compat-container,
+  body.tk-kinksurvey:not(.tk-drawer-open) .with-panel,
+  body.tk-kinksurvey:not(.tk-drawer-open) .landing-wrapper {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    width: 100% !important;
+    transform: none !important;
+  }
+
+  /* Keep the drawer visually off-canvas when closed (don’t let it nudge layout) */
+  body.tk-kinksurvey:not(.tk-drawer-open) #categorySurveyPanel,
+  body.tk-kinksurvey:not(.tk-drawer-open) .category-panel {
+    transform: translateX(-110%) !important;
+    visibility: hidden;
   }
 </style>
 
@@ -507,6 +528,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!/^\/kinksurvey\/?$/i.test(location.pathname)) return;
     document.body.classList.add('tk-kinksurvey');
 
+    const startSelectors = '#startSurvey, .start-survey-btn, button.start-survey';
+    const startTrigger = document.querySelector(startSelectors);
+    if (startTrigger) {
+      startTrigger.addEventListener('click', () => {
+        document.body.classList.add('tk-drawer-open');
+        // Your existing code that actually opens the drawer continues to run as before.
+      });
+    }
+
     // Find the main area (works with either .landing-wrapper or a generic container)
     const landing =
       document.querySelector('.landing-wrapper') ||
@@ -530,7 +560,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!landing) return;
 
     // Group the two secondary buttons into a centered row below "Start Survey"
-    const startBtn = landing.querySelector('#startSurvey, .start-survey-btn, button, a[href*="start"]');
+    const startBtn =
+      landing.querySelector(startSelectors) ||
+      landing.querySelector('button, a[href*="start"]');
     if (!startBtn) return;
 
     // Collect likely secondary actions by their text (compat + individual analysis)
