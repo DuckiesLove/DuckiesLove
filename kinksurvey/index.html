@@ -14,58 +14,76 @@
 <link rel="stylesheet" href="/css/theme.css">
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
 
-<!-- TK /kinksurvey — force centered hero layout -->
+<!-- TK /kinksurvey — refine hero centering and link row alignment -->
 <style id="tk-kinksurvey-center">
-  /* Scope to this page only */
-  body[data-kinksurvey="1"] h1,
-  body[data-kinksurvey="1"] .themed-title {
-    text-align: center;
-    margin: 4vh 0 1.5vh;
-    width: 100%;
-  }
-
-  /* Center the whole hero block in the viewport */
+  /* Scope to /kinksurvey only */
   body[data-kinksurvey="1"] .tk-hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;        /* vertical center */
-    min-height: 68vh;               /* height target for centering */
-    gap: 28px;
-    margin-top: 0 !important;       /* override earlier margin */
-    width: min(960px, 92vw);        /* keep a nice max width */
-    margin-inline: auto;            /* horizontal center */
+    display: grid;
+    grid-template-rows: auto auto auto;
+    place-items: center;
+    row-gap: 28px;
+    min-height: 68vh;
+    width: min(960px, 92vw);
+    margin-inline: auto;
   }
 
-  /* Rows inside hero */
-  body[data-kinksurvey="1"] .tk-hero .row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;        /* horizontal center */
-    gap: 28px;
+  /* Title */
+  body[data-kinksurvey="1"] .tk-hero h1,
+  body[data-kinksurvey="1"] .tk-hero .themed-title {
+    text-align: center;
+    margin: 0;
     width: 100%;
   }
 
-  /* Buttons look consistent when reflowed */
-  body[data-kinksurvey="1"] .tk-hero .cta,
+  /* Start button block */
   body[data-kinksurvey="1"] #startSurvey {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    text-align: center;
+    min-width: 260px;
     margin: 0 auto;
+  }
+
+  /* Center the two links as ONE row with equal spacing */
+  body[data-kinksurvey="1"] .tk-hero .links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 36px;
+    width: 100%;
+  }
+
+  body[data-kinksurvey="1"] .tk-hero .links a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-width: 280px;
+  }
+
+  /* Mobile: stack the two links cleanly */
+  @media (max-width: 720px) {
+    body[data-kinksurvey="1"] .tk-hero {
+      row-gap: 22px;
+      min-height: 62vh;
+    }
+    body[data-kinksurvey="1"] .tk-hero .links {
+      flex-direction: column;
+      gap: 16px;
+    }
+    body[data-kinksurvey="1"] .tk-hero .links a,
+    body[data-kinksurvey="1"] #startSurvey {
+      width: min(92vw, 420px);
+    }
   }
 </style>
 
 <script>
-/* Ensure the page is flagged so the CSS above only applies here */
-(() => {
-  if (!/^\/kinksurvey\/?$/.test(location.pathname)) return;
-  document.body.setAttribute('data-kinksurvey','1');
-
-  // If our hero container exists (from the previous patch), nothing else to do.
-  // This keeps any existing click handlers intact.
-})();
+  // Make sure this page is flagged so the styles only apply here
+  if (/^\/kinksurvey\/?$/.test(location.pathname)) {
+    document.body.setAttribute('data-kinksurvey','1');
+  }
 </script>
 
 <style>
