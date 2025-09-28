@@ -30,6 +30,7 @@
     background:#000; border-right:1px solid var(--line);
     padding:14px 14px 18px; overflow:auto; z-index:10000;
     transform:translateX(-100%); transition:transform .3s ease;
+    text-align:center;
   }
   .category-panel.open{ transform:translateX(0); }
 
@@ -59,7 +60,9 @@
   }
 
   .panel-title{ margin:6px 0 10px; font-weight:800; color:#7ef9ff; }
-  .top-buttons{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .top-buttons{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
+
+  .panel-title, #statusMsg, #diag{ text-align:center; }
 
   .survey-box{
     border:1px solid var(--line); border-radius:12px; background:#0a0f14; padding:16px;
