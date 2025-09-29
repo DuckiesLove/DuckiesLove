@@ -106,7 +106,7 @@
   /* OFF-CANVAS CATEGORY PANEL (real off-canvas so it doesn't push hero) */
   body.tk-js .category-panel{
     position: fixed !important; top:0; left:0;
-    height:100vh; width: clamp(320px, 36vw, 520px); max-width:92vw;
+    height:100vh; width: clamp(340px, 92vw, 980px); max-width:92vw;
     background: var(--tk-panel-bg, rgba(5,18,24,.98));
     border-right: 1px solid rgba(0,230,255,.35);
     overflow:auto; -webkit-overflow-scrolling:touch;
@@ -942,195 +942,176 @@ setTimeout(() => {
   */
 </style>
 
-<!-- 🩹 Drop this block at the very end of /kinksurvey/index.html (right before </body>).
-     It makes the category panel usable (above the scrim), locks the page while open,
-     and shows a compact 3-button rail in the blank space to the RIGHT of the panel.
-     When you close the panel, the page returns to the normal full-width layout. -->
-
+<!-- ===== KSV: Dock actions next to the open panel ===== -->
 <style>
-  :root{
-    --tk-rail-w: clamp(220px, 24vw, 340px);   /* width of the right-side action rail */
-    --tk-cyan: #09d0d6;
+  /* Give your three buttons a shared class without changing visuals */
+  .ksv-btn { display:inline-flex; align-items:center; justify-content:center; text-align:center; }
+
+  /* Wrap those three buttons in a container (see JS; it will find existing layout) */
+  #ksv-actions {
+    display:flex; flex-direction:column; gap:20px;
+    width:min(64ch, 88vw);
+    margin:32px auto 0;
+    z-index:2; /* normal centered layout */
   }
 
-  /* Ensure we can scroll normally unless the panel is open */
-  body.kinksurvey-page{ overflow: auto; }
+  /* Z-indexes during panel-open (scrim is very high; put panel & actions higher) */
+  body.tk-panel-open .category-panel,
+  body.tk-panel-open #categoryPanel { z-index:2147483500 !important; }
+  body.tk-panel-open #tkScrim,
+  body.tk-panel-open .tk-scrim { z-index:2147483400 !important; }
+  body.tk-panel-open #ksv-actions.is-docked { z-index:2147483600 !important; }
 
-  /* The GitHub Pages scrim gets pointer events; keep it, but the panel must sit above it */
-  #tkScrim{ z-index: 9999 !important; }
-
-  /* Panel fixes (sits above scrim, fully clickable, not translucent) */
-  body.kinksurvey-page.tk-panel-open .category-panel{
-    position: fixed !important;
-    inset: 0 auto 0 0 !important;                       /* left aligned, full height */
-    width: calc(100vw - var(--tk-rail-w)) !important;   /* leave space for the right rail */
-    height: 100vh !important;
-    background: rgba(0,0,0,0.92) !important;            /* avoid “greyed out” feeling */
-    overflow: auto !important;
-    pointer-events: auto !important;
-    z-index: 2147483000 !important;                     /* higher than scrim */
-    box-shadow: 1px 0 0 0 rgba(9,208,214,.25);
+  /* Docked layout (panel open): move actions to the right column, size them down */
+  :root { --ksv-panel-w: 720px; } /* fallback; JS will set exact width */
+  body.tk-panel-open #ksv-actions.is-docked{
+    position:fixed;
+    left:calc(var(--ksv-panel-w) + 24px); /* right edge of panel + gap */
+    right:24px;
+    top:96px; /* JS will refine this so it aligns with panel’s content */
+    max-width:360px;
+    width:auto;
+    margin:0;
+    align-items:stretch;
+    gap:14px;
+    pointer-events:auto;
   }
-
-  /* Hide the big landing buttons ONLY while the panel is open */
-  body.kinksurvey-page.tk-panel-open .tk-hide-when-panel{ display: none !important; }
-
-  /* Compact actions rail that appears on the RIGHT while panel is open (desktop only) */
-  #tkSideActions{
-    position: fixed; right: 0; top: 0; height: 100vh;
-    width: var(--tk-rail-w);
-    padding: 1rem .9rem;
-    display: none;                                      /* shown only with .tk-panel-open */
-    flex-direction: column; gap: .8rem;
-    background: rgba(0,0,0,.30);
-    box-shadow: inset 0 0 0 1px rgba(9,208,214,.18);
-    z-index: 2147483000;                                /* same layer as panel */
-  }
-  body.kinksurvey-page.tk-panel-open #tkSideActions{ display: flex; }
-
-  #tkSideActions .tk-side-stack{
-    display:flex; flex-direction:column; gap:.8rem;
-    margin-top: 5.25rem;                                /* clear the header */
+  body.tk-panel-open #ksv-actions.is-docked .ksv-btn{
+    width:100% !important;
+    max-width:none !important;
+    margin:0 !important;
+    padding:12px 16px !important;
+    border-radius:12px !important;
+    font-size:clamp(14px, 1.3vw, 18px) !important;
+    line-height:1.2;
+    box-sizing:border-box;
   }
 
-  /* Small rail buttons (independent styling so we don't disturb your main CSS) */
-  #tkSideActions .tk-mini-btn{
-    all: unset;
-    width: 100%;
-    min-height: 44px;
-    padding: .75rem .9rem;
-    border-radius: 12px;
-    border: 2px solid var(--tk-cyan);
-    background: rgba(0,0,0,.22);
-    color: var(--tk-cyan);
-    font: 800 clamp(14px,1.25vw,17px)/1.15 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    letter-spacing: .02em;
-    text-align: center;
-    cursor: pointer;
-    transition: transform .08s ease, box-shadow .12s ease, background .12s ease;
-  }
-  #tkSideActions .tk-mini-btn:hover{
-    transform: translateY(-1px);
-    box-shadow: 0 0 0 3px rgba(9,208,214,.18);
-  }
-  #tkSideActions .tk-mini-btn.primary{
-    background: var(--tk-cyan);
-    color: #001315;
-  }
-  #tkSideActions .tk-mini-btn.primary:hover{
-    box-shadow: 0 0 0 5px rgba(9,208,214,.22);
+  /* Make sure the centered hero title doesn’t shift when panel opens */
+  body.tk-panel-open .hero, body.tk-panel-open h1, body.tk-panel-open .ksv-title {
+    margin-right:0 !important;
   }
 
-  /* Mobile/tablet: panel uses full width; no right rail */
-  @media (max-width: 1100px){
-    body.kinksurvey-page.tk-panel-open .category-panel{ width: 100vw !important; }
-    body.kinksurvey-page.tk-panel-open #tkSideActions{ display: none !important; }
-  }
+  /* Optional: hide the big top title while docked to reduce clutter on narrow screens
+     (uncomment if you want it) */
+  /* @media (max-width: 1100px){
+    body.tk-panel-open .ksv-title { display:none !important; }
+  } */
 </style>
 
-<!-- Right-side compact actions (desktop only, shown while the panel is open) -->
-<div id="tkSideActions" aria-hidden="true">
-  <div class="tk-side-stack">
-    <button id="tkSideStart" class="tk-mini-btn primary">Start Survey</button>
-    <a id="tkSideCompat" class="tk-mini-btn" href="/compatibility/">Compatibility Page</a>
-    <a id="tkSideIndiv"  class="tk-mini-btn" href="/individualkinkanalysis.html">Individual Kink Analysis</a>
-  </div>
-</div>
-
 <script>
-(function(){
-  // Mark this page (so our CSS only applies here)
-  document.body.classList.add('kinksurvey-page');
+(() => {
+  // --- Config: selectors that exist on your page ---
+  const SEL_PANEL  = '#categoryPanel, .category-panel, [data-panel="category"]';
+  const SEL_SCRIM  = '#tkScrim, .tk-scrim, .drawer-scrim';
+  const SEL_ACTIONS = '#ksv-actions'; // container for the three buttons
+  const HERO_SELECTOR = '.ksvButtons a';
+  const FALLBACK_SELECTORS = [
+    '#btnStartSurvey',
+    'a[data-action="start-survey"]',
+    'a[href*="kinksurvey"]',
+    'a[href*="compat"]',
+    'a[href*="individualkinkanalysis"]'
+  ];
 
-  // Labels we consider the “big landing buttons” – we’ll hide them only while the panel is open
-  const BIG_LABELS = ['Start Survey','Compatibility Page','Individual Kink Analysis'];
+  // 1) Ensure the actions container exists; if not, build it around the three buttons
+  function ensureActionsContainer(){
+    let actions = document.querySelector(SEL_ACTIONS);
+    if (!actions) {
+      // Try to locate the three existing buttons on the landing view
+      let btns = [...document.querySelectorAll(HERO_SELECTOR)]
+        .filter(a => a.offsetParent !== null);
 
-  // Tag the visible big buttons so the CSS rule can hide them when the panel opens
-  function tagLandingButtons(){
-    const els = Array.from(document.querySelectorAll('a,button'));
-    els.forEach(el=>{
-      const txt = (el.textContent || '').replace(/\s+/g,' ').trim();
-      if(BIG_LABELS.some(lbl=>txt.includes(lbl))){
-        el.classList.add('tk-hide-when-panel');
+      if (btns.length < 3) {
+        const seen = new Set(btns);
+        for (const sel of FALLBACK_SELECTORS) {
+          const matches = document.querySelectorAll(sel);
+          for (const el of matches) {
+            if (el.offsetParent === null) continue;
+            if (!seen.has(el)) {
+              btns.push(el);
+              seen.add(el);
+            }
+            if (btns.length >= 3) break;
+          }
+          if (btns.length >= 3) break;
+        }
       }
-    });
-  }
 
-  // Keep the category panel fully clickable above the scrim
-  function raisePanel(){
-    const p = document.querySelector('.category-panel');
-    if(p){
-      Object.assign(p.style, {
-        zIndex: '2147483000',
-        pointerEvents: 'auto',
-        opacity: '1'
-      });
+      btns = btns.slice(0,3);
+
+      if (!btns.length) return null;
+
+      // Add a helper class to style (non-destructive)
+      btns.forEach(b => b.classList.add('ksv-btn'));
+
+      actions = document.createElement('nav');
+      actions.id = 'ksv-actions';
+      actions.setAttribute('aria-label','Survey actions');
+
+      // Insert the container just before the first button, then move the three in
+      const host = btns[0].parentElement || document.body;
+      host.insertBefore(actions, btns[0]);
+      btns.forEach(b => actions.appendChild(b));
     }
+    return actions;
   }
 
-  // Ensure we don’t accidentally start hidden (e.g., if the class is sticky from a previous nav)
-  function normalizeOnLoad(){
-    const isOpen = document.body.classList.contains('tk-panel-open');
-    const p = document.querySelector('.category-panel');
-    if(isOpen){
-      // If panel exists but is not visible (display:none or not yet mounted), close it
-      const comp = p && window.getComputedStyle(p);
-      if(!p || (comp && comp.display === 'none')){
-        document.body.classList.remove('tk-panel-open');
-      }else{
-        raisePanel();
-      }
+  // 2) Place / size actions when panel opens; restore when closed
+  const actions = ensureActionsContainer();
+  if (!actions) return;
+
+  const panel = document.querySelector(SEL_PANEL);
+  const scrim = document.querySelector(SEL_SCRIM);
+
+  function isOpen(){ return document.body.classList.contains('tk-panel-open'); }
+
+  function dockActions(){
+    if (!isOpen() || !panel) {
+      actions.classList.remove('is-docked');
+      actions.style.top = '';
+      return;
     }
+    const r = panel.getBoundingClientRect();
+    // Share actual panel width with CSS
+    document.documentElement.style.setProperty('--ksv-panel-w', r.width + 'px');
+
+    const available = window.innerWidth - r.width - 48; // space to the right of the panel
+    if (available < 220) {
+      actions.classList.remove('is-docked');
+      actions.style.top = '';
+      return;
+    }
+
+    // Align top of the docked actions with panel content area (with a small offset)
+    const top = Math.max(72, r.top + 24 + window.scrollY);
+    actions.style.top = `${top}px`;
+    actions.classList.add('is-docked');
   }
 
-  // Make the side-rail Start button trigger the real Start behavior
-  function clickRealStart(){
-    const real =
-      document.querySelector('[data-start-survey]') ||
-      document.querySelector('[data-action="start-survey"]') ||
-      document.getElementById('startSurveyBtn') ||
-      document.querySelector('button.start-survey, .start-survey');
-    if(real){ real.click(); }
-    else { window.dispatchEvent(new CustomEvent('tk:start-survey')); }
+  // 3) Lock: prevent the scrim click from closing the panel; use the panel's Close button instead.
+  function lockScrim(){
+    if (!scrim) return;
+    // Use capture so we intercept before any close handler
+    const stopper = (e) => {
+      if (isOpen()) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
+    };
+    scrim.addEventListener('click', stopper, true);
+    scrim.addEventListener('mousedown', stopper, true);
+    scrim.addEventListener('touchstart', stopper, true);
   }
-  document.getElementById('tkSideStart').addEventListener('click', clickRealStart);
 
-  // Prevent scrim click & ESC from closing the panel (the panel is “locked” until Close is used)
-  const scrim = document.getElementById('tkScrim');
-  if(scrim){
-    scrim.addEventListener('click', e=>{
-      if(document.body.classList.contains('tk-panel-open')){ e.stopPropagation(); e.preventDefault(); }
-    }, true);
-  }
-  window.addEventListener('keydown', e=>{
-    if(document.body.classList.contains('tk-panel-open') && e.key === 'Escape'){ e.preventDefault(); }
-  }, true);
+  // 4) Observe body class changes to react when the panel opens/closes
+  const mo = new MutationObserver(dockActions);
+  mo.observe(document.body, {attributes:true, attributeFilter:['class']});
+  window.addEventListener('resize', dockActions);
+  window.addEventListener('scroll', () => { if (isOpen()) dockActions(); }, {passive:true});
 
-  // Make sure Close buttons actually close and restore the full layout
-  function closePanel(){
-    document.body.classList.remove('tk-panel-open');
-    const p = document.querySelector('.category-panel');
-    if(p){ p.style.zIndex = '200'; }
-  }
-  ['#tkPanelClose','[data-action="close-panel"]','.tk-panel-close',
-   '.category-panel .close','.category-panel [aria-label="Close"]']
-  .forEach(sel=>{
-    document.querySelectorAll(sel).forEach(btn=>btn.addEventListener('click', closePanel));
-  });
-
-  // Watch the body class to raise the panel whenever it’s opened
-  const mo = new MutationObserver(()=>{
-    if(document.body.classList.contains('tk-panel-open')) raisePanel();
-  });
-  mo.observe(document.body,{attributes:true, attributeFilter:['class']});
-
-  // Init
-  tagLandingButtons();
-  normalizeOnLoad();
-
-  // If the page injects buttons late, tag them too
-  setTimeout(tagLandingButtons, 500);
+  lockScrim();
+  // Initial layout
+  dockActions();
 })();
 </script>
+<!-- ===== /KSV: Dock actions next to the open panel ===== -->
 </body>
 </html>
