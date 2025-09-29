@@ -2648,6 +2648,30 @@ window.templateSurvey =
       {
         "name": "Emotional trickery as arousal",
         "rating": null
+      },
+      {
+        "name": "Being misled or deceived on purpose during play",
+        "rating": null
+      },
+      {
+        "name": "Surprise rule changes or twists mid-scene",
+        "rating": null
+      },
+      {
+        "name": "False safeword games (with negotiated limits)",
+        "rating": null
+      },
+      {
+        "name": "Withholding or delaying aftercare for effect",
+        "rating": null
+      },
+      {
+        "name": "Being gaslit or doubted in a controlled roleplay",
+        "rating": null
+      },
+      {
+        "name": "Told 'you asked for this' or 'you love this' when resisting",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -2700,6 +2724,30 @@ window.templateSurvey =
       {
         "name": "Emotional trickery as arousal",
         "rating": null
+      },
+      {
+        "name": "Being misled or deceived on purpose during play",
+        "rating": null
+      },
+      {
+        "name": "Surprise rule changes or twists mid-scene",
+        "rating": null
+      },
+      {
+        "name": "False safeword games (with negotiated limits)",
+        "rating": null
+      },
+      {
+        "name": "Withholding or delaying aftercare for effect",
+        "rating": null
+      },
+      {
+        "name": "Being gaslit or doubted in a controlled roleplay",
+        "rating": null
+      },
+      {
+        "name": "Told 'you asked for this' or 'you love this' when resisting",
+        "rating": null
       }
     ],
     "General": []
@@ -2737,6 +2785,30 @@ window.templateSurvey =
       {
         "name": "Leash held in mouth",
         "rating": null
+      },
+      {
+        "name": "Being gagged or forced silent",
+        "rating": null
+      },
+      {
+        "name": "Having to hold objects in your mouth (spoon, hairbrush, leash)",
+        "rating": null
+      },
+      {
+        "name": "Being used for oral service without reciprocal pleasure",
+        "rating": null
+      },
+      {
+        "name": "Being fed by hand, mouth-to-mouth, or with utensils",
+        "rating": null
+      },
+      {
+        "name": "Verbal control (e.g., only speak when spoken to)",
+        "rating": null
+      },
+      {
+        "name": "Mouth as a symbol of ownership or control",
+        "rating": null
       }
     ],
     "Receiving": [
@@ -2770,6 +2842,30 @@ window.templateSurvey =
       },
       {
         "name": "Leash held in mouth",
+        "rating": null
+      },
+      {
+        "name": "Being gagged or forced silent",
+        "rating": null
+      },
+      {
+        "name": "Having to hold objects in your mouth (spoon, hairbrush, leash)",
+        "rating": null
+      },
+      {
+        "name": "Being used for oral service without reciprocal pleasure",
+        "rating": null
+      },
+      {
+        "name": "Being fed by hand, mouth-to-mouth, or with utensils",
+        "rating": null
+      },
+      {
+        "name": "Verbal control (e.g., only speak when spoken to)",
+        "rating": null
+      },
+      {
+        "name": "Mouth as a symbol of ownership or control",
         "rating": null
       }
     ],
@@ -2913,8 +3009,8 @@ window.templateSurvey =
       { "name": "Open with boundaries", "rating": null },
       { "name": "Closed but kinky with others", "rating": null },
       { "name": "Switch-friendly dynamics", "rating": null }
-      ]
-    },
+    ]
+  },
   "Gender Play & Transformation": {
     "Giving": [
       { "name": "Crossdressing", "rating": null },
@@ -3110,5 +3206,49 @@ window.templateSurvey =
       { "name": "Formal appearance protocols for scenes or dynamics", "rating": null },
       { "name": "Using clothing or style to embody emotional or power roles", "rating": null }
     ]
+  },
+  "Psychology Play": {
+    "Giving": [
+      { "name": "Emotional Sadism (giving): teasing feelings, orchestrating reactions, savoring anticipation without shame-based harm", "rating": null },
+      { "name": "Psychological Control: mind games, double binds, deliberate pacing, and strategic ambiguity", "rating": null },
+      { "name": "Sadistic Attention: enjoying being the focal point of a partner’s fear, arousal, or resistance", "rating": null },
+      { "name": "Teasing Humiliation: playful status play without degradation or shame", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Emotional Sadism (receiving): enjoying engineered emotional intensity such as fluster, exposure, or playful embarrassment", "rating": null },
+      { "name": "Psychological Control (receiving): arousal from being studied, contained, or outmaneuvered", "rating": null },
+      { "name": "Being the Focus: enjoying being watched, tracked, or held in a partner’s intense focus", "rating": null },
+      { "name": "Teasing Humiliation (receiving): enjoying playful embarrassment or affectionate mockery that builds intimacy", "rating": null },
+      { "name": "Prey Attention/Neediness: craving focus, pursuit, or intense awareness from a partner", "rating": null }
+    ],
+    "General": [
+      { "name": "Primal Recognition: being seen, understood, or tracked without needing words", "rating": null }
+    ]
+  },
+  "Breeding": {
+    "Giving": [
+      { "name": "Impregnation (giving): arousal from attempting to impregnate a partner", "rating": null },
+      { "name": "Feeding Milk (giving): arousal from producing and feeding milk to a partner", "rating": null }
+    ],
+    "Receiving": [
+      { "name": "Impregnation (receiving): arousal from being inseminated, pregnancy risk, or being bred", "rating": null },
+      { "name": "Feeding Milk (receiving): arousal from drinking a partner’s milk", "rating": null }
+    ],
+    "General": [
+      { "name": "Pregnancy Fantasy: erotic focus on pregnancy (mine, partner’s, or fictional scenarios)", "rating": null },
+      { "name": "Primal Breeding Drive: animalistic/instinctual framing of sex, reproduction, territory", "rating": null },
+      { "name": "Breeding as Control: ownership/authority expressed through breeding talk or pregnancy risk", "rating": null },
+      { "name": "Creampie/Marking: erotic meaning placed on internal ejaculation or visible ‘claimed’ markers", "rating": null },
+      { "name": "Risk/‘No Contraception’ Talk (fantasy): dirty talk about risk or breeding without actual risk", "rating": null },
+      { "name": "Heat/Ovulation Tracking: timing, ‘in heat’ roleplay, or cycle-focused arousal", "rating": null },
+      { "name": "Artificial Insemination/Device Play: syringes, cups, or medical-style scenarios (consensual fantasy)", "rating": null },
+      { "name": "Breeding Denial/Ruined Breeding: building toward impregnation talk then denying or ‘ruining’ it", "rating": null },
+      { "name": "Pregnancy Body Focus: belly worship, movement/weight changes, glow, and attention", "rating": null },
+      { "name": "Pregnancy Protocol/Care: protective rules, pedestal treatment, dedicated aftercare", "rating": null },
+      { "name": "Lactation Induction/Maintenance: interest in inducing or sustaining milk production", "rating": null },
+      { "name": "Milking Scenes: manual, oral, or pump-based ‘milking’ as play or ritual", "rating": null },
+      { "name": "Contraception Boundaries: preference to use protection, BC methods, or simulation-only", "rating": null },
+      { "name": "STI/Testing & Medical Boundaries: testing cadence, disclosures, and comfort levels", "rating": null }
+    ]
   }
-};
+}
