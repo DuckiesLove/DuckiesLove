@@ -481,18 +481,49 @@
   const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
   const looksHTML = t => /^\s*<!doctype html/i.test(t) || /<html[\s>]/i.test(t);
 
-  async function fetchData(){
-    const errs=[];
-    for (const u of DATA_URLS){
+  function showFetchNote(notes){
+    if (!notes?.length) return;
+    if (document.getElementById('kinksFetchNotes')) return;
+    const note = document.createElement('div');
+    note.id = 'kinksFetchNotes';
+    note.style.cssText = 'position:fixed;left:0;right:0;bottom:0;padding:.5rem 1rem;background:#001316;color:#57f7ff;border-top:1px solid #00e6ff33;font:600 14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;z-index:2147483600;text-align:center';
+    note.textContent = 'Fetch notes: ' + notes.join('  -  ');
+    document.body?.appendChild(note);
+  }
+
+  async function fetchFirst(urls){
+    const notes = [];
+    for (const url of urls){
       try{
-        const r = await fetch(u,{cache:'no-store'});
-        if(!r.ok) throw new Error('HTTP '+r.status);
-        const txt = await r.text();
-        if (looksHTML(txt)) throw new Error('HTML fallback');
-        return { json: JSON.parse(txt), src:u, errs };
-      }catch(e){ errs.push(u+': '+(e?.message||e)); }
+        const res = await fetch(url, {cache:'no-store'});
+        if (!res.ok){
+          notes.push(`${url}: HTTP ${res.status}`);
+          console.warn('[kinksurvey] Not found:', url, res.status);
+          continue;
+        }
+        const text = await res.text();
+        if (looksHTML(text)){
+          notes.push(`${url}: HTML fallback`);
+          console.warn('[kinksurvey] HTML fallback:', url);
+          continue;
+        }
+        const json = JSON.parse(text);
+        console.info('[kinksurvey] Loaded:', url);
+        return { json, src: url, errs: notes };
+      }catch(err){
+        const message = err?.message || String(err);
+        notes.push(`${url}: ${message}`);
+        console.warn('[kinksurvey] Fetch failed:', url, message);
+      }
     }
-    throw new Error('All dataset fetches failed:\n- '+errs.join('\n- '));
+    showFetchNote(notes);
+    const error = new Error('kinks.json not found in any candidate location');
+    error.notes = notes;
+    throw error;
+  }
+
+  async function fetchData(){
+    return fetchFirst(DATA_URLS);
   }
 
   function normalize(raw){
@@ -591,7 +622,10 @@
     maybeRevealPanel();
     if (errs?.length) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
   }catch(e){
-    showDiag((e?.message||e) + '\nThis page will populate once /data/kinks.json is published.');
+    const msg = e?.message || e;
+    const extra = e?.notes?.length ? '\nFetch notes:\n- ' + e.notes.join('\n- ') : '';
+    showFetchNote(e?.notes);
+    showDiag(msg + extra + '\nThis page will populate once /data/kinks.json is published.');
     status.textContent = 'Dataset unavailable';
   }
 })();
