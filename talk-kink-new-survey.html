@@ -11,6 +11,7 @@
     --row:#0a1820; --soft:#08161c; --line:#00e5ff44;
     --btn:#071a1f; --btnb:#00e6ff; --btnfg:#eaffff;
     --barBg:#062028; --barFill:#13e0ff;
+    --ksv-panel-w:720px;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -35,6 +36,26 @@
   .btn[disabled]{opacity:.45;cursor:not-allowed}
   .btn:hover{transform:translateY(-1px)}
   .btn.xl{padding:16px 26px;font-size:1.05rem}
+  /* Dockable action buttons */
+  .ksv-btn{display:inline-flex;align-items:center;justify-content:center;text-align:center}
+  #ksv-actions{
+    display:flex;flex-direction:column;gap:20px;
+    width:min(64ch,88vw);margin:32px auto 0;z-index:2;
+  }
+  body.tk-panel-open #categoryPanel{z-index:2147483500!important}
+  body.tk-panel-open #ksv-actions.is-docked{
+    position:fixed;
+    left:calc(var(--ksv-panel-w) + 24px);
+    right:24px;
+    top:96px;
+    max-width:360px;width:auto;margin:0;align-items:stretch;gap:14px;pointer-events:auto;
+    z-index:2147483600!important;
+  }
+  body.tk-panel-open #ksv-actions.is-docked .ksv-btn{
+    width:100%!important;max-width:none!important;margin:0!important;
+    padding:12px 16px!important;border-radius:12px!important;
+    font-size:clamp(14px,1.3vw,18px)!important;line-height:1.2;box-sizing:border-box;
+  }
   .hero select{
     padding:12px 14px;border:2px solid var(--btnb);border-radius:12px;
     background:#05151a;color:var(--fg);font-weight:700
@@ -365,6 +386,79 @@
     showDiag(e.message + '\nYou can still use this page once /data/kinks.json is published.');
     $status.textContent = 'Dataset unavailable';
   }
+})();
+</script>
+<script>
+(()=> {
+  const SEL_PANEL  = '#categoryPanel, .category-panel, [data-panel="category"]';
+  const SEL_SCRIM  = '#tkScrim, .tk-scrim, .drawer-scrim';
+  const LABELS = [/^start\s+survey$/i,/^compatibility\s+page$/i,/^individual\s+kink\s+analysis$/i];
+
+  function ensureActions(){
+    let actions = document.getElementById('ksv-actions');
+    if (!actions){
+      const found = [...document.querySelectorAll('a,button')].filter(el=>{
+        const t=(el.textContent||'').trim();
+        return LABELS.some(rx=>rx.test(t)) && el.offsetParent !== null;
+      });
+      if (!found.length) return null;
+
+      actions = document.createElement('nav');
+      actions.id = 'ksv-actions';
+      actions.setAttribute('aria-label','Survey actions');
+
+      const host = document.querySelector('#ksvHeroStack')?.parentElement || found[0].parentElement || document.body;
+      host.insertBefore(actions, found[0]);
+      found.forEach(el => { el.classList.add('ksv-btn'); actions.appendChild(el); });
+    }
+    return actions;
+  }
+
+  const actions = ensureActions();
+  if (!actions) return;
+
+  const panel = document.querySelector(SEL_PANEL);
+  const scrim = document.querySelector(SEL_SCRIM);
+
+  const visible = el => el && el.offsetParent !== null;
+  const isOpen  = () => document.body.classList.contains('tk-panel-open');
+
+  function dock(){
+    if (!(isOpen() && panel && visible(panel))){
+      actions.classList.remove('is-docked');
+      actions.style.top = '';
+      return;
+    }
+    const r = panel.getBoundingClientRect();
+    document.documentElement.style.setProperty('--ksv-panel-w', r.width + 'px');
+
+    const available = window.innerWidth - r.width - 48;
+    if (available < 220){
+      actions.classList.remove('is-docked');
+      actions.style.top = '';
+      return;
+    }
+    const top = Math.max(72, r.top + 24 + window.scrollY);
+    actions.style.top = top + 'px';
+    actions.classList.add('is-docked');
+  }
+
+  if (scrim){
+    const stop = e => { if (isOpen()){ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); } };
+    ['click','mousedown','touchstart'].forEach(ev => scrim.addEventListener(ev, stop, true));
+  }
+  window.addEventListener('keydown', e=>{
+    if (isOpen() && (e.key === 'Escape' || e.keyCode === 27)){
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    }
+  }, true);
+
+  const mo = new MutationObserver(dock);
+  mo.observe(document.body, {attributes:true, attributeFilter:['class']});
+  window.addEventListener('resize', dock);
+  window.addEventListener('scroll', () => { if (isOpen()) dock(); }, {passive:true});
+
+  dock();
 })();
 </script>
 </body>
