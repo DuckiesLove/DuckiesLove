@@ -942,57 +942,58 @@ setTimeout(() => {
   */
 </style>
 
-<!-- Drop this near the end of /kinksurvey/index.html (right before </body>).
-     It does all of the following in one go:
-
-     1) Keeps the category panel ABOVE the scrim so it’s fully clickable.
-     2) Locks the page while the panel is open (no scroll; scrim clicks/ESC won’t close).
-     3) Hides the big landing buttons while the panel is open.
-     4) On desktop, shows a compact 3-button rail in the blank space to the RIGHT of the panel.
-     5) Mobile stays full-width (no right rail).
--->
+<!-- 🩹 Drop this block at the very end of /kinksurvey/index.html (right before </body>).
+     It makes the category panel usable (above the scrim), locks the page while open,
+     and shows a compact 3-button rail in the blank space to the RIGHT of the panel.
+     When you close the panel, the page returns to the normal full-width layout. -->
 
 <style>
   :root{
-    --tk-rail-w: clamp(220px, 24vw, 340px); /* right rail width on desktop */
+    --tk-rail-w: clamp(220px, 24vw, 340px);   /* width of the right-side action rail */
     --tk-cyan: #09d0d6;
   }
 
-  /* 1) & 2) general page + scrim behavior while the panel is open */
-  body.kinksurvey-page.tk-panel-open { overflow: hidden; }
-  #tkScrim{ z-index: 9999 !important; }                    /* scrim high… */
+  /* Ensure we can scroll normally unless the panel is open */
+  body.kinksurvey-page{ overflow: auto; }
 
-  /* …but the actual category panel sits even higher and is fully opaque/clickable */
+  /* The GitHub Pages scrim gets pointer events; keep it, but the panel must sit above it */
+  #tkScrim{ z-index: 9999 !important; }
+
+  /* Panel fixes (sits above scrim, fully clickable, not translucent) */
   body.kinksurvey-page.tk-panel-open .category-panel{
     position: fixed !important;
-    inset: 0 auto 0 0 !important;                          /* left-aligned, full height */
-    width: calc(100vw - var(--tk-rail-w)) !important;      /* leave room for right rail */
+    inset: 0 auto 0 0 !important;                       /* left aligned, full height */
+    width: calc(100vw - var(--tk-rail-w)) !important;   /* leave space for the right rail */
     height: 100vh !important;
+    background: rgba(0,0,0,0.92) !important;            /* avoid “greyed out” feeling */
     overflow: auto !important;
-    z-index: 2147483000 !important;                        /* >> scrim */
-    background: rgba(0,0,0,0.90) !important;               /* avoid “greyed/see-through” look */
-    pointer-events: auto !important;                       /* ensure clicks land */
+    pointer-events: auto !important;
+    z-index: 2147483000 !important;                     /* higher than scrim */
     box-shadow: 1px 0 0 0 rgba(9,208,214,.25);
   }
 
-  /* 4) right-side compact actions rail (desktop only, visible only when panel is open) */
+  /* Hide the big landing buttons ONLY while the panel is open */
+  body.kinksurvey-page.tk-panel-open .tk-hide-when-panel{ display: none !important; }
+
+  /* Compact actions rail that appears on the RIGHT while panel is open (desktop only) */
   #tkSideActions{
     position: fixed; right: 0; top: 0; height: 100vh;
     width: var(--tk-rail-w);
     padding: 1rem .9rem;
-    display: none;                                         /* toggled by .tk-panel-open */
+    display: none;                                      /* shown only with .tk-panel-open */
     flex-direction: column; gap: .8rem;
     background: rgba(0,0,0,.30);
-    box-shadow: inset 0 0 0 1px rgba(9,208,214,.20);
-    z-index: 2147483000;                                   /* >> scrim */
+    box-shadow: inset 0 0 0 1px rgba(9,208,214,.18);
+    z-index: 2147483000;                                /* same layer as panel */
   }
   body.kinksurvey-page.tk-panel-open #tkSideActions{ display: flex; }
+
   #tkSideActions .tk-side-stack{
-    margin-top: 5.25rem;                                   /* clear page title/header */
     display:flex; flex-direction:column; gap:.8rem;
+    margin-top: 5.25rem;                                /* clear the header */
   }
 
-  /* compact button styling (kept independent from landing button CSS) */
+  /* Small rail buttons (independent styling so we don't disturb your main CSS) */
   #tkSideActions .tk-mini-btn{
     all: unset;
     width: 100%;
@@ -1020,19 +1021,14 @@ setTimeout(() => {
     box-shadow: 0 0 0 5px rgba(9,208,214,.22);
   }
 
-  /* 3) hide the big landing buttons while the panel is open (no accidental clicks) */
-  body.kinksurvey-page.tk-panel-open .tk-hide-when-panel{ display: none !important; }
-  body.kinksurvey-page.tk-panel-open .tk-landing-actions{ display: none !important; }
-
-  /* 5) mobile/tablet: panel uses full width; no right rail */
+  /* Mobile/tablet: panel uses full width; no right rail */
   @media (max-width: 1100px){
     body.kinksurvey-page.tk-panel-open .category-panel{ width: 100vw !important; }
     body.kinksurvey-page.tk-panel-open #tkSideActions{ display: none !important; }
   }
 </style>
 
-<!-- Right-side compact actions rail (desktop). Hidden on mobile.
-     Shown only while the panel is open. -->
+<!-- Right-side compact actions (desktop only, shown while the panel is open) -->
 <div id="tkSideActions" aria-hidden="true">
   <div class="tk-side-stack">
     <button id="tkSideStart" class="tk-mini-btn primary">Start Survey</button>
@@ -1042,43 +1038,52 @@ setTimeout(() => {
 </div>
 
 <script>
-/* Behavior glue:
-   - Raises the panel above the scrim (fixes “grey/unclickable”).
-   - Locks page while open; scrim clicks & ESC are ignored (panel is “locked”).
-   - Hides the big landing buttons while the panel is open.
-   - Right rail appears only while open (desktop). */
 (function(){
+  // Mark this page (so our CSS only applies here)
   document.body.classList.add('kinksurvey-page');
 
-  const HIDE_LABELS = ['Start Survey','Compatibility Page','Individual Kink Analysis'];
+  // Labels we consider the “big landing buttons” – we’ll hide them only while the panel is open
+  const BIG_LABELS = ['Start Survey','Compatibility Page','Individual Kink Analysis'];
 
-  function raisePanel(){
-    const panel = document.querySelector('.category-panel');
-    if(panel){
-      panel.style.zIndex = '2147483000';
-      panel.style.pointerEvents = 'auto';
-      panel.style.opacity = '1';
-    }
-  }
-
-  /* Tag the big landing buttons so we can hide them when panel opens */
+  // Tag the visible big buttons so the CSS rule can hide them when the panel opens
   function tagLandingButtons(){
-    const nodes = Array.from(document.querySelectorAll('a,button'));
-    nodes.forEach(el=>{
-      const txt = (el.textContent||'').replace(/\s+/g,' ').trim();
-      if(HIDE_LABELS.some(lbl => txt.includes(lbl))){
+    const els = Array.from(document.querySelectorAll('a,button'));
+    els.forEach(el=>{
+      const txt = (el.textContent || '').replace(/\s+/g,' ').trim();
+      if(BIG_LABELS.some(lbl=>txt.includes(lbl))){
         el.classList.add('tk-hide-when-panel');
-        // compactly hide their nearest “group” wrapper so spacing collapses nicely
-        let wrap = el.parentElement, hops = 0;
-        while(wrap && hops<4){
-          if(wrap.children.length>1){ wrap.classList.add('tk-landing-actions'); break; }
-          wrap = wrap.parentElement; hops++;
-        }
       }
     });
   }
 
-  /* Click the real Start Survey (or dispatch a generic event hook) */
+  // Keep the category panel fully clickable above the scrim
+  function raisePanel(){
+    const p = document.querySelector('.category-panel');
+    if(p){
+      Object.assign(p.style, {
+        zIndex: '2147483000',
+        pointerEvents: 'auto',
+        opacity: '1'
+      });
+    }
+  }
+
+  // Ensure we don’t accidentally start hidden (e.g., if the class is sticky from a previous nav)
+  function normalizeOnLoad(){
+    const isOpen = document.body.classList.contains('tk-panel-open');
+    const p = document.querySelector('.category-panel');
+    if(isOpen){
+      // If panel exists but is not visible (display:none or not yet mounted), close it
+      const comp = p && window.getComputedStyle(p);
+      if(!p || (comp && comp.display === 'none')){
+        document.body.classList.remove('tk-panel-open');
+      }else{
+        raisePanel();
+      }
+    }
+  }
+
+  // Make the side-rail Start button trigger the real Start behavior
   function clickRealStart(){
     const real =
       document.querySelector('[data-start-survey]') ||
@@ -1090,42 +1095,40 @@ setTimeout(() => {
   }
   document.getElementById('tkSideStart').addEventListener('click', clickRealStart);
 
-  /* Prevent scrim click & ESC from closing (panel stays until explicit Close) */
+  // Prevent scrim click & ESC from closing the panel (the panel is “locked” until Close is used)
   const scrim = document.getElementById('tkScrim');
   if(scrim){
-    scrim.addEventListener('click', e => { 
+    scrim.addEventListener('click', e=>{
       if(document.body.classList.contains('tk-panel-open')){ e.stopPropagation(); e.preventDefault(); }
     }, true);
   }
-  window.addEventListener('keydown', e => {
+  window.addEventListener('keydown', e=>{
     if(document.body.classList.contains('tk-panel-open') && e.key === 'Escape'){ e.preventDefault(); }
   }, true);
 
-  /* Ensure Close buttons actually close the panel */
+  // Make sure Close buttons actually close and restore the full layout
   function closePanel(){
     document.body.classList.remove('tk-panel-open');
     const p = document.querySelector('.category-panel');
-    if(p) p.style.zIndex = '200';
+    if(p){ p.style.zIndex = '200'; }
   }
-  const closeCandidates = [
-    '#tkPanelClose','[data-action="close-panel"]','.tk-panel-close',
-    '.category-panel .close','.category-panel [aria-label="Close"]'
-  ];
-  closeCandidates.forEach(sel=>{
+  ['#tkPanelClose','[data-action="close-panel"]','.tk-panel-close',
+   '.category-panel .close','.category-panel [aria-label="Close"]']
+  .forEach(sel=>{
     document.querySelectorAll(sel).forEach(btn=>btn.addEventListener('click', closePanel));
   });
 
-  /* Watch the body class so we re-raise the panel every time it opens */
-  const watcher = new MutationObserver(() => {
+  // Watch the body class to raise the panel whenever it’s opened
+  const mo = new MutationObserver(()=>{
     if(document.body.classList.contains('tk-panel-open')) raisePanel();
   });
-  watcher.observe(document.body, { attributes:true, attributeFilter:['class'] });
+  mo.observe(document.body,{attributes:true, attributeFilter:['class']});
 
-  /* Initial tagging + initial raise if already open */
+  // Init
   tagLandingButtons();
-  if(document.body.classList.contains('tk-panel-open')) raisePanel();
+  normalizeOnLoad();
 
-  /* In case DOM is injected a bit later */
+  // If the page injects buttons late, tag them too
   setTimeout(tagLandingButtons, 500);
 })();
 </script>
