@@ -49,25 +49,68 @@ function extractLabel(entry) {
   return entry?.name || entry?.label || entry?.question || '';
 }
 
+const KNOWN_ROLES = new Map([
+  ['giving', 'Giving'],
+  ['receiving', 'Receiving'],
+  ['general', 'General']
+]);
+
+function normalizeRole(name) {
+  if (!name) return null;
+  const key = String(name).trim().toLowerCase();
+  return KNOWN_ROLES.get(key) || null;
+}
+
 function buildDataset(template) {
   const slugCounts = new Map();
   const categories = [];
 
   for (const [categoryName, sections] of Object.entries(template)) {
     if (!sections || typeof sections !== 'object') continue;
-    const items = [];
+    const itemsByLabel = new Map();
 
     for (const [sectionName, entries] of Object.entries(sections)) {
       if (!Array.isArray(entries)) continue;
+      const role = normalizeRole(sectionName);
       for (const entry of entries) {
         const label = extractLabel(entry);
         if (!label) continue;
-        const baseSlug = slugify(`${categoryName} ${sectionName} ${label}`);
-        const id = uniqueSlug(baseSlug, slugCounts);
-        const type = deriveType(entry);
-        items.push({ id, label, type });
+        const key = label.trim().toLowerCase();
+        let item = itemsByLabel.get(key);
+        if (!item) {
+          const baseSlug = slugify(`${categoryName} ${label}`);
+          const id = uniqueSlug(baseSlug, slugCounts);
+          const type = deriveType(entry);
+          item = { id, label, type };
+          if (entry?.options) item.options = entry.options;
+          if (entry?.roles) item.roles = Array.isArray(entry.roles)
+            ? [...new Set(entry.roles.map(normalizeRole).filter(Boolean))]
+            : undefined;
+          itemsByLabel.set(key, item);
+        } else {
+          // Prefer the first non-default type we encounter
+          const derivedType = deriveType(entry);
+          if (item.type === 'text' && derivedType !== 'text') {
+            item.type = derivedType;
+          }
+          if (!item.options && entry?.options) {
+            item.options = entry.options;
+          }
+        }
+
+        if (role) {
+          if (!Array.isArray(item.roles)) item.roles = [];
+          if (!item.roles.includes(role)) item.roles.push(role);
+        }
       }
     }
+
+    const items = Array.from(itemsByLabel.values()).map(it => {
+      if (Array.isArray(it.roles)) {
+        it.roles.sort((a, b) => a.localeCompare(b));
+      }
+      return it;
+    });
 
     if (items.length) {
       categories.push({ category: categoryName, items });

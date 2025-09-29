@@ -15,6 +15,10 @@ const targets = [
   path.join(repoRoot, "docs", "kinks.json"),
   path.join(repoRoot, "docs", "data", "kinks.json"),
   path.join(repoRoot, "docs", "kinks", "data", "kinks.json"),
+
+  // Legacy survey assets still referenced by some static pages
+  path.join(repoRoot, "survey", "data", "kinks.json"),
+  path.join(repoRoot, "docs", "survey", "data", "kinks.json"),
 ];
 
 async function ensureDir(p) { await fs.mkdir(path.dirname(p), { recursive: true }); }
@@ -29,9 +33,21 @@ async function main() {
       await fs.writeFile(t, pretty + "\n");
       wrote++;
     }
-    console.log(`✅ Synced kinks dataset to ${wrote} locations.`);
+
+    const fallback = `// Auto-generated fallback dataset\nwindow.KINKS_BANK = ${pretty};\n`;
+    const fallbackTargets = [
+      path.join(repoRoot, 'kinks', 'embedded-kinks.js'),
+      path.join(repoRoot, 'docs', 'kinks', 'embedded-kinks.js'),
+    ];
+    for (const t of fallbackTargets) {
+      await ensureDir(t);
+      await fs.writeFile(t, fallback, 'utf8');
+    }
+
+    console.log(`✅ Synced kinks dataset to ${wrote} locations (plus ${fallbackTargets.length} fallback script${fallbackTargets.length === 1 ? '' : 's'}).`);
     console.log("   Source:", src);
     targets.forEach(t => console.log("   →", path.relative(repoRoot, t)));
+    fallbackTargets.forEach(t => console.log("   →", path.relative(repoRoot, t)));
   } catch (e) {
     console.error("❌ Could not sync dataset:", e?.message || e);
     console.error("Hint: generate it first with:  node scripts/generate-kinks-data.mjs");
