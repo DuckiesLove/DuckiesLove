@@ -1,0 +1,4 @@
+/* TK scroll/touch performance hints */
+html, body { overscroll-behavior: contain; }  /* avoid scroll chaining jank */
+.category-panel, .scroll-y, [data-scroll-y] { touch-action: pan-y; }
+.scroll-x, [data-scroll-x] { touch-action: pan-x; }
