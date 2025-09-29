@@ -4705,5 +4705,239 @@
         ]
       }
     ]
+  },
+  {
+    "category": "Psychology Play",
+    "items": [
+      {
+        "id": "psychology-play-emotional-sadism-giving-teasing-feelings-orchestrating-reactions-savoring-anticipation-without-shame-based-harm",
+        "label": "Emotional Sadism (giving): teasing feelings, orchestrating reactions, savoring anticipation without shame-based harm",
+        "type": "scale",
+        "roles": [
+          "Giving"
+        ]
+      },
+      {
+        "id": "psychology-play-psychological-control-mind-games-double-binds-deliberate-pacing-and-strategic-ambiguity",
+        "label": "Psychological Control: mind games, double binds, deliberate pacing, and strategic ambiguity",
+        "type": "scale",
+        "roles": [
+          "Giving"
+        ]
+      },
+      {
+        "id": "psychology-play-sadistic-attention-enjoying-being-the-focal-point-of-a-partner-s-fear-arousal-or-resistance",
+        "label": "Sadistic Attention: enjoying being the focal point of a partner’s fear, arousal, or resistance",
+        "type": "scale",
+        "roles": [
+          "Giving"
+        ]
+      },
+      {
+        "id": "psychology-play-teasing-humiliation-playful-status-play-without-degradation-or-shame",
+        "label": "Teasing Humiliation: playful status play without degradation or shame",
+        "type": "scale",
+        "roles": [
+          "Giving"
+        ]
+      },
+      {
+        "id": "psychology-play-emotional-sadism-receiving-enjoying-engineered-emotional-intensity-such-as-fluster-exposure-or-playful-embarrassment",
+        "label": "Emotional Sadism (receiving): enjoying engineered emotional intensity such as fluster, exposure, or playful embarrassment",
+        "type": "scale",
+        "roles": [
+          "Receiving"
+        ]
+      },
+      {
+        "id": "psychology-play-psychological-control-receiving-arousal-from-being-studied-contained-or-outmaneuvered",
+        "label": "Psychological Control (receiving): arousal from being studied, contained, or outmaneuvered",
+        "type": "scale",
+        "roles": [
+          "Receiving"
+        ]
+      },
+      {
+        "id": "psychology-play-being-the-focus-enjoying-being-watched-tracked-or-held-in-a-partner-s-intense-focus",
+        "label": "Being the Focus: enjoying being watched, tracked, or held in a partner’s intense focus",
+        "type": "scale",
+        "roles": [
+          "Receiving"
+        ]
+      },
+      {
+        "id": "psychology-play-teasing-humiliation-receiving-enjoying-playful-embarrassment-or-affectionate-mockery-that-builds-intimacy",
+        "label": "Teasing Humiliation (receiving): enjoying playful embarrassment or affectionate mockery that builds intimacy",
+        "type": "scale",
+        "roles": [
+          "Receiving"
+        ]
+      },
+      {
+        "id": "psychology-play-prey-attention-neediness-craving-focus-pursuit-or-intense-awareness-from-a-partner",
+        "label": "Prey Attention/Neediness: craving focus, pursuit, or intense awareness from a partner",
+        "type": "scale",
+        "roles": [
+          "Receiving"
+        ]
+      },
+      {
+        "id": "psychology-play-primal-recognition-being-seen-understood-or-tracked-without-needing-words",
+        "label": "Primal Recognition: being seen, understood, or tracked without needing words",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      }
+    ]
+  },
+  {
+    "category": "Breeding",
+    "items": [
+      {
+        "id": "breeding-impregnation-giving-arousal-from-attempting-to-impregnate-a-partner",
+        "label": "Impregnation (giving): arousal from attempting to impregnate a partner",
+        "type": "scale",
+        "roles": [
+          "Giving"
+        ]
+      },
+      {
+        "id": "breeding-feeding-milk-giving-arousal-from-producing-and-feeding-milk-to-a-partner",
+        "label": "Feeding Milk (giving): arousal from producing and feeding milk to a partner",
+        "type": "scale",
+        "roles": [
+          "Giving"
+        ]
+      },
+      {
+        "id": "breeding-impregnation-receiving-arousal-from-being-inseminated-pregnancy-risk-or-being-bred",
+        "label": "Impregnation (receiving): arousal from being inseminated, pregnancy risk, or being bred",
+        "type": "scale",
+        "roles": [
+          "Receiving"
+        ]
+      },
+      {
+        "id": "breeding-feeding-milk-receiving-arousal-from-drinking-a-partner-s-milk",
+        "label": "Feeding Milk (receiving): arousal from drinking a partner’s milk",
+        "type": "scale",
+        "roles": [
+          "Receiving"
+        ]
+      },
+      {
+        "id": "breeding-pregnancy-fantasy-erotic-focus-on-pregnancy-mine-partner-s-or-fictional-scenarios",
+        "label": "Pregnancy Fantasy: erotic focus on pregnancy (mine, partner’s, or fictional scenarios)",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-primal-breeding-drive-animalistic-instinctual-framing-of-sex-reproduction-territory",
+        "label": "Primal Breeding Drive: animalistic/instinctual framing of sex, reproduction, territory",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-breeding-as-control-ownership-authority-expressed-through-breeding-talk-or-pregnancy-risk",
+        "label": "Breeding as Control: ownership/authority expressed through breeding talk or pregnancy risk",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-creampie-marking-erotic-meaning-placed-on-internal-ejaculation-or-visible-claimed-markers",
+        "label": "Creampie/Marking: erotic meaning placed on internal ejaculation or visible ‘claimed’ markers",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-risk-no-contraception-talk-fantasy-dirty-talk-about-risk-or-breeding-without-actual-risk",
+        "label": "Risk/‘No Contraception’ Talk (fantasy): dirty talk about risk or breeding without actual risk",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-heat-ovulation-tracking-timing-in-heat-roleplay-or-cycle-focused-arousal",
+        "label": "Heat/Ovulation Tracking: timing, ‘in heat’ roleplay, or cycle-focused arousal",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-artificial-insemination-device-play-syringes-cups-or-medical-style-scenarios-consensual-fantasy",
+        "label": "Artificial Insemination/Device Play: syringes, cups, or medical-style scenarios (consensual fantasy)",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-breeding-denial-ruined-breeding-building-toward-impregnation-talk-then-denying-or-ruining-it",
+        "label": "Breeding Denial/Ruined Breeding: building toward impregnation talk then denying or ‘ruining’ it",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-pregnancy-body-focus-belly-worship-movement-weight-changes-glow-and-attention",
+        "label": "Pregnancy Body Focus: belly worship, movement/weight changes, glow, and attention",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-pregnancy-protocol-care-protective-rules-pedestal-treatment-dedicated-aftercare",
+        "label": "Pregnancy Protocol/Care: protective rules, pedestal treatment, dedicated aftercare",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-lactation-induction-maintenance-interest-in-inducing-or-sustaining-milk-production",
+        "label": "Lactation Induction/Maintenance: interest in inducing or sustaining milk production",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-milking-scenes-manual-oral-or-pump-based-milking-as-play-or-ritual",
+        "label": "Milking Scenes: manual, oral, or pump-based ‘milking’ as play or ritual",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-contraception-boundaries-preference-to-use-protection-bc-methods-or-simulation-only",
+        "label": "Contraception Boundaries: preference to use protection, BC methods, or simulation-only",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      },
+      {
+        "id": "breeding-sti-testing-medical-boundaries-testing-cadence-disclosures-and-comfort-levels",
+        "label": "STI/Testing & Medical Boundaries: testing cadence, disclosures, and comfort levels",
+        "type": "scale",
+        "roles": [
+          "General"
+        ]
+      }
+    ]
   }
 ]
