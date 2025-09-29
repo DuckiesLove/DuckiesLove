@@ -314,7 +314,16 @@
 <script>
 (async function(){
   // Keep your existing data sources (will use your published dataset when present)
-  const DATA_URLS=['/data/kinks.json','/kinks.json','./data/kinks.json','./kinks.json'];
+  const here = new URL(window.location.href);
+  const pathPrefix = here.pathname.replace(/[^/]*$/, '');
+  const DATA_URLS=[
+    new URL('data/kinks.json', here).pathname,
+    new URL('kinks.json', here).pathname,
+    pathPrefix + 'data/kinks.json',
+    pathPrefix + 'kinks.json',
+    '/data/kinks.json',
+    '/kinks.json'
+  ].filter((v, i, arr)=>v && arr.indexOf(v) === i);
 
   // Elements
   const $ = (id)=>document.getElementById(id);
@@ -422,6 +431,18 @@
   window.tkKinksurveyClosePanel = (opts) => closeDrawer(opts || {});
 
   setDrawerState(false);
+
+  function maybeRevealPanel(){
+    try{
+      const storage = window.localStorage;
+      const key = 'tk_ksv_panel_seen';
+      if (storage?.getItem(key) === '1') return;
+      const wideScreen = window.matchMedia ? window.matchMedia('(min-width: 900px)').matches : (window.innerWidth || 0) >= 900;
+      if (!wideScreen) return;
+      openDrawer({ focusFirst: false, trigger: toggle });
+      storage?.setItem(key, '1');
+    }catch(_){ /* ignore storage errors */ }
+  }
 
   if (scrim && !scrim.dataset.tkBind){
     scrim.dataset.tkBind = '1';
@@ -567,6 +588,7 @@
     S.cats = normalize(json);
     renderPanel(S.cats);
     status.textContent = `Loaded ${S.cats.length} categories`;
+    maybeRevealPanel();
     if (errs?.length) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
   }catch(e){
     showDiag((e?.message||e) + '\nThis page will populate once /data/kinks.json is published.');
