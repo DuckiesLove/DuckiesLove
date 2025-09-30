@@ -362,14 +362,24 @@
   // Keep your existing data sources (will use your published dataset when present)
   const here = new URL(window.location.href);
   const pathPrefix = here.pathname.replace(/[^/]*$/, '');
-  const DATA_URLS=[
+  const DEFAULT_URLS=[
     new URL('data/kinks.json', here).pathname,
     new URL('kinks.json', here).pathname,
     pathPrefix + 'data/kinks.json',
     pathPrefix + 'kinks.json',
     '/data/kinks.json',
     '/kinks.json'
-  ].filter((v, i, arr)=>v && arr.indexOf(v) === i);
+  ];
+  const overrideUrls = Array.isArray(window.KSV?.KINKS_URLS) ? window.KSV.KINKS_URLS : null;
+  const DATA_URLS = Array.from(new Set(
+    (overrideUrls && overrideUrls.length ? overrideUrls : DEFAULT_URLS)
+      .map(url => {
+        try { return new URL(url, here).pathname; }
+        catch { return url; }
+      })
+      .filter(Boolean)
+  ));
+  if (!DATA_URLS.length) DATA_URLS.push('/data/kinks.json');
 
   // Elements
   const $ = (id)=>document.getElementById(id);
@@ -536,7 +546,7 @@
     return /localhost|127\.0\.0\.1/.test(location.hostname);
   })();
 
-  const FETCH_NOTE_ID = 'ksv-fetch-notes';
+  const FETCH_NOTE_ID = 'tkFetchNote';
 
   function removeFetchNote(){
     const existing = document.getElementById(FETCH_NOTE_ID);
@@ -564,8 +574,9 @@
     note.textContent = 'Fetch notes: ' + notes.join('  -  ');
     if (!note.isConnected) document.body?.appendChild(note);
   }
+  window.showFetchNote = showFetchNote;
 
-  async function fetchFirst(urls){
+  async function fetchFirstInternal(urls){
     const notes = [];
     for (const url of urls){
       try{
@@ -584,7 +595,7 @@
         const json = JSON.parse(text);
         console.info('[kinksurvey] Loaded:', url);
         removeFetchNote();
-        return { json, src: url, errs: notes };
+        return { json, src: url, errs: [] };
       }catch(err){
         const message = err?.message || String(err);
         notes.push(`${url}: ${message}`);
@@ -596,9 +607,13 @@
     error.notes = notes;
     throw error;
   }
+  window.fetchFirst = fetchFirstInternal;
 
   async function fetchData(){
-    return fetchFirst(DATA_URLS);
+    const fetcher = typeof window.fetchFirst === 'function' ? window.fetchFirst : fetchFirstInternal;
+    const result = await fetcher(DATA_URLS);
+    if (result && typeof result === 'object' && 'json' in result) return result;
+    return { json: result, src: DATA_URLS[0], errs: [] };
   }
 
   function normalize(raw){
