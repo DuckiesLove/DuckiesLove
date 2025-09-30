@@ -1196,17 +1196,37 @@ setTimeout(() => {
     };
   }
 
-  function downloadJSONFile(data){
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  async function downloadJSONFile(data){
+    const ts = new Date().toISOString().replace(/[:.]/g,'-');
+    const filename = `kink-survey-${ts}.json`;
+    const json = JSON.stringify(data, null, 2);
+
+    if (typeof window.showSaveFilePicker === 'function') {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(new Blob([json], { type: 'application/json' }));
+        await writable.close();
+        return true;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return false; // user canceled save dialog
+        console.warn('showSaveFilePicker failed, falling back to download link', err);
+      }
+    }
+
+    const blob = new Blob([json], {type:'application/json'});
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    const ts   = new Date().toISOString().replace(/[:.]/g,'-');
     a.href = url;
-    a.download = `kink-survey-${ts}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    return true;
   }
 
   function makeDownloadButton(){
@@ -1214,7 +1234,11 @@ setTimeout(() => {
     btn.type = 'button';
     btn.className = 'tk-download-json';
     btn.textContent = 'Download survey';
-    btn.addEventListener('click', () => downloadJSONFile(collectResults()));
+    btn.addEventListener('click', () => {
+      downloadJSONFile(collectResults()).catch(err => {
+        console.error('Download failed', err);
+      });
+    });
     return btn;
   }
 

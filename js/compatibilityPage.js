@@ -560,7 +560,34 @@ window.handleFileUpload = handleFileUpload;
 
 
 
-function downloadBlob(blob, filename) {
+async function downloadBlob(blob, filename) {
+  const mime = blob.type && blob.type !== '' ? blob.type : 'application/octet-stream';
+  const ext = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')) : '';
+
+  if (typeof window.showSaveFilePicker === 'function') {
+    try {
+      const pickerOpts = {
+        suggestedName: filename
+      };
+      if (ext) {
+        pickerOpts.types = [{
+          description: `${ext.toUpperCase().replace('.', '')} File`,
+          accept: { [mime]: [ext] }
+        }];
+      }
+      const handle = await window.showSaveFilePicker(pickerOpts);
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        return false;
+      }
+      console.warn('showSaveFilePicker failed, falling back to download link', err);
+    }
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.style.display = 'none';
@@ -572,6 +599,7 @@ function downloadBlob(blob, filename) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, 0);
+  return true;
 }
 
 async function exportPNG() {
@@ -593,15 +621,15 @@ async function exportPNG() {
   }
 }
 
-function exportHTML() {
+async function exportHTML() {
   const element = document.getElementById('pdf-container');
   if (!element) return;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Kink Survey Results</title></head><body>${element.innerHTML}</body></html>`;
   const blob = new Blob([html], { type: 'text/html' });
-  downloadBlob(blob, 'kink-survey.html');
+  await downloadBlob(blob, 'kink-survey.html');
 }
 
-function exportMarkdown() {
+async function exportMarkdown() {
   if (!lastResult) {
     if (!surveyA || !surveyB) {
       alert('Please upload both surveys first.');
@@ -619,10 +647,10 @@ function exportMarkdown() {
     });
   }
   const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
-  downloadBlob(blob, 'kink-survey.md');
+  await downloadBlob(blob, 'kink-survey.md');
 }
 
-function exportCSV() {
+async function exportCSV() {
   if (!lastResult) {
     if (!surveyA || !surveyB) {
       alert('Please upload both surveys first.');
@@ -638,10 +666,10 @@ function exportCSV() {
   });
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
-  downloadBlob(blob, 'kink-survey.csv');
+  await downloadBlob(blob, 'kink-survey.csv');
 }
 
-function exportJSON() {
+async function exportJSON() {
   if (!lastResult) {
     if (!surveyA || !surveyB) {
       alert('Please upload both surveys first.');
@@ -650,7 +678,7 @@ function exportJSON() {
     lastResult = buildKinkBreakdown(surveyA, surveyB);
   }
   const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
-  downloadBlob(blob, 'kink-survey.json');
+  await downloadBlob(blob, 'kink-survey.json');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
