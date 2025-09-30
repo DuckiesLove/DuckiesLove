@@ -461,5 +461,182 @@
   dock();
 })();
 </script>
+<script>
+/* Talk Kink — minimal add-on:
+   - Force survey to start with NO selections
+   - Replace "Back to home" with "Download survey" that saves JSON
+*/
+(() => {
+  /* ---------- small utilities ---------- */
+  const toNum = v => {
+    if (v == null || v === '') return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const normText = n => (n || '').replace(/\s+/g,' ').trim().toLowerCase();
+
+  // Try to produce a stable key for each control
+  const keyFor = el => (
+    el.dataset.kinkId ||
+    el.name ||
+    el.id ||
+    (() => {
+      let t = '';
+      if (el.id) {
+        const lbl = document.querySelector('label[for="'+CSS.escape(el.id)+'"]');
+        if (lbl) t = (lbl.textContent||'').trim();
+      }
+      if (!t) {
+        const cl = el.closest('label');
+        if (cl) t = (cl.textContent||'').trim();
+      }
+      if (!t) t = el.getAttribute('aria-label') || el.placeholder || '';
+      return t.replace(/\s+/g,'_').toLowerCase();
+    })()
+  );
+
+  /* ---------- 1) Start with NO selections ---------- */
+  function zeroAll() {
+    // Sliders / numeric fields → 0
+    document.querySelectorAll('input[type="range"], input[type="number"]').forEach(el => {
+      if (String(el.value) !== '0') {
+        el.value = 0;
+        el.dispatchEvent(new Event('input',  {bubbles:true}));
+        el.dispatchEvent(new Event('change', {bubbles:true}));
+      }
+    });
+
+    // Selects → prefer blank option, else "0", else first option
+    document.querySelectorAll('select').forEach(el => {
+      const opts = [...el.options];
+      if (opts.some(o => o.value === ''))      el.value = '';
+      else if (opts.some(o => o.value === '0')) el.value = '0';
+      else                                      el.selectedIndex = 0;
+      el.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+
+    // Checkboxes / radios → unchecked
+    document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => {
+      if (el.checked) {
+        el.checked = false;
+        el.dispatchEvent(new Event('change', {bubbles:true}));
+      }
+    });
+  }
+
+  // Run on load, plus two delayed passes (helps if UI renders async)
+  function initZero() {
+    zeroAll();
+    setTimeout(zeroAll, 300);
+    setTimeout(zeroAll, 1000);
+  }
+
+  /* ---------- 2) Collect answers → JSON ---------- */
+  function collectResults() {
+    const answers    = {};
+    const byDataId   = {};
+    const list       = [];
+
+    document.querySelectorAll('input,select,textarea').forEach(el => {
+      // Skip disabled or hidden-by-attr inputs
+      if (el.disabled) return;
+
+      const k = keyFor(el);
+      if (!k) return;
+
+      let v = 0;
+      if (el.type === 'checkbox' || el.type === 'radio') {
+        v = el.checked ? 1 : 0;
+      } else if (el.tagName === 'SELECT') {
+        v = toNum(el.value);
+      } else if ('value' in el) {
+        v = toNum(el.value);
+      }
+
+      answers[k] = v;
+
+      const id = el.dataset.kinkId;
+      if (id) byDataId[id] = v;
+
+      list.push({ id: id || null, key: k, value: v });
+    });
+
+    return {
+      meta: {
+        source: 'talkkink.org/kinksurvey',
+        generated_at: new Date().toISOString(),
+        schema: 'tk-answers-v1'
+      },
+      answers,          // keyed by inferred key (name/id/label)
+      byDataId,         // keyed by data-kink-id when present
+      items: list       // array form (id, key, value)
+    };
+  }
+
+  function downloadJSON(data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.href = url;
+    a.download = `talkkink-survey-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /* ---------- 3) Replace "Back to home" with "Download survey" ---------- */
+  function injectDownloadButton(root = document) {
+    // Find a link whose text reads "Back to home"
+    const links = [...root.querySelectorAll('a, button')];
+    const tgt = links.find(el => normText(el.textContent).includes('back to home'));
+    if (!tgt || tgt.dataset.tkDownloadInjected) return;
+
+    // Build a replacement button; reuse existing classes for style
+    const btn = document.createElement('a');
+    btn.href = '#download';
+    btn.textContent = 'Download survey';
+    btn.setAttribute('role', 'button');
+    btn.dataset.tkDownloadInjected = '1';
+
+    // Copy classes so it looks the same as the original link
+    if (tgt.className) btn.className = tgt.className;
+    // If no classes at all, add a safe generic button look (optional)
+    if (!btn.className) {
+      btn.style.display = 'inline-block';
+      btn.style.padding = '0.8rem 1.2rem';
+      btn.style.border = '2px solid #00e6ff';
+      btn.style.borderRadius = '12px';
+      btn.style.color = '#00e6ff';
+      btn.style.textDecoration = 'none';
+      btn.style.fontWeight = '800';
+    }
+
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const data = collectResults();
+      downloadJSON(data);
+    });
+
+    tgt.replaceWith(btn);
+  }
+
+  // Observe DOM so when the completion UI appears we swap the link
+  const mo = new MutationObserver(muts => {
+    for (const m of muts) {
+      if (m.type === 'childList' && (m.addedNodes?.length || 0) > 0) {
+        injectDownloadButton(document);
+      }
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initZero();
+    injectDownloadButton(document); // in case it's already there
+    mo.observe(document.body, { childList: true, subtree: true });
+  });
+})();
+</script>
 </body>
 </html>
