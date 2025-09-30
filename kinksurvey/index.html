@@ -317,11 +317,11 @@
 
 <section id="ksvHeroStack" data-ksv-fallback>
   <h1>Talk Kink Survey</h1>
-  <nav class="ksvButtons">
-    <a class="ksvBtn" id="btnStartSurvey" href="#categorySurveyPanel">Start Survey</a>
-    <a class="ksvBtn" href="https://talkkink.org/compatibility.html">Compatibility Page</a>
-    <a class="ksvBtn" href="https://talkkink.org/individualkinkanalysis.html">Individual Kink Analysis</a>
-  </nav>
+  <div class="ksvButtons">
+    <a class="ksvBtn" href="#categorySurveyPanel">Select Categories</a>
+    <a class="ksvBtn" href="/compatibility/">Compatibility</a>
+    <a class="ksvBtn" href="/ika/">Individual Kink Analysis</a>
+  </div>
   <p class="ksvFallbackNote">The survey loads automatically when JavaScript is available. If nothing happens, scroll down to choose categories manually or refresh the page.</p>
   <noscript><p class="ksvFallbackNote">JavaScript is required to load the category list and run the survey.</p></noscript>
 </section>
@@ -1536,41 +1536,6 @@ setTimeout(() => {
     if (touched) forceZeroRatings(document);
   });
   mo.observe(document.body, { childList: true, subtree: true });
-})();
-</script>
-<script>
-(function () {
-  function norm(s){ return (s||'').replace(/\s+/g,' ').trim().toLowerCase(); }
-
-  function forceLinkByLabel(containsText, url){
-    const anchors = [
-      ...document.querySelectorAll('.ksvButtons a.ksvBtn'),
-      ...document.querySelectorAll('a.ksvBtn')
-    ];
-    const a = anchors.find(el => norm(el.textContent).includes(containsText));
-    if(!a) return;
-
-    // Set the URL and replace the node to drop any rogue event listeners.
-    a.setAttribute('href', url);
-    const clean = a.cloneNode(true);
-    clean.setAttribute('href', url);
-    a.replaceWith(clean);
-  }
-
-  function apply(){
-    forceLinkByLabel('compatibility page', 'https://talkkink.org/compatibility.html');
-    forceLinkByLabel('individual kink analysis', 'https://talkkink.org/individualkinkanalysis.html');
-  }
-
-  // Run once when the DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', apply);
-  } else {
-    apply();
-  }
-
-  // Run again if any framework re-renders the buttons later
-  new MutationObserver(apply).observe(document.documentElement, { childList:true, subtree:true });
 })();
 </script>
 </body>
