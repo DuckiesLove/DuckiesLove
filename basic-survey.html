@@ -86,7 +86,7 @@
   </style>
 </head>
 <body>
-  <h3>Category <span id="categoryNumber">1</span> of 28</h3>
+  <h3>Category <span id="categoryNumber">1</span> of <span id="categoryTotal">0</span></h3>
 
   <div class="progress-container">
     <div class="progress-bar" id="progressBar"></div>
@@ -95,7 +95,7 @@
   <div id="categoryContainer">
     <div class="category-title" id="categoryTitle">Loading...</div>
     <div class="question" id="categoryQuestion">Please start the survey.</div>
-    <div class="rating-scale">
+    <div class="rating-scale" id="ratingContainer">
       <select id="roleSelector">
         <option value="">Leave blank if not applicable</option>
         <option value="giving">Giving</option>
@@ -137,9 +137,6 @@
 
   <script>
     let currentCategory = 0;
-    const totalCategories = 28;
-    const ratings = Array(totalCategories).fill(null);
-    const roles = Array(totalCategories).fill(null);
 
     const categories = [
       { title: "Body Part Torture", question: "How do you feel about body part torture?" },
@@ -171,29 +168,53 @@
       { title: "Gender Play & Transformation", question: "How do you feel about gender play & transformation?" }
     ];
 
+    const totalCategories = categories.length;
+    const ratings = Array(totalCategories).fill(0);
+    const roles = Array(totalCategories).fill(null);
+
+    document.getElementById("categoryTotal").textContent = totalCategories;
+
     function updateProgress(current, total) {
-      const progress = (current / total) * 100;
+      const safeTotal = total || 1;
+      const clampedCurrent = Math.min(current, safeTotal);
+      const progress = (clampedCurrent / safeTotal) * 100;
       document.getElementById("progressBar").style.width = progress + "%";
-      document.getElementById("categoryNumber").textContent = current;
+      document.getElementById("categoryNumber").textContent = clampedCurrent;
     }
 
     function loadCategory(index) {
+      const ratingContainer = document.getElementById("ratingContainer");
       if (index < categories.length) {
         document.getElementById("categoryTitle").textContent = categories[index].title;
         document.getElementById("categoryQuestion").textContent = categories[index].question;
         const ratingSelect = document.getElementById("ratingSelector");
-        if (ratingSelect) ratingSelect.value = ratings[index] ?? "";
+        if (ratingSelect) ratingSelect.value = ratings[index] === null ? "" : String(ratings[index]);
         const roleSelect = document.getElementById("roleSelector");
         if (roleSelect) roleSelect.value = roles[index] || "";
+        if (ratingContainer) ratingContainer.style.display = "";
       } else {
         document.getElementById("categoryTitle").textContent = "Survey Complete!";
         document.getElementById("categoryQuestion").textContent = "You may now export or view compatibility.";
-        document.getElementById("ratingContainer").style.display = "none";
+        if (ratingContainer) ratingContainer.style.display = "none";
       }
+    }
+
+    function resetSurveyDefaults() {
+      ratings.fill(0);
+      roles.fill(null);
+      currentCategory = 0;
+      const ratingSelect = document.getElementById("ratingSelector");
+      if (ratingSelect) ratingSelect.value = "0";
+      const roleSelect = document.getElementById("roleSelector");
+      if (roleSelect) roleSelect.value = "";
+      const ratingContainer = document.getElementById("ratingContainer");
+      if (ratingContainer) ratingContainer.style.display = "";
+      updateProgress(0, totalCategories);
     }
 
     function startSurvey() {
       document.getElementById("mainButtons").style.display = "none";
+      resetSurveyDefaults();
       currentCategory = 1;
       updateProgress(currentCategory, totalCategories);
       loadCategory(currentCategory - 1);
@@ -205,6 +226,9 @@
         currentCategory++;
         updateProgress(currentCategory, totalCategories);
         loadCategory(currentCategory - 1);
+      } else {
+        updateProgress(totalCategories, totalCategories);
+        loadCategory(totalCategories);
       }
     }
 
@@ -218,16 +242,30 @@
     }
 
     function skipCategory() {
-      ratings[currentCategory - 1] = null;
-      nextCategory();
+      if (currentCategory === 0) return;
+      const ratingSelect = document.getElementById("ratingSelector");
+      if (ratingSelect) ratingSelect.value = "0";
+      ratings[currentCategory - 1] = 0;
+      const roleSelect = document.getElementById("roleSelector");
+      roles[currentCategory - 1] = roleSelect && roleSelect.value ? roleSelect.value : null;
+      if (currentCategory < totalCategories) {
+        currentCategory++;
+        updateProgress(currentCategory, totalCategories);
+        loadCategory(currentCategory - 1);
+      } else {
+        updateProgress(totalCategories, totalCategories);
+        loadCategory(totalCategories);
+      }
     }
 
     function storeRating() {
+      if (currentCategory === 0) return;
       const ratingSelect = document.getElementById("ratingSelector");
       const val = ratingSelect ? ratingSelect.value : "";
       ratings[currentCategory - 1] = val === "" ? null : Number(val);
-      const selectedRole = document.getElementById("roleSelector").value;
-      roles[currentCategory - 1] = selectedRole;
+      const roleSelect = document.getElementById("roleSelector");
+      const selectedRole = roleSelect ? roleSelect.value : "";
+      roles[currentCategory - 1] = selectedRole || null;
     }
 
     function exportList() {
@@ -283,6 +321,8 @@
       const average = numericRatings.reduce((a, b) => a + b, 0) / numericRatings.length;
       alert("Your average interest score is: " + average.toFixed(2));
     }
+
+    resetSurveyDefaults();
   </script>
   <script>
     fetch("/check-session", { credentials: "include" })
