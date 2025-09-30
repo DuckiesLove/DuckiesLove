@@ -364,14 +364,8 @@
 (async function(){
   // Keep your existing data sources (will use your published dataset when present)
   const here = new URL(window.location.href);
-  const pathPrefix = here.pathname.replace(/[^/]*$/, '');
   const DEFAULT_URLS=[
-    new URL('data/kinks.json', here).pathname,
-    new URL('kinks.json', here).pathname,
-    pathPrefix + 'data/kinks.json',
-    pathPrefix + 'kinks.json',
-    '/data/kinks.json',
-    '/kinks.json'
+    '/data/kinks.json'
   ];
   const overrideUrls = Array.isArray(window.KSV?.KINKS_URLS) ? window.KSV.KINKS_URLS : null;
   const DATA_URLS = Array.from(new Set(
