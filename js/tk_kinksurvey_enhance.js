@@ -18,6 +18,41 @@
   const isKinkSurvey = /^\/kinksurvey(?:\/.*)?$/i.test(location.pathname || "");
   if (!isKinkSurvey) return;
 
+  const HARD_NAV_CLASS = 'ksv-external';
+  const HARD_NAV_EVENTS = ['click','mousedown','touchstart'];
+
+  function ensureHardNavCapture(){
+    if (document.__tkHardNavCapture) return;
+    const handler = (ev) => {
+      const anchor = ev.target?.closest?.(`a.${HARD_NAV_CLASS}`);
+      if (!anchor) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.stopImmediatePropagation();
+      window.location.assign(anchor.href);
+    };
+    HARD_NAV_EVENTS.forEach(type => document.addEventListener(type, handler, true));
+    document.__tkHardNavCapture = handler;
+  }
+
+  function applyHardNavigation(anchor, url){
+    if (!anchor) return;
+    anchor.href = url;
+    anchor.classList.add(HARD_NAV_CLASS);
+    anchor.setAttribute('rel','external noopener');
+    if (!anchor.__tkHardNav){
+      const go = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation();
+        window.location.assign(url);
+      };
+      HARD_NAV_EVENTS.forEach(type => anchor.addEventListener(type, go, true));
+      anchor.__tkHardNav = go;
+    }
+    ensureHardNavCapture();
+  }
+
   if (document.body){
     document.body.dataset.kinksurvey = '1';
     document.body.classList.add('tk-ksv');
@@ -87,10 +122,10 @@
     const findByLabel = (pattern) => buttons.find(btn => pattern.test((btn.textContent || "").trim())) || null;
 
     const compat = findByLabel(/compat/i);
-    if (compat) compat.href = '/compatibility/';
+    if (compat) applyHardNavigation(compat, 'https://talkkink.org/compatibility.html');
 
     const analysis = findByLabel(/individual\s*kink\s*analysis/i);
-    if (analysis) analysis.href = '/ika/';
+    if (analysis) applyHardNavigation(analysis, 'https://talkkink.org/individualkinkanalysis.html');
   }
 
   function ensureHero(){
@@ -116,11 +151,14 @@
     startNode.removeAttribute('disabled');
     stack.appendChild(startNode);
 
-    const compatNode = el('a',{class:'ksvBtn', href:'/compatibility/'},'Compatibility Page');
+    const compatNode = el('a',{class:'ksvBtn', id:'btn-compat', href:'https://talkkink.org/compatibility.html'},'Compatibility Page');
     stack.appendChild(compatNode);
 
-    const analysisNode = el('a',{class:'ksvBtn', href:'/ika/'},'Individual Kink Analysis');
+    const analysisNode = el('a',{class:'ksvBtn', id:'btn-ika', href:'https://talkkink.org/individualkinkanalysis.html'},'Individual Kink Analysis');
     stack.appendChild(analysisNode);
+
+    applyHardNavigation(compatNode, 'https://talkkink.org/compatibility.html');
+    applyHardNavigation(analysisNode, 'https://talkkink.org/individualkinkanalysis.html');
 
     const themeRow = el('div',{class:'ksvThemeRow', id:'tkThemeRow'});
     moveThemeInto(themeRow, legacyWrap);
