@@ -265,6 +265,52 @@
 
   .notice{ margin:14px 0; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; background:#071317; text-align:center; }
 </style>
+
+<!-- TK helpers v2: scoped tweaks for category panel controls + download button -->
+<style>
+  /* Scope helpers to the category panel container so other pages stay untouched */
+  #categoryPanel select,
+  #categoryPanel input[type="number"],
+  #categoryPanel input[type="range"],
+  .category-panel select,
+  .category-panel input[type="number"],
+  .category-panel input[type="range"]{
+    font-variant-numeric: tabular-nums;
+    width: 4.5rem !important;
+    min-width: 4.5rem !important;
+    text-align: center;
+  }
+
+  /* When markup supports it, lay controls out on a tidy flex row */
+  #categoryPanel [data-kink-id],
+  .category-panel [data-kink-id]{
+    display:flex;
+    align-items:center;
+    gap:16px;
+  }
+
+  /* Download button aesthetic mirrors the main site buttons */
+  .tk-download-json{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:48px;
+    padding:.8rem 1.2rem;
+    border-radius:14px;
+    border:2px solid var(--accent, #00e6ff);
+    color:#001315;
+    background: var(--accent, #00e6ff);
+    font-weight:800;
+    letter-spacing:.02em;
+    text-decoration:none;
+    transition:transform .1s ease, box-shadow .12s ease, background .12s ease;
+  }
+
+  .tk-download-json:hover{
+    transform:translateY(-1px);
+    box-shadow:0 0 0 5px rgba(0,230,255,.18);
+  }
+</style>
 </head>
 <body class="theme-dark has-category-panel tk-no-js">
 
@@ -1014,6 +1060,185 @@ setTimeout(() => {
   }
   */
 </style>
+
+<!-- TK helpers v2: zero defaults, align numbers, offer JSON download -->
+<script>
+(() => {
+  /* ==============================
+     Helpers
+  ===============================*/
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const toNum = v => (v==null || v==='') ? 0 : (Number.isFinite(+v) ? +v : 0);
+
+  // panel selector variants used on this page
+  const PANEL_SEL = '#categoryPanel, .category-panel, [data-panel="category"], .kink-categories-panel';
+
+  /* ==============================
+     1) Start everything at ZERO
+     - runs once for current controls
+     - runs again for any new controls injected later
+  ===============================*/
+  function zeroControls(root){
+    if(!root) return;
+
+    // All SELECTs -> choose option "0" if present, otherwise lowest numeric
+    $$( 'select:not([data-tk-zeroed])', root ).forEach(sel => {
+      const opts = Array.from(sel.options);
+      let set = false;
+
+      // Prefer an option whose value or text equals "0"
+      for(const o of opts){
+        const raw = (o.value ?? o.textContent).trim();
+        if(raw === '0'){ sel.value = '0'; set = true; break; }
+      }
+
+      // Else choose the smallest numeric option if any exist
+      if(!set){
+        let min = {v: Infinity, raw:null};
+        for(const o of opts){
+          const raw = (o.value ?? o.textContent).trim();
+          const n = Number(raw);
+          if(Number.isFinite(n) && n < min.v){ min = {v:n, raw:String(n)}; }
+        }
+        if(min.raw != null){ sel.value = min.raw; set = true; }
+      }
+
+      // Else fall back to empty/first (but still mark so we don't fight user edits)
+      sel.dataset.tkZeroed = '1';
+      sel.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+
+    // number/range -> value = min (if numeric) else 0
+    $$( 'input[type="number"]:not([data-tk-zeroed]), input[type="range"]:not([data-tk-zeroed])', root )
+      .forEach(inp => {
+        const start = Number.isFinite(+inp.min) ? +inp.min : 0;
+        inp.value = start;
+        inp.dataset.tkZeroed = '1';
+        inp.dispatchEvent(new Event('input',  {bubbles:true}));
+        inp.dispatchEvent(new Event('change', {bubbles:true}));
+      });
+
+    // checkbox/radio -> unchecked
+    $$( 'input[type="checkbox"]:not([data-tk-zeroed]), input[type="radio"]:not([data-tk-zeroed])', root )
+      .forEach(box => {
+        if(box.checked){
+          box.checked = false;
+          box.dispatchEvent(new Event('change', {bubbles:true}));
+        }
+        box.dataset.tkZeroed = '1';
+      });
+  }
+
+  function startZeroing(){
+    // initial
+    const panel = $(PANEL_SEL) || document;
+    zeroControls(panel);
+
+    // keep zeroing any newly added controls (e.g., as categories render)
+    const mo = new MutationObserver(() => {
+      // batch-throttle a little
+      clearTimeout(startZeroing._t);
+      startZeroing._t = setTimeout(() => zeroControls($(PANEL_SEL) || document), 40);
+    });
+    mo.observe(document.body, {childList:true, subtree:true});
+  }
+
+  /* ==============================
+     2) Build JSON results & download
+  ===============================*/
+  function keyFor(el){
+    return el.dataset.kinkId || el.name || el.id ||
+      (el.getAttribute('aria-label') || el.placeholder || '').replace(/\s+/g,'_').toLowerCase();
+  }
+
+  function collectResults(){
+    const panel = $(PANEL_SEL) || document;
+    const answers = {}, byDataId = {}, items = [];
+
+    $$( 'input, select, textarea', panel ).forEach(el => {
+      if (el.disabled) return;
+      const k = keyFor(el);
+      if (!k) return;
+
+      let v = 0;
+      if (el.type === 'checkbox' || el.type === 'radio') v = el.checked ? 1 : 0;
+      else if (el.tagName === 'SELECT') v = toNum(el.value);
+      else if ('value' in el) v = toNum(el.value);
+
+      answers[k] = v;
+      if (el.dataset.kinkId) byDataId[el.dataset.kinkId] = v;
+      items.push({ id: el.dataset.kinkId || null, key: k, value: v });
+    });
+
+    return {
+      meta: {
+        source: 'talkkink.org/kinksurvey',
+        schema: 'tk-answers-v1',
+        generated_at: new Date().toISOString()
+      },
+      answers, byDataId, items
+    };
+  }
+
+  function downloadJSONFile(data){
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const ts   = new Date().toISOString().replace(/[:.]/g,'-');
+    a.href = url;
+    a.download = `kink-survey-${ts}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function makeDownloadButton(){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tk-download-json';
+    btn.textContent = 'Download survey';
+    btn.addEventListener('click', () => downloadJSONFile(collectResults()));
+    return btn;
+  }
+
+  /* ==============================
+     3) Replace “Back to home” with Download
+     - watches for completion block and swaps the link
+  ===============================*/
+  function upgradeCompletionUI(){
+    const root = document.body;
+
+    // Find a link whose text includes "back to home"
+    const link = $$( 'a', root ).find(a => /back\s*to\s*home/i.test((a.textContent||'').trim()));
+    if(!link) return false;
+
+    const btn = makeDownloadButton();
+    link.replaceWith(btn);
+    return true;
+  }
+
+  function watchForCompletion(){
+    if (upgradeCompletionUI()) return; // already present
+
+    const mo = new MutationObserver(() => {
+      if (upgradeCompletionUI()) mo.disconnect();
+    });
+    mo.observe(document.body, {childList:true, subtree:true});
+  }
+
+  /* ==============================
+     Init
+  ===============================*/
+  const start = () => { startZeroing(); watchForCompletion(); };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, {once:true});
+  } else {
+    start();
+  }
+})();
+</script>
 
 <!-- ===== KSV: Dock actions next to the open panel ===== -->
 <style>
