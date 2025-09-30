@@ -595,17 +595,19 @@
     rows.forEach(row => {
       const id  = row.getAttribute('data-kink-id')  || row.dataset.kinkId  || row.dataset.id  || row.id || null;
       let   key = row.getAttribute('data-kink-key') || row.dataset.kinkKey || row.dataset.key || null;
+      const labelText = inferRowLabel(row);
 
       const ctl = row.querySelector('select, input[type="range"], input[type="number"]');
       const rating = Number((ctl && ctl.value) || 0);
 
       if (!key && keyLookup){
-        const lab = normLabel(inferRowLabel(row));
+        const lab = normLabel(labelText);
         key = keyLookup.byLabel[lab] || null;
       }
 
       if (id || key){
-        answers.push({ id:id ?? null, key:key ?? null, rating });
+        const label = labelText ? labelText.trim() : null;
+        answers.push({ id:id ?? null, key:key ?? null, label, rating });
         if (id)  answersById[id]  = rating;
         if (key) answersByKey[key] = rating;
       }
@@ -640,14 +642,22 @@
     }
 
     const now = new Date().toISOString();
+    const schemaId = 'tk-survey.v1';
+    let site = '';
+    try{
+      site = window.location && window.location.origin ? window.location.origin : '';
+    }catch(_e){ site = ''; }
+    if (site === 'file://') site = '';
     return {
       // meta / identity
       $schema: "https://talkkink.org/schemas/kink-survey-result.v1.json",
+      schema: schemaId,
       app: "talkkink",
       tool: "kinksurvey",
       type: "kink-survey-export",
       version: 1,
       generatedAt: now,
+      site: site || undefined,
 
       // preferred fast path for compatibility/IKA
       answersByKey,         // { key: rating }

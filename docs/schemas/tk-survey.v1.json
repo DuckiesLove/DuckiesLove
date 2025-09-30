@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://talkkink.org/schemas/tk-survey.v1.json",
+  "title": "Talk Kink Survey Export",
+  "description": "Schema describing the normalized survey export produced by the Talk Kink kinksurvey tool.",
+  "type": "object",
+  "required": ["schema", "generatedAt", "answers"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "tk-survey.v1"
+    },
+    "$schema": {
+      "type": "string",
+      "format": "uri"
+    },
+    "app": {
+      "type": "string",
+      "description": "Application that generated the payload.",
+      "default": "talkkink"
+    },
+    "tool": {
+      "type": "string",
+      "description": "Tool identifier within the application.",
+      "default": "kinksurvey"
+    },
+    "type": {
+      "type": "string",
+      "description": "Export type identifier.",
+      "default": "kink-survey-export"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "site": {
+      "type": "string",
+      "description": "Origin of the site where the survey was captured.",
+      "format": "uri"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "answers": {
+      "type": "array",
+      "description": "Flattened list of survey answers keyed by kink identifier.",
+      "items": {
+        "type": "object",
+        "required": ["rating"],
+        "properties": {
+          "id": {
+            "type": ["string", "null"],
+            "description": "DOM identifier associated with the item, if present."
+          },
+          "key": {
+            "type": ["string", "null"],
+            "description": "Canonical kink key."
+          },
+          "label": {
+            "type": ["string", "null"],
+            "description": "Human readable label scraped from the survey UI."
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "answersByKey": {
+      "type": "object",
+      "description": "Fast lookup map keyed by canonical kink key.",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 5
+      }
+    },
+    "answersById": {
+      "type": "object",
+      "description": "Lookup map keyed by DOM identifier.",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 5
+      }
+    },
+    "ratings": {
+      "type": "object",
+      "description": "Alias for answersByKey maintained for backward compatibility.",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 5
+      }
+    },
+    "keys": {
+      "type": "array",
+      "description": "Ordered list of kink keys used to align the cells matrix.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "cells": {
+      "type": "array",
+      "description": "Matrix representation of the ratings aligned with the keys array.",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 5
+        }
+      }
+    },
+    "kinksSource": {
+      "type": "string",
+      "description": "Describes how the canonical kink metadata was resolved."
+    }
+  },
+  "additionalProperties": true
+}
