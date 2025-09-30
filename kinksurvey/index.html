@@ -129,6 +129,22 @@
 </style>
 
 <style>
+  /* Completion download CTA */
+  .ksv-download-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-height:48px; padding:.8rem 1.2rem; margin-top:.75rem;
+    border:2px solid #00e6ff; border-radius:14px;
+    background:rgba(0,230,255,.08); color:#cfffff;
+    font:800 18px/1.15 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    letter-spacing:.02em; text-decoration:none; cursor:pointer;
+    transition:transform .08s ease, box-shadow .12s ease, background .12s ease;
+  }
+  .ksv-download-btn:hover{ transform:translateY(-1px); box-shadow:0 0 0 4px rgba(0,230,255,.16) inset; }
+  .ksv-download-btn:active{ transform:translateY(0); }
+  .ksv-complete-note{ color:#a9faff; margin-top:.5rem; font:600 14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+</style>
+
+<style>
   :root { --panel-w: 320px; --tk-drawer-w: clamp(340px, 92vw, 980px); --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
   html,body{height:100%}
   body{
@@ -613,7 +629,10 @@
       const t=(it.type||'').toLowerCase();
       if (t==='bool') ctl = `<input type="checkbox" id="${id}" name="${it.id}">`;
       else if (t==='text') ctl = `<input type="text" id="${id}" name="${it.id}" placeholder="Your note">`;
-      else ctl = `<select id="${id}" name="${it.id}">${[1,2,3,4,5].map(v=>`<option>${v}</option>`).join('')}</select>`;
+      else {
+        const options=[0,1,2,3,4,5].map(v=>`<option value="${v}">${v}</option>`).join('');
+        ctl = `<select id="${id}" name="${it.id}">${options}</select>`;
+      }
       row.innerHTML = `${ctl} <label for="${id}">${it.label}</label>`;
       items.appendChild(row);
     });
@@ -1186,5 +1205,172 @@ setTimeout(() => {
 })();
 </script>
 <!-- ===== /KSV: Dock actions next to the open panel ===== -->
+
+<script>
+(() => {
+  const byTxt = (txt) =>
+    Array.from(document.querySelectorAll('button,a'))
+      .find(el => (el.textContent || '').trim().toLowerCase() === txt.toLowerCase());
+
+  const containsTxt = (el, s) => el && (el.textContent || '').toLowerCase().includes(s.toLowerCase());
+
+  const pad = (n) => String(n).padStart(2, '0');
+  function filenameTimestamp(){
+    const d = new Date();
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  }
+
+  function forceNumber(v){
+    if (v == null || v === '') return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function resetSurveyToZero(){
+    document.querySelectorAll('input[type="range"], input[type="number"], select')
+      .forEach(el => {
+        if (el.tagName === 'SELECT') {
+          el.value = '0';
+        } else {
+          el.value = 0;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+    document.querySelectorAll('input[type="checkbox"], input[type="radio"]')
+      .forEach(el => {
+        el.checked = false;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+    if (window.tkResults && typeof window.tkResults === 'object') {
+      try {
+        if (Array.isArray(window.tkResults)) window.tkResults.length = 0;
+        if (window.tkResults.answers && typeof window.tkResults.answers === 'object') {
+          Object.keys(window.tkResults.answers).forEach(k => window.tkResults.answers[k] = 0);
+        }
+      } catch (_) {}
+    }
+
+    if (window.localStorage) {
+      ['kinkSurveyAnswers', 'talkkink-results', 'tk-results'].forEach(k => localStorage.removeItem(k));
+    }
+  }
+
+  function wireStartReset(){
+    const attach = (btn) => {
+      if (!btn || btn.dataset.ksvResetBound) return;
+      btn.dataset.ksvResetBound = '1';
+      btn.addEventListener('click', () => {
+        setTimeout(resetSurveyToZero, 200);
+      }, { capture: true });
+    };
+
+    ['#start', '#btnStartSurvey', '[data-start-survey]'].forEach(sel => attach(document.querySelector(sel)));
+    attach(byTxt('Start Survey') || byTxt('Start survey'));
+
+    new MutationObserver(() => {
+      attach(document.querySelector('#start'));
+      attach(byTxt('Start Survey') || byTxt('Start survey'));
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  function buildResultsJSON(){
+    if (window.tkResults && typeof window.tkResults === 'object') {
+      try { return JSON.parse(JSON.stringify(window.tkResults)); } catch (_) {}
+    }
+
+    const answers = {};
+    document.querySelectorAll('[data-kink-id]').forEach(el => {
+      const key = el.getAttribute('data-kink-id');
+      if (!key) return;
+      let val = 0;
+      if ('value' in el) val = forceNumber(el.value);
+      if (el.type === 'checkbox' || el.type === 'radio') val = el.checked ? 1 : 0;
+      answers[key] = val;
+    });
+
+    if (!Object.keys(answers).length){
+      const add = (key, val) => {
+        if (!key) return;
+        if (answers[key] == null) answers[key] = val;
+      };
+      document.querySelectorAll('input, select, textarea').forEach(el => {
+        const key = el.getAttribute('name') || el.id || el.getAttribute('aria-label');
+        let val = 0;
+        if (el.type === 'checkbox' || el.type === 'radio') val = el.checked ? 1 : 0;
+        else if ('value' in el) val = forceNumber(el.value);
+        add(key, val);
+      });
+    }
+
+    const payload = {
+      meta: {
+        source: 'talkkink.org/kinksurvey',
+        generated_at: new Date().toISOString(),
+        version: 1
+      },
+      answers
+    };
+
+    try { window.dispatchEvent(new CustomEvent('tk:results:beforeDownload', { detail: payload })); } catch (_){ }
+    return payload;
+  }
+
+  function downloadJSON(obj){
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `talkkink-survey-${filenameTimestamp()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 0);
+  }
+
+  function injectDownloadCTA(container){
+    if (!container || container.querySelector('.ksv-download-btn')) return;
+    container.innerHTML = '';
+    const btn = document.createElement('button');
+    btn.className = 'ksv-download-btn';
+    btn.type = 'button';
+    btn.textContent = 'Download results (.json)';
+    btn.addEventListener('click', () => {
+      const json = buildResultsJSON();
+      downloadJSON(json);
+    });
+
+    const note = document.createElement('div');
+    note.className = 'ksv-complete-note';
+    note.textContent = 'Save this file to compare on the Compatibility or Individual Analysis pages.';
+
+    container.appendChild(btn);
+    container.appendChild(note);
+  }
+
+  function watchForCompletion(){
+    const scan = () => {
+      const candidates = Array.from(document.querySelectorAll('*'))
+        .filter(el => containsTxt(el, 'survey complete') || containsTxt(el, 'you’ve reached the end') || containsTxt(el, "you've reached the end"));
+      if (!candidates.length) return false;
+      const target = candidates.sort((a, b) => (b.clientWidth * b.clientHeight) - (a.clientWidth * a.clientHeight))[0];
+      const wrapper = target.closest('.survey-complete, .ksv-done, .completion, .notice') || target;
+      injectDownloadCTA(wrapper);
+      return true;
+    };
+
+    if (scan()) return;
+    const mo = new MutationObserver(() => { if (scan()) mo.disconnect(); });
+    mo.observe(document.body, { childList: true, subtree: true });
+  }
+
+  wireStartReset();
+  watchForCompletion();
+})();
+</script>
 </body>
 </html>
