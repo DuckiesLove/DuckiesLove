@@ -111,6 +111,14 @@ function compatNormalizeKey(s){
 }
 if (typeof window !== 'undefined') window.compatNormalizeKey = compatNormalizeKey;
 
+function compatSafeName(name) {
+  return String(name ?? '').trim();
+}
+
+function compatSafeNameLower(name) {
+  return compatSafeName(name).toLowerCase();
+}
+
 function makeBar(percent) {
   const outer = document.createElement('div');
   outer.className = 'partner-bar';
@@ -173,16 +181,18 @@ function loadSavedSurvey() {
 }
 
 function filterGeneralOptions(survey) {
-  Object.values(survey).forEach(cat => {
-    if (!cat.General) return;
-    const neutralNames = new Set(cat.General.map(k => k.name.trim().toLowerCase()));
+  Object.values(survey || {}).forEach(cat => {
+    const general = Array.isArray(cat?.General) ? cat.General : [];
+    if (!general.length) return;
+    const neutralNames = new Set(general.map(k => compatSafeNameLower(k?.name)));
     ['Giving', 'Receiving'].forEach(role => {
-      if (Array.isArray(cat[role])) {
-        cat[role] = cat[role].filter(k => !neutralNames.has(k.name.trim().toLowerCase()));
+      if (Array.isArray(cat?.[role])) {
+        cat[role] = cat[role].filter(k => !neutralNames.has(compatSafeNameLower(k?.name)));
       }
     });
   });
 }
+if (typeof window !== 'undefined') window.filterGeneralOptions = filterGeneralOptions;
 
 function normalizeRatings(survey) {
   Object.values(survey).forEach(cat => {
@@ -238,18 +248,22 @@ function mergeSurveyWithTemplate(survey, template) {
       const tItems = Array.isArray(tmpl[role]) ? tmpl[role] : [];
       if (!Array.isArray(survey[cat][role])) survey[cat][role] = [];
       const existing = new Set(
-        survey[cat][role].map(i => (i.name || '').trim().toLowerCase())
+        survey[cat][role].map(i => compatSafeNameLower(i?.name))
       );
       tItems.forEach(it => {
-        if (!existing.has(it.name.trim().toLowerCase())) {
-          const obj = { name: it.name, rating: null };
+        const tmplName = compatSafeName(it?.name);
+        if (!tmplName) return;
+        const tmplKey = compatSafeNameLower(it?.name);
+        if (!existing.has(tmplKey)) {
+          const obj = { name: tmplName, rating: null };
           if (it.type) obj.type = it.type;
           if (it.options) obj.options = it.options;
           if (it.roles) obj.roles = it.roles;
           survey[cat][role].push(obj);
+          existing.add(tmplKey);
         } else {
           const ex = survey[cat][role].find(
-            i => i.name.trim().toLowerCase() === it.name.trim().toLowerCase()
+            i => compatSafeNameLower(i?.name) === tmplKey
           );
           if (ex) {
             if (it.type) ex.type = it.type;
@@ -271,14 +285,22 @@ function buildKinkBreakdown(surveyA, surveyB = {}) {
     const catB = surveyB[category] || {};
     const names = new Set();
     ['Giving', 'Receiving', 'General'].forEach(role => {
-      (catA[role] || []).forEach(k => names.add(k.name));
-      (catB[role] || []).forEach(k => names.add(k.name));
+      (catA[role] || []).forEach(k => {
+        const cleaned = compatSafeName(k?.name);
+        if (cleaned) names.add(cleaned);
+      });
+      (catB[role] || []).forEach(k => {
+        const cleaned = compatSafeName(k?.name);
+        if (cleaned) names.add(cleaned);
+      });
     });
     breakdown[category] = [];
     names.forEach(name => {
+      const lookupKey = compatSafeNameLower(name);
       const getRating = (cat, role) => {
+        if (!lookupKey) return null;
         const item = (cat[role] || []).find(
-          i => i.name.trim().toLowerCase() === name.trim().toLowerCase()
+          i => compatSafeNameLower(i?.name) === lookupKey
         );
         const r = item ? parseInt(item.rating) : null;
         return Number.isInteger(r) ? r : null;

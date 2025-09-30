@@ -704,6 +704,126 @@ RESULT
 </script>
 
 
+<!-- ===== TK compatibility page patch (place right before </body>) ===== -->
+
+<!-- 1) Load jsPDF + autoTable and expose window.jsPDF for your export -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js" defer></script>
+<script>
+(function ensureJsPDF(){
+  function ready(){
+    // jsPDF 2.x UMD puts constructor at window.jspdf.jsPDF
+    if (window.jspdf && window.jspdf.jsPDF) {
+      window.jsPDF = window.jspdf.jsPDF;
+      // Nudge plugin to attach (some builds attach on first doc)
+      try { new window.jsPDF({compress:false}); } catch(_) {}
+    }
+  }
+  window.addEventListener('load', ready, {once:true});
+  setTimeout(ready, 800);
+})();
+</script>
+
+<!-- 2) Safe helpers + survey normalizer to prevent `.trim()` on undefined -->
+<script>
+(function(){
+  const S = v => (v == null ? '' : (typeof v === 'string' ? v : String(v)));
+  const T = v => S(v).trim();
+  const N = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+  // Normalize any uploaded survey object into a canonical, safe shape.
+  function normalizeSurvey(raw){
+    if (!raw || typeof raw !== 'object') throw new Error('bad survey');
+
+    // Canonical form produced by the kink survey export
+    if (raw.schema === 'tk-survey.v1' && Array.isArray(raw.answers)) {
+      const answers = raw.answers.map(a => ({
+        key:   T(a?.key),
+        label: T(a?.label),
+        rating: N(a?.rating)
+      }));
+      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
+      return { schema:'tk-survey.v1', site: raw.site||'', generatedAt: raw.generatedAt||'',
+               answers, answersByKey };
+    }
+
+    // Loose shapes: coerce to canonical
+    if (Array.isArray(raw.answers)) {
+      const answers = raw.answers.map(a => ({ key:T(a?.key), label:T(a?.label), rating:N(a?.rating) }));
+      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
+      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
+    }
+    if (raw.answersByKey && typeof raw.answersByKey === 'object') {
+      const answers = Object.entries(raw.answersByKey).map(([k,v]) => ({ key:T(k), label:'', rating:N(v) }));
+      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
+      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
+    }
+
+    throw new Error('unrecognized survey shape');
+  }
+
+  // Make available for the page code to call (we’ll also auto-use it below)
+  window.TK_NORMALIZE_SURVEY = normalizeSurvey;
+
+  // 3) Wrap the reader.onload handlers so Survey A/B are normalized before use
+  //    (works whether your code stores to window.SurveyA/B or other vars)
+  function wrapFileInput(id, storeTo){
+    const input = document.getElementById(id);
+    if (!input) return;
+    if (input._tkPatched) return; // avoid double patch
+    input._tkPatched = true;
+
+    input.addEventListener('change', function(ev){
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = function(e){
+        try{
+          const obj = JSON.parse(String(e.target.result || '{}'));
+          const normalized = normalizeSurvey(obj);
+          // Try to publish where the existing code expects it
+          window[storeTo] = normalized; // e.g., "SurveyA" or "SurveyB"
+          // If your code expects answersByKey/cells elsewhere, it will derive them
+          // from this canonical object without hitting `.trim()`.
+        }catch(err){
+          alert('Invalid JSON for ' + storeTo.replace('Survey','Survey ') +
+                '. Please upload the unmodified JSON file exported from the survey.');
+          console.error(err);
+        }
+      };
+      r.readAsText(file);
+    }, true);
+  }
+
+  // These IDs should match your two upload inputs on the page
+  // (adjust if your element IDs differ)
+  wrapFileInput('uploadSurveyA', 'SurveyA');
+  wrapFileInput('uploadSurveyB', 'SurveyB');
+
+  // 4) Patch the function that appears in your stack trace so it only
+  //    ever receives strings (prevents "reading 'trim' of undefined").
+  function patchFilter(){
+    if (typeof window.filterGeneralOptions === 'function' && !window._tkPatchedFilter) {
+      const orig = window.filterGeneralOptions;
+      window.filterGeneralOptions = function(arr){
+        if (Array.isArray(arr)) {
+          const safeArr = arr.map(x => T(x));
+          return orig.call(this, safeArr);
+        }
+        return orig.call(this, arr);
+      };
+      window._tkPatchedFilter = true;
+    }
+  }
+  // Try now and also after load (in case the original is defined later)
+  patchFilter();
+  window.addEventListener('load', patchFilter, {once:true});
+  setTimeout(patchFilter, 600);
+})();
+</script>
+<!-- ===== /TK compatibility page patch ===== -->
+
+
 <!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
 <script>
 /* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
