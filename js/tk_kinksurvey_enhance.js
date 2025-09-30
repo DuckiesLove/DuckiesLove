@@ -15,7 +15,7 @@
   };
 
   const START_SELECTORS = ['#startSurvey','#start','#startBtn','#startSurveyBtn','[data-start]'];
-  const isKinkSurvey = /^\/kinksurvey\/?$/i.test(location.pathname || "");
+  const isKinkSurvey = /^\/kinksurvey(?:\/.*)?$/i.test(location.pathname || "");
   if (!isKinkSurvey) return;
 
   if (document.body){
