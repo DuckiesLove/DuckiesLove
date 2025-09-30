@@ -136,15 +136,6 @@
   .counter{opacity:.95}
   a.home{color:var(--accent)}
 
-  .tk-download-json{
-    display:inline-flex; align-items:center; justify-content:center;
-    min-height:48px; padding:.8rem 1.2rem; border-radius:14px;
-    border:2px solid var(--accent, #00e6ff); color:#001315;
-    background: var(--accent, #00e6ff);
-    font-weight:800; letter-spacing:.02em; text-decoration:none;
-    transition:transform .1s ease, box-shadow .12s ease, background .12s ease;
-  }
-  .tk-download-json:hover{ transform:translateY(-1px); box-shadow:0 0 0 5px rgba(0,230,255,.18); }
 </style>
 </head>
 <body>
@@ -502,182 +493,190 @@
   dock();
 })();
 </script>
-<!-- TK: Kink Survey helpers (zero defaults, align numbers, download JSON on completion) -->
+<!-- TK: Kink Survey helpers (zero defaults, download JSON on completion) -->
 <script>
-(() => {
-  /* ==============================
-     Helpers
-  ===============================*/
-  const $  = (s, r=document) => r.querySelector(s);
-  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
-  const toNum = v => (v==null || v==='') ? 0 : (Number.isFinite(+v) ? +v : 0);
+(function () {
+  // === 1) Utility: robust DOM helpers ============================
+  const $  = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-  // panel selector variants used on this page
-  const PANEL_SEL = '#categoryPanel, .category-panel, [data-panel="category"], .kink-categories-panel';
+  // === 2) Zero the ratings on first load =========================
+  // We try common input patterns used on the survey page:
+  function zeroAllRatings() {
+    const controls = $$(
+      [
+        // selects or number inputs inside each kink row
+        'select[data-rating]',
+        '.kink-row select',
+        '.kink-row input[type="number"]',
+        '.ksv-row select',
+        '.ksv-row input[type="number"]',
+        // any generic range/number/select used for ratings
+        'select[data-score]',
+        'input[type="range"][data-score]',
+        'input[type="number"][data-score]'
+      ].join(',')
+    );
 
-  /* ==============================
-     1) Start everything at ZERO
-     - runs once for current controls
-     - runs again for any new controls injected later
-  ===============================*/
-  function zeroControls(root){
-    if(!root) return;
-
-    // All SELECTs -> choose option "0" if present, otherwise lowest numeric
-    $$( 'select:not([data-tk-zeroed])', root ).forEach(sel => {
-      const opts = Array.from(sel.options);
-      let set = false;
-
-      // Prefer an option whose value or text equals "0"
-      for(const o of opts){
-        const raw = (o.value ?? o.textContent).trim();
-        if(raw === '0'){ sel.value = '0'; set = true; break; }
+    controls.forEach(el => {
+      const current = (el.value ?? '').trim();
+      if (current === '' || isNaN(Number(current))) {
+        el.value = '0';
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('input',  { bubbles: true }));
       }
+    });
+  }
 
-      // Else choose the smallest numeric option if any exist
-      if(!set){
-        let min = {v: Infinity, raw:null};
-        for(const o of opts){
-          const raw = (o.value ?? o.textContent).trim();
-          const n = Number(raw);
-          if(Number.isFinite(n) && n < min.v){ min = {v:n, raw:String(n)}; }
-        }
-        if(min.raw != null){ sel.value = min.raw; set = true; }
+  // === 3) Build the analysis-friendly JSON =======================
+  // We try to read both an id and a key for each kink row. The
+  // analysis pages can pick whichever map they’re written for.
+  function collectAnswers() {
+    const rows = $$(
+      [
+        '[data-kink-id]',        // preferred
+        '.kink-row',             // fallback class
+        '.ksv-row',              // another common class
+        '[data-kink-key]'        // explicit key only
+      ].join(',')
+    );
+
+    const answers = [];
+    const byId  = {};
+    const byKey = {};
+
+    rows.forEach(row => {
+      // Detect id/key in multiple ways
+      const id  = row.getAttribute('data-kink-id')
+               || row.dataset.kinkId
+               || row.dataset.id
+               || row.id
+               || null;
+
+      const key = row.getAttribute('data-kink-key')
+               || row.dataset.kinkKey
+               || row.dataset.key
+               || null;
+
+      // Find a rating control associated with the row
+      const control =
+        row.querySelector('select, input[type="range"], input[type="number"]');
+
+      const rating = Number((control && control.value) || 0);
+
+      // At least one identifier must exist to be useful
+      if (id || key) {
+        const entry = { id: id ?? null, key: key ?? null, rating };
+        answers.push(entry);
+        if (id)  byId[id]   = rating;
+        if (key) byKey[key] = rating;
       }
-
-      // Else fall back to empty/first (but still mark so we don't fight user edits)
-      sel.dataset.tkZeroed = '1';
-      sel.dispatchEvent(new Event('change', {bubbles:true}));
     });
 
-    // number/range -> value = min (if numeric) else 0
-    $$( 'input[type="number"]:not([data-tk-zeroed]), input[type="range"]:not([data-tk-zeroed])', root )
-      .forEach(inp => {
-        const start = Number.isFinite(+inp.min) ? +inp.min : 0;
-        inp.value = start;
-        inp.dataset.tkZeroed = '1';
-        inp.dispatchEvent(new Event('input',  {bubbles:true}));
-        inp.dispatchEvent(new Event('change', {bubbles:true}));
-      });
-
-    // checkbox/radio -> unchecked
-    $$( 'input[type="checkbox"]:not([data-tk-zeroed]), input[type="radio"]:not([data-tk-zeroed])', root )
-      .forEach(box => {
-        if(box.checked){
-          box.checked = false;
-          box.dispatchEvent(new Event('change', {bubbles:true}));
-        }
-        box.dataset.tkZeroed = '1';
-      });
+    return { answers, answersById: byId, answersByKey: byKey };
   }
 
-  function startZeroing(){
-    // initial
-    const panel = $(PANEL_SEL) || document;
-    zeroControls(panel);
+  // JSON payload (kept very explicit so validators can key off it)
+  function buildPayload() {
+    const now = new Date().toISOString();
 
-    // keep zeroing any newly added controls (e.g., as categories render)
-    const mo = new MutationObserver(() => {
-      // batch-throttle a little
-      clearTimeout(startZeroing._t);
-      startZeroing._t = setTimeout(() => zeroControls($(PANEL_SEL) || document), 40);
-    });
-    mo.observe(document.body, {childList:true, subtree:true});
-  }
+    // Attempt to carry through any version/hash if the page exposes it
+    const kinksVersion =
+      window.__KINKS_VERSION__ || window.KINKS_VERSION || null;
 
-  /* ==============================
-     2) Build JSON results & download
-  ===============================*/
-  function keyFor(el){
-    return el.dataset.kinkId || el.name || el.id ||
-      (el.getAttribute('aria-label') || el.placeholder || '').replace(/\s+/g,'_').toLowerCase();
-  }
+    const kinksSource =
+      window.__KINKS_SRC__ || window.KINKS_SRC || 'data/kinks.json';
 
-  function collectResults(){
-    const panel = $(PANEL_SEL) || document;
-    const answers = {}, byDataId = {}, items = [];
-
-    $$( 'input, select, textarea', panel ).forEach(el => {
-      if (el.disabled) return;
-      const k = keyFor(el);
-      if (!k) return;
-
-      let v = 0;
-      if (el.type === 'checkbox' || el.type === 'radio') v = el.checked ? 1 : 0;
-      else if (el.tagName === 'SELECT') v = toNum(el.value);
-      else if ('value' in el) v = toNum(el.value);
-
-      answers[k] = v;
-      if (el.dataset.kinkId) byDataId[el.dataset.kinkId] = v;
-      items.push({ id: el.dataset.kinkId || null, key: k, value: v });
-    });
+    const { answers, answersById, answersByKey } = collectAnswers();
 
     return {
-      meta: {
-        source: 'talkkink.org/kinksurvey',
-        schema: 'tk-answers-v1',
-        generated_at: new Date().toISOString()
+      $schema: "https://talkkink.org/schemas/kink-survey-result.v1.json",
+      app:     "talkkink",
+      type:    "kink-survey-result",
+      version: 1,
+      generatedAt: now,
+      kinksSource,
+      kinksVersion,
+      totals: {
+        count: answers.length
       },
-      answers, byDataId, items
+      // primary list (array)
+      answers,
+      // two maps so consumers can choose their preferred addressing mode
+      answersById,
+      answersByKey
     };
   }
 
-  function downloadJSONFile(data){
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const ts   = new Date().toISOString().replace(/[:.]/g,'-');
-    a.href = url;
-    a.download = `kink-survey-${ts}.json`;
+  function downloadSurveyJson() {
+    const data = buildPayload();
+    const pretty = JSON.stringify(data, null, 2);
+    const blob = new Blob([pretty], { type: "application/json" });
+
+    const ts = (new Date())
+      .toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0,19);
+
+    const a = document.createElement('a');
+    a.download = `tk-survey_${ts}.json`;
+    a.href = URL.createObjectURL(blob);
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 0);
   }
 
-  function makeDownloadButton(){
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'tk-download-json';
-    btn.textContent = 'Download survey';
-    btn.addEventListener('click', () => downloadJSONFile(collectResults()));
-    return btn;
-  }
+  // === 4) Replace the completion UI with "Download Survey" =======
+  // We observe DOM changes and look for the usual “complete” box.
+  function installCompletionObserver() {
+    const observer = new MutationObserver(() => {
+      // Typical completion elements/text the page uses:
+      const doneBox =
+        $('[data-survey-complete], .survey-complete, .ksv-complete') ||
+        Array.from($$('.notice, .card, div'))
+             .find(node => /survey\s+complete/i.test(node.textContent || ''));
 
-  /* ==============================
-     3) Replace “Back to home” with Download
-     - watches for completion block and swaps the link
-  ===============================*/
-  function upgradeCompletionUI(){
-    const root = document.body;
+      if (!doneBox) return;
 
-    // Find a link whose text includes "back to home"
-    const link = $$( 'a', root ).find(a => /back\s*to\s*home/i.test((a.textContent||'').trim()));
-    if(!link) return false;
+      // 4a) Remove or hide a "Back to home" link if present
+      const backLink =
+        Array.from(doneBox.querySelectorAll('a,button'))
+             .find(el => /back\s+to\s+home/i.test(el.textContent || ''));
 
-    const btn = makeDownloadButton();
-    link.replaceWith(btn);
-    return true;
-  }
+      if (backLink) backLink.remove();
 
-  function watchForCompletion(){
-    if (upgradeCompletionUI()) return; // already present
-
-    const mo = new MutationObserver(() => {
-      if (upgradeCompletionUI()) mo.disconnect();
+      // 4b) Insert the Download button (only once)
+      if (!$('#tkDownloadSurveyBtn')) {
+        const btn = document.createElement('button');
+        btn.id = 'tkDownloadSurveyBtn';
+        btn.type = 'button';
+        btn.textContent = 'Download Survey';
+        btn.style.cssText = `
+          display:inline-block; margin-top:16px;
+          padding:12px 18px; font-weight:800;
+          color:#001315; background:#00e6ff; border:0;
+          border-radius:12px; cursor:pointer;
+          box-shadow:0 0 0 2px rgba(0,230,255,.35) inset;
+        `;
+        btn.addEventListener('click', downloadSurveyJson);
+        doneBox.appendChild(btn);
+      }
     });
-    mo.observe(document.body, {childList:true, subtree:true});
+
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  /* ==============================
-     Init
-  ===============================*/
-  const start = () => { startZeroing(); watchForCompletion(); };
+  // === 5) Run ====================================================
+  // Zero out ratings on first paint
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start, {once:true});
+    document.addEventListener('DOMContentLoaded', zeroAllRatings, { once: true });
   } else {
-    start();
+    zeroAllRatings();
   }
+
+  installCompletionObserver();
+
 })();
 </script>
 </body>
