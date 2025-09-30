@@ -697,6 +697,10 @@ function showKinks(category) {
       if (info.rating == i) opt.selected = true;
       ratingSelect.appendChild(opt);
     }
+    if (info.rating == null) {
+      ratingSelect.value = '0';
+      setItemRating(info, 0);
+    }
     ratingSelect.onchange = () => {
       const val = ratingSelect.value === '' ? null : Number(ratingSelect.value);
       setItemRating(info, val);
@@ -790,6 +794,10 @@ function renderPanelKinks(container, category) {
       opt.textContent = `${i} - ${RATING_LABELS[i]}`;
       if (info.rating == i) opt.selected = true;
       ratingSelect.appendChild(opt);
+    }
+    if (info.rating == null) {
+      ratingSelect.value = '0';
+      setItemRating(info, 0);
     }
     ratingSelect.onchange = () => {
       const val = ratingSelect.value === '' ? null : Number(ratingSelect.value);
