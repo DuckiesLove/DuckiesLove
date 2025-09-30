@@ -80,6 +80,19 @@
     toggle?.setAttribute?.('aria-expanded','false');
   }
 
+  function retargetKsvButtons(){
+    const buttons = $$("a.ksvBtn");
+    if (!buttons.length) return;
+
+    const findByLabel = (pattern) => buttons.find(btn => pattern.test((btn.textContent || "").trim())) || null;
+
+    const compat = findByLabel(/compat/i);
+    if (compat) compat.href = 'https://talkkink.org/compatibility.html';
+
+    const analysis = findByLabel(/individual\s*kink\s*analysis/i);
+    if (analysis) analysis.href = 'https://talkkink.org/individualkinkanalysis.html';
+  }
+
   function ensureHero(){
     $$('#tkHero, #tk-hero, .tk-hero, #ksvHeroStack').forEach(node => node.remove());
 
@@ -162,6 +175,7 @@
         setTimeout(() => realStart?.focus?.(), 280);
       });
     }
+    retargetKsvButtons();
   }
 
   function ensureObserver(listHost){
@@ -404,6 +418,7 @@
   function boot(){
     forceClosePanel();
     ensureHero();
+    retargetKsvButtons();
     enhancePanel();
     setupFullscreenDrawer();
   }
