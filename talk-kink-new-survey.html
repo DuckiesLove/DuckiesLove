@@ -71,6 +71,21 @@
     width:100%;
     max-height:78vh; overflow:auto; margin:0 auto;
   }
+  .category-panel select,
+  .category-panel input[type="number"]{
+    width:4.5rem;
+    min-width:4.5rem;
+    text-align:center;
+    font-variant-numeric:tabular-nums;
+  }
+  .category-panel input[type="range"]{
+    font-variant-numeric:tabular-nums;
+  }
+  .category-panel [data-kink-id]{
+    display:flex;
+    align-items:center;
+    gap:16px;
+  }
   .panelHeader{
     position:sticky; top:0; z-index:5; padding:10px 12px; margin:-16px -16px 12px;
     background:linear-gradient(180deg,#0d2b36 0%, #0c2028 100%);
@@ -145,7 +160,7 @@
     </section>
 
     <!-- WIDE CATEGORY PANEL -->
-    <section class="panel" id="categoryPanel" aria-label="Category selection">
+    <section class="panel category-panel" id="categoryPanel" aria-label="Category selection">
       <div class="panelHeader">
         <button class="btn" id="selectAll">Select All</button>
         <button class="btn" id="deselectAll">Deselect All</button>
@@ -208,6 +223,10 @@
   const state = { cats:[], sel:[], idx:0 };
 
   const tidy = (s)=>String(s??'').replace(/\s+/g,' ').trim();
+  const slugify = (s)=>{
+    const base = tidy(s).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+    return base || 'cat_'+Math.random().toString(36).slice(2,8);
+  };
   const looksHTML = (t)=>/^\s*<!doctype html/i.test(t)||/<html[\s>]/i.test(t);
 
   async function getData(){
@@ -267,8 +286,17 @@
       const grid = document.createElement('div'); grid.className='alphaGrid';
       grouped.get(letter).forEach(c=>{
         const id='cb_'+Math.random().toString(36).slice(2,7);
-        const row=document.createElement('div'); row.className='row'; row.setAttribute('role','listitem');
-        row.innerHTML=`<label for="${id}"><input id="${id}" type="checkbox" value="${c.category}" checked> ${c.category}</label>`;
+        const slug = slugify(c.category);
+        const row=document.createElement('div');
+        row.className='row';
+        row.setAttribute('role','listitem');
+        row.dataset.kinkId = slug;
+        row.innerHTML=`<label for="${id}"><input id="${id}" type="checkbox" value="${c.category}"> ${c.category}</label>`;
+        const cb = row.querySelector('input[type="checkbox"]');
+        if (cb){
+          cb.name = `cat_${slug}`;
+          cb.dataset.kinkId = slug;
+        }
         grid.appendChild(row);
       });
       box.appendChild(h); box.appendChild(grid);
@@ -463,19 +491,19 @@
 </script>
 <script>
 /* Talk Kink — minimal add-on:
-   - Force survey to start with NO selections
-   - Replace "Back to home" with "Download survey" that saves JSON
+   1) Force categories to start at ZERO / unchecked (once, without fighting the user)
+   2) Swap “Back to home” → “Download survey” and save JSON
+   3) Keep the numeric columns tidy (CSS above)
 */
 (() => {
-  /* ---------- small utilities ---------- */
+  /* ---------- helpers ---------- */
   const toNum = v => {
     if (v == null || v === '') return 0;
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
   };
-  const normText = n => (n || '').replace(/\s+/g,' ').trim().toLowerCase();
+  const norm = n => (n || '').replace(/\s+/g,' ').trim().toLowerCase();
 
-  // Try to produce a stable key for each control
   const keyFor = el => (
     el.dataset.kinkId ||
     el.name ||
@@ -495,50 +523,83 @@
     })()
   );
 
-  /* ---------- 1) Start with NO selections ---------- */
-  function zeroAll() {
-    // Sliders / numeric fields → 0
-    document.querySelectorAll('input[type="range"], input[type="number"]').forEach(el => {
-      if (String(el.value) !== '0') {
-        el.value = 0;
-        el.dispatchEvent(new Event('input',  {bubbles:true}));
-        el.dispatchEvent(new Event('change', {bubbles:true}));
-      }
-    });
+  /* ---------- 1) Zero each category once when it renders ---------- */
+  function setSelectToZero(sel){
+    const opts = [...sel.options];
+    const blank = opts.find(o => (o.value ?? '').trim() === '');
+    if (blank) {
+      sel.value = blank.value;
+    } else if (opts.find(o => (o.value ?? o.textContent).trim() === '0')) {
+      sel.value = '0';
+    } else {
+      let minOpt = opts.reduce((acc,o) => {
+        const v = Number((o.value ?? o.textContent).trim());
+        return Number.isFinite(v) && v < acc.v ? {v, o} : acc;
+      }, {v: Infinity, o: null});
+      if (minOpt.o) sel.value = String(minOpt.v);
+      else sel.selectedIndex = 0;
+    }
+    sel.dispatchEvent(new Event('change', {bubbles:true}));
+  }
 
-    // Selects → prefer blank option, else "0", else first option
-    document.querySelectorAll('select').forEach(el => {
-      const opts = [...el.options];
-      if (opts.some(o => o.value === ''))      el.value = '';
-      else if (opts.some(o => o.value === '0')) el.value = '0';
-      else                                      el.selectedIndex = 0;
-      el.dispatchEvent(new Event('change', {bubbles:true}));
-    });
+  function zeroWithin(root){
+    root.querySelectorAll('[data-kink-id]:not([data-tk-zeroed])').forEach(row => {
+      const ranges = row.querySelectorAll('input[type="range"]');
+      ranges.forEach(r => {
+        const v = (r.min !== undefined && r.min !== '') ? Number(r.min) : 0;
+        if (r.value != v) {
+          r.value = v;
+          r.dispatchEvent(new Event('input',  {bubbles:true}));
+          r.dispatchEvent(new Event('change', {bubbles:true}));
+        }
+      });
 
-    // Checkboxes / radios → unchecked
-    document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => {
-      if (el.checked) {
-        el.checked = false;
-        el.dispatchEvent(new Event('change', {bubbles:true}));
-      }
+      const nums = row.querySelectorAll('input[type="number"]');
+      nums.forEach(n => {
+        const v = (n.min !== undefined && n.min !== '') ? Number(n.min) : 0;
+        if (n.value != v) {
+          n.value = v;
+          n.dispatchEvent(new Event('input',  {bubbles:true}));
+          n.dispatchEvent(new Event('change', {bubbles:true}));
+        }
+      });
+
+      const sels = row.querySelectorAll('select');
+      sels.forEach(setSelectToZero);
+
+      const checks = row.querySelectorAll('input[type="checkbox"], input[type="radio"]');
+      checks.forEach(c => {
+        if (c.checked) {
+          c.checked = false;
+          c.dispatchEvent(new Event('change', {bubbles:true}));
+        }
+      });
+
+      row.dataset.tkZeroed = '1';
     });
   }
 
-  // Run on load, plus two delayed passes (helps if UI renders async)
-  function initZero() {
-    zeroAll();
-    setTimeout(zeroAll, 300);
-    setTimeout(zeroAll, 1000);
+  function watchPanel(){
+    const panel = document.querySelector('.category-panel, #categoryPanel, [data-panel="category"]');
+    if (!panel) return;
+    zeroWithin(panel);
+    if (watchPanel._mo) watchPanel._mo.disconnect();
+    watchPanel._panel = panel;
+    const mo = new MutationObserver(() => {
+      clearTimeout(watchPanel._t);
+      watchPanel._t = setTimeout(() => zeroWithin(panel), 40);
+    });
+    mo.observe(panel, {childList:true, subtree:true});
+    watchPanel._mo = mo;
   }
 
-  /* ---------- 2) Collect answers → JSON ---------- */
+  /* ---------- 2) Collect answers & download ---------- */
   function collectResults() {
-    const answers    = {};
-    const byDataId   = {};
-    const list       = [];
+    const answers  = {};
+    const byDataId = {};
+    const list     = [];
 
-    document.querySelectorAll('input,select,textarea').forEach(el => {
-      // Skip disabled or hidden-by-attr inputs
+    document.querySelectorAll('input, select, textarea').forEach(el => {
       if (el.disabled) return;
 
       const k = keyFor(el);
@@ -554,10 +615,8 @@
       }
 
       answers[k] = v;
-
       const id = el.dataset.kinkId;
       if (id) byDataId[id] = v;
-
       list.push({ id: id || null, key: k, value: v });
     });
 
@@ -567,9 +626,9 @@
         generated_at: new Date().toISOString(),
         schema: 'tk-answers-v1'
       },
-      answers,          // keyed by inferred key (name/id/label)
-      byDataId,         // keyed by data-kink-id when present
-      items: list       // array form (id, key, value)
+      answers,
+      byDataId,
+      items: list
     };
   }
 
@@ -577,7 +636,7 @@
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const stamp = new Date().toISOString().replace(/[:.]/g,'-');
     a.href = url;
     a.download = `talkkink-survey-${stamp}.json`;
     document.body.appendChild(a);
@@ -586,55 +645,43 @@
     URL.revokeObjectURL(url);
   }
 
-  /* ---------- 3) Replace "Back to home" with "Download survey" ---------- */
-  function injectDownloadButton(root = document) {
-    // Find a link whose text reads "Back to home"
-    const links = [...root.querySelectorAll('a, button')];
-    const tgt = links.find(el => normText(el.textContent).includes('back to home'));
-    if (!tgt || tgt.dataset.tkDownloadInjected) return;
+  function injectDownloadButton(scope = document){
+    const maybe = [...scope.querySelectorAll('a,button')];
+    const back  = maybe.find(el => norm(el.textContent).includes('back to home'));
+    if (!back || back.dataset.tkDownloadInjected) return;
 
-    // Build a replacement button; reuse existing classes for style
     const btn = document.createElement('a');
     btn.href = '#download';
     btn.textContent = 'Download survey';
-    btn.setAttribute('role', 'button');
+    btn.setAttribute('role','button');
     btn.dataset.tkDownloadInjected = '1';
-
-    // Copy classes so it looks the same as the original link
-    if (tgt.className) btn.className = tgt.className;
-    // If no classes at all, add a safe generic button look (optional)
-    if (!btn.className) {
-      btn.style.display = 'inline-block';
-      btn.style.padding = '0.8rem 1.2rem';
-      btn.style.border = '2px solid #00e6ff';
-      btn.style.borderRadius = '12px';
-      btn.style.color = '#00e6ff';
-      btn.style.textDecoration = 'none';
-      btn.style.fontWeight = '800';
-    }
-
-    btn.addEventListener('click', (e) => {
+    if (back.className) btn.className = back.className;
+    btn.addEventListener('click', e => {
       e.preventDefault();
       const data = collectResults();
       downloadJSON(data);
     });
-
-    tgt.replaceWith(btn);
+    back.replaceWith(btn);
   }
 
-  // Observe DOM so when the completion UI appears we swap the link
-  const mo = new MutationObserver(muts => {
-    for (const m of muts) {
-      if (m.type === 'childList' && (m.addedNodes?.length || 0) > 0) {
-        injectDownloadButton(document);
+  function watchCompletion(){
+    const panel = document.querySelector('.category-panel, #categoryPanel, [data-panel="category"]') || document.body;
+    const mo = new MutationObserver(muts => {
+      for (const m of muts) {
+        if (m.type === 'childList' && (m.addedNodes?.length || 0) > 0) {
+          injectDownloadButton(panel);
+        }
       }
-    }
-  });
+    });
+    mo.observe(panel, {childList:true, subtree:true});
+    injectDownloadButton(panel);
+  }
 
   document.addEventListener('DOMContentLoaded', () => {
-    initZero();
-    injectDownloadButton(document); // in case it's already there
-    mo.observe(document.body, { childList: true, subtree: true });
+    watchPanel();
+    setTimeout(watchPanel, 200);
+    setTimeout(watchPanel, 600);
+    watchCompletion();
   });
 })();
 </script>
