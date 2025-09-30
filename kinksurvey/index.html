@@ -481,6 +481,15 @@
   const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
   const looksHTML = t => /^\s*<!doctype html/i.test(t) || /<html[\s>]/i.test(t);
 
+  const DEBUG_FETCH = (()=>{
+    if (window.kinkSurveyFetchDebug === true) return true;
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.has('debug')) return true;
+    } catch (_){}
+    return /localhost|127\.0\.0\.1/.test(location.hostname);
+  })();
+
   const FETCH_NOTE_ID = 'ksv-fetch-notes';
 
   function removeFetchNote(){
@@ -490,11 +499,21 @@
 
   function showFetchNote(notes){
     if (!notes?.length) return;
+    if (!DEBUG_FETCH){
+      console.warn('[kinksurvey] Fetch notes:', notes.join('  -  '));
+      return;
+    }
     let note = document.getElementById(FETCH_NOTE_ID);
     if (!note){
       note = document.createElement('div');
       note.id = FETCH_NOTE_ID;
-      note.style.cssText = 'position:fixed;left:0;right:0;bottom:0;padding:.5rem 1rem;background:#001316;color:#57f7ff;border-top:1px solid #00e6ff33;font:600 14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;z-index:2147483600;text-align:center';
+      note.style.cssText = [
+        'position:fixed','left:0','right:0','bottom:0','z-index:2147483600',
+        'padding:.55rem 1rem','background:#001316','color:#57f7ff',
+        'border-top:1px solid #00e6ff33',
+        'font:600 14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif',
+        'text-align:center'
+      ].join(';');
     }
     note.textContent = 'Fetch notes: ' + notes.join('  -  ');
     if (!note.isConnected) document.body?.appendChild(note);
