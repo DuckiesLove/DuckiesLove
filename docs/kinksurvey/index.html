@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Talk Kink</title>
+<base href="/" />
+<meta http-equiv="Cache-Control" content="no-store, max-age=0" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+
+<!-- Reuse site styles for familiar look; local CSS below makes panel behave like /kinks/ -->
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/theme.css">
+<link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
+
+<!-- TK/kinksurvey: center hero + real off-canvas panel -->
+<style>
+  /* Scope to this page only */
+  body.tk-ksv { overflow-x: hidden; }
+
+  body.tk-no-js #panelToggle{ display:none; }
+  body.tk-no-js .category-panel{
+    position:static;
+    transform:none;
+    visibility:visible;
+    pointer-events:auto;
+    width:min(720px,92vw);
+    margin:0 auto 32px;
+    border-radius:16px;
+    border:1px solid rgba(0,230,255,.35);
+  }
+  body.tk-no-js .category-panel .ksv-close{ display:none; }
+  body.tk-no-js .content{ padding-top:0; }
+  body.tk-no-js #ksvHeroStack{ margin-top: clamp(32px, 8vh, 96px); }
+
+  /* Hero section */
+  #ksvHeroStack{
+    display:grid;
+    place-items:center;
+    gap: clamp(18px, 2.6vh, 28px);
+    margin: clamp(28px, 6vh, 72px) auto 4vh;
+    padding: 0 4vw;
+    max-width: 1100px;
+    transition: transform 280ms ease;
+  }
+  #ksvHeroStack h1{
+    margin:0 0 clamp(16px, 2.4vw, 28px) 0;
+    font-size: clamp(36px, 5.2vw, 72px);
+    line-height: 1.06;
+    font-weight: 800;
+    letter-spacing:.02em;
+    color:#fff;
+    text-align:center;
+  }
+  .ksvButtons{
+    display:grid;
+    width:100%;
+    max-width:none;
+    margin:0 auto;
+    gap: clamp(14px, 1.8vh, 18px);
+  }
+  .ksvFallbackNote{
+    color:#8fefff;
+    font-weight:600;
+    max-width:720px;
+    margin:4px auto 0;
+    opacity:.85;
+  }
+  .ksvBtn{
+    display:flex; align-items:center; justify-content:center;
+    box-sizing:border-box;
+    width: clamp(260px, 46vw, 620px);
+    max-width:620px;
+    margin-left:auto;
+    margin-right:auto;
+    padding: clamp(10px, 1.2vw, 16px) clamp(16px, 2.2vw, 22px);
+    border-radius: 16px;
+    border: 2px solid rgba(0,230,255,.9);
+    background: rgba(0,0,0,.25);
+    box-shadow: 0 0 0 2px rgba(0,230,255,.15) inset, 0 6px 24px rgba(0,0,0,.35);
+    color:#d9ffff; font-weight:800;
+    font-size: clamp(18px, 2.1vw, 28px);
+    line-height:1; text-decoration:none; text-align:center;
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  }
+  .ksvBtn:hover{ transform: translateY(-1px); background: rgba(0,230,255,.08); }
+  .ksvBtn:active{ transform: translateY(0); }
+
+  .ksvThemeRow{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 12px;
+    justify-content:center;
+    width: min(920px, 92vw);
+  }
+  .ksvThemeRow label{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    align-items:center;
+    font-weight:600;
+    color:#d9ffff;
+  }
+
+  /* OFF-CANVAS CATEGORY PANEL (real off-canvas so it doesn't push hero) */
+  body.tk-js .category-panel{
+    position: fixed !important; top:0; left:0;
+    height:100vh; width: clamp(340px, 92vw, 980px); max-width:92vw;
+    background: var(--tk-panel-bg, rgba(5,18,24,.98));
+    border-right: 1px solid rgba(0,230,255,.35);
+    overflow:auto; -webkit-overflow-scrolling:touch;
+    transform: translateX(-110%); visibility:hidden; pointer-events:none;
+    transition: transform 280ms ease, visibility 0s linear 280ms;
+    z-index: 2147483000;
+    border-radius:0;
+    margin:0;
+  }
+  body.tk-js .category-panel.open{ transform: translateX(0); visibility:visible; pointer-events:auto; transition: transform 280ms ease; }
+
+  /* Slight nudge so hero isn’t tucked under the open panel edge */
+  body.tk-js.tk-panel-open #ksvHeroStack{ transform: translateX(clamp(8px, 1.6vw, 22px)); }
+
+  /* Small screens */
+  @media (max-width: 720px) {
+    #ksvHeroStack{ gap: 18px; margin-top: 6vh; }
+    .ksvThemeRow{ flex-direction:column; align-items:center; }
+  }
+</style>
+
+<style>
+  :root { --panel-w: 320px; --tk-drawer-w: clamp(340px, 92vw, 980px); --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:#000;
+    color:var(--fg);
+    font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+  }
+
+  /* LEFT SIDE PANEL (classic /kinks/ feel) */
+  body.tk-js #panelToggle{
+    position:fixed; left:12px; top:12px; z-index:2147483648;
+    background:#06161a; border:1px solid var(--line); color:var(--fg);
+    border-radius:10px; padding:8px 12px; cursor:pointer;
+  }
+  .category-panel{
+    background:#071317;
+    padding:14px 14px 18px;
+    overflow:auto;
+    text-align:center;
+  }
+
+  body.tk-js.panel-open,
+  body.tk-js.drawer-open,
+  body.tk-js.tk-drawer-open,
+  body.tk-js.tk-panel-open { overflow:hidden; }
+
+  .category-panel .ksv-close{
+    position:sticky;
+    top:0;
+    z-index:1;
+    display:flex;
+    justify-content:flex-end;
+    padding:12px 12px 0 12px;
+    background:linear-gradient(180deg, rgba(10,15,20,1) 70%, rgba(10,15,20,0) 100%);
+  }
+
+  [data-ksv-close]{
+    -webkit-tap-highlight-color:transparent;
+    appearance:none;
+    border:2px solid rgba(0,255,255,.55);
+    color:#a9fbff;
+    background:rgba(0,255,255,.08);
+    font:700 16px/1.1 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,sans-serif;
+    border-radius:14px;
+    padding:10px 14px;
+    cursor:pointer;
+    box-shadow:0 0 0 0 rgba(0,255,255,.35);
+    transition:box-shadow .15s ease, transform .05s ease, background .15s ease;
+  }
+  [data-ksv-close]:hover{ background:rgba(0,255,255,.12); }
+  [data-ksv-close]:active{ transform:translateY(1px); }
+  [data-ksv-close]:focus-visible{
+    outline:none;
+    box-shadow:0 0 0 3px rgba(0,255,255,.35);
+  }
+
+  #tkScrim{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.35);
+    backdrop-filter:blur(1px);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease;
+    z-index:9999;
+  }
+
+  body.tk-drawer-open #tkScrim,
+  body.tk-panel-open #tkScrim{
+    opacity:1;
+    pointer-events:auto;
+  }
+
+  .tk-close-drawer{
+    position:sticky;
+    top:0;
+    margin:10px 10px 8px auto;
+    padding:.55rem .9rem;
+    border-radius:10px;
+    cursor:pointer;
+    background:#0a0f14;
+    color:#aefcff;
+    border:1px solid #00e6ff55;
+  }
+
+  /* Shift content when panel open */
+  .content{
+    margin:0 auto;
+    padding:24px 16px;
+    max-width:1000px;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+  }
+  .content.full{ margin:0 auto; }
+
+  .themed-button, .category-button{
+    padding:12px 18px; border:2px solid rgba(0,230,255,.55);
+    border-radius:10px; background:transparent; color:#eaffff;
+    font-weight:700; letter-spacing:.2px; cursor:pointer;
+  }
+  .themed-button:hover, .category-button:hover{
+    border-color:rgba(0,230,255,.9); box-shadow:0 0 0 2px rgba(0,230,255,.18) inset;
+  }
+
+  .category-list{ display:grid; grid-template-columns:1fr; gap:10px; justify-items:center; }
+  .category-list label{
+    display:flex; gap:10px; align-items:center; justify-content:center; padding:8px 10px;
+    border:1px solid var(--line); border-radius:10px; background:#060b0f; cursor:pointer;
+    text-align:center;
+  }
+
+  .panel-title{ margin:6px 0 10px; font-weight:800; color:#7ef9ff; }
+  .top-buttons{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
+
+  .panel-title, #statusMsg, #diag{ text-align:center; }
+
+  .survey-box{
+    border:1px solid var(--line); border-radius:12px; background:#0a0f14; padding:16px;
+    max-width:1000px; margin:0 auto;
+    text-align:center;
+  }
+  .catTitle{ margin:0 0 8px; color:#7ef9ff }
+  .item{ display:flex; align-items:center; justify-content:center; gap:10px; padding:8px 0; border-top:1px dashed #00e5ff22; text-align:center; flex-wrap:wrap; }
+  .item:first-child{ border-top:0; }
+  select,input[type=text]{ padding:6px 8px; border:1px solid #115; border-radius:8px; background:#06161a; color:var(--fg); }
+
+  .notice{ margin:14px 0; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; background:#071317; text-align:center; }
+</style>
+</head>
+<body class="theme-dark has-category-panel tk-no-js">
+
+<section id="ksvHeroStack" data-ksv-fallback>
+  <h1>Talk Kink Survey</h1>
+  <div class="ksvButtons">
+    <a class="ksvBtn" href="#categorySurveyPanel">Select Categories</a>
+    <a class="ksvBtn" href="/compat">Compatibility Page</a>
+    <a class="ksvBtn" href="/ika">Individual Kink Analysis</a>
+  </div>
+  <p class="ksvFallbackNote">The survey loads automatically when JavaScript is available. If nothing happens, scroll down to choose categories manually or refresh the page.</p>
+  <noscript><p class="ksvFallbackNote">JavaScript is required to load the category list and run the survey.</p></noscript>
+</section>
+
+<button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="false">☰</button>
+
+<aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection" aria-hidden="true" data-ksv-panel>
+  <h2 class="panel-title">Select categories</h2>
+  <div class="top-buttons">
+    <button id="selectAll" class="themed-button category-button">Select All</button>
+    <button id="deselectAll" class="themed-button category-button">Deselect All</button>
+  </div>
+  <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
+  <div id="categoryList" class="category-list" role="list"></div>
+  <div style="display:flex;justify-content:center;margin-top:12px">
+    <button id="start" class="themed-button start-survey-btn" disabled>Start Survey</button>
+  </div>
+  <div id="diag" class="notice" style="display:none"></div>
+</aside>
+
+<main id="content" class="content full">
+  <div class="survey-box" id="survey" style="display:none">
+    <h2 class="catTitle" id="catTitle"></h2>
+    <div id="items"></div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:12px">
+      <button class="themed-button" id="skip">Skip Category</button>
+      <button class="themed-button" id="next">Next Category</button>
+    </div>
+  </div>
+
+  <div id="done" class="notice" style="display:none; max-width:1000px; margin:18px auto 0">
+    <h3>Survey complete!</h3>
+    <p>You’ve reached the end of the selected categories. <a href="/" style="color:#00e6ff">Back to home</a></p>
+  </div>
+</main>
+
+<script>
+(async function(){
+  // Keep your existing data sources (will use your published dataset when present)
+  const here = new URL(window.location.href);
+  const pathPrefix = here.pathname.replace(/[^/]*$/, '');
+  const DATA_URLS=[
+    new URL('data/kinks.json', here).pathname,
+    new URL('kinks.json', here).pathname,
+    pathPrefix + 'data/kinks.json',
+    pathPrefix + 'kinks.json',
+    '/data/kinks.json',
+    '/kinks.json'
+  ].filter((v, i, arr)=>v && arr.indexOf(v) === i);
+
+  // Elements
+  const $ = (id)=>document.getElementById(id);
+  const panel = $('categorySurveyPanel');
+  const toggle = $('panelToggle');
+  const list = $('categoryList');
+  const status = $('statusMsg');
+  const startBtn = $('start');
+  const diag = $('diag');
+  const survey = $('survey');
+  const title = $('catTitle');
+  const items = $('items');
+  const done = $('done');
+
+  if (document.body){
+    document.body.classList.remove('tk-no-js');
+    document.body.classList.add('tk-js');
+  }
+
+  let scrim = document.getElementById('tkScrim');
+  if (!scrim){
+    scrim = document.createElement('div');
+    scrim.id = 'tkScrim';
+    document.body.appendChild(scrim);
+  }
+  scrim.setAttribute('data-ksv-backdrop','');
+
+  if (panel){
+    panel.setAttribute('aria-expanded','false');
+    panel.setAttribute('data-ksv-panel','');
+    if (!panel.querySelector('[data-ksv-close]')){
+      const stickyRow = document.createElement('div');
+      stickyRow.className = 'ksv-close';
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'tk-close-drawer';
+      closeBtn.setAttribute('data-ksv-close','');
+      closeBtn.setAttribute('aria-label','Close categories panel');
+      closeBtn.textContent = 'Close ✕';
+      closeBtn.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
+      stickyRow.appendChild(closeBtn);
+      panel.prepend(stickyRow);
+    }
+  }
+
+  const triggerSelectors = ['#startSurvey','#startSurveyBtn','#start','#tkHeroStart','[data-start-survey="1"]'];
+  const triggerSelectorList = triggerSelectors.join(',');
+  const findOpenTrigger = () => {
+    const explicit = document.querySelector('[data-ksv-start]');
+    if (explicit) return explicit;
+    for (const sel of triggerSelectors){
+      const node = document.querySelector(sel);
+      if (node) return node;
+    }
+    return null;
+  };
+
+  let lastOpenTrigger = null;
+
+  function setDrawerState(open){
+    const want = Boolean(open);
+    if (panel){
+      panel.classList.toggle('open', want);
+      panel.classList.toggle('is-open', want);
+      panel.setAttribute('aria-expanded', want ? 'true' : 'false');
+      panel.setAttribute('aria-hidden', want ? 'false' : 'true');
+    }
+    document.body.classList.toggle('panel-open', want);
+    document.body.classList.toggle('tk-panel-open', want);
+    document.body.classList.toggle('tk-drawer-open', want);
+    document.body.classList.toggle('ksv-lock', want);
+    toggle?.setAttribute('aria-expanded', want ? 'true' : 'false');
+    if (scrim){
+      scrim.style.opacity = want ? '1' : '0';
+      scrim.style.pointerEvents = want ? 'auto' : 'none';
+      scrim.classList.toggle('is-open', want);
+    }
+  }
+
+  function openDrawer(options = {}){
+    const { focusFirst = true, trigger = null, focusTarget = null } = options;
+    lastOpenTrigger = trigger || focusTarget || lastOpenTrigger || findOpenTrigger();
+    setDrawerState(true);
+    if (focusFirst){
+      const focusTarget = panel?.querySelector('input,button,select,textarea,[tabindex]:not([tabindex="-1"])');
+      if (focusTarget){
+        setTimeout(()=>focusTarget.focus({ preventScroll: true }), 60);
+      }
+    }
+  }
+
+  function closeDrawer(options = {}){
+    const { focusToggle = false } = options;
+    setDrawerState(false);
+    if (focusToggle){
+      const focusReturn = options.focusTarget || lastOpenTrigger || findOpenTrigger() || toggle;
+      if (focusReturn){
+        setTimeout(()=>focusReturn.focus({ preventScroll: true }), 60);
+      }
+    }
+    lastOpenTrigger = null;
+  }
+
+  window.tkKinksurveyOpenPanel = (opts) => openDrawer(opts || {});
+  window.tkKinksurveyClosePanel = (opts) => closeDrawer(opts || {});
+
+  setDrawerState(false);
+
+  function maybeRevealPanel(){
+    try{
+      const storage = window.localStorage;
+      const key = 'tk_ksv_panel_seen';
+      if (storage?.getItem(key) === '1') return;
+      const wideScreen = window.matchMedia ? window.matchMedia('(min-width: 900px)').matches : (window.innerWidth || 0) >= 900;
+      if (!wideScreen) return;
+      openDrawer({ focusFirst: false, trigger: toggle });
+      storage?.setItem(key, '1');
+    }catch(_){ /* ignore storage errors */ }
+  }
+
+  if (scrim && !scrim.dataset.tkBind){
+    scrim.dataset.tkBind = '1';
+    scrim.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
+  }
+
+  if (panel && !panel.dataset.tkStopProp){
+    panel.dataset.tkStopProp = '1';
+    panel.addEventListener('click', (event)=>event.stopPropagation());
+  }
+
+  window.addEventListener('keydown', (event)=>{
+    if (event.key === 'Escape' && panel?.classList.contains('open')) closeDrawer({ focusToggle: true });
+  });
+
+  // Toggle panel open/closed (like /kinks/)
+  if (toggle && !toggle.dataset.tkBind){
+    toggle.dataset.tkBind = '1';
+    toggle.addEventListener('click', (event)=>{
+      event.preventDefault();
+      const isOpen = panel?.classList.contains('open');
+      if (isOpen) closeDrawer({ focusToggle: true, focusTarget: toggle });
+      else openDrawer({ focusFirst: true, trigger: toggle });
+    });
+  }
+
+  document.addEventListener('click', (event)=>{
+    const trigger = event.target.closest(triggerSelectorList);
+    if (!trigger || !panel || panel.contains(trigger)) return;
+    event.preventDefault();
+    openDrawer({ focusFirst: true, trigger });
+  });
+
+  const S = { cats:[], sel:[], i:0 };
+
+  const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
+  const looksHTML = t => /^\s*<!doctype html/i.test(t) || /<html[\s>]/i.test(t);
+
+  const DEBUG_FETCH = (()=>{
+    if (window.kinkSurveyFetchDebug === true) return true;
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.has('debug')) return true;
+    } catch (_){}
+    return /localhost|127\.0\.0\.1/.test(location.hostname);
+  })();
+
+  const FETCH_NOTE_ID = 'ksv-fetch-notes';
+
+  function removeFetchNote(){
+    const existing = document.getElementById(FETCH_NOTE_ID);
+    if (existing) existing.remove();
+  }
+
+  function showFetchNote(notes){
+    if (!notes?.length) return;
+    if (!DEBUG_FETCH){
+      console.warn('[kinksurvey] Fetch notes:', notes.join('  -  '));
+      return;
+    }
+    let note = document.getElementById(FETCH_NOTE_ID);
+    if (!note){
+      note = document.createElement('div');
+      note.id = FETCH_NOTE_ID;
+      note.style.cssText = [
+        'position:fixed','left:0','right:0','bottom:0','z-index:2147483600',
+        'padding:.55rem 1rem','background:#001316','color:#57f7ff',
+        'border-top:1px solid #00e6ff33',
+        'font:600 14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif',
+        'text-align:center'
+      ].join(';');
+    }
+    note.textContent = 'Fetch notes: ' + notes.join('  -  ');
+    if (!note.isConnected) document.body?.appendChild(note);
+  }
+
+  async function fetchFirst(urls){
+    const notes = [];
+    for (const url of urls){
+      try{
+        const res = await fetch(url, {cache:'no-store'});
+        if (!res.ok){
+          notes.push(`${url}: HTTP ${res.status}`);
+          console.warn('[kinksurvey] Not found:', url, res.status);
+          continue;
+        }
+        const text = await res.text();
+        if (looksHTML(text)){
+          notes.push(`${url}: HTML fallback`);
+          console.warn('[kinksurvey] HTML fallback:', url);
+          continue;
+        }
+        const json = JSON.parse(text);
+        console.info('[kinksurvey] Loaded:', url);
+        removeFetchNote();
+        return { json, src: url, errs: notes };
+      }catch(err){
+        const message = err?.message || String(err);
+        notes.push(`${url}: ${message}`);
+        console.warn('[kinksurvey] Fetch failed:', url, message);
+      }
+    }
+    showFetchNote(notes);
+    const error = new Error('kinks.json not found in any candidate location');
+    error.notes = notes;
+    throw error;
+  }
+
+  async function fetchData(){
+    return fetchFirst(DATA_URLS);
+  }
+
+  function normalize(raw){
+    const out=[];
+    const push=(name,items)=>{
+      const cat=tidy(name); if(!cat) return;
+      const arr=[];
+      (items||[]).forEach(it=>{
+        const id=tidy(it?.id||it?.key||it?.name||'');
+        const label=tidy(it?.label||it?.text||'');
+        const type=tidy(it?.type||'scale');
+        if(id && label) arr.push({id,label,type});
+      });
+      if(arr.length) out.push({category:cat, items:arr});
+    };
+    if (Array.isArray(raw)) raw.forEach(x=>push(x?.category ?? x?.name, x?.items));
+    else if (raw && typeof raw==='object') Object.entries(raw).forEach(([k,v])=>push(k,v));
+    return out;
+  }
+
+  function renderPanel(cats){
+    list.innerHTML='';
+    cats.forEach(c=>{
+      const id='cb_'+Math.random().toString(36).slice(2,7);
+      const row=document.createElement('label');
+      row.setAttribute('role','listitem');
+      row.innerHTML = `<input class="category-checkbox" type="checkbox" id="${id}" value="${c.category}"> <span>${c.category}</span>`;
+      list.appendChild(row);
+    });
+    updateStart();
+  }
+
+  const selected = () => Array.from(document.querySelectorAll('.category-checkbox')).filter(cb=>cb.checked).map(cb=>cb.value);
+
+  function updateStart(){
+    const n = selected().length;
+    startBtn.disabled = !n;
+    status.textContent = n ? `${n} selected` : 'Choose one or more categories';
+  }
+
+  function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; }
+
+  function renderCat(i){
+    const c = S.sel[i];
+    if(!c){
+      survey.style.display='none';
+      done.style.display='block';
+      return;
+    }
+    done.style.display='none';
+    survey.style.display='block';
+    title.textContent=c.category;
+    items.innerHTML='';
+    c.items.forEach(it=>{
+      const row=document.createElement('div'); row.className='item';
+      const id='k_'+it.id;
+      let ctl='';
+      const t=(it.type||'').toLowerCase();
+      if (t==='bool') ctl = `<input type="checkbox" id="${id}" name="${it.id}">`;
+      else if (t==='text') ctl = `<input type="text" id="${id}" name="${it.id}" placeholder="Your note">`;
+      else ctl = `<select id="${id}" name="${it.id}">${[1,2,3,4,5].map(v=>`<option>${v}</option>`).join('')}</select>`;
+      row.innerHTML = `${ctl} <label for="${id}">${it.label}</label>`;
+      items.appendChild(row);
+    });
+  }
+
+  // Bindings
+  document.addEventListener('change', (e)=>{
+    if (e.target && e.target.classList && e.target.classList.contains('category-checkbox')) updateStart();
+  });
+  document.getElementById('selectAll').addEventListener('click', ()=>{
+    document.querySelectorAll('.category-checkbox').forEach(cb=>cb.checked=true); updateStart();
+  });
+  document.getElementById('deselectAll').addEventListener('click', ()=>{
+    document.querySelectorAll('.category-checkbox').forEach(cb=>cb.checked=false); updateStart();
+  });
+
+  startBtn.addEventListener('click', ()=>{
+    const want = new Set(selected().map(s=>s.toLowerCase()));
+    S.sel = S.cats.filter(c=>want.has(c.category.toLowerCase()));
+    S.i = 0;
+    if (!S.sel.length){ showDiag('No matching categories in dataset.'); return; }
+    // Collapse the panel like the classic page
+    closeDrawer({ focusToggle: false });
+    renderCat(S.i);
+  });
+  document.getElementById('skip').addEventListener('click', ()=>{ S.i++; renderCat(S.i); });
+  document.getElementById('next').addEventListener('click', ()=>{ S.i++; renderCat(S.i); });
+
+  // Boot
+  try{
+    const {json,src,errs} = await fetchData();
+    S.cats = normalize(json);
+    renderPanel(S.cats);
+    status.textContent = `Loaded ${S.cats.length} categories`;
+    maybeRevealPanel();
+    if (errs?.length){
+      if (DEBUG_FETCH) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
+      else console.warn('[kinksurvey] Fetch notes:', errs.join(' | '));
+    }
+  }catch(e){
+    const msg = e?.message || e;
+    const notes = Array.isArray(e?.notes) ? e.notes : [];
+    showFetchNote(notes);
+    const baseMessage = 'This page will populate once /data/kinks.json is published.';
+    if (DEBUG_FETCH && notes.length){
+      const extra = '\nFetch notes:\n- ' + notes.join('\n- ');
+      showDiag(msg + extra + '\n' + baseMessage);
+    } else {
+      console.warn('[kinksurvey] Fetch failed:', msg, notes);
+      showDiag(baseMessage);
+    }
+    status.textContent = 'Dataset unavailable';
+  }
+})();
+</script>
+<!-- One-time SW/cache buster (also triggers when ?tkreset=1) -->
+<script>
+(function(){
+  const VER = 'ks-20240927b';
+  try {
+    const k = 'tk_ks_ver';
+    const sp = new URL(location.href).searchParams;
+    const mustReset = sp.has('tkreset') || localStorage.getItem(k) !== VER;
+    if (mustReset) {
+      if ('caches' in window) {
+        caches.keys().then(ks => Promise.all(ks.map(n => caches.delete(n))));
+      }
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+        navigator.serviceWorker.getRegistration().then(r => r && r.unregister());
+      }
+      localStorage.setItem(k, VER);
+    }
+  } catch (_) {}
+})();
+</script>
+<!-- load enhancer last so it can find the existing DOM (versioned URL to beat stale caches) -->
+<script type="module" src="/js/tk_kinksurvey_enhance.js?v=ks-20240927b"></script>
+<!-- Self-heal: if hero didn't appear quickly (stale inline/partial), retry loading once -->
+<script>
+setTimeout(() => {
+  if (!document.getElementById('ksvHeroStack')) {
+    const s = document.createElement('script');
+    s.type = 'module';
+    s.src = '/js/tk_kinksurvey_enhance.js?v=ks-20240927b&retry=1';
+    document.head.appendChild(s);
+  }
+}, 800);
+</script>
+
+<style id="ksv-overrides">
+  /* Backdrop */
+  #ksv-backdrop{
+    position:fixed; inset:0; z-index:2147483646;
+    background:rgba(0,0,0,.55);
+    opacity:0; pointer-events:none; transition:opacity .18s ease;
+  }
+  #ksv-backdrop.is-open{ opacity:1; pointer-events:auto; }
+
+  /* Slide-out panel */
+  #ksv-panel{
+    position:fixed; top:0; right:0; height:100dvh;
+    width:min(620px,92vw); max-width:620px;
+    z-index:2147483647; background:#0c0f10; color:#dffcff;
+    transform:translateX(110%); transition:transform .24s ease;
+    box-shadow:-2px 0 24px rgba(0,0,0,.45);
+    border-left:2px solid rgba(0,255,255,.25);
+    display:flex; flex-direction:column; overflow:auto; -webkit-overflow-scrolling:touch;
+  }
+  #ksv-panel.is-open{ transform:translateX(0); }
+
+  /* If any stylesheet tries to blur/dim/disable the panel, kill it */
+  #ksv-panel.is-open,
+  #ksv-panel.is-open *{
+    opacity:1 !important;
+    filter:none !important;
+    -webkit-filter:none !important;
+    pointer-events:auto !important;
+    user-select:auto !important;
+  }
+
+  /* Some themes “fold” panels on focus-within; keep it open */
+  :where(#ksv-panel:focus-within, .ksv-shell:focus-within #ksv-panel){ transform:translateX(0)!important; }
+
+  /* Prevent body scroll while open */
+  body.ksv-lock{ overflow:hidden; }
+
+  /* Header + Close button */
+  #ksv-header{
+    position:sticky; top:0; z-index:1; display:flex; align-items:center; justify-content:space-between;
+    gap:12px; padding:12px 12px 10px;
+    background:linear-gradient(180deg, rgba(12,15,16,1) 70%, rgba(12,15,16,0) 100%);
+    border-bottom:1px solid rgba(0,255,255,.15);
+  }
+  #ksv-title{ font:700 18px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; letter-spacing:.2px; color:#dffcff; }
+  #ksv-close{
+    -webkit-tap-highlight-color:transparent;
+    appearance:none; cursor:pointer;
+    border:2px solid rgba(0,255,255,.55); color:#a9fbff; background:rgba(0,255,255,.08);
+    font:700 16px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    border-radius:14px; padding:10px 14px;
+    transition:box-shadow .15s ease, transform .05s ease, background .15s ease;
+  }
+  #ksv-close:hover{ background:rgba(0,255,255,.12); }
+  #ksv-close:active{ transform:translateY(1px); }
+  #ksv-close:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(0,255,255,.35); }
+
+  #ksv-content{ padding:8px 12px 20px; }
+  #ksv-panel .ksv-soft-card{ background:rgba(255,255,255,.02); border-radius:12px; border:1px solid rgba(0,255,255,.15); }
+
+  /* >>> HARD OVERRIDES against site-level blur/dim layers <<< */
+  html.ksv-open, body.ksv-open{
+    filter:none !important; -webkit-filter:none !important; opacity:1 !important;
+    pointer-events:auto !important;
+  }
+  html.ksv-open *, body.ksv-open *{
+    filter:none !important; -webkit-filter:none !important; opacity:1 !important;
+  }
+  /* Hide common “dim/scrim/backdrop” elements except our own */
+  html.ksv-open .modal-backdrop:not(#ksv-backdrop),
+  html.ksv-open .overlay:not(#ksv-backdrop),
+  html.ksv-open .dimmer:not(#ksv-backdrop),
+  html.ksv-open .scrim:not(#ksv-backdrop),
+  html.ksv-open [data-overlay]:not(#ksv-backdrop),
+  html.ksv-open [data-dimmer]:not(#ksv-backdrop){
+    display:none !important;
+  }
+</style>
+
+<script>
+(function(){
+  const d = document;
+
+  // Locate the "Start Survey" trigger
+  const startBtn = [...d.querySelectorAll('a,button,input[type="button"],input[type="submit"]')]
+    .find(el => /start\s*survey/i.test((el.textContent || el.value || '').trim()));
+
+  // Find the existing categories UI
+  function findCategoriesContainer(){
+    const head = [...d.querySelectorAll('h1,h2,h3,legend,[role="heading"],.heading,.title,section,div')]
+      .find(el => /select\s+categories/i.test((el.textContent || '').trim()));
+    if (!head) return null;
+
+    const count = el => el.querySelectorAll('input[type="checkbox"]').length;
+    let node = head.closest('section,form,article,div') || head, hops = 0;
+    while (node && count(node) < 5 && hops++ < 8) node = node.parentElement;
+
+    if (node && count(node) >= 5) return node;
+
+    let best = null, max = 0;
+    for (const el of d.querySelectorAll('section,form,article,div')){
+      const c = count(el); if (c > max){ max = c; best = el; }
+    }
+    return max >= 5 ? best : null;
+  }
+
+  const cats = findCategoriesContainer();
+  if (!cats) return;
+
+  // Build overlay once
+  let backdrop = d.getElementById('ksv-backdrop');
+  if (!backdrop){
+    backdrop = d.createElement('div');
+    backdrop.id = 'ksv-backdrop';
+    d.body.appendChild(backdrop);
+  }
+
+  let panel = d.getElementById('ksv-panel');
+  if (!panel){
+    panel = d.createElement('div');
+    panel.id = 'ksv-panel';
+    panel.setAttribute('aria-hidden','true');
+
+    const header = d.createElement('div');
+    header.id = 'ksv-header';
+
+    const title = d.createElement('div');
+    title.id = 'ksv-title';
+    title.textContent = 'Select categories';
+
+    const close = d.createElement('button');
+    close.id = 'ksv-close';
+    close.type = 'button';
+    close.setAttribute('aria-label','Close categories panel');
+    close.textContent = 'Close ✕';
+
+    const content = d.createElement('div');
+    content.id = 'ksv-content';
+
+    header.appendChild(title); header.appendChild(close);
+    panel.appendChild(header); panel.appendChild(content);
+    d.body.appendChild(panel);
+  }
+  const content = d.getElementById('ksv-content');
+  const closeBtn = d.getElementById('ksv-close');
+
+  // Move the existing categories UI into the panel
+  if (!content.contains(cats)){
+    cats.classList.add('ksv-soft-card');
+    content.appendChild(cats);
+  }
+
+  /* ————— Hard kill any page-level blur/dim that affects the whole document ————— */
+  function forceUndim(){
+    document.documentElement.classList.add('ksv-open');
+    document.body.classList.add('ksv-open');
+
+    // In case a theme sets inline styles with !important on body/html
+    [document.documentElement, document.body].forEach(el => {
+      el.removeAttribute('inert');
+      el.style.setProperty('filter','none','important');
+      el.style.setProperty('-webkit-filter','none','important');
+      el.style.setProperty('opacity','1','important');
+      el.style.setProperty('pointer-events','auto','important');
+    });
+
+    // Strip “blur/dim/disabled” classes from body if present
+    [...document.body.classList].forEach(c => {
+      if (/(blur|dim|disabled|inactive)/i.test(c)) document.body.classList.remove(c);
+    });
+  }
+  function relaxUndim(){
+    document.documentElement.classList.remove('ksv-open');
+    document.body.classList.remove('ksv-open');
+    [document.documentElement, document.body].forEach(el => {
+      el.style.removeProperty('filter');
+      el.style.removeProperty('-webkit-filter');
+      el.style.removeProperty('opacity');
+      el.style.removeProperty('pointer-events');
+    });
+  }
+
+  function scrubInteractivityBlocks(root){
+    root.removeAttribute('inert');
+    root.querySelectorAll('[inert]').forEach(n => n.removeAttribute('inert'));
+    root.querySelectorAll('[aria-disabled="true"]').forEach(n => n.removeAttribute('aria-disabled'));
+    root.querySelectorAll('[style]').forEach(n => {
+      const s = n.getAttribute('style');
+      if (/pointer-events\s*:\s*none/i.test(s)) n.style.pointerEvents = 'auto';
+      if (/opacity\s*:\s*0\.\d+/i.test(s)) n.style.opacity = '1';
+      if (/filter\s*:/i.test(s)) { n.style.filter = 'none'; n.style.webkitFilter = 'none'; }
+    });
+  }
+
+  const legacyOpen = typeof window.tkKinksurveyOpenPanel === 'function'
+    ? window.tkKinksurveyOpenPanel
+    : null;
+  const legacyClose = typeof window.tkKinksurveyClosePanel === 'function'
+    ? window.tkKinksurveyClosePanel
+    : null;
+
+  function openPanel(){
+    forceUndim();
+    scrubInteractivityBlocks(panel);
+    panel.classList.add('is-open');
+    backdrop.classList.add('is-open');
+    panel.setAttribute('aria-hidden','false');
+    document.body.classList.add('ksv-lock');
+    setTimeout(() => {
+      (
+        panel.querySelector('input[type="checkbox"]:not([disabled])') ||
+        panel.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])') ||
+        closeBtn
+      )?.focus({preventScroll:true});
+    }, 10);
+  }
+
+  function closePanel(){
+    panel.classList.remove('is-open');
+    backdrop.classList.remove('is-open');
+    panel.setAttribute('aria-hidden','true');
+    document.body.classList.remove('ksv-lock');
+    relaxUndim();
+    startBtn?.focus?.({preventScroll:true});
+  }
+
+  const overlayAwareOpen = (opts) => {
+    if (panel){
+      openPanel(opts);
+    }else if (legacyOpen){
+      legacyOpen(opts);
+    }
+  };
+
+  const overlayAwareClose = (opts) => {
+    if (panel){
+      closePanel(opts);
+    }else if (legacyClose){
+      legacyClose(opts);
+    }
+  };
+
+  window.tkKinksurveyOpenPanel = overlayAwareOpen;
+  window.tkKinksurveyClosePanel = overlayAwareClose;
+
+  startBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    overlayAwareOpen({ trigger: startBtn });
+  });
+  closeBtn.addEventListener('click', closePanel);
+  backdrop.addEventListener('click', closePanel);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closePanel(); });
+
+  // Guard against global click-away handlers
+  panel.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', (e) => {
+    if (!backdrop.classList.contains('is-open')) return;
+    if (panel.contains(e.target)) e.stopPropagation();
+  }, true);
+})();
+</script>
+<!-- 🔧 HOTFIX: put this at the very BOTTOM of /kinksurvey/ (right before </body>)
+     Goal: make the categories panel sit ABOVE the full-screen #tkScrim overlay.
+     Why: when <body> gets .tk-panel-open the site shows #tkScrim (z-index: 9999, pointer-events: auto),
+           but .category-panel is only z-index: 200 → the scrim captures all clicks and the panel
+           looks “slightly transparent / unusable”.
+     Fix: raise the panel’s stacking context (or, optionally, lower the scrim on this page). -->
+
+<style id="tk-panel-zfix">
+  /* ✅ Raise the categories panel above the scrim (target common selectors) */
+  body.tk-panel-open .category-panel,
+  body.tk-panel-open #categoryPanel,
+  body.tk-panel-open .kink-categories-panel {
+    /* keep it clickable and fully opaque even if global styles try to dim/blur */
+    position: relative;                  /* ensure z-index creates a stacking context */
+    z-index: 2147483000 !important;      /* higher than any app overlay/scrim */
+    opacity: 1 !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    pointer-events: auto !important;
+  }
+
+  /* (Optional) also make all children fully interactive if any dim/blur is inherited */
+  body.tk-panel-open .category-panel *,
+  body.tk-panel-open #categoryPanel *,
+  body.tk-panel-open .kink-categories-panel * {
+    opacity: 1 !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    pointer-events: auto !important;
+  }
+
+  /* 🧯 Safety: if any framework adds 'inert' during open, neutralize it */
+  body.tk-panel-open .category-panel[inert],
+  body.tk-panel-open #categoryPanel[inert],
+  body.tk-panel-open .kink-categories-panel[inert] {
+    inert: false;
+  }
+
+  /* ———————————————————————————————————————————————————————————————
+     (OPTION B – use ONE of these, only if you prefer lowering the scrim)
+     This keeps the scrim visible but ensures it’s below the panel on this page.
+     Comment OUT the block above if you choose this approach exclusively.
+  -------------------------------------------------------------------- */
+  /*
+  body.tk-panel-open #tkScrim {
+    z-index: 500 !important;   // lower than the panel but still above page content
+  }
+  */
+</style>
+
+<!-- ===== KSV: Dock actions next to the open panel ===== -->
+<style>
+  /* Give your three buttons a shared class without changing visuals */
+  .ksv-btn { display:inline-flex; align-items:center; justify-content:center; text-align:center; }
+
+  /* Wrap those three buttons in a container (see JS; it will find existing layout) */
+  #ksv-actions {
+    display:flex; flex-direction:column; gap:20px;
+    width:min(64ch, 88vw);
+    margin:32px auto 0;
+    z-index:2; /* normal centered layout */
+  }
+
+  /* Z-indexes during panel-open (scrim is very high; put panel & actions higher) */
+  body.tk-panel-open .category-panel,
+  body.tk-panel-open #categoryPanel { z-index:2147483500 !important; }
+  body.tk-panel-open #tkScrim,
+  body.tk-panel-open .tk-scrim { z-index:2147483400 !important; }
+  body.tk-panel-open #ksv-actions.is-docked { z-index:2147483600 !important; }
+
+  /* Docked layout (panel open): move actions to the right column, size them down */
+  :root { --ksv-panel-w: 720px; } /* fallback; JS will set exact width */
+  body.tk-panel-open #ksv-actions.is-docked{
+    position:fixed;
+    left:calc(var(--ksv-panel-w) + 24px); /* right edge of panel + gap */
+    right:24px;
+    top:96px; /* JS will refine this so it aligns with panel’s content */
+    max-width:360px;
+    width:auto;
+    margin:0;
+    align-items:stretch;
+    gap:14px;
+    pointer-events:auto;
+  }
+  body.tk-panel-open #ksv-actions.is-docked .ksv-btn{
+    width:100% !important;
+    max-width:none !important;
+    margin:0 !important;
+    padding:12px 16px !important;
+    border-radius:12px !important;
+    font-size:clamp(14px, 1.3vw, 18px) !important;
+    line-height:1.2;
+    box-sizing:border-box;
+  }
+
+  /* Make sure the centered hero title doesn’t shift when panel opens */
+  body.tk-panel-open .hero, body.tk-panel-open h1, body.tk-panel-open .ksv-title {
+    margin-right:0 !important;
+  }
+
+  /* Optional: hide the big top title while docked to reduce clutter on narrow screens
+     (uncomment if you want it) */
+  /* @media (max-width: 1100px){
+    body.tk-panel-open .ksv-title { display:none !important; }
+  } */
+</style>
+
+<script>
+(() => {
+  // --- Config: selectors that exist on your page ---
+  const SEL_PANEL  = '#categoryPanel, .category-panel, [data-panel="category"]';
+  const SEL_SCRIM  = '#tkScrim, .tk-scrim, .drawer-scrim';
+  const SEL_ACTIONS = '#ksv-actions'; // container for the three buttons
+  const HERO_SELECTOR = '.ksvButtons a';
+  const FALLBACK_SELECTORS = [
+    '#btnStartSurvey',
+    'a[data-action="start-survey"]',
+    'a[href*="kinksurvey"]',
+    'a[href*="compat"]',
+    'a[href*="individualkinkanalysis"]'
+  ];
+
+  // 1) Ensure the actions container exists; if not, build it around the three buttons
+  function ensureActionsContainer(){
+    let actions = document.querySelector(SEL_ACTIONS);
+    if (!actions) {
+      // Try to locate the three existing buttons on the landing view
+      let btns = [...document.querySelectorAll(HERO_SELECTOR)]
+        .filter(a => a.offsetParent !== null);
+
+      if (btns.length < 3) {
+        const seen = new Set(btns);
+        for (const sel of FALLBACK_SELECTORS) {
+          const matches = document.querySelectorAll(sel);
+          for (const el of matches) {
+            if (el.offsetParent === null) continue;
+            if (!seen.has(el)) {
+              btns.push(el);
+              seen.add(el);
+            }
+            if (btns.length >= 3) break;
+          }
+          if (btns.length >= 3) break;
+        }
+      }
+
+      btns = btns.slice(0,3);
+
+      if (!btns.length) return null;
+
+      // Add a helper class to style (non-destructive)
+      btns.forEach(b => b.classList.add('ksv-btn'));
+
+      actions = document.createElement('nav');
+      actions.id = 'ksv-actions';
+      actions.setAttribute('aria-label','Survey actions');
+
+      // Insert the container just before the first button, then move the three in
+      const host = btns[0].parentElement || document.body;
+      host.insertBefore(actions, btns[0]);
+      btns.forEach(b => actions.appendChild(b));
+    }
+    return actions;
+  }
+
+  // 2) Place / size actions when panel opens; restore when closed
+  const actions = ensureActionsContainer();
+  if (!actions) return;
+
+  const panel = document.querySelector(SEL_PANEL);
+  const scrim = document.querySelector(SEL_SCRIM);
+
+  function isOpen(){ return document.body.classList.contains('tk-panel-open'); }
+
+  function dockActions(){
+    if (!isOpen() || !panel) {
+      actions.classList.remove('is-docked');
+      actions.style.top = '';
+      return;
+    }
+    const r = panel.getBoundingClientRect();
+    // Share actual panel width with CSS
+    document.documentElement.style.setProperty('--ksv-panel-w', r.width + 'px');
+
+    const available = window.innerWidth - r.width - 48; // space to the right of the panel
+    if (available < 220) {
+      actions.classList.remove('is-docked');
+      actions.style.top = '';
+      return;
+    }
+
+    // Align top of the docked actions with panel content area (with a small offset)
+    const top = Math.max(72, r.top + 24 + window.scrollY);
+    actions.style.top = `${top}px`;
+    actions.classList.add('is-docked');
+  }
+
+  // 3) Lock: prevent the scrim click from closing the panel; use the panel's Close button instead.
+  function lockScrim(){
+    if (!scrim) return;
+    // Use capture so we intercept before any close handler
+    const stopper = (e) => {
+      if (isOpen()) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
+    };
+    scrim.addEventListener('click', stopper, true);
+    scrim.addEventListener('mousedown', stopper, true);
+    scrim.addEventListener('touchstart', stopper, true);
+  }
+
+  // 4) Observe body class changes to react when the panel opens/closes
+  const mo = new MutationObserver(dockActions);
+  mo.observe(document.body, {attributes:true, attributeFilter:['class']});
+  window.addEventListener('resize', dockActions);
+  window.addEventListener('scroll', () => { if (isOpen()) dockActions(); }, {passive:true});
+
+  lockScrim();
+  // Initial layout
+  dockActions();
+})();
+</script>
+<!-- ===== /KSV: Dock actions next to the open panel ===== -->
+</body>
+</html>
