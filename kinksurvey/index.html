@@ -1451,5 +1451,92 @@ setTimeout(() => {
 })();
 </script>
 <!-- ===== /KSV: Dock actions next to the open panel ===== -->
+
+<!-- Force all rating controls to default to 0 on load and new rows -->
+<script>
+/*
+  Force ALL rating controls to default to 0 on page load (and whenever new
+  rows are injected). This does not change any other behavior.
+
+  What it does:
+  • Detects rating <select> (and numeric inputs) by looking for all-numeric
+    options (e.g., 1–5). If “0” isn’t present, it inserts it at the top.
+  • Sets the value to 0 and dispatches a 'change' event so any bound code
+    re-calculates immediately.
+  • Runs on load, after delayed inits, and again for dynamically added rows.
+*/
+
+(function () {
+  // Heuristic: treat a <select> as a rating selector if all options are integers
+  // and the list is reasonably small (prevents touching unrelated dropdowns).
+  function isRatingSelect(sel) {
+    if (!sel || sel.tagName !== 'SELECT' || sel.options.length === 0) return false;
+    if (sel.options.length > 12) return false; // avoid big unrelated selects
+    const vals = Array.from(sel.options).map(o => (o.value || o.textContent).trim());
+    return vals.every(v => /^\d+$/.test(v));
+  }
+
+  function ensureZeroOption(sel) {
+    const hasZero = Array.from(sel.options).some(o => (o.value || o.textContent).trim() === '0');
+    if (!hasZero) {
+      const opt = new Option('0', '0');
+      // Put "0" at top so it's visible as the default
+      sel.insertBefore(opt, sel.firstChild);
+    }
+  }
+
+  function setSelectToZero(sel) {
+    ensureZeroOption(sel);
+    sel.value = '0';
+    // Fire a change so any computed UI updates
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function setNumberInputToZero(inp) {
+    // Make sure 0 is allowed
+    const min = Number(inp.min);
+    if (Number.isFinite(min) && min > 0) inp.min = '0';
+    if (!inp.step) inp.step = '1';
+    inp.value = '0';
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function forceZeroRatings(root = document) {
+    // 1) All likely rating <select>s
+    const selects = Array.from(root.querySelectorAll('select')).filter(isRatingSelect);
+    selects.forEach(setSelectToZero);
+
+    // 2) Any numeric inputs used as ratings
+    const nums = root.querySelectorAll('input[type="number"], input[type="range"]');
+    nums.forEach(setNumberInputToZero);
+  }
+
+  // Run once DOM is ready
+  function runAll() {
+    forceZeroRatings(document);
+
+    // Run a couple more times in case app scripts populate after load
+    setTimeout(() => forceZeroRatings(document), 200);
+    setTimeout(() => forceZeroRatings(document), 800);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runAll, { once: true });
+  } else {
+    runAll();
+  }
+
+  // Also watch for dynamically added rows (e.g., when switching categories)
+  const mo = new MutationObserver(muts => {
+    let touched = false;
+    for (const m of muts) {
+      if (m.addedNodes && m.addedNodes.length) { touched = true; break; }
+    }
+    if (touched) forceZeroRatings(document);
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+})();
+</script>
 </body>
 </html>
