@@ -33,3 +33,21 @@ test('validateNormalized passes with numeric scores', () => {
   const errors = validateNormalized(normalized);
   assert.deepStrictEqual(errors, []);
 });
+
+test('normalizeSurvey handles answers object maps', () => {
+  const json = {
+    meta: {
+      source: 'talkkink.org/kinksurvey'
+    },
+    answers: {
+      appearance_play: 0,
+      bondage_and_suspension: 3
+    }
+  };
+  const { items, warnings } = normalizeSurvey(json);
+  assert.deepStrictEqual(items, [
+    { id: 'appearance_play', label: 'appearance_play', score: 0 },
+    { id: 'bondage_and_suspension', label: 'bondage_and_suspension', score: 3 }
+  ]);
+  assert.deepStrictEqual(warnings, []);
+});

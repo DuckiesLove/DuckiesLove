@@ -41,15 +41,41 @@ export function mapRow(row) {
   return { id, label, score };
 }
 
+function entriesToRows(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return [];
+  return Object.entries(obj)
+    .filter(([id]) => id)
+    .map(([id, value]) => {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return { id, ...value };
+      }
+      return { id, score: value };
+    });
+}
+
+function toRowArray(candidate) {
+  if (!candidate) return [];
+  if (Array.isArray(candidate)) return candidate;
+  if (candidate && typeof candidate === "object") return entriesToRows(candidate);
+  return [];
+}
+
 export function normalizeSurvey(json) {
   let rows = [];
-  if (Array.isArray(json)) rows = json;
-  else if (Array.isArray(json?.items)) rows = json.items;
-  else if (Array.isArray(json?.answers)) rows = json.answers;
-  else if (Array.isArray(json?.data)) rows = json.data;
+
+  const candidates = [];
+  if (Array.isArray(json)) candidates.push(json);
   else if (json && typeof json === "object") {
-    const firstArray = Object.values(json).find(v => Array.isArray(v));
-    if (Array.isArray(firstArray)) rows = firstArray;
+    candidates.push(json.items, json.answers, json.data);
+    for (const value of Object.values(json)) candidates.push(value);
+  }
+
+  for (const candidate of candidates) {
+    const arr = toRowArray(candidate);
+    if (arr.length) {
+      rows = arr;
+      break;
+    }
   }
 
   if (!Array.isArray(rows)) rows = [];
