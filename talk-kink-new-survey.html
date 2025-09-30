@@ -72,12 +72,15 @@
     max-height:78vh; overflow:auto; margin:0 auto;
   }
   .category-panel select,
-  .category-panel input[type="number"]{
-    width:4.5rem;
-    min-width:4.5rem;
+  .category-panel input[type="number"],
+  .category-panel input[type="text"][inputmode="numeric"]{
+    width:4.5rem !important;
+    min-width:4.5rem !important;
     text-align:center;
-    font-variant-numeric:tabular-nums;
   }
+  .category-panel select,
+  .category-panel input[type="number"],
+  .category-panel input[type="text"][inputmode="numeric"],
   .category-panel input[type="range"]{
     font-variant-numeric:tabular-nums;
   }
@@ -132,6 +135,16 @@
   .fill{height:100%;width:0%;background:linear-gradient(90deg,#08d7ff 0%, var(--barFill) 100%);box-shadow:0 0 6px #13e0ff}
   .counter{opacity:.95}
   a.home{color:var(--accent)}
+
+  .tk-download-json{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-height:48px; padding:.8rem 1.2rem; border-radius:14px;
+    border:2px solid var(--accent, #00e6ff); color:#001315;
+    background: var(--accent, #00e6ff);
+    font-weight:800; letter-spacing:.02em; text-decoration:none;
+    transition:transform .1s ease, box-shadow .12s ease, background .12s ease;
+  }
+  .tk-download-json:hover{ transform:translateY(-1px); box-shadow:0 0 0 5px rgba(0,230,255,.18); }
 </style>
 </head>
 <body>
@@ -489,200 +502,182 @@
   dock();
 })();
 </script>
+<!-- TK: Kink Survey helpers (zero defaults, align numbers, download JSON on completion) -->
 <script>
-/* Talk Kink — minimal add-on:
-   1) Force categories to start at ZERO / unchecked (once, without fighting the user)
-   2) Swap “Back to home” → “Download survey” and save JSON
-   3) Keep the numeric columns tidy (CSS above)
-*/
 (() => {
-  /* ---------- helpers ---------- */
-  const toNum = v => {
-    if (v == null || v === '') return 0;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  };
-  const norm = n => (n || '').replace(/\s+/g,' ').trim().toLowerCase();
+  /* ==============================
+     Helpers
+  ===============================*/
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const toNum = v => (v==null || v==='') ? 0 : (Number.isFinite(+v) ? +v : 0);
 
-  const keyFor = el => (
-    el.dataset.kinkId ||
-    el.name ||
-    el.id ||
-    (() => {
-      let t = '';
-      if (el.id) {
-        const lbl = document.querySelector('label[for="'+CSS.escape(el.id)+'"]');
-        if (lbl) t = (lbl.textContent||'').trim();
+  // panel selector variants used on this page
+  const PANEL_SEL = '#categoryPanel, .category-panel, [data-panel="category"], .kink-categories-panel';
+
+  /* ==============================
+     1) Start everything at ZERO
+     - runs once for current controls
+     - runs again for any new controls injected later
+  ===============================*/
+  function zeroControls(root){
+    if(!root) return;
+
+    // All SELECTs -> choose option "0" if present, otherwise lowest numeric
+    $$( 'select:not([data-tk-zeroed])', root ).forEach(sel => {
+      const opts = Array.from(sel.options);
+      let set = false;
+
+      // Prefer an option whose value or text equals "0"
+      for(const o of opts){
+        const raw = (o.value ?? o.textContent).trim();
+        if(raw === '0'){ sel.value = '0'; set = true; break; }
       }
-      if (!t) {
-        const cl = el.closest('label');
-        if (cl) t = (cl.textContent||'').trim();
+
+      // Else choose the smallest numeric option if any exist
+      if(!set){
+        let min = {v: Infinity, raw:null};
+        for(const o of opts){
+          const raw = (o.value ?? o.textContent).trim();
+          const n = Number(raw);
+          if(Number.isFinite(n) && n < min.v){ min = {v:n, raw:String(n)}; }
+        }
+        if(min.raw != null){ sel.value = min.raw; set = true; }
       }
-      if (!t) t = el.getAttribute('aria-label') || el.placeholder || '';
-      return t.replace(/\s+/g,'_').toLowerCase();
-    })()
-  );
 
-  /* ---------- 1) Zero each category once when it renders ---------- */
-  function setSelectToZero(sel){
-    const opts = [...sel.options];
-    const blank = opts.find(o => (o.value ?? '').trim() === '');
-    if (blank) {
-      sel.value = blank.value;
-    } else if (opts.find(o => (o.value ?? o.textContent).trim() === '0')) {
-      sel.value = '0';
-    } else {
-      let minOpt = opts.reduce((acc,o) => {
-        const v = Number((o.value ?? o.textContent).trim());
-        return Number.isFinite(v) && v < acc.v ? {v, o} : acc;
-      }, {v: Infinity, o: null});
-      if (minOpt.o) sel.value = String(minOpt.v);
-      else sel.selectedIndex = 0;
-    }
-    sel.dispatchEvent(new Event('change', {bubbles:true}));
-  }
-
-  function zeroWithin(root){
-    root.querySelectorAll('[data-kink-id]:not([data-tk-zeroed])').forEach(row => {
-      const ranges = row.querySelectorAll('input[type="range"]');
-      ranges.forEach(r => {
-        const v = (r.min !== undefined && r.min !== '') ? Number(r.min) : 0;
-        if (r.value != v) {
-          r.value = v;
-          r.dispatchEvent(new Event('input',  {bubbles:true}));
-          r.dispatchEvent(new Event('change', {bubbles:true}));
-        }
-      });
-
-      const nums = row.querySelectorAll('input[type="number"]');
-      nums.forEach(n => {
-        const v = (n.min !== undefined && n.min !== '') ? Number(n.min) : 0;
-        if (n.value != v) {
-          n.value = v;
-          n.dispatchEvent(new Event('input',  {bubbles:true}));
-          n.dispatchEvent(new Event('change', {bubbles:true}));
-        }
-      });
-
-      const sels = row.querySelectorAll('select');
-      sels.forEach(setSelectToZero);
-
-      const checks = row.querySelectorAll('input[type="checkbox"], input[type="radio"]');
-      checks.forEach(c => {
-        if (c.checked) {
-          c.checked = false;
-          c.dispatchEvent(new Event('change', {bubbles:true}));
-        }
-      });
-
-      row.dataset.tkZeroed = '1';
+      // Else fall back to empty/first (but still mark so we don't fight user edits)
+      sel.dataset.tkZeroed = '1';
+      sel.dispatchEvent(new Event('change', {bubbles:true}));
     });
+
+    // number/range -> value = min (if numeric) else 0
+    $$( 'input[type="number"]:not([data-tk-zeroed]), input[type="range"]:not([data-tk-zeroed])', root )
+      .forEach(inp => {
+        const start = Number.isFinite(+inp.min) ? +inp.min : 0;
+        inp.value = start;
+        inp.dataset.tkZeroed = '1';
+        inp.dispatchEvent(new Event('input',  {bubbles:true}));
+        inp.dispatchEvent(new Event('change', {bubbles:true}));
+      });
+
+    // checkbox/radio -> unchecked
+    $$( 'input[type="checkbox"]:not([data-tk-zeroed]), input[type="radio"]:not([data-tk-zeroed])', root )
+      .forEach(box => {
+        if(box.checked){
+          box.checked = false;
+          box.dispatchEvent(new Event('change', {bubbles:true}));
+        }
+        box.dataset.tkZeroed = '1';
+      });
   }
 
-  function watchPanel(){
-    const panel = document.querySelector('.category-panel, #categoryPanel, [data-panel="category"]');
-    if (!panel) return;
-    zeroWithin(panel);
-    if (watchPanel._mo) watchPanel._mo.disconnect();
-    watchPanel._panel = panel;
+  function startZeroing(){
+    // initial
+    const panel = $(PANEL_SEL) || document;
+    zeroControls(panel);
+
+    // keep zeroing any newly added controls (e.g., as categories render)
     const mo = new MutationObserver(() => {
-      clearTimeout(watchPanel._t);
-      watchPanel._t = setTimeout(() => zeroWithin(panel), 40);
+      // batch-throttle a little
+      clearTimeout(startZeroing._t);
+      startZeroing._t = setTimeout(() => zeroControls($(PANEL_SEL) || document), 40);
     });
-    mo.observe(panel, {childList:true, subtree:true});
-    watchPanel._mo = mo;
+    mo.observe(document.body, {childList:true, subtree:true});
   }
 
-  /* ---------- 2) Collect answers & download ---------- */
-  function collectResults() {
-    const answers  = {};
-    const byDataId = {};
-    const list     = [];
+  /* ==============================
+     2) Build JSON results & download
+  ===============================*/
+  function keyFor(el){
+    return el.dataset.kinkId || el.name || el.id ||
+      (el.getAttribute('aria-label') || el.placeholder || '').replace(/\s+/g,'_').toLowerCase();
+  }
 
-    document.querySelectorAll('input, select, textarea').forEach(el => {
+  function collectResults(){
+    const panel = $(PANEL_SEL) || document;
+    const answers = {}, byDataId = {}, items = [];
+
+    $$( 'input, select, textarea', panel ).forEach(el => {
       if (el.disabled) return;
-
       const k = keyFor(el);
       if (!k) return;
 
       let v = 0;
-      if (el.type === 'checkbox' || el.type === 'radio') {
-        v = el.checked ? 1 : 0;
-      } else if (el.tagName === 'SELECT') {
-        v = toNum(el.value);
-      } else if ('value' in el) {
-        v = toNum(el.value);
-      }
+      if (el.type === 'checkbox' || el.type === 'radio') v = el.checked ? 1 : 0;
+      else if (el.tagName === 'SELECT') v = toNum(el.value);
+      else if ('value' in el) v = toNum(el.value);
 
       answers[k] = v;
-      const id = el.dataset.kinkId;
-      if (id) byDataId[id] = v;
-      list.push({ id: id || null, key: k, value: v });
+      if (el.dataset.kinkId) byDataId[el.dataset.kinkId] = v;
+      items.push({ id: el.dataset.kinkId || null, key: k, value: v });
     });
 
     return {
       meta: {
         source: 'talkkink.org/kinksurvey',
-        generated_at: new Date().toISOString(),
-        schema: 'tk-answers-v1'
+        schema: 'tk-answers-v1',
+        generated_at: new Date().toISOString()
       },
-      answers,
-      byDataId,
-      items: list
+      answers, byDataId, items
     };
   }
 
-  function downloadJSON(data) {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  function downloadJSONFile(data){
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+    const ts   = new Date().toISOString().replace(/[:.]/g,'-');
     a.href = url;
-    a.download = `talkkink-survey-${stamp}.json`;
+    a.download = `kink-survey-${ts}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
   }
 
-  function injectDownloadButton(scope = document){
-    const maybe = [...scope.querySelectorAll('a,button')];
-    const back  = maybe.find(el => norm(el.textContent).includes('back to home'));
-    if (!back || back.dataset.tkDownloadInjected) return;
-
-    const btn = document.createElement('a');
-    btn.href = '#download';
+  function makeDownloadButton(){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tk-download-json';
     btn.textContent = 'Download survey';
-    btn.setAttribute('role','button');
-    btn.dataset.tkDownloadInjected = '1';
-    if (back.className) btn.className = back.className;
-    btn.addEventListener('click', e => {
-      e.preventDefault();
-      const data = collectResults();
-      downloadJSON(data);
-    });
-    back.replaceWith(btn);
+    btn.addEventListener('click', () => downloadJSONFile(collectResults()));
+    return btn;
   }
 
-  function watchCompletion(){
-    const panel = document.querySelector('.category-panel, #categoryPanel, [data-panel="category"]') || document.body;
-    const mo = new MutationObserver(muts => {
-      for (const m of muts) {
-        if (m.type === 'childList' && (m.addedNodes?.length || 0) > 0) {
-          injectDownloadButton(panel);
-        }
-      }
-    });
-    mo.observe(panel, {childList:true, subtree:true});
-    injectDownloadButton(panel);
+  /* ==============================
+     3) Replace “Back to home” with Download
+     - watches for completion block and swaps the link
+  ===============================*/
+  function upgradeCompletionUI(){
+    const root = document.body;
+
+    // Find a link whose text includes "back to home"
+    const link = $$( 'a', root ).find(a => /back\s*to\s*home/i.test((a.textContent||'').trim()));
+    if(!link) return false;
+
+    const btn = makeDownloadButton();
+    link.replaceWith(btn);
+    return true;
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    watchPanel();
-    setTimeout(watchPanel, 200);
-    setTimeout(watchPanel, 600);
-    watchCompletion();
-  });
+  function watchForCompletion(){
+    if (upgradeCompletionUI()) return; // already present
+
+    const mo = new MutationObserver(() => {
+      if (upgradeCompletionUI()) mo.disconnect();
+    });
+    mo.observe(document.body, {childList:true, subtree:true});
+  }
+
+  /* ==============================
+     Init
+  ===============================*/
+  const start = () => { startZeroing(); watchForCompletion(); };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, {once:true});
+  } else {
+    start();
+  }
 })();
 </script>
 </body>
