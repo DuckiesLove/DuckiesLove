@@ -87,10 +87,10 @@
     const findByLabel = (pattern) => buttons.find(btn => pattern.test((btn.textContent || "").trim())) || null;
 
     const compat = findByLabel(/compat/i);
-    if (compat) compat.href = 'https://talkkink.org/compatibility.html';
+    if (compat) compat.href = '/compatibility/';
 
     const analysis = findByLabel(/individual\s*kink\s*analysis/i);
-    if (analysis) analysis.href = 'https://talkkink.org/individualkinkanalysis.html';
+    if (analysis) analysis.href = '/ika/';
   }
 
   function ensureHero(){
@@ -116,10 +116,10 @@
     startNode.removeAttribute('disabled');
     stack.appendChild(startNode);
 
-    const compatNode = el('a',{class:'ksvBtn', href:'/compat'},'Compatibility Page');
+    const compatNode = el('a',{class:'ksvBtn', href:'/compatibility/'},'Compatibility Page');
     stack.appendChild(compatNode);
 
-    const analysisNode = el('a',{class:'ksvBtn', href:'/ika'},'Individual Kink Analysis');
+    const analysisNode = el('a',{class:'ksvBtn', href:'/ika/'},'Individual Kink Analysis');
     stack.appendChild(analysisNode);
 
     const themeRow = el('div',{class:'ksvThemeRow', id:'tkThemeRow'});
