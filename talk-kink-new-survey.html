@@ -496,78 +496,129 @@
 <!-- TK: Kink Survey helpers (zero defaults, download JSON on completion) -->
 <script>
 (function () {
-  // === 1) Utility: robust DOM helpers ============================
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-  // === 2) Zero the ratings on first load =========================
-  // We try common input patterns used on the survey page:
+  /* ---------- 1) Zero all rating widgets on first paint ---------- */
   function zeroAllRatings() {
-    const controls = $$(
-      [
-        // selects or number inputs inside each kink row
-        'select[data-rating]',
-        '.kink-row select',
-        '.kink-row input[type="number"]',
-        '.ksv-row select',
-        '.ksv-row input[type="number"]',
-        // any generic range/number/select used for ratings
-        'select[data-score]',
-        'input[type="range"][data-score]',
-        'input[type="number"][data-score]'
-      ].join(',')
-    );
+    const controls = $$([
+      // common patterns on the survey page
+      'select[data-rating]',
+      '.kink-row select',
+      '.kink-row input[type="number"]',
+      '.ksv-row select',
+      '.ksv-row input[type="number"]',
+      'select[data-score]',
+      'input[type="range"][data-score]',
+      'input[type="number"][data-score]'
+    ].join(','));
 
     controls.forEach(el => {
-      const current = (el.value ?? '').trim();
-      if (current === '' || isNaN(Number(current))) {
+      const v = (el.value ?? '').trim();
+      if (v === '' || isNaN(Number(v))) {
         el.value = '0';
-        el.dispatchEvent(new Event('change', { bubbles: true }));
         el.dispatchEvent(new Event('input',  { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
       }
     });
   }
 
-  // === 3) Build the analysis-friendly JSON =======================
-  // We try to read both an id and a key for each kink row. The
-  // analysis pages can pick whichever map they’re written for.
-  function collectAnswers() {
-    const rows = $$(
-      [
-        '[data-kink-id]',        // preferred
-        '.kink-row',             // fallback class
-        '.ksv-row',              // another common class
-        '[data-kink-key]'        // explicit key only
-      ].join(',')
-    );
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', zeroAllRatings, { once:true });
+  } else {
+    zeroAllRatings();
+  }
 
+  /* ---------- 2) Fetch kinks.json so we can derive canonical keys ---------- */
+  const KINKS_URLS = [
+    '/kinksurvey/data/kinks.json',  // preferred in this repo
+    '/data/kinks.json',             // common fallback you added
+    '/kinksurvey/kinks.json',
+    '/kinks.json'
+  ];
+
+  async function fetchFirst(urls) {
+    const errors = [];
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) { errors.push(`${url}: HTTP ${res.status}`); continue; }
+        const text = await res.text();
+        // guard: make sure it’s JSON, not an HTML 404 page
+        if (/^\s*</.test(text)) { errors.push(`${url}: HTML`); continue; }
+        const json = JSON.parse(text);
+        return { json, url };
+      } catch (err) {
+        errors.push(`${url}: ${err && err.message || 'fetch error'}`);
+      }
+    }
+    return { json: null, url: null, errors };
+  }
+
+  function flattenKinks(kinksJson) {
+    // We accept several shapes; return [{key, label}, ...]
+    const out = [];
+    const visit = (obj) => {
+      if (!obj) return;
+      if (Array.isArray(obj)) { obj.forEach(visit); return; }
+      // typical category/item schema
+      if (obj.items && Array.isArray(obj.items)) visit(obj.items);
+      if (obj.kinks && Array.isArray(obj.kinks)) visit(obj.kinks);
+      if (obj.children && Array.isArray(obj.children)) visit(obj.children);
+      if (obj.key && obj.label) out.push({ key: obj.key, label: obj.label });
+    };
+    visit(kinksJson);
+    // build lookups
+    const byLabel = Object.create(null);
+    out.forEach(it => { byLabel[normaliseLabel(it.label)] = it.key; });
+    return { list: out, byLabel };
+  }
+
+  function normaliseLabel(s) {
+    return (s || '')
+      .replace(/\s+/g, ' ')
+      .replace(/\xa0/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  /* ---------- 3) Collect answers from DOM and map to keys ---------- */
+  function deriveLabelFromRow(row) {
+    // try common label selectors; fall back to the visible text minus control text
+    const labelEl =
+      row.querySelector('[data-kink-label], .kink-label, .ksv-label, .label, .tk-kink-label, h4, .title');
+
+    if (labelEl) return labelEl.textContent || '';
+
+    // fallback: collect text, excluding the select/value widgets
+    const clone = row.cloneNode(true);
+    $$('select,input,button', clone).forEach(n => n.remove());
+    return clone.textContent || '';
+  }
+
+  function collectAnswers(withKeyLookup /* {byLabel} or null */) {
+    const rows = $$('[data-kink-id], [data-kink-key], .kink-row, .ksv-row');
     const answers = [];
-    const byId  = {};
-    const byKey = {};
+    const byId  = Object.create(null);
+    const byKey = Object.create(null);
 
     rows.forEach(row => {
-      // Detect id/key in multiple ways
-      const id  = row.getAttribute('data-kink-id')
-               || row.dataset.kinkId
-               || row.dataset.id
-               || row.id
-               || null;
+      const id  = row.getAttribute('data-kink-id')  || row.dataset.kinkId  || row.dataset.id  || row.id  || null;
+      let   key = row.getAttribute('data-kink-key') || row.dataset.kinkKey || row.dataset.key || null;
 
-      const key = row.getAttribute('data-kink-key')
-               || row.dataset.kinkKey
-               || row.dataset.key
-               || null;
+      // rating control
+      const control = row.querySelector('select, input[type="range"], input[type="number"]');
+      const rating  = Number((control && control.value) || 0);
 
-      // Find a rating control associated with the row
-      const control =
-        row.querySelector('select, input[type="range"], input[type="number"]');
+      // derive key from label if DOM doesn’t expose it
+      if (!key && withKeyLookup) {
+        const rawLabel = deriveLabelFromRow(row);
+        const norm     = normaliseLabel(rawLabel);
+        key = withKeyLookup.byLabel[norm] || null;
+      }
 
-      const rating = Number((control && control.value) || 0);
-
-      // At least one identifier must exist to be useful
       if (id || key) {
-        const entry = { id: id ?? null, key: key ?? null, rating };
-        answers.push(entry);
+        answers.push({ id: id ?? null, key: key ?? null, rating });
         if (id)  byId[id]   = rating;
         if (key) byKey[key] = rating;
       }
@@ -576,18 +627,19 @@
     return { answers, answersById: byId, answersByKey: byKey };
   }
 
-  // JSON payload (kept very explicit so validators can key off it)
-  function buildPayload() {
+  /* ---------- 4) Export JSON that the other pages accept ---------- */
+  async function buildPayload() {
     const now = new Date().toISOString();
 
-    // Attempt to carry through any version/hash if the page exposes it
-    const kinksVersion =
-      window.__KINKS_VERSION__ || window.KINKS_VERSION || null;
+    // Try to load canonical kinks to compute keys reliably
+    let kinksMeta = null;
+    try {
+      const res = await fetchFirst(KINKS_URLS);
+      if (res.json) kinksMeta = flattenKinks(res.json);
+    } catch (_) { /* non-fatal */ }
 
-    const kinksSource =
-      window.__KINKS_SRC__ || window.KINKS_SRC || 'data/kinks.json';
-
-    const { answers, answersById, answersByKey } = collectAnswers();
+    const { answers, answersById, answersByKey } =
+      collectAnswers(kinksMeta /* can be null */);
 
     return {
       $schema: "https://talkkink.org/schemas/kink-survey-result.v1.json",
@@ -595,58 +647,47 @@
       type:    "kink-survey-result",
       version: 1,
       generatedAt: now,
-      kinksSource,
-      kinksVersion,
-      totals: {
-        count: answers.length
-      },
-      // primary list (array)
-      answers,
-      // two maps so consumers can choose their preferred addressing mode
-      answersById,
-      answersByKey
+      kinksSource: kinksMeta ? "resolved" : "unresolved",
+      totals: { count: answers.length },
+      answers,            // array
+      answersById,        // id → rating (if ids available)
+      answersByKey        // key → rating (preferred by compatibility/IKA)
     };
   }
 
-  function downloadSurveyJson() {
-    const data = buildPayload();
-    const pretty = JSON.stringify(data, null, 2);
+  function triggerDownload(name, json) {
+    const pretty = JSON.stringify(json, null, 2);
     const blob = new Blob([pretty], { type: "application/json" });
-
-    const ts = (new Date())
-      .toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0,19);
-
     const a = document.createElement('a');
-    a.download = `tk-survey_${ts}.json`;
+    a.download = name;
     a.href = URL.createObjectURL(blob);
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => {
-      URL.revokeObjectURL(a.href);
-      a.remove();
-    }, 0);
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
   }
 
-  // === 4) Replace the completion UI with "Download Survey" =======
-  // We observe DOM changes and look for the usual “complete” box.
+  async function onDownloadSurvey() {
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0,19);
+    const payload = await buildPayload();
+    triggerDownload(`tk-survey_${ts}.json`, payload);
+  }
+
+  /* ---------- 5) Replace completion footer with Download button ---------- */
   function installCompletionObserver() {
-    const observer = new MutationObserver(() => {
-      // Typical completion elements/text the page uses:
+    const obs = new MutationObserver(() => {
       const doneBox =
         $('[data-survey-complete], .survey-complete, .ksv-complete') ||
         Array.from($$('.notice, .card, div'))
-             .find(node => /survey\s+complete/i.test(node.textContent || ''));
+          .find(n => /survey\s+complete/i.test(n.textContent || ''));
 
       if (!doneBox) return;
 
-      // 4a) Remove or hide a "Back to home" link if present
       const backLink =
         Array.from(doneBox.querySelectorAll('a,button'))
-             .find(el => /back\s+to\s+home/i.test(el.textContent || ''));
+          .find(el => /back\s+to\s+home/i.test(el.textContent || ''));
 
       if (backLink) backLink.remove();
 
-      // 4b) Insert the Download button (only once)
       if (!$('#tkDownloadSurveyBtn')) {
         const btn = document.createElement('button');
         btn.id = 'tkDownloadSurveyBtn';
@@ -659,25 +700,17 @@
           border-radius:12px; cursor:pointer;
           box-shadow:0 0 0 2px rgba(0,230,255,.35) inset;
         `;
-        btn.addEventListener('click', downloadSurveyJson);
+        btn.addEventListener('click', onDownloadSurvey);
         doneBox.appendChild(btn);
       }
     });
 
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  // === 5) Run ====================================================
-  // Zero out ratings on first paint
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', zeroAllRatings, { once: true });
-  } else {
-    zeroAllRatings();
+    obs.observe(document.body, { childList:true, subtree:true });
   }
 
   installCompletionObserver();
-
 })();
 </script>
+
 </body>
 </html>
