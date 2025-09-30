@@ -649,12 +649,22 @@
     renderPanel(S.cats);
     status.textContent = `Loaded ${S.cats.length} categories`;
     maybeRevealPanel();
-    if (errs?.length) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
+    if (errs?.length){
+      if (DEBUG_FETCH) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
+      else console.warn('[kinksurvey] Fetch notes:', errs.join(' | '));
+    }
   }catch(e){
     const msg = e?.message || e;
-    const extra = e?.notes?.length ? '\nFetch notes:\n- ' + e.notes.join('\n- ') : '';
-    showFetchNote(e?.notes);
-    showDiag(msg + extra + '\nThis page will populate once /data/kinks.json is published.');
+    const notes = Array.isArray(e?.notes) ? e.notes : [];
+    showFetchNote(notes);
+    const baseMessage = 'This page will populate once /data/kinks.json is published.';
+    if (DEBUG_FETCH && notes.length){
+      const extra = '\nFetch notes:\n- ' + notes.join('\n- ');
+      showDiag(msg + extra + '\n' + baseMessage);
+    } else {
+      console.warn('[kinksurvey] Fetch failed:', msg, notes);
+      showDiag(baseMessage);
+    }
     status.textContent = 'Dataset unavailable';
   }
 })();
