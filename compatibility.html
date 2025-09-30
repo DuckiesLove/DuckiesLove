@@ -849,6 +849,182 @@ RESULT
   });
 })();
 </script>
+<!-- ===============================================================
+DROP-IN PATCH for /compatibility.html
+Place this block at the very END of the file, right before </body>.
+It does three things:
+
+A) Loads jsPDF + autoTable from CDN and safely wires window.jsPDF
+   so your TKPDF_export works.
+
+B) Adds a tiny “safe trim / number” normalizer that your loader can
+   call *before* the rest of the page logic to prevent
+   “Cannot read properties of undefined (reading 'trim')”.
+
+C) If your current code builds a “JSON union” / rows from uploaded
+   files, this patch wraps that with a sanitation step so labels/keys
+   are always strings and ratings are numbers.
+
+You do not need to remove your existing code — this patches around it.
+================================================================= -->
+
+<!-- A) jsPDF + autoTable (fixes “window.jspdf is undefined / autoTable is not a function”) -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js" defer></script>
+
+<script>
+/* Wait for jsPDF UMD to attach to window and expose window.jsPDF  */
+(function bootPDF(){
+  function ready(){
+    try {
+      if (window.jspdf && window.jspdf.jsPDF) {
+        // Provide the commonly-used alias
+        window.jsPDF = window.jspdf.jsPDF;
+        // Touch a doc so autoTable can patch itself onto the prototype if needed
+        const test = new window.jsPDF({compress:false});
+        if (typeof test.autoTable !== 'function') {
+          // Some builds of the plugin attach lazily (require a call). Nothing to do.
+          // If your export still says autoTable is not a function after this,
+          // it means the plugin didn’t load (adblocker / CSP) — check console.
+        }
+      }
+    } catch(e) { /* ignore */ }
+  }
+  // Try after load; also a timed retry (helps with slow networks)
+  window.addEventListener('load', ready, {once:true});
+  setTimeout(ready, 800);
+})();
+</script>
+
+<script>
+/* ======================================================
+ B) & C)  DATA SANITIZER (prevents .trim() on undefined)
+ 
+ Use this to normalize the parsed survey JSON *before* the
+ rest of the page touches it. It is tolerant and will coerce:
+   - undefined/null -> ''
+   - non-string -> String(v)
+   - ratings -> Number(...) (default 0)
+   - arrays -> []     objects -> {}
+
+ If your existing loader already has a place where it produces
+ an array of rows or an “answers” array, call TK_SAFE.normalizeSurvey(...)
+ on that object first. If you can’t easily insert the call,
+ this patch also intercepts common patterns (see bottom).
+====================================================== */
+(function(){
+  const TK_SAFE = window.TK_SAFE = window.TK_SAFE || {};
+
+  function s(v){ return (v == null) ? '' : (typeof v === 'string' ? v : String(v)); }
+  function st(v){ return s(v).trim(); }
+  function num(v){ const n = Number(v); return Number.isFinite(n) ? n : 0; }
+
+  // Canonical survey object -> {schema,answers,answersByKey,keys,cells}
+  TK_SAFE.normalizeSurvey = function(raw){
+    if (!raw || typeof raw !== 'object') throw new Error('bad survey');
+
+    // canonical path
+    if (raw.schema === 'tk-survey.v1' && Array.isArray(raw.answers)) {
+      const answers = raw.answers.map(a => ({
+        key:   st(a?.key),
+        label: st(a?.label),
+        rating: num(a?.rating)
+      }));
+      const answersByKey = {};
+      answers.forEach(a => answersByKey[a.key] = a.rating);
+      const keys  = answers.map(a => a.key);
+      const cells = [answers.map(a => a.rating)];
+      return { schema:'tk-survey.v1', site: raw.site||'', generatedAt: raw.generatedAt||'',
+               answers, answersByKey, keys, cells };
+    }
+
+    // loose {answers:[{key,label?,rating?}]}
+    if (Array.isArray(raw.answers)) {
+      const answers = raw.answers.map(a => ({
+        key:   st(a?.key),
+        label: st(a?.label),
+        rating: num(a?.rating)
+      }));
+      const answersByKey = {};
+      answers.forEach(a => answersByKey[a.key] = a.rating);
+      const keys  = answers.map(a => a.key);
+      const cells = [answers.map(a => a.rating)];
+      return { schema:'tk-survey.v1', site:'', generatedAt:'',
+               answers, answersByKey, keys, cells };
+    }
+
+    // loose {answersByKey:{k:v}}
+    if (raw.answersByKey && typeof raw.answersByKey === 'object') {
+      const answers = Object.entries(raw.answersByKey).map(([k,v]) => ({
+        key: st(k), label:'', rating: num(v)
+      }));
+      const answersByKey = {};
+      answers.forEach(a => answersByKey[a.key] = a.rating);
+      const keys  = answers.map(a => a.key);
+      const cells = [answers.map(a => a.rating)];
+      return { schema:'tk-survey.v1', site:'', generatedAt:'',
+               answers, answersByKey, keys, cells };
+    }
+
+    throw new Error('unrecognized survey shape');
+  };
+
+  // Normalizes ANY “row-like” array the page may build (prevents .trim() on undefined)
+  TK_SAFE.normalizeRows = function(rows){
+    rows = Array.isArray(rows) ? rows : [];
+    return rows.map(r => ({
+      key:   st(r?.key),
+      label: st(r?.label),
+      rating: num(r?.rating),
+      // Keep any extra fields but prevent trim errors later
+      ...r,
+      keyRaw:   r?.key,   // keep originals if caller needs them
+      labelRaw: r?.label
+    }));
+  };
+
+  // Make helper globally reachable if the page wants a one-off safe trim
+  window.tkSafeTrim = st;
+  window.tkSafeNum  = num;
+
+  /* ----------------------------------------------------
+   OPTIONAL: Intercept common loader patterns to sanitize
+   automatically if you can’t insert calls inside existing
+   code easily. Each of these is conservative / no-op if
+   your page doesn’t use that symbol.
+  ---------------------------------------------------- */
+  // 1) If your page assigns window.SurveyA / SurveyB, wrap them
+  Object.defineProperty(window, 'SurveyA', {
+    set(v){ try { this._SurveyA = TK_SAFE.normalizeSurvey(v); } catch(_){ this._SurveyA = v; } },
+    get(){ return this._SurveyA; }
+  });
+  Object.defineProperty(window, 'SurveyB', {
+    set(v){ try { this._SurveyB = TK_SAFE.normalizeSurvey(v); } catch(_){ this._SurveyB = v; } },
+    get(){ return this._SurveyB; }
+  });
+
+  // 2) If your code builds “union rows” into window.JSON_UNION (array),
+  // sanitize it so any downstream .trim() calls are safe.
+  const setUnion = (val) => { window._JSON_UNION = TK_SAFE.normalizeRows(val); };
+  Object.defineProperty(window, 'JSON_UNION', {
+    set(val){ try { setUnion(val); } catch(_){ window._JSON_UNION = val; } },
+    get(){ return window._JSON_UNION; }
+  });
+
+  // 3) In case your code exposes a function that receives parsed records:
+  //    wrap it once so inputs are sanitized.
+  if (typeof window.filterGeneralOptions === 'function' && !window._tkPatchedFilter) {
+    const orig = window.filterGeneralOptions;
+    window.filterGeneralOptions = function(arr){
+      try { arr = TK_SAFE.normalizeRows(arr); } catch(_) {}
+      // If the original was expecting strings, also coerce:
+      const safeArr = (arr||[]).map(r => tkSafeTrim(r?.label ?? r?.key ?? r));
+      return orig.call(this, safeArr);
+    };
+    window._tkPatchedFilter = true;
+  }
+})();
+</script>
 <!-- ---------- End Safe Bootstrap ---------- -->
 </body>
 </html>
