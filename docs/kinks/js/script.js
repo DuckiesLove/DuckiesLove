@@ -551,7 +551,11 @@ beginSurveyBtn.addEventListener('click', () => {
   }
 });
 
-saveSurveyBtn.addEventListener('click', exportSurvey);
+saveSurveyBtn.addEventListener('click', () => {
+  exportSurvey().catch(err => {
+    console.error('Export failed', err);
+  });
+});
 
 function navigateHome() {
   // Always go to the main website
@@ -841,7 +845,34 @@ function buildPanelLayout() {
 }
 
 // ================== Export My List ==================
-function downloadBlob(blob, filename) {
+async function downloadBlob(blob, filename) {
+  const mime = blob.type && blob.type !== '' ? blob.type : 'application/octet-stream';
+  const ext = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')) : '';
+
+  if (typeof window.showSaveFilePicker === 'function') {
+    try {
+      const pickerOpts = {
+        suggestedName: filename
+      };
+      if (ext) {
+        pickerOpts.types = [{
+          description: `${ext.toUpperCase().replace('.', '')} File`,
+          accept: { [mime]: [ext] }
+        }];
+      }
+      const handle = await window.showSaveFilePicker(pickerOpts);
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        return false;
+      }
+      console.warn('showSaveFilePicker failed, falling back to download link', err);
+    }
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.style.display = 'none';
@@ -853,9 +884,10 @@ function downloadBlob(blob, filename) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, 0);
+  return true;
 }
 
-function exportSurvey() {
+async function exportSurvey() {
   if (!surveyA) {
     alert('No survey loaded.');
     return;
@@ -868,19 +900,25 @@ function exportSurvey() {
     type: 'application/json'
   });
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  downloadBlob(blob, `kink-survey-${ts}.json`);
+  const saved = await downloadBlob(blob, `kink-survey-${ts}.json`);
   try {
     localStorage.setItem('savedSurvey', JSON.stringify(exportObj));
   } catch (err) {
     console.warn('Failed to save survey to localStorage:', err);
   }
-  // After exporting, send the user to the data tools page
-  setTimeout(() => {
-    window.location.href = '/data-tools.html';
-  }, 0);
+  if (saved) {
+    // After exporting, send the user to the data tools page
+    setTimeout(() => {
+      window.location.href = '/data-tools.html';
+    }, 0);
+  }
 }
 
-if (downloadBtn) downloadBtn.addEventListener('click', exportSurvey);
+if (downloadBtn) downloadBtn.addEventListener('click', () => {
+  exportSurvey().catch(err => {
+    console.error('Export failed', err);
+  });
+});
 
 function downloadPDF() {
   document.body.classList.add('exporting');
