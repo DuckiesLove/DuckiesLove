@@ -1,7 +1,8 @@
 (() => {
   const DICT_URLS = ["/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
+  const CODE_RE = /\bcb_[a-z0-9]+\b/i;
 
-  // Small seed so a few rows look nice even if you haven’t filled the dictionary yet.
+  // Seed so some rows read nicely while you complete /data/kinks.json
   const FALLBACK_LABELS = {
     cb_zsnrb: "Dress partner’s outfit",
     cb_6jd2f: "Pick lingerie / base layers",
@@ -17,22 +18,105 @@
     cb_rn136: "Clothing as power-role signal"
   };
 
+  // Which object keys might contain the human label in uploaded JSON
+  const LABEL_KEYS = [
+    "label","title","name","question","prompt","text","summary","short",
+    "display","displayName","labelShort","titleShort","nameShort","desc",
+    "description","caption","heading","subheading","subtitle","hint","help",
+    "helper","note"
+  ];
+  // Which object keys might contain the cb_* code
+  const CODE_KEYS = ["id","code","key","slug","cell","category","item","cb","kinkId","kink_id","nodeId"];
+
   const LABELS = { ...FALLBACK_LABELS };
-  let dictReady = false;
+  let loadedDict = false;
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Utilities
-  const CODE_RE = /\bcb_[a-z0-9]+\b/i;
-  const isCode = (v) => typeof v === "string" && CODE_RE.test(v);
-  const toLabelCandidate = (s) =>
-    typeof s === "string" ? s.trim().replace(/\s+/g, " ").slice(0, 140) : null;
+  const log = (...a) => console.info("[labels]", ...a);
 
-  function setLabel(code, label) {
+  function isCode(v) { return typeof v === "string" && CODE_RE.test(v); }
+  function codeFrom(v) {
+    if (!v || typeof v !== "string") return null;
+    const m = v.match(CODE_RE);
+    return m ? m[0] : null;
+  }
+  function nice(s) {
+    return typeof s === "string" ? s.trim().replace(/\s+/g," ").slice(0,160) : null;
+  }
+  function putLabel(code, label) {
     if (!code || !label) return;
     if (!LABELS[code]) LABELS[code] = label;
   }
 
-  function getTable() {
+  async function loadSharedDictionary() {
+    if (loadedDict) return;
+    for (const url of DICT_URLS) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) continue;
+        const txt = await res.text();
+        // Don’t attempt to parse HTML error pages
+        if (/^\s*</.test(txt)) continue;
+        const data = JSON.parse(txt);
+        const src = data?.labels && typeof data.labels === "object" ? data.labels : data;
+        if (src && typeof src === "object") Object.assign(LABELS, src);
+        loadedDict = true;
+        log("loaded", Object.keys(LABELS).length, "labels from", url);
+        break;
+      } catch {}
+    }
+    if (!loadedDict) log("no shared dictionary found (optional)");
+  }
+
+  // Walk any uploaded JSON and harvest code → label pairs
+  function harvestFromJSON(root) {
+    const seen = new WeakSet();
+    const stack = [root];
+    let harvested = 0;
+
+    while (stack.length) {
+      const node = stack.pop();
+      if (!node || typeof node !== "object" || seen.has(node)) continue;
+      seen.add(node);
+
+      // Try to extract (code,label) pairs from this node
+      let code = null, label = null;
+
+      // 1) direct fields
+      for (const k of CODE_KEYS) {
+        if (isCode(node[k])) { code = codeFrom(node[k]); break; }
+      }
+      for (const k of LABEL_KEYS) {
+        if (!label && node[k]) label = nice(node[k]);
+      }
+      // 2) nested obvious containers
+      if (!label && node.meta) {
+        for (const k of LABEL_KEYS) {
+          if (!label && node.meta[k]) label = nice(node.meta[k]);
+        }
+      }
+      if (!label && node.question) {
+        for (const k of LABEL_KEYS) {
+          if (!label && node.question[k]) label = nice(node.question[k]);
+        }
+      }
+      if (!label && node.text && typeof node.text === "string") {
+        label = nice(node.text);
+      }
+
+      if (code && label) {
+        putLabel(code, label);
+        harvested++;
+      }
+
+      // Recurse
+      for (const v of Object.values(node)) {
+        if (v && typeof v === "object") stack.push(v);
+      }
+    }
+    if (harvested) log("harvested", harvested, "labels from uploaded JSON");
+  }
+
+  function getCompatTable() {
     return (
       document.querySelector("#compatTable") ||
       document.querySelector(".compat-table") ||
@@ -41,215 +125,135 @@
     );
   }
 
-  function extractCodeFromCell(td) {
-    if (!td) return null;
-    if (td.dataset && td.dataset.code) return td.dataset.code.trim();
-    const m = (td.textContent || "").trim().match(CODE_RE);
-    return m ? m[0] : null;
-  }
+  // Replace any cb_* code shown in the first column with its friendly label
+  function relabelTableChunked() {
+    const table = getCompatTable();
+    if (!table) return;
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Non-blocking dictionary loader
-  async function loadSharedDictionary() {
-    if (dictReady) return true;
-    for (const url of DICT_URLS) {
-      try {
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) continue;
-        const data = await res.json();
-        const src = data?.labels && typeof data.labels === "object" ? data.labels : data;
-        if (src && typeof src === "object") Object.assign(LABELS, src);
-        dictReady = true;
-        console.info("[labels] loaded", Object.keys(LABELS).length, "labels from", url);
-        break;
-      } catch (_) {}
-    }
-    return dictReady;
-  }
+    const rows = Array.from(table.querySelectorAll("tbody tr"));
+    let i = 0;
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Non-blocking deep harvest from uploaded A/B survey JSON
-  function asyncHarvest(obj, { budgetMs = 8, hardCap = 120_000 } = {}) {
-    // BFS queue; process in small idle slices
-    const q = [];
-    const seen = new WeakSet();
-    const push = (x) => { if (x && typeof x === "object" && !seen.has(x)) { seen.add(x); q.push(x); } };
+    const step = (deadline) => {
+      while (i < rows.length && (!deadline || deadline.timeRemaining() > 6)) {
+        const tr = rows[i++];
+        const td = tr?.children?.[0];
+        if (!td) continue;
 
-    push(obj);
+        const raw = (td.textContent || "").trim();
+        const code = codeFrom(raw);
+        if (!code) continue;
 
-    function tick(deadline) {
-      const start = performance.now();
-      let processed = 0;
-
-      while (q.length) {
-        if (processed > hardCap) break;
-
-        // Time budget: stop if we’ve used the slice
-        if (deadline && deadline.timeRemaining && deadline.timeRemaining() < 2) break;
-        if (!deadline && performance.now() - start > budgetMs) break;
-
-        const node = q.shift();
-        processed++;
-
-        try {
-          // Scan immediate fields for code + candidate label nearby
-          const keys = Object.keys(node);
-          let nodeCode = null, nodeLabel = null;
-          for (const k of keys) {
-            const v = node[k];
-            if (!nodeCode && isCode(v) && /^(id|code|key|slug|cell|category|item)$/i.test(k)) {
-              nodeCode = v.match(CODE_RE)[0];
-            }
-            if (!nodeLabel && typeof v === "string" &&
-                /^(title|name|label|question|prompt|text|summary|short|desc|description)$/i.test(k)) {
-              nodeLabel = toLabelCandidate(v);
-            }
-          }
-          if (nodeCode && nodeLabel) setLabel(nodeCode, nodeLabel);
-
-          // Also check sibling strings for any explicit cb_*
-          for (const k of keys) {
-            const v = node[k];
-            if (isCode(v)) {
-              const code = v.match(CODE_RE)[0];
-              for (const kk of keys) {
-                if (kk === k) continue;
-                const vv = node[kk];
-                if (typeof vv === "string") setLabel(code, toLabelCandidate(vv));
-                else if (vv && typeof vv === "object") {
-                  const s = pickAnyString(vv);
-                  if (s) setLabel(code, s);
-                }
-              }
-            }
-          }
-
-          // Enqueue children
-          for (const k of keys) {
-            const v = node[k];
-            if (v && typeof v === "object") push(v);
-            else if (Array.isArray(v)) for (const it of v) push(it);
-          }
-        } catch {}
-      }
-
-      if (q.length) {
-        scheduleIdle(tick);
-      } else {
-        console.info("[labels] harvest complete; total known:", Object.keys(LABELS).length);
-        scheduleRelabel();
-      }
-    }
-
-    scheduleIdle(tick);
-  }
-
-  function pickAnyString(o) {
-    if (!o || typeof o !== "object") return null;
-    for (const key of ["title","name","label","short","summary","prompt","question","text","desc","description"]) {
-      const s = toLabelCandidate(o[key]);
-      if (s) return s;
-    }
-    for (const k of Object.keys(o)) {
-      const s = toLabelCandidate(o[k]);
-      if (s) return s;
-    }
-    return null;
-  }
-
-  function scheduleIdle(fn) {
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(fn, { timeout: 100 });
-    } else {
-      setTimeout(() => fn(), 16);
-    }
-  }
-
-  // ──────────────────────────────────────────────────────────────────────
-  // Relabel table (throttled) and then disconnect when stable
-  let relabelScheduled = false, relabelRunning = false, mo = null, stableTimer = null;
-
-  function relabelNow() {
-    if (relabelRunning) return;
-    relabelRunning = true;
-
-    const table = getTable();
-    if (!table) { relabelRunning = false; relabelScheduled = false; return; }
-
-    let changed = 0, total = 0, missing = 0;
-    table.querySelectorAll("tbody tr").forEach(tr => {
-      const td = tr.querySelector("td");
-      if (!td) return;
-      const code = extractCodeFromCell(td);
-      if (!code) return;
-      total++;
-      td.dataset.code = code;
-      const label = LABELS[code];
-      if (label) {
-        if (td.textContent.trim() !== label) {
-          td.textContent = label;
-          changed++;
+        const friendly = LABELS[code];
+        if (friendly && friendly !== raw) {
+          td.textContent = friendly;
+          td.dataset.code = code; // keep original for debug/export
         }
-      } else {
-        missing++;
       }
-    });
+      if (i < rows.length) {
+        (window.requestIdleCallback || window.setTimeout)(step, 1);
+      } else {
+        log("relabel complete. total rows:", rows.length);
+      }
+    };
+    (window.requestIdleCallback || window.setTimeout)(step, 1);
+  }
 
-    // If table looks stable (no missing for 2s), stop observing → prevents any thrash
-    clearTimeout(stableTimer);
-    if (missing === 0 && total > 0) {
-      stableTimer = setTimeout(() => {
-        if (mo) mo.disconnect();
-        console.info("[labels] table stabilized; observer disconnected");
-      }, 2000);
+  // Build missing-label template for any codes still visible in the table
+  function exportMissingLabels() {
+    const table = getCompatTable();
+    if (!table) return;
+    const rows = Array.from(table.querySelectorAll("tbody tr"));
+    const missing = {};
+
+    for (const tr of rows) {
+      const td = tr.children?.[0];
+      if (!td) continue;
+      const raw = (td.textContent || "").trim();
+      const code = codeFrom(raw) || td.dataset.code;
+      if (code && !LABELS[code]) missing[code] = "";
     }
 
-    relabelRunning = false;
-    relabelScheduled = false;
-  }
-  function scheduleRelabel() { if (!relabelScheduled) { relabelScheduled = true; setTimeout(relabelNow, 60); } }
+    if (!Object.keys(missing).length) {
+      alert("All categories are labeled. Nothing to export.");
+      return;
+    }
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Wire uploads with non-blocking harvesting
-  function bindUploads() {
-    document.querySelectorAll('input[type="file"]').forEach(input => {
-      if (input.dataset.tkTapped === "1") return;
-      input.dataset.tkTapped = "1";
-      input.addEventListener("change", (ev) => {
-        const f = ev.target.files && ev.target.files[0];
-        if (!f) return;
+    const payload = JSON.stringify({ labels: missing }, null, 2);
+    const blob = new Blob([payload], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "kinks-missing-labels.template.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function addFloatingButton() {
+    if (document.getElementById("tk-missing-labels-btn")) return;
+    const btn = document.createElement("button");
+    btn.id = "tk-missing-labels-btn";
+    btn.textContent = "Missing labels";
+    Object.assign(btn.style, {
+      position: "fixed", right: "16px", bottom: "16px", zIndex: 9999,
+      border: "2px solid #00e6ff", background: "transparent", color: "#00e6ff",
+      padding: "10px 14px", borderRadius: "10px", cursor: "pointer",
+      font: "600 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+      boxShadow: "0 0 8px rgba(0,230,255,.35)"
+    });
+    btn.onmouseenter = () => btn.style.background = "rgba(0,230,255,.1)";
+    btn.onmouseleave = () => btn.style.background = "transparent";
+    btn.onclick = exportMissingLabels;
+    document.body.appendChild(btn);
+  }
+
+  // Also try to harvest labels straight from uploaded files (without interfering)
+  function watchUploads() {
+    document.querySelectorAll('input[type="file"]').forEach((inp) => {
+      if (inp.dataset.tkWatched) return;
+      inp.dataset.tkWatched = "1";
+      inp.addEventListener("change", () => {
+        const f = inp.files && inp.files[0];
+        if (!f || !/\.json$/i.test(f.name)) return;
         const reader = new FileReader();
         reader.onload = () => {
           try {
-            const json = JSON.parse(reader.result);
-            console.info("[labels] starting async harvest from uploaded survey …");
-            asyncHarvest(json);            // ← non-blocking now
-          } catch (e) {
-            console.warn("[labels] bad JSON upload:", e?.message || e);
-          }
+            const txt = String(reader.result || "");
+            // Skip if the file isn’t JSON (e.g., someone picked PDF)
+            if (/^\s*</.test(txt)) return;
+            const data = JSON.parse(txt);
+            harvestFromJSON(data);
+            // After harvesting, attempt relabel again
+            relabelTableChunked();
+          } catch {}
         };
         reader.readAsText(f);
-      }, { passive: true });
+      });
     });
   }
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Boot
-  window.TK_labelStatus = () => ({ dictReady, known: Object.keys(LABELS).length });
+  // Kick everything off after DOM is ready
+  function init() {
+    addFloatingButton();
+    watchUploads();
+    loadSharedDictionary().then(() => relabelTableChunked());
 
-  loadSharedDictionary().finally(scheduleRelabel);
+    // The table may be re-rendered by your page code after uploads. Keep it fresh.
+    const mo = new MutationObserver((muts) => {
+      for (const m of muts) {
+        if (m.type === "childList") {
+          // debounce
+          clearTimeout(init._t);
+          init._t = setTimeout(relabelTableChunked, 60);
+          break;
+        }
+      }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+  }
 
-  mo = new MutationObserver(() => {
-    bindUploads();
-    scheduleRelabel();
-  });
-  mo.observe(document.documentElement, { childList: true, subtree: true });
-
-  window.addEventListener("load", () => {
-    bindUploads();
-    scheduleRelabel();
-    // one more pass after layout settles
-    setTimeout(scheduleRelabel, 400);
-    setTimeout(scheduleRelabel, 1200);
-  });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
 })();
