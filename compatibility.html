@@ -704,502 +704,9 @@ RESULT
 </script>
 
 
-<!-- ===== TK Compatibility Page Patch (place right before </body>) ===== -->
+<!-- ===== TK Compatibility Page Hardening Patch (v2) — paste before </body> ===== -->
 
-<!-- 1) Load jsPDF + autoTable and expose window.jsPDF reliably -->
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js" defer></script>
-<script>
-(function ensureJsPDF(){
-  function ready(){
-    // jsPDF 2.x UMD constructor lives at window.jspdf.jsPDF
-    if (window.jspdf && window.jspdf.jsPDF) {
-      window.jsPDF = window.jspdf.jsPDF;
-      try { new window.jsPDF({compress:false}); } catch(_) {}
-    }
-  }
-  window.addEventListener('load', ready, {once:true});
-  // extra nudge in case load fires before CDN settles
-  setTimeout(ready, 800);
-})();
-</script>
-
-<!-- 2) Canonical, safe survey normalizer + sanitizers -->
-<script>
-(function(){
-  // Safe coercers
-  const S = v => (v == null ? '' : (typeof v === 'string' ? v : String(v)));
-  const T = v => S(v).trim();
-  const N = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
-
-  // Convert any plausible uploaded survey object into canonical shape
-  function normalizeSurvey(raw){
-    if (!raw || typeof raw !== 'object') throw new Error('bad survey');
-
-    // Already canonical?
-    if (raw.schema === 'tk-survey.v1' && Array.isArray(raw.answers)) {
-      const answers = raw.answers.map(a => ({
-        key   : T(a?.key),
-        label : T(a?.label),
-        rating: N(a?.rating)
-      }));
-      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
-      return { schema:'tk-survey.v1', site: raw.site||'', generatedAt: raw.generatedAt||'',
-               answers, answersByKey };
-    }
-
-    // Loose shapes -> canonical
-    if (Array.isArray(raw.answers)) {
-      const answers = raw.answers.map(a => ({ key:T(a?.key), label:T(a?.label), rating:N(a?.rating) }));
-      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
-      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
-    }
-    if (raw.answersByKey && typeof raw.answersByKey === 'object') {
-      const answers = Object.entries(raw.answersByKey)
-        .map(([k,v]) => ({ key:T(k), label:'', rating:N(v) }));
-      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
-      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
-    }
-
-    throw new Error('unrecognized survey shape');
-  }
-  window.TK_NORMALIZE_SURVEY = normalizeSurvey; // exposed for debugging
-
-  // Make sure all objects contain trimmed strings before your code uses them
-  function sanitizeSurvey(s){
-    if (!s || typeof s !== 'object') return;
-    s.answers = (Array.isArray(s.answers) ? s.answers : [])
-      .filter(Boolean)
-      .map(a => ({ key:T(a?.key), label:T(a?.label), rating:N(a?.rating) }));
-    s.answersByKey = Object.fromEntries(s.answers.map(a => [a.key, a.rating]));
-  }
-
-  // Some builds keep the union globally; guard it if we find it
-  function sanitizeUnion(u){
-    if (!Array.isArray(u)) return;
-    u.forEach(r => {
-      if (!r || typeof r !== 'object') return;
-      r.key   = T(r.key);
-      r.label = T(r.label);
-      r.group = T(r.group);
-      r.category = T(r.category);
-    });
-  }
-
-  function sanitizeAll(){
-    sanitizeSurvey(window.SurveyA);
-    sanitizeSurvey(window.SurveyB);
-    // Try common union names used on this page
-    ['compatUnion','UNION','KSV_UNION','TK_UNION','gUnion'].forEach(n=>{
-      if (window[n]) sanitizeUnion(window[n]);
-    });
-  }
-
-  // 3) Bind to any JSON file inputs and normalize uploaded files.
-  function bindJsonInputs(){
-    const inputs = Array.from(document.querySelectorAll('input[type="file"][accept*="json" i]'));
-    let assignToA = true; // first upload -> A, next -> B (works with typical UI)
-    inputs.forEach(input=>{
-      if (input._tkPatched) return;
-      input._tkPatched = true;
-
-      input.addEventListener('change', function(ev){
-        const file = ev.target.files && ev.target.files[0];
-        if (!file) return;
-        const r = new FileReader();
-        r.onload = function(e){
-          try{
-            const obj = JSON.parse(String(e.target.result || '{}'));
-            const normalized = normalizeSurvey(obj);
-
-            // If your page uses explicit IDs, you can set them here too
-            // otherwise we assign first file to A, second to B (idempotent)
-            if (assignToA || !window.SurveyA) {
-              window.SurveyA = normalized;
-              assignToA = false;
-            } else {
-              window.SurveyB = normalized;
-            }
-
-            sanitizeAll(); // ensure no undefined fields remain
-            console.info('[compat] normalized upload:', assignToA ? 'B' : 'A',
-              'answers:', (assignToA ? window.SurveyB : window.SurveyA)?.answers?.length ?? 0);
-          }catch(err){
-            alert('Invalid JSON. Please upload the unmodified JSON file exported from the survey.');
-            console.error(err);
-          }
-        };
-        r.readAsText(file);
-      }, true);
-    });
-  }
-
-  // 4) Wrap the functions from your stack trace so they *always* see sanitized data.
-  function patchCompatRoutines(){
-    ['calculateCompatibility','updateComparison'].forEach(name=>{
-      const fn = window[name];
-      if (typeof fn === 'function' && !fn.__tkWrapped) {
-        const wrapped = function(...args){
-          try { sanitizeAll(); } catch(_){ }
-          return fn.apply(this, args);
-        };
-        wrapped.__tkWrapped = true;
-        window[name] = wrapped;
-      }
-    });
-
-    // If a helper applies trims over general options, guard it too (if present).
-    if (typeof window.filterGeneralOptions === 'function' && !window._tkPatchedFilter) {
-      const orig = window.filterGeneralOptions;
-      window.filterGeneralOptions = function(arr){
-        const safe = (arr || []).map(x => T(x));
-        return orig.call(this, safe);
-      };
-      window._tkPatchedFilter = true;
-    }
-  }
-
-  // 5) Initialize + watch for late-bound functions
-  function init(){
-    bindJsonInputs();
-    sanitizeAll();
-    patchCompatRoutines();
-  }
-  window.addEventListener('load', init, {once:true});
-  setTimeout(init, 700); // late scripts
-  const mo = new MutationObserver(()=>{ bindJsonInputs(); patchCompatRoutines(); });
-  mo.observe(document.documentElement, {subtree:true, childList:true});
-
-})();
-</script>
-<!-- ===== /TK Compatibility Page Patch ===== -->
-
-
-<!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
-<script>
-/* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
-(function () {
-  const LOG = (...a) => console.log("[TK-SAFE]", ...a);
-
-  /* A. QUICK SANITY CHECKS — find & warn about merge markers (these often lock pages) */
-  try {
-    const html = document.documentElement.innerHTML;
-    const HEAD = '<'.repeat(7);
-    const SEP = '='.repeat(7);
-    const TAIL = '>'.repeat(7);
-    if (html.includes(HEAD) && html.includes(SEP) && html.includes(TAIL)) {
-      const conflictPattern = new RegExp(`${HEAD}[\s\S]*?${SEP}[\s\S]*?${TAIL}`);
-      if (conflictPattern.test(html)) {
-        console.warn("[TK-SAFE] Merge conflict markers detected in DOM. Remove them to avoid broken JS/CSS.");
-      }
-    }
-  } catch (_) {}
-
-  /* B. ONE-TIME INIT GUARD (prevents duplicate event bind/render loops) */
-  if (window.__TK_INITED__) {
-    LOG("Init skipped: already initialized.");
-    return;
-  }
-  window.__TK_INITED__ = true;
-
-  /* C. SAFE-MODE FLAGS (use ?safe=1 or ?nopdf=1 or ?noscore=1 to bypass heavy work) */
-  const params = new URLSearchParams(location.search);
-  const SAFE_MODE  = params.has("safe");
-  const NO_PDF     = SAFE_MODE || params.has("nopdf");
-  const NO_SCORE   = SAFE_MODE || params.has("noscore");
-
-  if (SAFE_MODE) LOG("SAFE MODE ON: skipping scoring/render and lazy-loading libraries.");
-
-  /* D. SMALL UTILITIES */
-  const byId = (id) => document.getElementById(id);
-  function once(el, type, handler, opts) {
-    // prevent stacked duplicate listeners after HMR/partials
-    el && el.addEventListener(type, function f(e) {
-      el.removeEventListener(type, f, opts);
-      handler(e);
-    }, opts);
-  }
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) return resolve();
-      const s = document.createElement("script");
-      s.src = src; s.async = true; s.defer = true;
-      s.onload = resolve;
-      s.onerror = () => reject(new Error("Failed to load " + src));
-      document.head.appendChild(s);
-    });
-  }
-  function idle(fn) {
-    // yield back to the browser to keep UI responsive
-    return (window.requestIdleCallback || ((cb)=>setTimeout(cb,0)))(fn);
-  }
-
-  /* E. LAZY LOADERS FOR HEAVY LIBS (loaded only on click) */
-  async function ensureJsPDF() {
-    if (!(window.jspdf && window.jspdf.jsPDF)) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-    }
-  }
-  async function ensureAutoTable() {
-    // Only after jsPDF UMD maps window.jspdf.jsPDF
-    await ensureJsPDF();
-    const hasAT = (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)
-               || (window.jspdf && window.jspdf.autoTable);
-    if (!hasAT) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
-    }
-  }
-
-  /* F. DEFENSIVE BINDINGS (buttons used across pages) */
-  idle(() => {
-    // PDF buttons (compatibility, IKA, etc.)
-    const dl1 = byId("downloadBtn");
-    const dl2 = byId("downloadPdfBtn");
-    const anyDownload = dl1 || dl2;
-
-    if (anyDownload) {
-      const handler = async (e) => {
-        e.preventDefault();
-        if (NO_PDF) { alert("PDF disabled (safe mode). Add ?safe=0 or remove ?nopdf."); return; }
-        try {
-          // Lazy load heavy libs only now
-          await ensureAutoTable();
-          // Yield once more before heavy export:
-          await new Promise(r => setTimeout(r, 0));
-          // Call your existing exporter (must be defined elsewhere)
-          if (typeof window.TKPDF_export === "function") {
-            await window.TKPDF_export();
-          } else if (typeof window.TKPDF_forceDark === "function") {
-            await window.TKPDF_forceDark();
-          } else if (typeof window.exportIKAPdf === "function") {
-            await window.exportIKAPdf();
-          } else {
-            alert("Export function not found. Expected TKPDF_export/TKPDF_forceDark/exportIKAPdf.");
-          }
-        } catch (err) {
-          console.error("[TK-SAFE] PDF export failed:", err);
-          alert("PDF export failed: " + (err?.message || err));
-        }
-      };
-
-      // Bind once to whichever exists
-      if (dl1) once(dl1, "click", handler);
-      if (dl2) once(dl2, "click", handler);
-      LOG("Bound PDF button(s).");
-    }
-
-    // File upload styled label (IKA)
-    const fileInput = byId("ikaFile");
-    const fileLabel = document.querySelector('label[for="ikaFile"]');
-    if (fileInput && fileLabel) {
-      once(fileLabel, "click", () => fileInput.click());
-      LOG("Bound Upload Survey label→input.");
-    }
-  });
-
-  /* G. STOP RUNNING EXPENSIVE WORK ON LOAD (scoring/rendering) */
-  // Wrap your page’s auto-render or scoring in this gate:
-  window.TK_canRunHeavy = function () {
-    if (SAFE_MODE) return false;
-    // Avoid running more than once
-    if (window.__TK_HEAVY_RAN__) return false;
-    window.__TK_HEAVY_RAN__ = true;
-    return true;
-  };
-
-  // Example usage for your pages (leave here; your code can call it):
-  // if (window.TK_canRunHeavy()) {
-  //   // run scoring/render here or schedule with idle(...)
-  //   idle(() => window.renderResults && window.renderResults());
-  // }
-
-  /* H. GLOBAL CATCH FOR ACCIDENTAL LONG TASKS */
-  // If something still locks the UI, advise safe mode.
-  window.addEventListener("error", (e) => {
-    console.warn("[TK-SAFE] Window error:", e.message);
-  });
-})();
-</script>
-<!-- ===============================================================
-DROP-IN PATCH for /compatibility.html
-Place this block at the very END of the file, right before </body>.
-It does three things:
-
-A) Loads jsPDF + autoTable from CDN and safely wires window.jsPDF
-   so your TKPDF_export works.
-
-B) Adds a tiny “safe trim / number” normalizer that your loader can
-   call *before* the rest of the page logic to prevent
-   “Cannot read properties of undefined (reading 'trim')”.
-
-C) If your current code builds a “JSON union” / rows from uploaded
-   files, this patch wraps that with a sanitation step so labels/keys
-   are always strings and ratings are numbers.
-
-You do not need to remove your existing code — this patches around it.
-================================================================= -->
-
-<!-- A) jsPDF + autoTable (fixes “window.jspdf is undefined / autoTable is not a function”) -->
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js" defer></script>
-
-<script>
-/* Wait for jsPDF UMD to attach to window and expose window.jsPDF  */
-(function bootPDF(){
-  function ready(){
-    try {
-      if (window.jspdf && window.jspdf.jsPDF) {
-        // Provide the commonly-used alias
-        window.jsPDF = window.jspdf.jsPDF;
-        // Touch a doc so autoTable can patch itself onto the prototype if needed
-        const test = new window.jsPDF({compress:false});
-        if (typeof test.autoTable !== 'function') {
-          // Some builds of the plugin attach lazily (require a call). Nothing to do.
-          // If your export still says autoTable is not a function after this,
-          // it means the plugin didn’t load (adblocker / CSP) — check console.
-        }
-      }
-    } catch(e) { /* ignore */ }
-  }
-  // Try after load; also a timed retry (helps with slow networks)
-  window.addEventListener('load', ready, {once:true});
-  setTimeout(ready, 800);
-})();
-</script>
-
-<script>
-/* ======================================================
- B) & C)  DATA SANITIZER (prevents .trim() on undefined)
- 
- Use this to normalize the parsed survey JSON *before* the
- rest of the page touches it. It is tolerant and will coerce:
-   - undefined/null -> ''
-   - non-string -> String(v)
-   - ratings -> Number(...) (default 0)
-   - arrays -> []     objects -> {}
-
- If your existing loader already has a place where it produces
- an array of rows or an “answers” array, call TK_SAFE.normalizeSurvey(...)
- on that object first. If you can’t easily insert the call,
- this patch also intercepts common patterns (see bottom).
-====================================================== */
-(function(){
-  const TK_SAFE = window.TK_SAFE = window.TK_SAFE || {};
-
-  function s(v){ return (v == null) ? '' : (typeof v === 'string' ? v : String(v)); }
-  function st(v){ return s(v).trim(); }
-  function num(v){ const n = Number(v); return Number.isFinite(n) ? n : 0; }
-
-  // Canonical survey object -> {schema,answers,answersByKey,keys,cells}
-  TK_SAFE.normalizeSurvey = function(raw){
-    if (!raw || typeof raw !== 'object') throw new Error('bad survey');
-
-    // canonical path
-    if (raw.schema === 'tk-survey.v1' && Array.isArray(raw.answers)) {
-      const answers = raw.answers.map(a => ({
-        key:   st(a?.key),
-        label: st(a?.label),
-        rating: num(a?.rating)
-      }));
-      const answersByKey = {};
-      answers.forEach(a => answersByKey[a.key] = a.rating);
-      const keys  = answers.map(a => a.key);
-      const cells = [answers.map(a => a.rating)];
-      return { schema:'tk-survey.v1', site: raw.site||'', generatedAt: raw.generatedAt||'',
-               answers, answersByKey, keys, cells };
-    }
-
-    // loose {answers:[{key,label?,rating?}]}
-    if (Array.isArray(raw.answers)) {
-      const answers = raw.answers.map(a => ({
-        key:   st(a?.key),
-        label: st(a?.label),
-        rating: num(a?.rating)
-      }));
-      const answersByKey = {};
-      answers.forEach(a => answersByKey[a.key] = a.rating);
-      const keys  = answers.map(a => a.key);
-      const cells = [answers.map(a => a.rating)];
-      return { schema:'tk-survey.v1', site:'', generatedAt:'',
-               answers, answersByKey, keys, cells };
-    }
-
-    // loose {answersByKey:{k:v}}
-    if (raw.answersByKey && typeof raw.answersByKey === 'object') {
-      const answers = Object.entries(raw.answersByKey).map(([k,v]) => ({
-        key: st(k), label:'', rating: num(v)
-      }));
-      const answersByKey = {};
-      answers.forEach(a => answersByKey[a.key] = a.rating);
-      const keys  = answers.map(a => a.key);
-      const cells = [answers.map(a => a.rating)];
-      return { schema:'tk-survey.v1', site:'', generatedAt:'',
-               answers, answersByKey, keys, cells };
-    }
-
-    throw new Error('unrecognized survey shape');
-  };
-
-  // Normalizes ANY “row-like” array the page may build (prevents .trim() on undefined)
-  TK_SAFE.normalizeRows = function(rows){
-    rows = Array.isArray(rows) ? rows : [];
-    return rows.map(r => ({
-      key:   st(r?.key),
-      label: st(r?.label),
-      rating: num(r?.rating),
-      // Keep any extra fields but prevent trim errors later
-      ...r,
-      keyRaw:   r?.key,   // keep originals if caller needs them
-      labelRaw: r?.label
-    }));
-  };
-
-  // Make helper globally reachable if the page wants a one-off safe trim
-  window.tkSafeTrim = st;
-  window.tkSafeNum  = num;
-
-  /* ----------------------------------------------------
-   OPTIONAL: Intercept common loader patterns to sanitize
-   automatically if you can’t insert calls inside existing
-   code easily. Each of these is conservative / no-op if
-   your page doesn’t use that symbol.
-  ---------------------------------------------------- */
-  // 1) If your page assigns window.SurveyA / SurveyB, wrap them
-  Object.defineProperty(window, 'SurveyA', {
-    set(v){ try { this._SurveyA = TK_SAFE.normalizeSurvey(v); } catch(_){ this._SurveyA = v; } },
-    get(){ return this._SurveyA; }
-  });
-  Object.defineProperty(window, 'SurveyB', {
-    set(v){ try { this._SurveyB = TK_SAFE.normalizeSurvey(v); } catch(_){ this._SurveyB = v; } },
-    get(){ return this._SurveyB; }
-  });
-
-  // 2) If your code builds “union rows” into window.JSON_UNION (array),
-  // sanitize it so any downstream .trim() calls are safe.
-  const setUnion = (val) => { window._JSON_UNION = TK_SAFE.normalizeRows(val); };
-  Object.defineProperty(window, 'JSON_UNION', {
-    set(val){ try { setUnion(val); } catch(_){ window._JSON_UNION = val; } },
-    get(){ return window._JSON_UNION; }
-  });
-
-  // 3) In case your code exposes a function that receives parsed records:
-  //    wrap it once so inputs are sanitized.
-  if (typeof window.filterGeneralOptions === 'function' && !window._tkPatchedFilter) {
-    const orig = window.filterGeneralOptions;
-    window.filterGeneralOptions = function(arr){
-      try { arr = TK_SAFE.normalizeRows(arr); } catch(_) {}
-      // If the original was expecting strings, also coerce:
-      const safeArr = (arr||[]).map(r => tkSafeTrim(r?.label ?? r?.key ?? r));
-      return orig.call(this, safeArr);
-    };
-    window._tkPatchedFilter = true;
-  }
-})();
-</script>
-
-<!-- ===== TK Compatibility Page Hardening Patch (paste before </body>) ===== -->
-
-<!-- jsPDF + autoTable (fixes "jsPDF undefined" or "autoTable is not a function") -->
+<!-- Fix PDF export: ensure jsPDF + autoTable are present BEFORE any export code runs -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js" defer></script>
 <script>
@@ -1217,28 +724,32 @@ You do not need to remove your existing code — this patches around it.
 
 <script>
 (function(){
-  // ---------- Tiny coercers ----------
-  const STR = v => (v == null ? '' : (typeof v === 'string' ? v : String(v)));
+  // ----------------- Tiny safe coercers -----------------
+  const STR  = v => (v == null ? '' : (typeof v === 'string' ? v : String(v)));
   const TRIM = v => STR(v).trim();
-  const NUM = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const NUM  = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
-  // ---------- Canonical survey shape ----------
+  // ----------------- Canonical survey shape -----------------
   function canonSurvey(raw){
     if (!raw || typeof raw !== 'object') throw new Error('bad survey');
 
+    // Already v1 shape
     if (raw.schema === 'tk-survey.v1' && Array.isArray(raw.answers)) {
-      const answers = raw.answers.map(a => ({
+      const answers = raw.answers.filter(Boolean).map(a => ({
         key   : TRIM(a?.key),
         label : TRIM(a?.label),
         rating: NUM(a?.rating)
       }));
       const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
-      return { schema:'tk-survey.v1', site: raw.site||'', generatedAt: raw.generatedAt||'',
+      return { schema:'tk-survey.v1',
+               site: raw.site||'',
+               generatedAt: raw.generatedAt||'',
                answers, answersByKey };
     }
 
+    // answers array
     if (Array.isArray(raw.answers)) {
-      const answers = raw.answers.map(a => ({
+      const answers = raw.answers.filter(Boolean).map(a => ({
         key   : TRIM(a?.key),
         label : TRIM(a?.label),
         rating: NUM(a?.rating)
@@ -1247,6 +758,7 @@ You do not need to remove your existing code — this patches around it.
       return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
     }
 
+    // answersByKey object
     if (raw.answersByKey && typeof raw.answersByKey === 'object') {
       const answers = Object.entries(raw.answersByKey)
         .map(([k, v]) => ({ key: TRIM(k), label:'', rating: NUM(v) }));
@@ -1254,7 +766,7 @@ You do not need to remove your existing code — this patches around it.
       return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
     }
 
-    // Very old shapes (optional): categories → questions → rating
+    // Very old: categories → questions
     if (Array.isArray(raw.categories)) {
       const flat = [];
       raw.categories.forEach(c => {
@@ -1265,10 +777,11 @@ You do not need to remove your existing code — this patches around it.
         });
       });
       const answersByKey = Object.fromEntries(flat.map(a => [a.key, a.rating]));
-      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers:flat, answersByKey };
+      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers: flat, answersByKey };
     }
 
-    throw new Error('unrecognized survey shape');
+    // If nothing matched, still return an empty v1 so downstream never breaks
+    return { schema:'tk-survey.v1', site:'', generatedAt:'', answers:[], answersByKey:{} };
   }
 
   function sanitizeSurvey(sv){
@@ -1291,35 +804,55 @@ You do not need to remove your existing code — this patches around it.
     });
   }
 
-  // ---------- Wrap JSON.parse so parsed surveys/unions are safe immediately ----------
+  // ----------------- Wrap JSON.parse (network & inline JSON) -----------------
   (function wrapJSONParse(){
     const _parse = JSON.parse;
     JSON.parse = function(str, reviver){
       const obj = _parse(str, reviver);
       try {
-        // Detect and canonicalize surveys
         if (obj && typeof obj === 'object') {
+          // Detect & canonicalize surveys
           if (Array.isArray(obj.answers) || obj.answersByKey || Array.isArray(obj.categories)) {
             return canonSurvey(obj);
           }
-          // Detect likely union lists and sanitize labels/keys
-          const union =
-            (Array.isArray(obj.union) && obj.union) ||
-            (Array.isArray(obj.rows) && obj.rows)   ||
-            (Array.isArray(obj.kinks) && obj.kinks);
+          // Detect likely union data and sanitize labels/keys
+          const union = (Array.isArray(obj.union) && obj.union) ||
+                        (Array.isArray(obj.rows)  && obj.rows)  ||
+                        (Array.isArray(obj.kinks) && obj.kinks);
           if (union) {
             union.splice(0, union.length, ...sanitizeUnionArray(union));
           }
         }
-      } catch(e) {
-        // fall back to original parse result
-        console.warn('[compat] JSON.parse patch fell back:', e);
-      }
+      } catch(e) { console.warn('[compat] JSON.parse patch fell back:', e); }
       return obj;
     };
   })();
 
-  // ---------- Always call with safe globals ----------
+  // ----------------- Hook FileReader so uploads are safe BEFORE site code runs -----------------
+  (function patchFileReader(){
+    const orig = FileReader.prototype.readAsText;
+    FileReader.prototype.readAsText = function(blob){
+      // Make sure our handler runs first (capture)
+      const fix = (ev) => {
+        try {
+          const txt = String(ev.target.result || '');
+          // If it looks like JSON, canonicalize and replace the result string itself.
+          // This way, any subsequent "JSON.parse(e.target.result)" gets the safe shape.
+          if (txt.trim().startsWith('{') || txt.trim().startsWith('[')) {
+            let parsed = JSON.parse(txt);            // goes through our JSON.parse wrapper
+            parsed = canonSurvey(parsed);            // belt-and-suspenders
+            ev.target.result = JSON.stringify(parsed);
+          }
+        } catch (err) {
+          console.warn('[compat] FileReader patch could not normalize upload:', err);
+        }
+      };
+      this.addEventListener('load', fix, {once:true, capture:true});
+      return orig.apply(this, arguments);
+    };
+  })();
+
+  // ----------------- Ensure safe globals & wrap compute -----------------
   function ensureDefaults(){
     if (!window.SurveyA) window.SurveyA = { schema:'tk-survey.v1', answers:[], answersByKey:{} };
     if (!window.SurveyB) window.SurveyB = { schema:'tk-survey.v1', answers:[], answersByKey:{} };
@@ -1328,12 +861,17 @@ You do not need to remove your existing code — this patches around it.
   }
 
   function patchCompute(){
-    ['calculateCompatibility','updateComparison'].forEach(name=>{
+    ['calculateCompatibility','updateComparison','filterGeneralOptions'].forEach(name=>{
       const fn = window[name];
       if (typeof fn === 'function' && !fn.__tkSafe) {
         const wrapped = function(...args){
-          try { ensureDefaults(); } catch(_){ }
-          return fn.apply(this, args);
+          try { ensureDefaults(); } catch(_) {}
+          try { return fn.apply(this, args); }
+          catch(e){
+            console.error(`[compat] ${name} failed (guarded)`, e);
+            // Keep the UI alive even if one pass failed
+            return null;
+          }
         };
         wrapped.__tkSafe = true;
         window[name] = wrapped;
@@ -1341,47 +879,18 @@ You do not need to remove your existing code — this patches around it.
     });
   }
 
-  // ---------- If file inputs exist, coerce uploads too (defensive) ----------
-  function bindUploads(){
-    const inputs = Array.from(document.querySelectorAll('input[type="file"][accept*="json" i]'));
-    let sawA = false;
-    inputs.forEach(inp=>{
-      if (inp._tkBound) return;
-      inp._tkBound = true;
-      inp.addEventListener('change', ev=>{
-        const f = ev.target.files && ev.target.files[0];
-        if (!f) return;
-        const r = new FileReader();
-        r.onload = e=>{
-          try{
-            const parsed = JSON.parse(String(e.target.result||'{}')); // lands in our JSON.parse wrapper
-            if (!sawA) { window.SurveyA = parsed; sawA = true; } else { window.SurveyB = parsed; }
-            ensureDefaults();
-            console.info('[compat] upload normalized:', sawA ? 'B' : 'A',
-              (sawA?window.SurveyB.answers.length:window.SurveyA.answers.length),'answers');
-          }catch(err){
-            alert('Invalid JSON. Please upload the unmodified JSON file exported from the survey.');
-            console.error(err);
-          }
-        };
-        r.readAsText(f);
-      }, true);
-    });
-  }
-
-  // ---------- Init ----------
+  // ----------------- Init -----------------
   function init(){
     ensureDefaults();
     patchCompute();
-    bindUploads();
   }
   window.addEventListener('load', init, {once:true});
   setTimeout(init, 700);
-  new MutationObserver(()=>{ patchCompute(); bindUploads(); })
+  new MutationObserver(()=>{ patchCompute(); })
     .observe(document.documentElement, {childList:true, subtree:true});
 })();
 </script>
-<!-- ===== /TK Compatibility Page Hardening Patch ===== -->
+<!-- ===== /TK Compatibility Page Hardening Patch (v2) ===== -->
 
 <!-- ---------- End Safe Bootstrap ---------- -->
 </body>
