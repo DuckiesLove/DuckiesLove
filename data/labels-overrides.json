@@ -1,5 +1,7 @@
 {
-  "cb_wwf76": "Makeup as protocol or control",
-  "cb_swujj": "Accessory or ornament rules",
-  "cb_k55xd": "Wardrobe restrictions or permissions"
+  "cb_wwf76": "Makeup as protocol or control (strict rule)",
+  "cb_swujj": "Accessory or ornament rules (jewelry, collar, badge)",
+  "cb_05hqj": "Wardrobe restrictions or permissions (owner decides)",
+  "cb_z1ean": "Grooming restrictions or permissions",
+  "cb_k55xd": "Presentation protocols (appearance rules)"
 }

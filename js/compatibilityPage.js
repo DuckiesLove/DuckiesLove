@@ -1,271 +1,169 @@
 'use strict';
 
-(function () {
-  const ID_PREFIXES = ['cb_', 'gn_', 'sa_', 'sh_', 'bd_', 'pl_', 'ps_', 'vr_', 'vo_'];
-  const GROUPS = {
-    'Bodily Fluids and Functions': [],
-    'Body Part Torture': [],
-    'Bondage and Suspension': [],
-    'Breath Play': [],
-    'Psychological': [],
-    'Sexual Activity': [],
-    'Appearance Play': [
-      'cb_zsnrb', 'cb_6jd2f', 'cb_kgrnn', 'cb_169ma', 'cb_4yyxa', 'cb_2c0f9',
-      'cb_qwnhi', 'cb_zvchg', 'cb_qw9jg', 'cb_3ozhq', 'cb_hqakm', 'cb_rn136',
-      'cb_wwf76', 'cb_swujj', 'cb_k55xd'
-    ]
+(async function () {
+  const state = {
+    surveyA: null,
+    surveyB: null,
   };
 
-  const seenIds = new Set();
-  let missingBtn = null;
+  // --- NEW: pre-load labels (non-blocking, awaited before we paint rows) ---
+  const labelsPromise = window.tkLabels?.load?.() ?? Promise.resolve(new Map());
 
-  document.addEventListener('DOMContentLoaded', init);
-  document.addEventListener('tk-labels:ready', () => {
-    if (lastState.rendered) render(lastState.rendered);
-  });
-
-  const lastState = { rendered: null };
-
-  function init() {
-    const uploadA = document.getElementById('uploadSurveyA') || document.getElementById('fileA') || document.getElementById('surveyA');
-    const uploadB = document.getElementById('uploadSurveyB') || document.getElementById('fileB') || document.getElementById('surveyB');
-    const tbody = document.querySelector('#compatTable tbody');
-    if (!tbody) return;
-
-    let listA = [];
-    let listB = [];
-
-    attachFileHandler(uploadA, async file => {
-      listA = await parseSurveyFile(file, 'A');
-      refresh();
-    });
-    attachFileHandler(uploadB, async file => {
-      listB = await parseSurveyFile(file, 'B');
-      refresh();
-    });
-
-    function refresh() {
-      const rendered = buildRows(listA, listB);
-      lastState.rendered = rendered;
-      render(rendered);
-    }
-  }
-
-  function attachFileHandler(input, onFile) {
-    if (!input) return;
-    input.addEventListener('change', async () => {
-      const file = input.files && input.files[0];
-      if (!file) return;
-      try {
-        await onFile(file);
-      } catch (err) {
-        const which = input === document.getElementById('uploadSurveyB') || input === document.getElementById('fileB') || input === document.getElementById('surveyB') ? 'B' : 'A';
-        alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON exported from this site.`);
-        console.error(err);
+  // Accepts unmodified exports from this site: { meta, answers: { id:number }, items?:[] }
+  function parseSurvey(json) {
+    if (!json || (typeof json !== 'object')) throw new Error('Empty/invalid survey');
+    if (Array.isArray(json.answers)) {
+      const answers = {};
+      for (const entry of json.answers) {
+        const key = entry?.id || entry?.key;
+        if (!key) continue;
+        answers[key] = Number(entry?.value ?? entry?.score ?? entry?.rating ?? 0);
       }
-    });
-  }
-
-  async function parseSurveyFile(file, which) {
-    const raw = await readJsonFile(file);
-    const normalized = normalizeSurvey(raw);
-    if (!Array.isArray(normalized)) {
-      throw new Error(`Survey ${which} failed to normalize.`);
+      return { answers };
     }
-    return normalized;
-  }
-
-  function render(rendered) {
-    const table = document.querySelector('#compatTable tbody');
-    if (!table) return;
-
-    table.innerHTML = '';
-    seenIds.clear();
-
-    const labelsApi = window.tkLabels || window.TK_LABELS;
-    const labelGetter = labelsApi && typeof labelsApi.getLabel === 'function'
-      ? labelsApi.getLabel
-      : (id) => id;
-
-    const rowsWithLabels = rendered.rows.map(row => ({
-      ...row,
-      label: labelGetter(row.id)
-    }));
-
-    rowsWithLabels.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-
-    rowsWithLabels.forEach(row => {
-      seenIds.add(row.id);
-      table.appendChild(renderRow(row));
-    });
-
-    buildUnansweredTable(rendered.mapA, rendered.mapB);
-    mountMissingLabelsButton();
-  }
-
-  function readJsonFile(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error('File read error'));
-      reader.onload = () => {
-        try {
-          const json = JSON.parse(String(reader.result || 'null'));
-          resolve(json);
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.readAsText(file);
-    });
-  }
-
-  function normalizeSurvey(raw) {
-    if (!raw) return [];
-    if (Array.isArray(raw.answers)) {
-      return raw.answers
-        .map(entry => ({ id: normalizeId(entry?.id), value: Number(entry?.value ?? 0) || 0 }))
-        .filter(entry => entry.id);
+    if (json.answers && typeof json.answers === 'object') {
+      const answers = {};
+      Object.entries(json.answers).forEach(([key, value]) => {
+        if (!key) return;
+        answers[key] = Number(value ?? 0);
+      });
+      return { answers };
     }
-    const out = [];
-    for (const [id, value] of Object.entries(raw)) {
-      const norm = normalizeId(id);
-      if (norm) out.push({ id: norm, value: Number(value ?? 0) || 0 });
+    // Fallback: array of {key,value}
+    if (Array.isArray(json.items)) {
+      const answers = {};
+      for (const it of json.items) {
+        const k = it.key || it.id;
+        if (k) answers[k] = Number(it.value ?? it.score ?? 0);
+      }
+      return { answers };
     }
-    return out;
+    throw new Error('Unsupported survey format');
   }
 
-  function normalizeId(id) {
-    if (id == null) return '';
-    const key = String(id).trim().toLowerCase();
-    return ID_PREFIXES.some(prefix => key.startsWith(prefix)) ? key : '';
+  // Compute similarity as 100 - |a-b|/5 * 100 (requires both answered)
+  function scoreMatch(a, b) {
+    if (a == null || b == null) return null;
+    const ai = Number(a); const bi = Number(b);
+    if (Number.isNaN(ai) || Number.isNaN(bi)) return null;
+    if (ai <= 0 || bi <= 0) return null;
+    const pct = 100 - (Math.abs(ai - bi) / 5) * 100;
+    return Math.max(0, Math.min(100, pct));
   }
 
-  function buildRows(listA, listB) {
-    const mapA = listToMap(listA);
-    const mapB = listToMap(listB);
-    const ids = new Set([...mapA.keys(), ...mapB.keys()]);
-    const rows = [];
-    ids.forEach(id => {
-      const a = mapA.has(id) ? mapA.get(id) : null;
-      const b = mapB.has(id) ? mapB.get(id) : null;
-      const pct = (Number.isFinite(a) && Number.isFinite(b))
-        ? Math.max(0, Math.min(100, Math.round(100 - Math.abs(a - b) * 20)))
-        : null;
-      rows.push({ id, a, b, pct });
-    });
-    return { rows, mapA, mapB };
+  function pctBar(percent) {
+    const wrap = document.createElement('div');
+    wrap.className = 'pct';
+    const fill = document.createElement('div');
+    fill.className = 'pct-fill';
+    fill.style.width = `${Math.round(percent)}%`;
+    const txt = document.createElement('div');
+    txt.className = 'pct-text';
+    txt.textContent = `${Math.round(percent)}%`;
+    wrap.append(fill, txt);
+    return wrap;
   }
 
-  function listToMap(list) {
-    const map = new Map();
-    (list || []).forEach(item => {
-      if (!item || !item.id) return;
-      map.set(item.id, Number(item.value ?? 0) || 0);
-    });
-    return map;
+  // Helper to make a TD for the category cell (friendly label + raw code)
+  function catCell(id, map) {
+    const td = document.createElement('td');
+    const label = (map && map.get(id)) || id;
+    const span = document.createElement('span');
+    span.className = 'tk-cat';
+    span.textContent = label;
+    const code = document.createElement('span');
+    code.className = 'tk-code';
+    code.textContent = `(${id})`;
+    td.append(span, code);
+    return td;
   }
 
-  function fmtScore(value) {
-    const num = Number(value);
-    return Number.isFinite(num) ? String(num) : '—';
-  }
-
-  function renderRow({ id, a, b, pct, label }) {
+  // Renders one row (id, aVal, bVal)
+  function renderRow(tbody, id, aVal, bVal, map) {
     const tr = document.createElement('tr');
-    tr.dataset.id = id;
-
-    const tdCat = document.createElement('td');
-    tdCat.textContent = label || id;
-    tr.appendChild(tdCat);
-
+    tr.append(catCell(id, map));
     const tdA = document.createElement('td');
-    tdA.textContent = fmtScore(a);
-    tr.appendChild(tdA);
-
+    tdA.textContent = (aVal ?? '—');
     const tdPct = document.createElement('td');
-    tdPct.className = 'tk-pct';
-    const pctSafe = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : null;
-    const pctText = Number.isFinite(pctSafe) ? `${pctSafe}%` : '—';
-    tdPct.innerHTML = `
-      <div class="tk-pct__bar" style="width:${pctSafe ?? 0}%;"></div>
-      <span>${pctText}</span>
-    `;
-    tr.appendChild(tdPct);
-
     const tdB = document.createElement('td');
-    tdB.textContent = fmtScore(b);
-    tr.appendChild(tdB);
-
-    return tr;
+    tdB.textContent = (bVal ?? '—');
+    const pct = scoreMatch(aVal, bVal);
+    if (pct == null) {
+      tdPct.textContent = '—';
+    } else {
+      tdPct.append(pctBar(pct));
+    }
+    tr.append(tdA, tdPct, tdB);
+    tbody.append(tr);
   }
 
-  function mountMissingLabelsButton() {
-    const labelsApi = window.tkLabels || window.TK_LABELS;
-    if (!labelsApi || typeof labelsApi.collectMissing !== 'function') return;
+  async function updateComparison() {
+    // Guard: don’t freeze if only one partner is loaded
+    const a = state.surveyA?.answers || {};
+    const b = state.surveyB?.answers || {};
+    const allIds = Array.from(new Set([...Object.keys(a), ...Object.keys(b)])).sort();
+    // Wait for labels once before paint
+    const map = await labelsPromise;
+    const tbody = document.querySelector('#tk-compat-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    let aCells = 0, bCells = 0;
+    for (const id of allIds) {
+      const av = (id in a) ? a[id] : null;
+      const bv = (id in b) ? b[id] : null;
+      if (av != null) aCells++;
+      if (bv != null) bCells++;
+      renderRow(tbody, id, av, bv, map);
+    }
+    console.info('[compat] filled Partner A cells:', aCells, '; Partner B cells:', bCells);
+  }
 
-    const missing = labelsApi.collectMissing(seenIds);
-    if (!missing.length) {
-      if (missingBtn) {
-        missingBtn.remove();
-        missingBtn = null;
+  // Robust file input handlers (A and B). Accepts .json from site export, untouched.
+  async function handleUpload(file, which) {
+    const text = await file.text();
+    let json;
+    try { json = JSON.parse(text); }
+    catch { alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`); return; }
+    try {
+      const parsed = parseSurvey(json);
+      state[`survey${which}`] = parsed;
+      if (which === 'A') {
+        window.partnerASurvey = parsed.answers;
+        window.surveyA = parsed.answers;
+      } else {
+        window.partnerBSurvey = parsed.answers;
+        window.surveyB = parsed.answers;
       }
-      return;
+      console.info(`[compat] stored Survey ${which} with`, Object.keys(parsed.answers).length, 'answers');
+      updateComparison();
+    } catch (e) {
+      alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`);
     }
-
-    if (!missingBtn) {
-      missingBtn = document.createElement('button');
-      missingBtn.className = 'ksvBtn';
-      missingBtn.style.position = 'fixed';
-      missingBtn.style.right = '24px';
-      missingBtn.style.bottom = '24px';
-      document.body.appendChild(missingBtn);
-    }
-
-    missingBtn.textContent = missing.length > 0 ? `Missing labels (${missing.length})` : 'Missing labels';
-    missingBtn.onclick = () => {
-      const api = window.tkLabels || window.TK_LABELS;
-      if (!api) return;
-      const latest = api.collectMissing(seenIds);
-      const msg = [
-        `You have ${latest.length} ids without labels.`,
-        'Add them to /data/labels-overrides.json.',
-        '',
-        latest.slice(0, 25).join(', ') + (latest.length > 25 ? ' …' : '')
-      ].join('\n');
-      alert(msg);
-      api.downloadMissing(seenIds);
-    };
-    missingBtn.style.display = '';
   }
 
-  function buildUnansweredTable(aMap, bMap) {
-    const table = document.querySelector('#tk-unanswered tbody');
-    if (!table) return;
+  const inputA = document.querySelector('#uploadA')
+    || document.querySelector('#uploadSurveyA')
+    || document.querySelector('[data-upload-a]')
+    || document.querySelector('#uploadYourSurvey input[type="file"]');
+  const inputB = document.querySelector('#uploadB')
+    || document.querySelector('#uploadSurveyB')
+    || document.querySelector('[data-upload-b]')
+    || document.querySelector('#uploadPartnerSurvey input[type="file"]');
 
-    table.innerHTML = '';
+  if (inputA) inputA.setAttribute('accept', 'application/json');
+  if (inputB) inputB.setAttribute('accept', 'application/json');
 
-    const hasResponses = (aMap && aMap.size) || (bMap && bMap.size);
-    if (!hasResponses) {
-      return;
-    }
-
-    Object.entries(GROUPS).forEach(([group, ids]) => {
-      if (!Array.isArray(ids) || !ids.length) return;
-      const anyA = ids.some(id => (aMap.get(id) ?? 0) > 0);
-      const anyB = ids.some(id => (bMap.get(id) ?? 0) > 0);
-      if (anyA || anyB) return;
-
-      const tr = document.createElement('tr');
-      const tdGroup = document.createElement('td');
-      tdGroup.textContent = group;
-      const tdA = document.createElement('td');
-      const tdB = document.createElement('td');
-      tdA.textContent = '’';
-      tdB.textContent = '’';
-      tr.appendChild(tdGroup);
-      tr.appendChild(tdA);
-      tr.appendChild(tdB);
-      table.appendChild(tr);
+  if (inputA) {
+    inputA.addEventListener('change', e => {
+      const f = e.target.files?.[0]; if (f) handleUpload(f, 'A');
     });
   }
+  if (inputB) {
+    inputB.addEventListener('change', e => {
+      const f = e.target.files?.[0]; if (f) handleUpload(f, 'B');
+    });
+  }
+
+  // Initial paint (empty table with headers present)
+  updateComparison();
 })();
