@@ -98,6 +98,94 @@ function colorClass(percent) {
   return 'red';
 }
 
+function tkEscape(s) {
+  return String(s ?? '').replace(/[&<>"']/g, m => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[m]);
+}
+
+function tkNormScore(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(0, Math.min(5, n)) : null;
+}
+
+function tkMatchPercent(aRaw, bRaw) {
+  const a = tkNormScore(aRaw);
+  const b = tkNormScore(bRaw);
+  if (a === null || b === null) return null;
+  if (a === 0 || b === 0) return 0;
+  const diff = Math.abs(a - b);
+  return Math.round((1 - diff / 5) * 100);
+}
+
+function tkSummarizeQuestion(full, fallback) {
+  let s = (full || fallback || '').trim();
+  if (!s) return '';
+  s = s.replace(/\(.*?\)/g, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  s = s
+    .replace(/^Using\s+/i, 'Using ')
+    .replace(/^Wearing\s+/i, 'Wearing ')
+    .replace(/^Receiving\s+/i, 'Receiving ')
+    .replace(/^Giving\s+/i, 'Giving ');
+  if (s.length > 64) s = s.slice(0, 61).trimEnd() + '…';
+  return s;
+}
+
+const TK_SUMMARY_OVERRIDES = {};
+
+function renderCategoryCell(row) {
+  const main = row.category || row.key || row.id || row.name || '';
+  const sourceText = row.title || row.prompt || row.question || '';
+  const overrideKey = typeof main === 'string' ? main : '';
+  const summaryRaw = tkSummarizeQuestion(sourceText, TK_SUMMARY_OVERRIDES[overrideKey]);
+  const summary = summaryRaw && summaryRaw !== main ? summaryRaw : '';
+  const titleText = sourceText || main;
+
+  return `
+    <div class="tk-cat-wrap">
+      <div class="tk-cat-main" title="${tkEscape(titleText)}">${tkEscape(main)}</div>
+      ${summary ? `<div class="tk-cat-sub" title="${tkEscape(sourceText)}">${tkEscape(summary)}</div>` : ''}
+    </div>
+  `;
+}
+
+function renderMatchCell(a, b) {
+  const pct = tkMatchPercent(a, b);
+  if (pct === null) {
+    return `
+      <div class="tk-match-chip" data-missing="1" aria-label="No match data">—</div>
+    `;
+  }
+  return `
+    <div class="tk-match-chip" role="img" aria-label="Match ${pct}%">
+      <div class="tk-match-num">${pct}%</div>
+      <div class="tk-match-bar" aria-hidden="true">
+        <i class="tk-match-fill" style="--w:${pct}%"></i>
+      </div>
+    </div>
+  `;
+}
+
+function renderScoreCell(v) {
+  const n = tkNormScore(v);
+  if (n === null) return '—';
+  return String(n);
+}
+
+if (typeof window !== 'undefined') {
+  window.tkRenderCategoryCell = renderCategoryCell;
+  window.tkRenderMatchCell = renderMatchCell;
+  window.tkRenderScoreCell = renderScoreCell;
+  window.tkMatchPercent = tkMatchPercent;
+  window.tkNormScore = tkNormScore;
+}
+
 function compatNormalizeKey(s){
   return String(s || '')
     .replace(/[\u2018\u2019\u2032]/g,"'")
@@ -374,11 +462,6 @@ function loadFileB(file) {
   reader.readAsText(file);
 }
 
-function calculateMatchPercent(a, b) {
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-  return Math.max(0, 100 - Math.abs(a - b) * 20);
-}
-
 function getFlagOrStar(match, scoreA, scoreB) {
   if (match >= 90) return '⭐';
   const high = val => Number.isFinite(val) && val >= 4;
@@ -390,16 +473,11 @@ function getFlagOrStar(match, scoreA, scoreB) {
 function renderFlags(root = document) {
   const rows = root.querySelectorAll('.item-row');
   rows.forEach(row => {
-    const a = Number(row.dataset.a);
-    const b = Number(row.dataset.b);
     const matchCell = row.querySelector('.match');
     if (!matchCell) return;
-    matchCell.textContent = '-';
-
-    const match = calculateMatchPercent(a, b);
-    if (match !== null) {
-      matchCell.textContent = match + '%';
-    }
+    const a = row.dataset.a;
+    const b = row.dataset.b;
+    matchCell.innerHTML = renderMatchCell(a, b);
   });
 }
 
@@ -523,18 +601,31 @@ function updateComparison() {
       row.setAttribute('data-id', key);
       row.setAttribute('data-key', key);
       row.setAttribute('data-full', fullLabel);
-      row.innerHTML = `
-        <td class="label">${kink.name}</td>
-        <td class="pa" data-partner-a>${kink.partnerA ?? '-'}</td>
-        <td class="match" data-match>-</td>
-        <td class="pb" data-partner-b>${kink.partnerB ?? '-'}</td>
-      `;
-      const firstCell = row.querySelector('td.label');
+      const labelCell = document.createElement('td');
+      labelCell.className = 'label';
+      labelCell.innerHTML = renderCategoryCell({ category: kink.name, title: fullLabel });
       const hidden = document.createElement('span');
       hidden.className = 'full-label';
       hidden.textContent = fullLabel;
       hidden.hidden = true;
-      firstCell.appendChild(hidden);
+      labelCell.appendChild(hidden);
+
+      const aCell = document.createElement('td');
+      aCell.className = 'pa';
+      aCell.setAttribute('data-partner-a', '');
+      aCell.textContent = renderScoreCell(kink.partnerA);
+
+      const matchCell = document.createElement('td');
+      matchCell.className = 'match';
+      matchCell.setAttribute('data-match', '');
+      matchCell.innerHTML = renderMatchCell(kink.partnerA, kink.partnerB);
+
+      const bCell = document.createElement('td');
+      bCell.className = 'pb';
+      bCell.setAttribute('data-partner-b', '');
+      bCell.textContent = renderScoreCell(kink.partnerB);
+
+      row.append(labelCell, aCell, matchCell, bCell);
       block.appendChild(row);
     });
 

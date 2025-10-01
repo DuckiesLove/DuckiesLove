@@ -98,6 +98,39 @@
     }
     .tk-compat td.ta-c{ text-align:center; }
   </style>
+  <style>
+  /* ====== Match % chip (compact, no layout shift) ====== */
+  .tk-match-chip{
+    display:inline-flex; flex-direction:column; align-items:center; gap:6px;
+    min-width:70px; line-height:1; vertical-align:middle;
+  }
+  .tk-match-num{ font-weight:800; letter-spacing:.02em; }
+  .tk-match-bar{
+    position:relative; width:90px; height:7px; border-radius:999px;
+    outline:1px solid rgba(0,230,255,.35);
+    background:rgba(0,230,255,.10); overflow:hidden;
+  }
+  .tk-match-fill{
+    display:block; height:100%; width:var(--w,0%);
+    background:linear-gradient(90deg,#00e6ff,#3bffc4);
+    border-radius:inherit; transition:width .25s ease;
+  }
+  /* Dim the bar if the value is “missing” on that row */
+  .tk-match-chip[data-missing="1"] .tk-match-bar{ opacity:.38; }
+
+  /* ====== Category main + tiny subline (summary) ====== */
+  .tk-cat-wrap{ display:flex; flex-direction:column; gap:3px; }
+  .tk-cat-main{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tk-cat-sub{
+    font-size:.82em; color:#9beff7; opacity:.78;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    max-width:48ch;  /* keep it subtle; doesn’t stretch your layout */
+  }
+  /* On narrow screens you can hide the subline if you want */
+  @media (max-width: 680px){
+    .tk-cat-sub{ display:none; }
+  }
+  </style>
 </head>
 <body class="theme-dark">
   <div class="main-container themed">
@@ -417,17 +450,41 @@
       if (current && !/^[-–—]$/.test(current)) return; // don't overwrite real values
       const val = pickValue(rowKeyBundle(tr), lookup);
       if (val == null) return;
-      td.textContent = String(val);
+      const renderScore = typeof window.tkRenderScoreCell === 'function'
+        ? window.tkRenderScoreCell
+        : v => (v === null || v === undefined || v === '' ? '—' : String(v));
+      td.textContent = renderScore(val);
       wrote++;
     });
     return wrote;
   }
 
   function computeMatch(a, b){
-    const na = Number(a), nb = Number(b);
-    if (!Number.isFinite(na) || !Number.isFinite(nb)) return '';
-    const diff = Math.abs(na - nb);                      // 0..4
-    return Math.round((1 - diff/4) * 100) + '%';         // 100..0
+    if (typeof window.tkRenderMatchCell === 'function') {
+      return window.tkRenderMatchCell(a, b);
+    }
+    const calc = typeof window.tkMatchPercent === 'function'
+      ? window.tkMatchPercent
+      : (va, vb) => {
+          const na = Number(va);
+          const nb = Number(vb);
+          if (!Number.isFinite(na) || !Number.isFinite(nb)) return null;
+          if (na === 0 || nb === 0) return 0;
+          const diff = Math.abs(na - nb);
+          return Math.round((1 - diff / 5) * 100);
+        };
+    const pct = calc(a, b);
+    if (pct === null) {
+      return '<div class="tk-match-chip" data-missing="1" aria-label="No match data">—</div>';
+    }
+    return `
+      <div class="tk-match-chip" role="img" aria-label="Match ${pct}%">
+        <div class="tk-match-num">${pct}%</div>
+        <div class="tk-match-bar" aria-hidden="true">
+          <i class="tk-match-fill" style="--w:${pct}%"></i>
+        </div>
+      </div>
+    `;
   }
 
   function recomputeMatches(root){
@@ -435,7 +492,7 @@
       const a = tr.querySelector('td[data-partner-a], td.pa')?.textContent;
       const b = tr.querySelector('td[data-partner-b], td.pb')?.textContent;
       const m = tr.querySelector('td[data-match]') || tr.children[2]; // assume 3rd col if standard
-      if (m && m.tagName === 'TD') m.textContent = computeMatch(a, b);
+      if (m && m.tagName === 'TD') m.innerHTML = computeMatch(a, b);
     });
   }
 
