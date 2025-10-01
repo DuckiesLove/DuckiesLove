@@ -2354,7 +2354,7 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 (function () {
   /** ------------------  CONFIG  ------------------ **/
   // Prefer the path you actually have to avoid 404s:
-  const DICT_URLS = ["/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
+  const DICT_URLS = ["/data/kinks-labels.json", "/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
 
   // Guaranteed fallbacks if no labels are found anywhere:
   const TK_FALLBACK_LABELS = {
@@ -2487,7 +2487,7 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 (function () {
   /** ==================  CONFIG  ================== **/
   // Where your dictionary lives. First one that exists is used.
-  const DICT_URLS = ["/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
+  const DICT_URLS = ["/data/kinks-labels.json", "/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
 
   // Built-in safety net. Add/extend as you like.
   const FALLBACK_LABELS = {
@@ -2643,6 +2643,197 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 
   // Extra nudge after full load
   window.addEventListener("load", scheduleRelabel, { once: true });
+})();
+</script>
+
+<script>
+(() => {
+  /** ------------------ Config ------------------ **/
+  // Where to try loading the shared label dictionary from (first success wins)
+  const DICT_URLS = ["/data/kinks-labels.json", "/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
+
+  // Minimal built-ins so you at least see some readable text even without the file.
+  // ⚠️ Add any missing ids here OR (better) put everything in /data/kinks.json as shown below.
+  const FALLBACK_LABELS = {
+    cb_zsnrb: "Dress partner’s outfit",
+    cb_6jd2f: "Pick lingerie / base layers",
+    cb_kgrnn: "Uniforms (school, military, nurse, etc.)",
+    cb_169ma: "Time-period dress-up",
+    cb_4yyxa: "Dollification / polished object aesthetics",
+    cb_2c0f9: "Hair-based play (brushing, ribbons, tying)",
+    cb_qwnhi: "Head coverings / symbolic hoods",
+    cb_zvchg: "Coordinated looks / dress codes",
+    cb_qw9jg: "Ritualized grooming",
+    cb_3ozhq: "Praise for pleasing visual display",
+    cb_hqakm: "Formal appearance protocols",
+    cb_rn136: "Clothing as power-role signal"
+    // Add more if you want quick local overrides.
+  };
+
+  /** --------------- Internal state --------------- **/
+  const LABELS = { ...FALLBACK_LABELS };
+  let dictReady = false;
+  let scheduled = false;
+  let running = false;
+  let observer = null;
+  let labeledOnce = false;
+
+  // Harvest labels from many common shapes {labels:{…}}, {categories:[{id,title}]}, {items:[{id,title}]}, etc.
+  function harvestLabels(obj, out = {}) {
+    if (!obj || typeof obj !== "object") return out;
+
+    // Common shapes:
+    if (Array.isArray(obj.categories)) {
+      for (const c of obj.categories) {
+        const id = c.id || c.key || c.code || c.slug;
+        const title = c.title || c.name || c.label || c.summary || c.short || c.shortTitle;
+        if (id && title) out[id] = title;
+      }
+    }
+    if (Array.isArray(obj.items)) {
+      for (const it of obj.items) {
+        const id = it.id || it.code || it.key;
+        const title = it.title || it.prompt || it.question || it.label || it.summary || it.name;
+        if (id && title) out[id] = title;
+      }
+    }
+    if (obj.labels && typeof obj.labels === "object") Object.assign(out, obj.labels);
+    if (obj.meta && obj.meta.labels && typeof obj.meta.labels === "object") Object.assign(out, obj.meta.labels);
+
+    // Shallow recursion catches odd nestings
+    for (const k of Object.keys(obj)) {
+      const v = obj[k];
+      if (v && typeof v === "object") harvestLabels(v, out);
+    }
+    return out;
+  }
+
+  async function loadSharedDictionary() {
+    if (dictReady) return true;
+    for (const url of DICT_URLS) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) {
+          console.info(`[compat] labels not at ${url} (${res.status})`);
+          continue;
+        }
+        const data = await res.json();
+        Object.assign(LABELS, harvestLabels(data));
+        dictReady = true;
+        console.info("[compat] labels loaded from", url, "—", Object.keys(LABELS).length, "entries");
+        break;
+      } catch (e) {
+        console.info("[compat] labels fetch failed for", url, e?.message || e);
+      }
+    }
+    return dictReady;
+  }
+
+  // Friendly helper to check status in DevTools
+  window.TK_labelStatus = () => ({ dictReady, known: Object.keys(LABELS).length });
+
+  // Try to extract a code from a cell: prefer data-code, else find a cb_ token in text.
+  function extractCodeFromCell(td) {
+    if (!td) return null;
+    if (td.dataset && td.dataset.code) return td.dataset.code.trim();
+    const t = (td.textContent || "").trim();
+    const m = t.match(/\bcb_[a-z0-9]+\b/i);
+    return m ? m[0] : null;
+  }
+
+  function prettyLabel(id) { return (id && LABELS[id]) || id; }
+
+  function getCompatTable() {
+    return (
+      document.querySelector("#compatTable") ||
+      document.querySelector(".compat-table") ||
+      document.querySelector("main table") ||
+      document.querySelector("table")
+    );
+  }
+
+  function relabelNow() {
+    if (running) return;
+    running = true;
+
+    const table = getCompatTable();
+    if (!table) {
+      running = false;
+      scheduled = false;
+      return;
+    }
+
+    let changed = 0;
+    table.querySelectorAll("tbody tr").forEach(tr => {
+      if (tr.dataset.tkLabeled === "1") return;
+      const first = tr.querySelector("td");
+      const code = extractCodeFromCell(first);
+      if (code) {
+        const nice = prettyLabel(code);
+        if (nice && nice !== first.textContent.trim()) {
+          first.textContent = nice;
+          changed++;
+        }
+      }
+      tr.dataset.tkLabeled = "1";
+    });
+
+    if (changed > 0) labeledOnce = true;
+
+    // Give late rows a moment to appear, then (if we did real work) stop observing
+    setTimeout(() => {
+      if (observer && labeledOnce) {
+        observer.disconnect();
+        observer = null;
+      }
+      running = false;
+      scheduled = false;
+    }, 120);
+  }
+
+  function scheduleRelabel() {
+    if (scheduled) return;
+    scheduled = true;
+    tapUploadInputs();
+    setTimeout(relabelNow, 80);
+  }
+
+  // Watch the DOM once for table render; disconnect after we’ve labeled at least once.
+  observer = new MutationObserver(scheduleRelabel);
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Merge labels from uploaded survey files (A or B) without touching the site’s own logic.
+  function tapUploadInputs() {
+    const inputs = Array.from(document.querySelectorAll('input[type="file"]'));
+    for (const input of inputs) {
+      if (input.dataset.tkTapped === "1") continue;
+      input.dataset.tkTapped = "1";
+      input.addEventListener("change", (ev) => {
+        const f = ev.target.files && ev.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const json = JSON.parse(reader.result);
+            Object.assign(LABELS, harvestLabels(json));
+            scheduleRelabel();
+            console.info("[compat] merged labels from uploaded survey — total", Object.keys(LABELS).length);
+          } catch (_e) {/* ignore bad uploads */}
+        };
+        reader.readAsText(f);
+      }, { passive: true });
+    }
+  }
+
+  // Initialisation
+  loadSharedDictionary().finally(scheduleRelabel);
+  window.addEventListener("load", () => {
+    tapUploadInputs();
+    scheduleRelabel();
+    // Some pages rebuild the table after a short delay; nudge again later.
+    setTimeout(scheduleRelabel, 400);
+    setTimeout(scheduleRelabel, 1200);
+  });
 })();
 </script>
 
