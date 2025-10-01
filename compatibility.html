@@ -2402,8 +2402,8 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
   // --- 2) Try to load a site-wide dictionary (optional but recommended)
   async function tryLoadSiteDictionary() {
     const urls = [
-      "/kinksurvey/data/kinks.json",
       "/data/kinks.json",
+      "/kinksurvey/data/kinks.json",
       "/kinks.json",
     ];
     for (const url of urls) {
