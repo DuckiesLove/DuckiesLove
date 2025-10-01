@@ -1,4 +1,11 @@
+/* /js/tk-labels.js  — v2
+   Relabel the first (Category) column from cb_* codes to human summaries.
+   - Never “lock” a row before a successful relabel
+   - Works with or without <tbody>
+   - Merges labels from /data/kinks.json and any uploaded survey JSONs
+*/
 (() => {
+  // ----- configuration -----
   const DICT_URLS = ["/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
   const FALLBACK_LABELS = {
     cb_zsnrb: "Dress partner’s outfit",
@@ -13,28 +20,36 @@
     cb_3ozhq: "Praise for pleasing visual display",
     cb_hqakm: "Formal appearance protocols",
     cb_rn136: "Clothing as power-role signal"
+    // …add the rest of your cb_* codes here or in /data/kinks.json
   };
-  const LABELS = { ...FALLBACK_LABELS };
-  let dictReady = false, scheduled = false, running = false, observer = null, labeledOnce = false;
 
+  // ----- state -----
+  const LABELS = { ...FALLBACK_LABELS };
+  let dictReady = false;
+  let scheduled = false;
+  let observer = null;
+  let relabelCount = 0;
+
+  // ----- helpers -----
   function harvestLabels(obj, out = {}) {
     if (!obj || typeof obj !== "object") return out;
     if (Array.isArray(obj.categories)) for (const c of obj.categories) {
-      const id = c.id || c.key || c.code || c.slug;
+      const id = (c.id || c.key || c.code || c.slug || "").toLowerCase();
       const title = c.title || c.name || c.label || c.summary || c.short || c.shortTitle;
       if (id && title) out[id] = title;
     }
     if (Array.isArray(obj.items)) for (const it of obj.items) {
-      const id = it.id || it.code || it.key;
+      const id = (it.id || it.code || it.key || "").toLowerCase();
       const title = it.title || it.prompt || it.question || it.label || it.summary || it.name;
       if (id && title) out[id] = title;
     }
-    if (obj.labels && typeof obj.labels === "object") Object.assign(out, obj.labels);
-    if (obj.meta && obj.meta.labels && typeof obj.meta.labels === "object") Object.assign(out, obj.meta.labels);
-    for (const k of Object.keys(obj)) {
-      const v = obj[k];
-      if (v && typeof v === "object") harvestLabels(v, out);
+    if (obj.labels && typeof obj.labels === "object") {
+      for (const [k,v] of Object.entries(obj.labels)) out[k.toLowerCase()] = v;
     }
+    if (obj.meta && obj.meta.labels && typeof obj.meta.labels === "object") {
+      for (const [k,v] of Object.entries(obj.meta.labels)) out[k.toLowerCase()] = v;
+    }
+    for (const v of Object.values(obj)) if (v && typeof v === "object") harvestLabels(v, out);
     return out;
   }
 
@@ -49,73 +64,120 @@
         dictReady = true;
         console.info("[labels] loaded", Object.keys(LABELS).length, "labels from", url);
         break;
-      } catch (e) { console.info("[labels] fetch failed", url, e?.message || e); }
+      } catch (e) {
+        console.info("[labels] fetch failed", url, e?.message || e);
+      }
     }
     return dictReady;
   }
 
-  function extractCodeFromCell(td) {
+  function getTable() {
+    return (
+      document.querySelector("#compatTable") ||
+      document.querySelector(".compat-table") ||
+      document.querySelector("main table") ||
+      document.querySelector("table")
+    );
+  }
+
+  function firstCellOfRow(tr) {
+    return tr.querySelector("th:first-child, td:first-child");
+  }
+
+  function extractCode(td) {
     if (!td) return null;
-    if (td.dataset && td.dataset.code) return td.dataset.code.trim();
+    if (td.dataset && td.dataset.code) return td.dataset.code.trim().toLowerCase();
     const t = (td.textContent || "").trim();
     const m = t.match(/\bcb_[a-z0-9]+\b/i);
-    return m ? m[0] : null;
+    return m ? m[0].toLowerCase() : null;
   }
-  const pretty = (id) => (id && LABELS[id]) || id;
-  const getTable = () =>
-    document.querySelector("#compatTable") ||
-    document.querySelector(".compat-table") ||
-    document.querySelector("main table") ||
-    document.querySelector("table");
 
   function relabelNow() {
-    if (running) return;
-    running = true;
     const table = getTable();
-    if (!table) { running = false; scheduled = false; return; }
-    let changed = 0;
-    table.querySelectorAll("tbody tr").forEach(tr => {
-      if (tr.dataset.tkLabeled === "1") return;
-      const first = tr.querySelector("td");
-      const code = extractCodeFromCell(first);
-      if (code) {
-        const text = pretty(code);
-        if (text && text !== first.textContent.trim()) { first.textContent = text; changed++; }
+    if (!table) { scheduled = false; return; }
+
+    let changedThisPass = 0;
+
+    // Work with or without <tbody>
+    const rows = table.querySelectorAll("tbody tr, tr");
+    rows.forEach(tr => {
+      // Skip header rows that start with TH but still allow TH in first cell selector
+      const cell = firstCellOfRow(tr);
+      if (!cell) return;
+
+      const code = extractCode(cell);
+      if (!code) return;
+
+      const label = LABELS[code];
+      if (label && cell.textContent.trim() !== label) {
+        cell.textContent = label;
+        cell.dataset.tkLabeled = "1";          // mark only AFTER a successful relabel
+        relabelCount++;
+        changedThisPass++;
       }
-      tr.dataset.tkLabeled = "1";
     });
-    if (changed > 0) labeledOnce = true;
-    setTimeout(() => {
-      if (observer && labeledOnce) { observer.disconnect(); observer = null; }
-      running = false; scheduled = false;
-    }, 120);
+
+    // If nothing changed, keep observer alive to catch late DOM builds or a later dict load.
+    scheduled = false;
+    if (changedThisPass > 0) {
+      // Give the page time to add more rows, then try one more sweep.
+      setTimeout(scheduleRelabel, 200);
+    }
   }
-  function scheduleRelabel() { if (!scheduled) { scheduled = true; setTimeout(relabelNow, 80); } }
+
+  function scheduleRelabel() {
+    if (!scheduled) {
+      scheduled = true;
+      setTimeout(relabelNow, 50);
+    }
+  }
 
   function tapUploadInputs() {
     document.querySelectorAll('input[type="file"]').forEach(input => {
       if (input.dataset.tkTapped === "1") return;
       input.dataset.tkTapped = "1";
-      input.addEventListener("change", ev => {
-        const f = ev.target.files && ev.target.files[0]; if (!f) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const json = JSON.parse(reader.result);
-            Object.assign(LABELS, harvestLabels(json));
-            console.info("[labels] merged from uploaded survey:", Object.keys(LABELS).length);
-            scheduleRelabel();
-          } catch {}
-        };
-        reader.readAsText(f);
-      }, { passive: true });
+      input.addEventListener(
+        "change",
+        ev => {
+          const f = ev.target.files && ev.target.files[0];
+          if (!f) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const json = JSON.parse(reader.result);
+              Object.assign(LABELS, harvestLabels(json));
+              console.info("[labels] merged from uploaded survey:", Object.keys(LABELS).length);
+              scheduleRelabel();
+            } catch { /* ignore */ }
+          };
+          reader.readAsText(f);
+        },
+        { passive: true }
+      );
     });
   }
 
-  window.TK_labelStatus = () => ({ dictReady, known: Object.keys(LABELS).length });
+  // Public probe for debugging
+  window.TK_labels = {
+    status() {
+      return {
+        dictReady,
+        known: Object.keys(LABELS).length,
+        relabelsApplied: relabelCount
+      };
+    },
+    relabel: scheduleRelabel
+  };
+
+  // Boot
   loadSharedDictionary().finally(scheduleRelabel);
-  const mo = new MutationObserver(scheduleRelabel);
-  mo.observe(document.body, { childList: true, subtree: true }); observer = mo;
+
+  observer = new MutationObserver(() => {
+    tapUploadInputs();
+    scheduleRelabel();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
   window.addEventListener("load", () => {
     tapUploadInputs();
     scheduleRelabel();
