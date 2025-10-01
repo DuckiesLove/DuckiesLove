@@ -1,212 +1,87 @@
-const STATE = {
-  map: null,
-  api: null,
-  promise: null,
+'use strict';
+
+/**
+ * tk-labels.js
+ * Loads human-friendly labels for question ids:
+ *  1) Base labels embedded below (safe defaults).
+ *  2) Merge with /data/labels-overrides.json if it exists (optional).
+ *  3) Exposes getLabel(id), collectMissing(ids), and downloadMissing(ids).
+ *
+ * This file is tiny, cached, and has zero build step.
+ */
+
+// --- 1) Base labels you already approved/used -------------------------------
+// Keep adding here freely; overrides file can win later if you change phrasing.
+// NOTE: Only a subset is shown; you can paste more any time.
+const LABELS_BASE = {
+  // Appearance Play (examples you saw on-screen)
+  cb_zsnrb: "Dress partner’s outfit",
+  cb_6jd2f: "Pick lingerie / base layers",
+  cb_kgrnn: "Uniforms (school, military, nurse, etc.)",
+  cb_169ma: "Time-period dress-up",
+  cb_4yyxa: "Dollification / polished object aesthetics",
+  cb_2c0f9: "Hair-based play (brushing, ribbons, tying)",
+  cb_qwnhi: "Head coverings / symbolic hoods",
+  cb_zvchg: "Coordinated looks / dress codes",
+  cb_qw9jg: "Ritualized grooming",
+  cb_3ozhq: "Praise for pleasing visual display",
+  cb_hqakm: "Formal appearance protocols",
+  cb_rn136: "Clothing as power-role signal",
+
+  // Items you asked for specifically:
+  cb_wwf76: "Makeup as protocol or control",
+  cb_swujj: "Accessory or ornament rules",
+  cb_k55xd: "Wardrobe restrictions or permissions",
+
+  // If you already know more ids → add them here now or via overrides file.
 };
 
-if (typeof window !== 'undefined') {
-  const placeholder = window.TK_LABELS || {
-    relabelTable,
-    loadLabels,
-    load: loadLabels,
-    label: () => null,
-  };
-  window.TK_LABELS = placeholder;
-  window.TKLabels = placeholder;
-}
-
-function normalizeKey(id) {
-  if (id == null) return '';
-  return String(id).trim().toLowerCase();
-}
-
-function humanizeId(id) {
-  return id == null ? '' : String(id);
-}
-
-function flattenLabelMap(raw) {
-  if (!raw || typeof raw !== 'object') return {};
-  const source = (raw.labels && typeof raw.labels === 'object') ? raw.labels : raw;
-  const out = {};
-  for (const [key, value] of Object.entries(source)) {
-    const normKey = normalizeKey(key);
-    if (!normKey || typeof value !== 'string') continue;
-    out[normKey] = value;
-  }
-  return out;
-}
-
-function mergeLabelMaps(base, override) {
-  const merged = { ...base };
-  for (const [key, value] of Object.entries(override || {})) {
-    const normKey = normalizeKey(key);
-    if (!normKey || typeof value !== 'string') continue;
-    merged[normKey] = value;
-  }
-  return merged;
-}
-
-async function buildApi() {
-  const base = await safeFetchJSON('/data/kinks.json');
-  const over = await safeFetchJSON('/data/labels-overrides.json');
-  const merged = mergeLabelMaps(flattenLabelMap(base), flattenLabelMap(over));
-  STATE.map = merged;
-  console.info('[labels] merged %d entries', Object.keys(merged).length);
-
-  const api = {
-    async load() {
-      await loadLabels();
-      return STATE.map;
-    },
-    relabelTable,
-    getLabel(id) {
-      if (!STATE.map) return humanizeId(id);
-      const key = normalizeKey(id);
-      return key && STATE.map[key] ? STATE.map[key] : humanizeId(id);
-    },
-    label(id) {
-      const key = normalizeKey(id);
-      if (!key || !STATE.map || !STATE.map[key]) return null;
-      return STATE.map[key];
-    },
-  };
-
-  return api;
-}
-
-export async function safeFetchJSON(url) {
+// --- 2) Try to load OPTIONAL site overrides --------------------------------
+// IMPORTANT: 404s must NOT freeze the page.
+let LABELS_EXTRA = {};
+(async () => {
   try {
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) {
-      if (res.status === 404) {
-        console.info(`[labels] ${url} not found (404 ok)`);
-        return {};
-      }
-      throw new Error(`${res.status} ${res.statusText}`);
+    const res = await fetch('/data/labels-overrides.json', { cache: 'no-store' });
+    if (res.ok) {
+      LABELS_EXTRA = await res.json();
+      document.dispatchEvent(new CustomEvent('tk-labels:ready'));
     }
-    return await res.json();
-  } catch (err) {
-    console.warn(`[labels] failed ${url}:`, err);
-    return {};
+  } catch (_err) {
+    // ignore – optional file
   }
+})();
+
+/** Merge base + overrides at read time. */
+function getLabel(id) {
+  return LABELS_EXTRA[id] ?? LABELS_BASE[id] ?? id;
 }
 
-export async function loadLabels() {
-  if (STATE.api) return STATE.api;
-  if (!STATE.promise) {
-    STATE.promise = buildApi().then(api => {
-      STATE.api = {
-        getLabel: api.getLabel,
-        map: { ...STATE.map },
-      };
-      if (typeof window !== 'undefined') {
-        const globalApi = {
-          relabelTable: api.relabelTable,
-          loadLabels,
-          load: api.load,
-          label: api.label,
-        };
-        window.TK_LABELS = globalApi;
-        window.TKLabels = globalApi;
-      }
-      return STATE.api;
-    }).catch(err => {
-      STATE.promise = null;
-      throw err;
-    });
-  }
-  return STATE.promise;
+/** Given a Set or Array of ids, return those still missing labels. */
+function collectMissing(ids) {
+  const arr = Array.from(ids || []);
+  return arr.filter(id => !(id in LABELS_BASE) && !(id in LABELS_EXTRA));
 }
 
-export function fmtCell(val, suffix = '') {
-  return Number.isFinite(val) ? `${val}${suffix}` : '—';
+/** Offer a client-side download of missing keys as a JSON template. */
+function downloadMissing(ids) {
+  const missing = collectMissing(ids).reduce((obj, id) => {
+    obj[id] = ''; // fill me in
+    return obj;
+  }, {});
+  const blob = new Blob([JSON.stringify(missing, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'labels-overrides.template.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
-function sleep(ms = 0) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+const api = { getLabel, collectMissing, downloadMissing };
 
-function findCode(text) {
-  const trimmed = String(text || '').trim();
-  const match = /^cb_[a-z0-9]+$/i.exec(trimmed);
-  return match ? match[0].toLowerCase() : null;
-}
-
-async function relabelTable(table) {
-  const labels = await loadLabels();
-  const map = labels.map || {};
-  let host = table;
-  if (!host) host = document.querySelector('table');
-  if (!host) return;
-
-  const rows = Array.from(host.querySelectorAll('tbody tr, tr')).filter(r => r.children.length >= 1);
-  const missing = new Set();
-
-  for (let i = 0; i < rows.length; i += 1) {
-    const cell = rows[i].children[0];
-    if (!cell) continue;
-    const raw = cell.textContent.trim();
-    const code = findCode(raw);
-    if (!code) continue;
-
-    const pretty = map[code];
-    if (pretty) {
-      cell.textContent = pretty;
-      cell.dataset.code = code;
-    } else {
-      cell.dataset.code = code;
-      missing.add(code);
-    }
-
-    if (i % 25 === 0) await sleep(0);
-  }
-
-  wireMissingPill(missing);
-}
-
-function wireMissingPill(missingSet) {
-  let pill = document.querySelector('#tk-missing-pill');
-  if (!pill) {
-    pill = document.createElement('button');
-    pill.id = 'tk-missing-pill';
-    pill.textContent = 'Missing labels';
-    pill.style.cssText = `
-      position:fixed; right:16px; bottom:16px; z-index:99999;
-      background:#001f26; color:#00e6ff; border:2px solid #00e6ff;
-      padding:10px 14px; border-radius:12px; font-weight:700;
-      box-shadow:0 0 12px rgba(0,230,255,.3); cursor:pointer;
-    `;
-    pill.addEventListener('click', () => {
-      const missing = collectMissing();
-      const blob = new Blob([JSON.stringify(missing, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'missing-labels.json';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    });
-    document.body.appendChild(pill);
-  }
-
-  const count = (missingSet && missingSet.size) || Object.keys(collectMissing()).length;
-  pill.style.display = count ? 'inline-block' : 'none';
-  pill.textContent = count ? `Missing labels (${count})` : 'Missing labels';
-}
-
-function collectMissing() {
-  const out = {};
-  const map = STATE.map || {};
-  document.querySelectorAll('td[data-code], th[data-code]').forEach(td => {
-    const code = (td.getAttribute('data-code') || '').toLowerCase();
-    if (code && !map[code]) out[code] = '';
-  });
-  return out;
-}
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => relabelTable(), 0);
-    window.addEventListener('tk:compat:table-ready', () => relabelTable());
-  });
+if (typeof window !== 'undefined') {
+  window.tkLabels = api;
+  // Maintain compatibility with older helpers that looked for TK_LABELS
+  window.TK_LABELS = api;
+  window.TKLabels = api;
 }

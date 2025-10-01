@@ -1,0 +1,13 @@
+/* A thin bar that sits behind the Match % text. Keeps your existing table. */
+.tk-pct {
+  position: relative;
+}
+
+.tk-pct__bar {
+  position: absolute;
+  inset: 6px 6px 6px 6px;
+  width: 0;
+  background: rgba(0, 255, 255, 0.18);
+  border-radius: 2px;
+  pointer-events: none;
+}
