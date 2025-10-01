@@ -49,6 +49,14 @@
     }
   </style>
   <style>
+    td.pct-cell .pct { position: relative; height: 1.1em; line-height: 1.1em; }
+    td.pct-cell .pct .bar { position:absolute; left:0; top:0; bottom:0; width:0%;
+                            background:rgba(0,255,255,0.25); border-radius:2px; }
+    td.pct-cell .pct .txt { position:relative; display:block; text-align:center; }
+    td.pct-cell { min-width:5rem; }
+  </style>
+  <script defer src="/js/tk-labels.js"></script>
+  <style>
   #pdf-container {
     width: 100%;
     max-width: 100%;
@@ -942,7 +950,9 @@
         (e.target.matches('#uploadSurveyB,[data-upload-b]') && !window.partnerBSurvey)
       )){
         try {
-          const json = JSON.parse(await f.text());
+          const jsonText = await f.text();
+          const parser = window.TK_LABELS?.parseSurveyJSON;
+          const json = parser ? parser(jsonText) : JSON.parse(jsonText);
           if (e.target.matches('#uploadSurveyA,[data-upload-a]')) window.partnerASurvey = json;
           else window.partnerBSurvey = json;
         } catch {}
@@ -1522,7 +1532,8 @@ RESULT
       try{
         const raw = String(r.result || '');
         const clean = raw.replace(/^\uFEFF/, '').trim();
-        const parsed = JSON.parse(clean);
+        const parser = window.TK_LABELS?.parseSurveyJSON;
+        const parsed = parser ? parser(clean) : JSON.parse(clean);
         cb(null, normalizeSurvey(parsed));
       }
       catch(err){ cb(err); }
@@ -1859,7 +1870,8 @@ RESULT
         try {
           const raw = String(reader.result || '');
           const clean = raw.replace(/^\uFEFF/, '').trim();
-          const json = JSON.parse(clean);
+          const parser = window.TK_LABELS?.parseSurveyJSON;
+          const json = parser ? parser(clean) : JSON.parse(clean);
           const norm = normalizeSurvey(json);
           window._tkCompat[who] = norm;
           console.info(`[compat] stored Survey ${who} with ${norm.count} answers`);
