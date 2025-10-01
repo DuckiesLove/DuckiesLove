@@ -1994,5 +1994,148 @@ RESULT
   });
 })();
 </script>
+<script>
+/* =========================================================================
+   KSV COMPAT: accept same JSON for A & B, tolerant parsing, and
+   hijack existing file-input listeners so legacy "invalid" alert can't fire.
+   Paste once near </body> in compatibility.html.
+   ======================================================================= */
+
+/* Globals your existing code can consume */
+window.ksvSurveyA = window.ksvSurveyA || null;
+window.ksvSurveyB = window.ksvSurveyB || null;
+
+/* ------ tolerant parser (handles BOM, different shapes) ------ */
+function ksvParseSurveyJsonText(rawText, who) {
+  if (typeof rawText !== 'string') return { ok:false, reason:'Internal: non-string' };
+  let text = rawText.replace(/^\uFEFF/, '').trim();       // strip BOM
+  let obj;
+  try { obj = JSON.parse(text); }
+  catch { return { ok:false, reason:'Not valid JSON' }; }
+
+  let answers = null;
+  if (Array.isArray(obj?.answers)) answers = obj.answers;          // canonical
+  if (!answers && Array.isArray(obj)) answers = obj;                // raw array
+  if (!answers && Array.isArray(obj?.cells)) answers = obj.cells;   // {cells:[…]}
+  if (!answers && Array.isArray(obj?.data?.cells)) answers = obj.data.cells;
+  if (!answers && obj && typeof obj === 'object' && obj.map && typeof obj.map === 'object') {
+    answers = Object.values(obj.map);
+  }
+  if (!answers) return { ok:false, reason:'Missing answers/cells array' };
+
+  const toNum = (x) => {
+    if (x == null) return null;
+    if (typeof x === 'object') x = x.score ?? x.value ?? x.val ?? x.v ?? x.s ?? x.rank ?? x.answer;
+    const n = Number(x);
+    return Number.isFinite(n) ? Math.max(0, Math.min(5, n)) : null;
+  };
+  const cells = answers.map(toNum);
+
+  if (cells.length !== 35) return { ok:false, reason:`Expected 35 answers, got ${cells.length}` };
+  for (let i = 0; i < cells.length; i++) if (cells[i] == null) cells[i] = 0;
+
+  console.log(`[compat] stored Survey ${who} with ${cells.length} answers`);
+  return { ok:true, cells };
+}
+
+/* ------ file → text ------ */
+function ksvReadFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result || ''));
+    fr.onerror = () => reject(fr.error || new Error('read failed'));
+    fr.readAsText(file);
+  });
+}
+
+/* ------ trigger your table refresh ------ */
+function ksvRefreshUI(who) {
+  // Call whichever hook exists in your page
+  if (typeof window.ksvOnSurveyLoaded === 'function') {
+    who && window.ksvOnSurveyLoaded(who, who === 'A' ? window.ksvSurveyA : window.ksvSurveyB);
+  } else if (typeof window.updateComparison === 'function') {
+    window.updateComparison();
+  }
+}
+
+/* ------ core hijacker: capture file inputs and own the event ------ */
+async function ksvHandleFileInput(ev) {
+  const input = ev.target;
+  if (!(input instanceof HTMLInputElement)) return;
+
+  // Only handle JSON file pickers
+  const isFile = input.type === 'file';
+  const accept = (input.getAttribute('accept') || '').toLowerCase();
+  if (!isFile || (!accept.includes('json') && !accept.includes('.json'))) return;
+
+  // Stop legacy listeners from running
+  ev.stopImmediatePropagation();
+  ev.preventDefault();
+
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  // Decide A or B. Heuristics: id/name contains 'b' → B, else
+  // if A is empty → A; else if B empty → B; else default to A.
+  const idn = ((input.id || '') + ' ' + (input.name || '')).toLowerCase();
+  let who = idn.includes('partnerb') || idn.includes('surveyb') || idn.includes('uploadb') || /\b[b]\b/.test(idn)
+            ? 'B'
+            : idn.includes('partnera') || idn.includes('surveya') || idn.includes('uploada')
+            ? 'A'
+            : (Array.isArray(window.ksvSurveyA) ? (Array.isArray(window.ksvSurveyB) ? 'A' : 'B') : 'A');
+
+  try {
+    const text = await ksvReadFileAsText(file);
+    const parsed = ksvParseSurveyJsonText(text, who);
+    if (!parsed.ok) {
+      alert(`Invalid JSON for Survey ${who}.\nReason: ${parsed.reason}\nPlease upload the unmodified JSON file exported from this site.`);
+      console.warn(`[compat] Survey ${who} rejected: ${parsed.reason}`);
+      return;
+    }
+    if (who === 'A') window.ksvSurveyA = parsed.cells;
+    if (who === 'B') window.ksvSurveyB = parsed.cells;
+
+    console.log(`[compat] filled Partner ${who} cells: ${parsed.cells.length}`);
+    ksvRefreshUI(who);
+  } finally {
+    // Allow selecting the *same* file again (browsers suppress change otherwise)
+    input.value = '';
+  }
+}
+
+/* Attach capture listeners to any current or future file inputs */
+function ksvBindAllFileInputs(root = document) {
+  root.querySelectorAll('input[type="file"]').forEach((inp) => {
+    if (!inp.__ksvHijacked) {
+      inp.addEventListener('change', ksvHandleFileInput, true); // capture
+      inp.__ksvHijacked = true;
+    }
+  });
+}
+ksvBindAllFileInputs(document);
+
+/* Observe future additions (dialogs creating inputs late, etc.) */
+const mo = new MutationObserver((muts) => {
+  for (const m of muts) {
+    m.addedNodes && m.addedNodes.forEach((n) => {
+      if (n.nodeType === 1) ksvBindAllFileInputs(n);
+    });
+  }
+});
+mo.observe(document.documentElement, { childList: true, subtree: true });
+
+/* Optional convenience: button to copy A → B for solo testing
+   Add this in your HTML if you want:
+   <button id="copyAtoB" class="themed-button">Use A for B</button>
+*/
+document.getElementById('copyAtoB')?.addEventListener('click', () => {
+  if (!Array.isArray(window.ksvSurveyA) || window.ksvSurveyA.length !== 35) {
+    alert('Load Survey A first, then copy it to B.'); return;
+  }
+  window.ksvSurveyB = [...window.ksvSurveyA];
+  console.log('[compat] Partner B set from Partner A');
+  ksvRefreshUI('B');
+});
+</script>
 </body>
 </html>
