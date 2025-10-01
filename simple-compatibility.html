@@ -64,6 +64,112 @@ function tkSlug(s){
     .replace(/[^a-z0-9]+/g,"_")                         // non-alnum -> underscore
     .replace(/^_+|_+$/g,"");                            // trim underscores
 }
+
+/* ---------- Fetch shared kink labels (for nicer Category text) ---------- */
+const TK_UNION_PATHS = ['/data/kinks.json','/kinksurvey/data/kinks.json','/kinksurvey/kinks.json'];
+let tkLabelPromise = null;
+let tkKeyLabelMap = null;
+
+function tkSniffExistingUnion(){
+  if (typeof window !== 'object') return null;
+  const candidates = ['KINKS_UNION','union','rows','kinks'];
+  for (const name of candidates){
+    const v = window[name];
+    if (Array.isArray(v) && v.length && typeof v[0] === 'object' && 'key' in v[0]) return v;
+  }
+  try {
+    for (const v of Object.values(window)){
+      if (Array.isArray(v) && v.length && typeof v[0] === 'object' && 'key' in v[0]) return v;
+    }
+  } catch(_){}
+  return null;
+}
+
+async function tkFetchUnion(){
+  const existing = tkSniffExistingUnion();
+  if (existing) return existing;
+  for (const url of TK_UNION_PATHS){
+    try{
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res?.ok) continue;
+      const json = await res.json();
+      if (Array.isArray(json)) return json;
+      if (Array.isArray(json?.union)) return json.union;
+      if (Array.isArray(json?.rows))  return json.rows;
+      if (Array.isArray(json?.kinks)) return json.kinks;
+    }catch(_){/* ignore individual failures */}
+  }
+  return [];
+}
+
+function tkBuildLabelMap(union){
+  const map = new Map();
+  const store = (key, label)=>{
+    if (!key) return;
+    const cleanKey = String(key).trim();
+    if (!cleanKey) return;
+    const finalLabel = label || cleanKey;
+    map.set(cleanKey, finalLabel);
+    map.set(tkSlug(cleanKey), finalLabel);
+  };
+  union.forEach(row=>{
+    if (!row || typeof row !== 'object') return;
+    const label = String(row.label ?? row.name ?? row.text ?? '').trim();
+    const key = String(row.key ?? row.id ?? row.slug ?? '').trim();
+    if (key) store(key, label || key);
+    if (label) store(label, label);
+    if (Array.isArray(row.aliases)) row.aliases.forEach(alias=>store(alias, label || key));
+  });
+  return map;
+}
+
+async function tkEnsureLabelMap(){
+  if (tkLabelPromise) return tkLabelPromise;
+  tkLabelPromise = (async()=>{
+    try{
+      const union = await tkFetchUnion();
+      tkKeyLabelMap = tkBuildLabelMap(union);
+      if (typeof window === 'object') window.tkKeyLabelMap = tkKeyLabelMap;
+      tkRefreshVisibleLabels();
+    }catch(err){
+      console.warn('[TK] Failed to fetch union labels:', err);
+      tkKeyLabelMap = new Map();
+    }
+    return tkKeyLabelMap;
+  })();
+  return tkLabelPromise;
+}
+
+function tkLabelFor(id, fallback){
+  const txt = String(id ?? '').trim();
+  if (!txt) return fallback;
+  const map = tkKeyLabelMap;
+  if (!map) return fallback;
+  const fb = String(fallback ?? '').trim();
+  return map.get(txt) || map.get(tkSlug(txt)) || map.get(fb) || map.get(tkSlug(fb)) || fallback;
+}
+
+function tkApplyLabels(items){
+  if (!Array.isArray(items) || !tkKeyLabelMap) return;
+  items.forEach(item=>{
+    if (!item || !item.id) return;
+    const nice = tkLabelFor(item.id, item.label);
+    if (nice) item.label = nice;
+  });
+}
+
+function tkRefreshVisibleLabels(){
+  if (!tkKeyLabelMap) return;
+  document.querySelectorAll('tbody tr[data-kink-id]').forEach(tr=>{
+    const td = tr.querySelector('td');
+    if (!td) return;
+    const id = tr.getAttribute('data-kink-id');
+    const current = td.textContent.trim();
+    const nice = tkLabelFor(id, current);
+    if (nice && nice !== current) td.textContent = nice;
+  });
+}
+
 function tkEnsureRowIds(){
   const rows = document.querySelectorAll("table tbody tr");
   rows.forEach(tr=>{
@@ -169,14 +275,14 @@ function tkRebuildTableFromUnion(){
   const tbody = document.querySelector("table tbody");
   if (!tbody) return;
   const union = new Map(); // id -> label
-  (window.tkA||[]).forEach(i=>union.set(i.id,i.label));
-  (window.tkB||[]).forEach(i=>union.set(i.id,i.label));
+  (window.tkA||[]).forEach(i=>union.set(i.id, tkLabelFor(i.id, i.label)));
+  (window.tkB||[]).forEach(i=>union.set(i.id, tkLabelFor(i.id, i.label)));
   const sorted = [...union.entries()].sort((a,b)=> a[1].localeCompare(b[1]));
   tbody.innerHTML="";
   for (const [id,label] of sorted){
     const tr = document.createElement("tr");
     tr.setAttribute("data-kink-id", id);
-    const td = document.createElement("td"); td.textContent = label;
+    const td = document.createElement("td"); td.textContent = tkLabelFor(id, label);
     tr.appendChild(td);
     const tdA=document.createElement("td"); tdA.setAttribute("data-cell","A"); tdA.textContent="-";
     const tdM=document.createElement("td"); tdM.setAttribute("data-cell","Match"); tdM.textContent="-";
@@ -185,10 +291,12 @@ function tkRebuildTableFromUnion(){
     tr.append(tdA,tdM,tdF,tdB);
     tbody.appendChild(tr);
   }
+  tkRefreshVisibleLabels();
 }
 
 function tkUpdate(){
   tkEnsureRowIds();
+  tkRefreshVisibleLabels();
 
   // If table has no identifiable rows yet but we have data, build from data
   if (!document.querySelector('tbody tr[data-kink-id]') && ((window.tkA&&tkA.length) || (window.tkB&&tkB.length))){
@@ -213,6 +321,12 @@ function tkUpdate(){
   document.querySelectorAll('tbody tr[data-kink-id]').forEach(tr=>{
     const id = tr.getAttribute('data-kink-id');
     tkEnsureCells(tr);
+    const labelCell = tr.querySelector('td');
+    if (labelCell){
+      const current = labelCell.textContent.trim();
+      const nice = tkLabelFor(id, current);
+      if (nice && nice !== current) labelCell.textContent = nice;
+    }
 
     const A = aMap.get(id), B = bMap.get(id);
     const aCell = tr.querySelector('[data-cell="A"]');
@@ -249,8 +363,10 @@ async function tkHandleUpload(file, which){
     const json = tkSafeParse(text);
     if (!json){ tkSetStatus(which,"Invalid JSON",false); tkEnableDownload(); return; }
 
+    await tkEnsureLabelMap().catch(()=>null);
     const items = tkNormalize(json);
     if (!items.length){ tkSetStatus(which,"No recognizable items",false); tkEnableDownload(); return; }
+    tkApplyLabels(items);
 
     if (which==="A") window.tkA = items; else window.tkB = items;
     tkSetStatus(which, `Loaded ${items.length} items`);
@@ -262,6 +378,9 @@ async function tkHandleUpload(file, which){
     tkEnableDownload();
   }
 }
+
+// kick off label fetch in the background
+tkEnsureLabelMap().catch(()=>null);
 
 /* ---------- wire up: A = input; B = button opens hidden input ---------- */
 (function tkWire(){
