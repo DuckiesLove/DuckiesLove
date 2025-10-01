@@ -58,16 +58,34 @@
 
       // 3) Data check
       if (typeof fetch === 'function') {
-        fetch('/data/kinks.json', {cache:'no-store'}).then(r=>{
-          log('kinks.json', r.status, r.headers.get('content-type')||'');
-          if(!r.ok) return;
-          return r.json().then(j=>{
-            const items = Array.isArray(j) ? j.length
-                       : Array.isArray(j?.kinks) ? j.kinks.length
-                       : Array.isArray(j?.[0]?.items) ? j[0].items.length : 0;
-            log('kinks items (approx):', String(items));
-          }).catch(e=>log('kinks.json parse failed:', String(e)));
-        }).catch(e=>log('kinks.json fetch failed:', String(e)));
+        const KINK_URLS = [
+          '/data/kinks.json',
+          '/kinksurvey/data/kinks.json',
+          '/kinksurvey/kinks.json',
+          '/kinks.json',
+          '/assets/kinks.json'
+        ];
+        (async () => {
+          for (const url of KINK_URLS) {
+            try {
+              const r = await fetch(url, {cache:'no-store'});
+              log('kinks.json', url, r.status, r.headers.get('content-type')||'');
+              if(!r.ok) continue;
+              try {
+                const j = await r.json();
+                const items = Array.isArray(j) ? j.length
+                           : Array.isArray(j?.kinks) ? j.kinks.length
+                           : Array.isArray(j?.[0]?.items) ? j[0].items.length : 0;
+                log('kinks items (approx):', String(items));
+              } catch(e){
+                log('kinks.json parse failed:', String(e));
+              }
+              break;
+            } catch(e){
+              log('kinks.json fetch failed:', String(e));
+            }
+          }
+        })();
       } else {
         log('fetch unavailable in environment');
       }

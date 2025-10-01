@@ -207,7 +207,16 @@
 <script>
 (async function(){
   /* ---------- data fetch ---------- */
-  const DATA_URLS = ['/data/kinks.json','/kinks.json','./data/kinks.json','./kinks.json'];
+  const DATA_URLS = [
+    '/data/kinks.json',
+    '/kinksurvey/data/kinks.json',
+    '/kinksurvey/kinks.json',
+    '/kinks.json',
+    '/assets/kinks.json',
+    './data/kinks.json',
+    './kinks.json',
+    './assets/kinks.json'
+  ];
 
   const el = (id)=>document.getElementById(id);
   const $panel = el('categoryPanel');
@@ -555,10 +564,11 @@
 
   /* ----------------------- 2) Load canonical keys from kinks.json ----------------------- */
   const KINKS_URLS = [
-    '/kinksurvey/data/kinks.json',
     '/data/kinks.json',
+    '/kinksurvey/data/kinks.json',
     '/kinksurvey/kinks.json',
-    '/kinks.json'
+    '/kinks.json',
+    '/assets/kinks.json'
   ];
 
   function flattenKinks(kjson){

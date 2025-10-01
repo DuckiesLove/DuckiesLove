@@ -354,7 +354,11 @@ app.use((req, res, next) => {
   }
   if (
     (req.method === 'GET' || req.method === 'HEAD') &&
-    (req.url === '/data/kinks.json' || req.url === '/kinks.json')
+    (req.url === '/data/kinks.json' ||
+      req.url === '/kinks.json' ||
+      req.url === '/assets/kinks.json' ||
+      req.url === '/kinksurvey/data/kinks.json' ||
+      req.url === '/kinksurvey/kinks.json')
   ) {
     readFile(path.join(__dirname, 'data', 'kinks.json'))
       .then(data => {
