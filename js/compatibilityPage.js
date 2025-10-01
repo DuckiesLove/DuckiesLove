@@ -225,6 +225,7 @@
     }
 
     updateMissingButton([...new Set(usedIds)]);
+    document.dispatchEvent(new Event('tk:compat:table-ready'));
   }
 
   function computeRows(aList, bList) {
