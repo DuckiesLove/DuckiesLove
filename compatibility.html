@@ -12,54 +12,41 @@
   <link rel="stylesheet" href="/css/compatibility.css" />
 
   <style>
-  /* --- Compatibility: tiny progress bar & safe truncation for Category --- */
-  .tk-cat {
-    max-width: 56ch;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .tk-cat[data-full] {
-    cursor: help;
-  }
-
-  .tk-bar {
-    position: relative;
-    height: 14px;
-    border-radius: 999px;
-    background: rgba(0, 230, 255, .10);
-    border: 1px solid rgba(0, 230, 255, .28);
-    overflow: hidden;
-  }
-  .tk-bar > i {
-    display: block;
-    height: 100%;
-    width: var(--pct, 0%);
-    background: linear-gradient(90deg, #00e6ff, #00ffa3);
-  }
-  .tk-bar > span {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: .92em;
-    letter-spacing: .02em;
-    color: #eaffff;
-    text-shadow: 0 1px 0 #001014;
-    pointer-events: none;
-  }
-
-  @media print {
-    .tk-bar {
-      border-color: #888;
-      background: #e6e6e6;
+    /* --- Percent bar (Match %) --- */
+    .pct {
+      position: relative;
+      width: 100%;
+      height: 22px;
+      border: 1px solid #3ddbf3;
+      border-radius: 6px;
+      background: rgba(61,219,243,0.08);
+      overflow: hidden;
     }
-    .tk-bar > i {
-      background: #222;
+    .pct-fill {
+      position: absolute;
+      inset: 0;
+      width: 0%;
+      background: linear-gradient(90deg, #18a0fb, #3df3c3);
+      transition: width .35s ease;
     }
-  }
+    .pct-text {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+    /* Friendly label text in first column (wrap nicely on small screens) */
+    .tk-cat {
+      white-space: normal;
+      line-height: 1.2;
+    }
+    .tk-code {
+      opacity: .5;
+      font-size: .85em;
+      margin-left: .4rem;
+    }
   </style>
   <style>
   #pdf-container {
@@ -291,7 +278,7 @@
               <th style="text-align:center; padding:.6rem .8rem; border-bottom:2px solid #00e6ff55">Partner B</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody id="tk-compat-body"></tbody>
         </table>
       </section>
       <table id="tk-unanswered" class="compatTable" style="margin-top:24px; width:100%; border-collapse:collapse">
@@ -309,6 +296,7 @@
   </div>
 
   <script src="js/template-survey.js"></script>
+  <!-- Label loader must be before the page script -->
   <script src="/js/tk-labels.js" defer></script>
   <script src="/js/compatibilityPage.js" defer></script>
   <script type="module">
