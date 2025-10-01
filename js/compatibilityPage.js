@@ -1,804 +1,282 @@
-// Compatibility results page logic and PDF export helpers
-import { initTheme } from './theme.js';
-import { getFlagEmoji, calculateCategoryMatch, getMatchColor } from './matchFlag.js';
-import { calculateCompatibility } from './compatibility.js';
+/* SAVE THIS AS: /js/compatibilityPage.js
+ *
+ * What it does
+ * ------------
+ * 1) Loads Survey A & B JSON files exactly as before.
+ * 2) Auto-builds a COMPLETE label map (id -> friendly text) by deep-reading your master kinks.json.
+ *    It tries these URLs in order: /kinksurvey/data/kinks.json, /data/kinks.json, /kinks.json, kinks.json
+ *    (Adjust LABEL_URLS below if your path is different.)
+ * 3) Renders the table with readable Category names (no more cb_xxxxx) and a match % bar.
+ * 4) If any ids are still missing from kinks.json, they show once in the console and the raw code is
+ *    shown in the table so you can spot it.
+ *
+ * How to wire (no HTML redesign required)
+ * ---------------------------------------
+ * - Make sure one of the paths in LABEL_URLS points to the same kinks.json your survey uses.
+ * - Your page should already have file inputs/buttons and a table container. This script looks for:
+ *     #btnUploadA (or #uploadA)       -> click to select Survey A
+ *     #btnUploadB (or #uploadB)       -> click to select Survey B
+ *     #fileA  (or #surveyA)           -> <input type="file"> for Survey A
+ *     #fileB  (or #surveyB)           -> <input type="file"> for Survey B
+ *     #compatTable (or #compat-container or #table) -> where the table renders
+ * - Include this script on compatibility.html:
+ *     <script defer src="/js/compatibilityPage.js"></script>
+ */
 
-let surveyA = null;
-let surveyB = null;
-let lastResult = null;
-const PAGE_BREAK_CATEGORIES = new Set([
-  'Communication',
-  'Service',
-  'Impact Play'
-]);
-const RATING_LABELS = {
-  0: 'Not for me / Hard Limit',
-  1: 'Dislike / Haven\u2019t Considered',
-  2: 'Would Try for Partner',
-  3: 'Curious / Might Enjoy',
-  4: 'Like / Regular Interest',
-  5: 'Love / Core Interest'
-};
+(() => {
+  // ---------- CONFIG ----------
+  const LABEL_URLS = [
+    '/kinksurvey/data/kinks.json',
+    '/data/kinks.json',
+    '/kinks.json',
+    'kinks.json'
+  ];
 
-function showSpinner() {
-  const overlay = document.querySelector('.loading-overlay');
-  if (overlay) overlay.style.display = 'flex';
-}
+  // Treat ids starting with any of these as item ids we want to label
+  const ID_PREFIXES = ['cb_', 'gn_', 'sa_', 'sh_', 'bd_', 'pl_', 'ps_', 'vr_', 'vo_'];
 
-function hideSpinner() {
-  const overlay = document.querySelector('.loading-overlay');
-  if (overlay) overlay.style.display = 'none';
-}
+  // If a small number of ids truly aren’t in your kinks.json, you can hardcode them here:
+  const FALLBACK_LABELS = {
+    // 'cb_wwf76': 'Makeup as protocol or control',
+    // 'cb_swujj': 'Accessory or ornament rules',
+    // 'cb_05hqj': 'Wardrobe restrictions or permissions',
+  };
 
-if (typeof window !== 'undefined') {
-  window.showSpinner = showSpinner;
-  window.hideSpinner = hideSpinner;
-}
+  // ---------- LITTLE UTILITIES ----------
+  const $ = sel => document.querySelector(sel);
+  const dash = '—';
 
-// ----- Compatibility history helpers -----
-function loadHistory() {
-  try {
-    return JSON.parse(localStorage.getItem('compatHistory')) || [];
-  } catch {
-    return [];
+  function tidy(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
+  function hasPrefix(id) { return typeof id === 'string' && ID_PREFIXES.some(p => id.startsWith(p)); }
+
+  // match% visualization (non-intrusive, keeps your design)
+  function barCell(percent) {
+    if (percent == null || isNaN(percent)) return dash;
+    const pct = Math.max(0, Math.min(100, Math.round(percent)));
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '8px';
+
+    const txt = document.createElement('span');
+    txt.textContent = pct + '%';
+    const outer = document.createElement('div');
+    const inner = document.createElement('div');
+
+    outer.style.flex = '1 1 120px';
+    outer.style.position = 'relative';
+    outer.style.height = '8px';
+    outer.style.border = '1px solid rgba(255,255,255,.4)';
+    outer.style.borderRadius = '4px';
+    inner.style.position = 'absolute';
+    inner.style.left = '0';
+    inner.style.top = '0';
+    inner.style.bottom = '0';
+    inner.style.width = pct + '%';
+    inner.style.background = 'rgba(0,255,255,.75)';
+    inner.style.borderRadius = '4px';
+
+    outer.appendChild(inner);
+    wrap.appendChild(txt);
+    wrap.appendChild(outer);
+    return wrap;
   }
-}
 
-function addHistoryEntry(score) {
-  const history = loadHistory();
-  history.push({ score, date: new Date().toISOString() });
-  while (history.length > 5) history.shift();
-  localStorage.setItem('compatHistory', JSON.stringify(history));
-  if (typeof window !== 'undefined') {
-    window.compatibilityHistory = history;
+  // ---------- LABELS: AUTO-BUILD FROM kinks.json ----------
+  let LABELS = {}; // id -> friendly text
+  let loggedMissingOnce = false;
+
+  async function loadJson(url) {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const txt = await r.text();
+    try { return JSON.parse(txt); }
+    catch { throw new Error('Not JSON (HTML?)'); }
   }
-  return history;
-}
-if (typeof window !== 'undefined') {
-  window.compatibilityHistory = loadHistory();
-}
 
-function parseSurveyJSON(text) {
-  const clean = text
-    .replace(/^\uFEFF/, '')
-    .replace(/\u0000/g, '')
-    .trim();
-  try {
-    return JSON.parse(clean);
-  } catch {
-    const first = clean.indexOf('{');
-    const last = clean.lastIndexOf('}');
-    if (first !== -1 && last !== -1 && first < last) {
-      return JSON.parse(clean.slice(first, last + 1));
+  // Walk all objects/arrays and collect {id: label}
+  function deepCollectLabels(node, out) {
+    if (!node) return;
+    if (Array.isArray(node)) { node.forEach(n => deepCollectLabels(n, out)); return; }
+    if (typeof node !== 'object') return;
+
+    const id = node.id ?? node.code ?? node.key;
+    const label = node.short ?? node.label ?? node.title ?? node.text ?? node.name;
+
+    if (hasPrefix(id) && typeof label === 'string') {
+      out[id] = tidy(label);
     }
-    throw new Error('Invalid JSON');
-  }
-}
-
-function formatRating(val) {
-  return val === null || val === undefined
-    ? '-'
-    : `${val} - ${RATING_LABELS[val]}`;
-}
-
-
-function toPercent(val) {
-  return typeof val === 'number' ? Math.round((val / 5) * 100) : null;
-}
-
-function maxRating(obj) {
-  const vals = [obj.giving, obj.receiving, obj.general].filter(v => typeof v === 'number');
-  return vals.length ? Math.max(...vals) : null;
-}
-
-function colorClass(percent) {
-  if (percent === null || percent === undefined) return 'black';
-  if (percent >= 80) return 'green';
-  if (percent >= 60) return 'yellow';
-  return 'red';
-}
-
-function tkEscape(s) {
-  return String(s ?? '').replace(/[&<>"']/g, m => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  })[m]);
-}
-
-function tkNormScore(v) {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.max(0, Math.min(5, n)) : null;
-}
-
-function tkMatchPercent(aRaw, bRaw) {
-  const a = tkNormScore(aRaw);
-  const b = tkNormScore(bRaw);
-  if (a === null || b === null) return null;
-  if (a === 0 || b === 0) return 0;
-  const diff = Math.abs(a - b);
-  return Math.round((1 - diff / 5) * 100);
-}
-
-function tkSummarizeQuestion(full, fallback) {
-  let s = (full || fallback || '').trim();
-  if (!s) return '';
-  s = s.replace(/\(.*?\)/g, '');
-  s = s.replace(/\s+/g, ' ').trim();
-  s = s
-    .replace(/^Using\s+/i, 'Using ')
-    .replace(/^Wearing\s+/i, 'Wearing ')
-    .replace(/^Receiving\s+/i, 'Receiving ')
-    .replace(/^Giving\s+/i, 'Giving ');
-  if (s.length > 64) s = s.slice(0, 61).trimEnd() + '…';
-  return s;
-}
-
-const TK_SUMMARY_OVERRIDES = {};
-
-function renderCategoryCell(row) {
-  const main = row.category || row.key || row.id || row.name || '';
-  const sourceText = row.title || row.prompt || row.question || '';
-  const overrideKey = typeof main === 'string' ? main : '';
-  const summaryRaw = tkSummarizeQuestion(sourceText, TK_SUMMARY_OVERRIDES[overrideKey]);
-  const summary = summaryRaw && summaryRaw !== main ? summaryRaw : '';
-  const titleText = sourceText || main;
-
-  return `
-    <div class="tk-cat-wrap">
-      <div class="tk-cat-main" title="${tkEscape(titleText)}">${tkEscape(main)}</div>
-      ${summary ? `<div class="tk-cat-sub" title="${tkEscape(sourceText)}">${tkEscape(summary)}</div>` : ''}
-    </div>
-  `;
-}
-
-function renderMatchCell(a, b) {
-  const pct = tkMatchPercent(a, b);
-  if (pct === null) {
-    return `
-      <div class="tk-match-chip" data-missing="1" aria-label="No match data">—</div>
-    `;
-  }
-  return `
-    <div class="tk-match-chip" role="img" aria-label="Match ${pct}%">
-      <div class="tk-match-num">${pct}%</div>
-      <div class="tk-match-bar" aria-hidden="true">
-        <i class="tk-match-fill" style="--w:${pct}%"></i>
-      </div>
-    </div>
-  `;
-}
-
-function renderScoreCell(v) {
-  const n = tkNormScore(v);
-  if (n === null) return '—';
-  return String(n);
-}
-
-if (typeof window !== 'undefined') {
-  window.tkRenderCategoryCell = renderCategoryCell;
-  window.tkRenderMatchCell = renderMatchCell;
-  window.tkRenderScoreCell = renderScoreCell;
-  window.tkMatchPercent = tkMatchPercent;
-  window.tkNormScore = tkNormScore;
-}
-
-function compatNormalizeKey(s){
-  return String(s || '')
-    .replace(/[\u2018\u2019\u2032]/g,"'")
-    .replace(/[\u201C\u201D\u2033]/g,'"')
-    .replace(/[\u2013\u2014]/g,'-')
-    .replace(/\u2026/g,'')
-    .replace(/\s*\.\.\.\s*$/,'')
-    .replace(/\s+/g,' ')
-    .trim()
-    .toLowerCase();
-}
-if (typeof window !== 'undefined') window.compatNormalizeKey = compatNormalizeKey;
-
-function compatSafeName(name) {
-  return String(name ?? '').trim();
-}
-
-function compatSafeNameLower(name) {
-  return compatSafeName(name).toLowerCase();
-}
-
-function makeBar(percent) {
-  const outer = document.createElement('div');
-  outer.className = 'partner-bar';
-  const fill = document.createElement('div');
-  fill.className = 'partner-fill ' + colorClass(percent);
-  fill.style.width = percent === null ? '0%' : percent + '%';
-  fill.style.backgroundColor = getMatchColor(percent);
-  outer.appendChild(fill);
-  const text = document.createElement('span');
-  text.className = 'partner-text ' + colorClass(percent);
-  text.textContent = percent === null ? '-' : percent + '%';
-  outer.appendChild(text);
-  return outer;
-}
-
-function buildIcons(ratingA, ratingB) {
-  const youP = toPercent(ratingA);
-  const partnerP = toPercent(ratingB);
-  const symbols = [];
-  if (youP !== null && partnerP !== null && youP >= 90 && partnerP >= 90) {
-    symbols.push('<span class="icon-green-flag">✅</span>');
-  }
-  if (
-    (youP !== null && youP <= 30) ||
-    (partnerP !== null && partnerP <= 30)
-  ) {
-    symbols.push('<span class="icon-red-flag">🚩</span>');
-  }
-  if (
-    (ratingA === 5 && ratingB !== null && ratingB < 5) ||
-    (ratingB === 5 && ratingA !== null && ratingA < 5)
-  ) {
-    symbols.push('<span class="icon-yellow-flag">🟨</span>');
-  }
-  return symbols.join(' ');
-}
-
-function groupKinksByCategory(data) {
-  const grouped = {};
-  data.forEach(item => {
-    const category = item.category || 'Uncategorized';
-    if (!grouped[category]) grouped[category] = [];
-    grouped[category].push(item);
-  });
-  return grouped;
-}
-function loadSavedSurvey() {
-  const saved = localStorage.getItem('savedSurvey');
-  if (!saved) return;
-  try {
-    const parsed = JSON.parse(saved);
-    surveyA = normalizeSurveyFormat(parsed.survey || parsed);
-    mergeSurveyWithTemplate(surveyA, window.templateSurvey);
-    normalizeRatings(surveyA);
-    filterGeneralOptions(surveyA);
-    updateComparison();
-  } catch (err) {
-    console.warn('Failed to parse saved survey:', err);
-  }
-}
-
-function filterGeneralOptions(survey) {
-  Object.values(survey || {}).forEach(cat => {
-    const general = Array.isArray(cat?.General) ? cat.General : [];
-    if (!general.length) return;
-    const neutralNames = new Set(general.map(k => compatSafeNameLower(k?.name)));
-    ['Giving', 'Receiving'].forEach(role => {
-      if (Array.isArray(cat?.[role])) {
-        cat[role] = cat[role].filter(k => !neutralNames.has(compatSafeNameLower(k?.name)));
-      }
-    });
-  });
-}
-if (typeof window !== 'undefined') window.filterGeneralOptions = filterGeneralOptions;
-
-function normalizeRatings(survey) {
-  Object.values(survey).forEach(cat => {
-    ['Giving', 'Receiving', 'General'].forEach(role => {
-      if (Array.isArray(cat[role])) {
-        cat[role].forEach(item => {
-          if (typeof item.rating === 'number') {
-            if (item.rating > 5) item.rating = 5;
-            if (item.rating < 0) item.rating = 0;
-          }
-        });
-      }
-    });
-  });
-}
-
-function normalizeSurveyFormat(obj) {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
-  const actions = ['Giving', 'Receiving', 'General'];
-  const keys = Object.keys(obj);
-  if (keys.every(k => actions.includes(k))) {
-    return {
-      Misc: {
-        Giving: Array.isArray(obj.Giving) ? obj.Giving : [],
-        Receiving: Array.isArray(obj.Receiving) ? obj.Receiving : [],
-        General: Array.isArray(obj.General) ? obj.General : []
-      }
-    };
+    // keep digging
+    for (const v of Object.values(node)) deepCollectLabels(v, out);
   }
 
-  const normalized = {};
-  Object.entries(obj).forEach(([cat, val]) => {
-    if (Array.isArray(val)) {
-      normalized[cat] = { Giving: [], Receiving: [], General: val };
-    } else {
-      normalized[cat] = { ...val };
-      actions.forEach(role => {
-        if (!Array.isArray(normalized[cat][role])) normalized[cat][role] = [];
-      });
-    }
-  });
-  return normalized;
-}
-
-function mergeSurveyWithTemplate(survey, template) {
-  if (!template || typeof template !== 'object') return;
-  Object.entries(template).forEach(([cat, tmpl]) => {
-    if (!survey[cat]) {
-      survey[cat] = JSON.parse(JSON.stringify(tmpl));
-      return;
-    }
-    ['Giving', 'Receiving', 'General'].forEach(role => {
-      const tItems = Array.isArray(tmpl[role]) ? tmpl[role] : [];
-      if (!Array.isArray(survey[cat][role])) survey[cat][role] = [];
-      const existing = new Set(
-        survey[cat][role].map(i => compatSafeNameLower(i?.name))
-      );
-      tItems.forEach(it => {
-        const tmplName = compatSafeName(it?.name);
-        if (!tmplName) return;
-        const tmplKey = compatSafeNameLower(it?.name);
-        if (!existing.has(tmplKey)) {
-          const obj = { name: tmplName, rating: null };
-          if (it.type) obj.type = it.type;
-          if (it.options) obj.options = it.options;
-          if (it.roles) obj.roles = it.roles;
-          survey[cat][role].push(obj);
-          existing.add(tmplKey);
+  async function buildLabels() {
+    for (const url of LABEL_URLS) {
+      try {
+        const json = await loadJson(url);
+        const collected = {};
+        deepCollectLabels(json, collected);
+        const count = Object.keys(collected).length;
+        if (count > 0) {
+          LABELS = { ...collected, ...FALLBACK_LABELS }; // collected wins; fallback fills gaps
+          console.info(`[labels] built ${count} labels from ${url}`);
+          return;
         } else {
-          const ex = survey[cat][role].find(
-            i => compatSafeNameLower(i?.name) === tmplKey
-          );
-          if (ex) {
-            if (it.type) ex.type = it.type;
-            if (it.options) ex.options = it.options;
-            if (it.roles) ex.roles = it.roles;
-          }
+          console.warn(`[labels] found 0 labels in ${url}`);
         }
-      });
-    });
-  });
-}
+      } catch (e) {
+        console.warn(`[labels] ${url} → ${e.message}`);
+      }
+    }
+    LABELS = { ...FALLBACK_LABELS };
+    console.warn('[labels] using FALLBACK_LABELS only');
+  }
 
+  function prettyLabel(id) {
+    return LABELS[id] || FALLBACK_LABELS[id] || id; // show raw code only if truly missing
+  }
 
-function buildKinkBreakdown(surveyA, surveyB = {}) {
-  const breakdown = {};
-  const categories = Object.keys(surveyA).sort((a, b) => a.localeCompare(b));
-  categories.forEach(category => {
-    const catA = surveyA[category];
-    const catB = surveyB[category] || {};
-    const names = new Set();
-    ['Giving', 'Receiving', 'General'].forEach(role => {
-      (catA[role] || []).forEach(k => {
-        const cleaned = compatSafeName(k?.name);
-        if (cleaned) names.add(cleaned);
-      });
-      (catB[role] || []).forEach(k => {
-        const cleaned = compatSafeName(k?.name);
-        if (cleaned) names.add(cleaned);
-      });
-    });
-    breakdown[category] = [];
-    names.forEach(name => {
-      const lookupKey = compatSafeNameLower(name);
-      const getRating = (cat, role) => {
-        if (!lookupKey) return null;
-        const item = (cat[role] || []).find(
-          i => compatSafeNameLower(i?.name) === lookupKey
-        );
-        const r = item ? parseInt(item.rating) : null;
-        return Number.isInteger(r) ? r : null;
+  // ---------- SURVEY LOADING ----------
+  function readJsonFile(file) {
+    return new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onerror = () => rej(new Error('File read error'));
+      fr.onload = () => {
+        try { res(JSON.parse(String(fr.result || 'null'))); }
+        catch { rej(new Error('Invalid JSON')); }
       };
-
-      const aG = getRating(catA, 'Giving');
-      const aR = getRating(catA, 'Receiving');
-      const aGen = getRating(catA, 'General');
-      const bG = getRating(catB, 'Giving');
-      const bR = getRating(catB, 'Receiving');
-      const bGen = getRating(catB, 'General');
-
-      breakdown[category].push({
-        name,
-        you: { giving: aG, receiving: aR, general: aGen },
-        partner: { giving: bG, receiving: bR, general: bGen }
-      });
+      fr.readAsText(file);
     });
-  });
-  return breakdown;
-}
-
-function loadFileA(file) {
-  if (!file) return;
-  showSpinner();
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const parsed = parseSurveyJSON(ev.target.result);
-      surveyA = normalizeSurveyFormat(parsed.survey || parsed);
-      mergeSurveyWithTemplate(surveyA, window.templateSurvey);
-      normalizeRatings(surveyA);
-      filterGeneralOptions(surveyA);
-      window.partnerASurvey = surveyA;
-      updateComparison();
-    } catch (err) {
-      console.warn('Failed to load Survey A:', err);
-      alert('Invalid JSON for Survey A.\nPlease upload the unmodified JSON file exported from this site.');
-    } finally {
-      hideSpinner();
-    }
-  };
-  reader.onerror = () => hideSpinner();
-  reader.readAsText(file);
-}
-
-function loadFileB(file) {
-  if (!file) return;
-  if (!confirm('Have you reviewed consent with your partner?')) {
-    return;
-  }
-  showSpinner();
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const parsed = parseSurveyJSON(ev.target.result);
-      surveyB = normalizeSurveyFormat(parsed.survey || parsed);
-      mergeSurveyWithTemplate(surveyB, window.templateSurvey);
-      normalizeRatings(surveyB);
-      filterGeneralOptions(surveyB);
-      window.partnerBSurvey = surveyB;
-      updateComparison();
-    } catch (err) {
-      console.warn('Failed to load Survey B:', err);
-      alert('Invalid JSON for Survey B.\nPlease upload the unmodified JSON file exported from this site.');
-    } finally {
-      hideSpinner();
-    }
-  };
-  reader.onerror = () => hideSpinner();
-  reader.readAsText(file);
-}
-
-function getFlagOrStar(match, scoreA, scoreB) {
-  if (match >= 90) return '⭐';
-  const high = val => Number.isFinite(val) && val >= 4;
-  const missing = val => val === null || val === undefined || val === '' || val === 0;
-  if (match <= 50 || ((high(scoreA) || high(scoreB)) && (missing(scoreA) || missing(scoreB)))) return '🚩';
-  return '';
-}
-
-function renderFlags(root = document) {
-  const rows = root.querySelectorAll('.item-row');
-  rows.forEach(row => {
-    const matchCell = row.querySelector('.match');
-    if (!matchCell) return;
-    const a = row.dataset.a;
-    const b = row.dataset.b;
-    matchCell.innerHTML = renderMatchCell(a, b);
-  });
-}
-
-function markPartnerALoaded() {
-  const table = document.querySelector('#pdf-container table');
-  if (!table) return;
-
-  const ths = Array.from(table.querySelectorAll('thead th'));
-  const idxA = ths.findIndex(th => (th.textContent || '').trim().toLowerCase() === 'partner a');
-
-  if (idxA >= 0) {
-    const cells = Array.from(table.querySelectorAll(`tbody tr td:nth-child(${idxA + 1})`));
-    const hasAny = cells.some(td => (td.textContent || '').trim() !== '');
-    if (hasAny) {
-      cells.forEach(td => td.style.outline = '1px dashed rgba(255,255,255,.15)');
-      console.log('[compat] Partner A column populated in the DOM. Ready for PDF.');
-    } else {
-      console.warn('[compat] Partner A column is empty. Did the JSON include ratings for these rows?');
-    }
-  } else {
-    console.warn('[compat] Could not find a "Partner A" table header. Check your table markup.');
-  }
-}
-
-function updateComparison() {
-  const container = document.getElementById('pdf-container');
-  const msg = document.getElementById('comparisonResult');
-
-  if (!container) {
-    console.warn('[compat] No results container found');
-    return;
   }
 
-  if (!surveyA) {
-    if (msg) msg.textContent = surveyB ? 'Please upload both surveys to compare.' : '';
+  // Normalize multiple shapes to [{id, value}]
+  // Supports { answers: [ {id, value}, ... ] } or a flat { id: value, ... }
+  function normalizeSurvey(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw.answers)) {
+      return raw.answers
+        .filter(a => a && hasPrefix(a.id))
+        .map(a => ({ id: a.id, value: Number(a.value ?? 0) || 0 }));
+    }
+    const out = [];
+    for (const [id, v] of Object.entries(raw)) {
+      if (hasPrefix(id)) out.push({ id, value: Number(v ?? 0) || 0 });
+    }
+    return out;
+  }
+
+  // ---------- RENDER ----------
+  function renderTable(container, rows) {
+    const tbl = document.createElement('table');
+    tbl.className = 'compat-table'; // keep your CSS
+
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    ['Category', 'Partner A', 'Match %', 'Partner B'].forEach(h => {
+      const th = document.createElement('th'); th.textContent = h; trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    tbl.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    const missing = [];
+
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+
+      const tdCat = document.createElement('td');
+      const label = prettyLabel(r.id);
+      if (label === r.id) missing.push(r.id);
+      tdCat.textContent = label;
+
+      const tdA = document.createElement('td');
+      tdA.textContent = (r.a ?? null) === null ? dash : String(r.a);
+
+      const tdPct = document.createElement('td');
+      const cell = barCell(r.pct);
+      if (typeof cell === 'string') tdPct.textContent = cell;
+      else tdPct.appendChild(cell);
+
+      const tdB = document.createElement('td');
+      tdB.textContent = (r.b ?? null) === null ? dash : String(r.b);
+
+      tr.appendChild(tdCat); tr.appendChild(tdA); tr.appendChild(tdPct); tr.appendChild(tdB);
+      tbody.appendChild(tr);
+    }
+
+    tbl.appendChild(tbody);
     container.innerHTML = '';
-    lastResult = null;
-    return;
+    container.appendChild(tbl);
+
+    if (missing.length && !loggedMissingOnce) {
+      const uniq = [...new Set(missing)].sort();
+      console.warn(`[labels] Missing ${uniq.length} labels (showing raw codes):`, uniq);
+      loggedMissingOnce = true;
+    }
   }
 
-  if (!surveyB) {
-    if (msg) msg.textContent = 'Partner B data missing. Showing Partner A results only.';
-  } else if (msg) {
-    msg.textContent = '';
+  function computeRows(aList, bList) {
+    const mapA = new Map(aList.map(x => [x.id, x.value]));
+    const mapB = new Map(bList.map(x => [x.id, x.value]));
+    const all = new Set([...mapA.keys(), ...mapB.keys()]);
+    const out = [];
+    for (const id of all) {
+      const a = mapA.has(id) ? mapA.get(id) : null;
+      const b = mapB.has(id) ? mapB.get(id) : null;
+      let pct = null;
+      if (a !== null && b !== null) {
+        const diff = Math.abs(a - b);
+        pct = Math.max(0, 100 - diff * 20); // 0..5 scale → 100,80,60,40,20,0
+      }
+      out.push({ id, a, b, pct });
+    }
+    // stable and readable: sort by friendly label
+    out.sort((x, y) => prettyLabel(x.id).localeCompare(prettyLabel(y.id), undefined, { sensitivity: 'base' }));
+    return out;
   }
 
-  lastResult = buildKinkBreakdown(surveyA, surveyB || {});
-  container.innerHTML = '';
+  // ---------- WIRE UP ----------
+  async function init() {
+    await buildLabels();
 
-  // Calculate overall compatibility score and update history
-  let history;
-  if (surveyB) {
-    const compat = calculateCompatibility(surveyA, surveyB);
-    history = addHistoryEntry(compat.compatibilityScore);
+    const aBtn = $('#btnUploadA') || $('#uploadA');
+    const bBtn = $('#btnUploadB') || $('#uploadB');
+    const aFile = $('#fileA') || $('#surveyA');
+    const bFile = $('#fileB') || $('#surveyB');
+    const tableHost = $('#compatTable') || $('#compat-container') || $('#table');
+
+    let aAnswers = [];
+    let bAnswers = [];
+
+    function refresh() {
+      if (!tableHost) return;
+      renderTable(tableHost, computeRows(aAnswers, bAnswers));
+    }
+
+    async function pickAndLoad(which) {
+      const inp = which === 'A' ? aFile : bFile;
+      if (!inp || !inp.files || !inp.files[0]) return;
+      try {
+        const raw = await readJsonFile(inp.files[0]);
+        const norm = normalizeSurvey(raw);
+        if (which === 'A') aAnswers = norm; else bAnswers = norm;
+        refresh();
+      } catch (e) {
+        alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON exported from this site.`);
+      }
+    }
+
+    if (aBtn && aFile) aBtn.addEventListener('click', () => aFile.click());
+    if (bBtn && bFile) bBtn.addEventListener('click', () => bFile.click());
+    if (aFile) aFile.addEventListener('change', () => pickAndLoad('A'));
+    if (bFile) bFile.addEventListener('change', () => pickAndLoad('B'));
+
+    // If you pre-hydrate from storage/cookies, do it here then refresh()
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    history = loadHistory();
+    init();
   }
-
-  const mergedKinkData = [];
-  const aItems = [];
-  const bItems = [];
-  Object.entries(lastResult).forEach(([category, items]) => {
-    items.forEach(it => {
-      const aScore = maxRating(it.you);
-      const bScore = surveyB ? maxRating(it.partner) : null;
-      mergedKinkData.push({
-        category,
-        name: it.name,
-        partnerA: aScore,
-        partnerB: bScore
-      });
-      const key = compatNormalizeKey(it.name);
-      if (aScore != null) aItems.push({ id: key, label: it.name, score: aScore });
-      if (bScore != null) bItems.push({ id: key, label: it.name, score: bScore });
-    });
-  });
-  window.partnerAData = { items: aItems };
-  window.partnerBData = { items: bItems };
-  if (typeof window.updateExportButton === 'function') {
-    window.updateExportButton();
-  }
-
-  const groupedData = groupKinksByCategory(mergedKinkData);
-
-  const table = document.createElement('table');
-  table.className = 'results-table compat';
-  table.innerHTML = `
-    <colgroup>
-      <col class="label" />
-      <col class="pa" />
-      <col class="match" />
-      <col class="pb" />
-    </colgroup>
-    <thead>
-      <tr>
-        <th class="label">Category</th>
-        <th class="pa">Partner A</th>
-        <th class="match">Match</th>
-        <th class="pb">Partner B</th>
-      </tr>
-    </thead>
-  `;
-
-  for (const [category, kinks] of Object.entries(groupedData)) {
-    const block = document.createElement('tbody');
-    block.className = 'category-block';
-    block.dataset.category = category;
-
-    const titleRow = document.createElement('tr');
-    // Remove decorative emoji from category headers in web view
-    titleRow.innerHTML = `<td class="category-title" colspan="4">${category}</td>`;
-    block.appendChild(titleRow);
-
-    kinks.forEach(kink => {
-      const row = document.createElement('tr');
-      row.className = 'item-row';
-      if (kink.partnerA != null) row.dataset.a = kink.partnerA;
-      if (kink.partnerB != null) row.dataset.b = kink.partnerB;
-      const fullLabel = kink.name;
-      const key = compatNormalizeKey(fullLabel);
-      row.setAttribute('data-id', key);
-      row.setAttribute('data-key', key);
-      row.setAttribute('data-full', fullLabel);
-      const labelCell = document.createElement('td');
-      labelCell.className = 'label';
-      labelCell.innerHTML = renderCategoryCell({ category: kink.name, title: fullLabel });
-      const hidden = document.createElement('span');
-      hidden.className = 'full-label';
-      hidden.textContent = fullLabel;
-      hidden.hidden = true;
-      labelCell.appendChild(hidden);
-
-      const aCell = document.createElement('td');
-      aCell.className = 'pa';
-      aCell.setAttribute('data-partner-a', '');
-      aCell.textContent = renderScoreCell(kink.partnerA);
-
-      const matchCell = document.createElement('td');
-      matchCell.className = 'match';
-      matchCell.setAttribute('data-match', '');
-      matchCell.innerHTML = renderMatchCell(kink.partnerA, kink.partnerB);
-
-      const bCell = document.createElement('td');
-      bCell.className = 'pb';
-      bCell.setAttribute('data-partner-b', '');
-      bCell.textContent = renderScoreCell(kink.partnerB);
-
-      row.append(labelCell, aCell, matchCell, bCell);
-      block.appendChild(row);
-    });
-
-    table.appendChild(block);
-  }
-
-  container.appendChild(table);
-  if (typeof window.tkEnhanceCompatTable === 'function') {
-    window.tkEnhanceCompatTable(table);
-  }
-  renderFlags(table);
-  markPartnerALoaded();
-
-  const categories = Object.entries(lastResult).map(([category, items]) => ({
-    category,
-    items: items.map(it => ({
-      label: it.name,
-      a: maxRating(it.you),
-      b: maxRating(it.partner)
-    }))
-  }));
-  window.compatibilityData = { categories, history };
-
-  const cardList = document.getElementById('print-card-list');
-  if (cardList) cardList.innerHTML = '';
-}
-
-
-function handleFileUpload(input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (input.id === 'uploadSurveyA') {
-    loadFileA(file);
-  } else if (input.id === 'uploadSurveyB') {
-    loadFileB(file);
-  }
-}
-
-window.handleFileUpload = handleFileUpload;
-
-// Attach upload handlers for both survey inputs
-['uploadSurveyA', 'uploadSurveyB'].forEach(id => {
-  const input = document.getElementById(id);
-  if (input) {
-    input.addEventListener('change', e => handleFileUpload(e.target));
-  }
-});
-
-
-
-async function downloadBlob(blob, filename) {
-  const mime = blob.type && blob.type !== '' ? blob.type : 'application/octet-stream';
-  const ext = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')) : '';
-
-  if (typeof window.showSaveFilePicker === 'function') {
-    try {
-      const pickerOpts = {
-        suggestedName: filename
-      };
-      if (ext) {
-        pickerOpts.types = [{
-          description: `${ext.toUpperCase().replace('.', '')} File`,
-          accept: { [mime]: [ext] }
-        }];
-      }
-      const handle = await window.showSaveFilePicker(pickerOpts);
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      return true;
-    } catch (err) {
-      if (err && err.name === 'AbortError') {
-        return false;
-      }
-      console.warn('showSaveFilePicker failed, falling back to download link', err);
-    }
-  }
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.style.display = 'none';
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 0);
-  return true;
-}
-
-async function exportPNG() {
-  const element = document.getElementById('pdf-container');
-  if (!element) return;
-  showSpinner();
-  try {
-    const canvas = await html2canvas(element, {
-      backgroundColor: '#fff',
-      scale: 2,
-      useCORS: true
-    });
-    const link = document.createElement('a');
-    link.download = 'kink-survey.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  } finally {
-    hideSpinner();
-  }
-}
-
-async function exportHTML() {
-  const element = document.getElementById('pdf-container');
-  if (!element) return;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Kink Survey Results</title></head><body>${element.innerHTML}</body></html>`;
-  const blob = new Blob([html], { type: 'text/html' });
-  await downloadBlob(blob, 'kink-survey.html');
-}
-
-async function exportMarkdown() {
-  if (!lastResult) {
-    if (!surveyA || !surveyB) {
-      alert('Please upload both surveys first.');
-      return;
-    }
-    lastResult = buildKinkBreakdown(surveyA, surveyB);
-  }
-  const lines = ['# Kink Compatibility Results'];
-  for (const [cat, items] of Object.entries(lastResult)) {
-    lines.push(`\n## ${cat}`);
-    items.forEach(it => {
-      const a = maxRating(it.you);
-      const b = maxRating(it.partner);
-      lines.push(`- **${it.name}** - You: ${formatRating(a)} | Partner: ${formatRating(b)}`);
-    });
-  }
-  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
-  await downloadBlob(blob, 'kink-survey.md');
-}
-
-async function exportCSV() {
-  if (!lastResult) {
-    if (!surveyA || !surveyB) {
-      alert('Please upload both surveys first.');
-      return;
-    }
-    lastResult = buildKinkBreakdown(surveyA, surveyB);
-  }
-  const rows = [['Category', 'Item', 'Partner A', 'Partner B']];
-  Object.entries(lastResult).forEach(([cat, list]) => {
-    list.forEach(it => {
-      rows.push([cat, it.name, maxRating(it.you) ?? '', maxRating(it.partner) ?? '']);
-    });
-  });
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  await downloadBlob(blob, 'kink-survey.csv');
-}
-
-async function exportJSON() {
-  if (!lastResult) {
-    if (!surveyA || !surveyB) {
-      alert('Please upload both surveys first.');
-      return;
-    }
-    lastResult = buildKinkBreakdown(surveyA, surveyB);
-  }
-  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
-  await downloadBlob(blob, 'kink-survey.json');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  initTheme();
-  loadSavedSurvey();
-  updateComparison();
-});
+})();
