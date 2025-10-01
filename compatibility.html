@@ -2336,5 +2336,171 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 
 <script src="/js/tk-labels.js" defer></script>
 
+<!-- === Friendly Category Labels (inline) =================================== -->
+<script id="tkLabels" type="application/json">
+{
+  "labels": {
+    "cb_zsnrb":"Dress partner’s outfit",
+    "cb_6jd2f":"Choose lingerie / base layer",
+    "cb_kgrnn":"Uniforms (school, military, nurse…)",
+    "cb_169ma":"Era dress-up (gothic, 1920s, etc.)",
+    "cb_4yyxa":"Dollification / polished aesthetics",
+    "cb_2c0f9":"Hair-based play (brushing / tying)",
+    "cb_qwnhi":"Head coverings / symbolic hoods",
+    "cb_zvchg":"Coordinated looks / dress codes",
+    "cb_qw9jg":"Ritualized grooming",
+    "cb_3ozhq":"Praise for pleasing visual display",
+    "cb_hqakm":"Formal appearance protocols",
+    "cb_rn136":"Clothing as power-role signal",
+
+    "cb_kua8l":"— (label me in /data/kinks.json)",
+    "cb_yzegd":"— (label me in /data/kinks.json)",
+    "cb_2gxmo":"— (label me in /data/kinks.json)",
+    "cb_kaku7":"— (label me in /data/kinks.json)",
+    "cb_qflrp":"— (label me in /data/kinks.json)",
+    "cb_gkzbu":"— (label me in /data/kinks.json)",
+    "cb_r7cwr":"— (label me in /data/kinks.json)",
+    "cb_w2dc1":"— (label me in /data/kinks.json)",
+    "cb_ss4gf":"— (label me in /data/kinks.json)",
+    "cb_fsnmj":"— (label me in /data/kinks.json)",
+    "cb_065gv":"— (label me in /data/kinks.json)",
+    "cb_ifkmg":"— (label me in /data/kinks.json)",
+    "cb_qege6":"— (label me in /data/kinks.json)",
+    "cb_s9861":"— (label me in /data/kinks.json)"
+  }
+}
+</script>
+
+<!-- === Relabel logic (self-contained; no external files needed) ============ -->
+<script>
+(() => {
+  const INLINE = (() => {
+    try { return JSON.parse(document.getElementById('tkLabels')?.textContent || '{}').labels || {}; }
+    catch { return {}; }
+  })();
+
+  const DICT_URLS = ["/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
+  const LABELS   = { ...INLINE };
+  let dictReady  = false;
+
+  const log = (...a) => console.info("[labels]", ...a);
+
+  function findCompatTable() {
+    return document.querySelector("#compatTable")
+        || document.querySelector(".compat-table")
+        || document.querySelector("main table")
+        || document.querySelector("table");
+  }
+
+  function codeFromCell(td) {
+    if (!td) return null;
+    if (td.dataset.code) return td.dataset.code.trim().toLowerCase();
+    const t = (td.textContent || "").trim();
+    const m = t.match(/\bcb_[a-z0-9]+\b/i);
+    return m ? m[0].toLowerCase() : null;
+  }
+
+  function applyLabels() {
+    const table = findCompatTable();
+    if (!table) return;
+    let changed = 0, unknown = new Set();
+
+    table.querySelectorAll("tbody tr").forEach(tr => {
+      const first = tr.querySelector("td");
+      if (!first) return;
+      const id = codeFromCell(first);
+      if (!id) return;
+      const friendly = LABELS[id];
+      if (friendly && friendly !== first.textContent.trim()) {
+        first.textContent = friendly;
+        changed++;
+      } else if (!friendly) {
+        unknown.add(id);
+      }
+    });
+
+    if (changed) log(`renamed ${changed} row(s)`);
+    if (unknown.size) log(`${unknown.size} unknown code(s):`, Array.from(unknown).join(", "));
+  }
+
+  async function tryLoadDict() {
+    if (dictReady) return;
+    for (const url of DICT_URLS) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) { log(url, "->", res.status); continue; }
+        const json = await res.json();
+        const labels = (json && (json.labels || json)) || {};
+        Object.assign(LABELS, labels);
+        dictReady = true;
+        log("merged", Object.keys(labels).length, "labels from", url);
+        break;
+      } catch (e) { log("fetch failed", url, e?.message || e); }
+    }
+  }
+
+  function watchUploads() {
+    document.querySelectorAll('input[type="file"]').forEach(input => {
+      if (input.dataset.lb === "1") return;
+      input.dataset.lb = "1";
+      input.addEventListener("change", ev => {
+        const f = ev.target.files && ev.target.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+          try {
+            const data = JSON.parse(rd.result);
+            const harvested = harvestLabels(data);
+            if (Object.keys(harvested).length) {
+              Object.assign(LABELS, harvested);
+              log("harvested", Object.keys(harvested).length, "labels from uploaded survey");
+              schedule();
+            }
+          } catch {}
+        };
+        rd.readAsText(f);
+      }, { passive: true });
+    });
+  }
+
+  function harvestLabels(obj, out = {}) {
+    if (!obj || typeof obj !== "object") return out;
+    // Common shapes in exported survey JSONs
+    if (Array.isArray(obj.categories)) for (const c of obj.categories) {
+      const id = (c.id || c.key || c.code || c.slug || "").trim();
+      const title = (c.title || c.name || c.label || c.summary || c.short || c.shortTitle || "").trim();
+      if (id && title) out[id.toLowerCase()] = title;
+    }
+    if (Array.isArray(obj.items)) for (const it of obj.items) {
+      const id = (it.id || it.code || it.key || "").trim();
+      const title = (it.title || it.prompt || it.question || it.label || it.summary || it.name || "").trim();
+      if (id && title) out[id.toLowerCase()] = title;
+    }
+    if (obj.labels && typeof obj.labels === "object") {
+      for (const [k,v] of Object.entries(obj.labels)) out[String(k).toLowerCase()] = String(v);
+    }
+    for (const v of Object.values(obj)) if (v && typeof v === "object") harvestLabels(v, out);
+    return out;
+  }
+
+  let pending = null;
+  function schedule() {
+    if (pending) cancelAnimationFrame(pending);
+    pending = requestAnimationFrame(() => { pending = null; applyLabels(); });
+  }
+
+  // Boot
+  tryLoadDict().then(schedule);
+  schedule(); // run once immediately
+  // Re-run when the table or buttons are rebuilt
+  const mo = new MutationObserver(() => { watchUploads(); schedule(); });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener("load", () => { watchUploads(); schedule(); setTimeout(schedule, 300); setTimeout(schedule, 1200); });
+
+  // small debug helper
+  window.TK_labels = () => ({ known: Object.keys(LABELS).length, sample: Object.keys(LABELS).slice(0,8) });
+})();
+</script>
+
 </body>
 </html>
