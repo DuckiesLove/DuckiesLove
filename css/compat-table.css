@@ -66,6 +66,10 @@ td.pb {
 .flag-cell { text-align: left; }
 .flag-cell .red-flag { color: #ff4d4f; }
 
+button#tk-missing-pill:focus {
+  outline: none;
+}
+
 /* Print adjustments */
 @media print {
   body {

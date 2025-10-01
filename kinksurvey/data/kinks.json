@@ -1,44 +1,19 @@
 {
-  "labels": {
-    "cb_zsnrb": "Dress partner’s outfit",
-    "cb_6jd2f": "Pick lingerie / base layers",
-    "cb_kgrnn": "Uniforms (school, military, nurse, etc.)",
-    "cb_169ma": "Time-period dress-up",
-    "cb_4yyxa": "Dollification / polished object aesthetics",
-    "cb_2c0f9": "Hair-based play (brushing, ribbons, tying)",
-    "cb_qwnhi": "Head coverings / symbolic hoods",
-    "cb_zvchg": "Coordinated looks / dress codes",
-    "cb_qw9jg": "Ritualized grooming",
-    "cb_3ozhq": "Praise for pleasing visual display",
-    "cb_hqakm": "Formal appearance protocols",
-    "cb_rn136": "Clothing as power-role signal",
-
-    "cb_kua8l": "Matching looks / coordinated dress codes",
-    "cb_yzegd": "Ritualized grooming before scenes",
-    "cb_2gxmo": "Praise/positive attention for pleasing visual display",
-    "cb_kaku7": "Formal appearance protocols for scenes or dynamics",
-    "cb_qflrp": "Using clothing/style to embody power roles",
-    "cb_gkzbu": "Dollification—polished/presented object aesthetics",
-    "cb_r7cwr": "Uniforms (schoolgirl, military, clerical, nurse, etc.)",
-    "cb_w2dc1": "Time-period dress-up (regency, gothic, 1920s, etc.)",
-    "cb_ss4gf": "Hair-based play (forced brushing, ribbons, tied styles)",
-    "cb_fsnmj": "Head coverings/symbolic hoods in ritualized dynamics",
-    "cb_065gv": "Coordinated looks / dress codes (formal, scene-specific)",
-    "cb_ifkmg": "Ritualized grooming before scenes",
-    "cb_qege6": "Praise/positive attention for pleasing visual display",
-    "cb_s9861": "Formal appearance protocols (dress rules, standards)",
-    "cb_46bc3": "Clothing or style as explicit power-role signal",
-
-    "cb_ox5yg": "Accessory or ornament rules",
-    "cb_swuij": "Scene-specific hair/face styling expectations",
-    "cb_ykj4f": "Wardrobe restrictions or permissions",
-
-    "cb_6vf76": "Cosplay / character presentation",
-    "cb_tdbox": "Makeup as protocol or control",
-    "cb_zlfd1": "Dress partner’s outfit (directive/decision)"
-  },
-  "meta": {
-    "source": "TalkKink – manual seed",
-    "notes": "This is a partial seed. Fill the rest using the Missing Labels button in the UI (see step 3)."
-  }
+  "cb_zsnrb": "Dress partner’s outfit",
+  "cb_6jd2f": "Pick lingerie / base layers",
+  "cb_kgrnn": "Uniforms (school, military, nurse, etc.)",
+  "cb_169ma": "Time-period dress-up",
+  "cb_4yyxa": "Dollification / polished object aesthetics",
+  "cb_2c0f9": "Hair-based play (brushing, ribbons, tying)",
+  "cb_qwnhi": "Head coverings / symbolic hoods",
+  "cb_zvchg": "Coordinated looks / dress codes",
+  "cb_qw9jg": "Ritualized grooming",
+  "cb_3ozhq": "Praise for pleasing visual display",
+  "cb_hqakm": "Formal appearance protocols",
+  "cb_rn136": "Clothing as power-role signal",
+  "cb_zlfd1": "Dress partner’s outfit (directive/decision)",
+  "cb_tdbox": "Makeup as protocol or control",
+  "cb_wwf76": "Makeup specifics (brands, palette, application rules)",
+  "cb_swujj": "Accessory or ornament rules",
+  "cb_05hqj": "Wardrobe restrictions or permissions"
 }
