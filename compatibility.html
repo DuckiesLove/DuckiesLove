@@ -2333,138 +2333,155 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 });
 </script>
 
-<!-- Friendly category label drop-in -->
+<!-- DROP-IN REPLACEMENT (fixes “page freezes after uploading Survey A”) 
+     What it does
+     • Loads /data/kinks.json first (no 404 spam).
+     • Merges any labels found inside the uploaded Survey JSON.
+     • Replaces cb_* codes in the table’s first column with friendly labels.
+     • Uses a debounced, one-shot observer so it DOESN’T loop or lock the UI.
+
+     How to use
+     1) Remove the previous helper I gave you and paste THIS block near </body>
+        on compatibility.html (and IKA if you use it there too).
+     2) Ensure your dictionary file exists at /data/kinks.json (or extend the
+        URLs list below).
+     3) Keep your current upload code. After Survey A or B is parsed, call:
+           window.TK_mergeLabelsFromSurvey(parsedJson);
+           window.TK_relabel();   // optional nudge; it’s debounced anyway
+-->
+
 <script>
 (function () {
-  // --- 0) EDIT ME: guaranteed local summaries (used if no better source is found)
-  // Add/modify as many as you like. The *keys* must match the cb_* ids in your exports.
-  // Keep the values SHORT (a few words) so they fit your table nicely.
+  /** ------------------  CONFIG  ------------------ **/
+  // Prefer the path you actually have to avoid 404s:
+  const DICT_URLS = ["/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
+
+  // Guaranteed fallbacks if no labels are found anywhere:
   const TK_FALLBACK_LABELS = {
-    // Appearance / looks (examples)
-    "cb_zsnrb": "Dress partner’s outfit",
-    "cb_6jd2f": "Pick lingerie/base layers",
-    "cb_kgrnn": "Uniforms (school/military/etc.)",
-    "cb_169ma": "Time-period dress-up",
-    "cb_4yyxa": "Dollification / presented object",
-    "cb_2c0f9": "Hair-based play",
-    "cb_qwnhi": "Head coverings / ritual hoods",
-    "cb_zvchg": "Matching looks / dress codes",
-    "cb_qw9jg": "Ritualized grooming",
-    "cb_3ozhq": "Praise for visual display",
-    "cb_hqakm": "Formal appearance protocols",
-    "cb_rn136": "Clothing for power roles",
-
-    // Other examples (you can replace with your real summaries)
-    "cb_s6l0c": "Appearance play – general",
-    "cb_vehe6": "Aesthetics & presentation",
-    "cb_johe3": "Costumes / cosplay",
-    "cb_84ivd": "Visual control / standards",
-    "cb_qv5mh": "Makeup control",
-    "cb_aa5ke": "Grooming standards",
-    "cb_bb0my": "Dress code enforcement",
-    "cb_zcr4l": "Coordinated style",
-    "cb_6d7ci": "Hair rules",
-    "cb_lyf0d": "Attire restrictions",
-    "cb_1qi7p": "Uniform rules",
-    "cb_upajf": "Accessory control",
-    "cb_h9uha": "Role-signaling apparel",
-    "cb_cc5w8": "Presentation rituals",
-
-    // Keep adding your ids here…
-    // "cb_xxxxx": "Your short summary",
+    "cb_zsnrb":"Dress partner’s outfit",
+    "cb_6jd2f":"Pick lingerie / base layers",
+    "cb_kgrnn":"Uniforms (school/military/etc.)",
+    "cb_169ma":"Time-period dress-up",
+    "cb_4yyxa":"Dollification / presented object",
+    "cb_2c0f9":"Hair-based play",
+    "cb_qwnhi":"Head coverings / ritual hoods",
+    "cb_zvchg":"Matching looks / dress codes",
+    "cb_qw9jg":"Ritualized grooming",
+    "cb_3ozhq":"Praise for visual display",
+    "cb_hqakm":"Formal appearance protocols",
+    "cb_rn136":"Clothing used for power roles"
+    // add more mappings as you like
   };
 
-  // --- 1) A small registry where we merge all label sources
+  /** ---------------  INTERNAL STATE  --------------- **/
   const TK_LABELS = { ...TK_FALLBACK_LABELS };
+  let dictLoaded = false;
 
-  // Accept many shapes of a “kinks dictionary”
   function extractLabelsFromAnyShape(json) {
     const dict = {};
     if (!json || typeof json !== "object") return dict;
 
-    // Common shapes:
     if (Array.isArray(json.categories)) {
-      json.categories.forEach((c) => {
+      for (const c of json.categories) {
         const id = c.id || c.key || c.slug || c.code;
         const title = c.title || c.name || c.label || c.summary;
         if (id && title) dict[id] = title;
-      });
+      }
     }
-    if (json.labels && typeof json.labels === "object") {
-      Object.assign(dict, json.labels);
-    }
+    if (json.labels && typeof json.labels === "object") Object.assign(dict, json.labels);
     if (json.meta && json.meta.labels && typeof json.meta.labels === "object") {
       Object.assign(dict, json.meta.labels);
     }
     return dict;
   }
 
-  // --- 2) Try to load a site-wide dictionary (optional but recommended)
-  async function tryLoadSiteDictionary() {
-    const urls = [
-      "/data/kinks.json",
-      "/kinksurvey/data/kinks.json",
-      "/kinks.json",
-    ];
-    for (const url of urls) {
+  async function loadDictionaryOnce() {
+    if (dictLoaded) return true;
+    for (const url of DICT_URLS) {
       try {
         const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) continue;
         const json = await res.json();
         Object.assign(TK_LABELS, extractLabelsFromAnyShape(json));
-        console.info("[compat] loaded labels from", url);
-        return true;
-      } catch {
-        /* ignore */
-      }
+        dictLoaded = true;
+        console.info("[compat] labels loaded from", url);
+        break;
+      } catch (e) { /* try next */ }
     }
-    return false;
+    return dictLoaded;
   }
 
-  // --- 3) If your upload code exposes the parsed surveys, merge any embedded labels
-  // Call these from your existing file-upload handlers *after* parsing JSON:
-  //   window.TK_mergeLabelsFromSurvey(parsedJson);
+  // Public API for your upload code:
   window.TK_mergeLabelsFromSurvey = function (surveyJson) {
     Object.assign(TK_LABELS, extractLabelsFromAnyShape(surveyJson));
   };
 
-  // --- 4) Helper used by the table decorator
-  function labelFor(id) {
-    return TK_LABELS[id] || id;
+  function labelFor(id) { return TK_LABELS[id] || id; }
+
+  /** ---------  SAFE, DEBOUNCED RELABEL STEP  --------- **/
+  let relabelScheduled = false;
+  let relabelRunning = false;
+  let observer; // so we can disconnect cleanly
+
+  function findCompatTable() {
+    // If you have a known table id/class, put it first for speed:
+    return (
+      document.querySelector("#compatTable") ||
+      document.querySelector(".compat-table") ||
+      document.querySelector("table") // fallback
+    );
   }
 
-  // --- 5) Decorate the comparison table: replace cb_* ids with summaries
-  function relabelComparisonTable() {
-    // Find the main comparison table by headers (“Category” / “Partner A” / …)
-    const tables = Array.from(document.querySelectorAll("table"));
-    const target = tables.find((t) => {
-      const ths = Array.from(t.querySelectorAll("thead th, tr th"));
-      return ths.some((th) => /category/i.test(th.textContent));
-    });
-    if (!target) return;
+  function relabelNow() {
+    if (relabelRunning) return; // prevent re-entrancy
+    relabelRunning = true;
 
-    // First column is category
-    const rows = target.querySelectorAll("tbody tr");
-    rows.forEach((tr) => {
-      const td = tr.querySelector("td");
-      if (!td) return;
-      const raw = (td.textContent || "").trim();
+    const table = findCompatTable();
+    if (!table) {
+      relabelRunning = false;
+      return;
+    }
+
+    // Only touch the first column (Category)
+    const rows = table.querySelectorAll("tbody tr");
+    for (const tr of rows) {
+      // mark row so we don’t process again
+      if (tr.dataset.tkLabeled === "1") continue;
+      const first = tr.querySelector("td");
+      if (!first) { tr.dataset.tkLabeled = "1"; continue; }
+
+      const raw = (first.textContent || "").trim();
+      // Only swap when it looks like a cb_* code.
       if (/^cb_[a-z0-9]+$/i.test(raw)) {
-        td.textContent = labelFor(raw);
+        const pretty = labelFor(raw);
+        if (pretty && pretty !== raw) first.textContent = pretty;
       }
-    });
+      tr.dataset.tkLabeled = "1";
+    }
+
+    // We’re done; disconnect the observer so we don’t keep reacting forever.
+    if (observer) observer.disconnect();
+    relabelRunning = false;
+    relabelScheduled = false;
   }
 
-  // --- 6) Keep it updated as the page renders/changes
-  const mo = new MutationObserver(() => relabelComparisonTable());
-  mo.observe(document.documentElement, { childList: true, subtree: true });
+  // Debounce to avoid rapid-fire runs during DOM churn
+  function scheduleRelabel() {
+    if (relabelScheduled) return;
+    relabelScheduled = true;
+    // Small delay lets the UI settle and prevents lock-ups.
+    setTimeout(relabelNow, 80);
+  }
 
-  // --- 7) Kick off: try to fetch a dictionary, then relabel once on load
-  tryLoadSiteDictionary().finally(relabelComparisonTable);
+  // Public nudge if you want to call it after each upload is parsed:
+  window.TK_relabel = scheduleRelabel;
 
-  // Expose for debugging (optional)
-  window.TK_LABELS = TK_LABELS;
-  window.TK_relabel = relabelComparisonTable;
+  // Lightweight observer that auto-disconnects after first stable relabel
+  observer = new MutationObserver(() => scheduleRelabel());
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Kick off: load dictionary (non-blocking) then try a relabel
+  loadDictionaryOnce().finally(scheduleRelabel);
 })();
 </script>
 </body>
