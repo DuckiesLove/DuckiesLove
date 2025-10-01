@@ -296,6 +296,10 @@
         Upload Partner’s Survey
       </label>
 
+      <button id="tk-missing-labels-btn" class="ksvBtn" style="display:none;margin-top:12px">
+        Missing labels
+      </button>
+
       <button class="themed-button wide-button" id="downloadBtn">Download PDF</button>
       <p id="exportTip" class="export-tip">Upload both surveys before exporting.</p>
     </div>
@@ -323,7 +327,7 @@
   </div>
 
   <script src="js/template-survey.js"></script>
-  <script type="module" src="js/compatibilityPage.js"></script>
+  <script type="module" src="/js/compatibilityPage.js"></script>
   <script type="module">
     import { initTheme, applyThemeColors } from './js/theme.js';
     initTheme();
@@ -2334,7 +2338,7 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 </script>
 
 
-<script src="/js/tk-labels.js" defer></script>
+<script type="module" src="/js/tk-labels.js"></script>
 
 </body>
 </html>
