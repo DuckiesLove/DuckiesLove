@@ -1043,5 +1043,176 @@ RESULT
   }
 })();
 </script>
+<script>
+/* ===== TK Compatibility: robust survey upload wiring =====
+   Drop this ONCE at the very end of /compatibility.html (right before </body>).
+   It stores uploads into window._tkCompat.A / .B and (re)computes the table. */
+
+(function () {
+  // ---------- helpers ----------
+  const sTrim = v => (v == null ? '' : String(v)).trim();
+  function clamp05(n){ n=Number(n); if(!Number.isFinite(n))return 0; return Math.max(0,Math.min(5,n)); }
+
+  // Accepts all current export shapes (object map, {answers:object}, {answers:array}, {rows:array})
+  function normalizeSurvey(json){
+    const map = new Map();
+    if(!json || typeof json!=='object') return {map,count:0};
+
+    if(json.answers && typeof json.answers==='object' && !Array.isArray(json.answers)){
+      for(const [k,v] of Object.entries(json.answers)){ const id=sTrim(k); if(id) map.set(id, clamp05(v)); }
+      return {map,count:map.size};
+    }
+    if(Array.isArray(json.answers)){
+      for(const r of json.answers){
+        const id=sTrim(r?.id ?? r?.key);
+        if(id) map.set(id, clamp05(r?.score ?? r?.value ?? r?.v ?? 0));
+      }
+      return {map,count:map.size};
+    }
+    if(Array.isArray(json.rows)){
+      for(const r of json.rows){
+        const id=sTrim(r?.id ?? r?.key);
+        if(id) map.set(id, clamp05(r?.score ?? r?.value ?? r?.v ?? 0));
+      }
+      return {map,count:map.size};
+    }
+    // plain object fallback
+    for(const [k,v] of Object.entries(json)){
+      if(/^(schema|meta|page|site|exportedAt)$/i.test(k)) continue;
+      const id=sTrim(k); if(id) map.set(id, clamp05(v));
+    }
+    return {map,count:map.size};
+  }
+
+  // Keep a single global store
+  window._tkCompat = window._tkCompat || { A:null, B:null };
+
+  // ---------- recompute / render ----------
+  function defaultRender(){
+    const A = window._tkCompat.A?.map || new Map();
+    const B = window._tkCompat.B?.map || new Map();
+    const keys = new Set([...A.keys(), ...B.keys()]);
+    const tbody = document.querySelector('#compatTable tbody') || document.querySelector('table tbody');
+
+    if(!tbody){
+      console.info('[compat] (no table tbody found) filled Partner A cells:',
+                   [...A.values()].filter(v=>v!=null).length,
+                   '; Partner B cells:',
+                   [...B.values()].filter(v=>v!=null).length);
+      return;
+    }
+
+    tbody.innerHTML = '';
+    keys.forEach(k=>{
+      const a = A.get(k), b = B.get(k);
+      const match = (a==null || b==null) ? '—' : Math.round((1 - Math.abs(a-b)/5)*100);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${k}</td>
+                      <td class="ta-c">${a==null?'—':a}</td>
+                      <td class="ta-c">${match}</td>
+                      <td class="ta-c">${b==null?'—':b}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    console.info('[compat] filled Partner A cells:',
+                 [...A.values()].filter(v=>v!=null).length,
+                 '; Partner B cells:',
+                 [...B.values()].filter(v=>v!=null).length);
+  }
+
+  function recompute(){
+    // If your page already exposes a recompute hook, use it. Else do the default.
+    if (typeof window._tkCompatRecompute === 'function') {
+      try { window._tkCompatRecompute(); return; } catch(e){ console.warn(e); }
+    }
+    defaultRender();
+  }
+
+  // ---------- partner detection ----------
+  let lastIntent = null;
+  let lastIntentAt = 0;
+
+  // Remember which upload button was clicked most recently
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button,a,input[type="button"],input[type="submit"]');
+    if(!btn) return;
+    const txt = (btn.textContent || btn.value || '').toLowerCase();
+    if(/partner.?s?\s+survey|partner\b/.test(txt)) { lastIntent = 'B'; lastIntentAt = Date.now(); }
+    else if(/your\s+survey|upload\s+your|^back$/.test(txt)) { lastIntent = 'A'; lastIntentAt = Date.now(); }
+  }, true);
+
+  // Strong signal from input attributes
+  function detectPartnerFromInput(input){
+    const bag = [
+      input.dataset?.partner,
+      input.name, input.id,
+      input.getAttribute('aria-label'),
+      input.getAttribute('title')
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    if(/\b(b|partner\s*b|survey\s*b|file\s*b)\b/.test(bag)) return 'B';
+    if(/\b(a|partner\s*a|survey\s*a|file\s*a)\b/.test(bag)) return 'A';
+
+    const lbl = input.closest('label')?.textContent?.toLowerCase() || '';
+    const near = input.closest('form,section,div')?.textContent?.slice(0,200)?.toLowerCase() || '';
+    const around = lbl + ' ' + near;
+    if(/partner[^a-z]*b/.test(around)) return 'B';
+    if(/your.*survey|partner[^a-z]*a/.test(around)) return 'A';
+    return null;
+  }
+
+  // Fallback ordering across inputs
+  const inputSeen = [];
+  function fallbackSlotFor(input){
+    if(!inputSeen.includes(input)) inputSeen.push(input);
+    // first file input we ever see → A, second → B
+    return inputSeen.indexOf(input) === 0 ? 'A' : 'B';
+  }
+
+  // ---------- wire uploads (single capture listener) ----------
+  function wireUploads(){
+    document.addEventListener('change', (e)=>{
+      const el = e.target;
+      if(!(el instanceof HTMLInputElement) || el.type !== 'file') return;
+      const file = el.files && el.files[0];
+      if(!file) return;
+
+      // decide who
+      let who = detectPartnerFromInput(el);
+      if(!who && lastIntent && Date.now() - lastIntentAt < 8000) who = lastIntent; // use recent button click (8s window)
+      if(!who) who = fallbackSlotFor(el);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const json = JSON.parse(String(reader.result));
+          const norm = normalizeSurvey(json);
+          window._tkCompat[who] = norm;
+          console.info(`[compat] stored Survey ${who} with ${norm.count} answers`);
+          recompute();
+        } catch (err) {
+          console.error('[compat] parse/normalize failed:', err);
+          alert(`Invalid JSON for Survey ${who}. Please upload the unmodified JSON file exported from this site.`);
+        }
+      };
+      reader.onerror = () => {
+        alert(`Could not read file (${reader.error || 'unknown error'})`);
+      };
+      reader.readAsText(file);
+    }, true);
+
+    // small visual centering helper
+    const st = document.createElement('style');
+    st.textContent = `.ta-c{text-align:center} table td,table th{vertical-align:middle}`;
+    document.head.appendChild(st);
+  }
+
+  if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireUploads);
+  } else {
+    wireUploads();
+  }
+})();
+</script>
 </body>
 </html>
