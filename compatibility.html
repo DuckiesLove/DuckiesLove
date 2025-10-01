@@ -1196,6 +1196,193 @@ You do not need to remove your existing code — this patches around it.
   }
 })();
 </script>
+
+<!-- ===== TK Compatibility Page Hardening Patch (paste before </body>) ===== -->
+
+<!-- jsPDF + autoTable (fixes "jsPDF undefined" or "autoTable is not a function") -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js" defer></script>
+<script>
+(function ensureJsPDF(){
+  function ready(){
+    if (window.jspdf && window.jspdf.jsPDF) {
+      window.jsPDF = window.jspdf.jsPDF;
+      try { new window.jsPDF({compress:false}); } catch(_) {}
+    }
+  }
+  window.addEventListener('load', ready, {once:true});
+  setTimeout(ready, 600);
+})();
+</script>
+
+<script>
+(function(){
+  // ---------- Tiny coercers ----------
+  const STR = v => (v == null ? '' : (typeof v === 'string' ? v : String(v)));
+  const TRIM = v => STR(v).trim();
+  const NUM = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+  // ---------- Canonical survey shape ----------
+  function canonSurvey(raw){
+    if (!raw || typeof raw !== 'object') throw new Error('bad survey');
+
+    if (raw.schema === 'tk-survey.v1' && Array.isArray(raw.answers)) {
+      const answers = raw.answers.map(a => ({
+        key   : TRIM(a?.key),
+        label : TRIM(a?.label),
+        rating: NUM(a?.rating)
+      }));
+      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
+      return { schema:'tk-survey.v1', site: raw.site||'', generatedAt: raw.generatedAt||'',
+               answers, answersByKey };
+    }
+
+    if (Array.isArray(raw.answers)) {
+      const answers = raw.answers.map(a => ({
+        key   : TRIM(a?.key),
+        label : TRIM(a?.label),
+        rating: NUM(a?.rating)
+      }));
+      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
+      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
+    }
+
+    if (raw.answersByKey && typeof raw.answersByKey === 'object') {
+      const answers = Object.entries(raw.answersByKey)
+        .map(([k, v]) => ({ key: TRIM(k), label:'', rating: NUM(v) }));
+      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
+      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
+    }
+
+    // Very old shapes (optional): categories → questions → rating
+    if (Array.isArray(raw.categories)) {
+      const flat = [];
+      raw.categories.forEach(c => {
+        (c?.questions || []).forEach(q => {
+          flat.push({ key: TRIM(q?.key || q?.id || q?.name),
+                      label: TRIM(q?.label || q?.text),
+                      rating: NUM(q?.rating) });
+        });
+      });
+      const answersByKey = Object.fromEntries(flat.map(a => [a.key, a.rating]));
+      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers:flat, answersByKey };
+    }
+
+    throw new Error('unrecognized survey shape');
+  }
+
+  function sanitizeSurvey(sv){
+    if (!sv || typeof sv !== 'object') return;
+    sv.answers = (Array.isArray(sv.answers) ? sv.answers : [])
+      .filter(Boolean)
+      .map(a => ({ key: TRIM(a?.key), label: TRIM(a?.label), rating: NUM(a?.rating) }));
+    sv.answersByKey = Object.fromEntries(sv.answers.map(a => [a.key, a.rating]));
+  }
+
+  function sanitizeUnionArray(arr){
+    if (!Array.isArray(arr)) return arr;
+    return arr.map(r => {
+      if (!r || typeof r !== 'object') return r;
+      r.key      = TRIM(r.key);
+      r.label    = TRIM(r.label);
+      r.group    = TRIM(r.group);
+      r.category = TRIM(r.category);
+      return r;
+    });
+  }
+
+  // ---------- Wrap JSON.parse so parsed surveys/unions are safe immediately ----------
+  (function wrapJSONParse(){
+    const _parse = JSON.parse;
+    JSON.parse = function(str, reviver){
+      const obj = _parse(str, reviver);
+      try {
+        // Detect and canonicalize surveys
+        if (obj && typeof obj === 'object') {
+          if (Array.isArray(obj.answers) || obj.answersByKey || Array.isArray(obj.categories)) {
+            return canonSurvey(obj);
+          }
+          // Detect likely union lists and sanitize labels/keys
+          const union =
+            (Array.isArray(obj.union) && obj.union) ||
+            (Array.isArray(obj.rows) && obj.rows)   ||
+            (Array.isArray(obj.kinks) && obj.kinks);
+          if (union) {
+            union.splice(0, union.length, ...sanitizeUnionArray(union));
+          }
+        }
+      } catch(e) {
+        // fall back to original parse result
+        console.warn('[compat] JSON.parse patch fell back:', e);
+      }
+      return obj;
+    };
+  })();
+
+  // ---------- Always call with safe globals ----------
+  function ensureDefaults(){
+    if (!window.SurveyA) window.SurveyA = { schema:'tk-survey.v1', answers:[], answersByKey:{} };
+    if (!window.SurveyB) window.SurveyB = { schema:'tk-survey.v1', answers:[], answersByKey:{} };
+    sanitizeSurvey(window.SurveyA);
+    sanitizeSurvey(window.SurveyB);
+  }
+
+  function patchCompute(){
+    ['calculateCompatibility','updateComparison'].forEach(name=>{
+      const fn = window[name];
+      if (typeof fn === 'function' && !fn.__tkSafe) {
+        const wrapped = function(...args){
+          try { ensureDefaults(); } catch(_){ }
+          return fn.apply(this, args);
+        };
+        wrapped.__tkSafe = true;
+        window[name] = wrapped;
+      }
+    });
+  }
+
+  // ---------- If file inputs exist, coerce uploads too (defensive) ----------
+  function bindUploads(){
+    const inputs = Array.from(document.querySelectorAll('input[type="file"][accept*="json" i]'));
+    let sawA = false;
+    inputs.forEach(inp=>{
+      if (inp._tkBound) return;
+      inp._tkBound = true;
+      inp.addEventListener('change', ev=>{
+        const f = ev.target.files && ev.target.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = e=>{
+          try{
+            const parsed = JSON.parse(String(e.target.result||'{}')); // lands in our JSON.parse wrapper
+            if (!sawA) { window.SurveyA = parsed; sawA = true; } else { window.SurveyB = parsed; }
+            ensureDefaults();
+            console.info('[compat] upload normalized:', sawA ? 'B' : 'A',
+              (sawA?window.SurveyB.answers.length:window.SurveyA.answers.length),'answers');
+          }catch(err){
+            alert('Invalid JSON. Please upload the unmodified JSON file exported from the survey.');
+            console.error(err);
+          }
+        };
+        r.readAsText(f);
+      }, true);
+    });
+  }
+
+  // ---------- Init ----------
+  function init(){
+    ensureDefaults();
+    patchCompute();
+    bindUploads();
+  }
+  window.addEventListener('load', init, {once:true});
+  setTimeout(init, 700);
+  new MutationObserver(()=>{ patchCompute(); bindUploads(); })
+    .observe(document.documentElement, {childList:true, subtree:true});
+})();
+</script>
+<!-- ===== /TK Compatibility Page Hardening Patch ===== -->
+
 <!-- ---------- End Safe Bootstrap ---------- -->
 </body>
 </html>
