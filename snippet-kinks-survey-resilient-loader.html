@@ -81,6 +81,11 @@
 
   /*** 3) Validate/normalize the JSON so one bad row doesn’t stop render ***/
   function normalizeBank(raw){
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      if (Array.isArray(raw.categories)) return normalizeBank(raw.categories);
+      if (Array.isArray(raw.kinks)) return normalizeBank(raw.kinks);
+      if (Array.isArray(raw.data)) return normalizeBank(raw.data);
+    }
     // Expected shapes supported:
     //  A) [{ category:"Appearance Play", items:[{id:"x", label:"...", type:"scale"}] }]
     //  B) { "Appearance Play": [ {id,label,type} ] }

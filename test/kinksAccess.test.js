@@ -19,7 +19,9 @@ test('kink survey available without authentication', async t => {
   assert.strictEqual(jsonRes.status, 200);
   assert.match(jsonRes.headers.get('content-type') || '', /^application\/json/i);
   const data = await jsonRes.json();
-  assert.ok(Array.isArray(data.categories) || data.length);
+  assert.ok(data && typeof data === 'object');
+  assert.ok(data.labels && typeof data.labels === 'object' && Object.keys(data.labels).length > 0);
+  assert.ok(Array.isArray(data.categories) && data.categories.length > 0);
 
   const fallbackRes = await fetch(`${base}/kinks.json`);
   assert.strictEqual(fallbackRes.status, 200);

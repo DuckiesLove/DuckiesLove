@@ -37,7 +37,10 @@
       if (/^<!doctype html/i.test(txt) || /<html[\s>]/i.test(txt) || /text\/html/i.test(ct))
         return { ok:false, why:'html rewrite' };
       let j=null; try { j = JSON.parse(txt); } catch(e){ return { ok:false, why:'invalid json' }; }
-      const arr = Array.isArray(j) ? j : (j && Array.isArray(j.kinks) ? j.kinks : []);
+      let arr = [];
+      if (Array.isArray(j)) arr = j;
+      else if (j && Array.isArray(j.categories)) arr = j.categories;
+      else if (j && Array.isArray(j.kinks)) arr = j.kinks;
       const cats = [...new Set(arr.map(x=>String(x?.category||x?.cat||'').trim().toLowerCase()).filter(Boolean))];
       return { ok:true, count:arr.length, cats };
     } catch (e) {

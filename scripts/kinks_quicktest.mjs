@@ -77,7 +77,10 @@ async function checkLive(base="https://talkkink.org"){
     else {
       try {
         const j = JSON.parse(data.body||"");
-        const arr = Array.isArray(j) ? j : (j && Array.isArray(j.kinks) ? j.kinks : []);
+        let arr = [];
+        if (Array.isArray(j)) arr = j;
+        else if (j && Array.isArray(j.categories)) arr = j.categories;
+        else if (j && Array.isArray(j.kinks)) arr = j.kinks;
         jsonOk = true; jsonItems = Array.isArray(arr) ? arr.length : "unknown";
       } catch { /* fallthrough */ }
     }
@@ -135,7 +138,10 @@ async function checkLocal(){
     else {
       try {
         const j = JSON.parse(json.body||"");
-        const arr = Array.isArray(j) ? j : (j && Array.isArray(j.kinks) ? j.kinks : []);
+        let arr = [];
+        if (Array.isArray(j)) arr = j;
+        else if (j && Array.isArray(j.categories)) arr = j.categories;
+        else if (j && Array.isArray(j.kinks)) arr = j.kinks;
         jsonOk = true; jsonItems = Array.isArray(arr) ? arr.length : "unknown";
       } catch {}
     }

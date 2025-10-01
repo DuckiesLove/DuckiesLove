@@ -80,7 +80,14 @@
           var tkw=box.querySelector('#tkw');
           fetch('/data/kinks.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(t=>{
             if(/^<!doctype html/i.test(t)||/<html[\s>]/i.test(t)){ if(tkw) tkw.textContent='Server sent HTML instead of JSON (rewrite). Start enabled; proceed.'; return; }
-            try{ var j=JSON.parse(t); var arr=Array.isArray(j)?j:(j&&Array.isArray(j.kinks)?j.kinks:[]); if(tkw) tkw.textContent='Data OK ('+arr.length+'). Start enabled; proceed.' }
+            try{
+              var j=JSON.parse(t);
+              var arr=[];
+              if (Array.isArray(j)) arr=j;
+              else if (j && Array.isArray(j.categories)) arr=j.categories;
+              else if (j && Array.isArray(j.kinks)) arr=j.kinks;
+              if(tkw) tkw.textContent='Data OK ('+arr.length+'). Start enabled; proceed.'
+            }
             catch(e){ if(tkw) tkw.textContent='JSON invalid. Start enabled; proceed.' }
           }).catch(()=>{ if(tkw) tkw.textContent='Fetch failed. Start enabled; proceed.' });
         }catch(e){}
@@ -652,6 +659,11 @@
   }
 
   function normalizeBank(raw){
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      if (Array.isArray(raw.categories)) return normalizeBank(raw.categories);
+      if (Array.isArray(raw.kinks)) return normalizeBank(raw.kinks);
+      if (Array.isArray(raw.data)) return normalizeBank(raw.data);
+    }
     // Accepts:
     //  A) [ {category, items:[{id,label,type?}]} ]
     //  B) { \"Category\":[{id,label,type?}], ... }

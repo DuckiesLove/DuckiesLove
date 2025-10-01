@@ -56,7 +56,10 @@ async function probe(u) {
   try {
     const r = await fetch(good.url, { cache: "no-store" });
     const j = await r.json();
-    const arr = Array.isArray(j) ? j : (j && Array.isArray(j.kinks) ? j.kinks : []);
+    let arr = [];
+    if (Array.isArray(j)) arr = j;
+    else if (j && Array.isArray(j.categories)) arr = j.categories;
+    else if (j && Array.isArray(j.kinks)) arr = j.kinks;
     console.log(`✅ OK: ${good.url} (${good.ct||"application/json"}), items: ${Array.isArray(arr) ? arr.length : "unknown"}`);
     process.exit(0);
   } catch (e) {
