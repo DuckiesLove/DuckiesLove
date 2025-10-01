@@ -22,18 +22,10 @@
  *     <script defer src="/js/compatibilityPage.js"></script>
  */
 
+import { loadLabels, fmtCell } from './tk-labels.js';
+
 (() => {
   // ---------- CONFIG ----------
-  const LABEL_URLS = [
-    '/kinksurvey/data/kinks.json',
-    '/data/kinks.json',
-    '/kinks.json',
-    'kinks.json'
-  ];
-
-  const OVERRIDE_URL = '/data/labels-overrides.json';
-
-  // Treat ids starting with any of these as item ids we want to label
   const ID_PREFIXES = ['cb_', 'gn_', 'sa_', 'sh_', 'bd_', 'pl_', 'ps_', 'vr_', 'vo_'];
 
   // If a small number of ids truly aren’t in your kinks.json, you can hardcode them here:
@@ -45,91 +37,34 @@
 
   // ---------- LITTLE UTILITIES ----------
   const $ = sel => document.querySelector(sel);
-  const dash = '—';
   function hasPrefix(id) { return typeof id === 'string' && ID_PREFIXES.some(p => id.startsWith(p)); }
+  const normalizeId = (id) => {
+    if (id == null) return '';
+    return hasPrefix(id) ? String(id).trim().toLowerCase() : '';
+  };
 
   // ---------- LABELS: AUTO-BUILD FROM kinks.json ----------
   let LABELS = {}; // id -> friendly text from site kinks.json
   let AUTO_LABELS = {}; // id -> friendly text sourced from uploads
-  let OVERRIDE_LABELS = {}; // manual overrides map
+  let labelGetter = (id) => (id == null ? '' : String(id));
   let loggedMissingOnce = false;
 
   function tighten(s) {
     const t = String(s).replace(/\s+/g, ' ').trim();
     return t.length > 140 ? `${t.slice(0, 137)}…` : t;
   }
-
-  function getLabel(id, site, auto, over, testOnly = false) {
-    const txt = (site && site[id]) || (auto && auto[id]) || (over && over[id]) || (FALLBACK_LABELS && FALLBACK_LABELS[id]);
-    if (testOnly) return !!txt;
-    if (txt) return tighten(txt);
-    return typeof id === 'string'
-      ? id.replace(/^cb_/, '').replace(/_/g, ' ').trim()
-      : String(id || '');
+  function friendlyLabel(id) {
+    const key = normalizeId(id);
+    if (!key) return labelGetter(id);
+    if (AUTO_LABELS[key]) return tighten(AUTO_LABELS[key]);
+    if (LABELS[key]) return tighten(LABELS[key]);
+    return tighten(labelGetter(id));
   }
 
-  async function safeFetchJSON(url, opts = {}) {
-    try {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) {
-        if (opts.optional) return {};
-        throw new Error(`${url} ${res.status}`);
-      }
-      return await res.json();
-    } catch (e) {
-      if (opts.optional) return {};
-      console.warn('[labels] failed to load', url, e);
-      return {};
-    }
-  }
-
-  async function loadSiteLabels() {
-    for (const url of LABEL_URLS) {
-      try {
-        const json = await safeFetchJSON(url, { optional: true });
-        const collected = collectLabelMap(json);
-        const count = Object.keys(collected).length;
-        if (count > 0) {
-          LABELS = { ...collected, ...FALLBACK_LABELS };
-          console.info(`[labels] built ${count} labels from ${url}`);
-          return;
-        }
-        if (json && Object.keys(json).length) {
-          console.warn(`[labels] ${url} loaded but contained no recognized ids`);
-        }
-      } catch (e) {
-        console.warn(`[labels] ${url} → ${e.message}`);
-      }
-    }
-    LABELS = { ...FALLBACK_LABELS };
-    console.warn('[labels] using FALLBACK_LABELS only');
-  }
-
-  function collectLabelMap(json) {
-    if (!json || typeof json !== 'object') return {};
-    // If already a flat map of id -> label, trust it
-    const entries = Object.entries(json);
-    if (entries.every(([k, v]) => hasPrefix(k) && typeof v === 'string')) {
-      return entries.reduce((acc, [k, v]) => { acc[k] = tighten(v); return acc; }, {});
-    }
-    const out = {};
-    deepCollectLabels(json, out);
-    return out;
-  }
-
-  // Walk all objects/arrays and collect {id: label}
-  function deepCollectLabels(node, out) {
-    if (!node) return;
-    if (Array.isArray(node)) { node.forEach(n => deepCollectLabels(n, out)); return; }
-    if (typeof node !== 'object') return;
-
-    const id = node.id ?? node.code ?? node.key ?? node.slug ?? node.value;
-    const label = node.short ?? node.label ?? node.title ?? node.text ?? node.name ?? node.question ?? node.prompt ?? node.summary ?? node.description ?? node.desc ?? node.caption ?? node.heading;
-
-    if (hasPrefix(id) && typeof label === 'string') {
-      if (!out[id]) out[id] = tighten(label);
-    }
-    for (const v of Object.values(node)) deepCollectLabels(v, out);
+  function hasKnownLabel(id) {
+    const key = normalizeId(id);
+    if (!key) return false;
+    return Boolean(AUTO_LABELS[key] || LABELS[key]);
   }
 
   // ---------- SURVEY LOADING ----------
@@ -152,11 +87,13 @@
     if (Array.isArray(raw.answers)) {
       return raw.answers
         .filter(a => a && hasPrefix(a.id))
-        .map(a => ({ id: a.id, value: Number(a.value ?? 0) || 0 }));
+        .map(a => ({ id: normalizeId(a.id), value: Number(a.value ?? 0) || 0 }))
+        .filter(a => !!a.id);
     }
     const out = [];
     for (const [id, v] of Object.entries(raw)) {
-      if (hasPrefix(id)) out.push({ id, value: Number(v ?? 0) || 0 });
+      const norm = normalizeId(id);
+      if (norm) out.push({ id: norm, value: Number(v ?? 0) || 0 });
     }
     return out;
   }
@@ -176,7 +113,7 @@
 
     const tbody = document.createElement('tbody');
 
-    const labelledRows = applyLabelsToRows(rows, LABELS, AUTO_LABELS, OVERRIDE_LABELS)
+    const labelledRows = applyLabelsToRows(rows)
       .sort((x, y) => x.label.localeCompare(y.label, undefined, { sensitivity: 'base' }));
 
     const usedIds = labelledRows.map(r => r.id);
@@ -188,20 +125,23 @@
 
       const nameCell = document.createElement('td');
       nameCell.classList.add('compatNameCell');
-      if (!getLabel(r.id, LABELS, AUTO_LABELS, OVERRIDE_LABELS, true)) missing.push(r.id);
+      if (!hasKnownLabel(r.id)) missing.push(r.id);
       nameCell.textContent = r.label;
 
       const tdA = document.createElement('td');
-      tdA.textContent = (r.a ?? null) === null ? dash : String(r.a);
+      tdA.textContent = fmtCell(r.a);
 
       const pctCell = document.createElement('td');
-      const pctVal = Math.round(r.pct || 0);
-      pctCell.innerHTML = (pctVal > 0)
-        ? `<div class="pctBar" style="--pct:${pctVal}%"><i></i><span>${pctVal}%</span></div>`
-        : '—';
+      const pctRaw = Number.isFinite(r.pct) ? Math.max(0, Math.min(100, Math.round(r.pct))) : NaN;
+      const pctText = fmtCell(pctRaw, '%');
+      if (pctText !== '—') {
+        pctCell.innerHTML = `<div class="pctBar" style="--pct:${pctRaw}%"><i></i><span>${pctText}</span></div>`;
+      } else {
+        pctCell.textContent = pctText;
+      }
 
       const tdB = document.createElement('td');
-      tdB.textContent = (r.b ?? null) === null ? dash : String(r.b);
+      tdB.textContent = fmtCell(r.b);
 
       tr.appendChild(nameCell);
       tr.appendChild(tdA);
@@ -246,47 +186,8 @@
     return out;
   }
 
-  function applyLabelsToRows(rows, labels, autoLabels, overrideLabels) {
-    const { TKLabels } = globalThis;
-    for (const r of rows) {
-      const id = r.id;
-      let label = '';
-      let source = 'id';
-
-      if (TKLabels && typeof TKLabels.label === 'function') {
-        const friendly = TKLabels.label(id);
-        const tightFriendly = friendly != null ? tighten(friendly) : '';
-        if (tightFriendly) {
-          label = tightFriendly;
-          source = 'tk';
-        }
-      }
-
-      if (!label) {
-        if (labels && labels[id]) {
-          label = tighten(labels[id]);
-          source = 'labels';
-        } else if (autoLabels && autoLabels[id]) {
-          label = tighten(autoLabels[id]);
-          source = 'auto';
-        } else if (overrideLabels && overrideLabels[id]) {
-          label = tighten(overrideLabels[id]);
-          source = 'overrides';
-        } else if (FALLBACK_LABELS && FALLBACK_LABELS[id]) {
-          label = tighten(FALLBACK_LABELS[id]);
-          source = 'fallback';
-        }
-      }
-
-      if (!label) {
-        label = getLabel(id, labels, autoLabels, overrideLabels);
-        source = 'id';
-      }
-
-      r.label = label;
-      r.labelSource = source;
-    }
-    return rows;
+  function applyLabelsToRows(rows) {
+    return rows.map(r => ({ ...r, label: friendlyLabel(r.id) }));
   }
 
   function mergeLabelsFromExports(list) {
@@ -294,7 +195,10 @@
     for (const src of list) {
       if (!src) continue;
       const m = extractLabelsFromExport(src);
-      for (const k in m) if (!out[k]) out[k] = m[k];
+      for (const k in m) {
+        const norm = normalizeId(k);
+        if (norm && !out[norm]) out[norm] = tighten(m[k]);
+      }
     }
     return out;
   }
@@ -353,7 +257,7 @@
     const btn = document.getElementById('tk-missing-labels-btn');
     if (!btn) return;
     const uniqueIds = Array.from(new Set(usedIds)).filter(Boolean);
-    const missing = uniqueIds.filter(id => !getLabel(id, LABELS, AUTO_LABELS, OVERRIDE_LABELS, true));
+    const missing = uniqueIds.filter(id => !hasKnownLabel(id));
     if (missing.length) {
       btn.style.display = '';
       btn.onclick = () => downloadMissingLabels(missing.slice());
@@ -384,15 +288,19 @@
 
   // ---------- WIRE UP ----------
   async function init() {
-    const { TKLabels } = globalThis;
-    if (TKLabels && typeof TKLabels.load === 'function') {
-      await TKLabels.load();
+    try {
+      const loaded = await loadLabels();
+      labelGetter = loaded.getLabel;
+      LABELS = { ...loaded.map };
+    } catch (err) {
+      console.warn('[labels] unable to load base labels:', err);
+      LABELS = {};
     }
 
-    await loadSiteLabels();
-    OVERRIDE_LABELS = await safeFetchJSON(OVERRIDE_URL, { optional: true });
-    if (OVERRIDE_LABELS && Object.keys(OVERRIDE_LABELS).length) {
-      console.info(`[labels] loaded ${Object.keys(OVERRIDE_LABELS).length} overrides from ${OVERRIDE_URL}`);
+    // Merge hard-coded fallbacks (normalized)
+    for (const [key, value] of Object.entries(FALLBACK_LABELS || {})) {
+      const norm = normalizeId(key);
+      if (norm && typeof value === 'string') LABELS[norm] = tighten(value);
     }
 
     const aBtn = $('#btnUploadA') || $('#uploadA');
@@ -448,7 +356,7 @@
 
 (function addHardLabelOverrides(){
   const HARD = {
-    "cb_wwf76": "Makeup as protocol or control",
+    "cb_wwf76": "Makeup specifics (brands, palette, rules)",
     "cb_swujj": "Accessory or ornament rules"
   };
 
