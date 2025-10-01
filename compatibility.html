@@ -2332,5 +2332,140 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
   ksvRefreshUI('B');
 });
 </script>
+
+<!-- Friendly category label drop-in -->
+<script>
+(function () {
+  // --- 0) EDIT ME: guaranteed local summaries (used if no better source is found)
+  // Add/modify as many as you like. The *keys* must match the cb_* ids in your exports.
+  // Keep the values SHORT (a few words) so they fit your table nicely.
+  const TK_FALLBACK_LABELS = {
+    // Appearance / looks (examples)
+    "cb_zsnrb": "Dress partner’s outfit",
+    "cb_6jd2f": "Pick lingerie/base layers",
+    "cb_kgrnn": "Uniforms (school/military/etc.)",
+    "cb_169ma": "Time-period dress-up",
+    "cb_4yyxa": "Dollification / presented object",
+    "cb_2c0f9": "Hair-based play",
+    "cb_qwnhi": "Head coverings / ritual hoods",
+    "cb_zvchg": "Matching looks / dress codes",
+    "cb_qw9jg": "Ritualized grooming",
+    "cb_3ozhq": "Praise for visual display",
+    "cb_hqakm": "Formal appearance protocols",
+    "cb_rn136": "Clothing for power roles",
+
+    // Other examples (you can replace with your real summaries)
+    "cb_s6l0c": "Appearance play – general",
+    "cb_vehe6": "Aesthetics & presentation",
+    "cb_johe3": "Costumes / cosplay",
+    "cb_84ivd": "Visual control / standards",
+    "cb_qv5mh": "Makeup control",
+    "cb_aa5ke": "Grooming standards",
+    "cb_bb0my": "Dress code enforcement",
+    "cb_zcr4l": "Coordinated style",
+    "cb_6d7ci": "Hair rules",
+    "cb_lyf0d": "Attire restrictions",
+    "cb_1qi7p": "Uniform rules",
+    "cb_upajf": "Accessory control",
+    "cb_h9uha": "Role-signaling apparel",
+    "cb_cc5w8": "Presentation rituals",
+
+    // Keep adding your ids here…
+    // "cb_xxxxx": "Your short summary",
+  };
+
+  // --- 1) A small registry where we merge all label sources
+  const TK_LABELS = { ...TK_FALLBACK_LABELS };
+
+  // Accept many shapes of a “kinks dictionary”
+  function extractLabelsFromAnyShape(json) {
+    const dict = {};
+    if (!json || typeof json !== "object") return dict;
+
+    // Common shapes:
+    if (Array.isArray(json.categories)) {
+      json.categories.forEach((c) => {
+        const id = c.id || c.key || c.slug || c.code;
+        const title = c.title || c.name || c.label || c.summary;
+        if (id && title) dict[id] = title;
+      });
+    }
+    if (json.labels && typeof json.labels === "object") {
+      Object.assign(dict, json.labels);
+    }
+    if (json.meta && json.meta.labels && typeof json.meta.labels === "object") {
+      Object.assign(dict, json.meta.labels);
+    }
+    return dict;
+  }
+
+  // --- 2) Try to load a site-wide dictionary (optional but recommended)
+  async function tryLoadSiteDictionary() {
+    const urls = [
+      "/kinksurvey/data/kinks.json",
+      "/data/kinks.json",
+      "/kinks.json",
+    ];
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) continue;
+        const json = await res.json();
+        Object.assign(TK_LABELS, extractLabelsFromAnyShape(json));
+        console.info("[compat] loaded labels from", url);
+        return true;
+      } catch {
+        /* ignore */
+      }
+    }
+    return false;
+  }
+
+  // --- 3) If your upload code exposes the parsed surveys, merge any embedded labels
+  // Call these from your existing file-upload handlers *after* parsing JSON:
+  //   window.TK_mergeLabelsFromSurvey(parsedJson);
+  window.TK_mergeLabelsFromSurvey = function (surveyJson) {
+    Object.assign(TK_LABELS, extractLabelsFromAnyShape(surveyJson));
+  };
+
+  // --- 4) Helper used by the table decorator
+  function labelFor(id) {
+    return TK_LABELS[id] || id;
+  }
+
+  // --- 5) Decorate the comparison table: replace cb_* ids with summaries
+  function relabelComparisonTable() {
+    // Find the main comparison table by headers (“Category” / “Partner A” / …)
+    const tables = Array.from(document.querySelectorAll("table"));
+    const target = tables.find((t) => {
+      const ths = Array.from(t.querySelectorAll("thead th, tr th"));
+      return ths.some((th) => /category/i.test(th.textContent));
+    });
+    if (!target) return;
+
+    // First column is category
+    const rows = target.querySelectorAll("tbody tr");
+    rows.forEach((tr) => {
+      const td = tr.querySelector("td");
+      if (!td) return;
+      const raw = (td.textContent || "").trim();
+      if (/^cb_[a-z0-9]+$/i.test(raw)) {
+        td.textContent = labelFor(raw);
+      }
+    });
+  }
+
+  // --- 6) Keep it updated as the page renders/changes
+  const mo = new MutationObserver(() => relabelComparisonTable());
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+
+  // --- 7) Kick off: try to fetch a dictionary, then relabel once on load
+  tryLoadSiteDictionary().finally(relabelComparisonTable);
+
+  // Expose for debugging (optional)
+  window.TK_LABELS = TK_LABELS;
+  window.TK_relabel = relabelComparisonTable;
+})();
+</script>
 </body>
 </html>
