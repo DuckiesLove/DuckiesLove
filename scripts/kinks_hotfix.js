@@ -40,12 +40,28 @@ const HOTFIX_DIAG = `
   if(!window.__TK_BOOT_RAN){
     window.__TK_BOOT_RAN = true;
     (async () => {
-      try{
-        const r = await fetch('/data/kinks.json', { cache:'no-store' });
-        if(!r.ok) throw new Error('kinks.json ' + r.status);
-        const data = await r.json();
-        if (typeof window.KINKS_boot === 'function') { window.KINKS_boot(data); }
-      }catch(e){ show('Data bootstrap failed: ' + e.message); }
+      const urls = [
+        '/data/kinks.json',
+        '/kinksurvey/data/kinks.json',
+        '/kinksurvey/kinks.json',
+        '/kinks.json',
+        '/assets/kinks.json'
+      ];
+      let data = null;
+      let lastErr = null;
+      for (const url of urls){
+        try{
+          const r = await fetch(url, { cache:'no-store' });
+          if(!r.ok) throw new Error(url + ' ' + r.status);
+          data = await r.json();
+          break;
+        }catch(e){ lastErr = e; }
+      }
+      if (data && typeof window.KINKS_boot === 'function') {
+        window.KINKS_boot(data);
+      } else if (lastErr) {
+        show('Data bootstrap failed: ' + lastErr.message);
+      }
     })();
   }
 })();

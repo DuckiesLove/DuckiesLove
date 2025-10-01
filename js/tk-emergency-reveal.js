@@ -22,12 +22,23 @@
   }
 
   // 3) Log a quick status for data
+  const KINK_URLS = [
+    '/data/kinks.json',
+    '/kinksurvey/data/kinks.json',
+    '/kinksurvey/kinks.json',
+    '/kinks.json',
+    '/assets/kinks.json'
+  ];
+
   (async () => {
-    try {
-      const response = await fetch('/data/kinks.json', { cache: 'no-store' });
-      console.log('[TK] kinks.json ->', response.status, response.headers.get('content-type'));
-    } catch (error) {
-      console.log('[TK] kinks.json fetch failed:', error);
+    for (const url of KINK_URLS) {
+      try {
+        const response = await fetch(url, { cache: 'no-store' });
+        console.log('[TK] kinks.json candidate', url, '→', response.status, response.headers.get('content-type'));
+        if (response.ok) break;
+      } catch (error) {
+        console.log('[TK] kinks.json fetch failed for', url, ':', error);
+      }
     }
   })();
 })();
