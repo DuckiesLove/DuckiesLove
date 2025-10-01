@@ -728,60 +728,69 @@ RESULT
   const STR  = v => (v == null ? '' : (typeof v === 'string' ? v : String(v)));
   const TRIM = v => STR(v).trim();
   const NUM  = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const OBJ  = v => v && typeof v === 'object' && !Array.isArray(v);
 
   // ----------------- Canonical survey shape -----------------
   function canonSurvey(raw){
     if (!raw || typeof raw !== 'object') throw new Error('bad survey');
 
-    // Already v1 shape
-    if (raw.schema === 'tk-survey.v1' && Array.isArray(raw.answers)) {
-      const answers = raw.answers.filter(Boolean).map(a => ({
-        key   : TRIM(a?.key),
-        label : TRIM(a?.label),
-        rating: NUM(a?.rating)
-      }));
-      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
-      return { schema:'tk-survey.v1',
-               site: raw.site||'',
-               generatedAt: raw.generatedAt||'',
-               answers, answersByKey };
-    }
+    const meta = OBJ(raw.meta) ? raw.meta : {};
+    const baseSite = TRIM(raw.site || meta.site || meta.origin);
+    const baseGenerated = TRIM(raw.generatedAt || meta.generatedAt || meta.exportedAt || meta.timestamp);
 
-    // answers array
+    const finalize = (list) => {
+      const answers = (Array.isArray(list) ? list : [])
+        .filter(Boolean)
+        .map(a => ({
+          key   : TRIM(a?.key),
+          label : TRIM(a?.label),
+          rating: NUM(a?.rating)
+        }));
+      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
+      return {
+        schema: 'tk-survey.v1',
+        site: baseSite,
+        generatedAt: baseGenerated,
+        answers,
+        answersByKey
+      };
+    };
+
     if (Array.isArray(raw.answers)) {
-      const answers = raw.answers.filter(Boolean).map(a => ({
-        key   : TRIM(a?.key),
-        label : TRIM(a?.label),
-        rating: NUM(a?.rating)
+      return finalize(raw.answers);
+    }
+
+    if (OBJ(raw.answers)) {
+      const mapped = Object.entries(raw.answers).map(([k, v]) => ({
+        key: k,
+        label: '',
+        rating: v
       }));
-      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
-      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
+      return finalize(mapped);
     }
 
-    // answersByKey object
-    if (raw.answersByKey && typeof raw.answersByKey === 'object') {
-      const answers = Object.entries(raw.answersByKey)
-        .map(([k, v]) => ({ key: TRIM(k), label:'', rating: NUM(v) }));
-      const answersByKey = Object.fromEntries(answers.map(a => [a.key, a.rating]));
-      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers, answersByKey };
+    if (OBJ(raw.answersByKey)) {
+      const mapped = Object.entries(raw.answersByKey).map(([k, v]) => ({
+        key: k,
+        label: '',
+        rating: v
+      }));
+      return finalize(mapped);
     }
 
-    // Very old: categories → questions
     if (Array.isArray(raw.categories)) {
       const flat = [];
       raw.categories.forEach(c => {
         (c?.questions || []).forEach(q => {
-          flat.push({ key: TRIM(q?.key || q?.id || q?.name),
-                      label: TRIM(q?.label || q?.text),
-                      rating: NUM(q?.rating) });
+          flat.push({ key: q?.key || q?.id || q?.name,
+                      label: q?.label || q?.text,
+                      rating: q?.rating });
         });
       });
-      const answersByKey = Object.fromEntries(flat.map(a => [a.key, a.rating]));
-      return { schema:'tk-survey.v1', site:'', generatedAt:'', answers: flat, answersByKey };
+      return finalize(flat);
     }
 
-    // If nothing matched, still return an empty v1 so downstream never breaks
-    return { schema:'tk-survey.v1', site:'', generatedAt:'', answers:[], answersByKey:{} };
+    return finalize([]);
   }
 
   function sanitizeSurvey(sv){
