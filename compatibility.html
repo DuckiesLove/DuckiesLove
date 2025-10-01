@@ -36,6 +36,56 @@
   .compatTbl td.cat { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   </style>
   <style>
+  /* --- Compatibility: tiny progress bar & safe truncation for Category --- */
+  .tk-cat {
+    max-width: 56ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tk-cat[data-full] {
+    cursor: help;
+  }
+
+  .tk-bar {
+    position: relative;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(0, 230, 255, .10);
+    border: 1px solid rgba(0, 230, 255, .28);
+    overflow: hidden;
+  }
+  .tk-bar > i {
+    display: block;
+    height: 100%;
+    width: var(--pct, 0%);
+    background: linear-gradient(90deg, #00e6ff, #00ffa3);
+  }
+  .tk-bar > span {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: .92em;
+    letter-spacing: .02em;
+    color: #eaffff;
+    text-shadow: 0 1px 0 #001014;
+    pointer-events: none;
+  }
+
+  @media print {
+    .tk-bar {
+      border-color: #888;
+      background: #e6e6e6;
+    }
+    .tk-bar > i {
+      background: #222;
+    }
+  }
+  </style>
+  <style>
   #pdf-container {
     width: 100%;
     max-width: 100%;
@@ -1992,6 +2042,151 @@ RESULT
       tdM.append(meter, label);
     }
   });
+})();
+</script>
+<script>
+(() => {
+  const isNum = v => typeof v === 'number' && Number.isFinite(v);
+  const clean = s => (s || '').toString().replace(/\s+/g, ' ').trim();
+  const shortLabel = (s, max = 44) => {
+    s = clean(s).replace(/[\u2013\u2014\-•]+/g, '-');
+    if (s.length <= max) return s;
+    const cut = s.slice(0, max).lastIndexOf(' ');
+    return (cut > 24 ? s.slice(0, cut) : s.slice(0, max - 1)) + '…';
+  };
+
+  function pickStoredSurvey() {
+    const keys = [
+      'tk:compat:a',
+      'tk:compat:b',
+      'tk:survey:a',
+      'tk:survey:b',
+      'tk:compat:survey:a',
+      'tk:compat:survey:b'
+    ];
+    const out = {};
+    keys.forEach(k => {
+      try {
+        const v = localStorage.getItem(k);
+        if (v) out[k] = JSON.parse(v);
+      } catch (err) {
+        console.warn('[compat] Failed to parse stored survey', k, err);
+      }
+    });
+    return out;
+  }
+
+  function buildLabelMap(surv) {
+    const map = {};
+    if (!surv) return map;
+    const pools = [
+      surv.answers,
+      surv.categories,
+      surv.questions,
+      surv.items,
+      surv.data
+    ].filter(Boolean);
+
+    for (const arr of pools) {
+      if (!Array.isArray(arr)) continue;
+      for (const it of arr) {
+        const id = it?.id || it?.key || it?.code || it?.slug;
+        if (!id) continue;
+        const title = it?.title || it?.label || it?.name || it?.question || it?.q || it?.text || it?.desc;
+        if (title && !map[id]) map[id] = clean(title);
+      }
+    }
+
+    (Array.isArray(surv.answers) ? surv.answers : []).forEach(a => {
+      const id = a?.id;
+      const t = a?.meta?.title || a?.meta?.label;
+      if (id && t && !map[id]) map[id] = clean(t);
+    });
+    return map;
+  }
+
+  function matchPercent(a, b, max = 5) {
+    if (!isNum(a) || !isNum(b)) return null;
+    const diff = Math.abs(a - b);
+    return Math.round((1 - diff / max) * 100);
+  }
+
+  function findCompatTable() {
+    const tables = [...document.querySelectorAll('table')];
+    return tables.find(t => {
+      const hs = [...t.querySelectorAll('thead th, tr:first-child th')]
+        .map(e => clean(e.textContent).toLowerCase());
+      return hs.includes('category') && hs.includes('partner a') && hs.includes('partner b');
+    });
+  }
+
+  function upgradeTable() {
+    const table = findCompatTable();
+    if (!table) return;
+
+    const store = pickStoredSurvey();
+    const maps = Object.values(store).map(buildLabelMap);
+    const labelFor = (id) => {
+      for (const m of maps) {
+        if (m && m[id]) return m[id];
+      }
+      return null;
+    };
+
+    const rows = [...table.querySelectorAll('tbody tr')];
+    rows.forEach(tr => {
+      const tds = [...tr.children];
+      if (tds.length < 4) return;
+
+      const [tdCat, tdA, tdMatch, tdB] = tds;
+      if (!tdCat.querySelector('.tk-cat, .tk-catwrap, .tk-cat-wrap')) {
+        const idText = clean(tdCat.textContent);
+        const full = labelFor(idText);
+        if (full) {
+          const short = shortLabel(full);
+          tdCat.textContent = '';
+          const span = document.createElement('span');
+          span.className = 'tk-cat';
+          span.textContent = short;
+          span.setAttribute('data-full', '1');
+          span.title = full;
+          tdCat.appendChild(span);
+        } else {
+          tdCat.classList.add('tk-cat');
+        }
+      }
+
+      if (tdMatch.querySelector('.tk-bar, .tk-match-chip, .tk-meter')) return;
+
+      const existingMatch = tdMatch.textContent;
+      const a = parseFloat(clean(tdA.textContent).replace(/[^\d.-]/g, ''));
+      const b = parseFloat(clean(tdB.textContent).replace(/[^\d.-]/g, ''));
+      const pct = matchPercent(a, b, 5);
+
+      tdMatch.textContent = '';
+      if (pct == null) {
+        const fallback = clean(existingMatch);
+        tdMatch.textContent = fallback || '—';
+        return;
+      }
+      const bar = document.createElement('div');
+      bar.className = 'tk-bar';
+      bar.style.setProperty('--pct', pct + '%');
+
+      const fill = document.createElement('i');
+      const label = document.createElement('span');
+      label.textContent = pct + '%';
+
+      bar.appendChild(fill);
+      bar.appendChild(label);
+      tdMatch.appendChild(bar);
+    });
+  }
+
+  const kick = () => requestAnimationFrame(() => setTimeout(upgradeTable, 60));
+  window.addEventListener('load', kick);
+  document.addEventListener('DOMContentLoaded', kick);
+  window.addEventListener('tk:compat:rendered', upgradeTable);
 })();
 </script>
 <script>
