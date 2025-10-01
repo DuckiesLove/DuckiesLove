@@ -99,6 +99,48 @@
     .tk-compat td.ta-c{ text-align:center; }
   </style>
   <style>
+  /* Small, unobtrusive subtitle under the category code */
+  .tk-catwrap { display:flex; flex-direction:column; gap:2px; }
+  .tk-catwrap .tk-code { font-weight:600; letter-spacing:0.02em; }
+  .tk-catwrap .tk-sub  {
+    font-weight:500; opacity:.78;
+    font-size: clamp(11px,.9vw,13px);
+    line-height:1.2;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    max-width: min(48vw, 780px);  /* fits your wide first column */
+  }
+
+  /* Match % meter (tuned for your dark theme) */
+  .tk-meter {
+    position: relative;
+    height: 10px; min-width: 110px;
+    background: rgba(0, 230, 255, .12);
+    border-radius: 999px;
+    outline: 1px solid rgba(0,230,255,.20);
+    overflow: hidden;
+  }
+  .tk-meter > .tk-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg,
+      rgba(0,230,255,.88), rgba(120,255,250,.95));
+    box-shadow: 0 0 10px rgba(0,230,255,.35) inset;
+    border-radius: inherit;
+    transition: width .35s ease;
+  }
+  .tk-meter + .tk-pct {
+    display:inline-block; min-width: 42px;
+    font-weight:800; letter-spacing:.02em;
+    margin-left:.5rem; opacity:.9;
+  }
+
+  /* Keep row height stable on narrow screens */
+  @media (max-width: 720px){
+    .tk-catwrap .tk-sub { max-width: 70vw; }
+    .tk-meter { min-width: 80px; }
+  }
+  </style>
+  <style>
   /* ====== Match % chip (compact, no layout shift) ====== */
   .tk-match-chip{
     display:inline-flex; flex-direction:column; align-items:center; gap:6px;
@@ -1292,6 +1334,134 @@ RESULT
   } else {
     wireUploads();
   }
+})();
+</script>
+<script>
+(() => {
+  /**
+   * Compatibility table enhancer:
+   *  1) Inserts a compact summary under each Category code (first column)
+   *  2) Renders a percentage bar in the “Match %” column
+   *
+   * Notes:
+   *  - If you expose an index like window.tkKinksIndex[code] = { short/name/label },
+   *    that label is used. Otherwise a readable version of the code is derived.
+   *  - If a numeric percent already exists in the “Match %” cell, it’s reused.
+   *    Otherwise a visual percent is computed from the two 0–5 ratings.
+   */
+
+  // ---------- helpers ----------
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  // Friendly human label from code (fallback)
+  const friendly = id => id
+    .replace(/^cb[_-]/i, '')            // drop common prefix
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, m => m.toUpperCase());  // title-case
+
+  // Try to read a short label from a global index; fallback to friendlyizer
+  function getSummaryFor(id){
+    const ix = window.tkKinksIndex || window.tkKinks || window.KINKS_INDEX;
+    if (ix && ix[id]) {
+      return ix[id].short || ix[id].name || ix[id].label || friendly(id);
+    }
+    return friendly(id);
+  }
+
+  // Compute a visual % if table hasn’t put one there. Based on 0–5 scale:
+  // equal = 100%, 1 step apart = 80%, …, 5 apart = 0%.
+  const visualPercent = (a, b) => {
+    if (a == null || b == null || a === '' || b === '' || isNaN(a) || isNaN(b)) return null;
+    const av = Number(a), bv = Number(b);
+    if (!isFinite(av) || !isFinite(bv)) return null;
+    const pct = Math.max(0, 100 - 20 * Math.abs(av - bv));
+    return Math.round(pct);
+  };
+
+  const numInCell = td => {
+    const t = (td?.textContent || '').trim();
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // ---------- find the compatibility table ----------
+  const table = $$('table').find(t => {
+    const ths = $$('thead th, tr:first-child th', t).map(th => (th.textContent||'').trim().toLowerCase());
+    return ths.length >= 3 &&
+           ths[0].startsWith('category') &&
+           ths.some(h => h.includes('match')) &&
+           ths.some(h => h.includes('partner a'));
+  });
+  if (!table) return;
+
+  // Identify column indexes (fallbacks if head cells aren’t present)
+  const headCells = $$('thead tr th', table);
+  const getColIndex = (needle) => {
+    const idx = headCells.findIndex(th => (th.textContent||'').toLowerCase().includes(needle));
+    return idx >= 0 ? idx : null;
+  };
+  const colCategory = getColIndex('category') ?? 0;
+  const colA        = getColIndex('partner a') ?? 1;
+  const colMatch    = getColIndex('match') ?? 2;
+  const colB        = getColIndex('partner b') ?? 3;
+
+  // Process rows (supports tables without <tbody>)
+  const rows = $$('tbody tr', table).length ? $$('tbody tr', table) : $$('tr', table).slice(1);
+
+  rows.forEach(tr => {
+    const tds = $$('td', tr);
+    if (tds.length < Math.max(colB, colMatch, colCategory) + 1) return;
+
+    // 1) Category subtitle
+    const tdCat = tds[colCategory];
+    const code  = (tdCat.textContent || '').trim();
+    if (code) {
+      tdCat.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'tk-catwrap';
+      const codeEl = document.createElement('div');
+      codeEl.className = 'tk-code';
+      codeEl.textContent = code;
+      const subEl = document.createElement('div');
+      subEl.className = 'tk-sub';
+      subEl.textContent = getSummaryFor(code);
+      subEl.title = subEl.textContent; // full on hover
+      wrap.append(codeEl, subEl);
+      tdCat.append(wrap);
+    }
+
+    // 2) Match % meter
+    const tdA = tds[colA], tdB = tds[colB], tdM = tds[colMatch];
+    const aVal = numInCell(tdA), bVal = numInCell(tdB);
+
+    // If a percent already exists, reuse it; else compute visual percent
+    let pct = null;
+    const existing = (tdM.textContent || '').trim();
+    const existingNum = Number(existing.replace('%',''));
+    if (Number.isFinite(existingNum)) {
+      pct = Math.max(0, Math.min(100, Math.round(existingNum)));
+    } else {
+      pct = visualPercent(aVal, bVal);
+    }
+
+    tdM.innerHTML = '';
+    if (pct == null) {
+      tdM.textContent = '—';
+    } else {
+      const meter = document.createElement('div');
+      meter.className = 'tk-meter';
+      const fill = document.createElement('div');
+      fill.className = 'tk-fill';
+      fill.style.width = pct + '%';
+      meter.appendChild(fill);
+
+      const label = document.createElement('span');
+      label.className = 'tk-pct';
+      label.textContent = pct + '%';
+      tdM.append(meter, label);
+    }
+  });
 })();
 </script>
 </body>
