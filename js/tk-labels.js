@@ -1,8 +1,16 @@
 (() => {
-  const DICT_URLS = ["/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
+  /** -------------------- Settings & helpers -------------------- **/
+  const CODE_RE = /\bcb_[a-z0-9]+\b/i;
 
-  // Small seed so a few rows look nice even if you haven’t filled the dictionary yet.
-  const FALLBACK_LABELS = {
+  // Try these endpoints (first one that returns valid JSON wins)
+  const DICT_URLS = [
+    "/data/kinks.json",               // <- where you should keep your master map
+    "/kinksurvey/data/kinks.json",
+    "/kinks.json"
+  ];
+
+  // small fallback so at least a few look nice while you wire /data/kinks.json
+  const FALLBACK = {
     cb_zsnrb: "Dress partner’s outfit",
     cb_6jd2f: "Pick lingerie / base layers",
     cb_kgrnn: "Uniforms (school, military, nurse, etc.)",
@@ -17,22 +25,101 @@
     cb_rn136: "Clothing as power-role signal"
   };
 
-  const LABELS = { ...FALLBACK_LABELS };
-  let dictReady = false;
+  // where to look for “code” and “label” inside arbitrary JSON
+  const CODE_KEYS  = ["id","code","key","slug","cell","category","item","cb","kinkId","kink_id","nodeId"];
+  const LABEL_KEYS = ["label","title","name","question","prompt","text","summary","short","display","displayName","labelShort","titleShort","nameShort","desc","description","caption","heading","subheading","subtitle","hint","help","helper","note"];
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Utilities
-  const CODE_RE = /\bcb_[a-z0-9]+\b/i;
-  const isCode = (v) => typeof v === "string" && CODE_RE.test(v);
-  const toLabelCandidate = (s) =>
-    typeof s === "string" ? s.trim().replace(/\s+/g, " ").slice(0, 140) : null;
+  const LABELS = { ...FALLBACK };
+  let masterLoaded = false;
 
-  function setLabel(code, label) {
-    if (!code || !label) return;
-    if (!LABELS[code]) LABELS[code] = label;
+  const log = (...a) => console.info("[tk-labels]", ...a);
+  const isCode = v => typeof v === "string" && CODE_RE.test(v);
+  const grabCode = v => isCode(v) ? v.match(CODE_RE)[0] : null;
+  const clean    = s => typeof s === "string" ? s.trim().replace(/\s+/g," ").slice(0,160) : null;
+  const put      = (k,v) => { if (k && v && !LABELS[k]) LABELS[k] = v; };
+
+  /** -------------------- Dictionary loading -------------------- **/
+  async function loadMasterDictionary() {
+    if (masterLoaded) return;
+    for (const url of DICT_URLS) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) continue;
+        const txt = await res.text();
+        // Avoid parsing an HTML 404 page
+        if (/^\s*</.test(txt)) continue;
+        const data = JSON.parse(txt);
+        ingestAnyShape(data);
+        masterLoaded = true;
+        log("loaded", Object.keys(LABELS).length, "labels from", url);
+        break;
+      } catch {}
+    }
+    if (!masterLoaded) log("no shared dictionary found (that’s OK; you can export a template below)");
   }
 
-  function getTable() {
+  // Recursively ingest ANY JSON shape that might contain code→label pairs
+  function ingestAnyShape(root) {
+    if (!root || typeof root !== "object") return;
+    // 1) explicit {labels:{…}} map
+    if (root.labels && typeof root.labels === "object") {
+      Object.entries(root.labels).forEach(([k,v]) => put(k, clean(v)));
+    }
+    // 2) direct flat map { "cb_xxx": "Label", … }
+    const looksLikeFlat = Object.keys(root).some(k => CODE_RE.test(k));
+    if (looksLikeFlat) {
+      Object.entries(root).forEach(([k,v]) => {
+        if (CODE_RE.test(k)) put(k, clean(v));
+      });
+    }
+    // 3) full traversal to find {id/code: cb_*, label/title/text: "…"}
+    const seen = new WeakSet();
+    const stack = [root];
+    while (stack.length) {
+      const node = stack.pop();
+      if (!node || typeof node !== "object" || seen.has(node)) continue;
+      seen.add(node);
+
+      let code = null, label = null;
+      for (const k of CODE_KEYS)  if (!code  && isCode(node[k])) code  = grabCode(node[k]);
+      for (const k of LABEL_KEYS) if (!label && node[k])          label = clean(node[k]);
+      if (node.meta && typeof node.meta === "object" && !label) {
+        for (const k of LABEL_KEYS) if (!label && node.meta[k]) label = clean(node.meta[k]);
+      }
+      if (node.question && typeof node.question === "object" && !label) {
+        for (const k of LABEL_KEYS) if (!label && node.question[k]) label = clean(node.question[k]);
+      }
+      if (code && label) put(code, label);
+
+      // traverse
+      Object.values(node).forEach(v => { if (v && typeof v === "object") stack.push(v); });
+    }
+  }
+
+  /** -------------------- Upload harvesting -------------------- **/
+  function watchUploads() {
+    document.querySelectorAll('input[type="file"]').forEach(inp => {
+      if (inp.dataset.tkWatch) return;
+      inp.dataset.tkWatch = "1";
+      inp.addEventListener("change", () => {
+        const f = inp.files && inp.files[0];
+        if (!f || !/\.json$/i.test(f.name)) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const txt = String(reader.result || "");
+            if (/^\s*</.test(txt)) return; // not JSON
+            ingestAnyShape(JSON.parse(txt));
+            relabelTable(); // try again with the new labels
+          } catch {}
+        };
+        reader.readAsText(f);
+      });
+    });
+  }
+
+  /** -------------------- Table relabeling -------------------- **/
+  function getCompatTable() {
     return (
       document.querySelector("#compatTable") ||
       document.querySelector(".compat-table") ||
@@ -41,215 +128,115 @@
     );
   }
 
-  function extractCodeFromCell(td) {
-    if (!td) return null;
-    if (td.dataset && td.dataset.code) return td.dataset.code.trim();
-    const m = (td.textContent || "").trim().match(CODE_RE);
-    return m ? m[0] : null;
-  }
+  function relabelTable() {
+    const table = getCompatTable();
+    if (!table) return;
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Non-blocking dictionary loader
-  async function loadSharedDictionary() {
-    if (dictReady) return true;
-    for (const url of DICT_URLS) {
-      try {
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) continue;
-        const data = await res.json();
-        const src = data?.labels && typeof data.labels === "object" ? data.labels : data;
-        if (src && typeof src === "object") Object.assign(LABELS, src);
-        dictReady = true;
-        console.info("[labels] loaded", Object.keys(LABELS).length, "labels from", url);
-        break;
-      } catch (_) {}
-    }
-    return dictReady;
-  }
-
-  // ──────────────────────────────────────────────────────────────────────
-  // Non-blocking deep harvest from uploaded A/B survey JSON
-  function asyncHarvest(obj, { budgetMs = 8, hardCap = 120_000 } = {}) {
-    // BFS queue; process in small idle slices
-    const q = [];
-    const seen = new WeakSet();
-    const push = (x) => { if (x && typeof x === "object" && !seen.has(x)) { seen.add(x); q.push(x); } };
-
-    push(obj);
-
-    function tick(deadline) {
-      const start = performance.now();
-      let processed = 0;
-
-      while (q.length) {
-        if (processed > hardCap) break;
-
-        // Time budget: stop if we’ve used the slice
-        if (deadline && deadline.timeRemaining && deadline.timeRemaining() < 2) break;
-        if (!deadline && performance.now() - start > budgetMs) break;
-
-        const node = q.shift();
-        processed++;
-
-        try {
-          // Scan immediate fields for code + candidate label nearby
-          const keys = Object.keys(node);
-          let nodeCode = null, nodeLabel = null;
-          for (const k of keys) {
-            const v = node[k];
-            if (!nodeCode && isCode(v) && /^(id|code|key|slug|cell|category|item)$/i.test(k)) {
-              nodeCode = v.match(CODE_RE)[0];
-            }
-            if (!nodeLabel && typeof v === "string" &&
-                /^(title|name|label|question|prompt|text|summary|short|desc|description)$/i.test(k)) {
-              nodeLabel = toLabelCandidate(v);
-            }
-          }
-          if (nodeCode && nodeLabel) setLabel(nodeCode, nodeLabel);
-
-          // Also check sibling strings for any explicit cb_*
-          for (const k of keys) {
-            const v = node[k];
-            if (isCode(v)) {
-              const code = v.match(CODE_RE)[0];
-              for (const kk of keys) {
-                if (kk === k) continue;
-                const vv = node[kk];
-                if (typeof vv === "string") setLabel(code, toLabelCandidate(vv));
-                else if (vv && typeof vv === "object") {
-                  const s = pickAnyString(vv);
-                  if (s) setLabel(code, s);
-                }
-              }
-            }
-          }
-
-          // Enqueue children
-          for (const k of keys) {
-            const v = node[k];
-            if (v && typeof v === "object") push(v);
-            else if (Array.isArray(v)) for (const it of v) push(it);
-          }
-        } catch {}
-      }
-
-      if (q.length) {
-        scheduleIdle(tick);
-      } else {
-        console.info("[labels] harvest complete; total known:", Object.keys(LABELS).length);
-        scheduleRelabel();
-      }
+    // figure out which column is the "Category" column (usually 0)
+    const headerCells = Array.from(table.querySelectorAll("thead th,thead td"));
+    let catIdx = 0;
+    if (headerCells.length) {
+      headerCells.forEach((th, i) => {
+        const t = (th.textContent || "").toLowerCase();
+        if (t.includes("category")) catIdx = i;
+      });
     }
 
-    scheduleIdle(tick);
-  }
+    const rows = Array.from(table.querySelectorAll("tbody tr"));
+    let i = 0;
+    const work = () => {
+      const t0 = performance.now();
+      while (i < rows.length && performance.now() - t0 < 8) {
+        const tr = rows[i++];
+        const td = tr.children && tr.children[catIdx];
+        if (!td) continue;
 
-  function pickAnyString(o) {
-    if (!o || typeof o !== "object") return null;
-    for (const key of ["title","name","label","short","summary","prompt","question","text","desc","description"]) {
-      const s = toLabelCandidate(o[key]);
-      if (s) return s;
-    }
-    for (const k of Object.keys(o)) {
-      const s = toLabelCandidate(o[k]);
-      if (s) return s;
-    }
-    return null;
-  }
+        // code might be the entire cell or a piece of it
+        const raw  = (td.textContent || "").trim();
+        const code = grabCode(raw);
+        if (!code) continue;
 
-  function scheduleIdle(fn) {
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(fn, { timeout: 100 });
-    } else {
-      setTimeout(() => fn(), 16);
-    }
-  }
-
-  // ──────────────────────────────────────────────────────────────────────
-  // Relabel table (throttled) and then disconnect when stable
-  let relabelScheduled = false, relabelRunning = false, mo = null, stableTimer = null;
-
-  function relabelNow() {
-    if (relabelRunning) return;
-    relabelRunning = true;
-
-    const table = getTable();
-    if (!table) { relabelRunning = false; relabelScheduled = false; return; }
-
-    let changed = 0, total = 0, missing = 0;
-    table.querySelectorAll("tbody tr").forEach(tr => {
-      const td = tr.querySelector("td");
-      if (!td) return;
-      const code = extractCodeFromCell(td);
-      if (!code) return;
-      total++;
-      td.dataset.code = code;
-      const label = LABELS[code];
-      if (label) {
-        if (td.textContent.trim() !== label) {
-          td.textContent = label;
-          changed++;
+        const friendly = LABELS[code];
+        if (friendly && friendly !== raw) {
+          td.textContent = friendly;
+          td.dataset.code = code; // keep original for debug/export
         }
-      } else {
-        missing++;
       }
-    });
+      if (i < rows.length) setTimeout(work, 0);
+      else log("relabel done:", rows.length, "rows");
+    };
+    setTimeout(work, 0);
+  }
 
-    // If table looks stable (no missing for 2s), stop observing → prevents any thrash
-    clearTimeout(stableTimer);
-    if (missing === 0 && total > 0) {
-      stableTimer = setTimeout(() => {
-        if (mo) mo.disconnect();
-        console.info("[labels] table stabilized; observer disconnected");
-      }, 2000);
+  /** -------------------- Export missing -------------------- **/
+  function addMissingButton() {
+    if (document.getElementById("tk-missing-labels-btn")) return;
+    const btn = document.createElement("button");
+    btn.id = "tk-missing-labels-btn";
+    btn.textContent = "Missing labels";
+    Object.assign(btn.style, {
+      position:"fixed", right:"16px", bottom:"16px", zIndex: 9999,
+      background:"transparent", color:"#00e6ff", border:"2px solid #00e6ff",
+      padding:"10px 14px", borderRadius:"10px", font:"600 14px/1 system-ui",
+      boxShadow:"0 0 8px rgba(0,230,255,.35)", cursor:"pointer"
+    });
+    btn.onmouseenter = () => btn.style.background = "rgba(0,230,255,.1)";
+    btn.onmouseleave = () => btn.style.background = "transparent";
+    btn.onclick = exportMissing;
+    document.body.appendChild(btn);
+  }
+
+  function exportMissing() {
+    const table = getCompatTable();
+    if (!table) return;
+    const headerCells = Array.from(table.querySelectorAll("thead th,thead td"));
+    let catIdx = 0;
+    if (headerCells.length) {
+      headerCells.forEach((th, i) => {
+        const t = (th.textContent || "").toLowerCase();
+        if (t.includes("category")) catIdx = i;
+      });
     }
 
-    relabelRunning = false;
-    relabelScheduled = false;
-  }
-  function scheduleRelabel() { if (!relabelScheduled) { relabelScheduled = true; setTimeout(relabelNow, 60); } }
-
-  // ──────────────────────────────────────────────────────────────────────
-  // Wire uploads with non-blocking harvesting
-  function bindUploads() {
-    document.querySelectorAll('input[type="file"]').forEach(input => {
-      if (input.dataset.tkTapped === "1") return;
-      input.dataset.tkTapped = "1";
-      input.addEventListener("change", (ev) => {
-        const f = ev.target.files && ev.target.files[0];
-        if (!f) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const json = JSON.parse(reader.result);
-            console.info("[labels] starting async harvest from uploaded survey …");
-            asyncHarvest(json);            // ← non-blocking now
-          } catch (e) {
-            console.warn("[labels] bad JSON upload:", e?.message || e);
-          }
-        };
-        reader.readAsText(f);
-      }, { passive: true });
+    const rows = Array.from(table.querySelectorAll("tbody tr"));
+    const missing = {};
+    rows.forEach(tr => {
+      const td = tr.children && tr.children[catIdx];
+      if (!td) return;
+      const code = grabCode(td.textContent) || td.dataset.code;
+      if (code && !LABELS[code]) missing[code] = "";
     });
+
+    if (!Object.keys(missing).length) {
+      alert("All categories are labeled. Great!");
+      return;
+    }
+
+    const payload = JSON.stringify({ labels: missing }, null, 2);
+    const blob = new Blob([payload], { type:"application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "kinks-missing-labels.template.json";
+    document.body.appendChild(a); a.click(); a.remove();
   }
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Boot
-  window.TK_labelStatus = () => ({ dictReady, known: Object.keys(LABELS).length });
+  /** -------------------- Boot -------------------- **/
+  function boot() {
+    addMissingButton();
+    watchUploads();
+    loadMasterDictionary().then(relabelTable);
 
-  loadSharedDictionary().finally(scheduleRelabel);
+    // If your page re-renders after uploads, keep labels in sync:
+    const mo = new MutationObserver(() => {
+      clearTimeout(boot._t);
+      boot._t = setTimeout(relabelTable, 80);
+    });
+    mo.observe(document.body, { childList:true, subtree:true });
+  }
 
-  mo = new MutationObserver(() => {
-    bindUploads();
-    scheduleRelabel();
-  });
-  mo.observe(document.documentElement, { childList: true, subtree: true });
-
-  window.addEventListener("load", () => {
-    bindUploads();
-    scheduleRelabel();
-    // one more pass after layout settles
-    setTimeout(scheduleRelabel, 400);
-    setTimeout(scheduleRelabel, 1200);
-  });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot, { once:true });
+  } else {
+    boot();
+  }
 })();
