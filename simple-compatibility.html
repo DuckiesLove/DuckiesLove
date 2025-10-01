@@ -3,6 +3,67 @@
 <head>
   <meta charset="UTF-8" />
   <title>Compatibility Module</title>
+  <style>
+  /* ===== Compatibility table: tiny % bar + category tooltips ===== */
+  table .compat-pct {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    font-variant-numeric: tabular-nums;
+  }
+  table td.compat-match { position: relative; }
+
+  .compat-pct .compat-bar {
+    position: absolute;
+    left: 10px; right: 10px;
+    height: 8px;
+    border: 1px solid rgba(0, 230, 255, .30);
+    border-radius: 12px;
+    overflow: hidden;
+    opacity: .75;
+    pointer-events: none;
+  }
+  .compat-pct .compat-fill {
+    position: absolute; inset: 0 auto 0 0;
+    width: 0%;
+    background: linear-gradient(90deg,
+                 rgba(0, 230, 255, .35) 0%,
+                 rgba(0, 230, 255, .85) 100%);
+    transition: width .35s ease;
+  }
+  .compat-pct .compat-text {
+    position: relative; z-index: 1;
+    padding: .1rem .25rem;
+  }
+
+  td.compat-cat.has-summary { position: relative; cursor: help; }
+  td.compat-cat.has-summary:hover::after {
+    content: attr(data-summary);
+    position: absolute;
+    left: 12px; top: calc(100% + 10px);
+    max-width: 38ch;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, .92);
+    color: #d9ffff;
+    border: 1px solid rgba(0, 230, 255, .35);
+    line-height: 1.15;
+    font-size: .95rem;
+    box-shadow: 0 12px 28px rgba(0,0,0,.45);
+    z-index: 50;
+    white-space: normal;
+  }
+  td.compat-cat.has-summary:hover::before {
+    content: "";
+    position: absolute;
+    left: 22px; top: 100%;
+    border: 7px solid transparent;
+    border-bottom-color: rgba(0, 0, 0, .92);
+    z-index: 51;
+  }
+  </style>
 </head>
 <body>
 <!-- ========== Partner A + Partner B (robust load + auto row IDs) ========== -->
@@ -63,6 +124,186 @@ function tkSlug(s){
     .replace(/['’]/g,"")                                // drop apostrophes
     .replace(/[^a-z0-9]+/g,"_")                         // non-alnum -> underscore
     .replace(/^_+|_+$/g,"");                            // trim underscores
+}
+
+/* ---------- compatibility table visual enhancements ---------- */
+const TK_COMPAT_TABLE_PATHS = [
+  '#compatibilityTable',
+  '#compatTable',
+  '.compat-table',
+  'main table',
+  '.content table'
+];
+
+const TK_SUMMARY_PATHS = [
+  '/data/kinks.json',
+  '/kinksurvey/data/kinks.json',
+  '/kinksurvey/kinks.json',
+  '/kinks.json',
+  '/assets/kinks.json',
+  '/data/kinks.fallback.json'
+];
+
+let tkCategorySummaryPromise = null;
+let tkCategorySummaryMap = null;
+
+function tkGetCompatibilityTable(){
+  for (const sel of TK_COMPAT_TABLE_PATHS){
+    const table = document.querySelector(sel);
+    if (table) return table;
+  }
+  return document.querySelector('table');
+}
+
+function tkEnsureMatchStructure(cell){
+  if (!cell) return null;
+  cell.classList.add('compat-match');
+  let wrapper = cell.querySelector('.compat-pct');
+  if (!wrapper){
+    wrapper = document.createElement('span');
+    wrapper.className = 'compat-pct';
+
+    const text = document.createElement('span');
+    text.className = 'compat-text';
+    wrapper.appendChild(text);
+
+    const bar = document.createElement('span');
+    bar.className = 'compat-bar';
+    const fill = document.createElement('span');
+    fill.className = 'compat-fill';
+    bar.appendChild(fill);
+    wrapper.appendChild(bar);
+
+    cell.textContent = '';
+    cell.appendChild(wrapper);
+  }
+  const text = wrapper.querySelector('.compat-text');
+  const fill = wrapper.querySelector('.compat-fill');
+  return { wrapper, text, fill };
+}
+
+function tkRenderMatchCell(cell, pct){
+  const parts = tkEnsureMatchStructure(cell);
+  if (!parts) return;
+  const { wrapper, text, fill } = parts;
+  const n = (typeof pct === 'number' && Number.isFinite(pct)) ? Math.max(0, Math.min(100, Math.round(pct))) : null;
+  const label = n == null ? '—' : `${n}%`;
+  if (text) text.textContent = label;
+  if (fill) fill.style.width = n == null ? '0%' : `${n}%`;
+  if (wrapper) wrapper.setAttribute('aria-label', `${label} match`);
+}
+
+const TK_SUMMARY_KEYS = ['short', 'summary', 'synopsis', 'tooltip', 'note', 'notes', 'description'];
+const TK_LABEL_KEYS = ['label', 'name', 'title', 'text'];
+
+function tkHarvestSummariesInto(map, data){
+  if (!data) return;
+  const stack = [];
+  if (Array.isArray(data)) stack.push(...data);
+  else if (typeof data === 'object'){
+    for (const key of ['kinks','items','rows','union','data','entries','list']){
+      const value = data[key];
+      if (Array.isArray(value)) stack.push(...value);
+    }
+  }
+  for (const item of stack){
+    if (!item || typeof item !== 'object') continue;
+    let summary = null;
+    for (const key of TK_SUMMARY_KEYS){
+      if (key in item){
+        const val = String(item[key] ?? '').trim();
+        if (val){ summary = val; break; }
+      }
+    }
+    if (summary){
+      const ids = [item.id, item.key, item.code, item.slug];
+      let label = null;
+      for (const key of TK_LABEL_KEYS){
+        if (key in item){
+          const val = String(item[key] ?? '').trim();
+          if (val){ label = val; break; }
+        }
+      }
+      const store = value => {
+        if (!value) return;
+        const clean = String(value).trim();
+        if (!clean) return;
+        map.set(clean, summary);
+        const slug = tkSlug(clean);
+        if (slug) map.set(slug, summary);
+      };
+      ids.forEach(store);
+      store(label);
+    }
+    if (Array.isArray(item.items)) tkHarvestSummariesInto(map, item.items);
+  }
+}
+
+async function tkEnsureCategorySummaries(){
+  if (tkCategorySummaryPromise) return tkCategorySummaryPromise;
+  tkCategorySummaryPromise = (async()=>{
+    const map = new Map();
+    for (const url of TK_SUMMARY_PATHS){
+      try {
+        const res = await fetch(url, { cache: 'force-cache' });
+        if (!res?.ok) continue;
+        const json = await res.json();
+        tkHarvestSummariesInto(map, json);
+        if (map.size) break;
+      } catch (_) {
+        /* ignore individual failures */
+      }
+    }
+    tkCategorySummaryMap = map;
+    if (typeof window === 'object') window.tkCategorySummaryMap = map;
+    return map;
+  })();
+  return tkCategorySummaryPromise;
+}
+
+function tkApplySummaryToCell(cell, id, label){
+  if (!cell || !tkCategorySummaryMap || !tkCategorySummaryMap.size) return;
+  const lookup = value => {
+    if (!value) return null;
+    const clean = String(value).trim();
+    if (!clean) return null;
+    return tkCategorySummaryMap.get(clean) || tkCategorySummaryMap.get(tkSlug(clean)) || null;
+  };
+  const summary = lookup(id) || lookup(label);
+  if (!summary) return;
+  cell.classList.add('has-summary');
+  cell.setAttribute('data-summary', summary);
+  if (!cell.getAttribute('title')) cell.setAttribute('title', summary);
+}
+
+function tkRefreshCompatibilityDecorations(){
+  const table = tkGetCompatibilityTable();
+  if (!table) return;
+  const rows = table.querySelectorAll('tbody tr');
+  rows.forEach(tr=>{
+    const catCell = tr.querySelector('td');
+    if (catCell){
+      catCell.classList.add('compat-cat');
+    }
+    const matchCell = tr.querySelector('[data-cell="Match"]') || tr.cells?.[2];
+    if (matchCell){
+      const text = matchCell.textContent.trim();
+      const num = Number.parseInt(text, 10);
+      tkRenderMatchCell(matchCell, Number.isFinite(num) ? num : null);
+    }
+  });
+  tkEnsureCategorySummaries()
+    .then(()=>{
+      const rowsWithIds = table.querySelectorAll('tbody tr');
+      rowsWithIds.forEach(tr=>{
+        const catCell = tr.querySelector('td');
+        if (!catCell) return;
+        const id = tr.getAttribute('data-kink-id');
+        const label = catCell.textContent.trim();
+        tkApplySummaryToCell(catCell, id, label);
+      });
+    })
+    .catch(()=>{});
 }
 
 /* ---------- Fetch shared kink labels (for nicer Category text) ---------- */
@@ -350,14 +591,15 @@ function tkUpdate(){
       const a5 = aRaw*sA;
       const b5 = bRaw*sB;
       const pct = Math.round(tkMatch(a5, b5));
-      mCell.textContent = `${pct}%`;
+      tkRenderMatchCell(mCell, pct);
       fCell.textContent = tkFlag(pct, a5, b5);
     } else {
-      mCell.textContent = "-";
+      tkRenderMatchCell(mCell, null);
       fCell.textContent = '';
     }
   });
 
+  tkRefreshCompatibilityDecorations();
   tkEnableDownload();
 }
 
@@ -415,6 +657,8 @@ tkEnsureLabelMap().catch(()=>null);
     });
   }
 })();
+
+tkRefreshCompatibilityDecorations();
 </script>
 
 <!--
