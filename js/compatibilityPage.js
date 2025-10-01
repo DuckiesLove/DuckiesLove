@@ -3,11 +3,10 @@
  * What it does
  * ------------
  * 1) Loads Survey A & B JSON files exactly as before.
- * 2) Auto-builds a COMPLETE label map (id -> friendly text) by deep-reading your master kinks.json.
- *    It tries these URLs in order: /kinksurvey/data/kinks.json, /data/kinks.json, /kinks.json, kinks.json
- *    (Adjust LABEL_URLS below if your path is different.)
+ * 2) Loads your site label map from kinks.json (multiple fallback URLs supported) and merges in
+ *    automatic labels scraped from the uploaded Survey A/B JSON plus optional manual overrides.
  * 3) Renders the table with readable Category names (no more cb_xxxxx) and a match % bar.
- * 4) If any ids are still missing from kinks.json, they show once in the console and the raw code is
+ * 4) If any ids are still missing from all sources, they show once in the console and the raw code is
  *    shown in the table so you can spot it.
  *
  * How to wire (no HTML redesign required)
@@ -32,6 +31,8 @@
     'kinks.json'
   ];
 
+  const OVERRIDE_URL = '/data/labels-overrides.json';
+
   // Treat ids starting with any of these as item ids we want to label
   const ID_PREFIXES = ['cb_', 'gn_', 'sa_', 'sh_', 'bd_', 'pl_', 'ps_', 'vr_', 'vo_'];
 
@@ -45,21 +46,75 @@
   // ---------- LITTLE UTILITIES ----------
   const $ = sel => document.querySelector(sel);
   const dash = '—';
-
-  function tidy(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
   function hasPrefix(id) { return typeof id === 'string' && ID_PREFIXES.some(p => id.startsWith(p)); }
 
   // ---------- LABELS: AUTO-BUILD FROM kinks.json ----------
-  let LABELS = {}; // id -> friendly text
+  let LABELS = {}; // id -> friendly text from site kinks.json
   let AUTO_LABELS = {}; // id -> friendly text sourced from uploads
+  let OVERRIDE_LABELS = {}; // manual overrides map
   let loggedMissingOnce = false;
 
-  async function loadJson(url) {
-    const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const txt = await r.text();
-    try { return JSON.parse(txt); }
-    catch { throw new Error('Not JSON (HTML?)'); }
+  function tighten(s) {
+    const t = String(s).replace(/\s+/g, ' ').trim();
+    return t.length > 140 ? `${t.slice(0, 137)}…` : t;
+  }
+
+  function getLabel(id, site, auto, over, testOnly = false) {
+    const txt = (site && site[id]) || (auto && auto[id]) || (over && over[id]) || (FALLBACK_LABELS && FALLBACK_LABELS[id]);
+    if (testOnly) return !!txt;
+    if (txt) return tighten(txt);
+    return typeof id === 'string'
+      ? id.replace(/^cb_/, '').replace(/_/g, ' ').trim()
+      : String(id || '');
+  }
+
+  async function safeFetchJSON(url, opts = {}) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) {
+        if (opts.optional) return {};
+        throw new Error(`${url} ${res.status}`);
+      }
+      return await res.json();
+    } catch (e) {
+      if (opts.optional) return {};
+      console.warn('[labels] failed to load', url, e);
+      return {};
+    }
+  }
+
+  async function loadSiteLabels() {
+    for (const url of LABEL_URLS) {
+      try {
+        const json = await safeFetchJSON(url, { optional: true });
+        const collected = collectLabelMap(json);
+        const count = Object.keys(collected).length;
+        if (count > 0) {
+          LABELS = { ...collected, ...FALLBACK_LABELS };
+          console.info(`[labels] built ${count} labels from ${url}`);
+          return;
+        }
+        if (json && Object.keys(json).length) {
+          console.warn(`[labels] ${url} loaded but contained no recognized ids`);
+        }
+      } catch (e) {
+        console.warn(`[labels] ${url} → ${e.message}`);
+      }
+    }
+    LABELS = { ...FALLBACK_LABELS };
+    console.warn('[labels] using FALLBACK_LABELS only');
+  }
+
+  function collectLabelMap(json) {
+    if (!json || typeof json !== 'object') return {};
+    // If already a flat map of id -> label, trust it
+    const entries = Object.entries(json);
+    if (entries.every(([k, v]) => hasPrefix(k) && typeof v === 'string')) {
+      return entries.reduce((acc, [k, v]) => { acc[k] = tighten(v); return acc; }, {});
+    }
+    const out = {};
+    deepCollectLabels(json, out);
+    return out;
   }
 
   // Walk all objects/arrays and collect {id: label}
@@ -68,36 +123,13 @@
     if (Array.isArray(node)) { node.forEach(n => deepCollectLabels(n, out)); return; }
     if (typeof node !== 'object') return;
 
-    const id = node.id ?? node.code ?? node.key;
-    const label = node.short ?? node.label ?? node.title ?? node.text ?? node.name;
+    const id = node.id ?? node.code ?? node.key ?? node.slug ?? node.value;
+    const label = node.short ?? node.label ?? node.title ?? node.text ?? node.name ?? node.question ?? node.prompt ?? node.summary ?? node.description ?? node.desc ?? node.caption ?? node.heading;
 
     if (hasPrefix(id) && typeof label === 'string') {
-      out[id] = tidy(label);
+      if (!out[id]) out[id] = tighten(label);
     }
-    // keep digging
     for (const v of Object.values(node)) deepCollectLabels(v, out);
-  }
-
-  async function buildLabels() {
-    for (const url of LABEL_URLS) {
-      try {
-        const json = await loadJson(url);
-        const collected = {};
-        deepCollectLabels(json, collected);
-        const count = Object.keys(collected).length;
-        if (count > 0) {
-          LABELS = { ...collected, ...FALLBACK_LABELS }; // collected wins; fallback fills gaps
-          console.info(`[labels] built ${count} labels from ${url}`);
-          return;
-        } else {
-          console.warn(`[labels] found 0 labels in ${url}`);
-        }
-      } catch (e) {
-        console.warn(`[labels] ${url} → ${e.message}`);
-      }
-    }
-    LABELS = { ...FALLBACK_LABELS };
-    console.warn('[labels] using FALLBACK_LABELS only');
   }
 
   // ---------- SURVEY LOADING ----------
@@ -144,12 +176,10 @@
 
     const tbody = document.createElement('tbody');
 
-    const labelSources = [];
-    if (AUTO_LABELS && Object.keys(AUTO_LABELS).length) labelSources.push(AUTO_LABELS);
-    labelSources.push(FALLBACK_LABELS);
-    const labelledRows = applyLabelsToRows(rows, LABELS, labelSources)
+    const labelledRows = applyLabelsToRows(rows, LABELS, AUTO_LABELS, OVERRIDE_LABELS)
       .sort((x, y) => x.label.localeCompare(y.label, undefined, { sensitivity: 'base' }));
 
+    const usedIds = labelledRows.map(r => r.id);
     const missing = [];
 
     for (let i = 0; i < labelledRows.length; i += 1) {
@@ -158,7 +188,7 @@
 
       const nameCell = document.createElement('td');
       nameCell.classList.add('compatNameCell');
-      if (r.labelSource === 'id') missing.push(r.id);
+      if (!getLabel(r.id, LABELS, AUTO_LABELS, OVERRIDE_LABELS, true)) missing.push(r.id);
       nameCell.textContent = r.label;
 
       const tdA = document.createElement('td');
@@ -188,11 +218,13 @@
     container.innerHTML = '';
     container.appendChild(tbl);
 
-    if (missing.length && !loggedMissingOnce) {
-      const uniq = [...new Set(missing)].sort();
-      console.warn(`[labels] Missing ${uniq.length} labels (showing raw codes):`, uniq);
+    const uniqMissing = [...new Set(missing)].sort();
+    if (uniqMissing.length && !loggedMissingOnce) {
+      console.warn(`[labels] Missing ${uniqMissing.length} labels (showing raw codes):`, uniqMissing);
       loggedMissingOnce = true;
     }
+
+    updateMissingButton([...new Set(usedIds)]);
   }
 
   function computeRows(aList, bList) {
@@ -213,7 +245,7 @@
     return out;
   }
 
-  function applyLabelsToRows(rows, labels, extraSources = []) {
+  function applyLabelsToRows(rows, labels, autoLabels, overrideLabels) {
     const { TKLabels } = globalThis;
     for (const r of rows) {
       const id = r.id;
@@ -221,35 +253,32 @@
       let source = 'id';
 
       if (TKLabels && typeof TKLabels.label === 'function') {
-        const friendly = tidy(TKLabels.label(id));
-        if (friendly) {
-          label = friendly;
+        const friendly = TKLabels.label(id);
+        const tightFriendly = friendly != null ? tighten(friendly) : '';
+        if (tightFriendly) {
+          label = tightFriendly;
           source = 'tk';
         }
       }
 
       if (!label) {
-        const direct = tidy(labels[id]);
-        if (direct) {
-          label = direct;
+        if (labels && labels[id]) {
+          label = tighten(labels[id]);
           source = 'labels';
+        } else if (autoLabels && autoLabels[id]) {
+          label = tighten(autoLabels[id]);
+          source = 'auto';
+        } else if (overrideLabels && overrideLabels[id]) {
+          label = tighten(overrideLabels[id]);
+          source = 'overrides';
+        } else if (FALLBACK_LABELS && FALLBACK_LABELS[id]) {
+          label = tighten(FALLBACK_LABELS[id]);
+          source = 'fallback';
         }
       }
 
       if (!label) {
-        for (const src of extraSources) {
-          if (!src) continue;
-          const fromSrc = tidy(src[id]);
-          if (fromSrc) {
-            label = fromSrc;
-            source = 'extra';
-            break;
-          }
-        }
-      }
-
-      if (!label) {
-        label = typeof id === 'string' ? id.replace(/^cb_/, '') : String(id || '');
+        label = getLabel(id, labels, autoLabels, overrideLabels);
         source = 'id';
       }
 
@@ -261,43 +290,95 @@
 
   function mergeLabelsFromExports(list) {
     const out = {};
-    for (const json of list) {
-      if (!json) continue;
-      const m = extractLabelsFromExport(json);
-      for (const k in m) {
-        if (!out[k]) out[k] = m[k];
-      }
+    for (const src of list) {
+      if (!src) continue;
+      const m = extractLabelsFromExport(src);
+      for (const k in m) if (!out[k]) out[k] = m[k];
     }
     return out;
   }
 
   function extractLabelsFromExport(json) {
     const map = {};
-    const candidates = ['text', 'label', 'name', 'question', 'title', 'prompt', 'summary'];
+    const ID_KEYS = ['id', 'code', 'key', 'slug', 'value'];
+    const TEXT_KEYS = ['text', 'label', 'name', 'question', 'title', 'prompt', 'short', 'summary', 'desc', 'description', 'caption', 'heading'];
+    const LIST_KEYS = ['choices', 'options', 'answers', 'items', 'children', 'content', 'rows', 'elements', 'fields'];
 
-    (function walk(node) {
-      if (!node) return;
-      if (Array.isArray(node)) { node.forEach(walk); return; }
-      if (typeof node === 'object') {
-        const id = str(node.id) || str(node.code) || str(node.key);
-        if (id && /^cb_[a-z0-9]+$/i.test(id)) {
-          let s = null;
-          for (const k of candidates) {
-            if (typeof node[k] === 'string' && node[k].trim()) { s = node[k].trim(); break; }
-          }
-          if (s) map[id] = oneLine(s);
-        }
-        for (const k in node) walk(node[k]);
-      }
-    })(json);
-
+    walk(json);
     return map;
 
-    function str(v) { return typeof v === 'string' ? v : null; }
-    function oneLine(s) {
-      const t = s.replace(/\s+/g, ' ').trim();
-      return t.length > 120 ? `${t.slice(0, 117)}…` : t;
+    function isCbId(v) { return typeof v === 'string' && /^cb_[a-z0-9]+$/i.test(v); }
+    function pickText(obj) {
+      for (const k of TEXT_KEYS) {
+        if (typeof obj?.[k] === 'string' && obj[k].trim()) return obj[k];
+      }
+      return null;
     }
+
+    function walk(node) {
+      if (!node) return;
+      if (Array.isArray(node)) { node.forEach(walk); return; }
+      if (typeof node !== 'object') return;
+
+      let cid = null;
+      for (const k of ID_KEYS) {
+        if (isCbId(node[k])) { cid = node[k]; break; }
+      }
+      if (cid) {
+        const t = pickText(node);
+        if (t && !map[cid]) map[cid] = tighten(t);
+      }
+
+      for (const k of LIST_KEYS) {
+        const v = node[k];
+        if (Array.isArray(v)) v.forEach(item => {
+          if (item && typeof item === 'object') {
+            let id2 = null;
+            for (const kk of ID_KEYS) if (isCbId(item[kk])) { id2 = item[kk]; break; }
+            if (id2) {
+              const t2 = pickText(item);
+              if (t2 && !map[id2]) map[id2] = tighten(t2);
+            }
+          }
+          walk(item);
+        });
+      }
+
+      for (const k in node) walk(node[k]);
+    }
+  }
+
+  function updateMissingButton(usedIds) {
+    const btn = document.getElementById('tk-missing-labels-btn');
+    if (!btn) return;
+    const uniqueIds = Array.from(new Set(usedIds)).filter(Boolean);
+    const missing = uniqueIds.filter(id => !getLabel(id, LABELS, AUTO_LABELS, OVERRIDE_LABELS, true));
+    if (missing.length) {
+      btn.style.display = '';
+      btn.onclick = () => downloadMissingLabels(missing.slice());
+    } else {
+      btn.style.display = 'none';
+      btn.onclick = null;
+    }
+  }
+
+  function downloadMissingLabels(missingIds) {
+    const stub = Object.fromEntries(missingIds.map(id => [id, '']));
+    downloadJSON('missing-labels.json', stub);
+  }
+
+  function downloadJSON(filename, data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 0);
   }
 
   // ---------- WIRE UP ----------
@@ -306,8 +387,11 @@
     if (TKLabels && typeof TKLabels.load === 'function') {
       await TKLabels.load();
     }
-    if (!TKLabels || typeof TKLabels.label !== 'function') {
-      await buildLabels();
+
+    await loadSiteLabels();
+    OVERRIDE_LABELS = await safeFetchJSON(OVERRIDE_URL, { optional: true });
+    if (OVERRIDE_LABELS && Object.keys(OVERRIDE_LABELS).length) {
+      console.info(`[labels] loaded ${Object.keys(OVERRIDE_LABELS).length} overrides from ${OVERRIDE_URL}`);
     }
 
     const aBtn = $('#btnUploadA') || $('#uploadA');
