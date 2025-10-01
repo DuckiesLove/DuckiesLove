@@ -11,6 +11,31 @@
 <link rel="stylesheet" href="/css/font-failopen.css">
 
   <style>
+  /* The table already looks great — we only layer a bar *inside* Match % cells */
+  .compatTbl td.pct {
+    position: relative;
+  }
+  .compatTbl td.pct .pctVal {
+    position: relative;
+    z-index: 1;
+  }
+  .compatTbl td.pct .pctBar {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 50%;
+    height: 8px;
+    transform: translateY(-50%);
+    border-radius: 999px;
+    background: linear-gradient(90deg, #00e6ff 0%, #19f5d3 100%);
+    opacity: .35;
+    pointer-events: none;
+  }
+  /* If you ever want a tiny legend line under the Category WITHOUT layout shift:
+     we’ll keep it disabled. Native title tooltips are zero-layout and perfect. */
+  .compatTbl td.cat { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+  <style>
   #pdf-container {
     width: 100%;
     max-width: 100%;
@@ -231,7 +256,7 @@
       <div id="pdf-container" class="compat-root" data-compat-root></div>
       <!-- === Compatibility results mount (add this to compatibility.html) === -->
       <section id="compatResults" style="margin-top:24px">
-        <table id="compatTable" class="tk-compat" style="width:100%; border-collapse:collapse">
+        <table id="compatTable" class="tk-compat compatTbl" style="width:100%; border-collapse:collapse">
           <thead>
             <tr>
               <th style="text-align:left; padding:.6rem .8rem; border-bottom:2px solid #00e6ff55">Category</th>
@@ -335,6 +360,101 @@
 
   <script>
   // Progressive enhancement for fallback compatibility tables
+  /* ========================================================================== */
+  /*  Compatibility page helpers: progress bar + category summary (tooltip)     */
+  /* ========================================================================== */
+
+  /** Holds 1-line summaries for each category id. */
+  let TK_CATEGORY_SUMMARY = Object.create(null);
+
+  /**
+   * Build summaries from your survey schema. We prefer:
+   *   cat.short  >  cat.title  >  first question text  >  id
+   * Call this once right after you’ve loaded kinks.json (same object you already
+   * use to label things).
+   */
+  function tkBuildCategorySummaries(kinks) {
+    try {
+      const cats = kinks?.categories || kinks || {};
+      Object.keys(cats).forEach(id => {
+        const c = cats[id] || {};
+        const firstQ = (c.questions && c.questions[0] && (c.questions[0].short || c.questions[0].title || c.questions[0].text)) || '';
+        const raw = c.short || c.title || c.name || firstQ || id;
+        TK_CATEGORY_SUMMARY[id] = String(raw).replace(/\s+/g,' ').trim();
+      });
+    } catch (e) {
+      console.warn('[compat] Could not build category summaries:', e);
+    }
+  }
+
+  /**
+   * Create the Match % cell content. We keep your number and, when it’s numeric,
+   * layer a subtle bar behind it (no layout change).
+   */
+  function tkMakePctCell(pct) {
+    const td = document.createElement('td');
+    td.className = 'pct';
+    const span = document.createElement('span');
+    span.className = 'pctVal';
+
+    const isNum = Number.isFinite(pct);
+    span.textContent = isNum ? Math.round(pct) : '—';
+    td.appendChild(span);
+
+    if (isNum && pct > 0) {
+      const bar = document.createElement('div');
+      bar.className = 'pctBar';
+      bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      td.appendChild(bar);
+    }
+    return td;
+  }
+
+  /**
+   * Make a Category cell that shows a zero-layout native tooltip on hover.
+   * (No visible subtitle is inserted; your table stays exactly the same.)
+   */
+  function tkMakeCategoryCell(catId) {
+    const td = document.createElement('td');
+    td.className = 'cat';
+    td.textContent = catId;
+    if (TK_CATEGORY_SUMMARY[catId]) {
+      td.title = TK_CATEGORY_SUMMARY[catId];
+    }
+    return td;
+  }
+
+  function tkAppendComparisonRow(tbody, catId, aVal, pct, bVal) {
+    if (!tbody) return null;
+    const tr = document.createElement('tr');
+
+    const cTD = tkMakeCategoryCell(catId);
+
+    const aTD = document.createElement('td');
+    aTD.className = 'ta-c pa';
+    aTD.setAttribute('data-partner-a', '');
+    aTD.textContent = (Number.isFinite(aVal) ? aVal : '—');
+
+    const pTD = tkMakePctCell(pct);
+    pTD.classList.add('ta-c', 'match');
+
+    const bTD = document.createElement('td');
+    bTD.className = 'ta-c pb';
+    bTD.setAttribute('data-partner-b', '');
+    bTD.textContent = (Number.isFinite(bVal) ? bVal : '—');
+
+    tr.append(cTD, aTD, pTD, bTD);
+    tbody.appendChild(tr);
+    return tr;
+  }
+
+  if (typeof window !== 'undefined') {
+    window.tkBuildCategorySummaries = tkBuildCategorySummaries;
+    window.tkMakePctCell = tkMakePctCell;
+    window.tkMakeCategoryCell = tkMakeCategoryCell;
+    window.tkAppendComparisonRow = tkAppendComparisonRow;
+  }
+
   (function(){
     const META_URLS = [
       '/data/kinks.json',
@@ -354,7 +474,10 @@
           const res = await fetch(url, { cache: 'no-store' });
           if (!res || !res.ok) continue;
           const data = await res.json();
-          if (data) return data;
+          if (data) {
+            tkBuildCategorySummaries(data);
+            return data;
+          }
         } catch (_) {
           // ignore individual fetch failures
         }
@@ -611,21 +734,23 @@
     const section = document.createElement('section'); section.className = 'compat-section';
     const h2 = document.createElement('h2'); h2.className = 'section-title'; h2.textContent = 'All'; section.appendChild(h2);
 
-    const table = document.createElement('table'); table.className = 'compat-table';
+    const table = document.createElement('table'); table.className = 'compat-table compatTbl';
     const thead = document.createElement('thead'); const thr = document.createElement('tr');
     ['Category','Partner A','Match','Partner B'].forEach(t=>{ const th=document.createElement('th'); th.textContent=t; thr.appendChild(th); });
     thead.appendChild(thr);
     const tbody = document.createElement('tbody');
 
     keys.forEach(k=>{
-      const tr = document.createElement('tr');
-      tr.setAttribute('data-id', k);
-      tr.setAttribute('data-full', k);
-      const td0 = document.createElement('td'); td0.textContent = k;
-      const tda = document.createElement('td'); tda.className = 'pa'; tda.setAttribute('data-partner-a',''); tda.textContent = aMap.has(k) ? aMap.get(k) : '-';
-      const tdm = document.createElement('td'); tdm.className = 'match';
-      const tdb = document.createElement('td'); tdb.className = 'pb'; tdb.setAttribute('data-partner-b',''); tdb.textContent = bMap.has(k) ? bMap.get(k) : '-';
-      tr.append(td0, tda, tdm, tdb); tbody.appendChild(tr);
+      const aVal = aMap.has(k) ? aMap.get(k) : null;
+      const bVal = bMap.has(k) ? bMap.get(k) : null;
+      const pct = (Number.isFinite(aVal) && Number.isFinite(bVal))
+        ? Math.round((1 - Math.abs(aVal - bVal) / 5) * 100)
+        : null;
+      const tr = tkAppendComparisonRow(tbody, k, aVal, pct, bVal);
+      if (tr) {
+        tr.setAttribute('data-id', k);
+        tr.setAttribute('data-full', k);
+      }
     });
 
     table.append(thead, tbody); section.appendChild(table);
@@ -1333,11 +1458,18 @@ RESULT
 
     tbody.innerHTML = '';
     keys.forEach(k=>{
-      const a = A.get(k), b = B.get(k);
-      const match = (a==null || b==null) ? '—' : Math.round((1 - Math.abs(a-b)/5)*100);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${k}</td><td class="ta-c">${a==null?'—':a}</td><td class="ta-c">${match}</td><td class="ta-c">${b==null?'—':b}</td>`;
-      tbody.appendChild(tr);
+      const a = A.get(k);
+      const b = B.get(k);
+      const pct = typeof window.tkMatchPercent === 'function'
+        ? window.tkMatchPercent(a, b)
+        : (Number.isFinite(a) && Number.isFinite(b)
+            ? Math.round((1 - Math.abs(a - b) / 5) * 100)
+            : null);
+      const tr = tkAppendComparisonRow(tbody, k, a, pct, b);
+      if (tr) {
+        tr.setAttribute('data-id', k);
+        tr.setAttribute('data-full', k);
+      }
     });
 
     console.info('[compat] filled Partner A cells:', [...A.values()].filter(v=>v!=null).length,
