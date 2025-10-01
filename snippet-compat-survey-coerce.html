@@ -1,0 +1,89 @@
+<!-- TALK KINK • SURVEY UPLOAD COMPATIBILITY COERCER -->
+<!--
+Usage: drop this block near the bottom of your page (after the upload inputs exist).
+It wires any <input type="file"> by CSS selector to ingest Talk Kink survey JSON files.
+Supports multiple shapes including {A:[…],B:[…]}, {answers:[…]}, bare arrays, and object maps.
+Provide your own fillPartnerFromRows(slot, rows) to hydrate the table; otherwise a fallback
+tries to set textContent on matching data-cell attributes.
+-->
+<script>
+(function(){
+  const TK_MIN = 0;
+  const TK_MAX = 5;
+
+  async function readTextFrom(input){
+    const file = input?.files?.[0];
+    if (!file) throw new Error('No file selected');
+    return await file.text();
+  }
+
+  function coerceSurvey(json, slot){
+    let arr = [];
+
+    if (json && (json.A || json.B)){
+      const pick = slot === 'B' ? json.B : json.A;
+      if (!Array.isArray(pick)) throw new Error('Union file lacks array for ' + slot);
+      arr = pick;
+    } else if (json && Array.isArray(json.answers)){
+      arr = json.answers;
+    } else if (Array.isArray(json)){
+      arr = json;
+    } else if (json && typeof json === 'object'){
+      arr = Object.entries(json).map(([id, score]) => ({ id, score }));
+    } else {
+      throw new Error('Unrecognized JSON shape');
+    }
+
+    return arr
+      .map(row => {
+        const id = String(row.id ?? row.code ?? row.kink ?? row.category ?? '').trim();
+        const n  = Number(row.score ?? row.value ?? row.rating ?? 0);
+        const clamped = Number.isFinite(n) ? Math.max(TK_MIN, Math.min(TK_MAX, n)) : 0;
+        return { id, score: clamped };
+      })
+      .filter(r => r.id);
+  }
+
+  function bindSurveyUpload(selector, slot){
+    const input = document.querySelector(selector);
+    if (!input) return;
+
+    input.addEventListener('change', async () => {
+      try {
+        const raw  = await readTextFrom(input);
+        const text = raw.replace(/^\uFEFF/, '');
+        const json = JSON.parse(text);
+        const rows = coerceSurvey(json, slot);
+
+        if (typeof window.fillPartnerFromRows === 'function'){
+          window.fillPartnerFromRows(slot, rows);
+        } else {
+          rows.forEach(({ id, score }) => {
+            const cell = document.querySelector(slot === 'A'
+              ? `[data-cell-a="${id}"]`
+              : `[data-cell-b="${id}"]`
+            );
+            if (cell) cell.textContent = String(score);
+          });
+        }
+
+        console.info(`[compat] stored Survey ${slot} with ${rows.length} answers`);
+      } catch (err) {
+        alert(`Invalid JSON for Survey ${slot}.\nPlease upload the unmodified JSON file exported from this site.`);
+        console.warn('[compat] Upload failed:', err);
+      } finally {
+        input.value = '';
+      }
+    });
+  }
+
+  window.rowsToMap = function rowsToMap(rows){
+    const map = new Map();
+    rows.forEach(({ id, score }) => map.set(id, score));
+    return map;
+  };
+
+  window.bindSurveyUpload = bindSurveyUpload;
+  window.coerceSurvey = coerceSurvey;
+})();
+</script>
