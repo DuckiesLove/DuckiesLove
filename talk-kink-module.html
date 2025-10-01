@@ -38,8 +38,54 @@
     table.tk-table { width:100%; border-collapse: collapse; }
     .tk-table th, .tk-table td { padding:.6rem .7rem; border-bottom:1px solid rgba(255,255,255,.08) }
     .tk-table th { text-align:left; font-weight:700 }
+    .tk-table td[data-cell="Match"] { position: relative; }
     .match-high { outline: 1px solid rgba(0,255,128,.35); background: rgba(0,255,128,.07); }
     .match-low  { outline: 1px solid rgba(255,64,64,.35);  background: rgba(255,64,64,.07); }
+
+    .tk-cat {
+      max-width: 56ch;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+    }
+    .tk-cat[data-full] { cursor: help; }
+
+    .tk-bar {
+      position: relative;
+      height: 16px;
+      border-radius: 999px;
+      background: rgba(0, 230, 255, .10);
+      border: 1px solid rgba(0, 230, 255, .28);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: .9em;
+      letter-spacing: .02em;
+      color: #eaffff;
+      text-shadow: 0 1px 0 rgba(0, 16, 20, .85);
+    }
+    .tk-bar > i {
+      position: absolute;
+      inset: 0;
+      width: var(--pct, 0%);
+      background: linear-gradient(90deg, #00e6ff, #00ffa3);
+    }
+    .tk-bar > span { position: relative; z-index: 1; }
+
+    @media print {
+      .tk-bar {
+        border-color: #888;
+        background: #e6e6e6;
+        color: #000;
+        text-shadow: none;
+      }
+      .tk-bar > i { background: #222; }
+    }
 
     .tk-flagcell{ text-align:center; width:3.5rem }
     .tk-flag{ font-size:1.15em; line-height:1; display:inline-block }
@@ -130,6 +176,52 @@
       return Math.round(pct);
     }
 
+    const tkClean = s => (s || '').replace(/\s+/g, ' ').trim();
+    function tkShortLabel(label, max = 56){
+      const clean = tkClean(label);
+      if (clean.length <= max) return clean;
+      const slice = clean.slice(0, max);
+      const cut = slice.lastIndexOf(' ');
+      return (cut > 24 ? slice.slice(0, cut) : clean.slice(0, max - 1)) + '…';
+    }
+
+    function tkDecorateCategoryCell(td){
+      if (!td || td.querySelector('.tk-cat')) return;
+      const full = tkClean(td.textContent);
+      if (!full) return;
+      const span = document.createElement('span');
+      span.className = 'tk-cat';
+      span.textContent = tkShortLabel(full);
+      span.setAttribute('data-full', full);
+      span.title = full;
+      td.textContent = '';
+      td.appendChild(span);
+    }
+
+    function tkRenderMatchCell(cell, pct, fallback){
+      if (!cell) return;
+      if (pct == null){
+        const text = tkClean(fallback);
+        cell.textContent = text || '—';
+        return;
+      }
+      let bar = cell.querySelector('.tk-bar');
+      if (!bar){
+        cell.textContent = '';
+        bar = document.createElement('div');
+        bar.className = 'tk-bar';
+        bar.setAttribute('role', 'img');
+        const fill = document.createElement('i');
+        const label = document.createElement('span');
+        bar.append(fill, label);
+        cell.appendChild(bar);
+      }
+      bar.style.setProperty('--pct', `${pct}%`);
+      bar.setAttribute('aria-label', `Match ${pct}%`);
+      const labelEl = bar.querySelector('span');
+      if (labelEl) labelEl.textContent = `${pct}%`;
+    }
+
     /* ensure row has the schema: [Category][A][Match][Flag][B] */
     function tkEnsureCells(tr){
       const need = ['A','Match','Flag','B'];
@@ -148,10 +240,13 @@
     function tkRenderRow(tr){
       tkEnsureCells(tr);
 
+      const catTd = tr.cells?.[0] || tr.querySelector('td');
       const aTd = tr.querySelector('td[data-cell="A"]');
       const mTd = tr.querySelector('td[data-cell="Match"]');
       const fTd = tr.querySelector('td[data-cell="Flag"]');
       const bTd = tr.querySelector('td[data-cell="B"]');
+
+      tkDecorateCategoryCell(catTd);
 
       if (aTd && /%$/.test(aTd.textContent.trim())) aTd.textContent = String(tkNumber(aTd.textContent.replace('%','')) ?? '-');
       if (bTd && /%$/.test(bTd.textContent.trim())) bTd.textContent = String(tkNumber(bTd.textContent.replace('%','')) ?? '-');
@@ -160,7 +255,10 @@
       const B = tkNumber(bTd?.textContent);
 
       const pct = tkPercent(A, B);
-      if (mTd) mTd.textContent = pct == null ? '-' : `${pct}%`;
+      if (mTd) {
+        const prev = mTd.textContent;
+        tkRenderMatchCell(mTd, pct, prev);
+      }
 
       if (fTd){
         fTd.classList.add('tk-flagcell');
