@@ -51,6 +51,7 @@
 
   // ---------- LABELS: AUTO-BUILD FROM kinks.json ----------
   let LABELS = {}; // id -> friendly text
+  let AUTO_LABELS = {}; // id -> friendly text sourced from uploads
   let loggedMissingOnce = false;
 
   async function loadJson(url) {
@@ -99,15 +100,6 @@
     console.warn('[labels] using FALLBACK_LABELS only');
   }
 
-  function prettyLabel(id) {
-    const { TKLabels } = globalThis;
-    if (TKLabels && typeof TKLabels.label === 'function') {
-      const friendly = TKLabels.label(id);
-      if (friendly) return tidy(friendly);
-    }
-    return LABELS[id] || FALLBACK_LABELS[id] || id; // show raw code only if truly missing
-  }
-
   // ---------- SURVEY LOADING ----------
   function readJsonFile(file) {
     return new Promise((res, rej) => {
@@ -151,17 +143,23 @@
     tbl.appendChild(thead);
 
     const tbody = document.createElement('tbody');
+
+    const labelSources = [];
+    if (AUTO_LABELS && Object.keys(AUTO_LABELS).length) labelSources.push(AUTO_LABELS);
+    labelSources.push(FALLBACK_LABELS);
+    const labelledRows = applyLabelsToRows(rows, LABELS, labelSources)
+      .sort((x, y) => x.label.localeCompare(y.label, undefined, { sensitivity: 'base' }));
+
     const missing = [];
 
-    for (let i = 0; i < rows.length; i += 1) {
-      const r = rows[i];
+    for (let i = 0; i < labelledRows.length; i += 1) {
+      const r = labelledRows[i];
       const tr = document.createElement('tr');
 
       const nameCell = document.createElement('td');
       nameCell.classList.add('compatNameCell');
-      const label = prettyLabel(r.id);
-      if (label === r.id) missing.push(r.id);
-      nameCell.textContent = label;
+      if (r.labelSource === 'id') missing.push(r.id);
+      nameCell.textContent = r.label;
 
       const tdA = document.createElement('td');
       tdA.textContent = (r.a ?? null) === null ? dash : String(r.a);
@@ -212,9 +210,94 @@
       }
       out.push({ id, a, b, pct });
     }
-    // stable and readable: sort by friendly label
-    out.sort((x, y) => prettyLabel(x.id).localeCompare(prettyLabel(y.id), undefined, { sensitivity: 'base' }));
     return out;
+  }
+
+  function applyLabelsToRows(rows, labels, extraSources = []) {
+    const { TKLabels } = globalThis;
+    for (const r of rows) {
+      const id = r.id;
+      let label = '';
+      let source = 'id';
+
+      if (TKLabels && typeof TKLabels.label === 'function') {
+        const friendly = tidy(TKLabels.label(id));
+        if (friendly) {
+          label = friendly;
+          source = 'tk';
+        }
+      }
+
+      if (!label) {
+        const direct = tidy(labels[id]);
+        if (direct) {
+          label = direct;
+          source = 'labels';
+        }
+      }
+
+      if (!label) {
+        for (const src of extraSources) {
+          if (!src) continue;
+          const fromSrc = tidy(src[id]);
+          if (fromSrc) {
+            label = fromSrc;
+            source = 'extra';
+            break;
+          }
+        }
+      }
+
+      if (!label) {
+        label = typeof id === 'string' ? id.replace(/^cb_/, '') : String(id || '');
+        source = 'id';
+      }
+
+      r.label = label;
+      r.labelSource = source;
+    }
+    return rows;
+  }
+
+  function mergeLabelsFromExports(list) {
+    const out = {};
+    for (const json of list) {
+      if (!json) continue;
+      const m = extractLabelsFromExport(json);
+      for (const k in m) {
+        if (!out[k]) out[k] = m[k];
+      }
+    }
+    return out;
+  }
+
+  function extractLabelsFromExport(json) {
+    const map = {};
+    const candidates = ['text', 'label', 'name', 'question', 'title', 'prompt', 'summary'];
+
+    (function walk(node) {
+      if (!node) return;
+      if (Array.isArray(node)) { node.forEach(walk); return; }
+      if (typeof node === 'object') {
+        const id = str(node.id) || str(node.code) || str(node.key);
+        if (id && /^cb_[a-z0-9]+$/i.test(id)) {
+          let s = null;
+          for (const k of candidates) {
+            if (typeof node[k] === 'string' && node[k].trim()) { s = node[k].trim(); break; }
+          }
+          if (s) map[id] = oneLine(s);
+        }
+        for (const k in node) walk(node[k]);
+      }
+    })(json);
+
+    return map;
+
+    function str(v) { return typeof v === 'string' ? v : null; }
+    function oneLine(s) {
+      const t = s.replace(/\s+/g, ' ').trim();
+      return t.length > 120 ? `${t.slice(0, 117)}…` : t;
+    }
   }
 
   // ---------- WIRE UP ----------
@@ -235,6 +318,8 @@
 
     let aAnswers = [];
     let bAnswers = [];
+    let surveyARaw = null;
+    let surveyBRaw = null;
 
     async function refresh() {
       if (!tableHost) return;
@@ -247,7 +332,14 @@
       try {
         const raw = await readJsonFile(inp.files[0]);
         const norm = normalizeSurvey(raw);
-        if (which === 'A') aAnswers = norm; else bAnswers = norm;
+        if (which === 'A') {
+          aAnswers = norm;
+          surveyARaw = raw;
+        } else {
+          bAnswers = norm;
+          surveyBRaw = raw;
+        }
+        AUTO_LABELS = mergeLabelsFromExports([surveyARaw, surveyBRaw]);
         await refresh();
       } catch (e) {
         alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON exported from this site.`);
