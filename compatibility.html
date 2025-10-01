@@ -902,5 +902,146 @@ RESULT
 <!-- ===== /TK Compatibility Page Hardening Patch (v2) ===== -->
 
 <!-- ---------- End Safe Bootstrap ---------- -->
+<script>
+/* ===== Compatibility page: robust file-input wiring =====
+   Paste this at the very end of /compatibility.html, right before </body>.
+   It only replaces the “wireUploaders” part and keeps your existing
+   normalize/maybeRecompute logic working. If you don’t have those yet,
+   this snippet also provides safe defaults. */
+
+(function () {
+  // ---- keep or reuse your existing helpers if already defined ----
+  const sTrim = v => (v == null ? '' : String(v)).trim();
+  function clamp05(n){ n=Number(n); if(!Number.isFinite(n))return 0; return Math.max(0,Math.min(5,n)); }
+
+  // Normalizer that accepts both the new object shape and older array/rows shapes.
+  function normalizeSurvey(json){
+    const map = new Map();
+    if(!json || typeof json!=='object') return {map,count:0};
+
+    if(json.answers && !Array.isArray(json.answers) && typeof json.answers==='object'){
+      for(const [k,v] of Object.entries(json.answers)){ const id=sTrim(k); if(id) map.set(id, clamp05(v)); }
+      return {map,count:map.size};
+    }
+    if(Array.isArray(json.answers)){
+      for(const r of json.answers){ const id=sTrim(r?.id ?? r?.key); if(id) map.set(id, clamp05(r?.score ?? r?.value ?? r?.v ?? 0)); }
+      return {map,count:map.size};
+    }
+    if(Array.isArray(json.rows)){
+      for(const r of json.rows){ const id=sTrim(r?.id ?? r?.key); if(id) map.set(id, clamp05(r?.score ?? r?.value ?? r?.v ?? 0)); }
+      return {map,count:map.size};
+    }
+    for(const [k,v] of Object.entries(json)){ if(/^(schema|meta|page|site|exportedAt)$/i.test(k)) continue; const id=sTrim(k); if(id) map.set(id, clamp05(v)); }
+    return {map,count:map.size};
+  }
+
+  // ensure global storage
+  window._tkCompat = window._tkCompat || { A:null, B:null };
+
+  function fileToSurveyMap(file, cb){
+    const r = new FileReader();
+    r.onload = () => {
+      try{ cb(null, normalizeSurvey(JSON.parse(String(r.result)))); }
+      catch(err){ cb(err); }
+    };
+    r.onerror = () => cb(r.error || new Error('read failed'));
+    r.readAsText(file);
+  }
+
+  // Very robust partner detection
+  function detectPartnerFrom(el){
+    const textBag = [
+      el.dataset?.partner, el.name, el.id,
+      el.getAttribute?.('aria-label'),
+      el.getAttribute?.('title')
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    if(/\b(b|partner\s*b|survey\s*b|file\s*b)\b/.test(textBag)) return 'B';
+    if(/\b(a|partner\s*a|survey\s*a|file\s*a)\b/.test(textBag)) return 'A';
+
+    // Look around in the label/button text
+    const label = el.closest('label')?.textContent?.toLowerCase() || '';
+    const near  = el.closest('form,section,div')?.textContent?.slice(0,200)?.toLowerCase() || '';
+    const bag2  = (label + ' ' + near);
+    if(/partner[^a-z]*b/.test(bag2) || /upload.*partner/i.test(bag2)) return 'B';
+    if(/your.*survey/.test(bag2) || /partner[^a-z]*a/.test(bag2)) return 'A';
+
+    return null;
+  }
+
+  // fallback ordering: first file input we see = A, second = B
+  const seenOrder = [];
+  function fallbackAB(el){
+    if(!seenOrder.includes(el)) seenOrder.push(el);
+    return (seenOrder.indexOf(el) === 0) ? 'A' : 'B';
+  }
+
+  // Render/update table (keeps it simple; replace if you already have your renderer)
+  function maybeRecompute(){
+    const A = window._tkCompat.A?.map || new Map();
+    const B = window._tkCompat.B?.map || new Map();
+    const keys = new Set([...A.keys(), ...B.keys()]);
+
+    const tbody = document.querySelector('#compatTable tbody') || document.querySelector('table tbody');
+    if(!tbody){ 
+      console.info('[compat] (no table tbody found) filled Partner A cells:', [...A.values()].filter(v=>v!=null).length,
+                   '; Partner B cells:', [...B.values()].filter(v=>v!=null).length);
+      return;
+    }
+
+    tbody.innerHTML = '';
+    keys.forEach(k=>{
+      const a = A.get(k), b = B.get(k);
+      const match = (a==null || b==null) ? '—' : Math.round((1 - Math.abs(a-b)/5)*100);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${k}</td><td class="ta-c">${a==null?'—':a}</td><td class="ta-c">${match}</td><td class="ta-c">${b==null?'—':b}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    console.info('[compat] filled Partner A cells:', [...A.values()].filter(v=>v!=null).length,
+                 '; Partner B cells:', [...B.values()].filter(v=>v!=null).length);
+  }
+
+  // Attach one capture listener to catch *any* file input change on the page
+  function wireAnyFileInputs(){
+    document.addEventListener('change', function onFileChange(e){
+      const el = e.target;
+      if(!(el instanceof HTMLInputElement) || el.type !== 'file') return;
+      const file = el.files && el.files[0];
+      if(!file) return;
+
+      // Decide A or B
+      let who = detectPartnerFrom(el);
+      if(!who){
+        // try to infer from the order of file inputs encountered
+        who = fallbackAB(el);
+      }
+
+      fileToSurveyMap(file, (err, norm)=>{
+        if(err || !norm){
+          alert(`Invalid JSON for Survey ${who || 'A/B'}.\nPlease upload the unmodified JSON file exported from the survey page.`);
+          return;
+        }
+        window._tkCompat[who] = norm;
+        console.info(`[compat] bootstrapped ${norm.count} rows for ${who} from JSON.`);
+        maybeRecompute();
+      });
+    }, true); // use capture so hidden inputs behind buttons still trigger us
+  }
+
+  // Small style tweak so numbers look centered
+  (function addCompatStyle(){
+    const st = document.createElement('style');
+    st.textContent = `.ta-c{text-align:center} table td,table th{vertical-align:middle}`;
+    document.head.appendChild(st);
+  })();
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', wireAnyFileInputs);
+  } else {
+    wireAnyFileInputs();
+  }
+})();
+</script>
 </body>
 </html>
