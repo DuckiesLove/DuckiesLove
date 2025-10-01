@@ -89,6 +89,15 @@
       color: var(--pdf-text) !important;
     }
   </style>
+  <style>
+    /* optional polish to match your theme */
+    .tk-compat th, .tk-compat td{
+      border-bottom:1px solid #00e6ff33;
+      padding:.55rem .8rem;
+      vertical-align:middle;
+    }
+    .tk-compat td.ta-c{ text-align:center; }
+  </style>
 </head>
 <body class="theme-dark">
   <div class="main-container themed">
@@ -114,6 +123,20 @@
       <p id="comparisonResult"></p>
       <div id="loading-spinner" class="loading-overlay"><div class="spinner"></div></div>
       <div id="pdf-container" class="compat-root" data-compat-root></div>
+      <!-- === Compatibility results mount (add this to compatibility.html) === -->
+      <section id="compatResults" style="margin-top:24px">
+        <table id="compatTable" class="tk-compat" style="width:100%; border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:.6rem .8rem; border-bottom:2px solid #00e6ff55">Category</th>
+              <th style="text-align:center; padding:.6rem .8rem; border-bottom:2px solid #00e6ff55">Partner A</th>
+              <th style="text-align:center; padding:.6rem .8rem; border-bottom:2px solid #00e6ff55">Match %</th>
+              <th style="text-align:center; padding:.6rem .8rem; border-bottom:2px solid #00e6ff55">Partner B</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
       <div class="print-footer"></div>
     </div>
   </div>
