@@ -362,25 +362,29 @@
 
 <script>
 (async function(){
-  // Keep your existing data sources (will use your published dataset when present)
-  const here = new URL(window.location.href);
-  const DEFAULT_URLS=[
-    '/data/kinks.json',
-    '/kinksurvey/data/kinks.json',
-    '/kinksurvey/kinks.json',
-    '/kinks.json',
-    '/assets/kinks.json'
-  ];
-  const overrideUrls = Array.isArray(window.KSV?.KINKS_URLS) ? window.KSV.KINKS_URLS : null;
-  const DATA_URLS = Array.from(new Set(
-    (overrideUrls && overrideUrls.length ? overrideUrls : DEFAULT_URLS)
-      .map(url => {
-        try { return new URL(url, here).pathname; }
-        catch { return url; }
-      })
-      .filter(Boolean)
-  ));
-  if (!DATA_URLS.length) DATA_URLS.push('/data/kinks.json');
+  async function safeJson(url) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function loadKinksDataset() {
+    const v = Date.now();
+    const urls = [
+      `/data/kinks.json?v=${v}`,
+      `/kinksurvey/data/kinks.json?v=${v}`,
+      `data/kinks.json?v=${v}`
+    ];
+    for (const u of urls) {
+      const j = await safeJson(u);
+      if (j) return j;
+    }
+    return null;
+  }
 
   // Elements
   const $ = (id)=>document.getElementById(id);
@@ -536,87 +540,6 @@
   const S = { cats:[], sel:[], i:0 };
 
   const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
-  const looksHTML = t => /^\s*<!doctype html/i.test(t) || /<html[\s>]/i.test(t);
-
-  const DEBUG_FETCH = (()=>{
-    if (window.kinkSurveyFetchDebug === true) return true;
-    try {
-      const qs = new URLSearchParams(location.search);
-      if (qs.has('debug')) return true;
-    } catch (_){}
-    return /localhost|127\.0\.0\.1/.test(location.hostname);
-  })();
-
-  const FETCH_NOTE_ID = 'tkFetchNote';
-
-  function removeFetchNote(){
-    const existing = document.getElementById(FETCH_NOTE_ID);
-    if (existing) existing.remove();
-  }
-
-  function showFetchNote(notes){
-    if (!notes?.length) return;
-    if (!DEBUG_FETCH){
-      console.warn('[kinksurvey] Fetch notes:', notes.join('  -  '));
-      return;
-    }
-    let note = document.getElementById(FETCH_NOTE_ID);
-    if (!note){
-      note = document.createElement('div');
-      note.id = FETCH_NOTE_ID;
-      note.style.cssText = [
-        'position:fixed','left:0','right:0','bottom:0','z-index:2147483600',
-        'padding:.55rem 1rem','background:#001316','color:#57f7ff',
-        'border-top:1px solid #00e6ff33',
-        'font:600 14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif',
-        'text-align:center'
-      ].join(';');
-    }
-    note.textContent = 'Fetch notes: ' + notes.join('  -  ');
-    if (!note.isConnected) document.body?.appendChild(note);
-  }
-  window.showFetchNote = showFetchNote;
-
-  async function fetchFirstInternal(urls){
-    const notes = [];
-    for (const url of urls){
-      try{
-        const res = await fetch(url, {cache:'no-store'});
-        if (!res.ok){
-          notes.push(`${url}: HTTP ${res.status}`);
-          console.warn('[kinksurvey] Not found:', url, res.status);
-          continue;
-        }
-        const text = await res.text();
-        if (looksHTML(text)){
-          notes.push(`${url}: HTML fallback`);
-          console.warn('[kinksurvey] HTML fallback:', url);
-          continue;
-        }
-        const json = JSON.parse(text);
-        console.info('[kinksurvey] Loaded:', url);
-        removeFetchNote();
-        return { json, src: url, errs: [] };
-      }catch(err){
-        const message = err?.message || String(err);
-        notes.push(`${url}: ${message}`);
-        console.warn('[kinksurvey] Fetch failed:', url, message);
-      }
-    }
-    showFetchNote(notes);
-    const error = new Error('kinks.json not found in any candidate location');
-    error.notes = notes;
-    throw error;
-  }
-  window.fetchFirst = fetchFirstInternal;
-
-  async function fetchData(){
-    const fetcher = typeof window.fetchFirst === 'function' ? window.fetchFirst : fetchFirstInternal;
-    const result = await fetcher(DATA_URLS);
-    if (result && typeof result === 'object' && 'json' in result) return result;
-    return { json: result, src: DATA_URLS[0], errs: [] };
-  }
-
   function normalize(raw){
     const out=[];
     const push=(name,items)=>{
@@ -706,27 +629,16 @@
 
   // Boot
   try{
-    const {json,src,errs} = await fetchData();
-    S.cats = normalize(json);
+    const dataset = await loadKinksDataset();
+    if (!dataset) throw new Error('Dataset unavailable. Expected /data/kinks.json');
+    S.cats = normalize(dataset);
     renderPanel(S.cats);
     status.textContent = `Loaded ${S.cats.length} categories`;
     maybeRevealPanel();
-    if (errs?.length){
-      if (DEBUG_FETCH) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
-      else console.warn('[kinksurvey] Fetch notes:', errs.join(' | '));
-    }
   }catch(e){
-    const msg = e?.message || e;
-    const notes = Array.isArray(e?.notes) ? e.notes : [];
-    showFetchNote(notes);
-    const baseMessage = 'This page will populate once /data/kinks.json is published.';
-    if (DEBUG_FETCH && notes.length){
-      const extra = '\nFetch notes:\n- ' + notes.join('\n- ');
-      showDiag(msg + extra + '\n' + baseMessage);
-    } else {
-      console.warn('[kinksurvey] Fetch failed:', msg, notes);
-      showDiag(baseMessage);
-    }
+    const msg = e?.message || 'Dataset unavailable. Expected /data/kinks.json';
+    console.warn('[kinksurvey] Fetch failed:', msg);
+    showDiag('Dataset unavailable. Expected /data/kinks.json');
     status.textContent = 'Dataset unavailable';
   }
 })();

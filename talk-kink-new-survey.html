@@ -207,16 +207,29 @@
 <script>
 (async function(){
   /* ---------- data fetch ---------- */
-  const DATA_URLS = [
-    '/data/kinks.json',
-    '/kinksurvey/data/kinks.json',
-    '/kinksurvey/kinks.json',
-    '/kinks.json',
-    '/assets/kinks.json',
-    './data/kinks.json',
-    './kinks.json',
-    './assets/kinks.json'
-  ];
+  async function safeJson(url) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function loadKinksDataset() {
+    const v = Date.now();
+    const urls = [
+      `/data/kinks.json?v=${v}`,
+      `/kinksurvey/data/kinks.json?v=${v}`,
+      `data/kinks.json?v=${v}`
+    ];
+    for (const u of urls) {
+      const j = await safeJson(u);
+      if (j) return j;
+    }
+    return null;
+  }
 
   const el = (id)=>document.getElementById(id);
   const $panel = el('categoryPanel');
@@ -240,23 +253,6 @@
     const base = tidy(s).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
     return base || 'cat_'+Math.random().toString(36).slice(2,8);
   };
-  const looksHTML = (t)=>/^\s*<!doctype html/i.test(t)||/<html[\s>]/i.test(t);
-
-  async function getData(){
-    const errs=[];
-    for (const u of DATA_URLS){
-      try{
-        const res = await fetch(u,{cache:'no-store'});
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const txt = await res.text();
-        if (looksHTML(txt)) throw new Error('HTML fallback received');
-        const j = JSON.parse(txt);
-        return {json:j, src:u, errs};
-      }catch(e){ errs.push(u+': '+e.message); }
-    }
-    throw new Error('All dataset fetches failed:\n- '+errs.join('\n- '));
-  }
-
   function normalize(raw){
     const out = [];
     const push = (name, items)=>{
@@ -418,13 +414,15 @@
 
   /* ---------- boot ---------- */
   try{
-    const {json,src,errs} = await getData();
-    state.cats = normalize(json);
+    const dataset = await loadKinksDataset();
+    if (!dataset) throw new Error('Dataset unavailable. Expected /data/kinks.json');
+    state.cats = normalize(dataset);
     state.cats.sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
     renderPanel(state.cats);
-    if (errs?.length) showDiag('Fetch notes:\n- ' + errs.join('\n- '));
   }catch(e){
-    showDiag(e.message + '\nYou can still use this page once /data/kinks.json is published.');
+    const msg = e?.message || 'Dataset unavailable. Expected /data/kinks.json';
+    console.warn('[talkkink] kinks dataset fetch failed:', msg);
+    showDiag('Dataset unavailable. Expected /data/kinks.json');
     $status.textContent = 'Dataset unavailable';
   }
 })();
