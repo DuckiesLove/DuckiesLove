@@ -49,39 +49,6 @@
   function tidy(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
   function hasPrefix(id) { return typeof id === 'string' && ID_PREFIXES.some(p => id.startsWith(p)); }
 
-  // match% visualization (non-intrusive, keeps your design)
-  function barCell(percent) {
-    if (percent == null || isNaN(percent)) return dash;
-    const pct = Math.max(0, Math.min(100, Math.round(percent)));
-    const wrap = document.createElement('div');
-    wrap.style.display = 'flex';
-    wrap.style.alignItems = 'center';
-    wrap.style.gap = '8px';
-
-    const txt = document.createElement('span');
-    txt.textContent = pct + '%';
-    const outer = document.createElement('div');
-    const inner = document.createElement('div');
-
-    outer.style.flex = '1 1 120px';
-    outer.style.position = 'relative';
-    outer.style.height = '8px';
-    outer.style.border = '1px solid rgba(255,255,255,.4)';
-    outer.style.borderRadius = '4px';
-    inner.style.position = 'absolute';
-    inner.style.left = '0';
-    inner.style.top = '0';
-    inner.style.bottom = '0';
-    inner.style.width = pct + '%';
-    inner.style.background = 'rgba(0,255,255,.75)';
-    inner.style.borderRadius = '4px';
-
-    outer.appendChild(inner);
-    wrap.appendChild(txt);
-    wrap.appendChild(outer);
-    return wrap;
-  }
-
   // ---------- LABELS: AUTO-BUILD FROM kinks.json ----------
   let LABELS = {}; // id -> friendly text
   let loggedMissingOnce = false;
@@ -133,6 +100,11 @@
   }
 
   function prettyLabel(id) {
+    const { TKLabels } = globalThis;
+    if (TKLabels && typeof TKLabels.label === 'function') {
+      const friendly = TKLabels.label(id);
+      if (friendly) return tidy(friendly);
+    }
     return LABELS[id] || FALLBACK_LABELS[id] || id; // show raw code only if truly missing
   }
 
@@ -166,7 +138,7 @@
   }
 
   // ---------- RENDER ----------
-  function renderTable(container, rows) {
+  async function renderTable(container, rows) {
     const tbl = document.createElement('table');
     tbl.className = 'compat-table'; // keep your CSS
 
@@ -181,27 +153,37 @@
     const tbody = document.createElement('tbody');
     const missing = [];
 
-    for (const r of rows) {
+    for (let i = 0; i < rows.length; i += 1) {
+      const r = rows[i];
       const tr = document.createElement('tr');
 
-      const tdCat = document.createElement('td');
+      const nameCell = document.createElement('td');
+      nameCell.classList.add('compatNameCell');
       const label = prettyLabel(r.id);
       if (label === r.id) missing.push(r.id);
-      tdCat.textContent = label;
+      nameCell.textContent = label;
 
       const tdA = document.createElement('td');
       tdA.textContent = (r.a ?? null) === null ? dash : String(r.a);
 
-      const tdPct = document.createElement('td');
-      const cell = barCell(r.pct);
-      if (typeof cell === 'string') tdPct.textContent = cell;
-      else tdPct.appendChild(cell);
+      const pctCell = document.createElement('td');
+      const pctVal = Math.round(r.pct || 0);
+      pctCell.innerHTML = (pctVal > 0)
+        ? `<div class="pctBar" style="--pct:${pctVal}%"><i></i><span>${pctVal}%</span></div>`
+        : '—';
 
       const tdB = document.createElement('td');
       tdB.textContent = (r.b ?? null) === null ? dash : String(r.b);
 
-      tr.appendChild(tdCat); tr.appendChild(tdA); tr.appendChild(tdPct); tr.appendChild(tdB);
+      tr.appendChild(nameCell);
+      tr.appendChild(tdA);
+      tr.appendChild(pctCell);
+      tr.appendChild(tdB);
       tbody.appendChild(tr);
+
+      if (i > 0 && i % 250 === 0) {
+        await new Promise(rf => requestAnimationFrame(rf));
+      }
     }
 
     tbl.appendChild(tbody);
@@ -237,7 +219,13 @@
 
   // ---------- WIRE UP ----------
   async function init() {
-    await buildLabels();
+    const { TKLabels } = globalThis;
+    if (TKLabels && typeof TKLabels.load === 'function') {
+      await TKLabels.load();
+    }
+    if (!TKLabels || typeof TKLabels.label !== 'function') {
+      await buildLabels();
+    }
 
     const aBtn = $('#btnUploadA') || $('#uploadA');
     const bBtn = $('#btnUploadB') || $('#uploadB');
@@ -248,9 +236,9 @@
     let aAnswers = [];
     let bAnswers = [];
 
-    function refresh() {
+    async function refresh() {
       if (!tableHost) return;
-      renderTable(tableHost, computeRows(aAnswers, bAnswers));
+      await renderTable(tableHost, computeRows(aAnswers, bAnswers));
     }
 
     async function pickAndLoad(which) {
@@ -260,7 +248,7 @@
         const raw = await readJsonFile(inp.files[0]);
         const norm = normalizeSurvey(raw);
         if (which === 'A') aAnswers = norm; else bAnswers = norm;
-        refresh();
+        await refresh();
       } catch (e) {
         alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON exported from this site.`);
       }
