@@ -1379,26 +1379,114 @@ RESULT
 (function () {
   // ---- keep or reuse your existing helpers if already defined ----
   const sTrim = v => (v == null ? '' : String(v)).trim();
-  function clamp05(n){ n=Number(n); if(!Number.isFinite(n))return 0; return Math.max(0,Math.min(5,n)); }
+  function clamp05(n){
+    n = Number(n);
+    if (!Number.isFinite(n)) return 0;
+    if (n > 5 && n <= 10) return Math.max(0, Math.min(5, n / 2));
+    return Math.max(0, Math.min(5, n));
+  }
 
-  // Normalizer that accepts both the new object shape and older array/rows shapes.
+  function extractScore(raw){
+    if (raw == null) return 0;
+    if (typeof raw === 'object'){
+      if (Array.isArray(raw)){
+        const first = raw.find(v => v != null);
+        return extractScore(first);
+      }
+      const keys = ['score','value','val','v','rank','answer','rating','points'];
+      for (const key of keys){
+        if (raw[key] != null) return extractScore(raw[key]);
+      }
+      return 0;
+    }
+    if (typeof raw === 'string'){
+      const txt = raw.trim();
+      if (!txt) return 0;
+      if (/^\d+%$/.test(txt)){
+        const pct = Number(txt.slice(0, -1));
+        return Number.isFinite(pct) ? pct / 20 : 0;
+      }
+      if (/^\d+\s*\/\s*\d+$/.test(txt)){
+        const [a, b] = txt.split('/').map(s => Number(s.trim()));
+        if (Number.isFinite(a) && Number.isFinite(b) && b) return a * (5 / b);
+      }
+      const n = Number(txt);
+      if (Number.isFinite(n)) return n;
+      return 0;
+    }
+    if (typeof raw === 'number') return raw;
+    return 0;
+  }
+
   function normalizeSurvey(json){
     const map = new Map();
-    if(!json || typeof json!=='object') return {map,count:0};
+    const add = (id, val) => {
+      const key = sTrim(id);
+      if (!key) return;
+      map.set(key, clamp05(val));
+    };
+    const fromArray = (arr, prefix='item') => {
+      if (!Array.isArray(arr)) return;
+      const base = sTrim(prefix) || 'item';
+      arr.forEach((entry, idx) => {
+        if (entry == null) return;
+        let id = '';
+        if (typeof entry === 'object' && !Array.isArray(entry)){
+          id = entry.id ?? entry.key ?? entry.name ?? entry.label ?? entry.slug ?? '';
+        }
+        if (!id) id = `${base}_${idx + 1}`;
+        add(id, extractScore(entry));
+      });
+    };
 
-    if(json.answers && !Array.isArray(json.answers) && typeof json.answers==='object'){
-      for(const [k,v] of Object.entries(json.answers)){ const id=sTrim(k); if(id) map.set(id, clamp05(v)); }
+    if (!json) return {map,count:0};
+    if (Array.isArray(json)){
+      fromArray(json);
       return {map,count:map.size};
     }
-    if(Array.isArray(json.answers)){
-      for(const r of json.answers){ const id=sTrim(r?.id ?? r?.key); if(id) map.set(id, clamp05(r?.score ?? r?.value ?? r?.v ?? 0)); }
+    if (json.answers && !Array.isArray(json.answers) && typeof json.answers === 'object'){
+      for (const [k, v] of Object.entries(json.answers)) add(k, extractScore(v));
       return {map,count:map.size};
     }
-    if(Array.isArray(json.rows)){
-      for(const r of json.rows){ const id=sTrim(r?.id ?? r?.key); if(id) map.set(id, clamp05(r?.score ?? r?.value ?? r?.v ?? 0)); }
+    if (Array.isArray(json.answers)){
+      fromArray(json.answers, 'answer');
       return {map,count:map.size};
     }
-    for(const [k,v] of Object.entries(json)){ if(/^(schema|meta|page|site|exportedAt)$/i.test(k)) continue; const id=sTrim(k); if(id) map.set(id, clamp05(v)); }
+    if (Array.isArray(json.cells)){
+      fromArray(json.cells, 'cell');
+      return {map,count:map.size};
+    }
+    if (Array.isArray(json.rows)){
+      fromArray(json.rows, 'row');
+      return {map,count:map.size};
+    }
+    if (Array.isArray(json.data)){
+      fromArray(json.data, 'data');
+      return {map,count:map.size};
+    }
+    if (Array.isArray(json?.data?.cells)){
+      fromArray(json.data.cells, 'cell');
+      return {map,count:map.size};
+    }
+    if (json.map && typeof json.map === 'object'){
+      for (const [k, v] of Object.entries(json.map)) add(k, extractScore(v));
+      if (map.size) return {map,count:map.size};
+    }
+
+    if (json && typeof json === 'object'){
+      for (const [k, v] of Object.entries(json)){
+        if (/^(schema|meta|page|site|exportedAt)$/i.test(k)) continue;
+        if (Array.isArray(v)){
+          fromArray(v, k || 'item');
+        } else if (v && typeof v === 'object' && !Array.isArray(v)){
+          const id = sTrim(v.id ?? v.key ?? v.name ?? v.label ?? k);
+          add(id || k, extractScore(v));
+        } else {
+          add(k, extractScore(v));
+        }
+      }
+    }
+
     return {map,count:map.size};
   }
 
@@ -1408,7 +1496,12 @@ RESULT
   function fileToSurveyMap(file, cb){
     const r = new FileReader();
     r.onload = () => {
-      try{ cb(null, normalizeSurvey(JSON.parse(String(r.result)))); }
+      try{
+        const raw = String(r.result || '');
+        const clean = raw.replace(/^\uFEFF/, '').trim();
+        const parsed = JSON.parse(clean);
+        cb(null, normalizeSurvey(parsed));
+      }
       catch(err){ cb(err); }
     };
     r.onerror = () => cb(r.error || new Error('read failed'));
@@ -1492,13 +1585,17 @@ RESULT
       }
 
       fileToSurveyMap(file, (err, norm)=>{
-        if(err || !norm){
-          alert(`Invalid JSON for Survey ${who || 'A/B'}.\nPlease upload the unmodified JSON file exported from the survey page.`);
-          return;
+        try {
+          if(err || !norm){
+            alert(`Invalid JSON for Survey ${who || 'A/B'}.\nPlease upload the unmodified JSON file exported from the survey page.`);
+            return;
+          }
+          window._tkCompat[who] = norm;
+          console.info(`[compat] bootstrapped ${norm.count} rows for ${who} from JSON.`);
+          maybeRecompute();
+        } finally {
+          try { el.value = ''; } catch (_) {}
         }
-        window._tkCompat[who] = norm;
-        console.info(`[compat] bootstrapped ${norm.count} rows for ${who} from JSON.`);
-        maybeRecompute();
       });
     }, true); // use capture so hidden inputs behind buttons still trigger us
   }
@@ -1525,36 +1622,114 @@ RESULT
 (function () {
   // ---------- helpers ----------
   const sTrim = v => (v == null ? '' : String(v)).trim();
-  function clamp05(n){ n=Number(n); if(!Number.isFinite(n))return 0; return Math.max(0,Math.min(5,n)); }
+  function clamp05(n){
+    n = Number(n);
+    if (!Number.isFinite(n)) return 0;
+    if (n > 5 && n <= 10) return Math.max(0, Math.min(5, n / 2));
+    return Math.max(0, Math.min(5, n));
+  }
 
-  // Accepts all current export shapes (object map, {answers:object}, {answers:array}, {rows:array})
+  function extractScore(raw){
+    if (raw == null) return 0;
+    if (typeof raw === 'object'){
+      if (Array.isArray(raw)){
+        const first = raw.find(v => v != null);
+        return extractScore(first);
+      }
+      const keys = ['score','value','val','v','rank','answer','rating','points'];
+      for (const key of keys){
+        if (raw[key] != null) return extractScore(raw[key]);
+      }
+      return 0;
+    }
+    if (typeof raw === 'string'){
+      const txt = raw.trim();
+      if (!txt) return 0;
+      if (/^\d+%$/.test(txt)){
+        const pct = Number(txt.slice(0, -1));
+        return Number.isFinite(pct) ? pct / 20 : 0;
+      }
+      if (/^\d+\s*\/\s*\d+$/.test(txt)){
+        const [a, b] = txt.split('/').map(s => Number(s.trim()));
+        if (Number.isFinite(a) && Number.isFinite(b) && b) return a * (5 / b);
+      }
+      const n = Number(txt);
+      if (Number.isFinite(n)) return n;
+      return 0;
+    }
+    if (typeof raw === 'number') return raw;
+    return 0;
+  }
+
   function normalizeSurvey(json){
     const map = new Map();
-    if(!json || typeof json!=='object') return {map,count:0};
+    const add = (id, val) => {
+      const key = sTrim(id);
+      if (!key) return;
+      map.set(key, clamp05(val));
+    };
+    const fromArray = (arr, prefix='item') => {
+      if (!Array.isArray(arr)) return;
+      const base = sTrim(prefix) || 'item';
+      arr.forEach((entry, idx) => {
+        if (entry == null) return;
+        let id = '';
+        if (typeof entry === 'object' && !Array.isArray(entry)){
+          id = entry.id ?? entry.key ?? entry.name ?? entry.label ?? entry.slug ?? '';
+        }
+        if (!id) id = `${base}_${idx + 1}`;
+        add(id, extractScore(entry));
+      });
+    };
 
-    if(json.answers && typeof json.answers==='object' && !Array.isArray(json.answers)){
-      for(const [k,v] of Object.entries(json.answers)){ const id=sTrim(k); if(id) map.set(id, clamp05(v)); }
+    if (!json) return {map,count:0};
+    if (Array.isArray(json)){
+      fromArray(json);
       return {map,count:map.size};
     }
-    if(Array.isArray(json.answers)){
-      for(const r of json.answers){
-        const id=sTrim(r?.id ?? r?.key);
-        if(id) map.set(id, clamp05(r?.score ?? r?.value ?? r?.v ?? 0));
+    if (json.answers && typeof json.answers==='object' && !Array.isArray(json.answers)){
+      for (const [k, v] of Object.entries(json.answers)) add(k, extractScore(v));
+      return {map,count:map.size};
+    }
+    if (Array.isArray(json.answers)){
+      fromArray(json.answers, 'answer');
+      return {map,count:map.size};
+    }
+    if (Array.isArray(json.cells)){
+      fromArray(json.cells, 'cell');
+      return {map,count:map.size};
+    }
+    if (Array.isArray(json.rows)){
+      fromArray(json.rows, 'row');
+      return {map,count:map.size};
+    }
+    if (Array.isArray(json.data)){
+      fromArray(json.data, 'data');
+      return {map,count:map.size};
+    }
+    if (Array.isArray(json?.data?.cells)){
+      fromArray(json.data.cells, 'cell');
+      return {map,count:map.size};
+    }
+    if (json.map && typeof json.map === 'object'){
+      for (const [k, v] of Object.entries(json.map)) add(k, extractScore(v));
+      if (map.size) return {map,count:map.size};
+    }
+
+    if (json && typeof json === 'object'){
+      for (const [k, v] of Object.entries(json)){
+        if (/^(schema|meta|page|site|exportedAt)$/i.test(k)) continue;
+        if (Array.isArray(v)){
+          fromArray(v, k || 'item');
+        } else if (v && typeof v === 'object' && !Array.isArray(v)){
+          const id = sTrim(v.id ?? v.key ?? v.name ?? v.label ?? k);
+          add(id || k, extractScore(v));
+        } else {
+          add(k, extractScore(v));
+        }
       }
-      return {map,count:map.size};
     }
-    if(Array.isArray(json.rows)){
-      for(const r of json.rows){
-        const id=sTrim(r?.id ?? r?.key);
-        if(id) map.set(id, clamp05(r?.score ?? r?.value ?? r?.v ?? 0));
-      }
-      return {map,count:map.size};
-    }
-    // plain object fallback
-    for(const [k,v] of Object.entries(json)){
-      if(/^(schema|meta|page|site|exportedAt)$/i.test(k)) continue;
-      const id=sTrim(k); if(id) map.set(id, clamp05(v));
-    }
+
     return {map,count:map.size};
   }
 
@@ -1659,7 +1834,9 @@ RESULT
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const json = JSON.parse(String(reader.result));
+          const raw = String(reader.result || '');
+          const clean = raw.replace(/^\uFEFF/, '').trim();
+          const json = JSON.parse(clean);
           const norm = normalizeSurvey(json);
           window._tkCompat[who] = norm;
           console.info(`[compat] stored Survey ${who} with ${norm.count} answers`);
@@ -1673,6 +1850,7 @@ RESULT
         alert(`Could not read file (${reader.error || 'unknown error'})`);
       };
       reader.readAsText(file);
+      try { el.value = ''; } catch (_) {}
     }, true);
 
     // small visual centering helper
