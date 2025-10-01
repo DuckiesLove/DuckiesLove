@@ -444,3 +444,22 @@
     init();
   }
 })();
+
+(function addHardLabelOverrides(){
+  const HARD = {
+    "cb_wwf76": "Makeup as protocol or control",
+    "cb_swujj": "Accessory or ornament rules"
+  };
+
+  // If you’re using the LabelService helper:
+  if (window.LabelService) {
+    const _get = LabelService.get.bind(LabelService);
+    LabelService.get = (id) => HARD[id] || _get(id);
+
+    // also exclude these from “missing labels”
+    if (typeof LabelService.missing === 'function') {
+      const _missing = LabelService.missing.bind(LabelService);
+      LabelService.missing = (ids) => _missing(ids).filter(id => !HARD[id]);
+    }
+  }
+})();
