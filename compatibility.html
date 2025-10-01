@@ -173,6 +173,37 @@
     .tk-cat-sub{ display:none; }
   }
   </style>
+  <style>
+  /* Compatibility table progressive enhancement (fallback match bar + labels) */
+  td.ksv-match { white-space: nowrap; }
+
+  .ksv-matchwrap{
+    display:flex; flex-direction:column; align-items:center; gap:.4rem;
+    min-width:8rem;
+  }
+  .ksv-pct{
+    font: 800 0.95rem/1.1 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    letter-spacing:.02em; color:#d9ffff;
+  }
+  .ksv-bar{
+    width:100%; height:6px; border-radius:999px;
+    background: rgba(0,230,255,.12);
+    outline: 1px solid rgba(0,230,255,.35);
+    overflow:hidden;
+  }
+  .ksv-bar > i{
+    display:block; height:100%; width:var(--w,0%);
+    background: linear-gradient(90deg,#00e6ff 0%, #5fffd6 100%);
+    box-shadow: 0 0 6px #00e6ff66 inset;
+  }
+
+  td.ksv-cat{
+    word-break: break-word;
+  }
+  .ksv-cat .ksv-cat-text{
+    display:inline;
+  }
+  </style>
 </head>
 <body class="theme-dark">
   <div class="main-container themed">
@@ -299,6 +330,193 @@
 
     // Expose if you want to call manually later
     window.safeCheckSession = safeCheckSession;
+  })();
+  </script>
+
+  <script>
+  // Progressive enhancement for fallback compatibility tables
+  (function(){
+    const META_URLS = [
+      '/kinksurvey/data/kinks.json',
+      '/kinksurvey/kinks.json',
+      '/data/kinks.json'
+    ];
+
+    let labelPromise = null;
+
+    const norm = str => String(str || '').trim().toLowerCase();
+
+    async function fetchFirst(urls){
+      for (const url of urls){
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res || !res.ok) continue;
+          const data = await res.json();
+          if (data) return data;
+        } catch (_) {
+          // ignore individual fetch failures
+        }
+      }
+      return null;
+    }
+
+    function toLabelMap(meta){
+      const map = new Map();
+      const store = (key, label) => {
+        if (!key) return;
+        const cleanKey = String(key).trim();
+        if (!cleanKey) return;
+        const val = label || cleanKey;
+        map.set(cleanKey, val);
+        map.set(norm(cleanKey), val);
+      };
+
+      const cells = Array.isArray(meta?.cells) ? meta.cells : Array.isArray(meta) ? meta : [];
+      cells.forEach(cell => {
+        if (!cell || typeof cell !== 'object') return;
+        const id = cell.id || cell.key || cell.slug;
+        const label = cell.prompt || cell.label || cell.name || cell.title;
+        store(id, label);
+        if (Array.isArray(cell.aliases)) cell.aliases.forEach(alias => store(alias, label));
+      });
+      return map;
+    }
+
+    function loadLabels(){
+      if (!labelPromise){
+        labelPromise = fetchFirst(META_URLS).then(toLabelMap).catch(() => new Map());
+      }
+      return labelPromise;
+    }
+
+    function findIndexes(table){
+      const headRow = table.tHead && table.tHead.rows && table.tHead.rows[0];
+      if (!headRow) return { catIdx: 0, matchIdx: 2 };
+      const cells = Array.from(headRow.cells || []);
+      const texts = cells.map(th => norm(th.textContent));
+      const catIdx = texts.findIndex(t => t && (t.startsWith('category') || t.includes('category')));
+      const matchIdx = texts.findIndex(t => t && t.includes('match'));
+      return {
+        catIdx: catIdx >= 0 ? catIdx : 0,
+        matchIdx: matchIdx >= 0 ? matchIdx : 2
+      };
+    }
+
+    function summarizeLabel(label){
+      if (!label) return '';
+      let text = String(label).replace(/\s+/g, ' ');
+      text = text.replace(/\s*\([^)]*\)\s*/g, ' ');
+      text = text.replace(/^((do|does|did|would|could|are|is|i(?:'| a)m)\s+)/i, '');
+      text = text.trim();
+      if (text.length > 72) text = text.slice(0, 69).trimEnd() + '…';
+      return text;
+    }
+
+    function applyMatchBars(table, matchIdx){
+      if (matchIdx < 0) return;
+      const bodies = table.tBodies ? Array.from(table.tBodies) : [];
+      bodies.forEach(tbody => {
+        Array.from(tbody.rows).forEach(row => {
+          const td = row.cells && row.cells[matchIdx];
+          if (!td || td.querySelector('.ksv-matchwrap')) return;
+          const raw = (td.textContent || '').trim();
+          const n = Number(raw.replace(/[^\d.]+/g, ''));
+          const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null;
+
+          td.classList.add('ksv-match');
+          td.textContent = '';
+          const wrap = document.createElement('div');
+          wrap.className = 'ksv-matchwrap';
+
+          const pctSpan = document.createElement('div');
+          pctSpan.className = 'ksv-pct';
+          pctSpan.textContent = pct === null ? '—' : `${pct}%`;
+
+          const bar = document.createElement('div');
+          bar.className = 'ksv-bar';
+          const fill = document.createElement('i');
+          if (pct !== null) fill.style.setProperty('--w', `${pct}%`);
+          bar.appendChild(fill);
+
+          wrap.appendChild(pctSpan);
+          wrap.appendChild(bar);
+          td.appendChild(wrap);
+        });
+      });
+    }
+
+    function lookupLabel(map, key, fallback){
+      if (!key) return fallback;
+      const clean = String(key).trim();
+      if (!clean) return fallback;
+      return map.get(clean) || map.get(norm(clean)) || fallback;
+    }
+
+    function collectRowKeys(row){
+      const attrs = ['data-id', 'data-key', 'data-full', 'data-label'];
+      for (const attr of attrs){
+        const val = row.getAttribute && row.getAttribute(attr);
+        if (val) return val;
+      }
+      return null;
+    }
+
+    function applyLabels(table, map, catIdx){
+      if (catIdx < 0) return;
+      const bodies = table.tBodies ? Array.from(table.tBodies) : [];
+      bodies.forEach(tbody => {
+        Array.from(tbody.rows).forEach(row => {
+          const td = row.cells && row.cells[catIdx];
+          if (!td || td.children.length) return;
+          const raw = (td.textContent || '').trim();
+          if (!raw) return;
+          const key = collectRowKeys(row) || raw;
+          const nice = lookupLabel(map, key, lookupLabel(map, raw, raw));
+          if (!nice || nice === raw) return;
+          td.classList.add('ksv-cat');
+          td.textContent = '';
+          const span = document.createElement('span');
+          span.className = 'ksv-cat-text';
+          span.textContent = summarizeLabel(nice);
+          span.title = nice;
+          td.appendChild(span);
+        });
+      });
+    }
+
+    function enhanceTable(table){
+      if (!table || table.dataset.ksvEnhanced === 'done' || table.dataset.ksvEnhanced === 'skip') return;
+      if (table.querySelector('.tk-match-chip') || table.querySelector('.tk-cat-wrap')) {
+        table.dataset.ksvEnhanced = 'skip';
+        return;
+      }
+
+      const { catIdx, matchIdx } = findIndexes(table);
+      applyMatchBars(table, matchIdx);
+
+      loadLabels().then(map => {
+        if (!(map instanceof Map) || map.size === 0) return;
+        applyLabels(table, map, catIdx);
+      });
+
+      table.dataset.ksvEnhanced = 'done';
+    }
+
+    window.tkEnhanceCompatTable = function(table){
+      if (!table) table = document.querySelector('#pdf-container table, #compatResults table, table');
+      if (!table) return;
+      enhanceTable(table);
+    };
+
+    function init(){
+      window.tkEnhanceCompatTable();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+      init();
+    }
   })();
   </script>
 

@@ -633,6 +633,9 @@ function updateComparison() {
   }
 
   container.appendChild(table);
+  if (typeof window.tkEnhanceCompatTable === 'function') {
+    window.tkEnhanceCompatTable(table);
+  }
   renderFlags(table);
   markPartnerALoaded();
 
