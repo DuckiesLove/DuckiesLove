@@ -12,15 +12,6 @@
   // Accepts unmodified exports from this site: { meta, answers: { id:number }, items?:[] }
   function parseSurvey(json) {
     if (!json || (typeof json !== 'object')) throw new Error('Empty/invalid survey');
-    if (Array.isArray(json.answers)) {
-      const answers = {};
-      for (const entry of json.answers) {
-        const key = entry?.id || entry?.key;
-        if (!key) continue;
-        answers[key] = Number(entry?.value ?? entry?.score ?? entry?.rating ?? 0);
-      }
-      return { answers };
-    }
     if (json.answers && typeof json.answers === 'object') {
       const answers = {};
       Object.entries(json.answers).forEach(([key, value]) => {
@@ -46,9 +37,7 @@
     if (a == null || b == null) return null;
     const ai = Number(a); const bi = Number(b);
     if (Number.isNaN(ai) || Number.isNaN(bi)) return null;
-    if (ai <= 0 || bi <= 0) return null;
-    const pct = 100 - (Math.abs(ai - bi) / 5) * 100;
-    return Math.max(0, Math.min(100, pct));
+    return Math.max(0, 100 - (Math.abs(ai - bi) / 5) * 100);
   }
 
   function pctBar(percent) {
