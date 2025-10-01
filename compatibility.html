@@ -2483,6 +2483,168 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
   // Kick off: load dictionary (non-blocking) then try a relabel
   loadDictionaryOnce().finally(scheduleRelabel);
 })();
+<script>
+(function () {
+  /** ==================  CONFIG  ================== **/
+  // Where your dictionary lives. First one that exists is used.
+  const DICT_URLS = ["/data/kinks.json", "/kinksurvey/data/kinks.json", "/kinks.json"];
+
+  // Built-in safety net. Add/extend as you like.
+  const FALLBACK_LABELS = {
+    cb_zsnrb: "Dress partner’s outfit",
+    cb_6jd2f: "Pick lingerie / base layers",
+    cb_kgrnn: "Uniforms (school, military, nurse, etc.)",
+    cb_169ma: "Time-period dress-up",
+    cb_4yyxa: "Dollification / polished object aesthetics",
+    cb_2c0f9: "Hair-based play (brushing, ribbons, tying)",
+    cb_qwnhi: "Head coverings or symbolic hoods",
+    cb_zvchg: "Coordinated looks / dress codes",
+    cb_qw9jg: "Ritualized grooming",
+    cb_3ozhq: "Praise for pleasing visual display",
+    cb_hqakm: "Formal appearance protocols",
+    cb_rn136: "Clothing used to embody power roles"
+    // add more if needed
+  };
+
+  /** ==============  INTERNAL STATE  ============== **/
+  const LABELS = { ...FALLBACK_LABELS };
+  let dictReady = false;
+
+  // Pull labels from lots of possible shapes inside a JSON file you export
+  function harvestLabels(obj, out = {}) {
+    if (!obj || typeof obj !== "object") return out;
+
+    // Common shapes
+    if (Array.isArray(obj.categories)) {
+      for (const c of obj.categories) {
+        const id = c.id || c.key || c.code || c.slug;
+        const title = c.title || c.name || c.label || c.summary || c.short || c.shortTitle;
+        if (id && title) out[id] = title;
+      }
+    }
+    if (Array.isArray(obj.items)) {
+      for (const it of obj.items) {
+        const id = it.id || it.code;
+        const title = it.title || it.prompt || it.q || it.question || it.label || it.summary;
+        if (id && title) out[id] = title;
+      }
+    }
+    if (obj.labels && typeof obj.labels === "object") Object.assign(out, obj.labels);
+    if (obj.meta && obj.meta.labels && typeof obj.meta.labels === "object") Object.assign(out, obj.meta.labels);
+
+    // Shallow scan of any arrays/objects (covers odd nesting)
+    for (const k of Object.keys(obj)) {
+      const v = obj[k];
+      if (v && typeof v === "object") harvestLabels(v, out);
+    }
+    return out;
+  }
+
+  async function loadDictionary() {
+    if (dictReady) return true;
+    for (const url of DICT_URLS) {
+      try {
+        const r = await fetch(url, { cache: "no-store" });
+        if (!r.ok) continue;
+        const json = await r.json();
+        Object.assign(LABELS, harvestLabels(json));
+        dictReady = true;
+        console.info("[compat] labels loaded from", url);
+        break;
+      } catch (_e) {/* try next */}
+    }
+    return dictReady;
+  }
+
+  // Expose to your upload handlers (call after you parse Survey A/B)
+  window.TK_mergeLabelsFromSurvey = function (parsedJson) {
+    Object.assign(LABELS, harvestLabels(parsedJson));
+    scheduleRelabel();
+  };
+
+  function prettyLabel(id) { return LABELS[id] || id; }
+
+  /** ==============  RELABEL (DEBOUNCED)  ============== **/
+  let scheduled = false;
+  let running   = false;
+  let observer  = null;
+  let labeledAtLeastOne = false; // only disconnect after we have actually labeled
+
+  function getCompatTable() {
+    return (
+      document.querySelector("#compatTable") ||
+      document.querySelector(".compat-table") ||
+      document.querySelector("main table") ||
+      document.querySelector("table")
+    );
+  }
+
+  function extractCodeFromCell(td) {
+    // Try data attribute first
+    if (td.dataset && td.dataset.code) return td.dataset.code.trim();
+    // Otherwise scan the text for a cb_* token
+    const txt = (td.textContent || "").trim();
+    const m = txt.match(/\bcb_[a-z0-9]+\b/i);
+    return m ? m[0] : txt;
+  }
+
+  function relabelNow() {
+    if (running) return;
+    running = true;
+
+    const table = getCompatTable();
+    if (!table) { running = false; return; }
+
+    const rows = table.querySelectorAll("tbody tr");
+    let changed = 0;
+
+    rows.forEach(tr => {
+      if (tr.dataset.tkLabeled === "1") return;
+      const first = tr.querySelector("td");
+      if (!first) { tr.dataset.tkLabeled = "1"; return; }
+
+      const code = extractCodeFromCell(first);
+      if (/^cb_[a-z0-9]+$/i.test(code)) {
+        const nice = prettyLabel(code);
+        if (nice && nice !== first.textContent.trim()) {
+          first.textContent = nice;
+          changed++;
+        }
+      }
+      tr.dataset.tkLabeled = "1";
+    });
+
+    if (changed > 0) labeledAtLeastOne = true;
+
+    // Keep observing until we have labeled at least one row AND no new rows arrive.
+    // Small idle timeout gives late rows a chance to appear without loops/freezes.
+    setTimeout(() => {
+      if (observer && labeledAtLeastOne) {
+        observer.disconnect();
+        observer = null;
+      }
+      running = false;
+      scheduled = false;
+    }, 120);
+  }
+
+  function scheduleRelabel() {
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(relabelNow, 80);
+  }
+
+  // Observe once; disconnect only after we successfully label at least one row
+  observer = new MutationObserver(() => scheduleRelabel());
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Kick everything off
+  loadDictionary().finally(scheduleRelabel);
+
+  // Extra nudge after full load
+  window.addEventListener("load", scheduleRelabel, { once: true });
+})();
 </script>
+
 </body>
 </html>
