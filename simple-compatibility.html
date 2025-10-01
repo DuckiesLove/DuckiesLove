@@ -4,39 +4,33 @@
   <meta charset="UTF-8" />
   <title>Compatibility Module</title>
   <style>
-  /* ===== Compatibility table: tiny % bar + category tooltips ===== */
-  table .compat-pct {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 72px;
-    font-variant-numeric: tabular-nums;
-  }
-  table td.compat-match { position: relative; }
+  /* ===== Compatibility table: compact categories + % bar ===== */
+  .ksv-cat{ display:flex; flex-direction:column; line-height:1.08; }
+  .ksv-cat-main{ font-weight:600; }
+  .ksv-cat-sub{ opacity:.48; font-size:.78em; letter-spacing:.25px; }
 
-  .compat-pct .compat-bar {
-    position: absolute;
-    left: 10px; right: 10px;
-    height: 8px;
-    border: 1px solid rgba(0, 230, 255, .30);
-    border-radius: 12px;
-    overflow: hidden;
-    opacity: .75;
-    pointer-events: none;
+  @media (max-width: 680px){ .ksv-cat-sub{ display:none; } }
+
+  td.compat-match, td.ksv-pct{ position:relative; }
+  .ksv-pct-wrap{
+    position:relative; height:22px;
+    display:flex; align-items:center; justify-content:center;
+    font-variant-numeric:tabular-nums;
   }
-  .compat-pct .compat-fill {
-    position: absolute; inset: 0 auto 0 0;
-    width: 0%;
-    background: linear-gradient(90deg,
-                 rgba(0, 230, 255, .35) 0%,
-                 rgba(0, 230, 255, .85) 100%);
-    transition: width .35s ease;
+  .ksv-pct-bar{
+    position:absolute; left:10%; right:10%;
+    height:8px; border-radius:6px;
+    background: rgba(0,230,255,.12);
+    overflow:hidden;
   }
-  .compat-pct .compat-text {
-    position: relative; z-index: 1;
-    padding: .1rem .25rem;
+  .ksv-pct-bar::after{
+    content:""; position:absolute; inset:0;
+    width:var(--pct,0%);
+    background: linear-gradient(90deg, rgba(0,230,255,.66), rgba(0,230,255,.22));
+    border-radius:inherit;
+    transition:width .35s ease;
   }
+  .ksv-pct-val{ position:relative; z-index:1; }
 
   td.compat-cat.has-summary { position: relative; cursor: help; }
   td.compat-cat.has-summary:hover::after {
@@ -157,40 +151,117 @@ function tkGetCompatibilityTable(){
 
 function tkEnsureMatchStructure(cell){
   if (!cell) return null;
-  cell.classList.add('compat-match');
-  let wrapper = cell.querySelector('.compat-pct');
+  cell.classList.add('compat-match', 'ksv-pct');
+  let wrapper = cell.querySelector('.ksv-pct-wrap');
   if (!wrapper){
-    wrapper = document.createElement('span');
-    wrapper.className = 'compat-pct';
-
-    const text = document.createElement('span');
-    text.className = 'compat-text';
-    wrapper.appendChild(text);
+    wrapper = document.createElement('div');
+    wrapper.className = 'ksv-pct-wrap';
+    wrapper.setAttribute('role', 'img');
 
     const bar = document.createElement('span');
-    bar.className = 'compat-bar';
-    const fill = document.createElement('span');
-    fill.className = 'compat-fill';
-    bar.appendChild(fill);
+    bar.className = 'ksv-pct-bar';
     wrapper.appendChild(bar);
+
+    const value = document.createElement('span');
+    value.className = 'ksv-pct-val';
+    wrapper.appendChild(value);
 
     cell.textContent = '';
     cell.appendChild(wrapper);
   }
-  const text = wrapper.querySelector('.compat-text');
-  const fill = wrapper.querySelector('.compat-fill');
-  return { wrapper, text, fill };
+  let bar = wrapper.querySelector('.ksv-pct-bar');
+  if (!bar){
+    bar = document.createElement('span');
+    bar.className = 'ksv-pct-bar';
+    wrapper.insertBefore(bar, wrapper.firstChild || null);
+  }
+  let value = wrapper.querySelector('.ksv-pct-val');
+  if (!value){
+    value = document.createElement('span');
+    value.className = 'ksv-pct-val';
+    wrapper.appendChild(value);
+  }
+  return { wrapper, value, bar };
 }
 
 function tkRenderMatchCell(cell, pct){
   const parts = tkEnsureMatchStructure(cell);
   if (!parts) return;
-  const { wrapper, text, fill } = parts;
+  const { wrapper, value, bar } = parts;
   const n = (typeof pct === 'number' && Number.isFinite(pct)) ? Math.max(0, Math.min(100, Math.round(pct))) : null;
   const label = n == null ? '—' : `${n}%`;
-  if (text) text.textContent = label;
-  if (fill) fill.style.width = n == null ? '0%' : `${n}%`;
-  if (wrapper) wrapper.setAttribute('aria-label', `${label} match`);
+  if (value) value.textContent = label;
+  if (bar) bar.style.setProperty('--pct', n == null ? '0%' : `${n}%`);
+  if (wrapper){
+    const aria = n == null ? 'No match data' : `Match ${label}`;
+    wrapper.setAttribute('aria-label', aria);
+  }
+}
+
+function tkPrettyCategoryKey(key){
+  const txt = String(key ?? '').trim();
+  if (!txt) return '';
+  return txt.replace(/^cb_/i, '')
+            .replace(/_/g, ' ')
+            .replace(/\s+/g, ' ')
+            .replace(/\b\w/g, m => m.toUpperCase());
+}
+
+function tkShortLabelFor(id, fallback){
+  const key = String(id ?? '').trim();
+  const nice = String(fallback ?? '').trim();
+  if (typeof window === 'object' && window.KSV_SHORT_LABELS && key && window.KSV_SHORT_LABELS[key]){
+    return window.KSV_SHORT_LABELS[key];
+  }
+  if (nice) return nice;
+  return tkPrettyCategoryKey(key) || key;
+}
+
+function tkEnsureCategoryStructure(cell){
+  if (!cell) return null;
+  cell.classList.add('compat-cat');
+  let wrapper = cell.querySelector('.ksv-cat');
+  if (!wrapper){
+    wrapper = document.createElement('div');
+    wrapper.className = 'ksv-cat';
+    const main = document.createElement('span');
+    main.className = 'ksv-cat-main';
+    const sub = document.createElement('span');
+    sub.className = 'ksv-cat-sub';
+    wrapper.append(main, sub);
+    cell.textContent = '';
+    cell.appendChild(wrapper);
+  }
+  let main = wrapper.querySelector('.ksv-cat-main');
+  if (!main){
+    main = document.createElement('span');
+    main.className = 'ksv-cat-main';
+    wrapper.insertBefore(main, wrapper.firstChild || null);
+  }
+  let sub = wrapper.querySelector('.ksv-cat-sub');
+  if (!sub){
+    sub = document.createElement('span');
+    sub.className = 'ksv-cat-sub';
+    wrapper.appendChild(sub);
+  }
+  return { wrapper, main, sub };
+}
+
+function tkRenderCategoryCell(cell, id, label){
+  const parts = tkEnsureCategoryStructure(cell);
+  if (!parts) return;
+  const key = String(id ?? '').trim();
+  const nice = String(label ?? '').trim();
+  const short = String(tkShortLabelFor(key, nice || key) ?? '').trim();
+  if (parts.main) parts.main.textContent = short || key || '—';
+  if (parts.sub){
+    parts.sub.textContent = key;
+    parts.sub.style.display = key ? '' : 'none';
+  }
+  if (cell){
+    if (key) cell.dataset.key = key; else delete cell.dataset.key;
+    if (short) cell.dataset.label = short; else delete cell.dataset.label;
+  }
 }
 
 const TK_SUMMARY_KEYS = ['short', 'summary', 'synopsis', 'tooltip', 'note', 'notes', 'description'];
@@ -269,7 +340,10 @@ function tkApplySummaryToCell(cell, id, label){
     if (!clean) return null;
     return tkCategorySummaryMap.get(clean) || tkCategorySummaryMap.get(tkSlug(clean)) || null;
   };
-  const summary = lookup(id) || lookup(label);
+  const summary = lookup(id)
+    || lookup(cell.dataset?.key)
+    || lookup(cell.dataset?.label)
+    || lookup(label);
   if (!summary) return;
   cell.classList.add('has-summary');
   cell.setAttribute('data-summary', summary);
@@ -283,7 +357,9 @@ function tkRefreshCompatibilityDecorations(){
   rows.forEach(tr=>{
     const catCell = tr.querySelector('td');
     if (catCell){
-      catCell.classList.add('compat-cat');
+      const id = tr.getAttribute('data-kink-id');
+      const label = catCell.dataset?.label || catCell.textContent.trim();
+      tkRenderCategoryCell(catCell, id, label);
     }
     const matchCell = tr.querySelector('[data-cell="Match"]') || tr.cells?.[2];
     if (matchCell){
@@ -299,7 +375,7 @@ function tkRefreshCompatibilityDecorations(){
         const catCell = tr.querySelector('td');
         if (!catCell) return;
         const id = tr.getAttribute('data-kink-id');
-        const label = catCell.textContent.trim();
+        const label = catCell.dataset?.label || catCell.textContent.trim();
         tkApplySummaryToCell(catCell, id, label);
       });
     })
@@ -411,9 +487,9 @@ function tkRefreshVisibleLabels(){
     const td = tr.querySelector('td');
     if (!td) return;
     const id = tr.getAttribute('data-kink-id');
-    const current = td.textContent.trim();
+    const current = td.dataset?.label || td.textContent.trim();
     const nice = tkLabelFor(id, current);
-    if (nice && nice !== current) td.textContent = nice;
+    tkRenderCategoryCell(td, id, nice || current);
   });
 }
 
@@ -423,7 +499,8 @@ function tkEnsureRowIds(){
     if (tr.hasAttribute("data-kink-id")) return;
     const td = tr.querySelector("td");
     if (!td) return;
-    const id = tkSlug(td.textContent.trim());
+    const source = td.dataset?.key || td.textContent.trim();
+    const id = tkSlug(source);
     if (id) tr.setAttribute("data-kink-id", id);
   });
 }
@@ -529,7 +606,9 @@ function tkRebuildTableFromUnion(){
   for (const [id,label] of sorted){
     const tr = document.createElement("tr");
     tr.setAttribute("data-kink-id", id);
-    const td = document.createElement("td"); td.textContent = tkLabelFor(id, label);
+    const td = document.createElement("td");
+    const nice = tkLabelFor(id, label);
+    tkRenderCategoryCell(td, id, nice || label);
     tr.appendChild(td);
     const tdA=document.createElement("td"); tdA.setAttribute("data-cell","A"); tdA.textContent="-";
     const tdM=document.createElement("td"); tdM.setAttribute("data-cell","Match"); tdM.textContent="-";
@@ -570,9 +649,9 @@ function tkUpdate(){
     tkEnsureCells(tr);
     const labelCell = tr.querySelector('td');
     if (labelCell){
-      const current = labelCell.textContent.trim();
+      const current = labelCell.dataset?.label || labelCell.textContent.trim();
       const nice = tkLabelFor(id, current);
-      if (nice && nice !== current) labelCell.textContent = nice;
+      tkRenderCategoryCell(labelCell, id, nice || current);
     }
 
     const A = aMap.get(id), B = bMap.get(id);
