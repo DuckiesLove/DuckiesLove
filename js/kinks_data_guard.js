@@ -17,14 +17,22 @@
         if (/^<!doctype html/i.test(t)||/<html[\s>]/i.test(t)||/text\/html/i.test(ct)) continue;
         try{
           const j=JSON.parse(t);
-          return Array.isArray(j)?j:(j&&Array.isArray(j.kinks)?j.kinks:[]);
+          if (Array.isArray(j)) return j;
+          if (j && Array.isArray(j.categories)) return j.categories;
+          if (j && Array.isArray(j.kinks)) return j.kinks;
+          return [];
         }catch{}
       }catch{}
     }
     // embedded <script type="application/json" id="kinks-embedded-data">
     try{
       const emb=$("#kinks-embedded-data");
-      if (emb) { const j=JSON.parse(emb.textContent||"[]"); return Array.isArray(j)?j:(j.kinks||[]); }
+      if (emb) {
+        const j=JSON.parse(emb.textContent||"[]");
+        if (Array.isArray(j)) return j;
+        if (j && Array.isArray(j.categories)) return j.categories;
+        if (j && Array.isArray(j.kinks)) return j.kinks;
+      }
     }catch{}
     // final local fallback (very small) so UI is usable
     try{

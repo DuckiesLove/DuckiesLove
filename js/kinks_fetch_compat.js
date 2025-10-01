@@ -35,8 +35,12 @@
 
   const norm = s => String(s ?? '').trim();
   function toFlat(data){
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      if (Array.isArray(data.categories)) return toFlat(data.categories);
+      if (Array.isArray(data.kinks)) return toFlat(data.kinks);
+      if (Array.isArray(data.data)) return toFlat(data.data);
+    }
     if (Array.isArray(data) && data.length && !('items' in (data[0]||{}))) return data;
-    if (data && Array.isArray(data.kinks)) return data.kinks;
     if (Array.isArray(data) && data.length && Array.isArray(data[0]?.items)) {
       const out=[]; for (const g of data) {
         const cat = norm(g.category ?? g.cat ?? '');
