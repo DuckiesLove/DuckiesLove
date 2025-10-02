@@ -2317,9 +2317,174 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
   ksvRefreshUI('B');
 });
 </script>
+<!-- ===== TALK KINK — Compatibility labels + % bars (DOM & PDF) ===== -->
+<script>
+(function(){
+  const CB_RE = /\bcb_[a-z0-9]{5}\b/i;
+  const LABEL_SOURCES = ["/data/labels.json","/data/labels-overrides.json"];
+  const KINKS_BANK_URL = "/data/kinks.json";
+  const INLINE_LABELS = {};       // add hard overrides here if you like
+  const LABELS = Object.create(null);
+  const tidy = s => String(s ?? "").trim();
 
+  async function fetchJSON(url){
+    try{
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) return null;
+      const ct = r.headers.get("content-type") || "";
+      const t  = await r.text();
+      if (/html/i.test(ct) || /^\s*<!doctype/i.test(t)) return null;
+      return JSON.parse(t);
+    }catch{ return null; }
+  }
+  function addLabelMap(obj){
+    if (!obj || typeof obj !== "object") return;
+    for (const [k,v] of Object.entries(obj)) {
+      if (CB_RE.test(k) && tidy(v)) LABELS[k.toLowerCase()] = tidy(v);
+    }
+  }
+  async function loadLabels(){
+    for (const u of LABEL_SOURCES){ const j = await fetchJSON(u); if (j) addLabelMap(j); }
+    const bank = await fetchJSON(KINKS_BANK_URL);
+    if (bank){
+      const cats = Array.isArray(bank) ? bank
+                : Object.entries(bank).map(([category,items])=>({category,items}));
+      for (const c of cats){ for (const it of (c.items||[])){
+        const key = tidy(it.id || it.key || ""); const label = tidy(it.label || it.text || it.name || "");
+        if (CB_RE.test(key) && label) LABELS[key.toLowerCase()] = label;
+      }}
+    }
+    addLabelMap(INLINE_LABELS);
+  }
 
+  function injectBarCSS(){
+    if (document.getElementById("tk-pctbar-css")) return;
+    const s = document.createElement("style");
+    s.id = "tk-pctbar-css";
+    s.textContent = `
+      td.pct-cell{min-width:5.5rem}
+      .pct{position:relative;height:1.15em;line-height:1.15em}
+      .pct .bar{position:absolute;inset:0 auto 0 0;width:0;background:rgba(0,230,255,.25);border-radius:2px}
+      .pct .txt{position:relative;display:block;text-align:center}
+    `;
+    document.head.appendChild(s);
+  }
+  function labelFor(code){ const k = code?.toLowerCase?.(); return (k && LABELS[k]) || code; }
 
-  <script defer src="/js/compat_labels_bars_safe.js"></script>
+  function findColIdxByHeader(table, includesText){
+    const head = table.tHead || table.querySelector("thead");
+    const row  = head ? head.rows[0] : table.rows[0];
+    if (!row) return -1;
+    for (let i=0;i<row.cells.length;i++){
+      const txt = tidy(row.cells[i].textContent).toLowerCase();
+      if (txt.includes(includesText)) return i;
+    }
+    return -1;
+  }
+
+  function relabelAndBars(){
+    injectBarCSS();
+    const tables = Array.from(document.querySelectorAll("table"));
+    if (!tables.length) return;
+
+    let catCol=-1, pctCol=-1;
+    for (const t of tables){
+      if (catCol < 0) catCol = findColIdxByHeader(t, "category");
+      if (pctCol < 0) pctCol = findColIdxByHeader(t, "match");
+    }
+    if (catCol < 0) catCol = 0;
+    if (pctCol < 0) pctCol = 2;
+
+    for (const tbl of tables){
+      const body = tbl.tBodies[0] || tbl;
+      Array.from(body.rows).forEach(tr=>{
+        const c = tr.cells[catCol];
+        if (c){
+          const raw = tidy(c.textContent);
+          const m = raw.match(CB_RE);
+          if (m){ const pretty = labelFor(m[0]); if (pretty && pretty !== m[0]) c.textContent = pretty; }
+        }
+        const p = tr.cells[pctCol];
+        if (p){
+          const text = tidy(p.textContent);
+          const m = text.match(/^(\d{1,3})%$/);
+          p.classList.add("pct-cell");
+          if (m){
+            const pct = Math.max(0, Math.min(100, parseInt(m[1],10)));
+            const wrap = document.createElement("div");
+            wrap.className = "pct";
+            wrap.innerHTML = '<span class="bar" style="width:'+pct+'%"></span><span class="txt">'+text+'</span>';
+            p.innerHTML = ""; p.appendChild(wrap);
+          } else {
+            p.innerHTML = '<span class="txt">'+text+'</span>';
+          }
+        }
+      });
+    }
+  }
+
+  function patchAutoTableBars(){
+    const JSPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!JSPDF) return;
+    const proto = JSPDF.API;
+    if (!proto || !proto.autoTable || proto.autoTable.__tkPatched) return;
+
+    const orig = proto.autoTable;
+    proto.autoTable = function(opts){
+      const user = opts && opts.didDrawCell;
+      const wrapped = Object.assign({}, opts, {
+        didDrawCell: function(data){
+          if (typeof user === "function") try{ user.call(this, data); }catch(e){}
+          if (data.section === "body" && data.column.index === 2){
+            const raw = String(data.cell.raw ?? "").trim();
+            const m = raw.match(/^(\d{1,3})%$/);
+            if (m){
+              const pct = Math.max(0, Math.min(100, parseInt(m[1],10)));
+              const pad = 1;
+              const x = data.cell.x + pad;
+              const y = data.cell.y + data.cell.height - 2.2;
+              const w = Math.max(0, data.cell.width - pad*2) * (pct/100);
+              this.setFillColor(0,230,255);
+              this.rect(x, y, w, 1.8, "F");
+            }
+          }
+        }
+      });
+      wrapped.__tkFromPatched = true;
+      return orig.call(this, wrapped);
+    };
+    proto.autoTable.__tkPatched = true;
+  }
+
+  function wrapExporter(name){
+    const fn = window[name];
+    if (!fn || fn.__tkWrapped) return false;
+    window[name] = async function(...args){
+      await loadLabels();
+      relabelAndBars();
+      patchAutoTableBars();
+      return await fn.apply(this, args);
+    };
+    window[name].__tkWrapped = true;
+    return true;
+  }
+
+  function wrapKnownExporters(){
+    ["TKPDF_export","exportCompatibilityPdf","downloadPdf","generatePdf","TKPDF_forceDark"].forEach(wrapExporter);
+  }
+
+  async function init(){
+    await loadLabels();
+    relabelAndBars();
+    wrapKnownExporters();
+    const root = document.querySelector("main") || document.body;
+    new MutationObserver(() => relabelAndBars()).observe(root, { childList:true, subtree:true });
+  }
+  (document.readyState === "loading")
+    ? document.addEventListener("DOMContentLoaded", init, { once:true })
+    : init();
+})();
+</script>
+<!-- ===== /END TALK KINK patch ===== -->
 </body>
 </html>
