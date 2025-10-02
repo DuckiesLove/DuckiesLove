@@ -2348,7 +2348,7 @@ Drop this right before </body> in /compatibility.html. No other edits required. 
             if (CB_RE.test(k) && nice(v)) LABELS[k.toLowerCase()] = nice(v);
           }
         }
-      }catch(_){ }
+      }catch(_){}
     }
   }
 
@@ -2428,7 +2428,7 @@ Drop this right before </body> in /compatibility.html. No other edits required. 
       const wrapped = Object.assign({}, opts, {
         didDrawCell: function(data){
           // Run user hook first
-          if (typeof userDidDraw === "function") try { userDidDraw.call(this, data);} catch(_){ }
+          if (typeof userDidDraw === "function") try { userDidDraw.call(this, data);} catch(_){}
           // Body, 3rd column (index 2) expected to be a "NN%" string
           if (data.section === "body" && data.column.index === 2){
             const raw = String(data.cell.raw ?? "").trim();
