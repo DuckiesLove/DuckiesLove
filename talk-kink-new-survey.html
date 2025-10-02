@@ -136,6 +136,36 @@
   .counter{opacity:.95}
   a.home{color:var(--accent)}
 
+  .selectedCats{
+    margin:0 0 18px 0;
+    padding:12px 14px;
+    border-radius:12px;
+    border:1px solid #00e5ff22;
+    background:#071820;
+  }
+  .selectedCats h3{
+    margin:0 0 10px 0;
+    font-size:1rem;
+    color:#7ef9ff;
+  }
+  .selectedCatsList{
+    list-style:decimal inside;
+    margin:0;
+    padding:0;
+    display:grid;
+    gap:6px;
+  }
+  .selectedCatsList li{
+    font-weight:600;
+    color:#d7fcff;
+    opacity:.88;
+  }
+  .selectedCatsList li.is-current{
+    color:#fff;
+    opacity:1;
+    text-shadow:0 0 6px #00e6ff55;
+  }
+
 </style>
 </head>
 <body>
@@ -190,6 +220,10 @@
         </div>
       </div>
 
+      <div class="selectedCats" id="selectedCats" aria-live="polite" style="display:none">
+        <h3>Selected categories</h3>
+      </div>
+
       <h2 class="catTitle" id="catTitle"></h2>
       <div id="items"></div>
       <div class="nav" style="margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end">
@@ -242,6 +276,7 @@
   const $title = el('catTitle');
   const $items = el('items');
   const $done  = el('done');
+  const $selectedCats = el('selectedCats');
   const $catCounter = el('catCounter');
   const $qCounter   = el('qCounter');
   const $qFill      = el('qFill');
@@ -347,6 +382,7 @@
 
   function renderCategory(i){
     const c = state.sel[i];
+    highlightSelectedCategory();
     if(!c){ $survey.style.display='none'; $done.style.display='block'; return; }
     $done.style.display='none';
     $survey.style.display='block';
@@ -380,6 +416,36 @@
     setupQProgress(controls);
   }
 
+  function highlightSelectedCategory(){
+    if (!$selectedCats) return;
+    const rows = Array.from($selectedCats.querySelectorAll('li[data-index]'));
+    rows.forEach(li => {
+      const idx = Number(li.dataset.index);
+      li.classList.toggle('is-current', idx === state.idx);
+    });
+  }
+
+  function renderSelectedCategories(){
+    if (!$selectedCats) return;
+    if (!state.sel.length){
+      $selectedCats.style.display = 'none';
+      $selectedCats.innerHTML = '<h3>Selected categories</h3>';
+      return;
+    }
+    const list = document.createElement('ol');
+    list.className = 'selectedCatsList';
+    state.sel.forEach((cat, idx) => {
+      const li = document.createElement('li');
+      li.textContent = cat.category;
+      li.dataset.index = String(idx);
+      if (idx === state.idx) li.classList.add('is-current');
+      list.appendChild(li);
+    });
+    $selectedCats.innerHTML = '<h3>Selected categories</h3>';
+    $selectedCats.appendChild(list);
+    $selectedCats.style.display = 'block';
+  }
+
   /* ---------- bindings ---------- */
   $panel.addEventListener('change', (e)=>{
     if (e.target && e.target.matches('input[type="checkbox"]')) updateStart();
@@ -406,6 +472,7 @@
     state.idx = 0;
     if (!state.sel.length){ showDiag('No matching categories in dataset.'); return; }
     $panel.style.display='none';
+    renderSelectedCategories();
     renderCategory(state.idx);
   });
 
