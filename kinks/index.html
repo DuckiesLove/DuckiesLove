@@ -1394,72 +1394,21 @@ How to use
       ignorePunctuation: true
     });
 
-    const EXACT_ORDER = [
-      "Body Part Torture",
-      "Bondage and Suspension",
-      "Breath Play",
-      "Sexual Activity",
-      "Sensation Play",
-      "Other",
-      "Roleplaying",
-      "Service and Restrictive Behaviour",
-      "Voyeurism/Exhibitionism",
-      "Virtual & Long-Distance Play",
-      "Communication",
-      "Body Fluids and Functions",
-      "Psychological Primal / Prey",
-      "Body Part / Fetish Play",
-      "Orgasm Control & Sexual Manipulation",
-      "Protocol and Ritual",
-      "Primal & Bratting",
-      "Headspace & Regression",
-      "Performance & Internal Struggle",
-      "Mindfuck & Manipulation",
-      "Mouth Play",
-      "Impact Play",
-      "Medical Play",
-      "Pet Play",
-      "Body Modification",
-      "Relationship Preferences",
-      "Gender Play & Transformation",
-      "Chastity Devices",
-      "Shibari & Rope Bondage",
-      "Cosplay & Identity Play",
-      "High-Intensity Kinks (SSC-Aware)",
-      "Behavioral Play",
-      "Appearance Play",
-      "Psychology Play",
-      "Breeding"
-    ];
-
-    window.__KSV_CATEGORY_ORDER__ = EXACT_ORDER.slice();
-
-    const ORDER_MAP = (() => {
-      const m = new Map();
-      EXACT_ORDER.forEach((name, idx) => m.set(normKey(name), idx));
-      return m;
-    })();
-
-    const cmpByExactOrder = (a, b) => {
-      const ka = normKey(a);
-      const kb = normKey(b);
-      const ra = ORDER_MAP.has(ka) ? ORDER_MAP.get(ka) : Infinity;
-      const rb = ORDER_MAP.has(kb) ? ORDER_MAP.get(kb) : Infinity;
-      if (ra !== rb) return ra - rb;
-      return AtoZ(a, b);
-    };
-
-    function uniqSorted(list){
+    function uniq(list){
       const out = [];
       const seen = new Set();
-      for (const c of list || []) {
-        const t = String(c ?? "").trim();
-        const k = normKey(t);
-        if (!k || seen.has(k)) continue;
-        seen.add(k);
-        out.push(t);
+      for (const v of list || []){
+        const raw = String(v ?? "").trim();
+        const key = normKey(raw);
+        if (!raw || !key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(raw);
       }
-      return out.sort(cmpByExactOrder);
+      return out;
+    }
+
+    function sortAZ(values){
+      return uniq(values).sort(AtoZ);
     }
 
     function sortCategoryPanel(){
@@ -1467,52 +1416,45 @@ How to use
       if (!list) return;
       const rows = Array.from(list.querySelectorAll('label[role="listitem"], :scope > label'));
       if (!rows.length) return;
-      rows.sort((ra, rb) => cmpByExactOrder(text(ra), text(rb)));
+      rows.sort((ra, rb) => AtoZ(text(ra), text(rb)));
       rows.forEach(r => list.appendChild(r));
     }
 
-    function wrapBootSorter(){
-      const tryWrap = () => {
-        const boot = window.KINKS_boot;
-        if (!boot || boot.__ksvSortedWrap) return false;
+    function wrapBootAZ(){
+      const boot = window.KINKS_boot;
+      if (!boot || boot.__ksvAZWrapped) return false;
 
-        const wrapped = function(opts){
-          const o = Object.assign({}, opts || {});
-          if (Array.isArray(o.categories)) {
-            o.categories = uniqSorted(o.categories);
-          }
-          return boot(o);
-        };
-        wrapped.__ksvSortedWrap = true;
-        window.KINKS_boot = wrapped;
-        return true;
-      };
+      function wrapped(opts){
+        const o = Object.assign({}, opts || {});
+        let chosen = Array.isArray(o.categories) ? o.categories.slice() : null;
 
-      if (!tryWrap()){
-        const iv = setInterval(() => { if (tryWrap()) clearInterval(iv); }, 100);
-        setTimeout(() => clearInterval(iv), 10000);
+        if (!chosen){
+          chosen = Array.from(document.querySelectorAll(".category-checkbox:checked"))
+            .map(cb => cb.value);
+        }
+
+        if (chosen && chosen.length){
+          o.categories = sortAZ(chosen);
+        }
+        return boot(o);
       }
+
+      wrapped.__ksvAZWrapped = true;
+      window.KINKS_boot = wrapped;
+      return true;
     }
 
-    function hookStartButton(){
-      const btn = document.querySelector("#start, #startSurvey, #startSurveyBtn");
-      if (!btn || btn.__ksvSelHooked) return;
-      btn.__ksvSelHooked = true;
-
-      btn.addEventListener("click", () => {
-        const checked = Array.from(document.querySelectorAll(".category-checkbox:checked"));
-        if (!checked.length) return;
-        const vals = checked.map(cb => cb.value);
-        window.__KSV_LAST_SORTED_SELECTION__ = uniqSorted(vals);
-      }, { capture: true });
+    function ensureWrap(){
+      if (wrapBootAZ()) return;
+      const iv = setInterval(() => { if (wrapBootAZ()) clearInterval(iv); }, 100);
+      setTimeout(() => clearInterval(iv), 10000);
     }
 
     function init(){
       sortCategoryPanel();
-      wrapBootSorter();
-      hookStartButton();
+      ensureWrap();
 
-      const panelRoot = document.querySelector("#categorySurveyPanel") || document;
+      const panelRoot = document.querySelector("#categorySurveyPanel") || document.body || document;
       const mo = new MutationObserver(() => sortCategoryPanel());
       mo.observe(panelRoot, { childList: true, subtree: true });
     }

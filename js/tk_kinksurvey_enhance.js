@@ -23,78 +23,12 @@
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
 
-  const EXACT_CATEGORY_ORDER = (() => {
-    const fallback = [
-      "Body Part Torture",
-      "Bondage and Suspension",
-      "Breath Play",
-      "Sexual Activity",
-      "Sensation Play",
-      "Other",
-      "Roleplaying",
-      "Service and Restrictive Behaviour",
-      "Voyeurism/Exhibitionism",
-      "Virtual & Long-Distance Play",
-      "Communication",
-      "Body Fluids and Functions",
-      "Psychological Primal / Prey",
-      "Body Part / Fetish Play",
-      "Orgasm Control & Sexual Manipulation",
-      "Protocol and Ritual",
-      "Primal & Bratting",
-      "Headspace & Regression",
-      "Performance & Internal Struggle",
-      "Mindfuck & Manipulation",
-      "Mouth Play",
-      "Impact Play",
-      "Medical Play",
-      "Pet Play",
-      "Body Modification",
-      "Relationship Preferences",
-      "Gender Play & Transformation",
-      "Chastity Devices",
-      "Shibari & Rope Bondage",
-      "Cosplay & Identity Play",
-      "High-Intensity Kinks (SSC-Aware)",
-      "Behavioral Play",
-      "Appearance Play",
-      "Psychology Play",
-      "Breeding"
-    ];
-    const provided = Array.isArray(window.__KSV_CATEGORY_ORDER__)
-      ? window.__KSV_CATEGORY_ORDER__
-      : null;
-    const source = (provided && provided.length) ? provided : fallback;
-    const seen = new Set();
-    const ordered = [];
-    for (const name of source){
-      const trimmed = String(name ?? "").trim();
-      const key = normalizeCategory(trimmed);
-      if (!trimmed || !key || seen.has(key)) continue;
-      seen.add(key);
-      ordered.push(trimmed);
-    }
-    return ordered;
-  })();
-
-  const CATEGORY_ORDER_MAP = (() => {
-    const m = new Map();
-    EXACT_CATEGORY_ORDER.forEach((name, idx) => m.set(normalizeCategory(name), idx));
-    return m;
-  })();
-
-  const compareCategories = (a, b) => {
-    const ka = normalizeCategory(a);
-    const kb = normalizeCategory(b);
-    const ra = CATEGORY_ORDER_MAP.has(ka) ? CATEGORY_ORDER_MAP.get(ka) : Infinity;
-    const rb = CATEGORY_ORDER_MAP.has(kb) ? CATEGORY_ORDER_MAP.get(kb) : Infinity;
-    if (ra !== rb) return ra - rb;
-    return String(a ?? "").localeCompare(String(b ?? ""), undefined, {
+  const compareCategories = (a, b) =>
+    String(a ?? "").localeCompare(String(b ?? ""), undefined, {
       sensitivity: "base",
       numeric: true,
       ignorePunctuation: true,
     });
-  };
 
   const sortCategoriesUnique = (values) => {
     const seen = new Set();
