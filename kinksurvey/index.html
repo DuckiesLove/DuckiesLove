@@ -540,6 +540,7 @@
   const S = { cats:[], sel:[], i:0 };
 
   const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
+  const sortCats = arr => arr.sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
   function normalize(raw){
     const out=[];
     const push=(name,items)=>{
@@ -617,7 +618,9 @@
 
   startBtn.addEventListener('click', ()=>{
     const want = new Set(selected().map(s=>s.toLowerCase()));
-    S.sel = S.cats.filter(c=>want.has(c.category.toLowerCase()));
+    S.sel = S.cats
+      .filter(c=>want.has(c.category.toLowerCase()))
+      .sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
     S.i = 0;
     if (!S.sel.length){ showDiag('No matching categories in dataset.'); return; }
     // Collapse the panel like the classic page
@@ -631,7 +634,7 @@
   try{
     const dataset = await loadKinksDataset();
     if (!dataset) throw new Error('Dataset unavailable. Expected /data/kinks.json');
-    S.cats = normalize(dataset);
+    S.cats = sortCats(normalize(dataset));
     renderPanel(S.cats);
     status.textContent = `Loaded ${S.cats.length} categories`;
     maybeRevealPanel();
