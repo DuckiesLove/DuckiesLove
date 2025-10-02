@@ -96,9 +96,11 @@
   background-color: transparent;
   min-height: 45px;
   transition: 0.2s ease;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+.category-list label span {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
 }
 .category-panel label:hover {
   background-color: rgba(255, 255, 255, 0.05);
@@ -124,41 +126,185 @@
     <button id="deselectAll">Deselect All</button>
   </div>
   <div class="category-list">
-    <label><input type="checkbox" name="category" value="Appearance Play"> Appearance Play</label>
-    <label><input type="checkbox" name="category" value="Behavioral Play"> Behavioral Play</label>
-    <label><input type="checkbox" name="category" value="Body Fluids and Functions"> Body Fluids and Functions</label>
-    <label><input type="checkbox" name="category" value="Body Modification"> Body Modification</label>
-    <label><input type="checkbox" name="category" value="Body Part / Fetish Play"> Body Part / Fetish Play</label>
-    <label><input type="checkbox" name="category" value="Body Part Torture"> Body Part Torture</label>
-    <label><input type="checkbox" name="category" value="Bondage and Suspension"> Bondage and Suspension</label>
-    <label><input type="checkbox" name="category" value="Breath Play"> Breath Play</label>
-    <label><input type="checkbox" name="category" value="Chastity Devices"> Chastity Devices</label>
-    <label><input type="checkbox" name="category" value="Communication"> Communication</label>
-    <label><input type="checkbox" name="category" value="Cosplay &amp; Identity Play"> Cosplay &amp; Identity Play</label>
-    <label><input type="checkbox" name="category" value="Gender Play &amp; Transformation"> Gender Play &amp; Transformation</label>
-    <label><input type="checkbox" name="category" value="Headspace &amp; Regression"> Headspace &amp; Regression</label>
-    <label><input type="checkbox" name="category" value="High-Intensity Kinks (SSC-Aware)"> High-Intensity Kinks (SSC-Aware)</label>
-    <label><input type="checkbox" name="category" value="Impact Play"> Impact Play</label>
-    <label><input type="checkbox" name="category" value="Medical Play"> Medical Play</label>
-    <label><input type="checkbox" name="category" value="Mindfuck &amp; Manipulation"> Mindfuck &amp; Manipulation</label>
-    <label><input type="checkbox" name="category" value="Mouth Play"> Mouth Play</label>
-    <label><input type="checkbox" name="category" value="Orgasm Control &amp; Sexual Manipulation"> Orgasm Control &amp; Sexual Manipulation</label>
-    <label><input type="checkbox" name="category" value="Other"> Other</label>
-    <label><input type="checkbox" name="category" value="Performance &amp; Internal Struggle"> Performance &amp; Internal Struggle</label>
-    <label><input type="checkbox" name="category" value="Pet Play"> Pet Play</label>
-    <label><input type="checkbox" name="category" value="Primal &amp; Bratting"> Primal &amp; Bratting</label>
-    <label><input type="checkbox" name="category" value="Protocol and Ritual"> Protocol and Ritual</label>
-    <label><input type="checkbox" name="category" value="Psychological Primal / Prey"> Psychological Primal / Prey</label>
-    <label><input type="checkbox" name="category" value="Relationship Preferences"> Relationship Preferences</label>
-    <label><input type="checkbox" name="category" value="Roleplaying"> Roleplaying</label>
-    <label><input type="checkbox" name="category" value="Sensation Play"> Sensation Play</label>
-    <label><input type="checkbox" name="category" value="Service and Restrictive Behaviour"> Service and Restrictive Behaviour</label>
-    <label><input type="checkbox" name="category" value="Sexual Activity"> Sexual Activity</label>
-    <label><input type="checkbox" name="category" value="Shibari &amp; Rope Bondage"> Shibari &amp; Rope Bondage</label>
-    <label><input type="checkbox" name="category" value="Virtual &amp; Long-Distance Play"> Virtual &amp; Long-Distance Play</label>
-    <label><input type="checkbox" name="category" value="Voyeurism/Exhibitionism"> Voyeurism/Exhibitionism</label>
+    <label role="listitem"><input type="checkbox" name="category" value="Appearance Play"><span>Appearance Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Behavioral Play"><span>Behavioral Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Body Fluids and Functions"><span>Body Fluids and Functions</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Body Modification"><span>Body Modification</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Body Part / Fetish Play"><span>Body Part / Fetish Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Body Part Torture"><span>Body Part Torture</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Bondage and Suspension"><span>Bondage and Suspension</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Breath Play"><span>Breath Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Breeding"><span>Breeding</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Chastity Devices"><span>Chastity Devices</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Communication"><span>Communication</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Cosplay &amp; Identity Play"><span>Cosplay &amp; Identity Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Gender Play &amp; Transformation"><span>Gender Play &amp; Transformation</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Headspace &amp; Regression"><span>Headspace &amp; Regression</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="High-Intensity Kinks (SSC-Aware)"><span>High-Intensity Kinks (SSC-Aware)</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Impact Play"><span>Impact Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Medical Play"><span>Medical Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Mindfuck &amp; Manipulation"><span>Mindfuck &amp; Manipulation</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Mouth Play"><span>Mouth Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Orgasm Control &amp; Sexual Manipulation"><span>Orgasm Control &amp; Sexual Manipulation</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Other"><span>Other</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Performance &amp; Internal Struggle"><span>Performance &amp; Internal Struggle</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Pet Play"><span>Pet Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Primal &amp; Bratting"><span>Primal &amp; Bratting</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Protocol and Ritual"><span>Protocol and Ritual</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Psychological Primal / Prey"><span>Psychological Primal / Prey</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Psychology Play"><span>Psychology Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Relationship Preferences"><span>Relationship Preferences</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Roleplaying"><span>Roleplaying</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Sensation Play"><span>Sensation Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Sexual Activity"><span>Sexual Activity</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Shibari &amp; Rope Bondage"><span>Shibari &amp; Rope Bondage</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Virtual &amp; Long-Distance Play"><span>Virtual &amp; Long-Distance Play</span></label>
+    <label role="listitem"><input type="checkbox" name="category" value="Voyeurism/Exhibitionism"><span>Voyeurism/Exhibitionism</span></label>
   </div>
 </div>
+<script>
+(function(){
+  const FULL = [
+    "Appearance Play",
+    "Behavioral Play",
+    "Body Fluids and Functions",
+    "Body Modification",
+    "Body Part / Fetish Play",
+    "Body Part Torture",
+    "Bondage and Suspension",
+    "Breath Play",
+    "Breeding",
+    "Chastity Devices",
+    "Communication",
+    "Cosplay & Identity Play",
+    "Gender Play & Transformation",
+    "Headspace & Regression",
+    "High-Intensity Kinks (SSC-Aware)",
+    "Impact Play",
+    "Medical Play",
+    "Mindfuck & Manipulation",
+    "Mouth Play",
+    "Orgasm Control & Sexual Manipulation",
+    "Other",
+    "Performance & Internal Struggle",
+    "Pet Play",
+    "Primal & Bratting",
+    "Protocol and Ritual",
+    "Psychological Primal / Prey",
+    "Psychology Play",
+    "Relationship Preferences",
+    "Roleplaying",
+    "Sensation Play",
+    "Sexual Activity",
+    "Shibari & Rope Bondage",
+    "Virtual & Long-Distance Play",
+    "Voyeurism/Exhibitionism"
+  ];
+
+  const key = (s) => String(s || "")
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  const fullByKey = new Map(FULL.map((n) => [key(n), n]));
+
+  const synonym = new Map([
+    ["voyeurism exhibitionism", "Voyeurism/Exhibitionism"],
+    ["virtual long distance play", "Virtual & Long-Distance Play"],
+    ["cosplay identity play", "Cosplay & Identity Play"],
+    ["orgasm control sexual manipulation", "Orgasm Control & Sexual Manipulation"],
+    ["shibari rope bondage", "Shibari & Rope Bondage"],
+    ["high intensity kinks ssc aware", "High-Intensity Kinks (SSC-Aware)"],
+    ["psychological primal prey", "Psychological Primal / Prey"],
+    ["gender play transformation", "Gender Play & Transformation"],
+    ["performance internal struggle", "Performance & Internal Struggle"]
+  ]);
+
+  const canonical = (name) => {
+    const k = key(name);
+    return fullByKey.get(k) || synonym.get(k) || name;
+  };
+
+  const cmpAZ = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
+
+  function fixPanelText() {
+    const list = document.querySelector(".category-list");
+    if (!list) return;
+    list.querySelectorAll('label[role="listitem"] span').forEach((span) => {
+      const before = (span.textContent || "").trim();
+      const fixed = canonical(before);
+      if (fixed !== before) span.textContent = fixed;
+      span.title = fixed;
+    });
+  }
+
+  function sortPanelAZ() {
+    const list = document.querySelector(".category-list");
+    if (!list) return;
+    const rows = Array.from(list.querySelectorAll('label[role="listitem"]'));
+    if (!rows.length) return;
+    rows.sort((a, b) =>
+      cmpAZ(
+        canonical((a.textContent || "").trim()),
+        canonical((b.textContent || "").trim())
+      )
+    );
+    rows.forEach((r) => list.appendChild(r));
+  }
+
+  function wrapBootAZ() {
+    const boot = window.KINKS_boot;
+    if (!boot || boot.__azWrapped) return;
+    window.KINKS_boot = function (opts) {
+      const o = Object.assign({}, opts || {});
+      if (Array.isArray(o.categories)) {
+        const seen = new Set();
+        const out = [];
+        for (const c of o.categories) {
+          const fixed = canonical(c);
+          const k = key(fixed);
+          if (!k || seen.has(k)) continue;
+          seen.add(k);
+          out.push(fixed);
+        }
+        out.sort(cmpAZ);
+        o.categories = out;
+      }
+      return boot(o);
+    };
+    window.KINKS_boot.__azWrapped = true;
+  }
+
+  function fixHeading() {
+    const h = document.getElementById("categoryTitle");
+    if (!h) return;
+    const before = (h.textContent || "").trim();
+    const fixed = canonical(before);
+    if (fixed !== before) h.textContent = fixed;
+  }
+
+  function init() {
+    fixPanelText();
+    sortPanelAZ();
+    wrapBootAZ();
+    fixHeading();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+
+  new MutationObserver(() => {
+    fixPanelText();
+    sortPanelAZ();
+    fixHeading();
+  }).observe(document.body, { subtree: true, childList: true });
+})();
+</script>
 <script>
 document.getElementById('selectAll').addEventListener('click', () => {
   document.querySelectorAll('.category-list input[type="checkbox"]').forEach(cb => cb.checked = true);
