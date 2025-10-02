@@ -373,7 +373,8 @@
       allCategoryBoxes()
         .filter(cb => cb.checked)
         .map(cb => cb.value || cb.getAttribute('value') || (cb.nextElementSibling?.textContent || '').trim())
-        .filter(Boolean);
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
     const focusDrawer = () => {
       setTimeout(() => {

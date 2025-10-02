@@ -409,7 +409,9 @@
 
       const getSelectedCategories = () => getCheckboxes()
         .filter(cb => cb.checked)
-        .map(cb => cb.value);
+        .map(cb => cb.value)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
       const showWarning = (message = '') => {
         if (warningEl) warningEl.textContent = message;
