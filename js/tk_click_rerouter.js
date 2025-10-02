@@ -5,7 +5,7 @@
       const ET=(window.EventTarget||window.Node||function(){}).prototype;
       const orig=ET.addEventListener;
       ET.addEventListener=function(type,fn,opts){
-        if(type==='touchend'||type==='touchcancel'){
+        if(type==='touchend'||type==='touchcancel'||type==='touchmove'||type==='wheel'){
           if (opts==null) opts={}; else if (typeof opts==='boolean') opts={capture:opts};
           opts.passive=false; return orig.call(this,type,fn,opts);
         }

@@ -3,12 +3,12 @@
   const START_SELECTOR = '#start,#startSurvey,#startSurveyBtn';
   const BOX_SELECTOR = '.category-panel input[type="checkbox"],input[name="category"][type="checkbox"]';
 
-  // Make touchend/touchcancel non-passive so tap handlers can preventDefault when needed
+  // Make touchend/touchcancel/touchmove/wheel non-passive so handlers can preventDefault when needed
   try{
     const ET=(window.EventTarget||window.Node||function(){}).prototype;
     const orig=ET.addEventListener;
     ET.addEventListener=function(type,listener,opts){
-      if(type==='touchend'||type==='touchcancel'){
+      if(type==='touchend'||type==='touchcancel'||type==='touchmove'||type==='wheel'){
         if (opts==null) opts={}; else if (typeof opts==='boolean') opts={capture:opts};
         opts.passive=false;
         return orig.call(this,type,listener,opts);
