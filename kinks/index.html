@@ -1376,5 +1376,97 @@ How to use
   <!-- TK CLICKFIX: make category panel clickable & keep Start in sync -->
   <link rel="stylesheet" href="/css/tk_clickfix.css">
   <script src="/js/tk_clickfix.js" defer></script>
+  <script>
+  (function(){
+    const text = (el) => (el?.textContent ?? "").trim();
+    const normKey = (s) =>
+      String(s ?? "")
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+    const AtoZ = (a, b) => a.localeCompare(b, undefined, {
+      sensitivity: "base",
+      numeric: true,
+      ignorePunctuation: true
+    });
+
+    function uniqSorted(list){
+      const out = [];
+      const seen = new Set();
+      for (const c of list || []) {
+        const t = String(c ?? "").trim();
+        const k = normKey(t);
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        out.push(t);
+      }
+      return out.sort(AtoZ);
+    }
+
+    function sortCategoryPanel(){
+      const list = document.querySelector(".category-list");
+      if (!list) return;
+      const rows = Array.from(list.querySelectorAll('label[role="listitem"], :scope > label'));
+      if (!rows.length) return;
+      rows.sort((ra, rb) => AtoZ(text(ra), text(rb)));
+      rows.forEach(r => list.appendChild(r));
+    }
+
+    function wrapBootSorter(){
+      const tryWrap = () => {
+        const boot = window.KINKS_boot;
+        if (!boot || boot.__ksvSortedWrap) return false;
+
+        const wrapped = function(opts){
+          const o = Object.assign({}, opts || {});
+          if (Array.isArray(o.categories)) {
+            o.categories = uniqSorted(o.categories);
+          }
+          return boot(o);
+        };
+        wrapped.__ksvSortedWrap = true;
+        window.KINKS_boot = wrapped;
+        return true;
+      };
+
+      if (!tryWrap()){
+        const iv = setInterval(() => { if (tryWrap()) clearInterval(iv); }, 100);
+        setTimeout(() => clearInterval(iv), 10000);
+      }
+    }
+
+    function hookStartButton(){
+      const btn = document.querySelector("#start, #startSurvey, #startSurveyBtn");
+      if (!btn || btn.__ksvSelHooked) return;
+      btn.__ksvSelHooked = true;
+
+      btn.addEventListener("click", () => {
+        const checked = Array.from(document.querySelectorAll(".category-checkbox:checked"));
+        if (!checked.length) return;
+        const vals = checked.map(cb => cb.value);
+        window.__KSV_LAST_SORTED_SELECTION__ = uniqSorted(vals);
+      }, { capture: true });
+    }
+
+    function init(){
+      sortCategoryPanel();
+      wrapBootSorter();
+      hookStartButton();
+
+      const panelRoot = document.querySelector("#categorySurveyPanel") || document;
+      const mo = new MutationObserver(() => sortCategoryPanel());
+      mo.observe(panelRoot, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init, { once: true });
+    } else {
+      init();
+    }
+  })();
+  </script>
 </body>
 </html>
