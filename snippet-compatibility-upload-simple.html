@@ -1,0 +1,110 @@
+<!-- TALK KINK • MINIMAL SURVEY UPLOAD LOADER -->
+<!--
+Usage: include this snippet after your survey upload inputs and compatibility table.
+Required markup IDs:
+  - <input type="file" id="surveyAFile" accept="application/json">
+  - <input type="file" id="surveyBFile" accept="application/json">
+  - <table id="compatTable"> with a <tbody> for rows.
+The script parses common TalkKink export shapes into
+[{ id:'cb_xxxxx', score:Number }] and paints Partner A/B columns plus a
+simple match percentage (0–5 scale → 0–100%).
+-->
+<script>
+/* Prevent accidental form submits from reloading the page */
+document.querySelectorAll('form').forEach(f => f.addEventListener('submit', e => e.preventDefault()));
+
+document.querySelectorAll('[data-upload-target]').forEach(btn => {
+  btn.setAttribute('type','button');
+  btn.addEventListener('click', () => {
+    const target = document.getElementById(btn.getAttribute('data-upload-target'));
+    if (target) target.click();
+  });
+});
+
+const TK = { A: null, B: null };
+
+async function tkRead(file){
+  const txt = await file.text();
+  let raw = JSON.parse(txt);
+  if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch {} }
+
+  // Accept the common shapes we’ve seen
+  let rows = Array.isArray(raw) ? raw : null;
+  rows = rows || raw?.answers || raw?.rows || raw?.data?.answers || null;
+
+  if (!rows && raw && typeof raw === 'object') {
+    const map = raw.map || raw.answersMap || raw.scores;
+    if (map && typeof map === 'object') rows = Object.entries(map).map(([id,score]) => ({ id, score }));
+  }
+  if (!rows) throw new Error('No recognizable answers array in this file.');
+
+  const out = [];
+  for (const r of rows) {
+    const id = (r?.id ?? r?.key ?? r?.code ?? r?.k ?? r?.questionId ?? r?.qid ?? r?.[0]) + '';
+    const score = Number(r?.score ?? r?.value ?? r?.val ?? r?.a ?? r?.s ?? r?.[1]);
+    if (id && Number.isFinite(score)) out.push({ id, score });
+  }
+
+  // Fallback: rows like { cb_xxxxx: n, … }
+  if (!out.length) {
+    for (const r of rows) {
+      if (r && typeof r === 'object') {
+        for (const [k,v] of Object.entries(r)) {
+          if (/^cb_[a-z0-9]{5}$/i.test(k) && Number.isFinite(+v)) out.push({ id:k, score:+v });
+        }
+      }
+    }
+  }
+
+  if (!out.length) throw new Error('Could not extract any TalkKink answers from this file.');
+  return out;
+}
+
+function tkUpdate(){
+  // Merge ids from both sides
+  const a = Object.fromEntries((TK.A||[]).map(r => [r.id.toLowerCase(), r.score]));
+  const b = Object.fromEntries((TK.B||[]).map(r => [r.id.toLowerCase(), r.score]));
+  const ids = Array.from(new Set([...Object.keys(a), ...Object.keys(b)])).sort();
+
+  const tbody = document.querySelector('#compatTable tbody') || document.querySelector('tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  ids.forEach(id => {
+    const va = Number.isFinite(a[id]) ? a[id] : '—';
+    const vb = Number.isFinite(b[id]) ? b[id] : '—';
+    const pct = (Number.isFinite(a[id]) && Number.isFinite(b[id]))
+      ? Math.max(0, Math.min(100, 100 - Math.abs(a[id]-b[id])*20)) + '%'
+      : '—';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="category-cell">${window.tkLabel ? tkLabel(id) : id}</td>
+      <td>${va}</td>
+      <td>${pct}</td>
+      <td>${vb}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function bindInput(which, inputId){
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  el.value = '';
+  el.addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+      const rows = await tkRead(f);
+      TK[which] = rows;
+      tkUpdate();
+    } catch (err) {
+      alert(err?.message || 'Could not read this JSON file.');
+    }
+  }, { passive: true });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  bindInput('A', 'surveyAFile');
+  bindInput('B', 'surveyBFile');
+});
+</script>
