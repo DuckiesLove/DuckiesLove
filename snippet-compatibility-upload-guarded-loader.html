@@ -1,0 +1,190 @@
+<!-- TALK KINK • DROP-IN SURVEY COMPARISON LOADER -->
+<!--
+Usage: place this snippet after your upload inputs and comparison table.
+Required markup IDs (customize TK_INPUT_IDS below if needed):
+  - <input type="file" id="surveyAFile" accept="application/json">
+  - <input type="file" id="surveyBFile" accept="application/json">
+  - <table id="compatTable"> with a <tbody> for rows.
+The script tolerates many JSON export shapes, coerces them to
+[{ id:'cb_xxxxx', score:Number }], and renders Partner A/B columns plus a
+simple match % (0–5 scale → 0–100%).
+-->
+<script>
+/* ------------------------------------------------------------------
+   0) Guard: never let the page reload on upload
+------------------------------------------------------------------ */
+(function stopFormSubmits() {
+  // If your upload controls sit in a <form>, stop default submit.
+  document.querySelectorAll('form').forEach(f => {
+    f.addEventListener('submit', e => e.preventDefault());
+  });
+  // Make all buttons non-submitting by default.
+  document.querySelectorAll('button').forEach(btn => {
+    if (!btn.hasAttribute('type')) btn.setAttribute('type', 'button');
+  });
+})();
+
+/* ------------------------------------------------------------------
+   1) Robust JSON normalizer → [{ id:'cb_xxxxx', score:Number }]
+------------------------------------------------------------------ */
+async function TK_readSurveyJson(file) {
+  const txt = await file.text();
+  let raw = JSON.parse(txt);
+  if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch {} }
+
+  // Try common layouts used by past exports
+  const fromPaths = (...paths) => {
+    for (const p of paths) {
+      const v = p.split('.').reduce((o,k)=>o && o[k], raw);
+      if (Array.isArray(v) && v.length) return v;
+    }
+    return null;
+  };
+
+  let arr = (Array.isArray(raw) ? raw : null) ||
+            fromPaths('answers','rows','data.answers','payload.answers');
+
+  if (!arr && raw && typeof raw === 'object') {
+    const map = raw.map || raw.answersMap || raw.scores;
+    if (map && typeof map === 'object') {
+      arr = Object.entries(map).map(([id,score]) => ({ id, score }));
+    }
+  }
+
+  if (!arr) throw new Error('This file has no recognizable answers array.');
+
+  const out = [];
+  for (const r of arr) {
+    const id = (r && (r.id || r.key || r.code || r.k || r.questionId || r.qid || r[0])) ?? '';
+    const s  = Number(r && (r.score ?? r.value ?? r.val ?? r.a ?? r.s ?? r[1]));
+    if (id && Number.isFinite(s)) out.push({ id: String(id), score: s });
+  }
+
+  // Fallback: object rows like {cb_xxxxx: n, ...}
+  if (!out.length) {
+    for (const r of arr) {
+      if (r && typeof r === 'object') {
+        for (const [k,v] of Object.entries(r)) {
+          if (/^cb_[a-z0-9]{5}$/i.test(k) && Number.isFinite(+v)) {
+            out.push({ id: k, score: +v });
+          }
+        }
+      }
+    }
+  }
+
+  if (!out.length) throw new Error('No TalkKink answers were found in this file.');
+  return out;
+}
+
+/* ------------------------------------------------------------------
+   2) Wire inputs → state, and never reload
+------------------------------------------------------------------ */
+// Change these IDs only if your inputs use different ones.
+const TK_INPUT_IDS = {
+  A: 'surveyAFile',   // <input type="file" id="surveyAFile" accept="application/json">
+  B: 'surveyBFile'    // <input type="file" id="surveyBFile" accept="application/json">
+};
+
+const TK_state = { A: null, B: null };
+
+async function TK_handleUpload(which, file) {
+  try {
+    // Clear the opposite side’s accidental bootstrap from older code
+    if (which === 'A' && TK_state.A && TK_state.A.__bootstrapped) TK_state.A = null;
+    if (which === 'B' && TK_state.B && TK_state.B.__bootstrapped) TK_state.B = null;
+
+    const rows = await TK_readSurveyJson(file);
+    TK_state[which] = rows;
+    TK_updateComparison();
+    // Optional: user feedback
+    TK_toast(`${which === 'A' ? 'Your' : "Partner's"} survey loaded: ${rows.length} answers`);
+  } catch (err) {
+    alert(err && err.message ? err.message : 'Could not read the uploaded JSON.');
+  }
+}
+
+function TK_bindInputs() {
+  (['A','B']).forEach(which => {
+    const id = TK_INPUT_IDS[which];
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Reset value so re-selecting the same file still triggers change
+    el.value = '';
+    el.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) TK_handleUpload(which, f);
+    }, { passive: true });
+  });
+
+  // If you use buttons that proxy clicks to the hidden <input>, ensure type="button"
+  document.querySelectorAll('[data-upload-target]').forEach(btn => {
+    btn.setAttribute('type', 'button');
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.getAttribute('data-upload-target'));
+      if (target) target.click();
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', TK_bindInputs);
+
+/* ------------------------------------------------------------------
+   3) Build comparison rows and render (replace hooks as needed)
+------------------------------------------------------------------ */
+function TK_updateComparison() {
+  const aMap = Object.fromEntries((TK_state.A || []).map(r => [r.id.toLowerCase(), r.score]));
+  const bMap = Object.fromEntries((TK_state.B || []).map(r => [r.id.toLowerCase(), r.score]));
+  const ids  = new Set([...Object.keys(aMap), ...Object.keys(bMap)]);
+
+  const rows = [];
+  for (const id of ids) {
+    const a = aMap[id], b = bMap[id];
+    // Simple % match (0–5 distance → 0–100%)
+    const m = (Number.isFinite(a) && Number.isFinite(b)) ? (100 - Math.abs(a - b) * 20) : null;
+    rows.push({
+      id,
+      a: Number.isFinite(a) ? a : '—',
+      b: Number.isFinite(b) ? b : '—',
+      pct: (m == null ? '—' : `${Math.max(0, Math.min(100, Math.round(m)))}%`)
+    });
+  }
+  TK_renderRows(rows);
+}
+
+// Minimal renderer — replace with your existing table builder
+function TK_renderRows(rows) {
+  const tbody = document.querySelector('#compatTable tbody') || document.querySelector('tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="category-cell">${r.id}</td>
+      <td>${r.a}</td>
+      <td>${r.pct}</td>
+      <td>${r.b}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  // Your label patch will replace ids with friendly names and draw % bars.
+}
+
+/* ------------------------------------------------------------------
+   4) Tiny helper toast (optional)
+------------------------------------------------------------------ */
+function TK_toast(msg){
+  try {
+    let el = document.getElementById('tk-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'tk-toast';
+      el.style.cssText = 'position:fixed;bottom:18px;left:18px;padding:10px 14px;background:#00e5ff20;border:1px solid #00e5ff;border-radius:10px;color:#00e5ff;font:14px/1.2 system-ui,zend;';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.opacity = '1';
+    clearTimeout(el._t);
+    el._t = setTimeout(()=> el.style.opacity='0', 2200);
+  } catch {}
+}
+</script>
