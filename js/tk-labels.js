@@ -75,7 +75,92 @@
     cb_46k59: "No photos/audio"
   };
 
-  let LABELS = { ...BASE_LABELS, ...SAMPLE_COVERAGE };
+  const LABELS = Object.create(null);
+  const OVERRIDES = Object.create(null);
+  let inlineMerged = false;
+
+  function publishGlobals() {
+    window.tkLabels = LABELS;
+    window.tkLabelsOverrides = OVERRIDES;
+  }
+
+  function storeLabel(code, value) {
+    if (code == null) return 0;
+    const key = String(code);
+    const text =
+      typeof value === "string"
+        ? value.trim()
+        : value != null
+          ? String(value).trim()
+          : "";
+    if (!text) return 0;
+    LABELS[key] = text;
+    const lower = key.toLowerCase();
+    if (lower !== key) LABELS[lower] = text;
+    return 1;
+  }
+
+  function resolveLabelMap(source) {
+    if (!source || typeof source !== "object") return null;
+    return source.labels && typeof source.labels === "object"
+      ? source.labels
+      : source;
+  }
+
+  function mergeLabelObject(source) {
+    const map = resolveLabelMap(source);
+    if (!map) return 0;
+    let merged = 0;
+    for (const [code, value] of Object.entries(map)) {
+      merged += storeLabel(code, value);
+    }
+    return merged;
+  }
+
+  function stripComments(jsonText) {
+    if (typeof jsonText !== "string") return "";
+    return jsonText.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s+)\/\/.*$/gm, "");
+  }
+
+  function mergeInlineEmbed() {
+    if (inlineMerged) return 0;
+    const script = document.getElementById("tk-labels-embed");
+    if (!script) return 0;
+    inlineMerged = true;
+    try {
+      const raw = (script.textContent || "").trim();
+      if (!raw) return 0;
+      const cleaned = stripComments(raw).trim();
+      if (!cleaned) return 0;
+      const data = JSON.parse(cleaned);
+      if (!data || typeof data !== "object") return 0;
+      let merged = 0;
+      if (data.labels && typeof data.labels === "object") {
+        merged += mergeLabelObject(data.labels);
+      }
+      if (data.overrides && typeof data.overrides === "object") {
+        const map = resolveLabelMap(data.overrides) || data.overrides;
+        Object.assign(OVERRIDES, map);
+        merged += mergeLabelObject(map);
+      }
+      if (!data.labels && !data.overrides) {
+        merged += mergeLabelObject(data);
+      }
+      if (merged) {
+        publishGlobals();
+        console.info("[tk-labels] inline embed merged:", merged, "keys");
+      }
+      return merged;
+    } catch (err) {
+      console.warn("[tk-labels] inline embed parse failed:", err?.message || err);
+      return 0;
+    }
+  }
+
+  mergeLabelObject(BASE_LABELS);
+  mergeLabelObject(SAMPLE_COVERAGE);
+  publishGlobals();
+  mergeInlineEmbed();
 
   async function safeFetchJSON(url) {
     try {
@@ -92,18 +177,23 @@
 
   async function loadOverrides() {
     if (window._tkLabelsMerged) return;
+    mergeInlineEmbed();
     const overrides = await safeFetchJSON("/data/labels-overrides.json");
     if (overrides && typeof overrides === "object") {
-      LABELS = { ...LABELS, ...overrides };
+      const map = resolveLabelMap(overrides) || overrides;
+      Object.assign(OVERRIDES, map);
+      mergeLabelObject(map);
+      publishGlobals();
       window._tkLabelsMerged = true;
-      console.info("[tk-labels] overrides merged:", Object.keys(overrides).length, "keys");
+      console.info("[tk-labels] overrides merged:", Object.keys(map).length, "keys");
     } else {
       window._tkLabelsMerged = true;
     }
   }
 
   function labelFor(code) {
-    return LABELS[code] || code;
+    if (!code) return code;
+    return LABELS[code] || LABELS[String(code).toLowerCase()] || code;
   }
 
   function relabelTable(root = document) {
