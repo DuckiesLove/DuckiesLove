@@ -1,0 +1,159 @@
+<!-- Talk Kink — Full-bleed black styling + label replacer + alpha sort -->
+<!--
+Paste this into any Talk Kink compatibility HTML page to guarantee that:
+1. Print/PDF exports stay fully black with no margins.
+2. cb_* codes in tables get replaced with friendly labels when available.
+3. Category pickers are alphabetized based on those friendly labels.
+-->
+<style>
+  /* 1) Full-bleed black in print/PDF and screen */
+  @page { size: A4; margin: 0; } /* remove printer margins */
+  html, body { margin:0 !important; padding:0 !important; background:#000 !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  /* 2) Force the whole report to black / white */
+  body, main, #app, .compat, .compat-report, .tk-pdf, .pdf-root {
+    background:#000 !important; color:#fff !important;
+  }
+
+  /* 3) Tables: white rules on black */
+  table { width:100%; border-collapse:collapse !important; background:#000 !important; }
+  th, td {
+    background:#000 !important; color:#fff !important;
+    border:1.4px solid #fff !important; padding:.65rem .8rem !important;
+  }
+  thead th { font-weight:700 !important; }
+
+  /* 4) Common wrappers/cards that might inject light backgrounds */
+  .card, .panel, .sheet, .tk-paper, .compat-container, .report-wrap, .tk-pdf-page {
+    background:#000 !important; color:#fff !important; box-shadow:none !important;
+    padding:0 !important; margin:0 !important;
+  }
+</style>
+
+<script>
+/* ===== Label map + replacer + alpha-sort (no build/dev tools required) ===== */
+
+(() => {
+  const CODE_RX = /^cb_[a-z0-9]+$/i;
+
+  // Robust fetch helper (quietly returns null if not found):
+  async function fetchJSONQuiet(url){
+    try {
+      const r = await fetch(url, { cache:'no-store' });
+      if (!r.ok) return null;
+      return await r.json();
+    } catch { return null; }
+  }
+
+  // Merge /data/kinks.json + /data/labels-overrides.json when available, or reuse globals loaded by tk-labels.js
+  async function getLabelMap() {
+    // prefer what tk-labels.js already put on window:
+    let base = (window.tkLabels && typeof window.tkLabels === 'object') ? window.tkLabels : null;
+    let overrides = (window.tkLabelsOverrides && typeof window.tkLabelsOverrides === 'object') ? window.tkLabelsOverrides : null;
+
+    if (!base)      base      = await fetchJSONQuiet('/data/kinks.json');
+    if (!overrides) overrides = await fetchJSONQuiet('/data/labels-overrides.json');
+
+    return Object.assign({}, base || {}, overrides || {});
+  }
+
+  function replaceCodesWithLabels(root, labelMap){
+    if (!labelMap) return;
+
+    // Only touch likely category cells (all table cells to be safe)
+    const cells = root.querySelectorAll('table td, table th');
+    for (const el of cells) {
+      const raw = (el.textContent || '').trim();
+      if (CODE_RX.test(raw)) {
+        const key = raw in labelMap ? raw
+                  : raw.toLowerCase() in labelMap ? raw.toLowerCase()
+                  : raw.toUpperCase() in labelMap ? raw.toUpperCase()
+                  : null;
+        if (key) el.textContent = labelMap[key];
+      }
+    }
+  }
+
+  // OPTIONAL: Alphabetize any category <select> / list by labelMap while preserving values
+  function alphabetizeCategoryPickers(labelMap){
+    const pickers = document.querySelectorAll('select, .category-picker, .category-list');
+    pickers.forEach(picker => {
+      // Handle <select>
+      if (picker.tagName === 'SELECT') {
+        const opts = Array.from(picker.options);
+        opts.sort((a,b) => {
+          const la = labelMap[a.value] || a.textContent.trim();
+          const lb = labelMap[b.value] || b.textContent.trim();
+          return la.localeCompare(lb, undefined, {sensitivity:'base'});
+        });
+        picker.innerHTML = ''; // rebuild
+        opts.forEach(o => picker.appendChild(o));
+        return;
+      }
+      // Handle a simple list of items with data-code or textContent holding cb_*
+      const items = Array.from(picker.querySelectorAll('[data-code], li, .item'));
+      if (!items.length) return;
+      items.forEach(el => {
+        const code = (el.getAttribute('data-code') || el.textContent || '').trim();
+        const name = CODE_RX.test(code) ? (labelMap[code] || code) : el.textContent.trim();
+        el.setAttribute('data-sort-name', name);
+        if (CODE_RX.test(code)) el.textContent = name;
+      });
+      items.sort((a,b) => a.getAttribute('data-sort-name').localeCompare(b.getAttribute('data-sort-name'), undefined, {sensitivity:'base'}));
+      items.forEach(el => picker.appendChild(el));
+    });
+  }
+
+  // MutationObserver: when the comparison table updates, re-apply labels automatically
+  function watchAndRelabel(labelMap){
+    const root = document;
+    const doWork = () => replaceCodesWithLabels(root, labelMap);
+
+    // Run once now
+    doWork();
+
+    // Observe later changes
+    const obs = new MutationObserver((muts) => {
+      for (const m of muts) {
+        if (m.type === 'childList' || m.type === 'characterData') {
+          // A small throttle via requestAnimationFrame to avoid spamming
+          cancelAnimationFrame(watchAndRelabel._raf || 0);
+          watchAndRelabel._raf = requestAnimationFrame(doWork);
+          break;
+        }
+      }
+    });
+
+    obs.observe(root.body || root, { childList:true, subtree:true, characterData:true });
+  }
+
+  function ensureFullBleedForhtml2canvas() {
+    // If your exporter uses html2canvas, this hint keeps background solid black
+    // when a script tweaks it at runtime. Safe no-op if html2canvas isn’t used.
+    try {
+      if (window.html2canvas) {
+        const _html2canvas = window.html2canvas;
+        window.html2canvas = (node, opts = {}) => _html2canvas(node, Object.assign({ background:'#000' }, opts));
+      }
+    } catch {}
+  }
+
+  function onReady(fn){
+    if (document.readyState === 'complete' || document.readyState === 'interactive') fn();
+    else window.addEventListener('DOMContentLoaded', fn, { once:true });
+  }
+
+  onReady(async () => {
+    ensureFullBleedForhtml2canvas();
+
+    const labelMap = await getLabelMap();
+
+    // Replace codes in the current DOM and any future updates (uploads, toggles…)
+    watchAndRelabel(labelMap);
+
+    // OPTIONAL: alphabetize any category picker UI (if present)
+    alphabetizeCategoryPickers(labelMap);
+  });
+})();
+</script>
