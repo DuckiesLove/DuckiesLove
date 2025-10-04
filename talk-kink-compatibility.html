@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Talk Kink – Compatibility</title>
+<style>
+  :root{
+    --bg:#000; --fg:#fff; --muted:#9aa0a6; --line:#fff; --accent:#00e6ff;
+    --cell-pad:.9rem;
+  }
+  html,body{background:#000;color:var(--fg);margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1320px;margin:32px auto;padding:0 16px}
+  h1{font-weight:700;letter-spacing:.4px;margin:0 0 10px}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 22px}
+  .btn{
+    background:transparent;border:2px solid var(--accent);color:var(--accent);
+    padding:.55rem .9rem;border-radius:10px;cursor:pointer;font-weight:600
+  }
+  .btn:hover{background:rgba(0,230,255,.08)}
+  .note{color:var(--muted);font-size:.9rem}
+  .file{display:inline-block}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  thead th{
+    text-align:center;font-weight:800;border:2px solid var(--line);
+    padding:.85rem;background:#000;position:sticky;top:0
+  }
+  tbody td{
+    border:2px solid var(--line);padding:var(--cell-pad);vertical-align:middle
+  }
+  td.cat{width:56%;font-weight:600}
+  td.num, th.num{text-align:center;width:14%}
+  td.muted{color:var(--muted)}
+  /* Subtle progress background (kept dark) – can remove if you want pure text */
+  .pct-shell{height:12px;background:#111;border-radius:7px;overflow:hidden;border:1px solid #333}
+  .pct-bar{height:100%;background:#15aaff;width:0%}
+  /* Print: keep the black look in the PDF */
+  @media print{
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .bar,.note{display:none}
+    thead th{position:static}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Compatibility</h1>
+
+    <div class="bar">
+      <label class="file btn">Load Survey A
+        <input id="fileA" type="file" accept="application/json" hidden>
+      </label>
+      <label class="file btn">Load Survey B
+        <input id="fileB" type="file" accept="application/json" hidden>
+      </label>
+      <button id="dl" class="btn">Download PDF</button>
+      <button id="missingBtn" class="btn" title="Show any codes missing a label">Missing labels</button>
+      <span class="note" id="status">Waiting for uploads…</span>
+    </div>
+
+    <table id="compat">
+      <thead>
+        <tr>
+          <th class="cat">Category</th>
+          <th class="num">Partner A</th>
+          <th class="num">Match %</th>
+          <th class="num">Partner B</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+    <p class="note" style="margin-top:14px">
+      Tip: If “Missing labels” shows anything, add those mappings to
+      <code>/data/labels-overrides.json</code> so names render (the table will never show raw cb_ codes).
+    </p>
+  </div>
+
+<script>
+(() => {
+  // --- data holders ---------------------------------------------------------
+  let surveyA = null, surveyB = null;
+  const LABELS = {};          // combined labels (overrides + base)
+  const missing = new Set();  // codes that had no label
+
+  // --- load label sources (overrides first) --------------------------------
+  const labelSources = [
+    "/data/labels-overrides.json", // your curated names win
+    "/data/kinks.json"             // base map
+  ];
+
+  async function loadLabels() {
+    for (const url of labelSources) {
+      try {
+        const res = await fetch(url, {cache:"no-store"});
+        if (!res.ok) continue;
+        const obj = await res.json();
+        for (const [k,v] of Object.entries(obj)) {
+          if (v && typeof v === "string") LABELS[k] = v.trim();
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  // never expose cb_* in UI. If unknown -> "—" and remember for the side list.
+  function prettyLabel(code) {
+    const name = LABELS[code];
+    if (name && name.trim()) return name.trim();
+    missing.add(code);
+    return "—";
+  }
+
+  // --- file helpers ---------------------------------------------------------
+  function readJSON(file) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onerror = () => reject(new Error("Could not read file."));
+      fr.onload = () => {
+        try { resolve(JSON.parse(fr.result)); }
+        catch(e){ reject(new Error("Invalid JSON.")); }
+      };
+      fr.readAsText(file);
+    });
+  }
+
+  // find all category codes present in either survey (array of cb_* ids).
+  function collectCategoryCodes(a, b) {
+    const set = new Set();
+    const push = obj => {
+      if (!obj) return;
+      // Accept both shapes: {answers:[{id,value}...]} or {…id:value…}
+      if (Array.isArray(obj.answers)) {
+        for (const row of obj.answers) if (row && row.id) set.add(row.id);
+      } else {
+        for (const k of Object.keys(obj)) if (k.startsWith("cb_")) set.add(k);
+      }
+    };
+    push(a); push(b);
+    return [...set];
+  }
+
+  // score helpers – you can swap this for your project’s real logic
+  const valOf = (obj, id) => {
+    if (!obj) return null;
+    if (Array.isArray(obj.answers)) {
+      const r = obj.answers.find(x => x.id === id);
+      return r ? r.value ?? r.answer ?? null : null;
+    }
+    return obj[id] ?? null;
+  };
+  function matchPercent(aVal, bVal){
+    if (aVal == null || bVal == null) return null;
+    // Simple: identical = 100, else 0. Replace with your real formula if needed.
+    return aVal === bVal ? 100 : 0;
+  }
+
+  // --- rendering ------------------------------------------------------------
+  const tbody = document.getElementById("tbody");
+  function render() {
+    if (!surveyA && !surveyB) return;
+    const codes = collectCategoryCodes(surveyA, surveyB);
+
+    // Make rows (resolve names now so we can sort by them)
+    const rows = codes.map(code => {
+      const name = prettyLabel(code);
+      const aVal = valOf(surveyA, code);
+      const bVal = valOf(surveyB, code);
+      const pct  = matchPercent(aVal, bVal);
+      return { code, name, aVal, bVal, pct };
+    });
+
+    // Alphabetical by the display name (case-insensitive), keep blanks last.
+    rows.sort((r1, r2) => {
+      const n1 = r1.name === "—" ? "~~~" : r1.name.toLowerCase();
+      const n2 = r2.name === "—" ? "~~~" : r2.name.toLowerCase();
+      return n1.localeCompare(n2);
+    });
+
+    // Build table
+    tbody.innerHTML = "";
+    for (const r of rows) {
+      const tr = document.createElement("tr");
+
+      const tdCat = document.createElement("td");
+      tdCat.className = "cat";
+      tdCat.textContent = r.name;               // never show code
+      tr.appendChild(tdCat);
+
+      const tdA = document.createElement("td");
+      tdA.className = "num";
+      tdA.textContent = (r.aVal ?? "—");
+      tr.appendChild(tdA);
+
+      const tdPct = document.createElement("td");
+      tdPct.className = "num";
+      tdPct.innerHTML = r.pct == null
+        ? "—"
+        : `<div class="pct-shell"><div class="pct-bar" style="width:${r.pct}%"></div></div>`;
+      tr.appendChild(tdPct);
+
+      const tdB = document.createElement("td");
+      tdB.className = "num";
+      tdB.textContent = (r.bVal ?? "—");
+      tr.appendChild(tdB);
+
+      tbody.appendChild(tr);
+    }
+
+    // status
+    const s = [];
+    if (surveyA) s.push("A ✓"); else s.push("A —");
+    if (surveyB) s.push("B ✓"); else s.push("B —");
+    document.getElementById("status").textContent = `Loaded: ${s.join("  ·  ")}`;
+  }
+
+  // --- UI wiring ------------------------------------------------------------
+  document.getElementById("fileA").addEventListener("change", async (e)=>{
+    if (!e.target.files?.[0]) return;
+    try {
+      surveyA = await readJSON(e.target.files[0]);
+      render();
+    } catch(err){ alert("Survey A: " + err.message); }
+    finally { e.target.value = ""; }
+  });
+
+  document.getElementById("fileB").addEventListener("change", async (e)=>{
+    if (!e.target.files?.[0]) return;
+    try {
+      surveyB = await readJSON(e.target.files[0]);
+      render();
+    } catch(err){ alert("Survey B: " + err.message); }
+    finally { e.target.value = ""; }
+  });
+
+  document.getElementById("dl").addEventListener("click", ()=> {
+    // Use native print → Save as PDF to keep the exact black styling.
+    window.print();
+  });
+
+  document.getElementById("missingBtn").addEventListener("click", ()=> {
+    if (!missing.size) { alert("Great! No missing labels."); return; }
+    const list = [...missing].sort().join("\n");
+    alert("Add these to /data/labels-overrides.json:\n\n" + list);
+  });
+
+  // start
+  loadLabels().then(render);
+})();
+</script>
+</body>
+</html>
