@@ -9,6 +9,26 @@
     surveyB: null,
   };
 
+  function tkParseSurvey(raw, sideLabel) {
+    try {
+      const json = JSON.parse(typeof raw === 'string' ? raw : String(raw || ''));
+      const answers = json && (json.answers ?? json.data ?? json.rows ?? json.cells ?? null);
+      const hasAnswers = Array.isArray(answers)
+        ? answers.length > 0
+        : answers && typeof answers === 'object' && Object.keys(answers).length > 0;
+      if (!hasAnswers) {
+        throw new Error('No answers array found');
+      }
+      return json;
+    } catch (err) {
+      alert(`Invalid JSON for Survey ${sideLabel}. Please upload the unmodified JSON file exported from this site.`);
+      console.error(`[compat] parse error (${sideLabel})`, err);
+      if (sideLabel === 'A') window._tkLoaded.A = false;
+      if (sideLabel === 'B') window._tkLoaded.B = false;
+      return null;
+    }
+  }
+
   // --- NEW: pre-load labels (non-blocking, awaited before we paint rows) ---
   const labelsPromise = window.tkLabels?.load?.() ?? Promise.resolve(new Map());
 
@@ -90,10 +110,15 @@
   }
 
   async function updateComparison() {
-    // Guard: don’t freeze if only one partner is loaded
     const a = state.surveyA?.answers || {};
     const b = state.surveyB?.answers || {};
-    const allIds = Array.from(new Set([...Object.keys(a), ...Object.keys(b)])).sort();
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    if (!aKeys.length && !bKeys.length) {
+      console.info('[compat] comparison skipped (no data)');
+      return;
+    }
+    const allIds = Array.from(new Set([...aKeys, ...bKeys])).sort();
     // Wait for labels once before paint
     const map = await labelsPromise;
     const tbody = document.querySelector('#tk-compat-body');
@@ -126,9 +151,8 @@
       window._tkLoaded.B = true;
     }
     const text = await file.text();
-    let json;
-    try { json = JSON.parse(text); }
-    catch { alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`); return; }
+    const json = tkParseSurvey(text, which);
+    if (!json) return;
     try {
       const parsed = parseSurvey(json);
       state[`survey${which}`] = parsed;
@@ -142,6 +166,7 @@
       console.info(`[compat] stored Survey ${which} with`, Object.keys(parsed.answers).length, 'answers');
       updateComparison();
     } catch (e) {
+      console.error('[compat] normalize failed:', e);
       alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`);
       if (which === 'A') window._tkLoaded.A = false;
       if (which === 'B') window._tkLoaded.B = false;
