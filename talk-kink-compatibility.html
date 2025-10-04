@@ -9,8 +9,30 @@
     --bg:#f7f9fc; --fg:#152133; --muted:#5f6b7a; --line:#d5dce6; --accent:#2a7de1;
     --cell-pad:.9rem;
   }
-  html,body{background:var(--bg);color:var(--fg);margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  .wrap{max-width:1320px;margin:32px auto;padding:0 16px}
+/* resolved: full-width black layout */
+:root{
+  --bg:#000;
+  --fg:#fff;
+}
+
+html,body{
+  background:#000;          /* force pure black */
+  color:var(--fg);
+  margin:0;
+  font:16px/1.4 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+.wrap{
+  width:100%;
+  margin:0;
+  padding:32px clamp(16px,4vw,48px);
+  box-sizing:border-box;
+}
+
+/* optional: make print/PDF full-bleed too */
+@page { margin:0; }
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
   h1{font-weight:700;letter-spacing:.4px;margin:0 0 10px}
   .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 22px}
   .btn{
