@@ -1,6 +1,9 @@
 'use strict';
 
 (async function () {
+  // Prevent duplicate processing if old listeners fire twice or navigation restores state
+  window._tkLoaded = window._tkLoaded || { A: false, B: false };
+
   const state = {
     surveyA: null,
     surveyB: null,
@@ -109,6 +112,19 @@
 
   // Robust file input handlers (A and B). Accepts .json from site export, untouched.
   async function handleUpload(file, which) {
+    if (which === 'A') {
+      if (window._tkLoaded.A) {
+        console.info('[compat] A already loaded – ignoring');
+        return;
+      }
+      window._tkLoaded.A = true;
+    } else if (which === 'B') {
+      if (window._tkLoaded.B) {
+        console.info('[compat] B already loaded – ignoring');
+        return;
+      }
+      window._tkLoaded.B = true;
+    }
     const text = await file.text();
     let json;
     try { json = JSON.parse(text); }
@@ -127,6 +143,8 @@
       updateComparison();
     } catch (e) {
       alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`);
+      if (which === 'A') window._tkLoaded.A = false;
+      if (which === 'B') window._tkLoaded.B = false;
     }
   }
 
