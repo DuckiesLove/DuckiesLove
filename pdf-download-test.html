@@ -86,35 +86,46 @@ async function setupPDFExport() {
     ];
 
     // Draw table
-    doc.autoTable({
-      head: [["Category", "Partner A", "Match %", "Partner B"]],
-      body,
-      startY: 60,
-      styles: {
-        fontSize: 11,
-        cellPadding: 6,
-        textColor: [255, 255, 255],
-        fillColor: [0, 0, 0],
-        lineColor: [255, 255, 255],
-        lineWidth: 0.25
-      },
-      headStyles: {
-        fillColor: [0, 0, 0],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        lineColor: [255, 255, 255],   // white header borders
-        lineWidth: 0.5
-      },
-      columnStyles: {
-        0: { cellWidth: 420, halign: "left" },
-        1: { cellWidth: 80, halign: "center" },
-        2: { cellWidth: 90, halign: "center" },
-        3: { cellWidth: 80, halign: "center" }
-      },
-      tableLineColor: [255, 255, 255],
-      tableLineWidth: 0.5,
-      didDrawPage: paintPage
-    });
+    const originalAddPage = doc.addPage;
+    doc.addPage = function patchedAddPage(...args) {
+      const result = originalAddPage.apply(this, args);
+      paintPage();
+      return result;
+    };
+
+    try {
+      doc.autoTable({
+        head: [["Category", "Partner A", "Match %", "Partner B"]],
+        body,
+        startY: 60,
+        styles: {
+          fontSize: 11,
+          cellPadding: 6,
+          textColor: [255, 255, 255],
+          fillColor: [0, 0, 0],
+          lineColor: [255, 255, 255],
+          lineWidth: 0.25
+        },
+        headStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          lineColor: [255, 255, 255],   // white header borders
+          lineWidth: 0.5
+        },
+        columnStyles: {
+          0: { cellWidth: 420, halign: "left" },
+          1: { cellWidth: 80, halign: "center" },
+          2: { cellWidth: 90, halign: "center" },
+          3: { cellWidth: 80, halign: "center" }
+        },
+        tableLineColor: [255, 255, 255],
+        tableLineWidth: 0.5,
+        didDrawPage: paintPage
+      });
+    } finally {
+      doc.addPage = originalAddPage;
+    }
 
     doc.save("compatibility-dark.pdf");
   }

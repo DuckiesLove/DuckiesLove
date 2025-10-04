@@ -172,44 +172,56 @@
     const catWidth = Math.max(minCatWidth, usable - (aWidth + mWidth + bWidth));
 
     const runAT = getAutoTable(doc);
-    runAT({
-      head: [["Category","Partner A","Match %","Partner B"]],
-      body,
-      startY,
-      margin: { left: marginLR, right: marginLR, top: startY, bottom: 36 },
-      styles: {
-        fontSize: opts.theme.fontSize,
-        cellPadding: 6,
-        textColor: opts.theme.text,
-        fillColor: opts.theme.bodyFill,
-        lineColor: opts.theme.line,
-        lineWidth: opts.theme.bodyLineWidth,
-        overflow: "linebreak",
-        halign: "center",
-        valign: "middle",
-      },
-      headStyles: {
-        fontStyle: "bold",
-        fillColor: opts.theme.headFill,
-        textColor: opts.theme.text,
-        lineColor: opts.theme.line,
-        lineWidth: opts.theme.headLineWidth,
-        halign: "center",
-        valign: "middle",
-      },
-      columnStyles: {
-        0: { cellWidth: catWidth, halign: "left" },
-        1: { cellWidth: aWidth,   halign: "center" },
-        2: { cellWidth: mWidth,   halign: "center" },
-        3: { cellWidth: bWidth,   halign: "center" },
-      },
-      tableWidth: usable,
-      // draw black bg BEFORE table on each page
-      willDrawPage: () => {
-        paintBackground(doc, opts.theme.pageBg);
-        doc.setTextColor(...opts.theme.text);
-      }
-    });
+    const originalAddPage = doc.addPage;
+    doc.addPage = function patchedAddPage(...args) {
+      const result = originalAddPage.apply(this, args);
+      paintBackground(doc, opts.theme.pageBg);
+      doc.setTextColor(...opts.theme.text);
+      return result;
+    };
+
+    try {
+      runAT({
+        head: [["Category","Partner A","Match %","Partner B"]],
+        body,
+        startY,
+        margin: { left: marginLR, right: marginLR, top: startY, bottom: 36 },
+        styles: {
+          fontSize: opts.theme.fontSize,
+          cellPadding: 6,
+          textColor: opts.theme.text,
+          fillColor: opts.theme.bodyFill,
+          lineColor: opts.theme.line,
+          lineWidth: opts.theme.bodyLineWidth,
+          overflow: "linebreak",
+          halign: "center",
+          valign: "middle",
+        },
+        headStyles: {
+          fontStyle: "bold",
+          fillColor: opts.theme.headFill,
+          textColor: opts.theme.text,
+          lineColor: opts.theme.line,
+          lineWidth: opts.theme.headLineWidth,
+          halign: "center",
+          valign: "middle",
+        },
+        columnStyles: {
+          0: { cellWidth: catWidth, halign: "left" },
+          1: { cellWidth: aWidth,   halign: "center" },
+          2: { cellWidth: mWidth,   halign: "center" },
+          3: { cellWidth: bWidth,   halign: "center" },
+        },
+        tableWidth: usable,
+        // draw black bg BEFORE table on each page
+        willDrawPage: () => {
+          paintBackground(doc, opts.theme.pageBg);
+          doc.setTextColor(...opts.theme.text);
+        }
+      });
+    } finally {
+      doc.addPage = originalAddPage;
+    }
 
     doc.save(opts.fileName);
   }

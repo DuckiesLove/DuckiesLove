@@ -482,34 +482,45 @@ Otherwise, safe fallbacks included below will run.
       : (window.jspdf && typeof window.jspdf.autoTable === 'function') ? window.jspdf.autoTable(doc, opts)
       : (() => { throw new Error('AutoTable not available'); })();
 
-    runAT({
-      head, body,
-      startY: 74,
-      margin: { left: marginLR, right: marginLR, top: 74, bottom: 32 },
-      styles: {
-        fontSize: 11,
-        cellPadding: 6,
-        textColor: [255,255,255],
-        fillColor: [0,0,0],
-        lineColor: [255,255,255],
-        lineWidth: 1,
-        halign: 'left',
-        valign: 'middle'
-      },
-      headStyles: {
-        fillColor: [0,0,0],
-        textColor: [255,255,255],
-        fontStyle: 'bold',
-        lineColor: [255,255,255],
-        lineWidth: 1.4
-      },
-      columnStyles: {
-        0: { cellWidth: 60,  halign: 'left'  },
-        1: { cellWidth: usable - 140, halign: 'left'  },
-        2: { cellWidth: 80,  halign: 'right' }
-      },
-      willDrawPage: paintBg
-    });
+    const originalAddPage = doc.addPage;
+    doc.addPage = function patchedAddPage(...args) {
+      const result = originalAddPage.apply(this, args);
+      paintBg();
+      return result;
+    };
+
+    try {
+      runAT({
+        head, body,
+        startY: 74,
+        margin: { left: marginLR, right: marginLR, top: 74, bottom: 32 },
+        styles: {
+          fontSize: 11,
+          cellPadding: 6,
+          textColor: [255,255,255],
+          fillColor: [0,0,0],
+          lineColor: [255,255,255],
+          lineWidth: 1,
+          halign: 'left',
+          valign: 'middle'
+        },
+        headStyles: {
+          fillColor: [0,0,0],
+          textColor: [255,255,255],
+          fontStyle: 'bold',
+          lineColor: [255,255,255],
+          lineWidth: 1.4
+        },
+        columnStyles: {
+          0: { cellWidth: 60,  halign: 'left'  },
+          1: { cellWidth: usable - 140, halign: 'left'  },
+          2: { cellWidth: 80,  halign: 'right' }
+        },
+        willDrawPage: paintBg
+      });
+    } finally {
+      doc.addPage = originalAddPage;
+    }
 
     doc.save('individual-kink-analysis.pdf');
   }

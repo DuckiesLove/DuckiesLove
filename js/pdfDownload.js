@@ -237,46 +237,57 @@ export async function downloadCompatibilityPDF({
     body.forEach(r => drawRow(r, false));
   };
 
-  runAutoTable({
-    head: [['Category', 'Partner A', 'Match %', 'Partner B']],
-    body,
-    startY: 70,
-    margin: { left: 30, right: 30, top: 70, bottom: 40 },
-    styles: {
-      fontSize: 12,
-      cellPadding: 6,
-      textColor: [255, 255, 255],
-      fillColor: [0, 0, 0],
-      lineColor: [255, 255, 255],
-      lineWidth: 0.25,
-      overflow: 'linebreak'
-    },
-    headStyles: {
-      fontStyle: 'bold',
-      fillColor: [0, 0, 0],
-      textColor: [255, 255, 255],
-      lineColor: [255, 255, 255],
-      lineWidth: 0.5
-    },
-    bodyStyles: {
-      fillColor: [0, 0, 0],
-      textColor: [255, 255, 255]
-    },
-    alternateRowStyles: {
-      fillColor: [0, 0, 0],
-      textColor: [255, 255, 255]
-    },
-    columnStyles: {
-      0: { cellWidth: 520, halign: 'left'   }, // Category
-      1: { cellWidth:  80, halign: 'center' }, // Partner A
-      2: { cellWidth:  90, halign: 'center' }, // Match %
-      3: { cellWidth:  80, halign: 'center' }  // Partner B
-    },
-    tableLineColor: [255, 255, 255],
-    tableLineWidth: 0.5,
-    didDrawPage: paintPage,
-    tableWidth: 'wrap'
-  });
+  const originalAddPage = doc.addPage;
+  doc.addPage = function patchedAddPage(...args) {
+    const result = originalAddPage.apply(this, args);
+    paintPage();
+    return result;
+  };
+
+  try {
+    runAutoTable({
+      head: [['Category', 'Partner A', 'Match %', 'Partner B']],
+      body,
+      startY: 70,
+      margin: { left: 30, right: 30, top: 70, bottom: 40 },
+      styles: {
+        fontSize: 12,
+        cellPadding: 6,
+        textColor: [255, 255, 255],
+        fillColor: [0, 0, 0],
+        lineColor: [255, 255, 255],
+        lineWidth: 0.25,
+        overflow: 'linebreak'
+      },
+      headStyles: {
+        fontStyle: 'bold',
+        fillColor: [0, 0, 0],
+        textColor: [255, 255, 255],
+        lineColor: [255, 255, 255],
+        lineWidth: 0.5
+      },
+      bodyStyles: {
+        fillColor: [0, 0, 0],
+        textColor: [255, 255, 255]
+      },
+      alternateRowStyles: {
+        fillColor: [0, 0, 0],
+        textColor: [255, 255, 255]
+      },
+      columnStyles: {
+        0: { cellWidth: 520, halign: 'left'   }, // Category
+        1: { cellWidth:  80, halign: 'center' }, // Partner A
+        2: { cellWidth:  90, halign: 'center' }, // Match %
+        3: { cellWidth:  80, halign: 'center' }  // Partner B
+      },
+      tableLineColor: [255, 255, 255],
+      tableLineWidth: 0.5,
+      didDrawPage: paintPage,
+      tableWidth: 'wrap'
+    });
+  } finally {
+    doc.addPage = originalAddPage;
+  }
 
   doc.save(filename);
 }
