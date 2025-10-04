@@ -61,7 +61,12 @@ html,body{
   .pct-bar{height:100%;background:var(--accent);width:0%}
   /* Print: preserve the on-screen colors in the PDF */
   @media print{
+    html,body,.wrap,table,th,td{
+      background:#000 !important;
+      color:#fff !important;
+    }
     body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .wrap{padding:0 !important}
     .bar,.note{display:none}
     thead th{position:static}
   }
