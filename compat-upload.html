@@ -521,6 +521,192 @@ console.log(`TalkKink Test Plan:
 4) After both A and B are valid, Download button enables. If jsPDF + AutoTable are on the page, a PDF is generated.
 `);
 </script>
+<script>
+/***********************************************************************
+ * TALK KINK – stable upload flow + labels + % bars + A→Z sorting
+ * (with “waiting for second survey” message and a TEST button
+ *  to clone the uploaded file to the missing partner – no DevTools needed)
+ *
+ * Paste once near the end of the page, after your normal JS.
+ **********************************************************************/
+
+/* ---------------------------- GLOBAL STATE ---------------------------- */
+window.tkState  = window.tkState  || { A:null, B:null };
+window._tkReady = window._tkReady || { A:false, B:false };
+const bothReady = () => !!(tkState?.A?.cells?.length && tkState?.B?.cells?.length);
+
+/* ---------------------------- CSS FOR BARS ---------------------------- */
+(function(){
+  if (document.getElementById('tk-addon-css')) return;
+  const css = `
+    .tk-bar{position:relative;height:18px;border:1px solid #888;border-radius:4px}
+    .tk-bar>i{position:absolute;inset:0;width:0%;background:#23b37a;border-radius:3px}
+    .tk-bar>span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                 font:600 12px/1 system-ui,sans-serif;color:#fff}
+    .tk-wait{margin:.75rem 0;padding:.75rem;border:1px dashed #888;border-radius:8px}
+    .tk-wait b{margin-right:.5rem}
+  `;
+  const s = document.createElement('style');
+  s.id='tk-addon-css'; s.textContent=css; document.head.appendChild(s);
+})();
+
+/* ------------------------ GUARD HEAVY FUNCTIONS ----------------------- */
+(function wrapHeavy(){
+  const heavy = ['updateComparison','calculateCompatibility','buildRows','bindPdf','exportPDF'];
+  heavy.forEach(n=>{
+    const fn = window[n];
+    if (typeof fn!=='function' || fn._tkWrapped) return;
+    window[n] = function guarded(...a){
+      if (!bothReady()) { console.debug(`[compat] ${n} waiting for both uploads`); return null; }
+      return fn.apply(this,a);
+    };
+    window[n]._tkWrapped = true;
+  });
+  console.info('[compat] kill-switch enabled');
+})();
+
+/* ----------------------------- LABELS MAP ----------------------------- */
+const TK_LABELS = {
+  cb_wwf76: 'Makeup as protocol or control',
+  cb_swujj: 'Accessory or ornament rules',
+  cb_05hqj: 'Wardrobe restrictions or permissions'
+};
+// Optional: site-wide overrides if present
+(async ()=>{ try{
+  const r = await fetch('/data/labels-overrides.json',{cache:'no-store'});
+  if (r.ok){ Object.assign(TK_LABELS, await r.json()); }
+  console.info('[tk-labels] overrides merged:', Object.keys(TK_LABELS).length, 'keys');
+}catch{} })();
+
+const tLabel = v=>{
+  if (!v) return v;
+  if (TK_LABELS[v]) return TK_LABELS[v];
+  const code=(String(v).match(/\bcb_[a-z0-9]{4,}\b/i)||[])[0];
+  return TK_LABELS[code] || v;
+};
+
+/* --------------------- TABLE: labels + % bars + sort ------------------ */
+function tkEnhanceTable(){
+  const table = document.querySelector('#compatTable') || document.querySelector('table');
+  if (!table) return;
+
+  // 1) labels in first column
+  (table.querySelectorAll('tbody tr')||[]).forEach(tr=>{
+    const td = tr.cells?.[0]; if (!td) return;
+    const raw = (td.textContent||'').trim();
+    const pretty = tLabel(raw);
+    if (pretty && pretty!==raw) td.textContent = pretty;
+  });
+
+  // 2) % bars in the “Match %” column
+  const ths = Array.from(table.querySelectorAll('thead th'));
+  const pctIdx = ths.findIndex(th=>/match\s*%/i.test(th.textContent));
+  const idx = pctIdx>=0 ? pctIdx : 2;
+  (table.querySelectorAll('tbody tr')||[]).forEach(tr=>{
+    const cell = tr.cells?.[idx]; if (!cell) return;
+    const raw = (cell.textContent||'').trim();
+    const m = raw.match(/^(\d+)%$/);
+    if (!m){ cell.textContent='—'; return; }
+    const p = Math.max(0, Math.min(100, parseInt(m[1],10)));
+    cell.textContent='';
+    const bar=document.createElement('div'); bar.className='tk-bar';
+    const fill=document.createElement('i'); fill.style.width=p+'%';
+    const cap=document.createElement('span'); cap.textContent=p+'%';
+    bar.append(fill,cap); cell.appendChild(bar);
+  });
+
+  // 3) sort rows A→Z by first column
+  const tb = table.tBodies?.[0]; if (!tb) return;
+  const rows = Array.from(tb.rows);
+  rows.sort((a,b)=>{
+    const A=(a.cells?.[0]?.textContent||'').toLowerCase();
+    const B=(b.cells?.[0]?.textContent||'').toLowerCase();
+    return A.localeCompare(B);
+  });
+  rows.forEach(r=>tb.appendChild(r));
+}
+
+/* ------------------ SHOW “WAITING” + TEST WITHOUT DEVTOOLS ------------- */
+function tkShowWait(){
+  if (document.getElementById('tk-wait')) return;
+  const host = document.querySelector('#controls') || document.querySelector('main') || document.body;
+  const box = document.createElement('div');
+  box.id='tk-wait'; box.className='tk-wait';
+  box.innerHTML = `
+    <b>Waiting for the second survey…</b>
+    <button id="tk-dup" type="button">Use uploaded file for both (TEST)</button>
+    <div style="opacity:.75;margin-top:.25rem">Upload the unmodified JSON exported from the site for the other partner to run the full comparison.</div>
+  `;
+  host.prepend(box);
+  document.getElementById('tk-dup').onclick = ()=>{
+    if (tkState.A?.cells?.length && !tkState.B?.cells?.length){
+      tkState.B = JSON.parse(JSON.stringify(tkState.A)); _tkReady.B = true;
+    }else if (tkState.B?.cells?.length && !tkState.A?.cells?.length){
+      tkState.A = JSON.parse(JSON.stringify(tkState.B)); _tkReady.A = true;
+    }
+    document.getElementById('tk-wait')?.remove();
+    tkMaybeRender();
+  };
+}
+
+function tkMaybeRender(){
+  // If both not ready, show a friendly wait box and stop here
+  if (!bothReady()){ tkShowWait(); return; }
+
+  // Run the app’s heavy draw now that both are present
+  if (typeof window.updateComparison==='function') window.updateComparison();
+
+  // Post-enhance the result
+  tkEnhanceTable();
+}
+
+/* ------------------------ WIRE UPLOAD INPUTS (safe) -------------------- */
+(function wire(){
+  const upA=document.getElementById('uploadA'), upB=document.getElementById('uploadB');
+  const parse=(txt, who)=>{
+    try{
+      const j=JSON.parse(txt);
+      if (!Array.isArray(j?.answers) || !j.answers.length) throw 0;
+      return j;
+    }catch{ alert(`Invalid JSON for Survey ${who}. Please upload the unmodified JSON exported from this site.`); return null; }
+  };
+  if (upA) upA.addEventListener('change', e=>{
+    const f=e.target.files?.[0]; if (!f) return;
+    const r=new FileReader(); r.onload=ev=>{ const j=parse(ev.target.result,'A'); if (!j) return (e.target.value='');
+      tkState.A = { cells: (j.answers||[]).map((a,i)=>({ id:a.id||a.key||`a_${i}`, label:a.label||a.name||a.question||a.id })) };
+      _tkReady.A=true; e.target.value=''; tkMaybeRender();
+    }; r.readAsText(f);
+  }, {passive:true});
+
+  if (upB) upB.addEventListener('change', e=>{
+    const f=e.target.files?.[0]; if (!f) return;
+    const r=new FileReader(); r.onload=ev=>{ const j=parse(ev.target.result,'B'); if (!j) return (e.target.value='');
+      tkState.B = { cells: (j.answers||[]).map((a,i)=>({ id:a.id||a.key||`b_${i}`, label:a.label||a.name||a.question||a.id })) };
+      _tkReady.B=true; e.target.value=''; tkMaybeRender();
+    }; r.readAsText(f);
+  }, {passive:true});
+})();
+
+/* ---------------------------- BOOT ------------------------------------- */
+window.addEventListener('load', ()=>{
+  // Alphabetize the category checklist in the side panel (best-effort)
+  const panel = document.querySelector('[aria-label="Category selection"]')
+             || document.querySelector('#categoryPanel')
+             || document.querySelector('.tk-wide-panel')
+             || document.querySelector('aside[role="region"]');
+  if (panel){
+    const list = panel.querySelector('ul,ol') || panel;
+    const items = Array.from(list.querySelectorAll('li,label,.item,.row'))
+      .map(el=>el.closest('li')||el).filter(Boolean);
+    const unique = Array.from(new Set(items));
+    unique.sort((a,b)=> (a.textContent||'').trim().toLowerCase()
+                      .localeCompare((b.textContent||'').trim().toLowerCase()));
+    unique.forEach(el=>list.appendChild(el));
+  }
+  tkMaybeRender();
+});
+</script>
+
 <!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
 <script>
 /* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
