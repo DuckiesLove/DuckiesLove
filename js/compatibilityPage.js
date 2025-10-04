@@ -55,10 +55,18 @@
 
   function tkParseSurvey(raw, sideLabel) {
     try {
-      const json = JSON.parse(typeof raw === 'string' ? raw : String(raw || ''));
-      const answers =
+      const json =
+        typeof raw === 'object' && raw !== null
+          ? raw
+          : JSON.parse(typeof raw === 'string' ? raw : String(raw || ''));
+      const answersSource =
         (json && (json.answers || json.data || json.rows || json.responses || [])) || [];
-      if (!Array.isArray(answers) || answers.length === 0) {
+      const hasAnswers = Array.isArray(answersSource)
+        ? answersSource.length > 0
+        : answersSource && typeof answersSource === 'object'
+          ? Object.keys(answersSource).length > 0
+          : false;
+      if (!hasAnswers) {
         throw new Error('No answers array found');
       }
       return json;
@@ -198,71 +206,6 @@
     console.info('[compat] filled Partner A cells:', aCells, '; Partner B cells:', bCells);
   }
 
-  function renderPartnerOnly(which) {
-    try {
-      const cells = (which === 'A' ? window.tkState?.A?.cells : window.tkState?.B?.cells) || [];
-      const tbody =
-        document.querySelector('#compatTable tbody') ||
-        document.querySelector('#tk-compat-body');
-
-      if (!tbody) return;
-
-      const frag = document.createDocumentFragment();
-
-      const messageRow = document.createElement('tr');
-      const cell = document.createElement('td');
-      cell.colSpan = 4;
-      cell.style.padding = '12px 16px';
-      cell.style.textAlign = 'left';
-      cell.textContent =
-        which === 'A'
-          ? 'Waiting for Partner B upload… showing A only'
-          : 'Waiting for Partner A upload… showing B only';
-      messageRow.appendChild(cell);
-      frag.appendChild(messageRow);
-
-      const listRow = document.createElement('tr');
-      const listCell = document.createElement('td');
-      listCell.colSpan = 4;
-      const list = document.createElement('ul');
-      list.style.margin = '8px 0 0';
-      list.style.paddingLeft = '18px';
-      cells.slice(0, 50).forEach((c) => {
-        const li = document.createElement('li');
-        li.textContent = c && (c.label || c.id || '—');
-        list.appendChild(li);
-      });
-      listCell.appendChild(list);
-      listRow.appendChild(listCell);
-      frag.appendChild(listRow);
-
-      while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-      tbody.appendChild(frag);
-    } catch (err) {
-      console.warn('[compat] renderPartnerOnly failed', err);
-    }
-  }
-
-  function maybeUpdateComparison() {
-    const btn = document.querySelector('#downloadBtn') || document.querySelector('#downloadPdfBtn');
-
-    if (!bothReady()) {
-      if (btn) btn.disabled = true;
-
-      if (window.tkState?.A?.cells?.length) {
-        tkDefer(() => renderPartnerOnly('A'));
-      } else if (window.tkState?.B?.cells?.length) {
-        tkDefer(() => renderPartnerOnly('B'));
-      } else {
-        console.info('[compat] comparison skipped (no data)');
-      }
-      return;
-    }
-
-    if (btn) btn.disabled = false;
-    tkDefer(() => updateComparison());
-  }
-
   function cacheSurvey(which, parsed) {
     state[`survey${which}`] = parsed;
     const answers = parsed.answers || {};
@@ -275,63 +218,309 @@
     }
     window.tkState = window.tkState || {};
     window.tkState[which] = {
-      cells: Object.entries(answers).map(([id, value]) => ({ id, value })),
+      cells: Object.entries(answers).map(([id, value]) => ({ id, value, label: id })),
     };
   }
 
-  function attachUpload(input, which) {
-    if (!input) return;
-    const onChange = (event) => {
-      const file = event.target.files && event.target.files[0];
-      if (!file) {
-        event.target.value = '';
+  function processSurvey(which, raw) {
+    try {
+      const json = tkParseSurvey(raw, which);
+      if (!json) return null;
+      const parsed = parseSurvey(json);
+      cacheSurvey(which, parsed);
+      console.info(
+        `[compat] stored Survey ${which} with`,
+        Object.keys(parsed.answers).length,
+        'answers'
+      );
+      return parsed;
+    } catch (err) {
+      console.error('[compat] normalize failed:', err);
+      alert(
+        `Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`
+      );
+      return null;
+    }
+  }
+
+  window.updateComparison = updateComparison;
+  window.processSurveyA = (json) => processSurvey('A', json);
+  window.processSurveyB = (json) => processSurvey('B', json);
+  window.tkProcessSurvey = processSurvey;
+})();
+
+/**********************************************************************
+ * TALK KINK – “freeze after first upload” hard-guard (drop-in patch)
+ * Paste this whole block near the end of compatibilityPage.js (or the
+ * main page JS) after your functions are defined. No dev tools needed.
+ **********************************************************************/
+
+/* ------------------------------------------------------------------ */
+/* 0) Shared state (kept super simple)                                */
+/* ------------------------------------------------------------------ */
+window.tkState  = window.tkState  || { A:null, B:null };
+window._tkReady = window._tkReady || { A:false, B:false };
+const bothReady = () =>
+  !!(window.tkState?.A?.cells?.length && window.tkState?.B?.cells?.length);
+
+/* ------------------------------------------------------------------ */
+/* 1) Wrap ALL heavy functions so they do nothing until both ready    */
+/* ------------------------------------------------------------------ */
+(function wrapHeavy() {
+  const heavyFns = [
+    'updateComparison',       // main heavy renderer
+    'calculateCompatibility', // any precompute
+    'computeMatchMatrix',     // matrix calc (if present)
+    'buildRows',              // row building/sorting
+    'preparePercentBars',     // percent / graphics
+    'bindPdf', 'exportPDF'    // PDF wiring / export
+  ];
+
+  heavyFns.forEach((fnName) => {
+    if (typeof window[fnName] !== 'function') return;
+    const original = window[fnName];
+    if (original._tkWrapped) return;
+
+    window[fnName] = function guarded(...args) {
+      if (!bothReady()) {
+        console.debug(`[compat] skipped ${fnName} (waiting for both uploads)`);
+        return null;
+      }
+      return original.apply(this, args);
+    };
+    window[fnName]._tkWrapped = true;
+  });
+
+  // Suppress any “kick heavy render on load” helpers
+  ['onLoadKick', 'initialRender', 'bootStrapB', 'legacyBBootstrap'].forEach((fnName) => {
+    if (typeof window[fnName] === 'function') {
+      const original = window[fnName];
+      window[fnName] = function guardedKick(...args) {
+        if (!bothReady()) {
+          console.debug(`[compat] suppressed ${fnName} (both not ready)`);
+          return null;
+        }
+        return original.apply(this, args);
+      };
+    }
+  });
+
+  console.info('[compat] hard-guard installed');
+})();
+
+/* ------------------------------------------------------------------ */
+/* 2) Ultra-light A-only / B-only renderer to keep UI responsive      */
+/* ------------------------------------------------------------------ */
+function renderPartnerOnly(which) {
+  try {
+    const cells = (which === 'A' ? window.tkState?.A?.cells : window.tkState?.B?.cells) || [];
+    const container =
+      document.querySelector('#compatTable tbody') ||
+      document.querySelector('#compatTable') ||
+      document.getElementById('compatTable') ||
+      document.querySelector('#tk-compat-body') ||
+      document.body;
+
+    const isTbody = container && container.nodeName === 'TBODY';
+    while (container.firstChild) container.removeChild(container.firstChild);
+
+    if (isTbody) {
+      const messageRow = document.createElement('tr');
+      const messageCell = document.createElement('td');
+      messageCell.colSpan = 4;
+      messageCell.style.padding = '12px 16px';
+      messageCell.style.textAlign = 'left';
+      messageCell.textContent = which === 'A'
+        ? 'Waiting for Partner B upload… showing A only'
+        : 'Waiting for Partner A upload… showing B only';
+      messageRow.appendChild(messageCell);
+      container.appendChild(messageRow);
+
+      const listRow = document.createElement('tr');
+      const listCell = document.createElement('td');
+      listCell.colSpan = 4;
+      const list = document.createElement('ul');
+      list.style.cssText = 'margin:8px 0 0;padding-left:1.2rem;max-height:240px;overflow:auto';
+      cells.slice(0, 50).forEach((c) => {
+        const li = document.createElement('li');
+        li.textContent = (c && (c.label || c.name || c.id || '—'));
+        list.appendChild(li);
+      });
+      listCell.appendChild(list);
+      listRow.appendChild(listCell);
+      container.appendChild(listRow);
+    } else {
+      const frag = document.createDocumentFragment();
+      const note = document.createElement('div');
+      note.textContent = which === 'A'
+        ? 'Waiting for Partner B upload… showing A only'
+        : 'Waiting for Partner A upload… showing B only';
+      note.style.cssText = 'margin:12px 0;font-size:14px;opacity:.9';
+      frag.appendChild(note);
+
+      const list = document.createElement('ul');
+      list.style.cssText = 'margin:0;padding-left:1.2rem;max-height:240px;overflow:auto';
+      cells.slice(0, 50).forEach((c) => {
+        const li = document.createElement('li');
+        li.textContent = (c && (c.label || c.name || c.id || '—'));
+        list.appendChild(li);
+      });
+      frag.appendChild(list);
+
+      container.appendChild(frag);
+    }
+  } catch (e) {
+    console.warn('[compat] renderPartnerOnly failed', e);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 3) Single entry that runs heavy update ONLY when both are ready    */
+/* ------------------------------------------------------------------ */
+const tkDefer = (cb) =>
+  (window.requestIdleCallback
+    ? requestIdleCallback(cb, { timeout: 600 })
+    : setTimeout(cb, 0));
+
+function maybeUpdateComparison() {
+  // Disable export until both sides present
+  const pdfBtn =
+    document.querySelector('#downloadPdfBtn') ||
+    document.querySelector('#downloadBtn');
+  if (pdfBtn) pdfBtn.disabled = !bothReady();
+
+  if (!bothReady()) {
+    if (window.tkState?.A?.cells?.length) renderPartnerOnly('A');
+    else if (window.tkState?.B?.cells?.length) renderPartnerOnly('B');
+    return;
+  }
+
+  tkDefer(() => {
+    if (typeof window.updateComparison === 'function') window.updateComparison();
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* 4) Upload wiring (A/B) – lightweight parse + store + guarded run   */
+/*     If you already have processSurveyA/B, we’ll use those.         */
+/*     Otherwise we provide tiny stubs that only fill tkState.*.      */
+/* ------------------------------------------------------------------ */
+
+// Minimal “normalize” if your site doesn’t provide one
+function _tkNormalize(json) {
+  const answers = Array.isArray(json?.answers)
+    ? json.answers
+    : (json && typeof json === 'object' && json.answers && typeof json.answers === 'object'
+        ? Object.entries(json.answers).map(([key, value]) => ({ id: key, label: key, value }))
+        : []);
+  // turn answers into simple "cells" with label/id
+  return answers.map((a, i) => ({
+    id: a?.id ?? a?.key ?? a?.code ?? `ans_${i}`,
+    label: a?.label ?? a?.name ?? a?.question ?? a?.id ?? `Item ${i+1}`
+  }));
+}
+
+// Stub processors if not defined in your app:
+if (typeof window.processSurveyA !== 'function') {
+  window.processSurveyA = function (json) {
+    window.tkState.A = { cells: _tkNormalize(json) };
+  };
+}
+if (typeof window.processSurveyB !== 'function') {
+  window.processSurveyB = function (json) {
+    window.tkState.B = { cells: _tkNormalize(json) };
+  };
+}
+
+(function wireUploads() {
+  const upA = document.getElementById('uploadA');
+  const upB = document.getElementById('uploadB');
+  if (!upA || !upB) { console.warn('[compat] upload inputs not found'); return; }
+
+  upA.setAttribute('accept', 'application/json');
+  upB.setAttribute('accept', 'application/json');
+
+  const parse = (txt, side) => {
+    try {
+      const json = JSON.parse(txt);
+      if (!json || typeof json !== 'object') {
+        throw new Error('missing answers');
+      }
+      return json;
+    } catch {
+      alert(`Invalid JSON for Survey ${side}. Please upload the original file exported from this site.`);
+      return null;
+    }
+  };
+
+  upA.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = (ev) => {
+      const json = parse(ev.target.result, 'A');
+      if (!json) return (e.target.value = '');
+      const processed = window.processSurveyA(json);
+      if (!processed) {
+        window._tkReady.A = false;
+        e.target.value = '';
         return;
       }
-      const reader = new FileReader();
-      reader.addEventListener('error', () => {
-        console.error(`[compat] file read error (${which})`, reader.error);
-        window._tkReady[which] = false;
-        event.target.value = '';
-      }, { once: true });
-      reader.addEventListener('load', (ev) => {
-        const schedule = () => {
-          try {
-            const json = tkParseSurvey(ev.target?.result, which);
-            if (!json) return;
-            const parsed = parseSurvey(json);
-            cacheSurvey(which, parsed);
-            console.info(`[compat] stored Survey ${which} with`, Object.keys(parsed.answers).length, 'answers');
-            window._tkReady[which] = true;
-            maybeUpdateComparison();
-          } catch (err) {
-            console.error('[compat] normalize failed:', err);
-            alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`);
-            window._tkReady[which] = false;
-          } finally {
-            event.target.value = '';
-          }
-        };
-        tkDefer(schedule);
-      }, { once: true });
-      reader.readAsText(file);
+      const aCount = processed?.answers
+        ? Object.keys(processed.answers).length
+        : Array.isArray(json.answers)
+          ? json.answers.length
+          : json.answers && typeof json.answers === 'object'
+            ? Object.keys(json.answers).length
+            : 0;
+      console.info('[compat] stored Survey A with', aCount, 'answers');
+      console.info('[compat] filled Partner A cells:',
+        window.tkState?.A?.cells?.length || 0, '; Partner B cells:',
+        window.tkState?.B?.cells?.length || 0);
+      window._tkReady.A = true;
+      e.target.value = ''; // allow same-file reupload
+      maybeUpdateComparison();
     };
-    input.addEventListener('change', onChange, { passive: true });
-  }
+    r.readAsText(f);
+  }, { passive:true });
 
-  const inputA = document.querySelector('#uploadA')
-    || document.querySelector('#uploadSurveyA')
-    || document.querySelector('[data-upload-a]')
-    || document.querySelector('#uploadYourSurvey input[type="file"]');
-  const inputB = document.querySelector('#uploadB')
-    || document.querySelector('#uploadSurveyB')
-    || document.querySelector('[data-upload-b]')
-    || document.querySelector('#uploadPartnerSurvey input[type="file"]');
-
-  if (inputA) inputA.setAttribute('accept', 'application/json');
-  if (inputB) inputB.setAttribute('accept', 'application/json');
-
-  attachUpload(inputA, 'A');
-  attachUpload(inputB, 'B');
-
-  maybeUpdateComparison();
+  upB.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = (ev) => {
+      const json = parse(ev.target.result, 'B');
+      if (!json) return (e.target.value = '');
+      const processed = window.processSurveyB(json);
+      if (!processed) {
+        window._tkReady.B = false;
+        e.target.value = '';
+        return;
+      }
+      const bCount = processed?.answers
+        ? Object.keys(processed.answers).length
+        : Array.isArray(json.answers)
+          ? json.answers.length
+          : json.answers && typeof json.answers === 'object'
+            ? Object.keys(json.answers).length
+            : 0;
+      console.info('[compat] stored Survey B with', bCount, 'answers');
+      console.info('[compat] filled Partner A cells:',
+        window.tkState?.A?.cells?.length || 0, '; Partner B cells:',
+        window.tkState?.B?.cells?.length || 0);
+      window._tkReady.B = true;
+      e.target.value = '';
+      maybeUpdateComparison();
+    };
+    r.readAsText(f);
+  }, { passive:true });
 })();
+
+/* ------------------------------------------------------------------ */
+/* 5) On page load, ensure heavy work can’t run until both are ready  */
+/* ------------------------------------------------------------------ */
+window.addEventListener('load', () => {
+  console.info('[compat] page loaded – heavy work requires both uploads');
+  // If anything queued a render, route it through the guard:
+  maybeUpdateComparison();
+});
