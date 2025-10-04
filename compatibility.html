@@ -276,7 +276,7 @@
         Upload Partner’s Survey
       </label>
 
-      <button class="themed-button wide-button" id="downloadBtn">Download PDF</button>
+      <button class="themed-button wide-button" id="downloadPdf" disabled>Download PDF</button>
       <p id="exportTip" class="export-tip">Upload both surveys before exporting.</p>
     </div>
 
@@ -2338,41 +2338,81 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 })();
 </script>
 <!-- ===== /END TALK KINK patch ===== -->
-<!-- ====== Paste EVERYTHING below just before </body> on compatibility.html ====== -->
-<!-- 1) PDF libs -->
+<!-- ===== Paste EVERYTHING below near the end of compatibility.html (just before </body>) ===== -->
+
+<!-- 1) PDF libraries (keep both) -->
 <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 
-<!-- 2) Auto-download PDF once BOTH surveys are loaded -->
+<!-- 2) Optional style so the button looks disabled until both files are uploaded -->
+<style>
+  #downloadPdf[disabled] {
+    opacity: .45;
+    cursor: not-allowed;
+    filter: grayscale(30%);
+  }
+</style>
+
+<!-- 3) EXACT BEHAVIOR YOU ASKED FOR:
+      • NO auto-downloads at all
+      • Enable “Download PDF” only when BOTH surveys are present
+      • Only download when the user clicks the button
+      • Also blocks any leftover “auto-download” code that might still be on the page -->
 <script>
-/* ============================================================================
-   TK – Auto PDF after both surveys are present (no button needed)
-   - Waits until Partner A AND Partner B data are on the table
-   - Debounces to let the DOM render
-   - Downloads once per pair of uploads; re-arms if a file input changes
-   - Works with your existing table (Category | Partner A | Match % | Partner B)
-============================================================================ */
-(function () {
-  // Likely table/container selectors on your page (add/adjust as needed)
-  const TABLE_CANDIDATES = ['#compat-table table', '#compatTable', '.compat-table table', 'table'];
+(() => {
+  /* -----------------------------------------------------------
+   * CONFIG — adjust selectors if yours differ
+   * --------------------------------------------------------- */
+  const FILE_INPUT_SELECTORS = [
+    '#surveyA', '#surveyB',           // common ids in your app
+    '#surveyAInput', '#surveyBInput',
+    '#fileA', '#fileB'
+  ];
+  const TABLE_CANDIDATES = [
+    '#compat-table table', '#compatTable', '.compat-table table', 'table'
+  ];
   const CONTAINER_CANDIDATES = ['#compat-table', '.compat-table', 'main', 'body'];
+  const DOWNLOAD_BTN_ID = 'downloadPdf'; // give your button this id
 
-  // One-shot guard for current pair of uploads
-  let autoFired = false;
-  let armTimer = null;
+  /* -----------------------------------------------------------
+   * 0) HARD STOP any old “auto-download” scripts
+   *    (monkey-patch jsPDF.save so it only runs after a user click)
+   * --------------------------------------------------------- */
+  window.__TK_PDF_CLICK_REQUIRED = true;       // require explicit click
+  window.__TK_PDF_CLICK_OK = false;            // becomes true during the click only
 
-  // Re-arm when user re-uploads a file (add your actual file input IDs if different)
-  ['#surveyA', '#surveyB', '#surveyAInput', '#surveyBInput', '#fileA', '#fileB'].forEach(sel => {
-    const el = document.querySelector(sel);
-    if (el) el.addEventListener('change', () => { autoFired = false; });
-  });
-
-  // Helper: access jsPDF ctor
   function getJsPDF() {
     return (window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null;
   }
+  function installSaveGuard() {
+    try {
+      const Ctor = getJsPDF();
+      if (!Ctor || Ctor.prototype.__tkSaveWrapped) return;
+      const origSave = Ctor.prototype.save;
+      Ctor.prototype.save = function guardedSave() {
+        if (window.__TK_PDF_CLICK_REQUIRED && !window.__TK_PDF_CLICK_OK) {
+          console.warn('[TK-PDF] Blocked non-click PDF save (auto-download suppressed).');
+          return;
+        }
+        return origSave.apply(this, arguments);
+      };
+      Ctor.prototype.__tkSaveWrapped = true;
+      console.info('[TK-PDF] Save() guard installed');
+    } catch (_) {}
+  }
+  // Try to install guard as libs load
+  document.addEventListener('DOMContentLoaded', () => {
+    installSaveGuard();
+    const guardProbe = setInterval(() => {
+      installSaveGuard();
+      if (getJsPDF() && getJsPDF().prototype.__tkSaveWrapped) clearInterval(guardProbe);
+    }, 200);
+    setTimeout(() => clearInterval(guardProbe), 8000);
+  });
 
-  // Find the rendered compatibility table
+  /* -----------------------------------------------------------
+   * 1) Helpers
+   * --------------------------------------------------------- */
   function findTable() {
     for (const sel of TABLE_CANDIDATES) {
       const t = document.querySelector(sel);
@@ -2380,26 +2420,21 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
     }
     return null;
   }
-
-  // Return true when BOTH partners have any non-empty values in their columns
   function bothPartnersReady() {
-    // Preferred: if your app exposes live counts, use them
+    // Preferred: use live counts if your app exposes them (from your logs: aCells/bCells)
     if (window.tkCompat &&
         typeof tkCompat.aCells === 'number' &&
         typeof tkCompat.bCells === 'number') {
       return tkCompat.aCells > 0 && tkCompat.bCells > 0;
     }
-
-    // Fallback: inspect current table
+    // Fallback: inspect table columns for any non-empty Partner A and B cells
     const table = findTable();
     if (!table) return false;
-
     const thead = table.querySelector('thead');
     const headers = thead ? Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase()) : [];
     const aIdx = headers.findIndex(h => h.includes('partner a'));
     const bIdx = headers.findIndex(h => h.includes('partner b'));
     if (aIdx === -1 || bIdx === -1) return false;
-
     const rows = table.querySelectorAll('tbody tr');
     let haveA = false, haveB = false;
     for (const tr of rows) {
@@ -2410,27 +2445,31 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
     }
     return false;
   }
+  function setDownloadEnabled(enabled) {
+    const btn = document.getElementById(DOWNLOAD_BTN_ID);
+    if (!btn) return;
+    btn.disabled = !enabled;
+    btn.setAttribute('aria-disabled', String(!enabled));
+    btn.title = enabled ? 'Download comparison PDF' : 'Upload both surveys to enable';
+  }
 
-  // Create and save the PDF for what's currently on screen
+  /* -----------------------------------------------------------
+   * 2) Exporter (runs ONLY when click flag is set)
+   * --------------------------------------------------------- */
   function exportPDF() {
-    const jsPDFCtor = getJsPDF();
-    if (!jsPDFCtor) { console.warn('[TK-PDF] jsPDF not ready'); return; }
-
+    const Ctor = getJsPDF();
+    if (!Ctor) { alert('PDF library not loaded yet. Try again in a moment.'); return; }
     const table = findTable();
-    if (!table) { console.warn('[TK-PDF] No table found'); return; }
+    if (!table) { alert('There is nothing to export yet.'); return; }
 
-    const doc = new jsPDFCtor({ orientation: 'l', unit: 'pt', format: 'letter' });
+    const doc = new Ctor({ orientation: 'l', unit: 'pt', format: 'letter' });
 
-    // Title + timestamp
     const now = new Date();
     const ts = now.toISOString().replace(/[:T]/g, '-').slice(0, 19);
-    doc.setFontSize(14);
-    doc.text('Talk Kink – Compatibility', 40, 40);
-    doc.setFontSize(10);
-    doc.text(now.toLocaleString(), 770, 40, { align: 'right' });
+    doc.setFontSize(14); doc.text('Talk Kink – Compatibility', 40, 40);
+    doc.setFontSize(10); doc.text(now.toLocaleString(), 770, 40, { align: 'right' });
 
-    // Table via AutoTable
-    if (!doc.autoTable && !window.autoTable) { console.warn('[TK-PDF] AutoTable missing'); return; }
+    if (!doc.autoTable && !window.autoTable) { alert('AutoTable plugin missing.'); return; }
     const autoTable = doc.autoTable ? doc.autoTable.bind(doc) : (cfg => window.autoTable(doc, cfg));
     autoTable({
       html: table,
@@ -2442,44 +2481,65 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 
     const filename = `compatibility-${ts}.pdf`;
     doc.save(filename);
-    console.log('[TK-PDF] Auto export complete:', filename);
+    console.log('[TK-PDF] Manual export complete:', filename);
   }
 
-  // Debounced check -> export
-  function scheduleAutoExport() {
-    if (autoFired) return;
-    if (!bothPartnersReady()) return;
-    if (armTimer) clearTimeout(armTimer);
-    armTimer = setTimeout(() => {
-      if (bothPartnersReady() && !autoFired) {
-        autoFired = true;
-        exportPDF();
-      }
-    }, 400); // allow DOM to settle after fills
+  /* -----------------------------------------------------------
+   * 3) Wire the button: only enabled when BOTH surveys are loaded.
+   *    NO auto-download. Requires explicit user click.
+   * --------------------------------------------------------- */
+  function bindButton() {
+    const btn = document.getElementById(DOWNLOAD_BTN_ID);
+    if (!btn) return;
+
+    if (!btn.dataset.bound) {
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!bothPartnersReady()) {
+          alert('Please upload BOTH surveys first.');
+          return;
+        }
+        // Allow save() during this user gesture only
+        window.__TK_PDF_CLICK_OK = true;
+        try { exportPDF(); }
+        finally { window.__TK_PDF_CLICK_OK = false; }
+      });
+    }
   }
 
-  // Observe DOM changes and try exporting when ready
-  function mountObserver() {
-    const container =
-      CONTAINER_CANDIDATES.map(sel => document.querySelector(sel)).find(Boolean) || document.body;
-    const mo = new MutationObserver(() => scheduleAutoExport());
+  /* -----------------------------------------------------------
+   * 4) Keep the button’s enabled/disabled state in sync
+   * --------------------------------------------------------- */
+  function watchReadiness() {
+    // Update once now
+    setDownloadEnabled(bothPartnersReady());
+
+    // Re-check on file input changes
+    FILE_INPUT_SELECTORS.forEach(sel => {
+      const el = document.querySelector(sel);
+      if (el) el.addEventListener('change', () => setDownloadEnabled(bothPartnersReady()));
+    });
+
+    // Also watch DOM mutations where the comparison table renders
+    const container = CONTAINER_CANDIDATES.map(s => document.querySelector(s)).find(Boolean) || document.body;
+    const mo = new MutationObserver(() => setDownloadEnabled(bothPartnersReady()));
     mo.observe(container, { childList: true, subtree: true });
+
+    // Light polling for 6s in case counts update without DOM changes
+    const probe = setInterval(() => setDownloadEnabled(bothPartnersReady()), 300);
+    setTimeout(() => clearInterval(probe), 6000);
   }
 
-  // Init
+  /* -----------------------------------------------------------
+   * 5) Init
+   * --------------------------------------------------------- */
   document.addEventListener('DOMContentLoaded', () => {
-    mountObserver();
-
-    // Also probe briefly in case counts render without DOM mutations
-    const probe = setInterval(scheduleAutoExport, 300);
-    setTimeout(() => clearInterval(probe), 8000);
+    bindButton();
+    watchReadiness();
   });
-
-  // Optional: if your app dispatches custom events after loading each survey,
-  // you can nudge the scheduler like:
-  // window.addEventListener('compat:updated', scheduleAutoExport);
 })();
 </script>
-<!-- ====== End paste ====== -->
+<!-- ===== End paste ===== -->
 </body>
 </html>
