@@ -436,5 +436,212 @@ document.addEventListener('DOMContentLoaded', () => {
   }, { passive: false });
 });
 </script>
+<!--
+===============================================================================
+CODE START
+===============================================================================
+-->
+<style>
+  :root { --bg:#000; --fg:#fff; }
+  html,body{
+    background:#000; /* full black */
+    color:var(--fg);
+    margin:0;        /* remove white page gutters */
+    font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif
+  }
+  /* Make content span the full width while keeping some breathing room */
+  .wrap{
+    width:100%;
+    margin:0;
+    padding:32px clamp(16px,4vw,48px);
+    box-sizing:border-box;
+  }
+  /* Dark table aesthetics to match your earlier look */
+  table{background:#000;color:#fff;border-collapse:collapse;width:100%}
+  th,td{border:1px solid #3a3a3a;padding:.8rem .9rem}
+  thead th{background:#0e0e0e;font-weight:700}
+</style>
+
+<script type="module">
+/* =============================================================================
+ * 0) Small utilities
+ * ========================================================================= */
+const codeRe = /^cb_[a-z0-9]+$/i;
+const debounce = (fn, ms=60) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+
+/* =============================================================================
+ * 1) On load: replace old print handler; wire our PDF export
+ * ========================================================================= */
+document.addEventListener('DOMContentLoaded', async () => {
+  // Replace any existing print() handler on your Download button.
+  const btn = document.querySelector('#dl') || document.querySelector('[data-action="download"]');
+  if (btn) {
+    const clone = btn.cloneNode(true);
+    clone.removeAttribute('onclick');          // kill inline print
+    btn.replaceWith(clone);
+    clone.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try { await makeFullBleedPDF(); } catch (err) {
+        console.error('[PDF] export failed:', err);
+        alert('PDF export failed. See console for details.');
+      }
+    }, { passive:false });
+  }
+
+  // Build label map and rewrite the category column now + on any updates.
+  const labels = await buildLabelMapSafely();
+  rewriteAllCategoryCells(labels);
+
+  // When Survey A/B uploads finish, the table DOM changes—watch & rewrite.
+  const target = document.querySelector('.wrap') || document.body;
+  const ro = new MutationObserver(debounce(() => rewriteAllCategoryCells(labels), 50));
+  ro.observe(target, { childList:true, subtree:true, characterData:true });
+});
+
+/* =============================================================================
+ * 2) Label map sources (root-absolute for nested pages)
+ *    - /data/kinks.json (recommended single source of truth)
+ *    - /data/labels-overrides.json (optional, for patching gaps/custom text)
+ *    - window.tkLabels (auto-merge if tk-labels.js provided it)
+ * ========================================================================= */
+async function buildLabelMapSafely() {
+  const map = Object.create(null);
+  const add = (code, val) => {
+    const title = typeof val === 'string' ? val : (val?.title || val?.label || val?.name || val?.display || val?.text);
+    if (code && title) map[String(code).toLowerCase()] = title;
+  };
+
+  const fetchJson = async (url) => {
+    try { const r = await fetch(url, { credentials:'same-origin' }); if (r.ok) return r.json(); }
+    catch(_){} return null;
+  };
+
+  // Pull from the site root so it works from /compatibility.html or nested pages.
+  const kinks = await fetchJson('/data/kinks.json');
+  if (kinks) {
+    if (Array.isArray(kinks.items)) kinks.items.forEach(i => add(i.code||i.id, i));
+    else if (typeof kinks === 'object') {
+      for (const [k,v] of Object.entries(kinks)) add(k, v);
+    }
+  }
+
+  const overrides = await fetchJson('/data/labels-overrides.json'); // optional
+  if (overrides && typeof overrides === 'object') {
+    for (const [k,v] of Object.entries(overrides)) add(k, v);
+  }
+
+  // Merge in window.tkLabels if tk-labels.js provided it.
+  const tk = window.tkLabels;
+  if (tk && typeof tk === 'object') {
+    const src = tk.labels && typeof tk.labels === 'object' ? tk.labels : tk;
+    for (const [k,v] of Object.entries(src)) add(k, v);
+  }
+
+  return map;
+}
+
+/* =============================================================================
+ * 3) Rewrite the first cell of each row if it looks like a cb_* code
+ * ========================================================================= */
+function rewriteAllCategoryCells(labelMap) {
+  if (!labelMap || !Object.keys(labelMap).length) return;
+
+  const tables = document.querySelectorAll('table');
+  tables.forEach(table => {
+    // Prefer TBODY rows; else skip header row
+    const rows = table.tBodies.length
+      ? Array.from(table.tBodies).flatMap(tb => Array.from(tb.rows))
+      : Array.from(table.rows).slice(1);
+
+    rows.forEach(tr => {
+      const firstCell = tr.querySelector('th, td');
+      if (!firstCell) return;
+      const raw = (firstCell.textContent || '').trim();
+      if (codeRe.test(raw)) {
+        const pretty = labelMap[raw.toLowerCase()];
+        if (pretty) firstCell.textContent = pretty;
+      }
+    });
+  });
+}
+
+/* =============================================================================
+ * 4) Full-bleed PDF export (auto-download; no white margins)
+ *    Local-first loader with CDN fallback for jspdf + html2canvas
+ * ========================================================================= */
+async function makeFullBleedPDF() {
+  await ensureLib(['/js/vendor/jspdf.umd.min.js','https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'], 'jspdf');
+  await ensureLib(['/js/vendor/html2canvas.min.js','https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'], 'html2canvas');
+
+  const { jsPDF } = window.jspdf;
+  const node = document.querySelector('.wrap') || document.body;
+
+  // Guarantee deep black during capture; restore after.
+  const prevHtmlBg = document.documentElement.style.backgroundColor;
+  const prevBodyBg = document.body.style.backgroundColor;
+  document.documentElement.style.backgroundColor = '#000';
+  document.body.style.backgroundColor = '#000';
+
+  if (document.fonts?.ready) { try { await document.fonts.ready; } catch {} }
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const scale = 2 * dpr;
+  const canvas = await window.html2canvas(node, {
+    backgroundColor: '#000',
+    scale,
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    windowWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    windowHeight: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight),
+  });
+
+  const img = canvas.toDataURL('image/png', 1.0);
+  const pxToPt = 72 / 96;
+  const w = canvas.width * pxToPt;
+  const h = canvas.height * pxToPt;
+
+  const pdf = new jsPDF({
+    orientation: (w >= h) ? 'landscape' : 'portrait',
+    unit: 'pt',
+    format: [w, h],
+    compress: true,
+    putOnlyUsedFonts: true,
+  });
+
+  // Paint the page black and draw the image edge-to-edge
+  pdf.setFillColor(0,0,0);
+  pdf.rect(0,0,w,h,'F');
+  pdf.addImage(img, 'PNG', 0, 0, w, h, undefined, 'FAST');
+  pdf.save('compatibility.pdf');
+
+  document.documentElement.style.backgroundColor = prevHtmlBg || '';
+  document.body.style.backgroundColor = prevBodyBg || '';
+}
+
+/* =============================================================================
+ * 5) Script loader: try local file, then CDN
+ * ========================================================================= */
+function ensureLib(srcList, globalKey) {
+  return new Promise((resolve, reject) => {
+    if (window[globalKey]) return resolve();
+    const tryNext = i => {
+      if (i >= srcList.length) return reject(new Error(`Failed to load ${globalKey}`));
+      const s = document.createElement('script');
+      s.src = srcList[i];
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => { s.remove(); tryNext(i+1); };
+      document.head.appendChild(s);
+    };
+    tryNext(0);
+  });
+}
+</script>
+<!--
+===============================================================================
+CODE END
+===============================================================================
+-->
 </body>
 </html>
