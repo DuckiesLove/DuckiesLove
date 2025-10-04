@@ -366,6 +366,13 @@ function updateComparison() {
   // ---- main export function
   async function exportCompatibilityPDF() {
     try {
+      const aReady = partnerAData?.items?.some(i => typeof i.score === "number");
+      const bReady = partnerBData?.items?.some(i => typeof i.score === "number");
+      if (!aReady || !bReady) {
+        alert("Upload both surveys with scored items before downloading the compatibility PDF.");
+        return;
+      }
+
       if (!(window.jspdf && window.jspdf.jsPDF)) {
         alert("Missing jsPDF. Add the CDN script before this exporter.");
         return;
