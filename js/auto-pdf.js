@@ -4,6 +4,19 @@ import { calculateCompatibility } from './compatibility.js';
 let surveyA = null;
 let surveyB = null;
 let pdfGenerating = false;
+let latestCompatData = null;
+
+const downloadButton = document.getElementById('downloadPdfBtn');
+
+function refreshDownloadAvailability(options = {}) {
+  if (!downloadButton) return;
+  const forceDisable = options.forceDisable === true;
+  const ready = !forceDisable && !!(surveyA && surveyB && latestCompatData);
+  downloadButton.disabled = !ready;
+  downloadButton.setAttribute('aria-disabled', String(!ready));
+}
+
+refreshDownloadAvailability();
 
 function loadHistory() {
   try {
@@ -351,12 +364,34 @@ if (fileBInput) {
   fileBInput.addEventListener('change', e => loadFileB(e.target.files[0]));
 }
 
+if (downloadButton) {
+  downloadButton.addEventListener('click', async () => {
+    if (!surveyA || !surveyB || !latestCompatData) {
+      alert('Please upload both surveys before downloading the PDF.');
+      return;
+    }
+
+    refreshDownloadAvailability({ forceDisable: true });
+    try {
+      await generatePDF(latestCompatData);
+    } catch (err) {
+      console.error('Failed to generate PDF:', err);
+      alert('PDF export failed. Please try again.');
+    } finally {
+      refreshDownloadAvailability();
+    }
+  });
+}
+
 function updateComparison() {
   const container = document.getElementById('pdf-container');
   const msg = document.getElementById('comparisonResult');
   if (!surveyA || !surveyB) {
     if (msg) msg.textContent = surveyA || surveyB ? 'Please upload both surveys to compare.' : '';
     if (container) container.innerHTML = '';
+    latestCompatData = null;
+    window.compatibilityData = null;
+    refreshDownloadAvailability();
     return;
   }
   if (msg) msg.textContent = '';
@@ -415,7 +450,8 @@ function updateComparison() {
   const compat = calculateCompatibility(surveyA, surveyB);
   const history = addHistoryEntry(compat.compatibilityScore);
   const compatData = { categories: pdfCategories, history };
+  latestCompatData = compatData;
   window.compatibilityData = compatData;
-  generatePDF(compatData);
+  refreshDownloadAvailability();
 }
 
