@@ -104,6 +104,7 @@
       doc.save('compatibility.pdf');
       return;
     }
+    window.makeFullBleedPDF = makeFullBleedPDF;
     const doc = new jsPDF({orientation:'landscape', unit:'pt', format:'a4', compress:true});
     const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
     doc.setFillColor(0,0,0); doc.rect(0,0,w,h,'F'); doc.setTextColor(255);
