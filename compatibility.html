@@ -2541,5 +2541,171 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 })();
 </script>
 <!-- ===== End paste ===== -->
+<!-- ========== TK ONE-PASTE PATCH (for compatibility.html) ==========
+     • Full-bleed black (no white margins) on screen & PDF
+     • Replaces cb_* codes with human-readable Category names
+     • Auto-loads names from /data/labels-overrides.json or kinks.json
+     • Falls back to deriving names from the uploaded survey JSON(s)
+     Paste this just before </body>.
+==================================================================== -->
+
+<style>
+  /* Full-bleed black screen/print */
+  @page { size: A4; margin: 0; }
+  html, body {
+    margin:0!important; padding:0!important;
+    background:#000!important; color:#fff!important;
+  }
+  * { -webkit-print-color-adjust: exact!important; print-color-adjust: exact!important; }
+
+  /* Let the report/table consume the whole page area */
+  body, main, .compat, .compat-container, .report, .report-wrap, #app {
+    background:#000!important; width:100vw; min-height:100vh;
+  }
+
+  /* Table visuals */
+  table { width:100%; border-collapse:collapse!important; background:#000!important; }
+  th, td {
+    background:#000!important; color:#fff!important;
+    border:1.4px solid #fff!important;
+    padding:.65rem .8rem!important; line-height:1.3;
+  }
+
+  /* Optional: hide titles/banners so table fills PDF */
+  .tk-pdf-header, .pdf-header, .compat-title,
+  header[role="banner"], .page-title, .timestamp {
+    display:none!important;
+  }
+</style>
+
+<!-- Inline overrides: add any guaranteed id->label mappings here (optional) -->
+<script id="tk-labels-embed" type="application/json">
+{
+  /* EXAMPLES — add as many as you want:
+  "cb_e4bdv": "Dress partner’s outfit (directive/decision)",
+  "cb_hhxwj": "Pick lingerie / base layers",
+  "cb_a19jy": "Uniforms (school, military, nurse, etc.)",
+  "cb_5gzwk": "Time-period dress-up",
+  "cb_jmxxq": "Dollification / polished object aesthetics"
+  */
+}
+</script>
+
+<script>
+(() => {
+  const CODE_RX = /^cb_[a-z0-9]+$/i;
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const onReady = (fn) => (document.readyState!=='loading') ? fn() : document.addEventListener('DOMContentLoaded', fn, {once:true});
+
+  async function fetchJSON(url){
+    try { const r = await fetch(url, {cache:'no-store'}); return r.ok ? r.json() : null; }
+    catch { return null; }
+  }
+
+  function collectPairsFromObjectish(obj, idKeys=['id','key','code'], textKeys=['text','label','name','title']){
+    const out = {};
+    const list = Array.isArray(obj) ? obj : (obj?.items || obj?.questions || obj?.kinks || obj?.data || obj?.categories || []);
+    for (const it of list){
+      if (!it || typeof it!=='object') continue;
+      const id   = idKeys.map(k => (it[k]||'').toString().trim()).find(v => CODE_RX.test(v)) || '';
+      const text = textKeys.map(k => (it[k]||'').toString().trim()).find(v => v) || '';
+      if (CODE_RX.test(id) && text) out[id] = text;
+    }
+    return out;
+  }
+
+  async function deriveFromFileInput(inp){
+    const f = inp?.files?.[0]; if(!f) return {};
+    try{ const j = JSON.parse(await f.text()); return collectPairsFromObjectish(j); }
+    catch { return {}; }
+  }
+
+  async function getLabelMap(){
+    const map = {};
+
+    // (a) Embedded inline overrides
+    try {
+      const emb = document.getElementById('tk-labels-embed');
+      if (emb) Object.assign(map, JSON.parse(emb.textContent || '{}'));
+    } catch {}
+
+    // (b) Global objects if site exposes them
+    if (window.tkLabels)          Object.assign(map, window.tkLabels);
+    if (window.tkLabelsOverrides) Object.assign(map, window.tkLabelsOverrides);
+
+    // (c) External sources (first one that yields content wins)
+    const externalCandidates = [
+      '/data/labels-overrides.json',      // your manual master table
+      '/kinksurvey/data/kinks.json',      // canonical mapping (if deployed)
+      '/data/kinks.json',                 // copy of canonical mapping
+      '/template-survey.json'             // sometimes contains items/questions with text
+    ];
+    for (const url of externalCandidates){
+      const j = await fetchJSON(url);
+      if (j && typeof j === 'object'){
+        const pairs = collectPairsFromObjectish(j);
+        if (Object.keys(pairs).length){ Object.assign(map, pairs); break; }
+      }
+    }
+
+    // (d) Last resort: derive from uploaded survey files already on the page
+    const inputs = $$('input[type="file"]');
+    for (const inp of inputs){
+      const pairs = await deriveFromFileInput(inp);
+      Object.assign(map, pairs);
+    }
+
+    return map;
+  }
+
+  function relabelCells(labelMap){
+    if (!labelMap || !Object.keys(labelMap).length) return;
+    const cells = $$('.compat table th, .compat table td, table th, table td');
+    for (const cell of cells){
+      const raw = (cell.textContent || '').trim();
+      if (!CODE_RX.test(raw)) continue;
+      let key = null;
+      if (raw in labelMap) key = raw;
+      else if (raw.toLowerCase() in labelMap) key = raw.toLowerCase();
+      else if (raw.toUpperCase() in labelMap) key = raw.toUpperCase();
+      if (key) cell.textContent = labelMap[key];
+    }
+  }
+
+  function watchAndRelabel(labelMap){
+    relabelCells(labelMap);
+    const mo = new MutationObserver(() => relabelCells(labelMap));
+    mo.observe(document.body, {subtree:true, childList:true, characterData:true});
+  }
+
+  // Ensure html2canvas uses a black background when screenshotting for PDF
+  function patchHtml2Canvas(){
+    if (!window.html2canvas) return;
+    const orig = window.html2canvas;
+    window.html2canvas = (node, opts={}) => {
+      return orig(node, Object.assign({ background:'#000', scale:Math.min(2, window.devicePixelRatio||1), useCORS:true }, opts));
+    };
+  }
+
+  // When a new file is uploaded, attempt to enrich the labels again
+  function wireFileInputs(labelMap){
+    $$('input[type="file"]').forEach(inp => {
+      inp.addEventListener('change', async () => {
+        const newer = await getLabelMap();
+        Object.assign(labelMap, newer);
+        relabelCells(labelMap);
+      });
+    });
+  }
+
+  onReady(async () => {
+    patchHtml2Canvas();
+    const labels = await getLabelMap();
+    watchAndRelabel(labels);
+    wireFileInputs(labels);
+  });
+})();
+</script>
+<!-- ======================== /TK ONE-PASTE PATCH ======================== -->
 </body>
 </html>
