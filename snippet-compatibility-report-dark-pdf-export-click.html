@@ -191,16 +191,24 @@ This snippet:
         throw new Error('AutoTable not available at runtime');
       };
 
-      useAutoTable({
-        head: [['Category', 'Partner A', 'Match %', 'Partner B']],
-        body,
-        startY: 70,
-        margin: { left: marginLR, right: marginLR, top: 70, bottom: 40 },
-        styles: {
-          fontSize: 11,
-          cellPadding: 6,
-          textColor: [255, 255, 255],   // white text
-          fillColor: [0, 0, 0],         // black cells
+        const originalAddPage = doc.addPage;
+        doc.addPage = function patchedAddPage(...args) {
+          const result = originalAddPage.apply(this, args);
+          paintBg();
+          return result;
+        };
+
+        try {
+          useAutoTable({
+            head: [['Category', 'Partner A', 'Match %', 'Partner B']],
+            body,
+            startY: 70,
+            margin: { left: marginLR, right: marginLR, top: 70, bottom: 40 },
+            styles: {
+              fontSize: 11,
+              cellPadding: 6,
+              textColor: [255, 255, 255],   // white text
+              fillColor: [0, 0, 0],         // black cells
           lineColor: [255, 255, 255],   // thick white grid
           lineWidth: 1,
           overflow: 'linebreak',
@@ -220,12 +228,15 @@ This snippet:
           0: { cellWidth: CatWidth, halign: 'left'   }, // Category
           1: { cellWidth: Awidth,   halign: 'center' }, // Partner A
           2: { cellWidth: Mwidth,   halign: 'center' }, // Match %
-          3: { cellWidth: Bwidth,   halign: 'center' }  // Partner B
-        },
-        tableWidth: usable,
-        // CRITICAL: draw background BEFORE table content on every page
-        willDrawPage: paintBg
-      });
+            3: { cellWidth: Bwidth,   halign: 'center' }  // Partner B
+          },
+          tableWidth: usable,
+          // CRITICAL: draw background BEFORE table content on every page
+          willDrawPage: paintBg
+        });
+        } finally {
+          doc.addPage = originalAddPage;
+        }
 
       doc.save('compatibility-dark.pdf');
     } catch (err) {

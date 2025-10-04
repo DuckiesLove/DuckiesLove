@@ -1149,43 +1149,18 @@ RESULT
       const Awidth = 90, Mwidth = 110, Bwidth = 90;
       const CatWidth = usable - (Awidth + Mwidth + Bwidth);
 
-      doc.autoTable({
-        head: [[firstSectionHeader, 'Partner A', 'Match %', 'Partner B']],
-        body: rows,
-        startY: 64,
-        margin: { left: marginLR, right: marginLR },
-        styles: {
-          fontSize: 11,
-          cellPadding: 6,
-          textColor: [255,255,255],
-          fillColor: [0,0,0],
-          lineColor: [255,255,255],
-          lineWidth: 1.2,
-          halign: 'center',
-          valign: 'middle',
-          overflow: 'linebreak'
-        },
-        headStyles: {
-          fillColor: [0,0,0],
-          textColor: [255,255,255],
-          fontStyle: 'bold',
-          lineColor: [255,255,255],
-          lineWidth: 1.4
-        },
-        columnStyles: {
-          0: { cellWidth: CatWidth, halign: 'left' },
-          1: { cellWidth: Awidth },
-          2: { cellWidth: Mwidth },
-          3: { cellWidth: Bwidth }
-        },
-        willDrawPage: paintBg
-      });
+      const originalAddPage = doc.addPage;
+      doc.addPage = function patchedAddPage(...args) {
+        const result = originalAddPage.apply(this, args);
+        paintBg();
+        return result;
+      };
 
-      if (missing.length) {
+      try {
         doc.autoTable({
-          head: [['Unanswered Categories (0 or blank)', 'Partner A', 'Partner B']],
-          body: missing.map(r => r.map(c => ({ content: c, styles: { fillColor: [0,0,0], textColor: [255,255,255] } }))),
-          startY: (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 64) + 20,
+          head: [[firstSectionHeader, 'Partner A', 'Match %', 'Partner B']],
+          body: rows,
+          startY: 64,
           margin: { left: marginLR, right: marginLR },
           styles: {
             fontSize: 11,
@@ -1193,12 +1168,48 @@ RESULT
             textColor: [255,255,255],
             fillColor: [0,0,0],
             lineColor: [255,255,255],
-            lineWidth: 1.2
+            lineWidth: 1.2,
+            halign: 'center',
+            valign: 'middle',
+            overflow: 'linebreak'
           },
-          headStyles: { fillColor: [0,0,0], textColor: [255,255,255], fontStyle: 'bold' },
-          columnStyles: { 0: { cellWidth: usable - 180 }, 1: { cellWidth: 90 }, 2: { cellWidth: 90 } },
+          headStyles: {
+            fillColor: [0,0,0],
+            textColor: [255,255,255],
+            fontStyle: 'bold',
+            lineColor: [255,255,255],
+            lineWidth: 1.4
+          },
+          columnStyles: {
+            0: { cellWidth: CatWidth, halign: 'left' },
+            1: { cellWidth: Awidth },
+            2: { cellWidth: Mwidth },
+            3: { cellWidth: Bwidth }
+          },
           willDrawPage: paintBg
         });
+
+        if (missing.length) {
+          doc.autoTable({
+            head: [['Unanswered Categories (0 or blank)', 'Partner A', 'Partner B']],
+            body: missing.map(r => r.map(c => ({ content: c, styles: { fillColor: [0,0,0], textColor: [255,255,255] } }))),
+            startY: (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 64) + 20,
+            margin: { left: marginLR, right: marginLR },
+            styles: {
+              fontSize: 11,
+              cellPadding: 6,
+              textColor: [255,255,255],
+              fillColor: [0,0,0],
+              lineColor: [255,255,255],
+              lineWidth: 1.2
+            },
+            headStyles: { fillColor: [0,0,0], textColor: [255,255,255], fontStyle: 'bold' },
+            columnStyles: { 0: { cellWidth: usable - 180 }, 1: { cellWidth: 90 }, 2: { cellWidth: 90 } },
+            willDrawPage: paintBg
+          });
+        }
+      } finally {
+        doc.addPage = originalAddPage;
       }
 
       doc.save('compatibility-dark.pdf');

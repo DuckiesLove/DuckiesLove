@@ -33,7 +33,25 @@ If you still “don’t see any change”, open DevTools (F12) → Console and r
     const hasAT=(window.jspdf&&window.jspdf.autoTable)||(window.jsPDF&&window.jsPDF.API&&window.jsPDF.API.autoTable);
     if(!hasAT){ log("Loading AutoTable…"); await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"); }
   }
-  function runAT(doc,opts){ if(typeof doc.autoTable==="function") return doc.autoTable(opts); if(window.jspdf&&typeof window.jspdf.autoTable==="function") return window.jspdf.autoTable(doc,opts); throw new Error("AutoTable missing"); }
+  function runAT(doc,opts){
+    const originalAddPage = doc.addPage;
+    doc.addPage = function patchedAddPage(...args){
+      const result = originalAddPage.apply(this,args);
+      try{
+        if (typeof opts?.willDrawPage === "function") opts.willDrawPage();
+        else if (typeof opts?.didDrawPage === "function") opts.didDrawPage({ pageNumber: doc.getNumberOfPages?.() });
+      }catch(e){ log("Background repaint error", e); }
+      return result;
+    };
+
+    try{
+      if(typeof doc.autoTable==="function") return doc.autoTable(opts);
+      if(window.jspdf&&typeof window.jspdf.autoTable==="function") return window.jspdf.autoTable(doc,opts);
+      throw new Error("AutoTable missing");
+    } finally {
+      doc.addPage = originalAddPage;
+    }
+  }
 
   /* ----------------------- Row collector ----------------------- */
   function headerIndexFrom(ths){

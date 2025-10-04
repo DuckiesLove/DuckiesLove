@@ -183,11 +183,22 @@ instead of the literal word “Category”.
       const CatWidth = Math.max(220, usable - (Awidth + Mwidth + Bwidth));
 
       // draw main table
-      const runAT = (opts) => {
-        if (typeof doc.autoTable === "function") return doc.autoTable(opts);
-        if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
-        throw new Error("AutoTable not available");
-      };
+        const runAT = (opts) => {
+          const originalAddPage = doc.addPage;
+          doc.addPage = function patchedAddPage(...args) {
+            const result = originalAddPage.apply(this, args);
+            paintBg();
+            return result;
+          };
+
+          try {
+            if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+            if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
+            throw new Error("AutoTable not available");
+          } finally {
+            doc.addPage = originalAddPage;
+          }
+        };
 
       runAT({
         head: [[firstColHeader, "Partner A", "Match %", "Partner B"]],

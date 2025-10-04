@@ -106,9 +106,24 @@ How to use:
   }
 
   function runAT(doc, opts) {
-    if (typeof doc.autoTable === "function") return doc.autoTable(opts);
-    if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
-    throw new Error("AutoTable not available");
+    const originalAddPage = doc.addPage;
+    doc.addPage = function patchedAddPage(...args) {
+      const result = originalAddPage.apply(this, args);
+      try {
+        if (typeof opts?.willDrawPage === "function") opts.willDrawPage();
+      } catch (err) {
+        console.warn("[TK-PDF] Background repaint failed", err);
+      }
+      return result;
+    };
+
+    try {
+      if (typeof doc.autoTable === "function") return doc.autoTable(opts);
+      if (window.jspdf && typeof window.jspdf.autoTable === "function") return window.jspdf.autoTable(doc, opts);
+      throw new Error("AutoTable not available");
+    } finally {
+      doc.addPage = originalAddPage;
+    }
   }
 
   function paintBgFactory(doc, pageW, pageH) {

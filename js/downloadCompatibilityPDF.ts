@@ -110,45 +110,56 @@ export async function downloadCompatibilityPDF(): Promise<void> {
       throw new Error("AutoTable not available");
     };
 
-    runAT({
-      head: [["Category", "Partner A", "Match %", "Partner B"]],
-      body,
-      startY: 64,
-      margin: { left: marginLR, right: marginLR, top: 64, bottom: 40 },
-      styles: {
-        fontSize: 11,
-        cellPadding: 6,
-        textColor: [255, 255, 255],
-        fillColor: [0, 0, 0],
-        lineColor: [255, 255, 255],
-        lineWidth: 1.2,
-        halign: "center",
-        valign: "middle",
-      },
-      headStyles: {
-        fillColor: [0, 0, 0],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        lineColor: [255, 255, 255],
-        lineWidth: 1.6,
-      },
-      bodyStyles: {
-        fillColor: [0, 0, 0],
-        textColor: [255, 255, 255],
-      },
-      alternateRowStyles: {
-        fillColor: [0, 0, 0],
-        textColor: [255, 255, 255],
-      },
-      columnStyles: {
-        0: { cellWidth: CatWidth, halign: "left" },
-        1: { cellWidth: Awidth, halign: "center" },
-        2: { cellWidth: Mwidth, halign: "center" },
-        3: { cellWidth: Bwidth, halign: "center" },
-      },
-      tableWidth: usable,
-      willDrawPage: paintBg,
-    });
+    const originalAddPage = doc.addPage;
+    doc.addPage = function patchedAddPage(this: typeof doc, ...args: any[]) {
+      const result = originalAddPage.apply(this, args as any);
+      paintBg();
+      return result;
+    } as typeof doc.addPage;
+
+    try {
+      runAT({
+        head: [["Category", "Partner A", "Match %", "Partner B"]],
+        body,
+        startY: 64,
+        margin: { left: marginLR, right: marginLR, top: 64, bottom: 40 },
+        styles: {
+          fontSize: 11,
+          cellPadding: 6,
+          textColor: [255, 255, 255],
+          fillColor: [0, 0, 0],
+          lineColor: [255, 255, 255],
+          lineWidth: 1.2,
+          halign: "center",
+          valign: "middle",
+        },
+        headStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          lineColor: [255, 255, 255],
+          lineWidth: 1.6,
+        },
+        bodyStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+        },
+        alternateRowStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+        },
+        columnStyles: {
+          0: { cellWidth: CatWidth, halign: "left" },
+          1: { cellWidth: Awidth, halign: "center" },
+          2: { cellWidth: Mwidth, halign: "center" },
+          3: { cellWidth: Bwidth, halign: "center" },
+        },
+        tableWidth: usable,
+        willDrawPage: paintBg,
+      });
+    } finally {
+      doc.addPage = originalAddPage;
+    }
 
     doc.save("compatibility-dark.pdf");
   } catch (err) {
