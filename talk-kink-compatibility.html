@@ -262,6 +262,7 @@ html,body{
     pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
     pdf.save("compatibility.pdf");
   }
+  window.makeFullBleedPDF = makeFullBleedPDF;
 
   // never expose cb_* in UI. If unknown -> "—" and remember for the side list.
   function prettyLabel(code) {
@@ -393,28 +394,6 @@ html,body{
     finally { e.target.value = ""; }
   });
 
-  const downloadBtn = document.getElementById("dl");
-  if (downloadBtn) {
-    downloadBtn.addEventListener("click", async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (downloadBtn.dataset.busy === "1") return;
-      downloadBtn.dataset.busy = "1";
-      downloadBtn.setAttribute("aria-busy", "true");
-      downloadBtn.disabled = true;
-      try {
-        await makeFullBleedPDF();
-      } catch (err) {
-        console.error("[PDF] export failed:", err);
-        alert("Sorry — the PDF export failed. Check console for details.");
-      } finally {
-        delete downloadBtn.dataset.busy;
-        downloadBtn.removeAttribute("aria-busy");
-        downloadBtn.disabled = false;
-      }
-    });
-  }
-
   document.getElementById("missingBtn").addEventListener("click", ()=> {
     if (!missing.size) { alert("Great! No missing labels."); return; }
     const list = [...missing].sort().join("\n");
@@ -424,6 +403,31 @@ html,body{
   // start
   loadLabels().then(render);
 })();
+</script>
+<script type="module">
+/* === Full-bleed PDF export: forcibly replace old window.print handler === */
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.querySelector('#dl') || document.querySelector('[data-action="download"]');
+  if (!btn) return;
+
+  const clean = btn.cloneNode(true);
+  clean.removeAttribute('onclick');
+  btn.replaceWith(clean);
+
+  clean.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      if (typeof window.makeFullBleedPDF !== 'function') {
+        throw new Error('makeFullBleedPDF not ready');
+      }
+      await window.makeFullBleedPDF();
+    } catch (err) {
+      console.error('[PDF] export failed:', err);
+      alert('PDF export failed. See console for details.');
+    }
+  }, { passive: false });
+});
 </script>
 </body>
 </html>
