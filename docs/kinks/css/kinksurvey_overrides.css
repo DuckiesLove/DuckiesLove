@@ -185,6 +185,69 @@ body.tk-drawer-open #tkCategoryDrawer{transform:translateX(0)}
   gap:12px; padding:10px 8px 12px;
 }
 .tk-catbar button{min-width:0}
+
+/* Responsive category grids + buttons (TalkKink + KSV variants) */
+.tk-category-grid,
+.ksv-category-grid,
+.category-chooser {
+  display:grid !important;
+  grid-template-columns:repeat(2, minmax(260px, 1fr));
+  gap:12px;
+  align-items:stretch;
+}
+.tk-category-grid:not(:has(.tk-cat-btn)),
+.ksv-category-grid:not(:has(.tk-cat-btn)),
+.category-chooser:not(:has(button)) {
+  grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.tk-cat-btn,
+.ksv-cat-btn,
+.category-chooser button {
+  display:flex !important;
+  align-items:center;
+  justify-content:flex-start;
+  gap:10px;
+  width:100%;
+  min-height:64px;
+  padding:16px 18px;
+  box-sizing:border-box;
+  white-space:normal;
+  overflow:hidden;
+}
+
+@media (max-width: 600px) {
+  .tk-category-grid,
+  .ksv-category-grid,
+  .category-chooser {
+    grid-template-columns:1fr;
+  }
+}
+
+/* Rating rows: keep select + summary inline */
+li:has(> select),
+.ksv-row:has(> select),
+.tk-row:has(> select) {
+  display:flex !important;
+  align-items:center;
+  gap:12px;
+  min-height:40px;
+}
+li:has(> select) > select,
+.ksv-row:has(> select) > select,
+.tk-row:has(> select) > select {
+  flex:0 0 88px;
+  max-width:120px;
+}
+li:has(> select) > :not(select),
+.ksv-row:has(> select) > :not(select),
+.tk-row:has(> select) > :not(select) {
+  flex:1 1 auto;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  line-height:1.25;
+}
 .tk-counter{
   display:inline-flex; align-items:center; gap:7px; font-weight:800;
   background:var(--tk-chip); border:1px solid #00e6ff22; color:var(--tk-fg);
