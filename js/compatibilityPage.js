@@ -5,6 +5,49 @@
   window._tkReady = window._tkReady || { A: false, B: false };
   window._tkLoaded = window._tkLoaded || { A: false, B: false };
 
+  const bothReady = () =>
+    !!(window.tkState?.A?.cells?.length && window.tkState?.B?.cells?.length);
+
+  (function wrapHeavy() {
+    const names = [
+      'updateComparison',
+      'calculateCompatibility',
+      'computeMatchMatrix',
+      'buildRows',
+      'preparePercentBars',
+      'bindPdf',
+      'exportPDF',
+    ];
+
+    names.forEach((fnName) => {
+      const original = window[fnName];
+      if (typeof original !== 'function' || original._tkWrapped) return;
+      window[fnName] = function guarded(...args) {
+        if (!bothReady()) {
+          console.debug(`[compat] skipped ${fnName} (waiting for both uploads)`);
+          return null;
+        }
+        return original.apply(this, args);
+      };
+      window[fnName]._tkWrapped = true;
+    });
+
+    const kickers = ['onLoadKick', 'initialRender', 'bootStrapB', 'legacyBBootstrap'];
+    kickers.forEach((fnName) => {
+      const original = window[fnName];
+      if (typeof original !== 'function') return;
+      window[fnName] = function guardedKicker(...args) {
+        if (!bothReady()) {
+          console.debug(`[compat] suppressed ${fnName} (both not ready)`);
+          return null;
+        }
+        return original.apply(this, args);
+      };
+    });
+
+    console.info('[compat] hard-guard installed');
+  })();
+
   const state = {
     surveyA: null,
     surveyB: null,
@@ -129,6 +172,10 @@
   }
 
   async function updateComparison() {
+    if (!bothReady()) {
+      console.debug('[compat] skipped updateComparison (waiting for both uploads)');
+      return null;
+    }
     const a = state.surveyA?.answers || {};
     const b = state.surveyB?.answers || {};
     const aCount = Object.keys(a).length;
@@ -151,45 +198,68 @@
     console.info('[compat] filled Partner A cells:', aCells, '; Partner B cells:', bCells);
   }
 
-  async function renderPartnerOnly(which) {
+  function renderPartnerOnly(which) {
     try {
-      const labels = await labelsPromise;
-      const tbody = document.querySelector('#tk-compat-body');
+      const cells = (which === 'A' ? window.tkState?.A?.cells : window.tkState?.B?.cells) || [];
+      const tbody =
+        document.querySelector('#compatTable tbody') ||
+        document.querySelector('#tk-compat-body');
+
       if (!tbody) return;
-      tbody.innerHTML = '';
-      const cells = window.tkState?.[which]?.cells || [];
-      cells.forEach(({ id, value }) => {
-        if (which === 'A') {
-          renderRow(tbody, id, value, null, labels);
-        } else {
-          renderRow(tbody, id, null, value, labels);
-        }
+
+      const frag = document.createDocumentFragment();
+
+      const messageRow = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 4;
+      cell.style.padding = '12px 16px';
+      cell.style.textAlign = 'left';
+      cell.textContent =
+        which === 'A'
+          ? 'Waiting for Partner B upload… showing A only'
+          : 'Waiting for Partner A upload… showing B only';
+      messageRow.appendChild(cell);
+      frag.appendChild(messageRow);
+
+      const listRow = document.createElement('tr');
+      const listCell = document.createElement('td');
+      listCell.colSpan = 4;
+      const list = document.createElement('ul');
+      list.style.margin = '8px 0 0';
+      list.style.paddingLeft = '18px';
+      cells.slice(0, 50).forEach((c) => {
+        const li = document.createElement('li');
+        li.textContent = c && (c.label || c.id || '—');
+        list.appendChild(li);
       });
-      console.info(`[compat] rendered ${which}-only view with`, cells.length, 'entries');
+      listCell.appendChild(list);
+      listRow.appendChild(listCell);
+      frag.appendChild(listRow);
+
+      while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+      tbody.appendChild(frag);
     } catch (err) {
       console.warn('[compat] renderPartnerOnly failed', err);
     }
   }
 
   function maybeUpdateComparison() {
-    const aCells = window.tkState?.A?.cells?.length || 0;
-    const bCells = window.tkState?.B?.cells?.length || 0;
+    const btn = document.querySelector('#downloadBtn') || document.querySelector('#downloadPdfBtn');
 
-    if (!aCells && !bCells) {
-      console.info('[compat] comparison skipped (no data)');
+    if (!bothReady()) {
+      if (btn) btn.disabled = true;
+
+      if (window.tkState?.A?.cells?.length) {
+        tkDefer(() => renderPartnerOnly('A'));
+      } else if (window.tkState?.B?.cells?.length) {
+        tkDefer(() => renderPartnerOnly('B'));
+      } else {
+        console.info('[compat] comparison skipped (no data)');
+      }
       return;
     }
 
-    if (aCells && !bCells) {
-      tkDefer(() => renderPartnerOnly('A'));
-      return;
-    }
-
-    if (!aCells && bCells) {
-      tkDefer(() => renderPartnerOnly('B'));
-      return;
-    }
-
+    if (btn) btn.disabled = false;
     tkDefer(() => updateComparison());
   }
 
