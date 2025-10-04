@@ -91,10 +91,14 @@
   }
 
   async function loadOverrides() {
+    if (window._tkLabelsMerged) return;
     const overrides = await safeFetchJSON("/data/labels-overrides.json");
     if (overrides && typeof overrides === "object") {
       LABELS = { ...LABELS, ...overrides };
+      window._tkLabelsMerged = true;
       console.info("[tk-labels] overrides merged:", Object.keys(overrides).length, "keys");
+    } else {
+      window._tkLabelsMerged = true;
     }
   }
 

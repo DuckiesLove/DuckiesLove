@@ -7,6 +7,8 @@
     // This must be loaded before every other script.
     window.TK_DISABLE_BOOTSTRAP_B = true;
     console.info('[compat] kill-switch enabled');
+    // one-time guard so labels/overrides merge only once per load
+    window._tkLabelsMerged = false;
   </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
