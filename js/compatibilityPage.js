@@ -1,6 +1,8 @@
 'use strict';
 
 (function () {
+  window.tkState = window.tkState || { A: null, B: null };
+  window._tkReady = window._tkReady || { A: false, B: false };
   window._tkLoaded = window._tkLoaded || { A: false, B: false };
 
   const state = {
@@ -20,8 +22,8 @@
     } catch (err) {
       alert(`Invalid JSON for Survey ${sideLabel}. Please upload the unmodified JSON file exported from this site.`);
       console.error(`[compat] parse error (${sideLabel})`, err);
-      if (sideLabel === 'A') window._tkLoaded.A = false;
-      if (sideLabel === 'B') window._tkLoaded.B = false;
+      if (sideLabel === 'A') window._tkReady.A = false;
+      if (sideLabel === 'B') window._tkReady.B = false;
       return null;
     }
   }
@@ -129,6 +131,9 @@
   async function updateComparison() {
     const a = state.surveyA?.answers || {};
     const b = state.surveyB?.answers || {};
+    const aCount = Object.keys(a).length;
+    const bCount = Object.keys(b).length;
+    if (!aCount || !bCount) return;
     const allIds = Array.from(new Set([...Object.keys(a), ...Object.keys(b)])).sort();
     const labels = await labelsPromise;
     const tbody = document.querySelector('#tk-compat-body');
@@ -146,14 +151,46 @@
     console.info('[compat] filled Partner A cells:', aCells, '; Partner B cells:', bCells);
   }
 
+  async function renderPartnerOnly(which) {
+    try {
+      const labels = await labelsPromise;
+      const tbody = document.querySelector('#tk-compat-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      const cells = window.tkState?.[which]?.cells || [];
+      cells.forEach(({ id, value }) => {
+        if (which === 'A') {
+          renderRow(tbody, id, value, null, labels);
+        } else {
+          renderRow(tbody, id, null, value, labels);
+        }
+      });
+      console.info(`[compat] rendered ${which}-only view with`, cells.length, 'entries');
+    } catch (err) {
+      console.warn('[compat] renderPartnerOnly failed', err);
+    }
+  }
+
   function maybeUpdateComparison() {
-    const aCount = Object.keys(state.surveyA?.answers || {}).length;
-    const bCount = Object.keys(state.surveyB?.answers || {}).length;
-    if (!aCount && !bCount) {
+    const aCells = window.tkState?.A?.cells?.length || 0;
+    const bCells = window.tkState?.B?.cells?.length || 0;
+
+    if (!aCells && !bCells) {
       console.info('[compat] comparison skipped (no data)');
       return;
     }
-    updateComparison();
+
+    if (aCells && !bCells) {
+      tkDefer(() => renderPartnerOnly('A'));
+      return;
+    }
+
+    if (!aCells && bCells) {
+      tkDefer(() => renderPartnerOnly('B'));
+      return;
+    }
+
+    tkDefer(() => updateComparison());
   }
 
   function cacheSurvey(which, parsed) {
@@ -167,8 +204,9 @@
       window.surveyB = answers;
     }
     window.tkState = window.tkState || {};
-    window.tkState[which] = window.tkState[which] || {};
-    window.tkState[which].cells = Object.keys(answers);
+    window.tkState[which] = {
+      cells: Object.entries(answers).map(([id, value]) => ({ id, value })),
+    };
   }
 
   function attachUpload(input, which) {
@@ -177,43 +215,37 @@
       const file = event.target.files && event.target.files[0];
       if (!file) {
         event.target.value = '';
-        attachUpload(input, which);
         return;
       }
-      if (window._tkLoaded[which]) {
-        console.info(`[compat] ${which} already loaded – ignoring`);
-        event.target.value = '';
-        attachUpload(input, which);
-        return;
-      }
-      window._tkLoaded[which] = true;
       const reader = new FileReader();
       reader.addEventListener('error', () => {
         console.error(`[compat] file read error (${which})`, reader.error);
-        window._tkLoaded[which] = false;
+        window._tkReady[which] = false;
         event.target.value = '';
-        attachUpload(input, which);
       }, { once: true });
       reader.addEventListener('load', (ev) => {
-        try {
-          const json = tkParseSurvey(ev.target?.result, which);
-          if (!json) return;
-          const parsed = parseSurvey(json);
-          cacheSurvey(which, parsed);
-          console.info(`[compat] stored Survey ${which} with`, Object.keys(parsed.answers).length, 'answers');
-          tkDefer(() => maybeUpdateComparison());
-        } catch (err) {
-          console.error('[compat] normalize failed:', err);
-          alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`);
-        } finally {
-          window._tkLoaded[which] = false;
-          event.target.value = '';
-          attachUpload(input, which);
-        }
+        const schedule = () => {
+          try {
+            const json = tkParseSurvey(ev.target?.result, which);
+            if (!json) return;
+            const parsed = parseSurvey(json);
+            cacheSurvey(which, parsed);
+            console.info(`[compat] stored Survey ${which} with`, Object.keys(parsed.answers).length, 'answers');
+            window._tkReady[which] = true;
+            maybeUpdateComparison();
+          } catch (err) {
+            console.error('[compat] normalize failed:', err);
+            alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`);
+            window._tkReady[which] = false;
+          } finally {
+            event.target.value = '';
+          }
+        };
+        tkDefer(schedule);
       }, { once: true });
       reader.readAsText(file);
     };
-    input.addEventListener('change', onChange, { passive: true, once: true });
+    input.addEventListener('change', onChange, { passive: true });
   }
 
   const inputA = document.querySelector('#uploadA')
