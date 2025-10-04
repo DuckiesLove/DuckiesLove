@@ -7,12 +7,15 @@
 <style>
   :root{
     --bg:#f7f9fc; --fg:#152133; --muted:#5f6b7a; --line:#d5dce6; --accent:#2a7de1;
-    --cell-pad:.9rem;
+    --cell-pad:.9rem; --track:#e3e9f2;
   }
 /* resolved: full-width black layout */
 :root{
   --bg:#000;
   --fg:#fff;
+  --muted:#94a3bb;
+  --line:#1f2733;
+  --track:#0f1720;
 }
 
 html,body{
@@ -54,7 +57,7 @@ html,body{
   td.num, th.num{text-align:center;width:14%}
   td.muted{color:var(--muted)}
   /* Subtle progress background – can remove if you want pure text */
-  .pct-shell{height:12px;background:#e3e9f2;border-radius:7px;overflow:hidden;border:1px solid #c7cfdd}
+  .pct-shell{height:12px;background:var(--track);border-radius:7px;overflow:hidden;border:1px solid var(--line)}
   .pct-bar{height:100%;background:var(--accent);width:0%}
   /* Print: preserve the on-screen colors in the PDF */
   @media print{
