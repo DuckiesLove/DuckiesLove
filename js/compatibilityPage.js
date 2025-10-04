@@ -433,9 +433,34 @@ if (typeof window.processSurveyB !== 'function') {
 }
 
 (function wireUploads() {
-  const upA = document.getElementById('uploadA');
-  const upB = document.getElementById('uploadB');
-  if (!upA || !upB) { console.warn('[compat] upload inputs not found'); return; }
+  const findUpload = (which) => {
+    const selectors = which === 'A'
+      ? [
+          'input#uploadA',
+          'input#uploadSurveyA',
+          'input[data-upload-a]',
+          'input[data-upload="a"]',
+        ]
+      : [
+          'input#uploadB',
+          'input#uploadSurveyB',
+          'input[data-upload-b]',
+          'input[data-upload="b"]',
+        ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el && el.tagName === 'INPUT' && el.type === 'file') return el;
+    }
+    return null;
+  };
+
+  const upA = findUpload('A');
+  const upB = findUpload('B');
+
+  if (!upA || !upB) {
+    console.warn('[compat] upload inputs not found (looked for #uploadA/#uploadSurveyA and #uploadB/#uploadSurveyB)');
+    return;
+  }
 
   upA.setAttribute('accept', 'application/json');
   upB.setAttribute('accept', 'application/json');
