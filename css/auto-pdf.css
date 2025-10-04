@@ -223,7 +223,6 @@ body.exporting {
     max-width: 100% !important;
     text-align: left;
     overflow: hidden;
-    transform: scale(0.85);
     transform-origin: top center;
   }
 
@@ -289,7 +288,6 @@ body.exporting {
     max-width: 100%;
     display: flex;
     justify-content: center; /* Center the table horizontally */
-    transform: scale(0.88) translateX(20px); /* Shift right */
     transform-origin: top center;
   }
 
