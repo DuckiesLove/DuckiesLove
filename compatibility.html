@@ -1972,13 +1972,35 @@ function ksvParseSurveyJsonText(rawText, who) {
   try { obj = JSON.parse(text); }
   catch { return { ok:false, reason:'Not valid JSON' }; }
 
+  const fromKeyMap = (maybeMap) => {
+    if (!maybeMap || typeof maybeMap !== 'object' || Array.isArray(maybeMap)) return null;
+    const entries = Object.entries(maybeMap);
+    if (!entries.length) return null;
+    entries.sort(([ak], [bk]) => {
+      const na = Number(ak);
+      const nb = Number(bk);
+      const fa = Number.isFinite(na);
+      const fb = Number.isFinite(nb);
+      if (fa && fb) return na - nb;
+      if (fa) return -1;
+      if (fb) return 1;
+      return String(ak).localeCompare(String(bk));
+    });
+    return entries.map(([, value]) => value);
+  };
+
   let answers = null;
   if (Array.isArray(obj?.answers)) answers = obj.answers;          // canonical
   if (!answers && Array.isArray(obj)) answers = obj;                // raw array
   if (!answers && Array.isArray(obj?.cells)) answers = obj.cells;   // {cells:[…]}
   if (!answers && Array.isArray(obj?.data?.cells)) answers = obj.data.cells;
-  if (!answers && obj && typeof obj === 'object' && obj.map && typeof obj.map === 'object') {
-    answers = Object.values(obj.map);
+  if (!answers) {
+    answers = fromKeyMap(obj?.answersByKey)
+           || fromKeyMap(obj?.data?.answersByKey)
+           || fromKeyMap(obj?.data?.ratings)
+           || fromKeyMap(obj?.data?.answers)
+           || fromKeyMap(obj?.map)
+           || fromKeyMap(obj?.data?.map);
   }
   if (!answers) return { ok:false, reason:'Missing answers/cells array' };
 
