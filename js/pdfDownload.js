@@ -305,6 +305,53 @@ function _countPartnerCells(){
   return { aCount, bCount };
 }
 
+function _collectPartnerItems(source){
+  if (!source) return [];
+  if (Array.isArray(source)) return source;
+  if (Array.isArray(source.items)) return source.items;
+  if (Array.isArray(source.answers)) return source.answers;
+  if (source && typeof source === 'object') {
+    return Object.values(source);
+  }
+  return [];
+}
+
+function _hasNumericScores(source){
+  const items = _collectPartnerItems(source);
+  if (!items.length) return false;
+  const SCORE_KEYS = ['score', 'value', 'rating', 'points', 'level', 'partnerA', 'partnerB', 'you', 'partner'];
+  return items.some(item => {
+    if (item == null) return false;
+    if (typeof item === 'number' || typeof item === 'string') {
+      return _isNum(item);
+    }
+    if (typeof item === 'object') {
+      return SCORE_KEYS.some(key => _isNum(item[key]));
+    }
+    return false;
+  });
+}
+
+function _globalUploadsReady(){
+  if (typeof window === 'undefined') return null;
+
+  const tkReady = window._tkReady;
+  if (tkReady && typeof tkReady === 'object') {
+    if (tkReady.A && tkReady.B) return true;
+    if (!tkReady.A || !tkReady.B) return false;
+  }
+
+  const hasPartnerGlobals =
+    Object.prototype.hasOwnProperty.call(window, 'partnerAData') ||
+    Object.prototype.hasOwnProperty.call(window, 'partnerBData');
+
+  if (!hasPartnerGlobals) return null;
+
+  const aReady = _hasNumericScores(window.partnerAData);
+  const bReady = _hasNumericScores(window.partnerBData);
+  return aReady && bReady;
+}
+
 function _setBtnState(btn, ready){
   btn.toggleAttribute('disabled', !ready);
   btn.setAttribute(READY_ATTR, ready ? 'true' : 'false');
@@ -333,6 +380,12 @@ export function bindPdfButton() {
 
   let pollTimer = null;
   const checkAndUpdate = () => {
+    const globalReady = _globalUploadsReady();
+    if (globalReady !== null) {
+      _setBtnState(btn, globalReady);
+      return;
+    }
+
     const { aCount, bCount } = _countPartnerCells();
     const ready = aCount > 0 && bCount > 0 && aCount === bCount;
     _setBtnState(btn, ready);
