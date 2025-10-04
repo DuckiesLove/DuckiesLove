@@ -1,7 +1,6 @@
 'use strict';
 
-(async function () {
-  // Prevent duplicate processing if old listeners fire twice or navigation restores state
+(function () {
   window._tkLoaded = window._tkLoaded || { A: false, B: false };
 
   const state = {
@@ -12,8 +11,8 @@
   function tkParseSurvey(raw, sideLabel) {
     try {
       const json = JSON.parse(typeof raw === 'string' ? raw : String(raw || ''));
-      // Very defensive: ensure we actually have answers
-      const answers = (json && (json.answers || json.data || json.rows || [])) || [];
+      const answers =
+        (json && (json.answers || json.data || json.rows || json.responses || [])) || [];
       if (!Array.isArray(answers) || answers.length === 0) {
         throw new Error('No answers array found');
       }
@@ -21,19 +20,29 @@
     } catch (err) {
       alert(`Invalid JSON for Survey ${sideLabel}. Please upload the unmodified JSON file exported from this site.`);
       console.error(`[compat] parse error (${sideLabel})`, err);
-      // release the latch so user can try again
       if (sideLabel === 'A') window._tkLoaded.A = false;
       if (sideLabel === 'B') window._tkLoaded.B = false;
       return null;
     }
   }
 
-  // --- NEW: pre-load labels (non-blocking, awaited before we paint rows) ---
-  const labelsPromise = window.tkLabels?.load?.() ?? Promise.resolve(new Map());
+  const tkDefer = (cb) =>
+    (window.requestIdleCallback ? requestIdleCallback(cb, { timeout: 500 }) : setTimeout(cb, 0));
 
-  // Accepts unmodified exports from this site: { meta, answers: { id:number }, items?:[] }
+  const labelAPI = window.TK_LABELS || window.tkLabels || null;
+  const labelsPromise = (async () => {
+    if (labelAPI?.load) {
+      try {
+        await labelAPI.load();
+      } catch (err) {
+        console.warn('[compat] label load failed', err);
+      }
+    }
+    return labelAPI;
+  })();
+
   function parseSurvey(json) {
-    if (!json || (typeof json !== 'object')) throw new Error('Empty/invalid survey');
+    if (!json || typeof json !== 'object') throw new Error('Empty/invalid survey');
     if (json.answers && typeof json.answers === 'object') {
       const answers = {};
       Object.entries(json.answers).forEach(([key, value]) => {
@@ -42,7 +51,6 @@
       });
       return { answers };
     }
-    // Fallback: array of {key,value}
     if (Array.isArray(json.items)) {
       const answers = {};
       for (const it of json.items) {
@@ -54,10 +62,10 @@
     throw new Error('Unsupported survey format');
   }
 
-  // Compute similarity as 100 - |a-b|/5 * 100 (requires both answered)
   function scoreMatch(a, b) {
     if (a == null || b == null) return null;
-    const ai = Number(a); const bi = Number(b);
+    const ai = Number(a);
+    const bi = Number(b);
     if (Number.isNaN(ai) || Number.isNaN(bi)) return null;
     return Math.max(0, 100 - (Math.abs(ai - bi) / 5) * 100);
   }
@@ -75,10 +83,21 @@
     return wrap;
   }
 
-  // Helper to make a TD for the category cell (friendly label + raw code)
-  function catCell(id, map) {
+  function catCell(id, labels) {
     const td = document.createElement('td');
-    const label = (map && map.get(id)) || id;
+    let label = id;
+    if (labels) {
+      try {
+        if (typeof labels.get === 'function') {
+          const lookup = labels.get(id);
+          if (lookup) label = lookup;
+        } else if (typeof labels.labelFor === 'function') {
+          label = labels.labelFor(id) || id;
+        }
+      } catch (err) {
+        console.warn('[compat] label lookup failed for', id, err);
+      }
+    }
     const span = document.createElement('span');
     span.className = 'tk-cat';
     span.textContent = label;
@@ -89,15 +108,14 @@
     return td;
   }
 
-  // Renders one row (id, aVal, bVal)
-  function renderRow(tbody, id, aVal, bVal, map) {
+  function renderRow(tbody, id, aVal, bVal, labels) {
     const tr = document.createElement('tr');
-    tr.append(catCell(id, map));
+    tr.append(catCell(id, labels));
     const tdA = document.createElement('td');
-    tdA.textContent = (aVal ?? '—');
+    tdA.textContent = aVal ?? '—';
     const tdPct = document.createElement('td');
     const tdB = document.createElement('td');
-    tdB.textContent = (bVal ?? '—');
+    tdB.textContent = bVal ?? '—';
     const pct = scoreMatch(aVal, bVal);
     if (pct == null) {
       tdPct.textContent = '—';
@@ -111,65 +129,91 @@
   async function updateComparison() {
     const a = state.surveyA?.answers || {};
     const b = state.surveyB?.answers || {};
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
-    if (!aKeys.length && !bKeys.length) {
-      console.info('[compat] comparison skipped (no data)');
-      return;
-    }
-    const allIds = Array.from(new Set([...aKeys, ...bKeys])).sort();
-    // Wait for labels once before paint
-    const map = await labelsPromise;
+    const allIds = Array.from(new Set([...Object.keys(a), ...Object.keys(b)])).sort();
+    const labels = await labelsPromise;
     const tbody = document.querySelector('#tk-compat-body');
     if (!tbody) return;
     tbody.innerHTML = '';
-    let aCells = 0, bCells = 0;
+    let aCells = 0;
+    let bCells = 0;
     for (const id of allIds) {
-      const av = (id in a) ? a[id] : null;
-      const bv = (id in b) ? b[id] : null;
+      const av = Object.prototype.hasOwnProperty.call(a, id) ? a[id] : null;
+      const bv = Object.prototype.hasOwnProperty.call(b, id) ? b[id] : null;
       if (av != null) aCells++;
       if (bv != null) bCells++;
-      renderRow(tbody, id, av, bv, map);
+      renderRow(tbody, id, av, bv, labels);
     }
     console.info('[compat] filled Partner A cells:', aCells, '; Partner B cells:', bCells);
   }
 
-  // Robust file input handlers (A and B). Accepts .json from site export, untouched.
-  async function handleUpload(file, which) {
+  function maybeUpdateComparison() {
+    const aCount = Object.keys(state.surveyA?.answers || {}).length;
+    const bCount = Object.keys(state.surveyB?.answers || {}).length;
+    if (!aCount && !bCount) {
+      console.info('[compat] comparison skipped (no data)');
+      return;
+    }
+    updateComparison();
+  }
+
+  function cacheSurvey(which, parsed) {
+    state[`survey${which}`] = parsed;
+    const answers = parsed.answers || {};
     if (which === 'A') {
-      if (window._tkLoaded.A) {
-        console.info('[compat] A already loaded – ignoring');
+      window.partnerASurvey = answers;
+      window.surveyA = answers;
+    } else {
+      window.partnerBSurvey = answers;
+      window.surveyB = answers;
+    }
+    window.tkState = window.tkState || {};
+    window.tkState[which] = window.tkState[which] || {};
+    window.tkState[which].cells = Object.keys(answers);
+  }
+
+  function attachUpload(input, which) {
+    if (!input) return;
+    const onChange = (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) {
+        event.target.value = '';
+        attachUpload(input, which);
         return;
       }
-      window._tkLoaded.A = true;
-    } else if (which === 'B') {
-      if (window._tkLoaded.B) {
-        console.info('[compat] B already loaded – ignoring');
+      if (window._tkLoaded[which]) {
+        console.info(`[compat] ${which} already loaded – ignoring`);
+        event.target.value = '';
+        attachUpload(input, which);
         return;
       }
-      window._tkLoaded.B = true;
-    }
-    const text = await file.text();
-    const json = tkParseSurvey(text, which);
-    if (!json) return;
-    try {
-      const parsed = parseSurvey(json);
-      state[`survey${which}`] = parsed;
-      if (which === 'A') {
-        window.partnerASurvey = parsed.answers;
-        window.surveyA = parsed.answers;
-      } else {
-        window.partnerBSurvey = parsed.answers;
-        window.surveyB = parsed.answers;
-      }
-      console.info(`[compat] stored Survey ${which} with`, Object.keys(parsed.answers).length, 'answers');
-      updateComparison();
-    } catch (e) {
-      console.error('[compat] normalize failed:', e);
-      alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`);
-      if (which === 'A') window._tkLoaded.A = false;
-      if (which === 'B') window._tkLoaded.B = false;
-    }
+      window._tkLoaded[which] = true;
+      const reader = new FileReader();
+      reader.addEventListener('error', () => {
+        console.error(`[compat] file read error (${which})`, reader.error);
+        window._tkLoaded[which] = false;
+        event.target.value = '';
+        attachUpload(input, which);
+      }, { once: true });
+      reader.addEventListener('load', (ev) => {
+        try {
+          const json = tkParseSurvey(ev.target?.result, which);
+          if (!json) return;
+          const parsed = parseSurvey(json);
+          cacheSurvey(which, parsed);
+          console.info(`[compat] stored Survey ${which} with`, Object.keys(parsed.answers).length, 'answers');
+          tkDefer(() => maybeUpdateComparison());
+        } catch (err) {
+          console.error('[compat] normalize failed:', err);
+          alert(`Invalid JSON for Survey ${which}. Please upload the unmodified JSON file exported from this site.`);
+        } finally {
+          window._tkLoaded[which] = false;
+          event.target.value = '';
+          attachUpload(input, which);
+        }
+      }, { once: true });
+      reader.readAsText(file);
+    };
+    input.addEventListener('change', onChange, { passive: true, once: true });
   }
 
   const inputA = document.querySelector('#uploadA')
@@ -184,17 +228,8 @@
   if (inputA) inputA.setAttribute('accept', 'application/json');
   if (inputB) inputB.setAttribute('accept', 'application/json');
 
-  if (inputA) {
-    inputA.addEventListener('change', e => {
-      const f = e.target.files?.[0]; if (f) handleUpload(f, 'A');
-    });
-  }
-  if (inputB) {
-    inputB.addEventListener('change', e => {
-      const f = e.target.files?.[0]; if (f) handleUpload(f, 'B');
-    });
-  }
+  attachUpload(inputA, 'A');
+  attachUpload(inputB, 'B');
 
-  // Initial paint (empty table with headers present)
-  updateComparison();
+  maybeUpdateComparison();
 })();
