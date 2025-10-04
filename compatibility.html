@@ -2338,5 +2338,148 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 })();
 </script>
 <!-- ===== /END TALK KINK patch ===== -->
+<!-- ====== Paste EVERYTHING below just before </body> on compatibility.html ====== -->
+<!-- 1) PDF libs -->
+<script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+
+<!-- 2) Auto-download PDF once BOTH surveys are loaded -->
+<script>
+/* ============================================================================
+   TK – Auto PDF after both surveys are present (no button needed)
+   - Waits until Partner A AND Partner B data are on the table
+   - Debounces to let the DOM render
+   - Downloads once per pair of uploads; re-arms if a file input changes
+   - Works with your existing table (Category | Partner A | Match % | Partner B)
+============================================================================ */
+(function () {
+  // Likely table/container selectors on your page (add/adjust as needed)
+  const TABLE_CANDIDATES = ['#compat-table table', '#compatTable', '.compat-table table', 'table'];
+  const CONTAINER_CANDIDATES = ['#compat-table', '.compat-table', 'main', 'body'];
+
+  // One-shot guard for current pair of uploads
+  let autoFired = false;
+  let armTimer = null;
+
+  // Re-arm when user re-uploads a file (add your actual file input IDs if different)
+  ['#surveyA', '#surveyB', '#surveyAInput', '#surveyBInput', '#fileA', '#fileB'].forEach(sel => {
+    const el = document.querySelector(sel);
+    if (el) el.addEventListener('change', () => { autoFired = false; });
+  });
+
+  // Helper: access jsPDF ctor
+  function getJsPDF() {
+    return (window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null;
+  }
+
+  // Find the rendered compatibility table
+  function findTable() {
+    for (const sel of TABLE_CANDIDATES) {
+      const t = document.querySelector(sel);
+      if (t) return t;
+    }
+    return null;
+  }
+
+  // Return true when BOTH partners have any non-empty values in their columns
+  function bothPartnersReady() {
+    // Preferred: if your app exposes live counts, use them
+    if (window.tkCompat &&
+        typeof tkCompat.aCells === 'number' &&
+        typeof tkCompat.bCells === 'number') {
+      return tkCompat.aCells > 0 && tkCompat.bCells > 0;
+    }
+
+    // Fallback: inspect current table
+    const table = findTable();
+    if (!table) return false;
+
+    const thead = table.querySelector('thead');
+    const headers = thead ? Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase()) : [];
+    const aIdx = headers.findIndex(h => h.includes('partner a'));
+    const bIdx = headers.findIndex(h => h.includes('partner b'));
+    if (aIdx === -1 || bIdx === -1) return false;
+
+    const rows = table.querySelectorAll('tbody tr');
+    let haveA = false, haveB = false;
+    for (const tr of rows) {
+      const tds = tr.children;
+      if (tds[aIdx] && tds[aIdx].textContent.trim() !== '') haveA = true;
+      if (tds[bIdx] && tds[bIdx].textContent.trim() !== '') haveB = true;
+      if (haveA && haveB) return true;
+    }
+    return false;
+  }
+
+  // Create and save the PDF for what's currently on screen
+  function exportPDF() {
+    const jsPDFCtor = getJsPDF();
+    if (!jsPDFCtor) { console.warn('[TK-PDF] jsPDF not ready'); return; }
+
+    const table = findTable();
+    if (!table) { console.warn('[TK-PDF] No table found'); return; }
+
+    const doc = new jsPDFCtor({ orientation: 'l', unit: 'pt', format: 'letter' });
+
+    // Title + timestamp
+    const now = new Date();
+    const ts = now.toISOString().replace(/[:T]/g, '-').slice(0, 19);
+    doc.setFontSize(14);
+    doc.text('Talk Kink – Compatibility', 40, 40);
+    doc.setFontSize(10);
+    doc.text(now.toLocaleString(), 770, 40, { align: 'right' });
+
+    // Table via AutoTable
+    if (!doc.autoTable && !window.autoTable) { console.warn('[TK-PDF] AutoTable missing'); return; }
+    const autoTable = doc.autoTable ? doc.autoTable.bind(doc) : (cfg => window.autoTable(doc, cfg));
+    autoTable({
+      html: table,
+      startY: 70,
+      styles: { fillColor: [0, 0, 0], textColor: 255, lineWidth: 0.8 },
+      headStyles: { fillColor: [0, 0, 0], textColor: 255, halign: 'center' },
+      alternateRowStyles: { fillColor: [20, 20, 20] }
+    });
+
+    const filename = `compatibility-${ts}.pdf`;
+    doc.save(filename);
+    console.log('[TK-PDF] Auto export complete:', filename);
+  }
+
+  // Debounced check -> export
+  function scheduleAutoExport() {
+    if (autoFired) return;
+    if (!bothPartnersReady()) return;
+    if (armTimer) clearTimeout(armTimer);
+    armTimer = setTimeout(() => {
+      if (bothPartnersReady() && !autoFired) {
+        autoFired = true;
+        exportPDF();
+      }
+    }, 400); // allow DOM to settle after fills
+  }
+
+  // Observe DOM changes and try exporting when ready
+  function mountObserver() {
+    const container =
+      CONTAINER_CANDIDATES.map(sel => document.querySelector(sel)).find(Boolean) || document.body;
+    const mo = new MutationObserver(() => scheduleAutoExport());
+    mo.observe(container, { childList: true, subtree: true });
+  }
+
+  // Init
+  document.addEventListener('DOMContentLoaded', () => {
+    mountObserver();
+
+    // Also probe briefly in case counts render without DOM mutations
+    const probe = setInterval(scheduleAutoExport, 300);
+    setTimeout(() => clearInterval(probe), 8000);
+  });
+
+  // Optional: if your app dispatches custom events after loading each survey,
+  // you can nudge the scheduler like:
+  // window.addEventListener('compat:updated', scheduleAutoExport);
+})();
+</script>
+<!-- ====== End paste ====== -->
 </body>
 </html>
