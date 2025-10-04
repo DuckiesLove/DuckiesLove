@@ -10,7 +10,12 @@
     --cell-pad:.9rem;
   }
   html,body{background:#000;color:var(--fg);margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  .wrap{max-width:1320px;margin:32px auto;padding:0 16px}
+  .wrap{
+    width:100%;
+    margin:0;
+    padding:32px clamp(16px,4vw,48px);
+    box-sizing:border-box;
+  }
   h1{font-weight:700;letter-spacing:.4px;margin:0 0 10px}
   .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 22px}
   .btn{
