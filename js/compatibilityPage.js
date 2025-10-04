@@ -12,17 +12,16 @@
   function tkParseSurvey(raw, sideLabel) {
     try {
       const json = JSON.parse(typeof raw === 'string' ? raw : String(raw || ''));
-      const answers = json && (json.answers ?? json.data ?? json.rows ?? json.cells ?? null);
-      const hasAnswers = Array.isArray(answers)
-        ? answers.length > 0
-        : answers && typeof answers === 'object' && Object.keys(answers).length > 0;
-      if (!hasAnswers) {
+      // Very defensive: ensure we actually have answers
+      const answers = (json && (json.answers || json.data || json.rows || [])) || [];
+      if (!Array.isArray(answers) || answers.length === 0) {
         throw new Error('No answers array found');
       }
       return json;
     } catch (err) {
       alert(`Invalid JSON for Survey ${sideLabel}. Please upload the unmodified JSON file exported from this site.`);
       console.error(`[compat] parse error (${sideLabel})`, err);
+      // release the latch so user can try again
       if (sideLabel === 'A') window._tkLoaded.A = false;
       if (sideLabel === 'B') window._tkLoaded.B = false;
       return null;
