@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Kill-switch for legacy Partner-B bootstrap that caused "freeze after first upload" -->
+  <script>
+    // Hard disable any code path that auto-fills Partner B from internal JSON.
+    // This must be loaded before every other script.
+    window.TK_DISABLE_BOOTSTRAP_B = true;
+    console.info('[compat] kill-switch enabled');
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>See Our Compatibility</title>
@@ -757,37 +764,42 @@
     const hasRows = root.querySelectorAll('tbody tr').length > 0;
     if (hasRows) return false;
 
-    const aMap = toLookup(window.partnerASurvey || window.surveyA || {});
-    const bMap = toLookup(window.partnerBSurvey || window.surveyB || {});
-    const keys = new Set([...aMap.keys(), ...bMap.keys()]);
-    if (!keys.size) return false;
-
-    const section = document.createElement('section'); section.className = 'compat-section';
-    const h2 = document.createElement('h2'); h2.className = 'section-title'; h2.textContent = 'All'; section.appendChild(h2);
-
-    const table = document.createElement('table'); table.className = 'compat-table compatTbl';
-    const thead = document.createElement('thead'); const thr = document.createElement('tr');
-    ['Category','Partner A','Match','Partner B'].forEach(t=>{ const th=document.createElement('th'); th.textContent=t; thr.appendChild(th); });
-    thead.appendChild(thr);
-    const tbody = document.createElement('tbody');
-
-    keys.forEach(k=>{
-      const aVal = aMap.has(k) ? aMap.get(k) : null;
-      const bVal = bMap.has(k) ? bMap.get(k) : null;
-      const pct = (Number.isFinite(aVal) && Number.isFinite(bVal))
-        ? Math.round((1 - Math.abs(aVal - bVal) / 5) * 100)
-        : null;
-      const tr = tkAppendComparisonRow(tbody, k, aVal, pct, bVal);
-      if (tr) {
-        tr.setAttribute('data-id', k);
-        tr.setAttribute('data-full', k);
-      }
-    });
-
-    table.append(thead, tbody); section.appendChild(table);
-    root.innerHTML = ''; root.appendChild(section);
-    console.log(`[compat] bootstrapped ${keys.size} rows from JSON union.`);
-    return true;
+    if (!window.TK_DISABLE_BOOTSTRAP_B && false) {
+      // const aMap = toLookup(window.partnerASurvey || window.surveyA || {});
+      // const bMap = toLookup(window.partnerBSurvey || window.surveyB || {});
+      // const keys = new Set([...aMap.keys(), ...bMap.keys()]);
+      // if (!keys.size) return false;
+      //
+      // const section = document.createElement('section'); section.className = 'compat-section';
+      // const h2 = document.createElement('h2'); h2.className = 'section-title'; h2.textContent = 'All'; section.appendChild(h2);
+      //
+      // const table = document.createElement('table'); table.className = 'compat-table compatTbl';
+      // const thead = document.createElement('thead'); const thr = document.createElement('tr');
+      // ['Category','Partner A','Match','Partner B'].forEach(t=>{ const th=document.createElement('th'); th.textContent=t; thr.appendChild(th); });
+      // thead.appendChild(thr);
+      // const tbody = document.createElement('tbody');
+      //
+      // keys.forEach(k=>{
+      //   const aVal = aMap.has(k) ? aMap.get(k) : null;
+      //   const bVal = bMap.has(k) ? bMap.get(k) : null;
+      //   const pct = (Number.isFinite(aVal) && Number.isFinite(bVal))
+      //     ? Math.round((1 - Math.abs(aVal - bVal) / 5) * 100)
+      //     : null;
+      //   const tr = tkAppendComparisonRow(tbody, k, aVal, pct, bVal);
+      //   if (tr) {
+      //     tr.setAttribute('data-id', k);
+      //     tr.setAttribute('data-full', k);
+      //   }
+      // });
+      //
+      // table.append(thead, tbody); section.appendChild(table);
+      // root.innerHTML = ''; root.appendChild(section);
+      // console.log(`[compat] bootstrapped ${keys.size} rows from JSON union.`);
+      // return true;
+    } else {
+      console.info('[compat] legacy B bootstrap suppressed');
+      return false;
+    }
   }
 
   // Ensure each row has data-full and data-id
