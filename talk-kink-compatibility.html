@@ -6,10 +6,10 @@
 <title>Talk Kink – Compatibility</title>
 <style>
   :root{
-    --bg:#000; --fg:#fff; --muted:#9aa0a6; --line:#fff; --accent:#00e6ff;
+    --bg:#f7f9fc; --fg:#152133; --muted:#5f6b7a; --line:#d5dce6; --accent:#2a7de1;
     --cell-pad:.9rem;
   }
-  html,body{background:#000;color:var(--fg);margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  html,body{background:var(--bg);color:var(--fg);margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
   .wrap{max-width:1320px;margin:32px auto;padding:0 16px}
   h1{font-weight:700;letter-spacing:.4px;margin:0 0 10px}
   .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 22px}
@@ -17,13 +17,13 @@
     background:transparent;border:2px solid var(--accent);color:var(--accent);
     padding:.55rem .9rem;border-radius:10px;cursor:pointer;font-weight:600
   }
-  .btn:hover{background:rgba(0,230,255,.08)}
+  .btn:hover{background:rgba(42,125,225,.12)}
   .note{color:var(--muted);font-size:.9rem}
   .file{display:inline-block}
   table{width:100%;border-collapse:collapse;table-layout:fixed}
   thead th{
     text-align:center;font-weight:800;border:2px solid var(--line);
-    padding:.85rem;background:#000;position:sticky;top:0
+    padding:.85rem;background:var(--bg);position:sticky;top:0
   }
   tbody td{
     border:2px solid var(--line);padding:var(--cell-pad);vertical-align:middle
@@ -31,10 +31,10 @@
   td.cat{width:56%;font-weight:600}
   td.num, th.num{text-align:center;width:14%}
   td.muted{color:var(--muted)}
-  /* Subtle progress background (kept dark) – can remove if you want pure text */
-  .pct-shell{height:12px;background:#111;border-radius:7px;overflow:hidden;border:1px solid #333}
-  .pct-bar{height:100%;background:#15aaff;width:0%}
-  /* Print: keep the black look in the PDF */
+  /* Subtle progress background – can remove if you want pure text */
+  .pct-shell{height:12px;background:#e3e9f2;border-radius:7px;overflow:hidden;border:1px solid #c7cfdd}
+  .pct-bar{height:100%;background:var(--accent);width:0%}
+  /* Print: preserve the on-screen colors in the PDF */
   @media print{
     body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .bar,.note{display:none}
