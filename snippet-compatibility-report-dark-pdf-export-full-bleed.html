@@ -1,145 +1,155 @@
-<!-- === TK FIX: labels + full-bleed PDF (no dev tools) === -->
+<!-- === FULL-BLEED BLACK PDF EXPORT (drop this once before </body>) === -->
 <style>
-  @page { size: A4; margin: 0; }
-  html,body { margin:0!important; padding:0!important; background:#000!important; }
-  * { -webkit-print-color-adjust: exact!important; print-color-adjust: exact!important; }
-  body, main, .compat, .compat-container, .report, .report-wrap { background:#000!important; color:#fff!important; }
-  table { width:100%; border-collapse:collapse!important; background:#000!important; }
-  th,td { background:#000!important; color:#fff!important; border:1.4px solid #fff!important; padding:.65rem .8rem!important; }
-  #tk-fullbleed-btn {
-    position: fixed; right: 14px; bottom: 14px; z-index: 9999;
-    background: #00e3ff; color:#001015; border:0; border-radius:10px;
-    padding:.65rem .9rem; font-weight:700; cursor:pointer; box-shadow: 0 0 0 2px #00333a inset;
-  }
+  /* Ensure the on-screen page itself is pure black with no gutters */
+  html, body { background:#000; color:#fff; margin:0; padding:0; }
+  /* Make the app container span the full width */
+  .wrap { width:100%; margin:0; padding:0; box-sizing:border-box; }
 </style>
-<script id="tk-labels-embed" type="application/json">{}</script>
+
+<!-- (Optional) Inline code→name overrides. Fill these in or leave empty. -->
 <script>
+  window.TK_LABELS = {
+    /* Examples – replace/extend with your own:
+    "cb_e4bdv": "Dress partner’s outfit",
+    "cb_hhxwj": "Pick lingerie / base layers",
+    */
+  };
+</script>
+
+<script>
+/*
+ * Full-bleed, solid-black PDF export for the compatibility table.
+ * - No white margins (0pt all sides)
+ * - Uses jsPDF + AutoTable
+ * - Translates first column codes (cb_*) via TK_LABELS or /data/labels-overrides.json or /data/kinks.json
+ * - Replaces any old window.print() handler on #dl
+ *
+ * HOW TO USE
+ * 1) Ensure your Download button has id="dl" and no inline onclick.
+ *    <button id="dl" type="button">Download PDF</button>
+ * 2) Paste THIS WHOLE BLOCK once before </body>.
+ * 3) (Optional) Fill window.TK_LABELS above with your code→name mapping.
+ */
 (() => {
-  const CODE_RX = /^cb_[a-z0-9]+$/i;
-  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
-  function onReady(fn){ (document.readyState!=='loading') ? fn() : document.addEventListener('DOMContentLoaded', fn, {once:true}); }
-  async function fetchJSONQuiet(url){
-    try{ const r = await fetch(url,{cache:'no-store'}); return r.ok ? r.json() : null; } catch{ return null; }
-  }
-  async function getLabelMapFromUploadedSurvey(fileInput){
-    const f = fileInput?.files?.[0]; if(!f) return null;
-    try{
-      const txt = await f.text(); const j = JSON.parse(txt);
-      const list = j.items || j.questions || j.kinks || j.data || [];
-      const out = {};
-      for(const it of list){
-        const id = (it.id||it.key||it.code||'').trim();
-        const label = (it.text||it.label||it.name||it.title||'').trim();
-        if (CODE_RX.test(id) && label) out[id] = label;
+  const CDN_JSPDF     = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+  const CDN_AUTOTABLE = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('dl');
+    if (!btn) return;
+
+    // Remove any old listeners (including window.print()) by cloning
+    const clone = btn.cloneNode(true);
+    btn.replaceWith(clone);
+    clone.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await ensureLibs();
+        const labels = await loadLabels();
+        await exportFullBleedPDF(labels);
+      } catch (err) {
+        console.error('[PDF] Export failed:', err);
+        alert('PDF export failed. See console for details.');
       }
-      return Object.keys(out).length ? out : null;
-    }catch{ return null; }
-  }
-  async function getLabelMap(){
-    let map = {};
-    const emb = document.getElementById('tk-labels-embed');
-    if(emb){ try{ Object.assign(map, JSON.parse(emb.textContent||'{}')); }catch{} }
-    if (window.tkLabels)           Object.assign(map, window.tkLabels);
-    if (window.tkLabelsOverrides)  Object.assign(map, window.tkLabelsOverrides);
-    const tries = [
-      '/kinksurvey/data/kinks.json',
-      '/data/kinks.json',
-      location.origin + '/kinksurvey/data/kinks.json',
-      location.origin + '/data/kinks.json'
-    ];
-    for(const url of tries){
-      const j = await fetchJSONQuiet(url);
-      if(j && typeof j === 'object') { Object.assign(map, j); break; }
-    }
-    const inputs = $$('input[type="file"]');
-    for(const inp of inputs){
-      const m = await getLabelMapFromUploadedSurvey(inp);
-      if(m) Object.assign(map, m);
-    }
-    return map;
-  }
-  function relabelTable(labelMap, root=document){
-    if(!labelMap || !Object.keys(labelMap).length) return;
-    const cells = $$('.compat table td, .compat table th, table td, table th', root);
-    for(const el of cells){
-      const t = (el.textContent||'').trim();
-      if(CODE_RX.test(t)){
-        const key = t in labelMap ? t :
-                    t.toLowerCase() in labelMap ? t.toLowerCase() :
-                    t.toUpperCase() in labelMap ? t.toUpperCase() : null;
-        if(key) el.textContent = labelMap[key];
-      }
-    }
-  }
-  function watchRelabel(labelMap){
-    const run = ()=>relabelTable(labelMap);
-    run();
-    const mo = new MutationObserver(() => {
-      cancelAnimationFrame(watchRelabel._r||0);
-      watchRelabel._r = requestAnimationFrame(run);
-    });
-    mo.observe(document.body, {subtree:true, childList:true, characterData:true});
-  }
-  function ensureH2CBlack(){
-    if(!window.html2canvas) return;
-    const orig = window.html2canvas;
-    window.html2canvas = (node, opts={}) => orig(node, Object.assign({background:'#000', scale:Math.min(2, devicePixelRatio||1)}, opts));
-  }
-  async function makeFullBleedPDF(){
-    let jsPDF = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : null;
-    if(!jsPDF){
-      try{ await import('/js/vendor/jspdf.umd.min.js'); jsPDF = window.jspdf?.jsPDF; }catch{}
-    }
-    if(!jsPDF){ alert('PDF engine not available on this page.'); return; }
-    const container = document.querySelector('.compat') || document.querySelector('main') || document.body;
-    if(window.html2canvas){
-      const canvas = await window.html2canvas(container, {background:'#000', useCORS:true, logging:false});
-      const img = canvas.toDataURL('image/png');
-      const doc = new jsPDF({orientation:'landscape', unit:'pt', format:'a4', compress:true});
-      const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
-      doc.setFillColor(0,0,0); doc.rect(0,0,w,h,'F');
-      const r = canvas.width / canvas.height;
-      let iw = w, ih = iw/r; if(ih < h){ ih = h; iw = ih*r; }
-      doc.addImage(img, 'PNG', (w-iw)/2, (h-ih)/2, iw, ih, undefined, 'FAST');
-      doc.save('compatibility.pdf');
-      return;
-    }
-    window.makeFullBleedPDF = makeFullBleedPDF;
-    const doc = new jsPDF({orientation:'landscape', unit:'pt', format:'a4', compress:true});
-    const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
-    doc.setFillColor(0,0,0); doc.rect(0,0,w,h,'F'); doc.setTextColor(255);
-    const tbl = container.querySelector('table');
-    if(!tbl){ alert('No table found.'); return; }
-    const rows = $$('tr', tbl).map(tr => $$('th,td', tr).map(td => (td.textContent||'').trim()));
-    let y = 36;
-    for(const row of rows){
-      let x = 36; const colW = (w-72)/row.length;
-      for(const cell of row){ doc.text(cell, x, y, {maxWidth: colW-10}); x += colW; }
-      y += 16; if(y > h-36){ doc.addPage(); doc.setFillColor(0,0,0); doc.rect(0,0,w,h,'F'); doc.setTextColor(255); y = 36; }
-    }
-    doc.save('compatibility.pdf');
-  }
-  function injectButton(){
-    if(document.getElementById('tk-fullbleed-btn')) return;
-    const b = document.createElement('button');
-    b.id = 'tk-fullbleed-btn';
-    b.textContent = 'Full-bleed PDF';
-    b.title = 'Export edge-to-edge black PDF';
-    b.addEventListener('click', e => { e.preventDefault(); makeFullBleedPDF(); });
-    document.body.appendChild(b);
-  }
-  onReady(async () => {
-    ensureH2CBlack();
-    injectButton();
-    let labels = await getLabelMap();
-    watchRelabel(labels);
-    $$('input[type="file"]').forEach(inp => {
-      inp.addEventListener('change', async () => {
-        const newer = await getLabelMap();
-        labels = Object.assign({}, labels, newer);
-        relabelTable(labels);
-      });
     });
   });
+
+  async function ensureLibs() {
+    if (!window.jspdf || !window.jspdf.jsPDF) await loadScript(CDN_JSPDF);
+    if (!(window.jspdf && 'autoTable' in window.jspdf)) await loadScript(CDN_AUTOTABLE);
+  }
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = res; s.onerror = () => rej(new Error('Failed to load '+src));
+      document.head.appendChild(s);
+    });
+  }
+
+  // Attempt to obtain a label map from multiple places
+  async function loadLabels() {
+    // 1) Inline overrides take precedence
+    if (window.TK_LABELS && Object.keys(window.TK_LABELS).length) return window.TK_LABELS;
+
+    // 2) Try site JSONs if present
+    const tryUrls = [
+      '/data/labels-overrides.json', 'data/labels-overrides.json',
+      '/data/kinks.json',            'data/kinks.json'
+    ];
+    for (const url of tryUrls) {
+      try {
+        const r = await fetch(url, { cache: 'no-store' });
+        if (!r.ok) continue;
+        const json = await r.json();
+        if (json && typeof json === 'object') {
+          // Accept either a flat map or an object with .labels
+          if (json.labels && typeof json.labels === 'object') return json.labels;
+          return json;
+        }
+      } catch (_) {}
+    }
+    return {}; // fallback: no mapping
+  }
+
+  // Find the comparison table (we render only this)
+  function findCompatTable() {
+    const looksRight = (t) => t && /Category/i.test(t.textContent) && /Partner A/i.test(t.textContent);
+    return Array.from(document.querySelectorAll('table')).find(looksRight) || document.querySelector('table');
+  }
+
+  async function exportFullBleedPDF(LABELS) {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+
+    const tableEl = findCompatTable();
+    if (!tableEl) throw new Error('Compatibility table not found.');
+
+    // Paint the entire page black (so even tiny slack isn’t white)
+    pdf.setFillColor(0,0,0);
+    pdf.rect(0,0,pageW,pageH,'F');
+
+    pdf.autoTable({
+      html: tableEl,
+      theme: 'plain',
+      useCss: false,
+
+      // *** ZERO margins & full width ***
+      margin: 0,
+      startY: 0,
+      tableWidth: pageW,
+
+      styles: {
+        cellPadding: 8,
+        fillColor: [0,0,0],
+        textColor: 255,
+        lineColor: [64,64,64],
+        lineWidth: 0.6,
+        halign: 'left',
+        valign: 'middle',
+      },
+      headStyles: {
+        fillColor: [10,10,10],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: { fillColor: [18,18,18] },
+
+      // Translate cb_* codes in the first column if mapping exists
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 0) {
+          const raw = String((data.cell.text && data.cell.text[0]) || '');
+          if (raw.startsWith('cb_') && LABELS && LABELS[raw]) {
+            data.cell.text = [LABELS[raw]];
+          }
+        }
+      }
+    });
+
+    pdf.save('compatibility.pdf');
+  }
 })();
 </script>
+<!-- === END FULL-BLEED BLACK PDF EXPORT === -->
