@@ -2,8 +2,8 @@
 
 // Determine the font color used for the match percentage
 function getFontColor(percentage) {
-  if (percentage === null || percentage === undefined) return [0, 0, 0];
-  if (percentage >= 90) return [0, 128, 0];
+  if (percentage === null || percentage === undefined) return [255, 255, 255];
+  if (percentage >= 90) return [0, 255, 0];
   if (percentage >= 60) return [255, 255, 0];
   return [255, 0, 0];
 }
@@ -26,13 +26,12 @@ export function drawMatchBar(
   width,
   height,
   percentage,
-  resetColor = 'black'
+  resetColor = [255, 255, 255]
 ) {
   const label = percentage !== null && percentage !== undefined ? `${percentage}%` : 'N/A';
   const textColor = getFontColor(percentage);
 
-  // Light background to avoid solid black fills
-  doc.setFillColor(255, 255, 255);
+  doc.setFillColor(0, 0, 0);
   doc.rect(x, y, width, height, 'F');
 
   // Label centered inside the bar
@@ -41,13 +40,21 @@ export function drawMatchBar(
   doc.text(label, x + width / 2, y + height / 2 + 1.8, { align: 'center' });
 
   // Reset text color for subsequent drawing
-  doc.setTextColor(resetColor);
+  if (Array.isArray(resetColor)) {
+    doc.setTextColor(...resetColor);
+  } else {
+    doc.setTextColor(resetColor);
+  }
 }
 
 // Render the category header at the provided coordinates
-function renderCategoryHeader(doc, x, y, category, textColor = 'black') {
+function renderCategoryHeader(doc, x, y, category, textColor = [255, 255, 255]) {
   doc.setFontSize(13);
-  doc.setTextColor(textColor);
+  if (Array.isArray(textColor)) {
+    doc.setTextColor(...textColor);
+  } else {
+    doc.setTextColor(textColor);
+  }
   doc.text(category, x, y);
   doc.setFontSize(9);
 }
@@ -88,12 +95,16 @@ export function getMatchPercentage(a, b) {
 }
 
 // Helper: draw one row of the kink table
-function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = 'black') {
+function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = [255, 255, 255]) {
   const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
   const aNorm = normalizeScore(aScore);
   const bNorm = normalizeScore(bScore);
 
-  doc.setTextColor(textColor);
+  if (Array.isArray(textColor)) {
+    doc.setTextColor(...textColor);
+  } else {
+    doc.setTextColor(textColor);
+  }
   doc.setFontSize(8);
   doc.text(label, colLabel, y, {
     width: colA - colLabel - 5,
@@ -119,7 +130,7 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = '
 }
 
 // Render an entire category section including column headers
-export function renderCategorySection(doc, categoryLabel, items, layout, startY, textColor = 'black') {
+export function renderCategorySection(doc, categoryLabel, items, layout, startY, textColor = [255, 255, 255]) {
   const { colLabel, colA, colBar, colFlag, colB, barWidth } = layout;
 
   renderCategoryHeader(doc, colLabel, startY, categoryLabel, textColor);
@@ -128,7 +139,11 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
 
   // Column titles
   doc.setFontSize(9);
-  doc.setTextColor(textColor);
+  if (Array.isArray(textColor)) {
+    doc.setTextColor(...textColor);
+  } else {
+    doc.setTextColor(textColor);
+  }
   doc.text('Partner A', colA, currentY);
   doc.text('Match', colBar + barWidth / 2, currentY, { align: 'center' });
   doc.text('Flag', colFlag, currentY);
