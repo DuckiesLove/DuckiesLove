@@ -573,11 +573,19 @@ const bothReady = () => !!(tkState?.A?.cells?.length && tkState?.B?.cells?.lengt
 })();
 
 /* ----------------------------- LABELS MAP ----------------------------- */
-const TK_LABELS = {
-  cb_wwf76: 'Makeup as protocol or control',
-  cb_swujj: 'Accessory or ornament rules',
-  cb_05hqj: 'Wardrobe restrictions or permissions'
-};
+const TK_LABELS = window.TK_LABELS = Object.assign(
+  {},
+  window.TK_LABELS,
+  {
+    cb_e4bdv: "Dress partner’s outfit",
+    cb_hhxwj: "Pick lingerie / base layers",
+    cb_a19iy: "Uniforms (school, military, nurse, etc.)",
+    cb_5gzwk: "Time-period dress-up",
+    cb_wwf76: "Makeup as protocol or control",
+    cb_swujj: "Accessory or ornament rules",
+    cb_05hqj: "Wardrobe restrictions or permissions"
+  }
+);
 // Optional: site-wide overrides if present
 (async ()=>{ try{
   const r = await fetch('/data/labels-overrides.json',{cache:'no-store'});
