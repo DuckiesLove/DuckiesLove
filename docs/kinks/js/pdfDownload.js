@@ -198,7 +198,7 @@ async function _ensurePdfLibs() {
     const jspdfSources = [
       '/js/vendor/jspdf.umd.min.js',
       './js/vendor/jspdf.umd.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
     ];
     for (const src of jspdfSources) {
       try {
@@ -329,18 +329,23 @@ export async function downloadCompatibilityPDF({
 
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
+  const bleed = 3;
 
   const paintPage = () => {
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, pageW, pageH, 'F');
-    doc.setTextColor(255, 255, 255);
+    if (typeof doc.setFillColor === 'function') doc.setFillColor(0, 0, 0);
+    if (typeof doc.rect === 'function') doc.rect(-bleed, -bleed, pageW + bleed * 2, pageH + bleed * 2, 'F');
+    if (typeof doc.setTextColor === 'function') doc.setTextColor(255, 255, 255);
+    if (typeof doc.setDrawColor === 'function') doc.setDrawColor(0, 0, 0);
+    if (typeof doc.setLineWidth === 'function') doc.setLineWidth(0);
   };
 
   paintPage();
 
-  // Title
-  doc.setFontSize(28);
-  doc.text('Talk Kink • Compatibility Report', pageW / 2, 48, { align: 'center' });
+  if (typeof doc.setFont === 'function') {
+    try {
+      doc.setFont('helvetica', 'normal');
+    } catch {}
+  }
 
   // AutoTable (vector text; repaint each page background)
   const runAutoTable = (opts) => {
@@ -348,17 +353,39 @@ export async function downloadCompatibilityPDF({
     if (window.jspdf && typeof window.jspdf.autoTable === 'function') return window.jspdf.autoTable(doc, opts);
 
     // Fallback: simple manual table drawing when AutoTable is unavailable
-    const { head, body, startY = 0, margin = {}, styles = {}, headStyles = {}, columnStyles = {}, tableLineColor = [0,0,0], tableLineWidth = 0.2, didDrawPage } = opts;
+    const {
+      head,
+      body,
+      startY = 0,
+      startX = 0,
+      margin = {},
+      styles = {},
+      headStyles = {},
+      columnStyles = {},
+      tableLineColor = [0, 0, 0],
+      tableLineWidth = 0.2,
+      tableWidth,
+      didDrawPage,
+    } = opts;
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const top = margin.top || startY;
-    const left = margin.left || 0;
-    const bottom = margin.bottom || 0;
-    const pad = styles.cellPadding || 6;
+    const marginTop = typeof margin.top === 'number' ? margin.top : 0;
+    const marginBottom = typeof margin.bottom === 'number' ? margin.bottom : 0;
+    const marginLeft = typeof margin.left === 'number' ? margin.left : 0;
+    const marginRight = typeof margin.right === 'number' ? margin.right : 0;
+    const top = marginTop || startY;
+    const left = marginLeft + startX;
+    const bottom = marginBottom;
+    const padRaw = styles.cellPadding ?? 6;
+    const pad = typeof padRaw === 'number' ? padRaw : Math.max(0, padRaw.left ?? padRaw.right ?? padRaw.top ?? padRaw.bottom ?? 6);
     const fontSize = styles.fontSize || 12;
     const lineH = fontSize * 1.15;
-    const widths = head[0].map((_, i) => columnStyles[i]?.cellWidth || (pageW - left - (margin.right || 0)) / head[0].length);
-    const aligns = head[0].map((_, i) => columnStyles[i]?.halign || 'left');
+    const totalWidth =
+      typeof tableWidth === 'number'
+        ? tableWidth
+        : pageW - left - marginRight;
+    const widths = head[0].map((_, i) => columnStyles[i]?.cellWidth || totalWidth / head[0].length);
+    const aligns = head[0].map((_, i) => columnStyles[i]?.halign || styles.halign || 'left');
     let y = top;
 
     function drawRow(cells, isHead){
@@ -371,6 +398,7 @@ export async function downloadCompatibilityPDF({
       if (y + rowH > pageH - bottom) {
         doc.addPage();
         if (typeof didDrawPage === 'function') didDrawPage(doc);
+        else paintPage();
         y = top;
         if (!isHead) drawRow(head[0], true);
       }
@@ -379,10 +407,12 @@ export async function downloadCompatibilityPDF({
         const w = widths[i];
         doc.setDrawColor(...tableLineColor);
         doc.setLineWidth(tableLineWidth);
-        const fill = isHead ? (headStyles.fillColor || styles.fillColor) : styles.fillColor;
+        const fill = isHead ? (headStyles.fillColor ?? styles.fillColor) : styles.fillColor;
         const textCol = isHead ? (headStyles.textColor || styles.textColor) : styles.textColor;
-        if (fill) doc.setFillColor(...fill);
-        doc.rect(x, y, w, rowH, fill ? 'FD' : 'S');
+        if (fill) {
+          doc.setFillColor(...fill);
+          doc.rect(x, y, w, rowH, 'F');
+        }
         if (textCol) doc.setTextColor(...textCol);
         doc.setFontSize(fontSize);
         const halign = aligns[i];
@@ -412,45 +442,52 @@ export async function downloadCompatibilityPDF({
   };
 
   try {
+    let primed = false;
     runAutoTable({
       head: [['Category', 'Partner A', 'Match %', 'Partner B']],
       body,
-      startY: 70,
-      margin: { left: 30, right: 30, top: 70, bottom: 40 },
+      startY: -bleed,
+      startX: -bleed,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      tableWidth: pageW + bleed * 2,
+      horizontalPageBreak: true,
+      theme: 'plain',
       styles: {
-        fontSize: 12,
-        cellPadding: 6,
+        fontSize: 11,
+        cellPadding: 8,
         textColor: [255, 255, 255],
-        fillColor: [0, 0, 0],
-        lineColor: [255, 255, 255],
-        lineWidth: 0.25,
-        overflow: 'linebreak'
+        fillColor: null,
+        lineColor: [0, 0, 0],
+        lineWidth: 0,
+        halign: 'center',
+        valign: 'middle',
+        overflow: 'linebreak',
+        minCellHeight: 18
       },
       headStyles: {
         fontStyle: 'bold',
-        fillColor: [0, 0, 0],
+        fillColor: null,
         textColor: [255, 255, 255],
-        lineColor: [255, 255, 255],
-        lineWidth: 0.5
-      },
-      bodyStyles: {
-        fillColor: [0, 0, 0],
-        textColor: [255, 255, 255]
-      },
-      alternateRowStyles: {
-        fillColor: [0, 0, 0],
-        textColor: [255, 255, 255]
+        lineColor: [0, 0, 0],
+        lineWidth: 0,
+        cellPadding: 10
       },
       columnStyles: {
-        0: { cellWidth: 520, halign: 'left'   }, // Category
-        1: { cellWidth:  80, halign: 'center' }, // Partner A
-        2: { cellWidth:  90, halign: 'center' }, // Match %
-        3: { cellWidth:  80, halign: 'center' }  // Partner B
+        0: { halign: 'left' },
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center' }
       },
-      tableLineColor: [255, 255, 255],
-      tableLineWidth: 0.5,
-      didDrawPage: paintPage,
-      tableWidth: 'wrap'
+      tableLineColor: [0, 0, 0],
+      tableLineWidth: 0,
+      didAddPage: paintPage,
+      willDrawCell: () => {
+        if (!primed) {
+          primed = true;
+          if (typeof doc.setDrawColor === 'function') doc.setDrawColor(0, 0, 0);
+          if (typeof doc.setLineWidth === 'function') doc.setLineWidth(0);
+        }
+      }
     });
   } finally {
     doc.addPage = originalAddPage;

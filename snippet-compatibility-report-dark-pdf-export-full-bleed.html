@@ -87,8 +87,8 @@
  * 3) (Optional) Fill window.TK_LABELS above with your code→name mapping.
  */
 (() => {
-  const CDN_JSPDF     = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
-  const CDN_AUTOTABLE = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
+  const CDN_JSPDF     = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+  const CDN_AUTOTABLE = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js';
 
   function ensureConsentElements(){
     const overlay = document.getElementById('tk-consent-overlay');
@@ -206,40 +206,71 @@
     const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
+    const bleed = 3;
 
     const tableEl = findCompatTable();
     if (!tableEl) throw new Error('Compatibility table not found.');
 
-    // Paint the entire page black (so even tiny slack isn’t white)
-    pdf.setFillColor(0,0,0);
-    pdf.rect(0,0,pageW,pageH,'F');
+    const paintPage = () => {
+      if (typeof pdf.setFillColor === 'function') pdf.setFillColor(0,0,0);
+      if (typeof pdf.rect === 'function') pdf.rect(-bleed,-bleed,pageW + bleed*2,pageH + bleed*2,'F');
+      if (typeof pdf.setTextColor === 'function') pdf.setTextColor(255,255,255);
+      if (typeof pdf.setDrawColor === 'function') pdf.setDrawColor(0,0,0);
+      if (typeof pdf.setLineWidth === 'function') pdf.setLineWidth(0);
+    };
 
+    paintPage();
+    try {
+      pdf.setFont('helvetica','normal');
+    } catch(_) {}
+
+    let primed = false;
     pdf.autoTable({
       html: tableEl,
       theme: 'plain',
       useCss: false,
-
-      // *** ZERO margins & full width ***
-      margin: 0,
-      startY: 0,
-      tableWidth: pageW,
-
+      startY: -bleed,
+      startX: -bleed,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      tableWidth: pageW + bleed*2,
+      horizontalPageBreak: true,
       styles: {
         cellPadding: 8,
-        fillColor: [0,0,0],
+        fillColor: null,
         textColor: 255,
-        lineColor: [64,64,64],
-        lineWidth: 0.6,
+        lineColor: [0,0,0],
+        lineWidth: 0,
         halign: 'left',
         valign: 'middle',
+        overflow: 'linebreak',
+        minCellHeight: 18
       },
       headStyles: {
-        fillColor: [10,10,10],
+        fillColor: null,
         textColor: 255,
         fontStyle: 'bold',
+        lineColor: [0,0,0],
+        lineWidth: 0,
+        cellPadding: 10
       },
-      alternateRowStyles: { fillColor: [18,18,18] },
-
+      tableLineColor: [0,0,0],
+      tableLineWidth: 0,
+      columnStyles: {
+        0: { halign: 'left' },
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center' }
+      },
+      didAddPage: () => {
+        paintPage();
+      },
+      willDrawCell: () => {
+        if (!primed) {
+          primed = true;
+          if (typeof pdf.setDrawColor === 'function') pdf.setDrawColor(0,0,0);
+          if (typeof pdf.setLineWidth === 'function') pdf.setLineWidth(0);
+        }
+      },
       // Translate cb_* codes in the first column if mapping exists
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.index === 0) {

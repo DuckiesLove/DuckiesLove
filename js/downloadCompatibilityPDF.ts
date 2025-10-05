@@ -181,7 +181,7 @@ export async function downloadCompatibilityPDF(): Promise<void> {
   async function ensureLibs(): Promise<void> {
     const hasJsPDF = () => Boolean((window as any).jspdf?.jsPDF || (window as any).jsPDF);
     if (!hasJsPDF()) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js");
     }
 
     const hasAutoTable = () =>
@@ -257,23 +257,25 @@ export async function downloadCompatibilityPDF(): Promise<void> {
     const doc = new JsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
+    const bleed = 3;
 
     const paintBg = (): void => {
-      doc.setFillColor(0, 0, 0);
-      doc.rect(0, 0, pageW, pageH, "F");
-      doc.setTextColor(255, 255, 255);
+      if (typeof doc.setFillColor === "function") doc.setFillColor(0, 0, 0);
+      if (typeof doc.rect === "function") doc.rect(-bleed, -bleed, pageW + bleed * 2, pageH + bleed * 2, "F");
+      if (typeof doc.setTextColor === "function") doc.setTextColor(255, 255, 255);
+      if (typeof doc.setDrawColor === "function") doc.setDrawColor(0, 0, 0);
+      if (typeof doc.setLineWidth === "function") doc.setLineWidth(0);
     };
 
     paintBg();
-    doc.setFontSize(24);
-    doc.text("Talk Kink • Compatibility Report", pageW / 2, 42, { align: "center" });
 
-    const marginLR = 30;
-    const usable = pageW - marginLR * 2;
-    const Awidth = 90,
-      Mwidth = 110,
-      Bwidth = 90;
-    const CatWidth = Math.max(220, usable - (Awidth + Mwidth + Bwidth));
+    if (typeof doc.setFont === "function") {
+      try {
+        doc.setFont("helvetica", "normal");
+      } catch {
+        /* ignore font errors */
+      }
+    }
 
     const runAT = (opts: Record<string, unknown>): void => {
       if (typeof doc.autoTable === "function") return doc.autoTable(opts);
@@ -290,44 +292,52 @@ export async function downloadCompatibilityPDF(): Promise<void> {
     } as typeof doc.addPage;
 
     try {
+      let primed = false;
       runAT({
         head: [["Category", "Partner A", "Match %", "Partner B"]],
         body,
-        startY: 64,
-        margin: { left: marginLR, right: marginLR, top: 64, bottom: 40 },
+        startY: -bleed,
+        startX: -bleed,
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        tableWidth: pageW + bleed * 2,
+        horizontalPageBreak: true,
+        theme: "plain",
         styles: {
           fontSize: 11,
-          cellPadding: 6,
+          cellPadding: 8,
           textColor: [255, 255, 255],
-          fillColor: [0, 0, 0],
-          lineColor: [255, 255, 255],
-          lineWidth: 1.2,
+          fillColor: null,
+          lineColor: [0, 0, 0],
+          lineWidth: 0,
           halign: "center",
           valign: "middle",
+          overflow: "linebreak",
+          minCellHeight: 18,
         },
         headStyles: {
-          fillColor: [0, 0, 0],
+          fillColor: null,
           textColor: [255, 255, 255],
           fontStyle: "bold",
-          lineColor: [255, 255, 255],
-          lineWidth: 1.6,
-        },
-        bodyStyles: {
-          fillColor: [0, 0, 0],
-          textColor: [255, 255, 255],
-        },
-        alternateRowStyles: {
-          fillColor: [0, 0, 0],
-          textColor: [255, 255, 255],
+          lineColor: [0, 0, 0],
+          lineWidth: 0,
+          cellPadding: 10,
         },
         columnStyles: {
-          0: { cellWidth: CatWidth, halign: "left" },
-          1: { cellWidth: Awidth, halign: "center" },
-          2: { cellWidth: Mwidth, halign: "center" },
-          3: { cellWidth: Bwidth, halign: "center" },
+          0: { halign: "left" },
+          1: { halign: "center" },
+          2: { halign: "center" },
+          3: { halign: "center" },
         },
-        tableWidth: usable,
-        willDrawPage: paintBg,
+        tableLineColor: [0, 0, 0],
+        tableLineWidth: 0,
+        didAddPage: paintBg,
+        willDrawCell: () => {
+          if (!primed) {
+            primed = true;
+            if (typeof doc.setDrawColor === "function") doc.setDrawColor(0, 0, 0);
+            if (typeof doc.setLineWidth === "function") doc.setLineWidth(0);
+          }
+        },
       });
     } finally {
       doc.addPage = originalAddPage;
