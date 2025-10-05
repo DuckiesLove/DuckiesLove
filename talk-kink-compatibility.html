@@ -643,5 +643,132 @@ function ensureLib(srcList, globalKey) {
 CODE END
 ===============================================================================
 -->
+<script>
+/**
+ * Full-bleed (no margins) black PDF export for the compatibility table.
+ * - Replaces any window.print() usage.
+ * - Sets AutoTable margins to ZERO and stretches table to page edges.
+ * - Styles table rows dark so the page looks solid black edge-to-edge.
+ * - Binds to a button with id="dl".
+ *
+ * If you already load jsPDF / autotable elsewhere, the loader will just skip.
+ */
+(() => {
+  const JSPDF_UMD = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+  const AUTOTABLE = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
+
+  // 1) Attach once
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.querySelector('#dl');
+    if (btn && !btn.dataset.fullBleedBound) {
+      btn.dataset.fullBleedBound = '1';
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          await ensureJsPDF();
+          await exportCompatibilityPDF_fullBleed();
+        } catch (err) {
+          console.error('[PDF] export failed:', err);
+          alert('Sorry, PDF export failed. Check console for details.');
+        }
+      });
+    }
+  });
+
+  // 2) Dynamic loader for jsPDF + AutoTable (skips if already present)
+  async function ensureJsPDF() {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      await loadScript(JSPDF_UMD);
+    }
+    if (!('autoTable' in (window.jspdf || {}))) {
+      await loadScript(AUTOTABLE);
+    }
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  // 3) Find the visible comparison table
+  function findCompatTable() {
+    // Prefer the big results table (contains these header labels)
+    const isCompat = (t) =>
+      t && /Category/i.test(t.textContent) && /Partner A/i.test(t.textContent);
+
+    let table =
+      Array.from(document.querySelectorAll('.wrap table, main table, table'))
+        .find(isCompat);
+
+    // fallback: any first table
+    if (!table) table = document.querySelector('table');
+    return table;
+  }
+
+  // 4) Main export
+  async function exportCompatibilityPDF_fullBleed() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+
+    const tableEl = findCompatTable();
+    if (!tableEl) {
+      throw new Error('Could not find the compatibility results table on this page.');
+    }
+
+    // OPTIONAL: If your page prints a title/timestamp in the PDF, remove/comment those
+    // DOM elements for the snapshot, or don't draw them here to keep true full-bleed.
+
+    // Full-bleed AutoTable: zero margins, start at Y=0, span full page width.
+    pdf.autoTable({
+      html: tableEl,    // let AutoTable parse the DOM table
+      useCss: false,    // ignore external CSS; we fully control styling below
+      theme: 'plain',
+
+      margin: 0,        // <— the key: NO MARGINS
+      startY: 0,
+      tableWidth: pageW,
+
+      pageBreak: 'auto',
+
+      styles: {
+        cellPadding: 8,
+        fillColor: [0, 0, 0],     // black row background
+        textColor: 255,           // white text
+        lineColor: [58, 58, 58],  // subtle dividers
+        lineWidth: 0.6,
+        halign: 'left',
+        valign: 'middle',
+        fontStyle: 'normal'
+      },
+      headStyles: {
+        fillColor: [10, 10, 10],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: { fillColor: [18, 18, 18] },
+
+      // Keep headers/footers off to avoid reintroducing margins.
+      didDrawPage: (data) => {
+        // If you *want* a small title without margins, you can draw it here at fixed coords.
+        // Example (commented out to keep pure full-bleed):
+        // pdf.setTextColor(255);
+        // pdf.setFontSize(12);
+        // pdf.text('Talk Kink — Compatibility', 16, 20);
+      }
+    });
+
+    pdf.save('compatibility.pdf');
+  }
+})();
+</script>
 </body>
 </html>
