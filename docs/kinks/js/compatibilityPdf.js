@@ -31,10 +31,11 @@ export async function generateCompatibilityPDF(data = { categories: [] }) {
   const layout = buildLayout(startX, usableWidth);
 
   const drawBackground = () => {
-    // Use a white page background with black text to avoid solid black exports
-    doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, 297, 210, 'F');
-    doc.setTextColor(0, 0, 0);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    doc.setTextColor(255, 255, 255);
   };
 
   const drawBar = (match, x, baselineY, layout) => {
@@ -166,14 +167,20 @@ export async function generateCompatibilityPDFLandscape(data) {
     throw new Error('jsPDF failed to load');
   }
   const doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+  const getPageMetrics = () => ({
+    width: doc.internal.pageSize.getWidth(),
+    height: doc.internal.pageSize.getHeight()
+  });
+  const drawBackground = () => {
+    const { width, height } = getPageMetrics();
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, width, height, 'F');
+    doc.setTextColor(255, 255, 255);
+  };
+  const { width: pageWidth, height: pageHeight } = getPageMetrics();
   const margin = 15;
 
-  // Start with a white background so exported pages aren't solid black
-  doc.setFillColor(255, 255, 255);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
-  doc.setTextColor(0);
+  drawBackground();
 
   let y = 20;
 
@@ -191,16 +198,13 @@ export async function generateCompatibilityPDFLandscape(data) {
     const score = combinedScore(kink.a ?? kink.partnerA, kink.b ?? kink.partnerB);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    // Write item rows in black text on white background
-    doc.setTextColor(0);
+    doc.setTextColor(255, 255, 255);
     doc.text(kink.label || kink.kink, margin, y, { maxWidth: pageWidth - margin * 2 - 30 });
     doc.text(score, pageWidth - margin, y, { align: 'right' });
     y += 6;
     if (y > pageHeight - 20) {
       doc.addPage();
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 0, pageWidth, pageHeight, 'F');
-      doc.setTextColor(0);
+      drawBackground();
       y = 20;
     }
   });
