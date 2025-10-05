@@ -4,7 +4,63 @@
   html, body { background:#000; color:#fff; margin:0; padding:0; }
   /* Make the app container span the full width */
   .wrap { width:100%; margin:0; padding:0; box-sizing:border-box; }
+  /* Consent modal */
+  #tk-consent-overlay{
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,.55);
+    z-index:99999;
+  }
+  #tk-consent-card{
+    max-width:520px;
+    width:90%;
+    background:#111;
+    color:#fff;
+    border:1px solid #333;
+    border-radius:10px;
+    padding:16px;
+  }
+  #tk-consent-card h3{
+    margin:0 0 8px 0;
+    font:600 16px system-ui;
+  }
+  #tk-consent-card p{
+    margin:0 0 10px 0;
+    line-height:1.4;
+  }
+  #tk-consent-actions{
+    display:flex;
+    gap:10px;
+    justify-content:flex-end;
+    margin-top:12px;
+  }
+  .tk-btn{
+    padding:8px 14px;
+    border-radius:8px;
+    border:1px solid #555;
+    background:#1f1f1f;
+    color:#fff;
+    cursor:pointer;
+  }
+  .tk-btn.primary{
+    background:#2a7;
+    border-color:#2a7;
+  }
 </style>
+
+<div id="tk-consent-overlay" aria-modal="true" role="dialog">
+  <div id="tk-consent-card">
+    <h3>Consent Check</h3>
+    <p>Do you have your partner’s consent to export or share this compatibility PDF?</p>
+    <div id="tk-consent-actions">
+      <button class="tk-btn" id="tk-consent-cancel" type="button">Cancel</button>
+      <button class="tk-btn primary" id="tk-consent-confirm" type="button">I Confirm</button>
+    </div>
+  </div>
+</div>
 
 <!-- (Optional) Inline code→name overrides. Fill these in or leave empty. -->
 <script>
@@ -34,6 +90,52 @@
   const CDN_JSPDF     = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
   const CDN_AUTOTABLE = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
 
+  function ensureConsentElements(){
+    const overlay = document.getElementById('tk-consent-overlay');
+    const confirm = document.getElementById('tk-consent-confirm');
+    const cancel = document.getElementById('tk-consent-cancel');
+    if (!overlay || !confirm || !cancel) return null;
+    return { overlay, confirm, cancel };
+  }
+
+  function showConsentModal(){
+    const els = ensureConsentElements();
+    if (!els) return Promise.resolve(true);
+
+    const { overlay, confirm, cancel } = els;
+    overlay.style.display = 'flex';
+
+    return new Promise(resolve => {
+      let done = false;
+      const cleanup = (result) => {
+        if (done) return;
+        done = true;
+        overlay.style.display = 'none';
+        confirm.removeEventListener('click', onConfirm);
+        cancel.removeEventListener('click', onCancel);
+        overlay.removeEventListener('click', onOverlayClick);
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      };
+
+      const onConfirm = () => cleanup(true);
+      const onCancel = () => cleanup(false);
+      const onOverlayClick = (ev) => { if (ev.target === overlay) cleanup(false); };
+      const onKey = (ev) => { if (ev.key === 'Escape') cleanup(false); };
+
+      confirm.addEventListener('click', onConfirm);
+      cancel.addEventListener('click', onCancel);
+      overlay.addEventListener('click', onOverlayClick);
+      document.addEventListener('keydown', onKey);
+
+      confirm.focus?.();
+    });
+  }
+
+  async function ensureConsent(){
+    return await showConsentModal();
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('dl');
     if (!btn) return;
@@ -43,6 +145,7 @@
     btn.replaceWith(clone);
     clone.addEventListener('click', async (e) => {
       e.preventDefault();
+      if (!(await ensureConsent())) return;
       try {
         await ensureLibs();
         const labels = await loadLabels();
