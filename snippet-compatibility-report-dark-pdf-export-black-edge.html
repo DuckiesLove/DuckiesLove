@@ -1,140 +1,116 @@
-<!-- Force-takeover ultra full-bleed black PDF (no margins/padding/borders). Always asks consent. -->
+<!-- === TalkKink Compatibility: Force-Takeover Black-Edge PDF Export === -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
-/* 0) Disable all legacy paths that cause white borders */
-try { window.print = () => console.warn('[patched] window.print() disabled'); } catch (e) {}
-(function killOld() {
+/* 0) Kill legacy paths that reintroduce borders/headers */
+try { window.print = () => console.warn('[tk] window.print() disabled'); } catch(e){}
+(function killOld(){
   const names = [
-    'downloadCompatibilityPDF',
-    'exportCompatibilityPDF',
-    'makePDF',
-    'createPDF',
-    'saveReportPDF',
-    'compatPDF',
-    'exportPDF',
-    'downloadPDF'
+    'downloadCompatibilityPDF','exportCompatibilityPDF','makePDF','createPDF',
+    'saveReportPDF','compatPDF','exportPDF','downloadPDF'
   ];
-  names.forEach((n) => {
-    try {
-      delete window[n];
-    } catch (_) {}
-  });
+  names.forEach(n => { try { delete window[n]; } catch(_){} });
 })();
 
-/* 1) Minimal consent (always ask) */
-async function __tkConsent() {
-  return confirm('Consent check:\nDo you have your partner\'s consent to export/share this PDF?');
-}
+/* 1) Tiny consent (always ask) */
+async function tkConsent(){ return confirm("Consent check:\nDo you have your partner’s consent to export/share this PDF?"); }
 
-/* 2) Final black-edge exporter */
-async function __exportCompatPDF_vBlackEdge({
-  filename = 'compatibility.pdf',
-  columns = [
-    { header: 'Category', dataKey: 'category' },
-    { header: 'Partner A', dataKey: 'a' },
-    { header: 'Match %', dataKey: 'm' },
-    { header: 'Partner B', dataKey: 'b' }
+/* 2) Ultra full-bleed exporter (no margins/padding/borders/titles) */
+async function tkExportPDF_BlackEdge({
+  filename='compatibility.pdf',
+  columns=[
+    { header:'Category', dataKey:'category' },
+    { header:'Partner A', dataKey:'a' },
+    { header:'Match %',  dataKey:'m' },
+    { header:'Partner B',dataKey:'b' },
   ],
-  rows = []
+  rows=[]
 } = {}) {
-  if (!(await __tkConsent())) return;
+  if(!(await tkConsent())) return;
 
-  console.log('[patched] USING vBlackEdge');
+  console.log('[tk] USING BlackEdge');
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true, putOnlyUsedFonts: true });
+  const doc = new jsPDF({ unit:'pt', format:'letter', compress:true, putOnlyUsedFonts:true });
 
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
-  const BLEED = 6; // paint beyond page to kill anti-alias rims
+  const BLEED = 8; // overpaint beyond page to crush any anti-alias halo
 
-  const paint = () => {
-    doc.setFillColor(0, 0, 0);
-    doc.rect(-BLEED, -BLEED, W + BLEED * 2, H + BLEED * 2, 'F');
-  };
+  const paint = () => { doc.setFillColor(0,0,0); doc.rect(-BLEED,-BLEED,W+BLEED*2,H+BLEED*2,'F'); };
   paint();
-  doc.setTextColor(255, 255, 255);
-  doc.setDrawColor(0, 0, 0);
+  doc.setTextColor(255,255,255);
+  doc.setDrawColor(0,0,0);
   doc.setLineWidth(0);
 
-  const head = [columns.map((c) => c.header ?? c.title ?? c)];
-  const body = rows.map((r) =>
-    columns.map((c) => {
-      const k = c.dataKey ?? c.key ?? c;
-      const v = r[k];
-      return v === undefined || v === null || v === '' ? '—' : String(v);
-    })
-  );
+  // Pull data from the live table on the page if you’re not passing rows/columns
+  if (!rows.length) {
+    const table = document.querySelector('table');
+    if (table) {
+      const ths = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+      const trs = [...table.querySelectorAll('tbody tr')];
+      const guessCols = ths.length ? ths : ['Category','Partner A','Match %','Partner B'];
+      columns = guessCols.map((h,i)=>({header:h,dataKey:String(i)}));
+      rows = trs.map(tr => {
+        const cells = [...tr.children].map(td => td.textContent.trim());
+        const obj = {};
+        cells.forEach((v,i)=> obj[String(i)] = v);
+        return obj;
+      });
+    }
+  }
+
+  const head = [columns.map(c => c.header ?? c.title ?? c)];
+  const body = rows.map(r => columns.map(c => {
+    const k = c.dataKey ?? c.key ?? c;
+    const v = r[k];
+    return (v===undefined || v===null || v==='') ? '—' : String(v);
+  }));
 
   doc.autoTable({
-    head,
-    body,
+    head, body,
     startY: -BLEED,
     startX: -BLEED,
-    tableWidth: W + BLEED * 2,
-    margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    tableWidth: W + BLEED*2,
+    margin: { top:0, right:0, bottom:0, left:0 },
     theme: 'plain',
     horizontalPageBreak: true,
-    styles: {
-      font: 'helvetica',
-      fontSize: 10,
-      textColor: [255, 255, 255],
-      cellPadding: 0,
-      lineWidth: 0,
-      fillColor: null,
-      overflow: 'linebreak',
-      minCellHeight: 14
-    },
-    headStyles: {
-      fontStyle: 'bold',
-      textColor: [255, 255, 255],
-      fillColor: null,
-      cellPadding: 0,
-      lineWidth: 0,
-      minCellHeight: 16
-    },
-    tableLineWidth: 0,
-    tableLineColor: [0, 0, 0],
-    columnStyles: {
-      0: { halign: 'left' },
-      1: { halign: 'center' },
-      2: { halign: 'center' },
-      3: { halign: 'center' }
-    },
-    didParseCell(d) {
-      d.cell.styles.fillColor = null;
-      d.cell.styles.lineWidth = 0;
-      d.cell.styles.lineColor = [0, 0, 0];
-    },
-    didAddPage() {
-      paint();
-      doc.setTextColor(255, 255, 255);
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0);
-    }
+    styles: { font:'helvetica', fontSize:10, textColor:[255,255,255], cellPadding:0, lineWidth:0, fillColor:null, overflow:'linebreak', minCellHeight:14 },
+    headStyles: { fontStyle:'bold', textColor:[255,255,255], fillColor:null, cellPadding:0, lineWidth:0, minCellHeight:16 },
+    tableLineWidth: 0, tableLineColor: [0,0,0],
+    columnStyles: { 0:{halign:'left'}, 1:{halign:'center'}, 2:{halign:'center'}, 3:{halign:'center'} },
+    didParseCell(d){ d.cell.styles.fillColor=null; d.cell.styles.lineWidth=0; d.cell.styles.lineColor=[0,0,0]; },
+    didAddPage(){ paint(); doc.setTextColor(255,255,255); doc.setDrawColor(0,0,0); doc.setLineWidth(0); }
   });
 
   doc.save(filename);
 }
 
-/* 3) HARD WIRE our exporter to every common name so existing buttons call this version */
-(function takeover() {
-  const fn = __exportCompatPDF_vBlackEdge;
-  const names = [
-    'downloadCompatibilityPDF',
-    'exportCompatibilityPDF',
-    'makePDF',
-    'createPDF',
-    'saveReportPDF',
-    'compatPDF',
-    'exportPDF',
-    'downloadPDF'
-  ];
-  names.forEach((n) => {
-    window[n] = fn;
-  });
-  window.exportCompatPDF_vBlackEdge = fn;
-  console.log('[patched] PDF exporters wired:', names.join(', '));
+/* 3) Force-rewire the “Download PDF” button on this page */
+(function wireButton(){
+  // Find by text content in case there’s no id
+  const candidates = [...document.querySelectorAll('a,button,input[type="button"],input[type="submit"]')];
+  const btn = candidates.find(el => /download pdf/i.test(el.textContent || el.value || ''));
+  if (!btn) { console.warn('[tk] Download PDF button not found'); return; }
+
+  // Stop any old handlers cold
+  btn.onclick = null;
+  btn.removeAttribute('href');
+  btn.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    // Build rows/columns from your in-page table (or pass your computed arrays here)
+    tkExportPDF_BlackEdge({});
+  }, { capture:true });
+  console.log('[tk] Download PDF button rewired → BlackEdge exporter');
 })();
+
+/* 4) Optional: solid-black proof (no table). Run from console to verify viewer shadows. */
+window.tkSolidBlackTest = function(){
+  const { jsPDF } = window.jspdf;
+  const d = new jsPDF({ unit:'pt', format:'letter' });
+  const w = d.internal.pageSize.getWidth(), h = d.internal.pageSize.getHeight();
+  d.setFillColor(0,0,0); d.rect(-10,-10,w+20,h+20,'F'); d.save('solid-black.pdf');
+  console.log('[tk] solid-black.pdf exported');
+};
 </script>
