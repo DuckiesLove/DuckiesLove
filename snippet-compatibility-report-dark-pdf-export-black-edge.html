@@ -1,46 +1,43 @@
-<!-- jsPDF + AutoTable (UMD builds) -->
+<!-- jsPDF + AutoTable -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
 
-<style>
-/* Minimal consent modal (always asks) */
-#tk-consent-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:99999}
-#tk-consent-card{max-width:520px;width:90%;background:#111;color:#fff;border:1px solid #333;border-radius:10px;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-#tk-consent-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
-.tk-btn{padding:8px 14px;border-radius:8px;border:1px solid #555;background:#1f1f1f;color:#fff;cursor:pointer}
-.tk-btn.primary{background:#2a7;border-color:#2a7}
-</style>
-
-<!-- Consent modal -->
-<div id="tk-consent-overlay" aria-modal="true" role="dialog">
-  <div id="tk-consent-card">
-    <h3 style="margin:0 0 8px 0;font:600 16px system-ui">Consent Check</h3>
-    <p style="margin:0 0 10px 0;line-height:1.4">Do you have your partner’s consent to export or share this compatibility PDF?</p>
-    <div id="tk-consent-actions">
-      <button class="tk-btn" id="tk-consent-cancel">Cancel</button>
-      <button class="tk-btn primary" id="tk-consent-confirm">I Confirm</button>
-    </div>
-  </div>
+<!-- Demo buttons -->
+<div style="display:flex;gap:10px;margin:10px 0;">
+  <button id="btn-black-test">Export SOLID BLACK (no table)</button>
+  <button id="btn-vblackedge">Export vBlackEdge (table)</button>
 </div>
 
 <script>
-/* ---------- Consent (always ask) ---------- */
+/* 0) KILL any legacy print/export handlers that might still fire */
+(function() {
+  // Remove any onclick="downloadCompatibilityPDF(...)" or window.print()
+  const oldIds = ['downloadCompatibilityPDF','printPDF','makePDF'];
+  oldIds.forEach(id => { try { delete window[id]; } catch(_){} });
+  // Globally no-op window.print to ensure it can't fire by accident
+  try { window.print = () => console.warn('window.print() disabled for test'); } catch(_) {}
+})();
+
+/* 1) SOLID BLACK TEST — proves viewer vs file */
+function exportSolidBlackTest(){
+  const { jsPDF } = window.jspdf;
+  const d = new jsPDF({ unit:'pt', format:'letter' });
+  const w = d.internal.pageSize.getWidth(), h = d.internal.pageSize.getHeight();
+  // Overpaint beyond page bounds so NO rim is possible inside the page
+  d.setFillColor(0,0,0);
+  d.rect(-6,-6,w+12,h+12,'F');
+  d.save('solid-black.pdf');
+  console.log('Solid black test exported');
+}
+
+/* 2) FINAL exporter (always-ask consent, zero margins/padding/borders, overpaint bleed) */
 function showConsentModal(){
   return new Promise(resolve=>{
-    const overlay=document.getElementById('tk-consent-overlay');
-    const btnCancel=document.getElementById('tk-consent-cancel');
-    const btnOk=document.getElementById('tk-consent-confirm');
-    overlay.style.display='flex';
-    const cleanup=(ok)=>{ document.removeEventListener('keydown',onKey); overlay.style.display='none'; resolve(ok); };
-    const onKey=(e)=>{ if(e.key==='Escape') cleanup(false); };
-    document.addEventListener('keydown',onKey);
-    btnCancel.onclick=()=>cleanup(false);
-    btnOk.onclick=()=>cleanup(true);
-    overlay.onclick=(e)=>{ if(e.target===overlay) cleanup(false); };
+    const ok = confirm("Consent check:\nDo you have your partner’s consent to export/share this PDF?");
+    resolve(!!ok);
   });
 }
 
-/* ---------- FINAL: Ultra full-bleed black export (no margins/padding/borders/headers) ---------- */
 async function exportCompatPDF_vBlackEdge({
   filename='compatibility.pdf',
   columns=[
@@ -51,25 +48,23 @@ async function exportCompatPDF_vBlackEdge({
   ],
   rows=[]
 } = {}) {
-  const ok = await showConsentModal();
-  if(!ok) return;
+  if(!(await showConsentModal())) return;
 
-  console.log('USING vBlackEdge'); // verify in console
+  console.log('USING vBlackEdge'); // <-- you MUST see this in DevTools
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'pt', format:'letter', compress:true, putOnlyUsedFonts:true });
 
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
-  const BLEED = 4; // overpaint beyond page bounds to avoid any anti-aliased rim
+  const BLEED = 6; // paint beyond page to kill any anti-aliased rim
 
   const paintBlack = () => { doc.setFillColor(0,0,0); doc.rect(-BLEED,-BLEED,W+BLEED*2,H+BLEED*2,'F'); };
-  paintBlack();                         // Page 1 background first
-  doc.setTextColor(255,255,255);        // White text
-  doc.setDrawColor(0,0,0);              // Black stroke
-  doc.setLineWidth(0);                  // No strokes anywhere
+  paintBlack();
+  doc.setTextColor(255,255,255);
+  doc.setDrawColor(0,0,0);
+  doc.setLineWidth(0);
 
-  // Build table arrays (no padding/fills/borders)
   const head = [columns.map(c => c.header ?? c.title ?? c)];
   const body = rows.map(r => columns.map(c => {
     const k=c.dataKey ?? c.key ?? c; const v=r[k];
@@ -78,9 +73,9 @@ async function exportCompatPDF_vBlackEdge({
 
   doc.autoTable({
     head, body,
-    startY: -BLEED,                     // start outside page to cover top edge
-    startX: -BLEED,                     // left edge
-    tableWidth: W + BLEED*2,            // span past both sides
+    startY: -BLEED,
+    startX: -BLEED,
+    tableWidth: W + BLEED*2,
     margin: { top:0, right:0, bottom:0, left:0 },
     theme: 'plain',
     horizontalPageBreak: true,
@@ -89,9 +84,9 @@ async function exportCompatPDF_vBlackEdge({
       font: 'helvetica',
       fontSize: 10,
       textColor: [255,255,255],
-      cellPadding: 0,                   // zero padding
-      lineWidth: 0,                     // no borders
-      fillColor: null,                  // let page black show through
+      cellPadding: 0,
+      lineWidth: 0,
+      fillColor: null,
       overflow: 'linebreak',
       minCellHeight: 14
     },
@@ -105,21 +100,16 @@ async function exportCompatPDF_vBlackEdge({
     },
     tableLineWidth: 0,
     tableLineColor: [0,0,0],
-    columnStyles: {
-      0:{halign:'left'},
-      1:{halign:'center'},
-      2:{halign:'center'},
-      3:{halign:'center'}
-    },
+    columnStyles: { 0:{halign:'left'}, 1:{halign:'center'}, 2:{halign:'center'}, 3:{halign:'center'} },
 
-    // Hard override any external fills/borders that might sneak in
+    // Force-kill any external fills/borders/zebra
     didParseCell(data){
       data.cell.styles.fillColor = null;
       data.cell.styles.lineWidth = 0;
       data.cell.styles.lineColor = [0,0,0];
     },
 
-    // Repaint every new page BEFORE any table content
+    // Paint every new page BEFORE anything draws
     didAddPage(){
       paintBlack();
       doc.setTextColor(255,255,255);
@@ -131,12 +121,15 @@ async function exportCompatPDF_vBlackEdge({
   doc.save(filename);
 }
 
-/* ---------- Example usage ----------
-exportCompatPDF_vBlackEdge({
-  rows: [
-    { category:'Bondage', a:'5', m:'92%', b:'5' },
-    { category:'Impact',  a:'4', m:'78%', b:'3' },
-  ]
-});
-*/
+/* 3) Wire demo buttons (so we KNOW the right functions run) */
+document.getElementById('btn-black-test').onclick = exportSolidBlackTest;
+document.getElementById('btn-vblackedge').onclick = () => {
+  // demo minimal rows; replace with your data
+  exportCompatPDF_vBlackEdge({
+    rows: [
+      { category:'Bondage', a:'5', m:'92%', b:'5' },
+      { category:'Impact',  a:'4', m:'78%', b:'3' },
+    ]
+  });
+};
 </script>
