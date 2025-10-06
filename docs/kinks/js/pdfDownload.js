@@ -283,46 +283,142 @@ function _extractRows() {
 }
 
   // --- Main export (dark pages rendered via jsPDF/AutoTable) ---
+const DEFAULT_COLUMNS = [
+  { header: 'Category', dataKey: 'category', align: 'left' },
+  { header: 'Partner A', dataKey: 'a', align: 'center' },
+  { header: 'Match %', dataKey: 'm', align: 'center' },
+  { header: 'Partner B', dataKey: 'b', align: 'center' }
+];
+
+function _normalizeColumns(columns){
+  const source = Array.isArray(columns) && columns.length ? columns : DEFAULT_COLUMNS;
+  return source.map((col, idx) => {
+    if (typeof col === 'string') {
+      return {
+        header: col,
+        dataKey: col,
+        align: idx === 0 ? 'left' : 'center'
+      };
+    }
+    const header = col.header ?? col.title ?? col.label ?? '';
+    const dataKey = col.dataKey ?? col.key ?? col.field ?? col.name ?? col.header ?? col.title ?? col;
+    return {
+      header: header || String(dataKey ?? ''),
+      dataKey,
+      align: col.align || col.halign || (idx === 0 ? 'left' : 'center'),
+      cellWidth: col.cellWidth
+    };
+  });
+}
+
+function _normalizeProvidedRows(rows, columns){
+  if (!Array.isArray(rows)) return [];
+  return rows.map((rawRow) => {
+    if (Array.isArray(rawRow)) {
+      return rawRow.map(val => (val == null || val === '' ? '—' : String(val)));
+    }
+    if (!rawRow || typeof rawRow !== 'object') {
+      return columns.map(() => '—');
+    }
+    return columns.map(col => {
+      const key = col.dataKey;
+      const value = key != null && Object.prototype.hasOwnProperty.call(rawRow, key)
+        ? rawRow[key]
+        : rawRow[col.header];
+      return (value == null || value === '') ? '—' : String(value);
+    });
+  });
+}
+
+function _expandForFallback(row, columnCount){
+  const out = new Array(columnCount).fill('');
+  let cursor = 0;
+  row.forEach(cell => {
+    const span = cell && typeof cell === 'object' && !Array.isArray(cell)
+      ? Math.max(1, Number(cell.colSpan) || 1)
+      : 1;
+    const text = cell && typeof cell === 'object' && !Array.isArray(cell)
+      ? (cell.content == null ? '' : String(cell.content))
+      : String(cell ?? '');
+    for (let i = 0; i < span && cursor < columnCount; i++) {
+      out[cursor++] = text;
+    }
+  });
+  while (cursor < columnCount) {
+    out[cursor++] = '';
+  }
+  return out;
+}
+
 export async function downloadCompatibilityPDF({
   filename = 'compatibility-report.pdf',
   orientation = 'landscape',
-  format = 'a4'
+  format = 'a4',
+  columns,
+  rows
 } = {}) {
   const consentGiven = await _requestConsent();
   if (!consentGiven) return;
 
   await _ensurePdfLibs();
 
-  const rows = _extractRows();
-  if (!rows.length) {
-    console.warn('[pdf] No data rows found to export.');
-    document
-      .querySelectorAll('#downloadBtn, #downloadPdfBtn, [data-download-pdf]')
-      .forEach(btn => _setBtnState(btn, false));
-    return;
-  }
+  const columnDefs = _normalizeColumns(columns);
 
-  const body = [];
-  const headers = [];
-  rows.forEach(r => {
-    if (r.type === 'header') {
-      body.push([
-        {
+  let body = [];
+  let fallbackBody = [];
+  let tableHead = [columnDefs.map(col => col.header || '')];
+  let columnStyles = {};
+  columnDefs.forEach((col, idx) => {
+    columnStyles[idx] = {
+      halign: col.align || (idx === 0 ? 'left' : 'center'),
+    };
+    if (col.cellWidth != null) {
+      columnStyles[idx].cellWidth = col.cellWidth;
+    }
+  });
+
+  const hasProvidedRows = Array.isArray(rows) && rows.length > 0;
+
+  if (hasProvidedRows) {
+    body = _normalizeProvidedRows(rows, columnDefs);
+    fallbackBody = body.map(row => row.map(cell => String(cell ?? '')));
+    if (!body.length) {
+      console.warn('[pdf] No data rows provided to export.');
+      return;
+    }
+  } else {
+    const extracted = _extractRows();
+    if (!extracted.length) {
+      console.warn('[pdf] No data rows found to export.');
+      document
+        .querySelectorAll('#downloadBtn, #downloadPdfBtn, [data-download-pdf]')
+        .forEach(btn => _setBtnState(btn, false));
+      return;
+    }
+
+    body = [];
+    fallbackBody = [];
+    extracted.forEach(r => {
+      if (r.type === 'header') {
+        const headerCell = {
           content: r.category,
-          colSpan: 4,
+          colSpan: columnDefs.length,
           styles: {
             fontStyle: 'bold',
             halign: 'left',
             fillColor: [0, 0, 0],
             textColor: [255, 255, 255]
           }
-        }
-      ]);
-      headers.push(r.category);
-    } else {
-      body.push([r.category, r.A, r.pct, r.B]);
-    }
-  });
+        };
+        body.push([headerCell]);
+        fallbackBody.push(_expandForFallback([headerCell], columnDefs.length));
+      } else {
+        const row = [r.category, r.A, r.pct, r.B].map(val => (val == null || val === '' ? '—' : String(val)));
+        body.push(row);
+        fallbackBody.push(row);
+      }
+    });
+  }
 
   const JsPDF = _getJsPDF();
   const doc = new JsPDF({ orientation, unit: 'pt', format });
@@ -366,6 +462,8 @@ export async function downloadCompatibilityPDF({
       tableLineWidth = 0.2,
       tableWidth,
       didDrawPage,
+      __fallbackHead,
+      __fallbackBody
     } = opts;
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -380,12 +478,15 @@ export async function downloadCompatibilityPDF({
     const pad = typeof padRaw === 'number' ? padRaw : Math.max(0, padRaw.left ?? padRaw.right ?? padRaw.top ?? padRaw.bottom ?? 6);
     const fontSize = styles.fontSize || 12;
     const lineH = fontSize * 1.15;
+    const effectiveHead = Array.isArray(__fallbackHead) && __fallbackHead.length ? __fallbackHead : head;
+    const effectiveBody = Array.isArray(__fallbackBody) && __fallbackBody.length ? __fallbackBody : body;
+    const columnCount = effectiveHead[0]?.length || head[0]?.length || 0;
     const totalWidth =
       typeof tableWidth === 'number'
         ? tableWidth
         : pageW - left - marginRight;
-    const widths = head[0].map((_, i) => columnStyles[i]?.cellWidth || totalWidth / head[0].length);
-    const aligns = head[0].map((_, i) => columnStyles[i]?.halign || styles.halign || 'left');
+    const widths = new Array(columnCount).fill(0).map((_, i) => columnStyles[i]?.cellWidth || totalWidth / (columnCount || 1));
+    const aligns = new Array(columnCount).fill(0).map((_, i) => columnStyles[i]?.halign || styles.halign || 'left');
     let y = top;
 
     function drawRow(cells, isHead){
@@ -400,7 +501,7 @@ export async function downloadCompatibilityPDF({
         if (typeof didDrawPage === 'function') didDrawPage(doc);
         else paintPage();
         y = top;
-        if (!isHead) drawRow(head[0], true);
+        if (!isHead && effectiveHead[0]) drawRow(effectiveHead[0], true);
       }
       let x = left;
       for (let i = 0; i < cells.length; i++) {
@@ -430,8 +531,8 @@ export async function downloadCompatibilityPDF({
       y += rowH;
     }
 
-    drawRow(head[0], true);
-    body.forEach(r => drawRow(r, false));
+    if (effectiveHead[0]) drawRow(effectiveHead[0], true);
+    effectiveBody.forEach(r => drawRow(r, false));
   };
 
   const originalAddPage = doc.addPage;
@@ -444,7 +545,7 @@ export async function downloadCompatibilityPDF({
   try {
     let primed = false;
     runAutoTable({
-      head: [['Category', 'Partner A', 'Match %', 'Partner B']],
+      head: tableHead,
       body,
       startY: -bleed,
       startX: -bleed,
@@ -472,15 +573,12 @@ export async function downloadCompatibilityPDF({
         lineWidth: 0,
         cellPadding: 10
       },
-      columnStyles: {
-        0: { halign: 'left' },
-        1: { halign: 'center' },
-        2: { halign: 'center' },
-        3: { halign: 'center' }
-      },
+      columnStyles,
       tableLineColor: [0, 0, 0],
       tableLineWidth: 0,
       didAddPage: paintPage,
+      __fallbackHead: tableHead,
+      __fallbackBody: fallbackBody,
       willDrawCell: () => {
         if (!primed) {
           primed = true;
