@@ -1,60 +1,19 @@
 <!-- === FULL-BLEED BLACK PDF EXPORT (drop this once before </body>) === -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+
 <style>
-  /* Ensure the on-screen page itself is pure black with no gutters */
-  html, body { background:#000; color:#fff; margin:0; padding:0; }
-  /* Make the app container span the full width */
-  .wrap { width:100%; margin:0; padding:0; box-sizing:border-box; }
-  /* Consent modal */
-  #tk-consent-overlay{
-    position:fixed;
-    inset:0;
-    display:none;
-    align-items:center;
-    justify-content:center;
-    background:rgba(0,0,0,.55);
-    z-index:99999;
-  }
-  #tk-consent-card{
-    max-width:520px;
-    width:90%;
-    background:#111;
-    color:#fff;
-    border:1px solid #333;
-    border-radius:10px;
-    padding:16px;
-  }
-  #tk-consent-card h3{
-    margin:0 0 8px 0;
-    font:600 16px system-ui;
-  }
-  #tk-consent-card p{
-    margin:0 0 10px 0;
-    line-height:1.4;
-  }
-  #tk-consent-actions{
-    display:flex;
-    gap:10px;
-    justify-content:flex-end;
-    margin-top:12px;
-  }
-  .tk-btn{
-    padding:8px 14px;
-    border-radius:8px;
-    border:1px solid #555;
-    background:#1f1f1f;
-    color:#fff;
-    cursor:pointer;
-  }
-  .tk-btn.primary{
-    background:#2a7;
-    border-color:#2a7;
-  }
+  #tk-consent-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:99999}
+  #tk-consent-card{max-width:520px;width:90%;background:#111;color:#fff;border:1px solid #333;border-radius:10px;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  #tk-consent-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+  .tk-btn{padding:8px 14px;border-radius:8px;border:1px solid #555;background:#1f1f1f;color:#fff;cursor:pointer}
+  .tk-btn.primary{background:#2a7;border-color:#2a7}
 </style>
 
 <div id="tk-consent-overlay" aria-modal="true" role="dialog">
   <div id="tk-consent-card">
-    <h3>Consent Check</h3>
-    <p>Do you have your partner’s consent to export or share this compatibility PDF?</p>
+    <h3 style="margin:0 0 8px 0;font:600 16px system-ui">Consent Check</h3>
+    <p style="margin:0 0 10px 0;line-height:1.4">Do you have your partner’s consent to export or share this compatibility PDF?</p>
     <div id="tk-consent-actions">
       <button class="tk-btn" id="tk-consent-cancel" type="button">Cancel</button>
       <button class="tk-btn primary" id="tk-consent-confirm" type="button">I Confirm</button>
@@ -73,22 +32,11 @@
 </script>
 
 <script>
-/*
- * Full-bleed, solid-black PDF export for the compatibility table.
- * - No white margins (0pt all sides)
- * - Uses jsPDF + AutoTable
- * - Translates first column codes (cb_*) via TK_LABELS or /data/labels-overrides.json or /data/kinks.json
- * - Replaces any old window.print() handler on #dl
- *
- * HOW TO USE
- * 1) Ensure your Download button has id="dl" and no inline onclick.
- *    <button id="dl" type="button">Download PDF</button>
- * 2) Paste THIS WHOLE BLOCK once before </body>.
- * 3) (Optional) Fill window.TK_LABELS above with your code→name mapping.
- */
 (() => {
-  const CDN_JSPDF     = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+  const CDN_JSPDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
   const CDN_AUTOTABLE = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js';
+  const DEFAULT_HEADERS = ['Category', 'Partner A', 'Match %', 'Partner B'];
+  const DEFAULT_FILENAME = 'compatibility.pdf';
 
   function ensureConsentElements(){
     const overlay = document.getElementById('tk-consent-overlay');
@@ -132,158 +80,246 @@
     });
   }
 
-  async function ensureConsent(){
-    return await showConsentModal();
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('dl');
-    if (!btn) return;
-
-    // Remove any old listeners (including window.print()) by cloning
-    const clone = btn.cloneNode(true);
-    btn.replaceWith(clone);
-    clone.addEventListener('click', async (e) => {
-      e.preventDefault();
-      if (!(await ensureConsent())) return;
-      try {
-        await ensureLibs();
-        const labels = await loadLabels();
-        await exportFullBleedPDF(labels);
-      } catch (err) {
-        console.error('[PDF] Export failed:', err);
-        alert('PDF export failed. See console for details.');
-      }
-    });
-  });
-
-  async function ensureLibs() {
+  async function ensureLibs(){
     if (!window.jspdf || !window.jspdf.jsPDF) await loadScript(CDN_JSPDF);
-    if (!(window.jspdf && 'autoTable' in window.jspdf)) await loadScript(CDN_AUTOTABLE);
+    const hasAutoTable =
+      !!(window.jspdf && (window.jspdf.autoTable || (window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)));
+    if (!hasAutoTable) await loadScript(CDN_AUTOTABLE);
   }
-  function loadScript(src) {
-    return new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = src; s.async = true;
-      s.onload = res; s.onerror = () => rej(new Error('Failed to load '+src));
-      document.head.appendChild(s);
+
+  function loadScript(src){
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+        if (!existing.hasAttribute('data-loaded')) {
+          existing.setAttribute('data-loaded', 'true');
+        }
+        return resolve();
+    }
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.addEventListener('load', () => {
+        script.setAttribute('data-loaded', 'true');
+        resolve();
+      }, { once: true });
+      script.addEventListener('error', () => reject(new Error('Failed to load ' + src)), { once: true });
+      document.head.appendChild(script);
     });
   }
 
-  // Attempt to obtain a label map from multiple places
-  async function loadLabels() {
-    // 1) Inline overrides take precedence
+  async function loadLabels(){
     if (window.TK_LABELS && Object.keys(window.TK_LABELS).length) return window.TK_LABELS;
 
-    // 2) Try site JSONs if present
     const tryUrls = [
       '/data/labels-overrides.json', 'data/labels-overrides.json',
-      '/data/kinks.json',            'data/kinks.json'
+      '/data/kinks.json', 'data/kinks.json'
     ];
+
     for (const url of tryUrls) {
       try {
-        const r = await fetch(url, { cache: 'no-store' });
-        if (!r.ok) continue;
-        const json = await r.json();
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) continue;
+        const json = await res.json();
         if (json && typeof json === 'object') {
-          // Accept either a flat map or an object with .labels
           if (json.labels && typeof json.labels === 'object') return json.labels;
           return json;
         }
       } catch (_) {}
     }
-    return {}; // fallback: no mapping
+
+    return {};
   }
 
-  // Find the comparison table (we render only this)
-  function findCompatTable() {
-    const looksRight = (t) => t && /Category/i.test(t.textContent) && /Partner A/i.test(t.textContent);
+  function findCompatTable(){
+    const looksRight = (table) => table && /Category/i.test(table.textContent || '') && /Partner A/i.test(table.textContent || '');
     return Array.from(document.querySelectorAll('table')).find(looksRight) || document.querySelector('table');
   }
 
-  async function exportFullBleedPDF(LABELS) {
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const bleed = 3;
+  const tidyText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 
-    const tableEl = findCompatTable();
-    if (!tableEl) throw new Error('Compatibility table not found.');
+  function resolveCategoryLabel(raw, labels){
+    const text = tidyText(raw);
+    if (!text) return '—';
+    if (text.startsWith('cb_') && labels && labels[text]) return tidyText(labels[text]);
+    return text;
+  }
 
-    const paintPage = () => {
-      if (typeof pdf.setFillColor === 'function') pdf.setFillColor(0,0,0);
-      if (typeof pdf.rect === 'function') pdf.rect(-bleed,-bleed,pageW + bleed*2,pageH + bleed*2,'F');
-      if (typeof pdf.setTextColor === 'function') pdf.setTextColor(255,255,255);
-      if (typeof pdf.setDrawColor === 'function') pdf.setDrawColor(0,0,0);
-      if (typeof pdf.setLineWidth === 'function') pdf.setLineWidth(0);
+  function extractTableData(table, labels){
+    if (!table) return { headers: [], rows: [] };
+
+    const headerRow = table.tHead && Array.from(table.tHead.rows).find((row) => row.cells.length);
+    let headerCells = headerRow ? Array.from(headerRow.cells) : [];
+
+    const defaultHeader = (idx) => DEFAULT_HEADERS[idx] || `Column ${idx + 1}`;
+
+    let dataRows = [];
+    if (headerCells.length) {
+      dataRows = Array.from(table.tBodies || []).flatMap((body) => Array.from(body.rows));
+    }
+
+    if (!headerCells.length) {
+      const firstRow = table.querySelector('tr');
+      if (firstRow) {
+        headerCells = Array.from(firstRow.cells);
+        dataRows = Array.from(table.rows).slice(1);
+      }
+    }
+
+    if (!dataRows.length) {
+      dataRows = Array.from(table.rows).slice(headerCells.length ? 1 : 0);
+    }
+
+    const headers = headerCells.map((cell, idx) => {
+      const text = tidyText(cell.textContent);
+      return text || defaultHeader(idx);
+    });
+
+    const rows = [];
+    for (const row of dataRows) {
+      const cells = Array.from(row.cells);
+      if (!cells.length) continue;
+      const values = headers.map((_, idx) => {
+        const cell = cells[idx];
+        if (!cell) return '—';
+        const text = tidyText(cell.textContent);
+        if (idx === 0) return resolveCategoryLabel(text, labels);
+        return text || '—';
+      });
+      if (values.every((val) => !/\S/.test(val.replace(/—/g, '')))) continue;
+      rows.push(values);
+    }
+
+    return { headers: headers.length ? headers : DEFAULT_HEADERS, rows };
+  }
+
+  function runAutoTable(doc, opts){
+    if (typeof doc.autoTable === 'function') return doc.autoTable(opts);
+    if (window.jspdf && typeof window.jspdf.autoTable === 'function') return window.jspdf.autoTable(doc, opts);
+    throw new Error('AutoTable not available');
+  }
+
+  async function createFullBleedPDF({ filename = DEFAULT_FILENAME, headers = [], rows = [] }){
+    if (!rows.length) throw new Error('No rows available to export.');
+
+    const { jsPDF } = window.jspdf || {};
+    if (!jsPDF) throw new Error('jsPDF is not available.');
+
+    const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true, putOnlyUsedFonts: true });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const BLEED = 4;
+
+    const paintPageBlack = () => {
+      doc.setFillColor(0, 0, 0);
+      doc.rect(-BLEED, -BLEED, pageW + BLEED * 2, pageH + BLEED * 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0);
     };
 
-    paintPage();
-    try {
-      pdf.setFont('helvetica','normal');
-    } catch(_) {}
+    paintPageBlack();
 
-    let primed = false;
-    pdf.autoTable({
-      html: tableEl,
-      theme: 'plain',
-      useCss: false,
-      startY: -bleed,
-      startX: -bleed,
+    try {
+      doc.setFont('helvetica', 'normal');
+    } catch (_) {}
+
+    const body = rows.map((row) => row.map((value) => {
+      if (value === undefined || value === null || value === '') return '—';
+      const text = String(value).trim();
+      return text === '' ? '—' : text;
+    }));
+
+    const columnStyles = headers.reduce((acc, _header, idx) => {
+      acc[idx] = { halign: idx === 0 ? 'left' : 'center' };
+      return acc;
+    }, {});
+
+    runAutoTable(doc, {
+      head: [headers],
+      body,
+      startY: -BLEED,
+      startX: -BLEED,
+      tableWidth: pageW + BLEED * 2,
       margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      tableWidth: pageW + bleed*2,
+      theme: 'plain',
       horizontalPageBreak: true,
       styles: {
-        cellPadding: 8,
-        fillColor: null,
-        textColor: 255,
-        lineColor: [0,0,0],
+        font: 'helvetica',
+        fontSize: 10,
+        textColor: [255, 255, 255],
+        cellPadding: 0,
         lineWidth: 0,
-        halign: 'left',
-        valign: 'middle',
+        fillColor: null,
         overflow: 'linebreak',
-        minCellHeight: 18
+        minCellHeight: 14,
       },
       headStyles: {
-        fillColor: null,
-        textColor: 255,
         fontStyle: 'bold',
-        lineColor: [0,0,0],
+        textColor: [255, 255, 255],
+        fillColor: null,
+        cellPadding: 0,
         lineWidth: 0,
-        cellPadding: 10
+        minCellHeight: 16,
       },
-      tableLineColor: [0,0,0],
       tableLineWidth: 0,
-      columnStyles: {
-        0: { halign: 'left' },
-        1: { halign: 'center' },
-        2: { halign: 'center' },
-        3: { halign: 'center' }
+      tableLineColor: [0, 0, 0],
+      columnStyles,
+      didParseCell(data) {
+        data.cell.styles.fillColor = null;
+        data.cell.styles.lineWidth = 0;
+        data.cell.styles.lineColor = [0, 0, 0];
       },
-      didAddPage: () => {
-        paintPage();
-      },
-      willDrawCell: () => {
-        if (!primed) {
-          primed = true;
-          if (typeof pdf.setDrawColor === 'function') pdf.setDrawColor(0,0,0);
-          if (typeof pdf.setLineWidth === 'function') pdf.setLineWidth(0);
-        }
-      },
-      // Translate cb_* codes in the first column if mapping exists
-      didParseCell: (data) => {
-        if (data.section === 'body' && data.column.index === 0) {
-          const raw = String((data.cell.text && data.cell.text[0]) || '');
-          if (raw.startsWith('cb_') && LABELS && LABELS[raw]) {
-            data.cell.text = [LABELS[raw]];
-          }
-        }
+      didAddPage() {
+        paintPageBlack();
       }
     });
 
-    pdf.save('compatibility.pdf');
+    doc.save(filename);
   }
+
+  async function runExport(){
+    const table = findCompatTable();
+    if (!table) {
+      alert('Compatibility table not found.');
+      return;
+    }
+
+    if (!(await showConsentModal())) return;
+
+    try {
+      await ensureLibs();
+      const labels = await loadLabels();
+      const { headers, rows } = extractTableData(table, labels);
+      if (!rows.length) {
+        alert('No rows available to export.');
+        return;
+      }
+      await createFullBleedPDF({ filename: DEFAULT_FILENAME, headers, rows });
+    } catch (err) {
+      console.error('[PDF] Export failed:', err);
+      alert('PDF export failed. See console for details.');
+    }
+  }
+
+  function bindDownloadButton(){
+    const btn = document.getElementById('dl');
+    if (!btn) return;
+
+    const clone = btn.cloneNode(true);
+    btn.replaceWith(clone);
+
+    clone.addEventListener('click', (event) => {
+      event.preventDefault();
+      runExport();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    bindDownloadButton();
+  });
+
+  window.downloadCompatibilityPDF = runExport;
 })();
 </script>
 <!-- === END FULL-BLEED BLACK PDF EXPORT === -->
