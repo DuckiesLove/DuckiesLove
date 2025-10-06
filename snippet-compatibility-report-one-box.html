@@ -2,45 +2,54 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
-/* 0) Patch loadLabels so init() never crashes and iteration is safe */
+/* 0) Replace loadLabels with a safe version that always yields iterables */
 (function patchLoadLabels(){
   const original = window.loadLabels;
-  window.loadLabels = async function loadLabelsPatched(){
+  window.loadLabels = async function loadLabels_SAFE(){
     try{
       let labelMap = {};
+
       if (typeof original === 'function') {
         const out = await original();
         if (out && typeof out === 'object') labelMap = out;
-      } else {
+      }
+
+      if (!labelMap || !Object.keys(labelMap).length) {
         const raw = localStorage.getItem('tk_labelMap');
         if (raw) {
           try { labelMap = JSON.parse(raw); }
           catch(err){ console.warn('[tk] localStorage labelMap parse failed', err); }
         }
+        if (!labelMap || typeof labelMap !== 'object') labelMap = {};
         if (window.tkLabelMap && typeof window.tkLabelMap === 'object') labelMap = window.tkLabelMap;
       }
 
-      let entries = [];
-      if (Array.isArray(labelMap)) entries = labelMap;
-      else if (labelMap instanceof Map) entries = Array.from(labelMap.entries());
-      else if (labelMap && typeof labelMap === 'object') entries = Object.entries(labelMap);
+      const entries = (() => {
+        if (!labelMap) return [];
+        if (Array.isArray(labelMap)) return labelMap.map((v,i) => [i, v]);
+        if (labelMap instanceof Map) return Array.from(labelMap.entries());
+        return Object.entries(labelMap);
+      })();
 
       const byId = {};
-      for (const [id, label] of entries) {
-        if (id == null) continue;
-        const key = String(id);
-        const pretty = label == null ? key : String(label);
-        byId[key] = pretty;
-        byId[key.toLowerCase()] = pretty;
+      for (const [k,v] of entries) {
+        if (k == null) continue;
+        const key = String(k);
+        const value = v == null ? key : String(v);
+        byId[key] = value;
+        byId[key.toLowerCase()] = value;
       }
+
+      window.__tkLabelsById = byId;
       window.__tkLabels = byId;
       try { localStorage.setItem('tk_labelMap', JSON.stringify(byId)); }
       catch(_){}
-      return byId;
+      return Object.entries(byId);
     }catch(e){
-      console.warn('[tk] loadLabels patched: using empty map', e);
+      console.warn('[tk] loadLabels_SAFE fallback to empty', e);
+      window.__tkLabelsById = {};
       window.__tkLabels = {};
-      return {};
+      return [];
     }
   };
 })();
@@ -70,7 +79,7 @@ const tidy = s => String(s ?? '').replace(/\s+/g,' ').trim();
 const dash = v => { const t = tidy(v); return t ? t : '—'; };
 
 function labelFor(raw){
-  const map = window.__tkLabels || {};
+  const map = window.__tkLabelsById || window.__tkLabels || {};
   const base = tidy(raw);
   if (!base) return '—';
   const direct = map[base] || map[base.toLowerCase()];
@@ -159,7 +168,8 @@ async function ensureLabelsLoaded(){
     catch(err){ console.warn('[tk] loadLabels failed (patched fallback in use)', err); }
   }
   if (!window.__tkLabels) window.__tkLabels = {};
-  return window.__tkLabels;
+  if (!window.__tkLabelsById) window.__tkLabelsById = window.__tkLabels;
+  return window.__tkLabelsById;
 }
 
 let tableObserver = null;
@@ -209,6 +219,10 @@ function wireDownloadButton(){
   btn.onclick = null;
   if (btn.tagName === 'A') btn.removeAttribute('href');
   btn.addEventListener('click', handler, { capture:true });
+  ;[
+    'downloadCompatibilityPDF','exportCompatibilityPDF','makePDF','createPDF',
+    'saveReportPDF','compatPDF','exportPDF','downloadPDF'
+  ].forEach(name => { window[name] = (...args) => tkExportPDF_BlackEdge(...args); });
   console.info('[tk] Download PDF button rewired → BlackEdge exporter');
 }
 
