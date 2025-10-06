@@ -167,187 +167,327 @@ function requestConsent(): Promise<boolean> {
   return pendingConsent;
 }
 
-export async function downloadCompatibilityPDF(): Promise<void> {
-  const loadScript = (src: string): Promise<void> =>
-    new Promise((resolve, reject) => {
-      if (document.querySelector<HTMLScriptElement>(`script[src="${src}"]`)) return resolve();
-      const s = document.createElement("script");
-      s.src = src;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error("Failed to load " + src));
-      document.head.appendChild(s);
-    });
+const loadScript = (src: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    if (document.querySelector<HTMLScriptElement>(`script[src="${src}"]`)) return resolve();
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Failed to load " + src));
+    document.head.appendChild(s);
+  });
 
-  async function ensureLibs(): Promise<void> {
-    const hasJsPDF = () => Boolean((window as any).jspdf?.jsPDF || (window as any).jsPDF);
-    if (!hasJsPDF()) {
-      await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js");
-    }
-
-    const hasAutoTable = () =>
-      Boolean(
-        (window as any).jspdf?.autoTable ||
-          (window as any).jspdf?.jsPDF?.API?.autoTable ||
-          (window as any).jsPDF?.API?.autoTable
-      );
-    if (!hasAutoTable()) {
-      await loadScript(
-        "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"
-      );
-    }
+async function ensureLibs(): Promise<void> {
+  const hasJsPDF = () => Boolean((window as any).jspdf?.jsPDF || (window as any).jsPDF);
+  if (!hasJsPDF()) {
+    await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js");
   }
 
-  type Row = [string, number | "—", string | "—", number | "—"];
+  const hasAutoTable = () =>
+    Boolean(
+      (window as any).jspdf?.autoTable ||
+        (window as any).jspdf?.jsPDF?.API?.autoTable ||
+        (window as any).jsPDF?.API?.autoTable
+    );
+  if (!hasAutoTable()) {
+    await loadScript(
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"
+    );
+  }
+}
 
-  function extractRows(table: HTMLTableElement): Row[] {
-    const trs = Array.from(table.querySelectorAll("tr")).filter(
-      (tr) => tr.querySelectorAll("th").length === 0 && tr.querySelectorAll("td").length > 0
+type ColumnAlign = "left" | "center" | "right";
+type ColumnInput =
+  | string
+  | {
+      header?: string;
+      title?: string;
+      label?: string;
+      dataKey?: string;
+      key?: string;
+      field?: string;
+      name?: string;
+      align?: ColumnAlign;
+      halign?: ColumnAlign;
+      cellWidth?: number;
+    };
+
+type NormalizedColumn = {
+  header: string;
+  dataKey?: string | number | symbol;
+  align: ColumnAlign;
+  cellWidth?: number;
+};
+
+type DownloadRowInput = Record<string, unknown> | unknown[];
+
+interface DownloadOptions {
+  filename?: string;
+  orientation?: string;
+  format?: string | [number, number];
+  columns?: ColumnInput[];
+  rows?: DownloadRowInput[];
+}
+
+type ExtractedRow =
+  | { type: "header"; category: string }
+  | { type: "row"; category: string; A: number | string; pct: string; B: number | string };
+
+const DEFAULT_COLUMNS: ColumnInput[] = [
+  { header: "Category", dataKey: "category", align: "left" },
+  { header: "Partner A", dataKey: "a", align: "center" },
+  { header: "Match %", dataKey: "m", align: "center" },
+  { header: "Partner B", dataKey: "b", align: "center" },
+];
+
+function normalizeColumns(columns?: ColumnInput[]): NormalizedColumn[] {
+  const source = Array.isArray(columns) && columns.length ? columns : DEFAULT_COLUMNS;
+  return source.map((col, idx) => {
+    if (typeof col === "string") {
+      return {
+        header: col,
+        dataKey: col,
+        align: idx === 0 ? "left" : "center",
+      } satisfies NormalizedColumn;
+    }
+    const header = col.header ?? col.title ?? col.label ?? "";
+    const dataKey = col.dataKey ?? col.key ?? col.field ?? col.name ?? col.header ?? col.title;
+    return {
+      header: header || String(dataKey ?? ""),
+      dataKey,
+      align: col.align || col.halign || (idx === 0 ? "left" : "center"),
+      cellWidth: col.cellWidth,
+    } satisfies NormalizedColumn;
+  });
+}
+
+function normalizeProvidedRows(rows: DownloadRowInput[] | undefined, columns: NormalizedColumn[]): string[][] {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((raw) => {
+    if (Array.isArray(raw)) {
+      return raw.map((v) => (v == null || v === "" ? "—" : String(v)));
+    }
+    if (!raw || typeof raw !== "object") {
+      return columns.map(() => "—");
+    }
+    return columns.map((col) => {
+      const key = col.dataKey;
+      const value = key != null && Object.prototype.hasOwnProperty.call(raw, key)
+        ? (raw as Record<string, unknown>)[key as keyof typeof raw]
+        : (raw as Record<string, unknown>)[col.header as keyof typeof raw];
+      return value == null || value === "" ? "—" : String(value);
+    });
+  });
+}
+
+function extractRows(table: HTMLTableElement): ExtractedRow[] {
+  const trs = Array.from(table.querySelectorAll("tr")).filter(
+    (tr) => tr.querySelectorAll("td").length > 0
+  );
+
+  return trs.map((tr) => {
+    const cells = Array.from(tr.querySelectorAll("td")).map((td) =>
+      (td.textContent || "")
+        .replace(/\s+/g, " ")
+        .replace(/([A-Za-z]+)\s*\1/, "$1")
+        .trim()
     );
 
-    return trs.map((tr) => {
-      const cells = Array.from(tr.querySelectorAll("td")).map((td) =>
-        (td.textContent || "")
-          .replace(/\s+/g, " ")
-          .replace(/([A-Za-z])\1+/g, "$1")
-          .trim()
-      );
+    let category = cells[0] || "—";
+    if (/^cum$/i.test(category)) category = "Cum Play";
 
-      let category = cells[0] || "—";
-      if (/^cum$/i.test(category)) category = "Cum Play";
-      category = category.replace(/([A-Za-z]+)\s*\1/, "$1");
+    const toNum = (v: unknown): number | null => {
+      const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
+      return Number.isFinite(n) ? n : null;
+    };
+    const nums = cells.map(toNum).filter((n): n is number => n !== null);
 
-      const toNum = (v: unknown): number | null => {
-        const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
-        return Number.isFinite(n) ? n : null;
-      };
-      const nums = cells.map(toNum).filter((n): n is number => n !== null);
-      const A = nums.length ? nums[0] : null;
-      const B = nums.length > 1 ? nums[nums.length - 1] : null;
+    if (nums.length === 0 && cells.slice(1).every((c) => !c)) {
+      return { type: "header", category } satisfies ExtractedRow;
+    }
 
-      let pct = cells.find((c) => /%$/.test(c)) || null;
-      if (!pct && A != null && B != null) {
-        const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
-        pct = `${Math.max(0, Math.min(100, p))}%`;
-      }
+    const A = nums.length ? nums[0] : null;
+    const B = nums.length > 1 ? nums[nums.length - 1] : null;
 
-      return [category, A ?? "—", pct ?? "—", B ?? "—"] as Row;
-    });
-  }
+    let pct = cells.find((c) => /%$/.test(c)) || null;
+    if (!pct && A != null && B != null) {
+      const p = Math.round(100 - (Math.abs(A - B) / 5) * 100);
+      pct = `${Math.max(0, Math.min(100, p))}%`;
+    }
 
-  try {
-    const consentOk = await requestConsent();
-    if (!consentOk) return;
+    return {
+      type: "row",
+      category,
+      A: A ?? "—",
+      pct: pct ?? "—",
+      B: B ?? "—",
+    } satisfies ExtractedRow;
+  });
+}
 
-    await ensureLibs();
-    const JsPDF: any = (window as any).jspdf?.jsPDF || (window as any).jsPDF;
+export async function downloadCompatibilityPDF(options: DownloadOptions = {}): Promise<void> {
+  const {
+    filename = "compatibility-report.pdf",
+    orientation = "landscape",
+    format = "a4",
+    columns,
+    rows,
+  } = options;
+
+  const consentOk = await requestConsent();
+  if (!consentOk) return;
+
+  await ensureLibs();
+
+  const columnDefs = normalizeColumns(columns);
+  const tableHead = [columnDefs.map((col) => col.header || "")];
+  const columnStyles: Record<number, { halign?: ColumnAlign; cellWidth?: number }> = {};
+  columnDefs.forEach((col, idx) => {
+    columnStyles[idx] = { halign: col.align };
+    if (typeof col.cellWidth === "number") columnStyles[idx].cellWidth = col.cellWidth;
+  });
+
+  const hasProvidedRows = Array.isArray(rows) && rows.length > 0;
+
+  let body: any[] = [];
+
+  if (hasProvidedRows) {
+    body = normalizeProvidedRows(rows, columnDefs);
+    if (!body.length) {
+      console.warn("[pdf] No data rows provided to export.");
+      return;
+    }
+  } else {
     const table =
       document.querySelector<HTMLTableElement>("#compatibilityTable") ||
       document.querySelector<HTMLTableElement>(".results-table.compat") ||
       document.querySelector<HTMLTableElement>("table");
+
     if (!table) {
       alert("No table found on the page.");
       return;
     }
-    const body = extractRows(table);
-    if (!body.length) {
+
+    const extracted = extractRows(table);
+    if (!extracted.length) {
       alert("No rows to export.");
       return;
     }
 
-    const doc = new JsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const bleed = 3;
-
-    const paintBg = (): void => {
-      if (typeof doc.setFillColor === "function") doc.setFillColor(0, 0, 0);
-      if (typeof doc.rect === "function") doc.rect(-bleed, -bleed, pageW + bleed * 2, pageH + bleed * 2, "F");
-      if (typeof doc.setTextColor === "function") doc.setTextColor(255, 255, 255);
-      if (typeof doc.setDrawColor === "function") doc.setDrawColor(0, 0, 0);
-      if (typeof doc.setLineWidth === "function") doc.setLineWidth(0);
-    };
-
-    paintBg();
-
-    if (typeof doc.setFont === "function") {
-      try {
-        doc.setFont("helvetica", "normal");
-      } catch {
-        /* ignore font errors */
+    body = extracted.map((row) => {
+      if (row.type === "header") {
+        return [
+          {
+            content: row.category,
+            colSpan: columnDefs.length,
+            styles: {
+              fontStyle: "bold",
+              halign: "left",
+              fillColor: [0, 0, 0],
+              textColor: [255, 255, 255],
+            },
+          },
+        ];
       }
-    }
-
-    const runAT = (opts: Record<string, unknown>): void => {
-      if (typeof doc.autoTable === "function") return doc.autoTable(opts);
-      if ((window as any).jspdf && typeof (window as any).jspdf.autoTable === "function")
-        return (window as any).jspdf.autoTable(doc, opts);
-      throw new Error("AutoTable not available");
-    };
-
-    const originalAddPage = doc.addPage;
-    doc.addPage = function patchedAddPage(this: typeof doc, ...args: any[]) {
-      const result = originalAddPage.apply(this, args as any);
-      paintBg();
-      return result;
-    } as typeof doc.addPage;
-
-    try {
-      let primed = false;
-      runAT({
-        head: [["Category", "Partner A", "Match %", "Partner B"]],
-        body,
-        startY: -bleed,
-        startX: -bleed,
-        margin: { top: 0, right: 0, bottom: 0, left: 0 },
-        tableWidth: pageW + bleed * 2,
-        horizontalPageBreak: true,
-        theme: "plain",
-        styles: {
-          fontSize: 11,
-          cellPadding: 8,
-          textColor: [255, 255, 255],
-          fillColor: null,
-          lineColor: [0, 0, 0],
-          lineWidth: 0,
-          halign: "center",
-          valign: "middle",
-          overflow: "linebreak",
-          minCellHeight: 18,
-        },
-        headStyles: {
-          fillColor: null,
-          textColor: [255, 255, 255],
-          fontStyle: "bold",
-          lineColor: [0, 0, 0],
-          lineWidth: 0,
-          cellPadding: 10,
-        },
-        columnStyles: {
-          0: { halign: "left" },
-          1: { halign: "center" },
-          2: { halign: "center" },
-          3: { halign: "center" },
-        },
-        tableLineColor: [0, 0, 0],
-        tableLineWidth: 0,
-        didAddPage: paintBg,
-        willDrawCell: () => {
-          if (!primed) {
-            primed = true;
-            if (typeof doc.setDrawColor === "function") doc.setDrawColor(0, 0, 0);
-            if (typeof doc.setLineWidth === "function") doc.setLineWidth(0);
-          }
-        },
-      });
-    } finally {
-      doc.addPage = originalAddPage;
-    }
-
-    doc.save("compatibility-dark.pdf");
-  } catch (err) {
-    console.error("[TK-PDF] Export failed:", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    alert("PDF export failed: " + msg);
+      return [row.category, row.A, row.pct, row.B];
+    });
   }
+
+  const JsPDF: any = (window as any).jspdf?.jsPDF || (window as any).jsPDF;
+  if (!JsPDF) {
+    console.error("jsPDF failed to load");
+    return;
+  }
+
+  const doc = new JsPDF({ orientation, unit: "pt", format });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const bleed = 3;
+
+  const paintBg = (): void => {
+    if (typeof doc.setFillColor === "function") doc.setFillColor(0, 0, 0);
+    if (typeof doc.rect === "function") doc.rect(-bleed, -bleed, pageW + bleed * 2, pageH + bleed * 2, "F");
+    if (typeof doc.setTextColor === "function") doc.setTextColor(255, 255, 255);
+    if (typeof doc.setDrawColor === "function") doc.setDrawColor(0, 0, 0);
+    if (typeof doc.setLineWidth === "function") doc.setLineWidth(0);
+  };
+
+  paintBg();
+
+  if (typeof doc.setFont === "function") {
+    try {
+      doc.setFont("helvetica", "normal");
+    } catch {
+      /* ignore font errors */
+    }
+  }
+
+  const runAT = (opts: Record<string, unknown>): void => {
+    if (typeof doc.autoTable === "function") {
+      doc.autoTable(opts);
+      return;
+    }
+    if ((window as any).jspdf && typeof (window as any).jspdf.autoTable === "function") {
+      (window as any).jspdf.autoTable(doc, opts);
+      return;
+    }
+    throw new Error("AutoTable not available");
+  };
+
+  const originalAddPage = doc.addPage;
+  doc.addPage = function patchedAddPage(this: typeof doc, ...args: any[]) {
+    const result = originalAddPage.apply(this, args as any);
+    paintBg();
+    return result;
+  } as typeof doc.addPage;
+
+  try {
+    let primed = false;
+    runAT({
+      head: tableHead,
+      body,
+      startY: -bleed,
+      startX: -bleed,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      tableWidth: pageW + bleed * 2,
+      horizontalPageBreak: true,
+      theme: "plain",
+      styles: {
+        fontSize: 11,
+        cellPadding: 8,
+        textColor: [255, 255, 255],
+        fillColor: null,
+        lineColor: [0, 0, 0],
+        lineWidth: 0,
+        halign: "center",
+        valign: "middle",
+        overflow: "linebreak",
+        minCellHeight: 18,
+      },
+      headStyles: {
+        fontStyle: "bold",
+        fillColor: null,
+        textColor: [255, 255, 255],
+        lineColor: [0, 0, 0],
+        lineWidth: 0,
+        cellPadding: 10,
+      },
+      columnStyles,
+      tableLineColor: [0, 0, 0],
+      tableLineWidth: 0,
+      didAddPage: paintBg,
+      willDrawCell: () => {
+        if (!primed) {
+          primed = true;
+          if (typeof doc.setDrawColor === "function") doc.setDrawColor(0, 0, 0);
+          if (typeof doc.setLineWidth === "function") doc.setLineWidth(0);
+        }
+      },
+    });
+  } finally {
+    doc.addPage = originalAddPage;
+  }
+
+  doc.save(filename);
 }
 
