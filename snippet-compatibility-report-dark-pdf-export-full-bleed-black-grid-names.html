@@ -77,7 +77,9 @@
   async function exportCompatPDF_BlackGridWithNames({
     filename = 'compatibility-blackgrid-names.pdf',
     blank = ' ',
-    gridRGB = [140, 140, 140]
+    gridRGB = [150, 150, 150],
+    outerMargin = 28,
+    cellPadding = 10
   } = {}){
     await ensurePDFLibraries();
 
@@ -122,10 +124,9 @@
     const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true, putOnlyUsedFonts: true });
     const width = doc.internal.pageSize.getWidth();
     const height = doc.internal.pageSize.getHeight();
-    const BLEED = 12;
     const paint = () => {
       doc.setFillColor(0, 0, 0);
-      doc.rect(-BLEED, -BLEED, width + BLEED * 2, height + BLEED * 2, 'F');
+      doc.rect(0, 0, width, height, 'F');
     };
     paint();
     doc.setTextColor(255, 255, 255);
@@ -133,17 +134,15 @@
     doc.autoTable({
       head,
       body,
-      startY: -BLEED,
-      startX: -BLEED,
-      tableWidth: width + BLEED * 2,
-      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      tableWidth: width - outerMargin * 2,
+      margin: { top: outerMargin, right: outerMargin, bottom: outerMargin, left: outerMargin },
       theme: 'grid',
       horizontalPageBreak: true,
       styles: {
         font: 'helvetica',
         fontSize: 12,
         textColor: [255, 255, 255],
-        cellPadding: 8,
+        cellPadding,
         fillColor: null,
         lineWidth: 0.6,
         lineColor: gridRGB,
