@@ -1,0 +1,150 @@
+<!-- === Full-Bleed Black PDF + Full Grid + Label Mapping === -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+<script>
+/* ===== Label map (prefer your helper) ===== */
+function _normMap(src){
+  const out = {};
+  const put = (k,v)=>{
+    if (k==null) return;
+    const raw = String(k).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
+    if (!raw) return;
+    const key = raw.toLowerCase();
+    const val = (v==null || String(v).trim()==='') ? raw : String(v);
+    out[key]=val;
+    if (key.startsWith('cb_')) out[key.slice(3)] = val; // also without cb_
+  };
+  if (Array.isArray(src)) for (const [k,v] of src) put(k,v);
+  else for (const [k,v] of Object.entries(src||{})) put(k,v);
+  return out;
+}
+async function _getLabels(){
+  if (typeof window.buildLabelMapSafely==='function'){
+    try { return _normMap(await window.buildLabelMapSafely()); } catch(e){}
+  }
+  const [base, overrides] = await Promise.all([
+    fetch('/data/kinks.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
+    fetch('/data/labels-overrides.json').then(r=>r.ok?r.json():{}).catch(()=>({}))
+  ]);
+  let merged = { ...(base||{}), ...(overrides||{}) };
+  if (window.tkLabels && typeof window.tkLabels==='object') merged = { ...merged, ...window.tkLabels };
+  return _normMap(merged);
+}
+function _keyVariants(v){
+  const s = String(v||'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
+  const m = s.match(/\bcb_[a-z0-9_]+\b/i);
+  const base = (m?m[0]:s).toLowerCase();
+  const noCb = base.startsWith('cb_') ? base.slice(3) : base;
+  return [base, noCb];
+}
+function _fallbackTitle(code){
+  return String(code||'')
+    .replace(/^cb_/i,'')
+    .replace(/[_-]+/g,' ')
+    .replace(/\b([a-z])([a-z]*)/gi,(_,a,b)=>a.toUpperCase()+b.toLowerCase())
+    .trim();
+}
+
+/* ===== Exporter: full-bleed black + full grid + names ===== */
+async function exportCompatPDF_BlackGridWithNames({
+  filename='compatibility.pdf',
+  blank=' ',                    // '' for truly empty cells
+  gridRGB=[140,140,140]         // divider color
+} = {}){
+  if (!confirm("Consent check:\nDo you have your partner’s consent to export/share this PDF?")) return;
+
+  const labelMap = await _getLabels();
+
+  // Read table on page
+  const table = document.querySelector('table');
+  if (!table) { alert('No table found.'); return; }
+
+  const headers = [...table.querySelectorAll('thead th')].map(t=>t.textContent.trim());
+  const rowsDom = [...table.querySelectorAll('tbody tr')];
+  const columns = (headers.length?headers:['Category','Partner A','Match %','Partner B'])
+    .map((h,i)=>({ header:h, dataKey:String(i) }));
+  let rows = rowsDom.map(tr => [...tr.children].map(td => td.textContent.trim()));
+
+  // Map first column codes → names
+  const missing = new Set();
+  rows = rows.map(r=>{
+    const variants = _keyVariants(r[0]);
+    let label=null;
+    for (const k of variants){ if (k && (k in labelMap)){ label = labelMap[k]; break; } }
+    if (!label){ missing.add(variants[0]); label = _fallbackTitle(variants[0]); }
+    r[0] = label || blank;
+    for (let i=0;i<r.length;i++) if (r[i]==='' || r[i]==='—') r[i]=blank;
+    return r;
+  });
+  if (missing.size) console.log('[tk] Unmapped codes (sample):', [...missing].filter(Boolean).slice(0,20));
+
+  // Build AutoTable payload
+  const head = [columns.map(c=>c.header)];
+  const body = rows.map(r => columns.map((c,i)=> r[i] ?? blank));
+
+  // PDF setup
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'letter', compress:true, putOnlyUsedFonts:true });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const BLEED = 12;
+
+  const paint = ()=>{ doc.setFillColor(0,0,0); doc.rect(-BLEED,-BLEED, W+BLEED*2, H+BLEED*2, 'F'); };
+  paint();
+  doc.setTextColor(255,255,255);
+
+  // Draw a full grid (vertical + horizontal) with light lines on black
+  doc.autoTable({
+    head, body,
+    startY:-BLEED, startX:-BLEED, tableWidth: W+BLEED*2,
+    margin:{ top:0, right:0, bottom:0, left:0 },
+    theme:'grid',                         // grid draws borders; we keep fills null
+    horizontalPageBreak:true,
+    styles:{
+      font:'helvetica', fontSize:12,
+      textColor:[255,255,255],
+      cellPadding:8,
+      fillColor:null,                     // keep black background showing through
+      lineWidth:0.6,
+      lineColor:gridRGB,
+      overflow:'linebreak',
+      minCellHeight:22
+    },
+    headStyles:{
+      fontStyle:'bold',
+      textColor:[255,255,255],
+      fillColor:null,                     // black header background
+      lineWidth:0.8,
+      lineColor:gridRGB,
+    },
+    tableLineWidth:0.8,
+    tableLineColor:gridRGB,
+    columnStyles:{
+      0:{halign:'left'},
+      1:{halign:'center'},
+      2:{halign:'center'},
+      3:{halign:'center'}
+    },
+    didAddPage(){
+      paint(); doc.setTextColor(255,255,255);
+    }
+  });
+
+  doc.save(filename);
+}
+
+/* ===== Wire your “Download PDF” button ===== */
+(function wireBtn(){
+  const btn = [...document.querySelectorAll('a,button,input[type="button"],input[type="submit"]')]
+    .find(el => /download pdf/i.test((el.textContent||el.value||'').trim()));
+  if (btn){
+    btn.onclick = null; btn.removeAttribute('href');
+    btn.addEventListener('click', e => {
+      e.preventDefault(); e.stopImmediatePropagation();
+      exportCompatPDF_BlackGridWithNames({});
+    }, { capture:true });
+    console.log('[tk] Download PDF → exportCompatPDF_BlackGridWithNames');
+  } else {
+    console.warn('[tk] Download PDF button not found; call exportCompatPDF_BlackGridWithNames() manually.');
+  }
+})();
+</script>
