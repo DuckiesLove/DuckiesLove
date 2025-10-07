@@ -1,362 +1,150 @@
-<!-- === TalkKink Compatibility: One-Box Fix + Black-Edge Exporter === -->
+<!-- === One-Box: Fix loadLabels + Force Full-Bleed Black PDF === -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
-/* 0) Replace loadLabels with a safe version that always yields iterables */
-(function patchLoadLabels(){
-  const original = window.loadLabels;
-  window.loadLabels = async function loadLabels_SAFE(){
-    try{
-      let labelMap = {};
-
-      if (typeof original === 'function') {
-        const out = await original();
-        if (out && typeof out === 'object') labelMap = out;
+/* 0) Pre-patch: intercept future assignment to window.loadLabels and wrap it so it returns an iterable */
+(function interceptLoadLabels(){
+  if (!('loadLabels' in window)) {
+    Object.defineProperty(window, 'loadLabels', {
+      configurable: true,
+      set(fn){
+        // wrap the real function
+        const wrapped = async function(...args){
+          const out = await fn(...args);
+          // If it's a plain object, return entries so for..of works
+          if (out && typeof out === 'object' && !Array.isArray(out)) {
+            const byId = {};
+            for (const [k,v] of Object.entries(out)) byId[String(k)] = String(v ?? k);
+            window.__tkLabelsById = byId;                 // optional map for other code
+            return Object.entries(byId);                  // <-- iterable
+          }
+          return out ?? [];                               // still iterable for for..of
+        };
+        Object.defineProperty(window, 'loadLabels', { value: wrapped, writable: true, configurable: true });
       }
-
-      if (!labelMap || !Object.keys(labelMap).length) {
-        const raw = localStorage.getItem('tk_labelMap');
-        if (raw) {
-          try { labelMap = JSON.parse(raw); }
-          catch(err){ console.warn('[tk] localStorage labelMap parse failed', err); }
-        }
-        if (!labelMap || typeof labelMap !== 'object') labelMap = {};
-        if (window.tkLabelMap && typeof window.tkLabelMap === 'object') labelMap = window.tkLabelMap;
+    });
+  } else {
+    // If already defined, wrap it immediately
+    const orig = window.loadLabels;
+    window.loadLabels = async function(...args){
+      const out = await orig(...args);
+      if (out && typeof out === 'object' && !Array.isArray(out)) {
+        const byId = {};
+        for (const [k,v] of Object.entries(out)) byId[String(k)] = String(v ?? k);
+        window.__tkLabelsById = byId;
+        return Object.entries(byId);
       }
-
-      const entries = (() => {
-        if (!labelMap) return [];
-        if (Array.isArray(labelMap)) return labelMap.map((v,i) => [i, v]);
-        if (labelMap instanceof Map) return Array.from(labelMap.entries());
-        return Object.entries(labelMap);
-      })();
-
-      const byId = {};
-      for (const [k,v] of entries) {
-        if (k == null) continue;
-        const key = String(k);
-        const value = v == null ? key : String(v);
-        byId[key] = value;
-        byId[key.toLowerCase()] = value;
-      }
-
-      window.__tkLabelsById = byId;
-      window.__tkLabels = byId;
-      try { localStorage.setItem('tk_labelMap', JSON.stringify(byId)); }
-      catch(_){}
-      return Object.entries(byId);
-    }catch(e){
-      console.warn('[tk] loadLabels_SAFE fallback to empty', e);
-      window.__tkLabelsById = {};
-      window.__tkLabels = {};
-      return [];
-    }
-  };
+      return out ?? [];
+    };
+  }
 })();
 
-/* 1) Kill legacy paths that cause white borders or headers */
+/* 1) Kill legacy print/export paths that reintroduce margins/timestamps */
 try { window.print = () => console.warn('[tk] window.print() disabled'); } catch(e){}
-(function killOld(){
-  const names = [
-    'downloadCompatibilityPDF','exportCompatibilityPDF','makePDF','createPDF',
-    'saveReportPDF','compatPDF','exportPDF','downloadPDF'
-  ];
-  names.forEach(n => { try { delete window[n]; } catch(_){} });
-})();
+['downloadCompatibilityPDF','exportCompatibilityPDF','makePDF','createPDF','saveReportPDF','compatPDF','exportPDF','downloadPDF']
+  .forEach(n => { try { delete window[n]; } catch(_){} });
 
-/* 2) Always-ask consent (simple, no "remember") */
+/* 2) Consent (always ask) */
 async function tkConsent(){ return confirm("Consent check:\nDo you have your partner’s consent to export/share this PDF?"); }
 
-const DEFAULT_COLUMNS = [
-  { header:'Category', dataKey:'category' },
-  { header:'Partner A', dataKey:'a' },
-  { header:'Match %',  dataKey:'m' },
-  { header:'Partner B',dataKey:'b' },
-];
-
-const CB_RE = /\bcb_[a-z0-9]+\b/i;
-const tidy = s => String(s ?? '').replace(/\s+/g,' ').trim();
-const dash = v => { const t = tidy(v); return t ? t : '—'; };
-
-function labelFor(raw){
-  const map = window.__tkLabelsById || window.__tkLabels || {};
-  const base = tidy(raw);
-  if (!base) return '—';
-  const direct = map[base] || map[base.toLowerCase()];
-  if (direct) return tidy(direct) || '—';
-  const hit = base.match(CB_RE);
-  if (!hit) return base;
-  const key = hit[0];
-  return tidy(map[key] || map[key.toLowerCase()] || base) || '—';
-}
-
-function findCompatTable(){
-  return (
-    document.querySelector('#compatTable') ||
-    document.querySelector('#compatibilityTable') ||
-    document.querySelector('.compat table') ||
-    document.querySelector('.compat-table table') ||
-    document.querySelector('table')
-  );
-}
-
-function rewriteTableLabels(table){
-  if (!table) return;
-  const rows = table.tBodies.length
-    ? Array.from(table.tBodies).flatMap(tb => Array.from(tb.rows))
-    : Array.from(table.rows);
-  rows.forEach(tr => {
-    if (!tr || !tr.cells || !tr.cells.length) return;
-    const cell = tr.cells[0];
-    if (!cell || cell.tagName === 'TH') return;
-    const raw = tidy(cell.textContent);
-    if (!raw) return;
-    const pretty = labelFor(raw);
-    if (!pretty || pretty === raw || cell.dataset.tkLabelValue === pretty) return;
-    cell.textContent = pretty;
-    cell.dataset.tkLabelValue = pretty;
-  });
-}
-
-function buildColumnsFromHeaders(headers){
-  if (!headers || !headers.length) return DEFAULT_COLUMNS.map(col => ({ ...col }));
-  return headers.map((header, idx) => {
-    const fallback = DEFAULT_COLUMNS[idx];
-    const text = dash(header || (fallback && fallback.header));
-    const key = fallback ? fallback.dataKey : String(idx);
-    return { header: text, dataKey: key };
-  });
-}
-
-function gatherTableData(){
-  const table = findCompatTable();
-  if (!table) return { columns: DEFAULT_COLUMNS.map(col => ({ ...col })), rows: [] };
-
-  let headRow = null;
-  if (table.tHead && table.tHead.rows && table.tHead.rows.length) {
-    const headRows = Array.from(table.tHead.rows).filter(row => row && row.cells && row.cells.length);
-    headRow = headRows.length ? headRows[headRows.length - 1] : null;
-  }
-  const headers = headRow ? Array.from(headRow.cells).map(cell => tidy(cell.textContent)) : [];
-  const columns = buildColumnsFromHeaders(headers);
-
-  const bodyRows = table.tBodies.length
-    ? Array.from(table.tBodies).flatMap(tb => Array.from(tb.rows))
-    : Array.from(table.rows).filter(row => row && row.cells && row.cells.length && row.querySelectorAll('td').length);
-
-  const rows = [];
-  bodyRows.forEach(tr => {
-    if (!tr || !tr.cells || !tr.cells.length) return;
-    const cells = Array.from(tr.cells);
-    if (!cells.some(td => tidy(td.textContent))) return;
-    const obj = {};
-    columns.forEach((col, idx) => {
-      const cell = cells[idx];
-      let text = cell ? cell.textContent : '';
-      if (idx === 0) text = labelFor(text);
-      obj[col.dataKey] = dash(text);
-    });
-    rows.push(obj);
-  });
-
-  return { columns, rows };
-}
-
-async function ensureLabelsLoaded(){
-  if (typeof window.loadLabels === 'function') {
-    try { await window.loadLabels(); }
-    catch(err){ console.warn('[tk] loadLabels failed (patched fallback in use)', err); }
-  }
-  if (!window.__tkLabels) window.__tkLabels = {};
-  if (!window.__tkLabelsById) window.__tkLabelsById = window.__tkLabels;
-  return window.__tkLabelsById;
-}
-
-let tableObserver = null;
-let rootObserver = null;
-let rootObserverTimer = 0;
-
-function watchTable(){
-  const table = findCompatTable();
-  if (!table) return;
-  rewriteTableLabels(table);
-  if (tableObserver) tableObserver.disconnect();
-  tableObserver = new MutationObserver(() => rewriteTableLabels(table));
-  const target = table.tBodies.length ? table.tBodies[0] : table;
-  tableObserver.observe(target, { childList:true, subtree:true, characterData:true });
-}
-
-function watchForNewTables(){
-  if (rootObserver) return;
-  const root = document.body;
-  if (!root || !window.MutationObserver) return;
-  rootObserver = new MutationObserver(() => {
-    if (rootObserverTimer) return;
-    rootObserverTimer = window.setTimeout(() => {
-      rootObserverTimer = 0;
-      watchTable();
-    }, 60);
-  });
-  rootObserver.observe(root, { childList:true, subtree:true });
-}
-
-function wireDownloadButton(){
-  const candidates = Array.from(document.querySelectorAll('a,button,input[type="button"],input[type="submit"]'));
-  const btn = candidates.find(el => /download pdf/i.test((el.textContent || el.value || '').trim()));
-  if (!btn) { console.warn('[tk] Download PDF button not found'); return; }
-
-  const handler = async (e) => {
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    const data = gatherTableData();
-    if (!data.rows.length) {
-      alert('No compatibility rows found to export.');
-      return;
-    }
-    await tkExportPDF_BlackEdge({ columns: data.columns, rows: data.rows });
-  };
-
-  btn.onclick = null;
-  if (btn.tagName === 'A') btn.removeAttribute('href');
-  btn.addEventListener('click', handler, { capture:true });
-  ;[
-    'downloadCompatibilityPDF','exportCompatibilityPDF','makePDF','createPDF',
-    'saveReportPDF','compatPDF','exportPDF','downloadPDF'
-  ].forEach(name => { window[name] = (...args) => tkExportPDF_BlackEdge(...args); });
-  console.info('[tk] Download PDF button rewired → BlackEdge exporter');
-}
-
-/* 3) Ultra full-bleed, zero-margin exporter (no title/timestamp/footer) */
+/* 3) Ultra full-bleed black exporter (no title/timestamp/footer/margins/borders/padding) */
 async function tkExportPDF_BlackEdge({
   filename='compatibility.pdf',
-  columns=DEFAULT_COLUMNS.map(col => ({ ...col })),
+  columns=[
+    { header:'Category', dataKey:'category' },
+    { header:'Partner A', dataKey:'a' },
+    { header:'Match %',  dataKey:'m' },
+    { header:'Partner B',dataKey:'b' },
+  ],
   rows=[]
 } = {}) {
   if(!(await tkConsent())) return;
+  console.log('[tk] USING BlackEdge');
 
-  const lib = window.jspdf;
-  if (!lib || typeof lib.jsPDF !== 'function') {
-    alert('jsPDF is not loaded.');
-    return;
-  }
-  const autoTableFn = (doc, opts) => {
-    if (typeof doc.autoTable === 'function') return doc.autoTable(opts);
-    if (lib && typeof lib.autoTable === 'function') return lib.autoTable(doc, opts);
-    throw new Error('jsPDF AutoTable plugin missing');
-  };
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'letter', compress:true, putOnlyUsedFonts:true });
 
-  const doc = new lib.jsPDF({ unit:'pt', format:'letter', compress:true, putOnlyUsedFonts:true });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
-  const BLEED = 8; // overpaint beyond page to crush any anti-alias halo
+  const BLEED = 10; // overpaint beyond page to defeat anti-alias halos
 
-  const paint = () => {
-    doc.setFillColor(0,0,0);
-    doc.rect(-BLEED,-BLEED,W+BLEED*2,H+BLEED*2,'F');
-  };
+  const paint = () => { doc.setFillColor(0,0,0); doc.rect(-BLEED,-BLEED,W+BLEED*2,H+BLEED*2,'F'); };
   paint();
   doc.setTextColor(255,255,255);
   doc.setDrawColor(0,0,0);
   doc.setLineWidth(0);
 
+  // If not provided, scrape the on-page table
   if (!rows.length) {
-    const data = gatherTableData();
-    columns = data.columns;
-    rows = data.rows;
-  }
-  if (!rows.length) {
-    alert('No compatibility rows available for PDF export.');
-    return;
+    const table = document.querySelector('table');
+    if (table) {
+      const ths = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+      const trs = [...table.querySelectorAll('tbody tr')];
+      const guessCols = ths.length ? ths : ['Category','Partner A','Match %','Partner B'];
+      columns = guessCols.map((h,i)=>({header:h,dataKey:String(i)}));
+      rows = trs.map(tr => {
+        const cells = [...tr.children].map(td => td.textContent.trim());
+        const obj = {};
+        cells.forEach((v,i)=> obj[String(i)] = v || '—');
+        return obj;
+      });
+    }
   }
 
-  const head = [columns.map(c => c.header ?? c.title ?? dash(c))];
+  const head = [columns.map(c => c.header ?? c.title ?? c)];
   const body = rows.map(r => columns.map(c => {
-    const key = c.dataKey ?? c.key ?? c;
-    const val = r[key];
-    return dash(val);
+    const k = c.dataKey ?? c.key ?? c;
+    const v = r[k];
+    return (v===undefined || v===null || v==='') ? '—' : String(v);
   }));
 
-  autoTableFn(doc, {
-    head,
-    body,
+  doc.autoTable({
+    head, body,
     startY: -BLEED,
     startX: -BLEED,
     tableWidth: W + BLEED*2,
     margin: { top:0, right:0, bottom:0, left:0 },
     theme: 'plain',
     horizontalPageBreak: true,
-    styles: {
-      font:'helvetica',
-      fontSize:10,
-      textColor:[255,255,255],
-      cellPadding:0,
-      lineWidth:0,
-      fillColor:null,
-      overflow:'linebreak',
-      minCellHeight:14
-    },
-    headStyles: {
-      fontStyle:'bold',
-      textColor:[255,255,255],
-      fillColor:null,
-      cellPadding:0,
-      lineWidth:0,
-      minCellHeight:16
-    },
-    tableLineWidth: 0,
-    tableLineColor: [0,0,0],
-    columnStyles: {
-      0:{halign:'left'},
-      1:{halign:'center'},
-      2:{halign:'center'},
-      3:{halign:'center'}
-    },
-    didParseCell(data){
-      data.cell.styles.fillColor = null;
-      data.cell.styles.lineWidth = 0;
-      data.cell.styles.lineColor = [0,0,0];
-    },
-    didAddPage(){
-      paint();
-      doc.setTextColor(255,255,255);
-      doc.setDrawColor(0,0,0);
-      doc.setLineWidth(0);
-    }
+
+    styles: { font:'helvetica', fontSize:10, textColor:[255,255,255], cellPadding:0, lineWidth:0, fillColor:null, overflow:'linebreak', minCellHeight:14 },
+    headStyles:{ fontStyle:'bold', textColor:[255,255,255], fillColor:null, cellPadding:0, lineWidth:0, minCellHeight:16 },
+    tableLineWidth: 0, tableLineColor: [0,0,0],
+    columnStyles:{ 0:{halign:'left'}, 1:{halign:'center'}, 2:{halign:'center'}, 3:{halign:'center'} },
+
+    didParseCell(d){ d.cell.styles.fillColor=null; d.cell.styles.lineWidth=0; d.cell.styles.lineColor=[0,0,0]; },
+    didAddPage(){ paint(); doc.setTextColor(255,255,255); doc.setDrawColor(0,0,0); doc.setLineWidth(0); }
   });
 
   doc.save(filename);
 }
 
-window.tkExportPDF_BlackEdge = tkExportPDF_BlackEdge;
-window.tkGatherOneBoxData = gatherTableData;
+/* 4) Rewire the existing “Download PDF” button to this exporter */
+(function wireDownloadBtn(){
+  const btn = [...document.querySelectorAll('a,button,input[type="button"],input[type="submit"]')]
+    .find(el => /download pdf/i.test((el.textContent||el.value||'').trim()));
+  if (!btn) { console.warn('[tk] Download PDF button not found'); return; }
+  btn.onclick = null;
+  btn.removeAttribute('href');
+  btn.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    tkExportPDF_BlackEdge({});
+  }, { capture:true });
 
-/* 4) Optional: solid-black proof (no table). Run from console to verify viewer shadows. */
+  // Also alias common globals in case other code calls them
+  ['downloadCompatibilityPDF','exportCompatibilityPDF','makePDF','createPDF','saveReportPDF','compatPDF','exportPDF','downloadPDF']
+    .forEach(n => { window[n] = tkExportPDF_BlackEdge; });
+
+  console.log('[tk] Button rewired + exporters patched');
+})();
+
+/* 5) Optional: solid-black proof. From console, run: tkSolidBlackTest() */
 window.tkSolidBlackTest = function(){
-  const lib = window.jspdf;
-  if (!lib || typeof lib.jsPDF !== 'function') {
-    alert('jsPDF missing');
-    return;
-  }
-  const d = new lib.jsPDF({ unit:'pt', format:'letter' });
-  const w = d.internal.pageSize.getWidth();
-  const h = d.internal.pageSize.getHeight();
-  d.setFillColor(0,0,0);
-  d.rect(-10,-10,w+20,h+20,'F');
-  d.save('solid-black.pdf');
+  const { jsPDF } = window.jspdf;
+  const d = new jsPDF({ unit:'pt', format:'letter' });
+  const w = d.internal.pageSize.getWidth(), h = d.internal.pageSize.getHeight();
+  d.setFillColor(0,0,0); d.rect(-14,-14,w+28,h+28,'F'); d.save('solid-black.pdf');
   console.log('[tk] solid-black.pdf exported');
 };
-
-async function initTKOneBox(){
-  await ensureLabelsLoaded();
-  watchTable();
-  watchForNewTables();
-  wireDownloadButton();
-  console.info('[tk] One-Box patch ready');
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initTKOneBox, { once:true });
-} else {
-  initTKOneBox();
-}
 </script>
