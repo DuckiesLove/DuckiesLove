@@ -2799,8 +2799,69 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
         const newer = await getLabelMap();
         Object.assign(labelMap, newer);
         relabelCells(labelMap);
+        updateLabelBox(labelMap);
       });
     });
+  }
+
+  function ensureLabelBox(){
+    let host = document.getElementById('tk-label-map-box');
+    if (!host) {
+      host = document.createElement('details');
+      host.id = 'tk-label-map-box';
+      host.open = false;
+      Object.assign(host.style, {
+        position: 'fixed',
+        bottom: '16px',
+        right: '16px',
+        maxWidth: 'min(480px, 90vw)',
+        maxHeight: '60vh',
+        padding: '12px',
+        border: '1px solid rgba(255,255,255,0.4)',
+        background: 'rgba(0,0,0,0.85)',
+        color: '#fff',
+        font: '13px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        zIndex: '9999',
+        borderRadius: '8px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.35)'
+      });
+
+      const summary = document.createElement('summary');
+      summary.textContent = 'Label map';
+      Object.assign(summary.style, {
+        cursor: 'pointer',
+        fontWeight: '600',
+        marginBottom: '8px'
+      });
+      host.appendChild(summary);
+
+      const pre = document.createElement('pre');
+      Object.assign(pre.style, {
+        margin: '0',
+        padding: '0',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        overflow: 'auto'
+      });
+      host.appendChild(pre);
+
+      document.body.appendChild(host);
+    }
+    return host;
+  }
+
+  function updateLabelBox(labelMap){
+    if (!labelMap || !Object.keys(labelMap).length) return;
+    const host = ensureLabelBox();
+    const pre = host.querySelector('pre');
+    if (!pre) return;
+    const ordered = Object.keys(labelMap)
+      .sort((a, b) => a.localeCompare(b))
+      .reduce((acc, key) => {
+        acc[key] = labelMap[key];
+        return acc;
+      }, {});
+    pre.textContent = JSON.stringify(ordered, null, 2);
   }
 
   onReady(async () => {
@@ -2808,6 +2869,7 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
     const labels = await getLabelMap();
     watchAndRelabel(labels);
     wireFileInputs(labels);
+    updateLabelBox(labels);
   });
 })();
 </script>
