@@ -1,0 +1,147 @@
+<!-- === TalkKink Compatibility: With-Labels Full-Black PDF Export (drop-in) === -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+<script>
+async function exportCompatPDF_WithLabelsFullBlack({
+  filename = 'compatibility.pdf',
+  columns = [
+    { header: 'Category', dataKey: 'category' },
+    { header: 'Partner A', dataKey: 'a' },
+    { header: 'Match %', dataKey: 'm' },
+    { header: 'Partner B', dataKey: 'b' },
+  ],
+  rows = []
+} = {}) {
+  // Consent gate
+  if (!confirm("Consent check:\nDo you have your partner’s consent to export/share this PDF?")) return;
+
+  /* --- Build Label Map --- */
+  let labelMap = {};
+  if (typeof window.buildLabelMapSafely === 'function') {
+    labelMap = await window.buildLabelMapSafely();
+  } else {
+    const [base, overrides] = await Promise.all([
+      fetch('/data/kinks.json').then(r => (r.ok ? r.json() : {})).catch(() => ({})),
+      fetch('/data/labels-overrides.json').then(r => (r.ok ? r.json() : {})).catch(() => ({}))
+    ]);
+    labelMap = { ...(base || {}), ...(overrides || {}), ...(window.tkLabels || {}) };
+  }
+
+  // Normalize case
+  const map = {};
+  for (const [k, v] of Object.entries(labelMap)) map[String(k).toLowerCase()] = v;
+
+  // Replace cb_* with label
+  const resolveLabel = (value) => {
+    if (!value) return '';
+    const key = String(value).toLowerCase();
+    return map[key] || value;
+  };
+
+  /* --- Prepare Data --- */
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true, putOnlyUsedFonts: true });
+  const width = doc.internal.pageSize.getWidth();
+  const height = doc.internal.pageSize.getHeight();
+  const BLEED = 12;
+
+  const paint = () => {
+    doc.setFillColor(0, 0, 0);
+    doc.rect(-BLEED, -BLEED, width + BLEED * 2, height + BLEED * 2, 'F');
+  };
+
+  paint();
+  doc.setTextColor(255, 255, 255);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0);
+
+  // Fallback: read table from page
+  if (!rows.length) {
+    const table = document.querySelector('table');
+    if (table) {
+      const ths = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+      const trs = [...table.querySelectorAll('tbody tr')];
+      columns = (ths.length ? ths : ['Category', 'Partner A', 'Match %', 'Partner B'])
+        .map((header, i) => ({ header, dataKey: String(i) }));
+      rows = trs.map(tr => {
+        const cells = [...tr.children].map(td => td.textContent.trim());
+        const entry = {};
+        cells.forEach((value, i) => { entry[String(i)] = value; });
+        if (cells.length) entry.category = cells[0];
+        return entry;
+      });
+    }
+  }
+
+  const head = [columns.map(col => col.header ?? col.title ?? col)];
+  const body = rows.map(row => columns.map(col => {
+    const key = col.dataKey ?? col.key ?? col;
+    let value = row[key];
+    if (key === 'category' || /^(category|kink|code)$/i.test(col.header || '')) value = resolveLabel(value);
+    return value === undefined || value === null || value === '' ? ' ' : String(value);
+  }));
+
+  /* --- Full-Bleed PDF Table --- */
+  doc.autoTable({
+    head,
+    body,
+    startY: -BLEED,
+    startX: -BLEED,
+    tableWidth: width + BLEED * 2,
+    margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    theme: 'plain',
+    horizontalPageBreak: true,
+    styles: {
+      font: 'helvetica',
+      fontSize: 10,
+      textColor: [255, 255, 255],
+      cellPadding: 0,
+      lineWidth: 0,
+      fillColor: null,
+      overflow: 'linebreak',
+      minCellHeight: 14,
+    },
+    headStyles: {
+      fontStyle: 'bold',
+      textColor: [255, 255, 255],
+      fillColor: null,
+      cellPadding: 0,
+      lineWidth: 0,
+      minCellHeight: 16,
+    },
+    tableLineWidth: 0,
+    tableLineColor: [0, 0, 0],
+    columnStyles: {
+      0: { halign: 'left' },
+      1: { halign: 'center' },
+      2: { halign: 'center' },
+      3: { halign: 'center' },
+    },
+    didParseCell(details) {
+      details.cell.styles.fillColor = null;
+      details.cell.styles.lineWidth = 0;
+    },
+    didAddPage() {
+      paint();
+      doc.setTextColor(255, 255, 255);
+    },
+  });
+
+  doc.save(filename);
+}
+
+/* --- Optional: wire button --- */
+(function wireButton() {
+  const btn = [...document.querySelectorAll('a,button,input[type="button"],input[type="submit"]')]
+    .find(el => /download pdf/i.test((el.textContent || el.value || '').trim()));
+  if (btn) {
+    btn.onclick = null;
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      exportCompatPDF_WithLabelsFullBlack({});
+    }, { capture: true });
+    console.log('[tk] Download PDF rewired → WithLabelsFullBlack');
+  }
+})();
+</script>
