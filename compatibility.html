@@ -997,7 +997,7 @@ HOW TO USE (Codex-ready steps)
 4) Click the button with id="downloadBtn" (or run TKPDF_forceDark() in the console)
 
 RESULT
-• A file named compatibility-dark.pdf is downloaded with:
+• A file named compatibility-blackedge.pdf is downloaded with:
   – main results table in dark theme
   – a second table “Unanswered (0 or blank)” listing any category Partner A or B didn’t answer
 -->
@@ -2471,6 +2471,19 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
     btn.title = enabled ? 'Download comparison PDF' : 'Upload both surveys to enable';
   }
 
+  function getAutoTableRunner(doc) {
+    if (doc && typeof doc.autoTable === 'function') {
+      return (opts) => doc.autoTable(opts);
+    }
+    if (window.jspdf && typeof window.jspdf.autoTable === 'function') {
+      return (opts) => window.jspdf.autoTable(doc, opts);
+    }
+    if (typeof window.autoTable === 'function') {
+      return (opts) => window.autoTable(doc, opts);
+    }
+    return null;
+  }
+
   /* -----------------------------------------------------------
    * 2) Exporter (runs ONLY when click flag is set)
    * --------------------------------------------------------- */
@@ -2480,24 +2493,98 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
     const table = findTable();
     if (!table) { alert('There is nothing to export yet.'); return; }
 
-    const doc = new Ctor({ orientation: 'l', unit: 'pt', format: 'letter' });
+    const doc = new Ctor({ unit: 'pt', format: 'letter', compress: true, putOnlyUsedFonts: true });
+    const autoTable = getAutoTableRunner(doc);
+    if (!autoTable) { alert('AutoTable plugin missing.'); return; }
 
-    const now = new Date();
-    const ts = now.toISOString().replace(/[:T]/g, '-').slice(0, 19);
-    doc.setFontSize(14); doc.text('Talk Kink – Compatibility', 40, 40);
-    doc.setFontSize(10); doc.text(now.toLocaleString(), 770, 40, { align: 'right' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const BLEED = 12;
+    const paint = () => {
+      doc.setFillColor(0, 0, 0);
+      doc.rect(-BLEED, -BLEED, pageW + BLEED * 2, pageH + BLEED * 2, 'F');
+    };
 
-    if (!doc.autoTable && !window.autoTable) { alert('AutoTable plugin missing.'); return; }
-    const autoTable = doc.autoTable ? doc.autoTable.bind(doc) : (cfg => window.autoTable(doc, cfg));
-    autoTable({
-      html: table,
-      startY: 70,
-      styles: { fillColor: [0, 0, 0], textColor: 255, lineWidth: 0.8 },
-      headStyles: { fillColor: [0, 0, 0], textColor: 255, halign: 'center' },
-      alternateRowStyles: { fillColor: [20, 20, 20] }
+    const headers = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.trim());
+    const fallbackHeaders = ['Category', 'Partner A', 'Match %', 'Partner B'];
+    const columns = (headers.length ? headers : fallbackHeaders).map((header, idx) => ({
+      header: header || fallbackHeaders[idx] || `Col ${idx + 1}`,
+      key: String(idx),
+    }));
+
+    const rows = Array.from(table.querySelectorAll('tbody tr')).map((tr) => {
+      const cells = Array.from(tr.children).map((td) => td.textContent.trim());
+      const record = {};
+      cells.forEach((value, idx) => {
+        record[String(idx)] = value || '—';
+      });
+      return record;
     });
 
-    const filename = `compatibility-${ts}.pdf`;
+    if (!rows.length) {
+      alert('There are no rows to export yet.');
+      return;
+    }
+
+    paint();
+    doc.setTextColor(255, 255, 255);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0);
+
+    const head = [columns.map((c) => c.header)];
+    const body = rows.map((row) => columns.map((c) => {
+      const value = row[c.key];
+      return value === undefined || value === null || value === '' ? '—' : String(value);
+    }));
+    const columnStyles = {};
+    columns.forEach((_, idx) => {
+      columnStyles[idx] = { halign: idx === 0 ? 'left' : 'center' };
+    });
+
+    autoTable({
+      head,
+      body,
+      startY: -BLEED,
+      startX: -BLEED,
+      tableWidth: pageW + BLEED * 2,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      theme: 'plain',
+      horizontalPageBreak: true,
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+        textColor: [255, 255, 255],
+        cellPadding: 0,
+        lineWidth: 0,
+        fillColor: null,
+        overflow: 'linebreak',
+        minCellHeight: 14,
+      },
+      headStyles: {
+        fontStyle: 'bold',
+        textColor: [255, 255, 255],
+        fillColor: null,
+        cellPadding: 0,
+        lineWidth: 0,
+        minCellHeight: 16,
+      },
+      tableLineWidth: 0,
+      tableLineColor: [0, 0, 0],
+      columnStyles,
+      didParseCell(data) {
+        data.cell.styles.fillColor = null;
+        data.cell.styles.lineWidth = 0;
+        data.cell.styles.lineColor = [0, 0, 0];
+      },
+      didAddPage() {
+        paint();
+        doc.setTextColor(255, 255, 255);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0);
+      },
+    });
+
+    const filename = 'compatibility-blackedge.pdf';
     doc.save(filename);
     console.log('[TK-PDF] Manual export complete:', filename);
   }
