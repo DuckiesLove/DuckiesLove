@@ -15,6 +15,68 @@ try { window.print = () => console.warn('[tk] window.print() disabled'); } catch
 /* 1) Tiny consent (always ask) */
 async function tkConsent(){ return confirm("Consent check:\nDo you have your partner’s consent to export/share this PDF?"); }
 
+/* ---------------- Label Map (use existing or build safely) ---------------- */
+let __tkLabelMapCache = null;
+let __tkLabelMapPromise = null;
+
+async function tkGetLabelMap(){
+  if (__tkLabelMapCache) return __tkLabelMapCache;
+  if (__tkLabelMapPromise) return __tkLabelMapPromise;
+
+  __tkLabelMapPromise = (async () => {
+    if (typeof window.buildLabelMapSafely === 'function') {
+      try {
+        const out = await window.buildLabelMapSafely();
+        __tkLabelMapCache = tkNormalizeLabelMap(out || {});
+        return __tkLabelMapCache;
+      } catch (err) {
+        console.warn('[tk] buildLabelMapSafely failed', err);
+      }
+    }
+
+    const [base, overrides] = await Promise.all([
+      fetch('/data/kinks.json').then(r => r.ok ? r.json() : {}).catch(()=> ({})),
+      fetch('/data/labels-overrides.json').then(r => r.ok ? r.json() : {}).catch(()=> ({})),
+    ]);
+
+    let map = { ...(base || {}) };
+    map = { ...map, ...(overrides || {}) };
+    if (window.tkLabels && typeof window.tkLabels === 'object') {
+      map = { ...map, ...window.tkLabels };
+    }
+    if (window.TK_LABELS && typeof window.TK_LABELS === 'object') {
+      map = { ...map, ...window.TK_LABELS };
+    }
+    __tkLabelMapCache = tkNormalizeLabelMap(map);
+    return __tkLabelMapCache;
+  })().catch(err => {
+    console.error('[tk] Failed to build label map', err);
+    __tkLabelMapCache = {};
+    __tkLabelMapPromise = null;
+    return __tkLabelMapCache;
+  });
+
+  return __tkLabelMapPromise;
+}
+
+function tkNormalizeLabelMap(obj){
+  const out = {};
+  for (const [rawK, rawV] of Object.entries(obj || {})) {
+    if (rawK == null) continue;
+    const k = String(rawK).trim().toLowerCase();
+    if (!k) continue;
+    const v = (rawV == null || String(rawV).trim() === '') ? rawK : String(rawV);
+    out[k] = v;
+  }
+  return out;
+}
+
+function tkLabelFor(code, labelMap){
+  if (!code) return '';
+  const key = String(code).trim().toLowerCase();
+  return labelMap[key] ?? code;
+}
+
 /* 2) Ultra full-bleed exporter (no margins/padding/borders/titles) */
 async function tkExportPDF_BlackEdge({
   filename='compatibility.pdf',
@@ -24,9 +86,15 @@ async function tkExportPDF_BlackEdge({
     { header:'Match %',  dataKey:'m' },
     { header:'Partner B',dataKey:'b' },
   ],
-  rows=[]
+  rows=[],
+  blank='—'
 } = {}) {
   if(!(await tkConsent())) return;
+
+  const labelMap = await tkGetLabelMap();
+  if (labelMap && typeof labelMap === 'object') {
+    window.__tkLabelMap = labelMap;
+  }
 
   console.log('[tk] USING BlackEdge');
 
@@ -55,16 +123,27 @@ async function tkExportPDF_BlackEdge({
         const cells = [...tr.children].map(td => td.textContent.trim());
         const obj = {};
         cells.forEach((v,i)=> obj[String(i)] = v);
+        if (cells.length) obj.category = cells[0];
         return obj;
       });
     }
   }
 
   const head = [columns.map(c => c.header ?? c.title ?? c)];
-  const body = rows.map(r => columns.map(c => {
+  const body = rows.map(r => columns.map((c, idx) => {
     const k = c.dataKey ?? c.key ?? c;
-    const v = r[k];
-    return (v===undefined || v===null || v==='') ? '—' : String(v);
+    let v = r[k];
+    if (v === undefined && typeof r === 'object' && r !== null) {
+      // Support numeric indexes on arrays/array-like objects
+      const num = Number.isInteger(Number(k)) ? Number(k) : idx;
+      v = r[num];
+    }
+    const header = c.header ?? c.title ?? '';
+    const isCategory = k === 'category'
+      || /^(category|kink|code)$/i.test(String(header))
+      || idx === 0;
+    if (isCategory) v = tkLabelFor(v, labelMap);
+    return (v===undefined || v===null || v==='') ? blank : String(v);
   }));
 
   doc.autoTable({
