@@ -1,176 +1,94 @@
-<!-- === One-Box: Fix loadLabels + Force Full-Bleed Black PDF === -->
+<!-- === Codex One-Box: Labels + Full-Bleed Black PDF + Button Wiring === -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
-/* 0) Pre-patch: intercept future assignment to window.loadLabels and wrap it so it returns an iterable */
-(function interceptLoadLabels(){
-  function updateLabelBox(mapLike){
-    if (!mapLike || typeof mapLike !== 'object') return;
-    let map = mapLike;
-    if (Array.isArray(mapLike)) {
-      const entries = [];
-      for (const item of mapLike) {
-        if (!item) continue;
-        if (Array.isArray(item)) {
-          const [k, v] = item;
-          if (k != null) entries.push([String(k), String(v ?? k)]);
-          continue;
-        }
-        if (typeof item === 'object') {
-          const key = item.id || item.key || item.code || item[0];
-          const label = item.label || item.name || item.text || item.value || item[1];
-          if (key != null) entries.push([String(key), String(label ?? key)]);
-        }
-      }
-      if (!entries.length) return;
-      map = Object.fromEntries(entries);
-    }
-
-    const apply = () => {
-      window.__tkLabelsById = Object.assign({}, window.__tkLabelsById || {}, map);
-      let host = document.getElementById('tk-label-map-box');
-      if (!host) {
-        host = document.createElement('details');
-        host.id = 'tk-label-map-box';
-        host.open = false;
-        host.style.position = 'fixed';
-        host.style.bottom = '16px';
-        host.style.right = '16px';
-        host.style.maxWidth = 'min(480px, 90vw)';
-        host.style.maxHeight = '60vh';
-        host.style.padding = '12px';
-        host.style.border = '1px solid rgba(255,255,255,0.4)';
-        host.style.background = 'rgba(0,0,0,0.85)';
-        host.style.color = '#fff';
-        host.style.font = '13px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
-        host.style.zIndex = '9999';
-        host.style.borderRadius = '8px';
-        host.style.boxShadow = '0 8px 24px rgba(0,0,0,0.35)';
-
-        const summary = document.createElement('summary');
-        summary.textContent = 'Label map';
-        summary.style.cursor = 'pointer';
-        summary.style.fontWeight = '600';
-        summary.style.marginBottom = '8px';
-        host.appendChild(summary);
-
-        const pre = document.createElement('pre');
-        pre.style.margin = '0';
-        pre.style.padding = '0';
-        pre.style.whiteSpace = 'pre-wrap';
-        pre.style.wordBreak = 'break-word';
-        pre.style.overflow = 'auto';
-        host.appendChild(pre);
-
-        document.body.appendChild(host);
-      }
-
-      const pre = host.querySelector('pre');
-      if (pre) {
-        pre.textContent = JSON.stringify(map, null, 2);
-      }
-    };
-
-    if (document.body) apply();
-    else document.addEventListener('DOMContentLoaded', apply, { once: true });
-  }
-
-  if (!('loadLabels' in window)) {
-    Object.defineProperty(window, 'loadLabels', {
-      configurable: true,
-      set(fn){
-        // wrap the real function
-        const wrapped = async function(...args){
-          const out = await fn(...args);
-          // If it's a plain object, return entries so for..of works
-          if (out && typeof out === 'object' && !Array.isArray(out)) {
-            const byId = {};
-            for (const [k,v] of Object.entries(out)) byId[String(k)] = String(v ?? k);
-            window.__tkLabelsById = byId;                 // optional map for other code
-            updateLabelBox(byId);
-            return Object.entries(byId);                  // <-- iterable
-          }
-          updateLabelBox(out);
-          return out ?? [];                               // still iterable for for..of
-        };
-        Object.defineProperty(window, 'loadLabels', { value: wrapped, writable: true, configurable: true });
-      }
-    });
-  } else {
-    // If already defined, wrap it immediately
-    const orig = window.loadLabels;
-    window.loadLabels = async function(...args){
-      const out = await orig(...args);
-      if (out && typeof out === 'object' && !Array.isArray(out)) {
-        const byId = {};
-        for (const [k,v] of Object.entries(out)) byId[String(k)] = String(v ?? k);
-        window.__tkLabelsById = byId;
-        updateLabelBox(byId);
-        return Object.entries(byId);
-      }
-      updateLabelBox(out);
-      return out ?? [];
-    };
-  }
-})();
-
-/* 1) Kill legacy print/export paths that reintroduce margins/timestamps */
+/* 0) Kill legacy print/export paths that cause borders/timestamps */
 try { window.print = () => console.warn('[tk] window.print() disabled'); } catch(e){}
 ['downloadCompatibilityPDF','exportCompatibilityPDF','makePDF','createPDF','saveReportPDF','compatPDF','exportPDF','downloadPDF']
   .forEach(n => { try { delete window[n]; } catch(_){} });
 
-/* 2) Consent (always ask) */
-async function tkConsent(){ return confirm("Consent check:\nDo you have your partner’s consent to export/share this PDF?"); }
+/* 1) Label map helpers ---------------------------------------------------- */
+function normalizeLabelMap(obj){
+  const out = {};
+  for (const [rawK, rawV] of Object.entries(obj || {})) {
+    const k = String(rawK ?? '').trim().toLowerCase();
+    if (!k) continue;
+    out[k] = String((rawV ?? '').toString().trim() || rawK);
+  }
+  return out;
+}
+async function getLabelMap(){
+  // Prefer your page's helper if available
+  if (typeof window.buildLabelMapSafely === 'function') {
+    const out = await window.buildLabelMapSafely();
+    return normalizeLabelMap(out || {});
+  }
+  // Fallback: /data/kinks.json -> /data/labels-overrides.json -> window.tkLabels
+  const [base, overrides] = await Promise.all([
+    fetch('/data/kinks.json').then(r => r.ok ? r.json() : {}).catch(()=> ({})),
+    fetch('/data/labels-overrides.json').then(r => r.ok ? r.json() : {}).catch(()=> ({})),
+  ]);
+  let map = { ...(base||{}) , ...(overrides||{}) };
+  if (window.tkLabels && typeof window.tkLabels === 'object') map = { ...map, ...window.tkLabels };
+  return normalizeLabelMap(map);
+}
+const labelFor = (code, map) => !code ? '' : (map[String(code).toLowerCase()] ?? code);
 
-/* 3) Ultra full-bleed black exporter (no title/timestamp/footer/margins/borders/padding) */
+/* 2) Full-bleed black export (no margins/padding/borders) ----------------- */
 async function tkExportPDF_BlackEdge({
   filename='compatibility.pdf',
   columns=[
     { header:'Category', dataKey:'category' },
     { header:'Partner A', dataKey:'a' },
     { header:'Match %',  dataKey:'m' },
-    { header:'Partner B',dataKey:'b' },
+    { header:'Partner B', dataKey:'b' },
   ],
-  rows=[]
-} = {}) {
-  if(!(await tkConsent())) return;
-  console.log('[tk] USING BlackEdge');
+  rows=[],
+  blank=' '   // use '' for truly empty, or '\u00A0' to keep height
+} = {}){
+  // Always-ask consent (no remember)
+  if (!confirm("Consent check:\nDo you have your partner’s consent to export/share this PDF?")) return;
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit:'pt', format:'letter', compress:true, putOnlyUsedFonts:true });
+  const labelMap = await getLabelMap();
 
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
-  const BLEED = 10; // overpaint beyond page to defeat anti-alias halos
-
-  const paint = () => { doc.setFillColor(0,0,0); doc.rect(-BLEED,-BLEED,W+BLEED*2,H+BLEED*2,'F'); };
-  paint();
-  doc.setTextColor(255,255,255);
-  doc.setDrawColor(0,0,0);
-  doc.setLineWidth(0);
-
-  // If not provided, scrape the on-page table
+  // If rows/cols not provided, read from the visible table
   if (!rows.length) {
     const table = document.querySelector('table');
     if (table) {
       const ths = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
       const trs = [...table.querySelectorAll('tbody tr')];
-      const guessCols = ths.length ? ths : ['Category','Partner A','Match %','Partner B'];
-      columns = guessCols.map((h,i)=>({header:h,dataKey:String(i)}));
+      columns = (ths.length ? ths : ['Category','Partner A','Match %','Partner B'])
+        .map((h,i)=>({ header:h, dataKey:String(i) }));
       rows = trs.map(tr => {
         const cells = [...tr.children].map(td => td.textContent.trim());
-        const obj = {};
-        cells.forEach((v,i)=> obj[String(i)] = v || '—');
-        return obj;
+        const o = {};
+        cells.forEach((v,i)=> o[String(i)] = v);
+        // also expose category under 'category' if first col
+        if (cells.length) o['category'] = cells[0];
+        return o;
       });
     }
   }
 
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'letter', compress:true, putOnlyUsedFonts:true });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const BLEED = 12;
+
+  const paint = () => { doc.setFillColor(0,0,0); doc.rect(-BLEED,-BLEED, W+BLEED*2, H+BLEED*2, 'F'); };
+  paint();
+  doc.setTextColor(255,255,255);
+  doc.setDrawColor(0,0,0);
+  doc.setLineWidth(0);
+
   const head = [columns.map(c => c.header ?? c.title ?? c)];
   const body = rows.map(r => columns.map(c => {
-    const k = c.dataKey ?? c.key ?? c;
-    const v = r[k];
-    return (v===undefined || v===null || v==='') ? '—' : String(v);
+    const key = c.dataKey ?? c.key ?? c;
+    let v = r[key];
+    // map left column label: by key or header hint
+    const isCategory = key === 'category' || /^(category|kink|code)$/i.test(String(c.header||''));
+    if (isCategory) v = labelFor(v, labelMap);
+    return (v === undefined || v === null || v === '') ? blank : String(v);
   }));
 
   doc.autoTable({
@@ -181,12 +99,10 @@ async function tkExportPDF_BlackEdge({
     margin: { top:0, right:0, bottom:0, left:0 },
     theme: 'plain',
     horizontalPageBreak: true,
-
     styles: { font:'helvetica', fontSize:10, textColor:[255,255,255], cellPadding:0, lineWidth:0, fillColor:null, overflow:'linebreak', minCellHeight:14 },
     headStyles:{ fontStyle:'bold', textColor:[255,255,255], fillColor:null, cellPadding:0, lineWidth:0, minCellHeight:16 },
     tableLineWidth: 0, tableLineColor: [0,0,0],
     columnStyles:{ 0:{halign:'left'}, 1:{halign:'center'}, 2:{halign:'center'}, 3:{halign:'center'} },
-
     didParseCell(d){ d.cell.styles.fillColor=null; d.cell.styles.lineWidth=0; d.cell.styles.lineColor=[0,0,0]; },
     didAddPage(){ paint(); doc.setTextColor(255,255,255); doc.setDrawColor(0,0,0); doc.setLineWidth(0); }
   });
@@ -194,32 +110,29 @@ async function tkExportPDF_BlackEdge({
   doc.save(filename);
 }
 
-/* 4) Rewire the existing “Download PDF” button to this exporter */
-(function wireDownloadBtn(){
+/* 3) Wire the visible “Download PDF” button (by text), and alias common globals */
+(function wireDownloadButton(){
   const btn = [...document.querySelectorAll('a,button,input[type="button"],input[type="submit"]')]
     .find(el => /download pdf/i.test((el.textContent||el.value||'').trim()));
-  if (!btn) { console.warn('[tk] Download PDF button not found'); return; }
-  btn.onclick = null;
-  btn.removeAttribute('href');
-  btn.addEventListener('click', function(e){
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    tkExportPDF_BlackEdge({});
-  }, { capture:true });
-
-  // Also alias common globals in case other code calls them
+  if (btn) {
+    btn.onclick = null;
+    btn.removeAttribute('href');
+    btn.addEventListener('click', e => { e.preventDefault(); e.stopImmediatePropagation(); tkExportPDF_BlackEdge({}); }, { capture:true });
+    console.log('[tk] Download PDF rewired → BlackEdge exporter');
+  } else {
+    console.warn('[tk] Download PDF button not found; call tkExportPDF_BlackEdge() manually.');
+  }
+  // Alias in case other code calls old names
   ['downloadCompatibilityPDF','exportCompatibilityPDF','makePDF','createPDF','saveReportPDF','compatPDF','exportPDF','downloadPDF']
     .forEach(n => { window[n] = tkExportPDF_BlackEdge; });
-
-  console.log('[tk] Button rewired + exporters patched');
 })();
 
-/* 5) Optional: solid-black proof. From console, run: tkSolidBlackTest() */
+/* 4) Optional: solid-black proof (no table). Run from console if you want. */
 window.tkSolidBlackTest = function(){
   const { jsPDF } = window.jspdf;
   const d = new jsPDF({ unit:'pt', format:'letter' });
   const w = d.internal.pageSize.getWidth(), h = d.internal.pageSize.getHeight();
-  d.setFillColor(0,0,0); d.rect(-14,-14,w+28,h+28,'F'); d.save('solid-black.pdf');
+  d.setFillColor(0,0,0); d.rect(-16,-16,w+32,h+32,'F'); d.save('solid-black.pdf');
   console.log('[tk] solid-black.pdf exported');
 };
 </script>
