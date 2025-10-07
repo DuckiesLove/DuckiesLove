@@ -4,6 +4,77 @@
 <script>
 /* 0) Pre-patch: intercept future assignment to window.loadLabels and wrap it so it returns an iterable */
 (function interceptLoadLabels(){
+  function updateLabelBox(mapLike){
+    if (!mapLike || typeof mapLike !== 'object') return;
+    let map = mapLike;
+    if (Array.isArray(mapLike)) {
+      const entries = [];
+      for (const item of mapLike) {
+        if (!item) continue;
+        if (Array.isArray(item)) {
+          const [k, v] = item;
+          if (k != null) entries.push([String(k), String(v ?? k)]);
+          continue;
+        }
+        if (typeof item === 'object') {
+          const key = item.id || item.key || item.code || item[0];
+          const label = item.label || item.name || item.text || item.value || item[1];
+          if (key != null) entries.push([String(key), String(label ?? key)]);
+        }
+      }
+      if (!entries.length) return;
+      map = Object.fromEntries(entries);
+    }
+
+    const apply = () => {
+      window.__tkLabelsById = Object.assign({}, window.__tkLabelsById || {}, map);
+      let host = document.getElementById('tk-label-map-box');
+      if (!host) {
+        host = document.createElement('details');
+        host.id = 'tk-label-map-box';
+        host.open = false;
+        host.style.position = 'fixed';
+        host.style.bottom = '16px';
+        host.style.right = '16px';
+        host.style.maxWidth = 'min(480px, 90vw)';
+        host.style.maxHeight = '60vh';
+        host.style.padding = '12px';
+        host.style.border = '1px solid rgba(255,255,255,0.4)';
+        host.style.background = 'rgba(0,0,0,0.85)';
+        host.style.color = '#fff';
+        host.style.font = '13px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+        host.style.zIndex = '9999';
+        host.style.borderRadius = '8px';
+        host.style.boxShadow = '0 8px 24px rgba(0,0,0,0.35)';
+
+        const summary = document.createElement('summary');
+        summary.textContent = 'Label map';
+        summary.style.cursor = 'pointer';
+        summary.style.fontWeight = '600';
+        summary.style.marginBottom = '8px';
+        host.appendChild(summary);
+
+        const pre = document.createElement('pre');
+        pre.style.margin = '0';
+        pre.style.padding = '0';
+        pre.style.whiteSpace = 'pre-wrap';
+        pre.style.wordBreak = 'break-word';
+        pre.style.overflow = 'auto';
+        host.appendChild(pre);
+
+        document.body.appendChild(host);
+      }
+
+      const pre = host.querySelector('pre');
+      if (pre) {
+        pre.textContent = JSON.stringify(map, null, 2);
+      }
+    };
+
+    if (document.body) apply();
+    else document.addEventListener('DOMContentLoaded', apply, { once: true });
+  }
+
   if (!('loadLabels' in window)) {
     Object.defineProperty(window, 'loadLabels', {
       configurable: true,
@@ -16,8 +87,10 @@
             const byId = {};
             for (const [k,v] of Object.entries(out)) byId[String(k)] = String(v ?? k);
             window.__tkLabelsById = byId;                 // optional map for other code
+            updateLabelBox(byId);
             return Object.entries(byId);                  // <-- iterable
           }
+          updateLabelBox(out);
           return out ?? [];                               // still iterable for for..of
         };
         Object.defineProperty(window, 'loadLabels', { value: wrapped, writable: true, configurable: true });
@@ -32,8 +105,10 @@
         const byId = {};
         for (const [k,v] of Object.entries(out)) byId[String(k)] = String(v ?? k);
         window.__tkLabelsById = byId;
+        updateLabelBox(byId);
         return Object.entries(byId);
       }
+      updateLabelBox(out);
       return out ?? [];
     };
   }
