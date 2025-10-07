@@ -2,175 +2,135 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
-/* ---------------- Label map helpers ---------------- */
-function _tkNormalizeLabels(obj){
+/* ---------- Robust label map ---------- */
+function _normMap(objOrArr){
   const out = {};
-  for (const [k,v] of Object.entries(obj || {})) {
-    const key = String(k || '').trim().toLowerCase();
-    if (!key) continue;
-    out[key] = String((v == null || String(v).trim() === '') ? k : v);
-  }
+  const eat = (k,v) => {
+    if (k == null) return;
+    const key = String(k).replace(/\s+/g,'').toLowerCase();
+    if (!key) return;
+    const val = (v == null || String(v).trim()==='') ? k : v;
+    out[key] = String(val);
+  };
+  if (Array.isArray(objOrArr)) { for (const [k,v] of objOrArr) eat(k,v); }
+  else { for (const [k,v] of Object.entries(objOrArr||{})) eat(k,v); }
+  console.log('[tk] labels ready:', Object.keys(out).length);
   return out;
 }
-async function _tkGetLabelMap(){
+
+async function _getLabels(){
   if (typeof window.buildLabelMapSafely === 'function') {
-    try { return _tkNormalizeLabels(await window.buildLabelMapSafely() || {}); }
-    catch(e){ console.warn('[tk] buildLabelMapSafely failed; falling back', e); }
+    try { return _normMap(await window.buildLabelMapSafely()); } catch {}
   }
   const [base, overrides] = await Promise.all([
-    fetch('/data/kinks.json').then(r => r.ok ? r.json() : {}).catch(()=> ({})),
-    fetch('/data/labels-overrides.json').then(r => r.ok ? r.json() : {}).catch(()=> ({})),
+    fetch('/data/kinks.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
+    fetch('/data/labels-overrides.json').then(r=>r.ok?r.json():{}).catch(()=>({}))
   ]);
-  let map = { ...(base||{}), ...(overrides||{}) };
-  if (window.tkLabels && typeof window.tkLabels === 'object') map = { ...map, ...window.tkLabels };
-  return _tkNormalizeLabels(map);
+  const merged = { ...(base||{}), ...(overrides||{}), ...(window.tkLabels||{}) };
+  return _normMap(merged);
 }
-const _tkLabelFor = (code, map) => code ? (map[String(code).trim().toLowerCase()] ?? code) : '';
 
-/* ---------------- Exporter ---------------- */
-async function tkExportPDF_WithLabelsBlackDividers({
+/* ---------- Code sanitization & fallback title ---------- */
+function _extractCb(raw){
+  if (!raw) return '';
+  // strip hidden/zero-width, normalize spaces
+  const s = String(raw).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
+  const m = s.match(/\bcb_[a-z0-9]+\b/i);
+  return (m ? m[0] : s).toLowerCase();
+}
+function _fallbackTitle(code){
+  // cb_a19jy -> A19jy; cb_impact_play -> Impact Play
+  return String(code || '')
+    .replace(/^cb_/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b([a-z])([a-z]*)/gi, (_,a,b)=>a.toUpperCase()+b.toLowerCase())
+    .trim();
+}
+
+/* ---------- Exporter: full-bleed black + vertical dividers + label replace ---------- */
+async function exportCompatPDF_BlackDividersLabeled({
   filename='compatibility.pdf',
-  blank=' ',           // use '' for truly empty
-  dividerRGBA=[120,120,120] // column divider color (on black)
-} = {}) {
-  if (!confirm("Consent check:\nDo you have your partner’s consent to export/share this PDF?")) return;
+  blank=' ',
+  dividerRGBA=[120,120,120],
+} = {}){
+  if (!confirm('Consent check:\nDo you have your partner’s consent to export/share this PDF?')) return;
 
-  const labelMap = await _tkGetLabelMap();
+  const labelMap = await _getLabels();
 
-  // Pull data from the visible table
+  // Read current table
   const table = document.querySelector('table');
   if (!table) { alert('No table found.'); return; }
-
-  const headers = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+  const headers = [...table.querySelectorAll('thead th')].map(th=>th.textContent.trim());
   const rowsDom = [...table.querySelectorAll('tbody tr')];
+  const columns = (headers.length?headers:['Category','Partner A','Match %','Partner B'])
+    .map((h,i)=>({header:h, dataKey:String(i)}));
+  let rows = rowsDom.map(tr => [...tr.children].map(td => td.textContent.trim()));
 
-  const columns = (headers.length ? headers : ['Category','Partner A','Match %','Partner B'])
-    .map((h,i)=>({ header:h, dataKey:String(i) }));
-
-  // rows as arrays
-  const rows = rowsDom.map(tr => [...tr.children].map(td => td.textContent.trim()));
-  // force label mapping on first column (cb_* → human)
+  // Force map first column -> human title
   const missing = new Set();
-  for (let r=0; r<rows.length; r++) {
-    const code = rows[r][0];
-    const label = _tkLabelFor(code, labelMap);
-    if (label === code) missing.add(code);
-    rows[r][0] = (label == null || label === '') ? blank : String(label);
-  }
-  if (missing.size) console.log(`[tk] ${missing.size} codes missing label (sample):`, [...missing].slice(0,20));
+  rows = rows.map(r=>{
+    const key = _extractCb(r[0]);
+    const label = labelMap[key] ?? null;
+    r[0] = label ? label : _fallbackTitle(key || r[0]);
+    if (!label) missing.add(key);
+    for (let i=0;i<r.length;i++) if (r[i]==='' || r[i]==='—') r[i]=blank;
+    return r;
+  });
+  if (missing.size) console.log('[tk] missing label for codes (sample):', [...missing].filter(Boolean).slice(0,20));
 
-  // to AutoTable shapes
-  const head = [columns.map(c => c.header)];
-  const body = rows.map(r => columns.map((c,i) => {
-    const v = r[i];
-    return (v === undefined || v === null || v === '') ? blank : String(v);
-  }));
+  // Build AutoTable payload
+  const head = [columns.map(c=>c.header)];
+  const body = rows.map(r => columns.map((c,i)=> (r[i]??blank)));
 
   // PDF
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'pt', format:'letter', compress:true, putOnlyUsedFonts:true });
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
   const BLEED = 12;
+  const paint = ()=>{ doc.setFillColor(0,0,0); doc.rect(-BLEED,-BLEED,W+BLEED*2,H+BLEED*2,'F'); };
+  paint(); doc.setTextColor(255,255,255); doc.setDrawColor(0,0,0); doc.setLineWidth(0);
 
-  const paint = () => { doc.setFillColor(0,0,0); doc.rect(-BLEED,-BLEED, W+BLEED*2, H+BLEED*2, 'F'); };
-  paint();
-  doc.setTextColor(255,255,255);
-  doc.setDrawColor(0,0,0);
-  doc.setLineWidth(0);
-
-  // Track column boundaries so we can draw vertical dividers
-  let columnXs = null;
+  let colCount = columns.length;
 
   doc.autoTable({
     head, body,
-    startY: -BLEED,
-    startX: -BLEED,
-    tableWidth: W + BLEED*2,
-    margin: { top:0, right:0, bottom:0, left:0 },
-    theme: 'plain',
-    horizontalPageBreak: true,
-    styles: {
-      font:'helvetica',
-      fontSize:10,
-      textColor:[255,255,255],
-      cellPadding:0,
-      lineWidth:0,
-      fillColor:null,
-      overflow:'linebreak',
-      minCellHeight:14
-    },
-    headStyles: {
-      fontStyle:'bold',
-      textColor:[255,255,255],
-      fillColor:null,
-      cellPadding:0,
-      lineWidth:0,
-      minCellHeight:16
-    },
-    tableLineWidth: 0,
-    tableLineColor: [0,0,0],
-    columnStyles: {
-      0:{halign:'left'},
-      1:{halign:'center'},
-      2:{halign:'center'},
-      3:{halign:'center'}
-    },
+    startY:-BLEED, startX:-BLEED,
+    tableWidth: W+BLEED*2,
+    margin:{top:0,right:0,bottom:0,left:0},
+    theme:'plain', horizontalPageBreak:true,
+    styles:{font:'helvetica',fontSize:10,textColor:[255,255,255],cellPadding:0,lineWidth:0,fillColor:null,overflow:'linebreak',minCellHeight:14},
+    headStyles:{fontStyle:'bold',textColor:[255,255,255],fillColor:null,cellPadding:0,lineWidth:0,minCellHeight:16},
+    tableLineWidth:0, tableLineColor:[0,0,0],
+    columnStyles:Object.fromEntries([...Array(colCount).keys()].map(i=>[i,{halign:i? 'center':'left'}])),
 
-    // capture column x positions on the first head row
-    didParseCell(data){
-      data.cell.styles.fillColor = null;
-      data.cell.styles.lineWidth = 0;
-      data.cell.styles.lineColor = [0,0,0];
-      if (data.section === 'head' && data.row.index === 0) {
-        columnXs = columnXs || [];
-        // x at the right edge of this cell
-        columnXs[data.column.index] = data.cell.x + data.cell.width;
+    didDrawCell(data){
+      // vertical dividers on the right edge of each cell (except last column)
+      if (data.column.index < data.table.columns.length - 1){
+        const x = data.cell.x + data.cell.width;
+        const y0 = data.cell.y, y1 = y0 + data.cell.height;
+        doc.setDrawColor(...dividerRGBA); doc.setLineWidth(0.5);
+        doc.line(x, y0, x, y1);
+        doc.setDrawColor(0,0,0); doc.setLineWidth(0);
       }
     },
-
-    // draw vertical dividers at column boundaries (no horizontal lines)
-    didDrawCell(data){
-      if (!columnXs) return;
-      // draw only once per cell on its right edge except for last column
-      if (data.section !== 'head' && data.section !== 'body') return;
-      if (data.column.index >= data.table.columns.length - 1) return;
-
-      const x = data.cell.x + data.cell.width;  // right edge of this cell
-      const y0 = data.cell.y;
-      const y1 = data.cell.y + data.cell.height;
-
-      doc.setDrawColor(...dividerRGBA);
-      doc.setLineWidth(0.5); // thin divider
-      doc.line(x, y0, x, y1);
-      // restore no-stroke for subsequent calls
-      doc.setDrawColor(0,0,0);
-      doc.setLineWidth(0);
-    },
-
     didAddPage(){
-      paint();
-      doc.setTextColor(255,255,255);
-      doc.setDrawColor(0,0,0);
-      doc.setLineWidth(0);
-      columnXs = null; // recalc per page
+      paint(); doc.setTextColor(255,255,255); doc.setDrawColor(0,0,0); doc.setLineWidth(0);
     }
   });
 
   doc.save(filename);
 }
 
-/* ---------------- Wire the Download PDF button ---------------- */
-(function wireDownloadButton(){
+/* ---------- Wire existing "Download PDF" button ---------- */
+(function wireBtn(){
   const btn = [...document.querySelectorAll('a,button,input[type="button"],input[type="submit"]')]
     .find(el => /download pdf/i.test((el.textContent||el.value||'').trim()));
-  if (btn) {
-    btn.onclick = null;
-    btn.removeAttribute('href');
-    btn.addEventListener('click', e => { e.preventDefault(); e.stopImmediatePropagation(); tkExportPDF_WithLabelsBlackDividers({}); }, { capture:true });
-    console.log('[tk] Download PDF → tkExportPDF_WithLabelsBlackDividers');
+  if (btn){
+    btn.onclick = null; btn.removeAttribute('href');
+    btn.addEventListener('click', e => { e.preventDefault(); e.stopImmediatePropagation(); exportCompatPDF_BlackDividersLabeled({}); }, {capture:true});
+    console.log('[tk] Download PDF → exportCompatPDF_BlackDividersLabeled');
   } else {
-    console.warn('[tk] Download PDF button not found; call tkExportPDF_WithLabelsBlackDividers() manually.');
+    console.warn('[tk] Download PDF button not found; call exportCompatPDF_BlackDividersLabeled() manually.');
   }
 })();
 </script>
