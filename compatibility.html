@@ -2161,10 +2161,17 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
     if (bank){
       const cats = Array.isArray(bank) ? bank
                 : Object.entries(bank).map(([category,items])=>({category,items}));
-      for (const c of cats){ for (const it of (c.items||[])){
-        const key = tidy(it.id || it.key || ""); const label = tidy(it.label || it.text || it.name || "");
-        if (CB_RE.test(key) && label) LABELS[key.toLowerCase()] = label;
-      }}
+      for (const c of cats){
+        const items = Array.isArray(c.items)
+          ? c.items
+          : (c.items && typeof c.items === "object")
+            ? Object.values(c.items)
+            : [];
+        for (const it of items){
+          const key = tidy(it.id || it.key || ""); const label = tidy(it.label || it.text || it.name || "");
+          if (CB_RE.test(key) && label) LABELS[key.toLowerCase()] = label;
+        }
+      }
     }
     addLabelMap(INLINE_LABELS);
   }
