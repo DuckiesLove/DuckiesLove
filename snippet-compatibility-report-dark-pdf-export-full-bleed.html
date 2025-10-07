@@ -109,7 +109,10 @@
   }
 
   async function loadLabels(){
-    if (window.TK_LABELS && Object.keys(window.TK_LABELS).length) return window.TK_LABELS;
+    if (window.TK_LABELS && typeof window.TK_LABELS === 'object' && !Array.isArray(window.TK_LABELS)) {
+      const values = Object.values(window.TK_LABELS);
+      if (values.every((v) => typeof v === 'string')) return window.TK_LABELS;
+    }
 
     const tryUrls = [
       '/data/labels-overrides.json', 'data/labels-overrides.json',
@@ -131,6 +134,54 @@
     return {};
   }
 
+  function normalizeLabelLookup(source){
+    const map = Object.create(null);
+    const store = (rawKey, rawValue) => {
+      const key = tidyText(rawKey);
+      if (!key) return;
+      const base = (rawValue === undefined || rawValue === null || typeof rawValue === 'object') ? rawKey : rawValue;
+      const value = tidyText(base ?? rawKey) || key;
+      map[key] = value;
+      const lower = key.toLowerCase?.();
+      if (lower && !map[lower]) map[lower] = value;
+    };
+
+    if (!source) return map;
+
+    if (source instanceof Map) {
+      for (const [k, v] of source.entries()) store(k, v);
+      return map;
+    }
+
+    if (Array.isArray(source)) {
+      for (const entry of source) {
+        if (!entry) continue;
+        if (Array.isArray(entry)) {
+          store(entry[0], entry[1]);
+        } else if (typeof entry === 'object') {
+          const key = entry.id ?? entry.key ?? entry.slug ?? entry[0];
+          const value = entry.label ?? entry.value ?? entry.name ?? entry.title ?? entry[1];
+          store(key, value);
+        }
+      }
+      return map;
+    }
+
+    if (typeof source === 'object') {
+      for (const [k, v] of Object.entries(source)) {
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          const value = 'label' in v ? v.label : ('name' in v ? v.name : v.value);
+          store(k, value ?? v);
+        } else {
+          store(k, v);
+        }
+      }
+      return map;
+    }
+
+    return map;
+  }
+
   function findCompatTable(){
     const looksRight = (table) => table && /Category/i.test(table.textContent || '') && /Partner A/i.test(table.textContent || '');
     return Array.from(document.querySelectorAll('table')).find(looksRight) || document.querySelector('table');
@@ -141,7 +192,11 @@
   function resolveCategoryLabel(raw, labels){
     const text = tidyText(raw);
     if (!text) return '—';
-    if (text.startsWith('cb_') && labels && labels[text]) return tidyText(labels[text]);
+    if (text.startsWith('cb_') && labels){
+      const lower = text.toLowerCase();
+      const value = labels[text] || labels[lower];
+      if (value) return tidyText(value);
+    }
     return text;
   }
 
@@ -208,7 +263,7 @@
     const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true, putOnlyUsedFonts: true });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const BLEED = 4;
+    const BLEED = 10;
 
     const paintPageBlack = () => {
       doc.setFillColor(0, 0, 0);
@@ -289,8 +344,10 @@
 
     try {
       await ensureLibs();
-      const labels = await loadLabels();
-      const { headers, rows } = extractTableData(table, labels);
+      const labelsRaw = await loadLabels();
+      const labelLookup = normalizeLabelLookup(labelsRaw);
+      window.__tkLabelsById = labelLookup;
+      const { headers, rows } = extractTableData(table, labelLookup);
       if (!rows.length) {
         alert('No rows available to export.');
         return;
