@@ -513,17 +513,23 @@ if (typeof window.processSurveyB !== 'function') {
     collectTriggers(input, which).forEach((trigger) => {
       if (trigger.dataset.tkUploadBound) return;
 
-      const isLabel = trigger.tagName === 'LABEL' && (!trigger.htmlFor || trigger.htmlFor === input.id);
+      const isLabel =
+        trigger.tagName === 'LABEL' && (!trigger.htmlFor || trigger.htmlFor === input.id);
 
-      if (!isLabel) {
-        trigger.addEventListener('click', (event) => {
-          try {
-            if (trigger.matches(':disabled,[aria-disabled="true"]')) return;
-          } catch {}
+      trigger.addEventListener('click', (event) => {
+        try {
+          if (trigger.matches(':disabled,[aria-disabled="true"]')) return;
+        } catch {}
+
+        // When the trigger is a label we still explicitly open the picker so
+        // custom styling (e.g. role="button" or keyboard focus handling) does
+        // not break the native browser behaviour. Prevent the default action so
+        // the picker only opens once, then delegate to the hidden input.
+        if (!isLabel || trigger.htmlFor) {
           event.preventDefault();
-          activatePicker(input);
-        });
-      }
+        }
+        activatePicker(input);
+      });
 
       trigger.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
