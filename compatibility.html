@@ -93,19 +93,23 @@
       margin-top: 3rem;
     }
 
-      .upload-button {
-        position: relative;
-        display: inline-block;
-      }
+    .upload-button {
+      position: relative;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
 
     .upload-button input[type="file"] {
       position: absolute;
-      left: 0;
-      top: 0;
-      opacity: 0;
-      width: 100%;
-      height: 100%;
-      cursor: pointer;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .wide-button {
@@ -266,15 +270,29 @@
     <div class="upload-container">
       <button class="themed-button wide-button" onclick="window.history.back()">← Back</button>
 
-      <label id="uploadYourSurvey" class="upload-button themed-button wide-button">
-        <input id="uploadSurveyA" type="file" accept="application/json" />
-        Upload Your Survey
-      </label>
+      <div class="upload-button">
+        <input id="uploadSurveyA" type="file" accept="application/json" tabindex="-1" aria-hidden="true" />
+        <button
+          type="button"
+          id="uploadYourSurvey"
+          class="upload-trigger themed-button wide-button"
+          data-upload-trigger="uploadSurveyA"
+        >
+          Upload Your Survey
+        </button>
+      </div>
 
-      <label id="uploadPartnerSurvey" class="upload-button themed-button wide-button">
-        <input id="uploadSurveyB" type="file" accept="application/json" />
-        Upload Partner’s Survey
-      </label>
+      <div class="upload-button">
+        <input id="uploadSurveyB" type="file" accept="application/json" tabindex="-1" aria-hidden="true" />
+        <button
+          type="button"
+          id="uploadPartnerSurvey"
+          class="upload-trigger themed-button wide-button"
+          data-upload-trigger="uploadSurveyB"
+        >
+          Upload Partner’s Survey
+        </button>
+      </div>
 
       <button class="themed-button wide-button" id="downloadPdf" disabled>Download PDF</button>
       <p id="exportTip" class="export-tip">Upload both surveys before exporting.</p>
