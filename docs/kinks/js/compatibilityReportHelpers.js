@@ -68,7 +68,19 @@ export function buildLayout(startX, usableWidth) {
   const colFlag = colBar + barWidth + usableWidth * 0.02;
   const colB = startX + usableWidth * 0.85;
   const barHeight = 9;
-  return { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight };
+  const endX = startX + usableWidth;
+  return {
+    colLabel,
+    colA,
+    colBar,
+    colFlag,
+    colB,
+    barWidth,
+    barHeight,
+    startX,
+    width: usableWidth,
+    endX,
+  };
 }
 
 // Helper: safely format score
@@ -130,12 +142,105 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = [
 }
 
 // Render an entire category section including column headers
-export function renderCategorySection(doc, categoryLabel, items, layout, startY, textColor = [255, 255, 255]) {
-  const { colLabel, colA, colBar, colFlag, colB, barWidth } = layout;
+function normalizeColor(color, fallback) {
+  if (Array.isArray(color) && color.length === 3) {
+    return color.map((v) => Math.max(0, Math.min(255, Number(v) || 0)));
+  }
+
+  if (typeof color === 'string') {
+    const trimmed = color.trim().toLowerCase();
+    const named = {
+      white: [255, 255, 255],
+      black: [0, 0, 0],
+      gray: [128, 128, 128],
+      grey: [128, 128, 128],
+      silver: [192, 192, 192],
+    };
+    if (named[trimmed]) return named[trimmed];
+    if (trimmed === 'transparent') return null;
+    const hexMatch = trimmed.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hexMatch) {
+      let hex = hexMatch[1];
+      if (hex.length === 3) {
+        hex = hex.split('').map((ch) => ch + ch).join('');
+      }
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return [r, g, b];
+    }
+  }
+
+  return Array.isArray(fallback) ? fallback : normalizeColor(fallback, [255, 255, 255]);
+}
+
+export function renderCategorySection(doc, categoryLabel, items, layout, startY, options = [255, 255, 255]) {
+  const {
+    textColor,
+    borderColor,
+    borderWidth,
+    paddingTop,
+    paddingRight,
+    paddingBottom,
+    paddingLeft,
+    backgroundColor,
+  } = (() => {
+    if (Array.isArray(options) || typeof options === 'string') {
+      return {
+        textColor: options,
+        borderColor: [96, 96, 96],
+        borderWidth: 0.8,
+        paddingTop: 8,
+        paddingRight: 10,
+        paddingBottom: 8,
+        paddingLeft: 10,
+        backgroundColor: null,
+      };
+    }
+    const padding = Number.isFinite(options.padding) ? Number(options.padding) : null;
+    return {
+      textColor: options.textColor ?? [255, 255, 255],
+      borderColor: options.borderColor ?? [96, 96, 96],
+      borderWidth: options.borderWidth ?? 0.8,
+      paddingTop: options.paddingTop ?? padding ?? 8,
+      paddingRight: options.paddingRight ?? padding ?? 10,
+      paddingBottom: options.paddingBottom ?? padding ?? 8,
+      paddingLeft: options.paddingLeft ?? padding ?? 10,
+      backgroundColor: options.backgroundColor ?? null,
+    };
+  })();
+
+  const { colLabel, colA, colBar, colFlag, colB, barWidth, startX, width } = layout;
+  const headerSpacing = 13;
+  const columnSpacing = 10;
+  const rowSpacing = 12;
+  const sectionHeight = headerSpacing + columnSpacing + items.length * rowSpacing;
+
+  const rectX = (startX ?? colLabel) - paddingLeft;
+  const rectY = startY - paddingTop;
+  const usedWidth = width ?? Math.max(colB, colFlag, colBar + barWidth) - (startX ?? colLabel);
+  const rectWidth = Math.max(0, usedWidth + paddingLeft + paddingRight);
+  const rectHeight = Math.max(0, sectionHeight + paddingTop + paddingBottom);
+
+  const resolvedBorderColor = normalizeColor(borderColor, [96, 96, 96]);
+  const resolvedBackground = backgroundColor == null ? null : normalizeColor(backgroundColor, null);
+
+  if (rectWidth > 0 && rectHeight > 0) {
+    if (resolvedBackground) {
+      doc.setFillColor(...resolvedBackground);
+      doc.rect(rectX, rectY, rectWidth, rectHeight, 'F');
+    }
+    if (borderWidth > 0 && resolvedBorderColor) {
+      doc.setDrawColor(...resolvedBorderColor);
+      doc.setLineWidth(borderWidth);
+      doc.rect(rectX, rectY, rectWidth, rectHeight, 'S');
+      doc.setLineWidth(0);
+    }
+  }
 
   renderCategoryHeader(doc, colLabel, startY, categoryLabel, textColor);
 
-  let currentY = startY + 13;
+  let currentY = startY + headerSpacing;
 
   // Column titles
   doc.setFontSize(9);
@@ -149,11 +254,11 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   doc.text('Flag', colFlag, currentY);
   doc.text('Partner B', colB, currentY);
 
-  currentY += 10;
+  currentY += columnSpacing;
 
   for (const item of items) {
     drawKinkRow(doc, layout, currentY, item.label, item.partnerA, item.partnerB, item.match, textColor);
-    currentY += 12;
+    currentY += rowSpacing;
   }
 
   return currentY;

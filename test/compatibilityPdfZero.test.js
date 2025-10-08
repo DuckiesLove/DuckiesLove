@@ -13,6 +13,7 @@ test('renders zero scores for both partners', async () => {
     setTextColor() {}
     setFontSize() {}
     setDrawColor() {}
+    setLineWidth() {}
     rect() {}
     addPage() {}
     text(...args) { textCalls.push(args); }

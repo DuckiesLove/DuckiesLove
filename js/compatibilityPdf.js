@@ -1,5 +1,4 @@
-import { getFlagEmoji } from './matchFlag.js';
-import { buildLayout, drawMatchBar, getMatchPercentage } from './compatibilityReportHelpers.js';
+import { buildLayout, getMatchPercentage, renderCategorySection } from './compatibilityReportHelpers.js';
 import { shortenLabel } from './labelShortener.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
@@ -38,11 +37,6 @@ export async function generateCompatibilityPDF(data = { categories: [] }) {
     doc.setTextColor(255, 255, 255);
   };
 
-  const drawBar = (match, x, baselineY, layout) => {
-    const y = baselineY - layout.barHeight + 2.5;
-    drawMatchBar(doc, x, y, layout.barWidth, layout.barHeight, match);
-  };
-
   const categories = Array.isArray(data) ? data : data?.categories || [];
   if (categories.length === 0) {
     console.warn('generateCompatibilityPDF called without data');
@@ -54,80 +48,101 @@ export async function generateCompatibilityPDF(data = { categories: [] }) {
   doc.text('Kink Compatibility Report', 105, y);
   y += 10;
 
-  categories.forEach(category => {
-    if (y > config.maxY) {
-      doc.addPage();
-      drawBackground();
-      y = 20;
-    }
+  const sectionStyle = {
+    textColor: [255, 255, 255],
+    borderColor: [100, 100, 100],
+    borderWidth: 0.8,
+    paddingTop: 10,
+    paddingRight: 14,
+    paddingBottom: 10,
+    paddingLeft: 14,
+    backgroundColor: null,
+  };
 
-    doc.setFontSize(12);
-    doc.text(category.category || category.name, layout.colLabel, y);
-    y += 6;
+  const sectionBaseHeight = 13 + 10; // header + column titles
+  const rowHeight = 12;
 
-    doc.setFontSize(10);
-    doc.text('Partner A', layout.colA, y);
-    doc.text('Match', layout.colBar, y);
-    doc.text('Flag', layout.colFlag, y);
-    doc.text('Partner B', layout.colB, y);
-    y += 6;
+  for (const category of categories) {
+    const rawItems = Array.isArray(category.items) ? category.items : [];
+    let index = 0;
 
-    category.items.forEach(item => {
-      if (y > config.maxY) {
+    while (index < rawItems.length) {
+      const remainingItems = rawItems.slice(index);
+      const availableSpace = config.maxY - (y + sectionStyle.paddingTop + sectionStyle.paddingBottom);
+      let maxRows = Math.floor((availableSpace - sectionBaseHeight) / rowHeight);
+
+      if (maxRows < 1) {
         doc.addPage();
         drawBackground();
         y = 20;
-
-        doc.setFontSize(12);
-        doc.text(category.category || category.name, layout.colLabel, y);
-        y += 6;
-        doc.setFontSize(10);
-        doc.text('Partner A', layout.colA, y);
-        doc.text('Match', layout.colBar, y);
-        doc.text('Flag', layout.colFlag, y);
-        doc.text('Partner B', layout.colB, y);
-        y += 6;
+        continue;
       }
 
-      const aScoreRaw = typeof item.a === 'number'
-        ? item.a
-        : typeof item.partnerA === 'number'
-          ? item.partnerA
-          : null;
-      const bScoreRaw = typeof item.b === 'number'
-        ? item.b
-        : typeof item.partnerB === 'number'
-          ? item.partnerB
-          : null;
+      const chunk = remainingItems.slice(0, Math.max(1, maxRows));
+      const formatted = chunk.map((item) => {
+        const aScoreRaw = typeof item.a === 'number'
+          ? item.a
+          : typeof item.partnerA === 'number'
+            ? item.partnerA
+            : typeof item.scoreA === 'number'
+              ? item.scoreA
+              : null;
+        const bScoreRaw = typeof item.b === 'number'
+          ? item.b
+          : typeof item.partnerB === 'number'
+            ? item.partnerB
+            : typeof item.scoreB === 'number'
+              ? item.scoreB
+              : null;
 
-      let scoreA = 'N/A';
-      let scoreB = 'N/A';
-      let matchPercent = null;
-      let flagIcon = 'N/A';
+        const matchPercent =
+          aScoreRaw !== null && bScoreRaw !== null
+            ? getMatchPercentage(aScoreRaw, bScoreRaw)
+            : null;
 
-      if (aScoreRaw !== null && bScoreRaw !== null) {
-        scoreA = String(aScoreRaw);
-        scoreB = String(bScoreRaw);
-        matchPercent = getMatchPercentage(aScoreRaw, bScoreRaw);
-        flagIcon = getFlagEmoji(matchPercent, aScoreRaw, bScoreRaw) || '';
-      }
+        const label = item.label || item.kink || item.name || '';
 
-      const label = item.label || item.kink || '';
+        if (DEBUG) {
+          console.log('Rendering:', label, 'A:', aScoreRaw, 'B:', bScoreRaw);
+        }
 
-      if (DEBUG) {
-        console.log('Rendering:', label, 'A:', scoreA, 'B:', scoreB);
-      }
+        return {
+          label: shortenLabel(label),
+          partnerA: aScoreRaw,
+          partnerB: bScoreRaw,
+          match: matchPercent,
+        };
+      });
 
-      doc.setFontSize(9);
-      doc.text(shortenLabel(label), layout.colLabel, y);
-      doc.text(scoreA, layout.colA, y);
-      drawBar(matchPercent, layout.colBar, y, layout);
-      doc.text(flagIcon, layout.colFlag, y);
-      doc.text(scoreB, layout.colB, y);
+      const sectionLabel = index === 0
+        ? (category.category || category.name)
+        : `${category.category || category.name} (cont.)`;
 
-      y += config.rowHeight;
-    });
-  });
+      const endY = renderCategorySection(
+        doc,
+        sectionLabel,
+        formatted,
+        layout,
+        y,
+        sectionStyle
+      );
+
+      y = endY + sectionStyle.paddingBottom + 8;
+      index += formatted.length;
+    }
+
+    if (rawItems.length === 0) {
+      const endY = renderCategorySection(
+        doc,
+        category.category || category.name,
+        [],
+        layout,
+        y,
+        sectionStyle
+      );
+      y = endY + sectionStyle.paddingBottom + 8;
+    }
+  }
 
   await doc.save('compatibility_report.pdf');
 }
