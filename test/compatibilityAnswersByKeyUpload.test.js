@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const extractParser = async () => {
   const html = await readFile(new URL('../compatibility.html', import.meta.url), 'utf8');
-  const match = html.match(/function ksvParseSurveyJsonText[\s\S]*?return { ok:true, cells };\n}/);
+  const match = html.match(/function ksvParseSurveyJsonText[\s\S]*?return \{ ok:true, cells, survey: \{ answers, answersByKey \} \};\n\}/);
   assert(match, 'ksvParseSurveyJsonText definition not found');
   // eslint-disable-next-line no-new-func
   return new Function(`${match[0]}; return ksvParseSurveyJsonText;`)();
@@ -22,4 +22,14 @@ test('ksvParseSurveyJsonText accepts answersByKey payloads', async () => {
   assert.strictEqual(result.cells.length, 35);
   const expected = Array.from({ length: 35 }, (_, idx) => (idx + 1) % 6);
   assert.deepEqual(result.cells, expected);
+  assert.deepEqual(
+    result.survey?.answers,
+    Object.fromEntries(expected.map((val, idx) => [String(idx + 1), val])),
+    'normalized survey answers should preserve keyed ratings',
+  );
+  assert.deepEqual(
+    result.survey?.answersByKey,
+    Object.fromEntries(expected.map((val, idx) => [String(idx + 1), val])),
+    'answersByKey mirror should be generated',
+  );
 });

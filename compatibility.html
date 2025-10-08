@@ -2014,16 +2014,83 @@ window.ksvSurveyB = window.ksvSurveyB || null;
 /* ------ tolerant parser (handles BOM, different shapes) ------ */
 function ksvParseSurveyJsonText(rawText, who) {
   if (typeof rawText !== 'string') return { ok:false, reason:'Internal: non-string' };
-  let text = rawText.replace(/^\uFEFF/, '').trim();       // strip BOM
+  const text = rawText.replace(/^\uFEFF/, '').trim();       // strip BOM
   let obj;
   try { obj = JSON.parse(text); }
   catch { return { ok:false, reason:'Not valid JSON' }; }
 
+  const tidyKey = (value, fallbackIndex) => {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    return `item_${fallbackIndex + 1}`;
+  };
+
+  const extractValue = (raw) => {
+    if (raw == null) return null;
+    if (Array.isArray(raw)) {
+      for (const entry of raw) {
+        const v = extractValue(entry);
+        if (v != null) return v;
+      }
+      return null;
+    }
+    if (typeof raw === 'object') {
+      const keys = ['rating','value','score','answer','val','v','points','cells','selected','selectedValue','result'];
+      for (const key of keys) {
+        if (raw[key] != null) return extractValue(raw[key]);
+      }
+      return null;
+    }
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (!trimmed) return null;
+      if (/^\d+%$/.test(trimmed)) {
+        const pct = Number(trimmed.slice(0, -1));
+        if (Number.isFinite(pct)) return pct / 20;
+      }
+      if (/^\d+\s*\/\s*\d+$/.test(trimmed)) {
+        const [a, b] = trimmed.split('/').map((s) => Number(s.trim()));
+        if (Number.isFinite(a) && Number.isFinite(b) && b) return (a / b) * 5;
+      }
+      const asNum = Number(trimmed);
+      return Number.isFinite(asNum) ? asNum : null;
+    }
+    if (typeof raw === 'number') return raw;
+    return null;
+  };
+
+  const clamp05 = (value) => {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    if (num > 5 && num <= 10) return Math.max(0, Math.min(5, num / 2));
+    return Math.max(0, Math.min(5, num));
+  };
+
+  const entries = [];
+  const pushEntry = (key, value) => {
+    const numeric = extractValue(value);
+    if (numeric == null) return;
+    const entryKey = tidyKey(key, entries.length);
+    const safeValue = clamp05(numeric);
+    entries.push([entryKey, safeValue]);
+  };
+
+  const fromArray = (arr) => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach((entry, idx) => {
+      if (entry == null) return;
+      if (typeof entry === 'object' && !Array.isArray(entry)) {
+        const key = entry.key ?? entry.id ?? entry.code ?? entry.slug ?? entry.name ?? entry.label ?? entry.question;
+        pushEntry(key ?? `item_${idx + 1}`, entry);
+      } else {
+        pushEntry(`item_${idx + 1}`, entry);
+      }
+    });
+  };
+
   const fromKeyMap = (maybeMap) => {
-    if (!maybeMap || typeof maybeMap !== 'object' || Array.isArray(maybeMap)) return null;
-    const entries = Object.entries(maybeMap);
-    if (!entries.length) return null;
-    entries.sort(([ak], [bk]) => {
+    if (!maybeMap || typeof maybeMap !== 'object' || Array.isArray(maybeMap)) return;
+    const sorted = Object.entries(maybeMap).sort(([ak], [bk]) => {
       const na = Number(ak);
       const nb = Number(bk);
       const fa = Number.isFinite(na);
@@ -2033,37 +2100,36 @@ function ksvParseSurveyJsonText(rawText, who) {
       if (fb) return 1;
       return String(ak).localeCompare(String(bk));
     });
-    return entries.map(([, value]) => value);
+    sorted.forEach(([key, value]) => pushEntry(key, value));
   };
 
-  let answers = null;
-  if (Array.isArray(obj?.answers)) answers = obj.answers;          // canonical
-  if (!answers && Array.isArray(obj)) answers = obj;                // raw array
-  if (!answers && Array.isArray(obj?.cells)) answers = obj.cells;   // {cells:[…]}
-  if (!answers && Array.isArray(obj?.data?.cells)) answers = obj.data.cells;
-  if (!answers) {
-    answers = fromKeyMap(obj?.answersByKey)
-           || fromKeyMap(obj?.data?.answersByKey)
-           || fromKeyMap(obj?.data?.ratings)
-           || fromKeyMap(obj?.data?.answers)
-           || fromKeyMap(obj?.map)
-           || fromKeyMap(obj?.data?.map);
+  if (Array.isArray(obj?.answers)) fromArray(obj.answers);
+  if (!entries.length && Array.isArray(obj)) fromArray(obj);
+  if (!entries.length && Array.isArray(obj?.cells)) fromArray(obj.cells);
+  if (!entries.length && Array.isArray(obj?.data?.cells)) fromArray(obj.data.cells);
+  if (!entries.length) {
+    fromKeyMap(obj?.answersByKey);
+    fromKeyMap(obj?.data?.answersByKey);
+    fromKeyMap(obj?.data?.ratings);
+    fromKeyMap(obj?.data?.answers);
+    fromKeyMap(obj?.map);
+    fromKeyMap(obj?.data?.map);
   }
-  if (!answers) return { ok:false, reason:'Missing answers/cells array' };
 
-  const toNum = (x) => {
-    if (x == null) return null;
-    if (typeof x === 'object') x = x.score ?? x.value ?? x.val ?? x.v ?? x.s ?? x.rank ?? x.answer;
-    const n = Number(x);
-    return Number.isFinite(n) ? Math.max(0, Math.min(5, n)) : null;
-  };
-  const cells = answers.map(toNum);
+  if (!entries.length) return { ok:false, reason:'Missing answers/cells array' };
+
+  const answers = {};
+  const cells = [];
+  entries.forEach(([key, value]) => {
+    answers[key] = value;
+    cells.push(value);
+  });
+  const answersByKey = Object.assign({}, answers);
 
   if (cells.length !== 35) return { ok:false, reason:`Expected 35 answers, got ${cells.length}` };
-  for (let i = 0; i < cells.length; i++) if (cells[i] == null) cells[i] = 0;
 
   console.log(`[compat] stored Survey ${who} with ${cells.length} answers`);
-  return { ok:true, cells };
+  return { ok:true, cells, survey: { answers, answersByKey } };
 }
 
 /* ------ file → text ------ */
@@ -2120,10 +2186,39 @@ async function ksvHandleFileInput(ev) {
       console.warn(`[compat] Survey ${who} rejected: ${parsed.reason}`);
       return;
     }
+
+    const surveyJson = parsed.survey || { answers: {} };
+    let processed = null;
+    try {
+      if (typeof window.tkProcessSurvey === 'function') {
+        processed = window.tkProcessSurvey(who, surveyJson);
+      } else {
+        const handler = who === 'A' ? window.processSurveyA : window.processSurveyB;
+        processed = typeof handler === 'function' ? handler(surveyJson) : null;
+      }
+    } catch (err) {
+      console.error(`[compat] Survey ${who} normalization failed`, err);
+      alert(`Invalid JSON for Survey ${who}. Please upload the unmodified JSON file exported from this site.`);
+      return;
+    }
+
+    if (!processed) {
+      window._tkReady = window._tkReady || { A:false, B:false };
+      window._tkReady[who] = false;
+      console.warn(`[compat] Survey ${who} processor returned nothing`);
+      return;
+    }
+
+    window._tkReady = window._tkReady || { A:false, B:false };
+    window._tkReady[who] = true;
+
     if (who === 'A') window.ksvSurveyA = parsed.cells;
     if (who === 'B') window.ksvSurveyB = parsed.cells;
 
     console.log(`[compat] filled Partner ${who} cells: ${parsed.cells.length}`);
+    if (typeof window.maybeUpdateComparison === 'function') {
+      window.maybeUpdateComparison();
+    }
     ksvRefreshUI(who);
   } finally {
     // Allow selecting the *same* file again (browsers suppress change otherwise)
