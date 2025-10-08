@@ -495,17 +495,42 @@ if (typeof window.processSurveyB !== 'function') {
     return triggers;
   };
 
+  const activatePicker = (input) => {
+    if (!(input instanceof HTMLInputElement) || input.type !== 'file') return;
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+        return;
+      }
+    } catch (err) {
+      console.warn('[compat] showPicker failed, falling back to click()', err);
+    }
+    input.click();
+  };
+
   const bindUploadTriggers = (input, which) => {
     if (!(input instanceof HTMLInputElement)) return;
     collectTriggers(input, which).forEach((trigger) => {
       if (trigger.dataset.tkUploadBound) return;
-      trigger.addEventListener('click', (event) => {
-        try {
-          if (trigger.matches(':disabled,[aria-disabled="true"]')) return;
-        } catch {}
+
+      const isLabel = trigger.tagName === 'LABEL' && (!trigger.htmlFor || trigger.htmlFor === input.id);
+
+      if (!isLabel) {
+        trigger.addEventListener('click', (event) => {
+          try {
+            if (trigger.matches(':disabled,[aria-disabled="true"]')) return;
+          } catch {}
+          event.preventDefault();
+          activatePicker(input);
+        });
+      }
+
+      trigger.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
-        input.click();
+        activatePicker(input);
       });
+
       trigger.dataset.tkUploadBound = '1';
     });
   };

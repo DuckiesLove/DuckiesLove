@@ -112,6 +112,18 @@
       border: 0;
     }
 
+    .upload-button .upload-trigger {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .upload-button .upload-trigger:focus-visible {
+      outline: 2px solid rgba(61, 219, 243, 0.9);
+      outline-offset: 2px;
+    }
+
     .wide-button {
       min-width: 260px;
       max-width: 300px;
@@ -271,27 +283,33 @@
       <button class="themed-button wide-button" onclick="window.history.back()">← Back</button>
 
       <div class="upload-button">
-        <input id="uploadSurveyA" type="file" accept="application/json" tabindex="-1" aria-hidden="true" />
-        <button
-          type="button"
+        <input id="uploadSurveyA" type="file" accept="application/json" />
+        <label
+          for="uploadSurveyA"
           id="uploadYourSurvey"
           class="upload-trigger themed-button wide-button"
           data-upload-trigger="uploadSurveyA"
+          role="button"
+          aria-haspopup="dialog"
+          tabindex="0"
         >
           Upload Your Survey
-        </button>
+        </label>
       </div>
 
       <div class="upload-button">
-        <input id="uploadSurveyB" type="file" accept="application/json" tabindex="-1" aria-hidden="true" />
-        <button
-          type="button"
+        <input id="uploadSurveyB" type="file" accept="application/json" />
+        <label
+          for="uploadSurveyB"
           id="uploadPartnerSurvey"
           class="upload-trigger themed-button wide-button"
           data-upload-trigger="uploadSurveyB"
+          role="button"
+          aria-haspopup="dialog"
+          tabindex="0"
         >
           Upload Partner’s Survey
-        </button>
+        </label>
       </div>
 
       <button class="themed-button wide-button" id="downloadPdf" disabled>Download PDF</button>
