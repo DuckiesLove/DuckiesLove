@@ -14,6 +14,7 @@ test('generates PDF with score columns and percent', async () => {
     setFillColor() {}
     setFont() {}
     setDrawColor() {}
+    setLineWidth() {}
     rect(...args) { rectCalls.push(args); }
     setTextColor() {}
     setFontSize() {}
@@ -65,6 +66,7 @@ test('shows N/A bar when scores missing', async () => {
     setFillColor() {}
     setFont() {}
     setDrawColor() {}
+    setLineWidth() {}
     rect(...args) { rectCalls.push(args); }
     setTextColor() {}
     setFontSize() {}
@@ -102,6 +104,7 @@ test('renders compatibility history section when history data present', async ()
     setFillColor() {}
     setFont() {}
     setDrawColor() {}
+    setLineWidth() {}
     rect() {}
     setTextColor() {}
     setFontSize() {}

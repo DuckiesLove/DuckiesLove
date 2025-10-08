@@ -18,6 +18,8 @@ function createDocMock() {
     internal: { pageSize: { getWidth: () => 300 } },
     setFillColor: record('setFillColor'),
     rect: record('rect'),
+    setDrawColor: record('setDrawColor'),
+    setLineWidth: record('setLineWidth'),
     setTextColor: record('setTextColor'),
     setFontSize: record('setFontSize'),
     text: record('text')
@@ -78,6 +80,21 @@ test('renderCategorySection renders each item and returns final y', () => {
   assert(texts.includes('Match'));
   assert(texts.includes('Flag'));
   assert(texts.includes('Partner B'));
+});
+
+test('renderCategorySection draws section outline', () => {
+  const doc = createDocMock();
+  const margin = 10;
+  const layout = buildLayout(margin, 200);
+  renderCategorySection(doc, 'Outline', [], layout, 30, {
+    textColor: [255, 255, 255],
+    borderColor: [200, 200, 200],
+    borderWidth: 1,
+    padding: 6,
+  });
+
+  const rectCalls = doc.calls.filter(c => c[0] === 'rect');
+  assert.ok(rectCalls.some(call => call[1][4] === 'S'), 'should draw stroked rectangle');
 });
 
 test('normalizeScore clamps values and handles invalid input', () => {

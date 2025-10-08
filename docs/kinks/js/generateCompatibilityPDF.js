@@ -3,8 +3,8 @@ import { shortenLabel } from './labelShortener.js';
 
 // Default PDF layout settings
 const defaultPdfStyles = {
-  backgroundColor: '#FFFFFF',
-  textColor: '#000000',
+  backgroundColor: '#000000',
+  textColor: '#FFFFFF',
   headingFont: 'helvetica',
   bodyFont: 'helvetica',
   barHeight: 10,
@@ -14,7 +14,12 @@ const defaultPdfStyles = {
     yellow: 'yellow',
     red: 'red',
     black: 'black'
-  }
+  },
+  sectionPaddingX: 12,
+  sectionPaddingY: 10,
+  sectionOutlineColor: '#3a3a3a',
+  sectionOutlineWidth: 0.8,
+  sectionBackgroundColor: null
 };
 
 // Icon used in history rows based on score percentage
@@ -103,7 +108,16 @@ export function generateCompatibilityPDF(compatibilityData, styleOptions = {}) {
       items,
       layout,
       columnY[currentColumn],
-      pdfStyles.textColor
+      {
+        textColor: pdfStyles.textColor,
+        borderColor: pdfStyles.sectionOutlineColor,
+        borderWidth: pdfStyles.sectionOutlineWidth,
+        paddingTop: pdfStyles.sectionPaddingY,
+        paddingRight: pdfStyles.sectionPaddingX,
+        paddingBottom: pdfStyles.sectionPaddingY,
+        paddingLeft: pdfStyles.sectionPaddingX,
+        backgroundColor: pdfStyles.sectionBackgroundColor,
+      }
     );
     columnY[currentColumn] = endY + pdfStyles.barSpacing;
   });
