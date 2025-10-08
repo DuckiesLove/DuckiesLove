@@ -1,0 +1,169 @@
+<!-- Talk Kink — Codex One-Box: labels + overrides tools + strict PDF exporter -->
+<script>
+/* ==================== Talk Kink – Codex One-Box ==================== */
+/* Utilities */
+const tk = window.tk || (window.tk = {});
+tk.clean = s => String(s||'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
+tk.keyVars = k => { const b=tk.clean(k).toLowerCase(); return [b, b.replace(/^cb_/,'')]; };
+
+/* Normalize any reasonable label source into {key→label} with/without cb_ */
+tk.normalizeAny = (input)=>{
+  const out = {};
+  const put = (k,v) => {
+    const val = tk.clean(v)||tk.clean(k);
+    tk.keyVars(k).forEach(kk => { if (kk) out[kk]=val; });
+  };
+  if (!input) return out;
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      if (Array.isArray(item) && item.length>=2) { put(item[0], item[1]); continue; }
+      if (item && typeof item==='object') {
+        const k = item.code ?? item.id ?? item.key ?? item.slug ?? item.name ?? item.kink ?? item.value;
+        const v = item.title ?? item.label ?? item.display ?? item.name ?? item.text ?? item.pretty ?? item.kink ?? item.value;
+        if (k!=null) put(k, v ?? k);
+      }
+    }
+    return out;
+  }
+  for (const [k,v] of Object.entries(input||{})) {
+    if (v && typeof v==='object') put(k, v.title ?? v.label ?? v.name ?? v.display ?? v.text ?? v.pretty ?? k);
+    else put(k, v);
+  }
+  return out;
+};
+
+/* Load JSON (no-store) */
+tk.fetchJSON = async (url) => {
+  try { const r = await fetch(url, { cache:'no-store' }); return r.ok ? r.json() : null; }
+  catch { return null; }
+};
+
+/* Build label map: helper -> JSONs -> window.tkLabels */
+tk.buildLabelMap = async () => {
+  let raw = null;
+  if (typeof window.buildLabelMapSafely === 'function') {
+    try { raw = await window.buildLabelMapSafely(); } catch {}
+  }
+  if (!raw) {
+    const [base, over] = await Promise.all([
+      tk.fetchJSON('/data/kinks.json'),
+      tk.fetchJSON('/data/labels-overrides.json'),
+    ]);
+    raw = { ...(base||{}), ...(over||{}), ...(window.tkLabels||{}) };
+  }
+  const map = tk.normalizeAny(raw);
+  if (!Object.keys(map).length) console.error('[labels] Empty label map. Ensure /data/labels-overrides.json exists.');
+  return map;
+};
+
+/* Scrape the visible survey table */
+tk.readTable = () => {
+  const table = document.querySelector('table');
+  if (!table) throw new Error('No <table> found on page.');
+  const headers = [...table.querySelectorAll('thead th')].map(th => tk.clean(th.textContent));
+  const rows = [...table.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => tk.clean(td.textContent)));
+  return { headers, rows };
+};
+
+/* List coverage in console (all codes + whether mapped) */
+tk.list = async () => {
+  const map = await tk.buildLabelMap();
+  const have = new Set(Object.keys(map));
+  const { rows } = tk.readTable();
+  const codes = [...new Set(rows.map(r => r[0]).filter(Boolean))];
+  const report = codes.map(code => {
+    const [a,b]=tk.keyVars(code);
+    const label = map[a] || map[b] || '(missing)';
+    return { code, has: label !== '(missing)', label };
+  });
+  console.log('[survey] total unique codes:', codes.length);
+  console.table(report);
+  const missing = report.filter(r=>!r.has).map(r=>r.code);
+  if (missing.length) console.warn('[survey] MISSING labels:', missing);
+  return { report, missing };
+};
+
+/* Generate/refresh overrides from the live table (download JSON) */
+tk.generateOverrides = async () => {
+  const { rows } = tk.readTable();
+  const codes = [...new Set(rows.map(r => r[0]).filter(Boolean))];
+  const overrides = Object.fromEntries(
+    codes.map(code => [code, tk.clean(code).replace(/^cb_/i,'').replace(/_/g,' ')
+      .replace(/\b([a-z])([a-z]*)/gi,(_,a,b)=>a.toUpperCase()+b.toLowerCase())])
+  );
+  const blob = new Blob([JSON.stringify(overrides,null,2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='labels-overrides.json'; a.click(); URL.revokeObjectURL(a.href);
+  console.log('[overrides] downloaded labels-overrides.json with', Object.keys(overrides).length, 'entries (edit values to real names, then upload to /data)');
+  return overrides;
+};
+
+/* Ensure jsPDF + AutoTable */
+tk.ensurePDFLibs = async () => {
+  const need = (ok,src)=> ok?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  await need(window.jspdf && window.jspdf.jsPDF, 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+  await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable, 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js');
+};
+
+/* Strict, full-bleed black, padded grid exporter (no fallback names) */
+tk.export = async () => {
+  // Always-ask consent — remove if you don’t want the prompt
+  if (!confirm('Consent check:\nDo you have your partner’s consent to export/share this PDF?')) return;
+
+  await tk.ensurePDFLibs();
+  const map = await tk.buildLabelMap();
+  const { headers, rows } = tk.readTable();
+
+  // Replace first column using map; if missing, keep code (strict)
+  const missing = new Set();
+  const finalRows = rows.map(r=>{
+    let label=null; for (const kv of tk.keyVars(r[0])) if (map[kv]) { label = map[kv]; break; }
+    if (!label) missing.add(r[0]);
+    r[0] = label || r[0];
+    for (let i=0;i<r.length;i++) if (r[i]==='' || r[i]==='—') r[i]=' ';
+    return r;
+  });
+  if (missing.size) console.warn('[labels] Missing labels for:', [...missing]);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'letter', compress:true, putOnlyUsedFonts:true });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  // full-bleed black
+  doc.setFillColor(0,0,0); doc.rect(0,0,W,H,'F'); doc.setTextColor(255,255,255);
+
+  const OUTER = 40;               // page margin so text isn’t on the edge
+  const GRID  = [160,160,160];    // grid line color (light gray on black)
+  const head  = [ headers.length?headers:['Category','Partner A','Match %','Partner B'] ];
+
+  doc.autoTable({
+    head, body: finalRows, theme:'grid',
+    margin:{ top:OUTER, right:OUTER, bottom:OUTER, left:OUTER },
+    tableWidth: W - OUTER*2,
+    styles:{ font:'helvetica', fontSize:13, textColor:[255,255,255], fillColor:null, cellPadding:12, lineWidth:0.7, lineColor:GRID, minCellHeight:24 },
+    headStyles:{ fontStyle:'bold', textColor:[255,255,255], fillColor:null, lineWidth:0.9, lineColor:GRID },
+    tableLineWidth:0.9, tableLineColor:GRID,
+    columnStyles:{ 0:{halign:'left'}, 1:{halign:'center'}, 2:{halign:'center'}, 3:{halign:'center'} },
+    didAddPage(){ doc.setFillColor(0,0,0); doc.rect(0,0,W,H,'F'); doc.setTextColor(255,255,255); }
+  });
+
+  doc.save('compatibility.pdf');
+};
+
+/* One-time wiring for your “Download PDF” button */
+(function tkWire(){
+  const btn=[...document.querySelectorAll('a,button,input[type="button"],input[type="submit"]')]
+    .find(el=>/download pdf/i.test((el.textContent||el.value||'').trim()));
+  if (btn) {
+    btn.onclick=null; btn.removeAttribute('href');
+    btn.addEventListener('click', e=>{ e.preventDefault(); e.stopImmediatePropagation(); tk.export(); }, {capture:true});
+    console.log('[tk] Download PDF → tk.export()');
+  }
+})();
+
+/* Quick help:
+   tk.list()                // list all survey codes + labels coverage in console
+   tk.generateOverrides()   // download labels-overrides.json to edit + upload to /data
+   tk.export()              // export strict PDF (black, grid, padded)
+*/
+/* ================== /Codex One-Box ================== */
+</script>
