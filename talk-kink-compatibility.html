@@ -677,10 +677,22 @@ CODE END
   });
 
   async function ensureLibs() {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
       await loadScript(CDN_JSPDF);
     }
-    if (!('autoTable' in (window.jspdf || {}))) {
+
+    // Some bundles expose jsPDF on window.jsPDF instead of window.jspdf.jsPDF
+    if (!window.jsPDF && window.jspdf && window.jspdf.jsPDF) {
+      window.jsPDF = window.jspdf.jsPDF;
+    }
+
+    const hasAutoTable = Boolean(
+      (window.jspdf && window.jspdf.autoTable) ||
+      (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable) ||
+      (window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable)
+    );
+
+    if (!hasAutoTable) {
       await loadScript(CDN_AUTOTABLE);
     }
   }
@@ -721,7 +733,15 @@ CODE END
     // 2) Render the table with ZERO margins, spanning full page width
     //    And translate cb_* codes in first column if window.TK_LABELS is provided
     const LABELS = (window.TK_LABELS || {});
-    pdf.autoTable({
+    const runAutoTable = (opts) => {
+      if (typeof pdf.autoTable === 'function') return pdf.autoTable(opts);
+      if (window.jspdf && typeof window.jspdf.autoTable === 'function') {
+        return window.jspdf.autoTable(pdf, opts);
+      }
+      throw new Error('AutoTable not available');
+    };
+
+    runAutoTable({
       html: tableEl,
       theme: 'plain',
       useCss: false,
