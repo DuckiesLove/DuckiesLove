@@ -1,24 +1,13 @@
-<!-- === Full-Bleed Black PDF + Full Grid + Label Mapping === -->
+<!-- === Full-Bleed Black PDF + Full Grid + Label Mapping + Floating Trigger === -->
 <script>
-(async function () {
-  /* Load libs */
-  const need = (ok, src) => ok ? Promise.resolve() : new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = res;
-    s.onerror = rej;
-    document.head.appendChild(s);
-  });
-  await need(window.jspdf && window.jspdf.jsPDF, 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
-  await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable, 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js');
-
-  /* Helpers */
+(() => {
   const clean = s => String(s || '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
-  const keyVars = k => { const base = clean(k).toLowerCase(); return [base, base.replace(/^cb_/, '')]; };
+  const keyVars = k => { const b = clean(k).toLowerCase(); return [b, b.replace(/^cb_/, '')]; };
   const pretty = s => clean(s).replace(/^cb_/i, '').replace(/[_-]+/g, ' ')
-    .replace(/\b([a-z])([a-z]*)/gi, (_, a, b) => a.toUpperCase() + b.toLowerCase());
-  async function fetchJSON(url) { try { const res = await fetch(url, { cache: 'no-store' }); return res.ok ? res.json() : null; } catch { return null; } }
-  function normalizeAny(input) {
+                     .replace(/\b([a-z])([a-z]*)/gi, (_, a, b) => a.toUpperCase() + b.toLowerCase());
+  const need = (ok, src) => ok ? Promise.resolve() : new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  const fetchJSON = async u => { try { const r = await fetch(u, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; } };
+  const normalizeAny = (input) => {
     const out = {}, put = (k, v) => {
       const val = clean(v) || clean(k);
       keyVars(k).forEach(kk => { if (kk) out[kk] = val; });
@@ -41,66 +30,92 @@
       } else put(k, v);
     }
     return out;
+  };
+
+  async function buildMap() {
+    let raw = null;
+    if (typeof window.buildLabelMapSafely === 'function') {
+      try { raw = await window.buildLabelMapSafely(); } catch {}
+    }
+    if (!raw) {
+      const [base, over] = await Promise.all([
+        fetchJSON('/data/kinks.json'),
+        fetchJSON('/data/labels-overrides.json')
+      ]);
+      raw = { ...(base || {}), ...(over || {}), ...(window.tkLabels || {}) };
+    }
+    return normalizeAny(raw);
   }
 
-  /* Build label map (helper → /data/kinks.json → /data/labels-overrides.json → window.tkLabels) */
-  let raw = null;
-  if (typeof window.buildLabelMapSafely === 'function') {
-    try { raw = await window.buildLabelMapSafely(); } catch {}
+  function readTable() {
+    const tbl = document.querySelector('table'); if (!tbl) throw new Error('No <table> found');
+    const headers = [...tbl.querySelectorAll('thead th')].map(th => clean(th.textContent)) || ['Category', 'Partner A', 'Match %', 'Partner B'];
+    const rows = [...tbl.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => clean(td.textContent)));
+    return { headers, rows };
   }
-  if (!raw) {
-    const [base, over] = await Promise.all([
-      fetchJSON('/data/kinks.json'),
-      fetchJSON('/data/labels-overrides.json')
-    ]);
-    raw = { ...(base || {}), ...(over || {}), ...(window.tkLabels || {}) };
+
+  async function ensurePDF() {
+    await need(window.jspdf && window.jspdf.jsPDF, 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+    await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable, 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js');
   }
-  const MAP = normalizeAny(raw);
 
-  /* Read table on page */
-  const tbl = document.querySelector('table'); if (!tbl) { alert('No <table> found.'); return; }
-  const headers = [...tbl.querySelectorAll('thead th')].map(th => clean(th.textContent));
-  const rows = [...tbl.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => clean(td.textContent)));
+  async function exportPDF() {
+    await ensurePDF();
+    const MAP = await buildMap();
+    const { headers, rows } = readTable();
 
-  /* Replace first column with name: prefer MAP; else prettified (no cb_) */
-  const body = rows.map(r => {
-    let label = null; for (const kv of keyVars(r[0])) if (MAP[kv]) { label = MAP[kv]; break; }
-    r[0] = label || pretty(r[0]);
-    for (let i = 0; i < r.length; i++) if (r[i] === '' || r[i] === '—') r[i] = ' ';
-    return r;
-  });
+    const body = rows.map(r => {
+      let label = null; for (const kv of keyVars(r[0])) if (MAP[kv]) { label = MAP[kv]; break; }
+      r[0] = label || pretty(r[0]);
+      for (let i = 0; i < r.length; i++) if (r[i] === '' || r[i] === '—') r[i] = ' ';
+      return r;
+    });
 
-  /* Render PDF: black bg + full grid + nice outer outline */
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true, putOnlyUsedFonts: true });
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true, putOnlyUsedFonts: true });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    doc.setFillColor(0, 0, 0); doc.rect(0, 0, W, H, 'F'); doc.setTextColor(255, 255, 255);
 
-  // full-bleed black
-  doc.setFillColor(0, 0, 0); doc.rect(0, 0, W, H, 'F'); doc.setTextColor(255, 255, 255);
+    const OUTER = 40, GRID = [160, 160, 160], OUTLINE = [200, 200, 200], OUTLINE_W = 1.6;
+    const tableWidth = W - OUTER * 2;
+    const col = {
+      0: { cellWidth: tableWidth * 0.40, halign: 'left' },
+      1: { cellWidth: tableWidth * 0.20, halign: 'center' },
+      2: { cellWidth: tableWidth * 0.20, halign: 'center' },
+      3: { cellWidth: tableWidth * 0.20, halign: 'center' }
+    };
 
-  // styles
-  const OUTER = 40;                 // page margin
-  const GRID = [160, 160, 160];       // grid dividers
-  const OUTLINE = [200, 200, 200];    // outer outline color
-  const OUTLINE_W = 1.6;            // outer outline thickness
+    doc.autoTable({
+      head: [headers], body, theme: 'grid',
+      margin: { top: OUTER, right: OUTER, bottom: OUTER, left: OUTER },
+      tableWidth,
+      styles: { font: 'helvetica', fontSize: 13, textColor: [255, 255, 255], fillColor: null,
+               cellPadding: 12, lineWidth: 0.7, lineColor: GRID, minCellHeight: 24 },
+      headStyles: { fontStyle: 'bold', textColor: [255, 255, 255], fillColor: null, lineWidth: 0.9, lineColor: GRID },
+      tableLineWidth: 0.9, tableLineColor: GRID,
+      columnStyles: col,
+      didAddPage() { doc.setFillColor(0, 0, 0); doc.rect(0, 0, W, H, 'F'); doc.setTextColor(255, 255, 255); }
+    });
 
-  doc.autoTable({
-    head: [headers.length ? headers : ['Category', 'Partner A', 'Match %', 'Partner B']],
-    body, theme: 'grid',
-    margin: { top: OUTER, right: OUTER, bottom: OUTER, left: OUTER },
-    tableWidth: W - OUTER * 2,
-    styles: { font: 'helvetica', fontSize: 13, textColor: [255, 255, 255], fillColor: null,
-             cellPadding: 12, lineWidth: 0.7, lineColor: GRID, minCellHeight: 24 },
-    headStyles: { fontStyle: 'bold', textColor: [255, 255, 255], fillColor: null, lineWidth: 0.9, lineColor: GRID },
-    tableLineWidth: 0.9, tableLineColor: GRID,
-    columnStyles: {0: { halign: 'left' }, 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }},
-    didAddPage() { doc.setFillColor(0, 0, 0); doc.rect(0, 0, W, H, 'F'); doc.setTextColor(255, 255, 255); }
-  });
+    const topY = OUTER, botY = doc.lastAutoTable.finalY, leftX = OUTER, height = Math.max(0, botY - topY);
+    doc.setLineWidth(OUTLINE_W); doc.setDrawColor(...OUTLINE); doc.rect(leftX, topY, tableWidth, height, 'S');
 
-  // outer outline
-  const topY = OUTER, botY = doc.lastAutoTable.finalY, leftX = OUTER, width = W - OUTER * 2, height = Math.max(0, botY - topY);
-  doc.setLineWidth(OUTLINE_W); doc.setDrawColor(...OUTLINE); doc.rect(leftX, topY, width, height, 'S');
+    doc.save('compatibility-black-grid-NAMES.pdf');
+  }
 
-  doc.save('compatibility-black-grid-NAMES.pdf');
+  function addFloating() {
+    if (document.getElementById('tk-pdf-btn')) return;
+    const b = document.createElement('button'); b.id = 'tk-pdf-btn';
+    Object.assign(b.style, { position: 'fixed', right: '18px', bottom: '18px', zIndex: 2147483647, padding: '10px 14px',
+      borderRadius: '10px', border: '1px solid #aaa', background: '#111', color: '#fff', font: '14px/1 system-ui, sans-serif',
+      boxShadow: '0 2px 10px rgba(0,0,0,.4)', cursor: 'pointer' });
+    b.textContent = 'Download PDF';
+    b.addEventListener('click', e => { e.preventDefault(); e.stopImmediatePropagation(); exportPDF(); }, { capture: true });
+    document.body.appendChild(b);
+    window.addEventListener('keydown', e => { if (e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); exportPDF(); } }, true);
+  }
+  addFloating();
+
+  window.tk = Object.assign(window.tk || {}, { export: exportPDF });
 })();
 </script>
