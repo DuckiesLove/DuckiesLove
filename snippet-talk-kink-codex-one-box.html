@@ -1,21 +1,19 @@
 <!-- Talk Kink — Codex One-Box: strict labels + black grid + nice outline + legacy exporter kill -->
 <script>
-/* ===== TK Codex One-Box: strict labels + black grid + nice outline + legacy kill ===== */
+/* ===== TK Codex One-Box: strict labels + black grid + nice outline + kill legacy ===== */
 (() => {
-  const tk = (window.tk ||= {});
+  /* ---------- utils ---------- */
   const clean = s => String(s||'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
   const keyVars = k => { const b=clean(k).toLowerCase(); return [b, b.replace(/^cb_/,'')]; };
-
-  // Normalize any shape into { key(with/without cb_) -> label }
   const normalizeAny = (input)=>{
     const out={}, put=(k,v)=>{ const val=clean(v)||clean(k); keyVars(k).forEach(kk=>{ if(kk) out[kk]=val; }); };
     if (!input) return out;
     if (Array.isArray(input)){
       for (const it of input){
-        if (Array.isArray(it) && it.length>=2) { put(it[0],it[1]); continue; }
-        if (it && typeof it === 'object'){
-          const k = it.code??it.id??it.key??it.slug??it.name??it.kink??it.value;
-          const v = it.title??it.label??it.display??it.name??it.text??it.pretty??it.kink??it.value;
+        if (Array.isArray(it) && it.length>=2) { put(it[0], it[1]); continue; }
+        if (it && typeof it==='object'){
+          const k=it.code??it.id??it.key??it.slug??it.name??it.kink??it.value;
+          const v=it.title??it.label??it.display??it.name??it.text??it.pretty??it.kink??it.value;
           if (k!=null) put(k, v??k);
         }
       }
@@ -27,46 +25,42 @@
     }
     return out;
   };
-
-  const fetchJSON = async url => { try { const r=await fetch(url,{cache:'no-store'}); return r.ok ? r.json() : null; } catch { return null; } };
-
-  async function buildLabelMap(){
+  const fetchJSON = async url => { try{ const r=await fetch(url,{cache:'no-store'}); return r.ok? r.json():null; }catch{ return null; } };
+  const ensurePDFLibs = async ()=>{
+    const need=(ok,src)=> ok?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+    await need(window.jspdf && window.jspdf.jsPDF, 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+    await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable, 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js');
+  };
+  const readTable = ()=>{
+    const tbl=document.querySelector('table'); if(!tbl) throw new Error('No <table> found');
+    const headers=[...tbl.querySelectorAll('thead th')].map(th=>clean(th.textContent))||['Category','Partner A','Match %','Partner B'];
+    const rows=[...tbl.querySelectorAll('tbody tr')].map(tr=>[...tr.children].map(td=>clean(td.textContent)));
+    return {headers,rows};
+  };
+  const buildLabelMap = async ()=>{
     let raw=null;
-    if (typeof window.buildLabelMapSafely === 'function') { try { raw = await window.buildLabelMapSafely(); } catch {} }
-    if (!raw) {
+    if (typeof window.buildLabelMapSafely==='function'){ try{ raw=await window.buildLabelMapSafely(); }catch{} }
+    if (!raw){
       const [base,over] = await Promise.all([fetchJSON('/data/kinks.json'), fetchJSON('/data/labels-overrides.json')]);
       raw = { ...(base||{}), ...(over||{}), ...(window.tkLabels||{}) };
     }
     const map = normalizeAny(raw);
-    if (!Object.keys(map).length) console.error('[labels] Empty map – add /data/labels-overrides.json');
+    if (!Object.keys(map).length) console.error('[labels] Empty map — add /data/labels-overrides.json');
     return map;
-  }
+  };
 
-  function readTable(){
-    const tbl = document.querySelector('table');
-    if (!tbl) throw new Error('No <table> found');
-    const headers = [...tbl.querySelectorAll('thead th')].map(th=>clean(th.textContent)) || ['Category','Partner A','Match %','Partner B'];
-    const rows = [...tbl.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td=>clean(td.textContent)));
-    return { headers, rows };
-  }
-
-  async function ensurePDFLibs(){
-    const need=(ok,src)=> ok?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});
-    await need(window.jspdf && window.jspdf.jsPDF, 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
-    await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable, 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js');
-  }
-
+  /* ---------- the exporter (strict names + black grid + nice outline) ---------- */
   async function exportPDF(){
     await ensurePDFLibs();
     const map = await buildLabelMap();
     const { headers, rows } = readTable();
 
-    const missing = new Set();
+    const missing=new Set();
     const body = rows.map(r=>{
       let label=null; for (const kv of keyVars(r[0])) if (map[kv]) { label = map[kv]; break; }
       if (!label) missing.add(r[0]);
-      r[0] = label || r[0];                         // strict: keep code if truly missing
-      for (let i=0;i<r.length;i++) if (r[i]===''||r[i]==='—') r[i]=' ';
+      r[0] = label || r[0];                   // strict: keep code if truly missing
+      for (let i=0;i<r.length;i++) if (r[i]==='' || r[i]==='—') r[i]=' ';
       return r;
     });
     if (missing.size) console.warn('[labels] Missing labels:', [...missing]);
@@ -78,11 +72,11 @@
     // full-bleed black
     doc.setFillColor(0,0,0); doc.rect(0,0,W,H,'F'); doc.setTextColor(255,255,255);
 
-    // table styling
-    const OUTER = 40;                 // page margin
-    const GRID = [160,160,160];       // grid dividers
-    const OUTLINE = [200,200,200];    // nice outer outline
-    const OUTLINE_W = 1.6;
+    // table style
+    const OUTER   = 40;               // outer page margin so text isn't on the edge
+    const GRID    = [160,160,160];    // cell grid lines
+    const OUTLINE = [200,200,200];    // nice outer outline color
+    const OUTLINE_W = 1.6;            // outer outline thickness
 
     doc.autoTable({
       head: [headers],
@@ -92,13 +86,12 @@
       tableWidth: W - OUTER*2,
       styles: { font:'helvetica', fontSize:13, textColor:[255,255,255], fillColor:null, cellPadding:12, lineWidth:0.7, lineColor:GRID, minCellHeight:24 },
       headStyles: { fontStyle:'bold', textColor:[255,255,255], fillColor:null, lineWidth:0.9, lineColor:GRID },
-      tableLineWidth: 0.9,
-      tableLineColor: GRID,
+      tableLineWidth: 0.9, tableLineColor: GRID,
       columnStyles: { 0:{halign:'left'}, 1:{halign:'center'}, 2:{halign:'center'}, 3:{halign:'center'} },
       didAddPage(){ doc.setFillColor(0,0,0); doc.rect(0,0,W,H,'F'); doc.setTextColor(255,255,255); }
     });
 
-    // draw nice outer outline around the table
+    // nice outer outline (after AutoTable)
     const topY  = OUTER;
     const botY  = doc.lastAutoTable.finalY;
     const leftX = OUTER;
@@ -111,47 +104,56 @@
     doc.save('compatibility.pdf');
   }
 
-  // Expose helpers
-  tk.export = exportPDF;
-  tk.list = async ()=>{ const map=await buildLabelMap(); const have=new Set(Object.keys(map));
-    const {rows}=readTable(); const codes=[...new Set(rows.map(r=>r[0]).filter(Boolean))];
-    const rep=codes.map(code=>{const [a,b]=keyVars(code);return {code, has: !!(map[a]||map[b]), label: (map[a]||map[b]||'(missing)')};});
-    console.table(rep); const miss=rep.filter(r=>!r.has).map(r=>r.code); if(miss.length) console.warn('[labels] Missing:',miss); return rep;
-  };
-  tk.generateOverrides = async ()=>{ const {rows}=readTable();
-    const codes=[...new Set(rows.map(r=>r[0]).filter(Boolean))];
-    const overrides=Object.fromEntries(codes.map(c=>[c, clean(c).replace(/^cb_/i,'').replace(/_/g,' ')
-      .replace(/\b([a-z])([a-z]*)/gi,(_,a,b)=>a.toUpperCase()+b.toLowerCase())]));
-    const blob=new Blob([JSON.stringify(overrides,null,2)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='labels-overrides.json'; a.click(); URL.revokeObjectURL(a.href);
-    console.log('[overrides] downloaded labels-overrides.json with', codes.length, 'entries — edit to real names then upload to /data');
-    return overrides;
-  };
+  /* ---------- nuke legacy triggers & bind ours ---------- */
+  function bindExporter(root=document){
+    const els = [...root.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]')];
+    for (const el of els) {
+      const label = (el.textContent || el.value || '').toLowerCase();
+      const attrs = (el.getAttributeNames?.()||[]).map(n=>`${n}:${el.getAttribute(n)||''}`).join(' ').toLowerCase();
+      const looksPdf = /pdf|export|download|print/.test(label+attrs) || /\.pdf(?:\b|$)/.test(el.getAttribute('href')||'');
+      if (!looksPdf) continue;
 
-  // ---- Kill legacy exporter & bind ours (works across re-renders) ----
-  function bindOurExporter(root=document){
-    const candidates = [...root.querySelectorAll('a,button,input[type="button"],input[type="submit"]')];
-    for (const el of candidates) {
-      const label = (el.textContent || el.value || '').toLowerCase().trim();
-      if (!/download\s*pdf|export\s*pdf|save\s*pdf|pdf/i.test(label)) continue;
+      // strip href + inline handlers + remove old listeners by cloning
+      el.removeAttribute('href'); el.onclick=null; el.onmousedown=null; el.onmouseup=null;
+      const clone = el.cloneNode(true);
+      el.replaceWith(clone);
 
-      // strip href + inline onclick + clone to remove legacy listeners
-      el.removeAttribute('href'); el.onclick = null;
-      const clone = el.cloneNode(true); el.replaceWith(clone);
-
-      // bind ours
+      // bind ours (capture to beat any bubbling handlers)
       clone.addEventListener('click', (e)=>{ e.preventDefault(); e.stopImmediatePropagation(); exportPDF(); }, {capture:true});
-      clone.style.cursor = 'pointer';
-      console.log('[tk] Bound our exporter to:', label || clone.tagName);
+      clone.style.cursor='pointer';
+      console.log('[tk] bound exporter to:', label || clone.tagName);
     }
   }
-  bindOurExporter();
+  bindExporter();
 
-  // Re-bind if the page mutates
-  const mo = new MutationObserver(muts => { for (const m of muts) { if (m.addedNodes && m.addedNodes.length) bindOurExporter(document); }});
+  // watch for re-renders and re-bind
+  const mo = new MutationObserver(m=>{ bindExporter(document); });
   mo.observe(document.documentElement, { childList:true, subtree:true });
 
-  // Optional: run once from console if you want to test immediately:
-  // tk.export();
+  // also block form submits that try to trigger PDF
+  window.addEventListener('submit', (e)=>{
+    const a=(e.target.getAttribute('action')||'').toLowerCase();
+    if (/pdf/.test(a)) { e.preventDefault(); e.stopImmediatePropagation(); exportPDF(); }
+  }, true);
+
+  // add a floating "Download PDF" (always ours)
+  (function addFloatingBtn(){
+    const btn=document.createElement('button');
+    Object.assign(btn.style, {
+      position:'fixed', right:'18px', bottom:'18px', zIndex: 2147483647,
+      padding:'10px 14px', borderRadius:'10px', border:'1px solid #aaa',
+      background:'#111', color:'#fff', fontFamily:'system-ui, sans-serif', fontSize:'14px',
+      boxShadow:'0 2px 10px rgba(0,0,0,.4)', cursor:'pointer'
+    });
+    btn.textContent='Download PDF';
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopImmediatePropagation(); exportPDF(); }, {capture:true});
+    document.body.appendChild(btn);
+  })();
+
+  // hotkey: Shift + D
+  window.addEventListener('keydown', (e)=>{ if (e.shiftKey && (e.key==='D' || e.key==='d')) { e.preventDefault(); exportPDF(); }}, true);
+
+  // expose for console
+  window.tk = Object.assign(window.tk||{}, { export: exportPDF });
 })();
 </script>
