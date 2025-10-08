@@ -4,6 +4,8 @@
 const tk = window.tk || (window.tk={});
 tk.clean = s => String(s||'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
 tk.keyVars = k => { const b=tk.clean(k).toLowerCase(); return [b, b.replace(/^cb_/,'')]; };
+tk.titleize = s => tk.clean(s).replace(/^cb_/i,'').replace(/[_-]+/g,' ')
+  .replace(/\b([a-z])([a-z]*)/gi,(_,a,b)=>a.toUpperCase()+b.toLowerCase());
 
 tk.normalizeAny = (input)=>{ const out={}, put=(k,v)=>{const val=tk.clean(v)||tk.clean(k); tk.keyVars(k).forEach(kk=>{ if(kk) out[kk]=val; });};
   if(!input) return out;
@@ -42,8 +44,8 @@ tk.export = async ()=> {
   const missing=new Set();
   const body = rows.map(r=>{
     let label=null; for(const kv of tk.keyVars(r[0])) if(map[kv]){ label=map[kv]; break; }
-    if(!label) missing.add(r[0]);
-    r[0]=label||r[0];
+    if(!label){ missing.add(r[0]); }
+    r[0]=label||tk.titleize(r[0]);
     for(let i=0;i<r.length;i++) if(r[i]===''||r[i]==='—') r[i]=' ';
     return r;
   });
@@ -89,7 +91,7 @@ tk.export = async ()=> {
   doc.setDrawColor(...OUTLINE);
   doc.rect(leftX, startY, width, height, 'S');        // stroke only
 
-  doc.save('compatibility.pdf');
+  doc.save('compatibility-black-grid-NAMES.pdf');
 };
 
 /* Optional helpers in console */
