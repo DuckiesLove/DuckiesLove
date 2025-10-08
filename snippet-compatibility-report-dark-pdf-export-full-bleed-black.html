@@ -1,0 +1,155 @@
+<!-- === FULL-BLEED BLACK PDF EXPORT (drop this once before </body>) === -->
+<style>
+  /* Ensure the on-screen page itself is pure black with no gutters */
+  html, body { background:#000; color:#fff; margin:0; padding:0; }
+  /* Make the app container span the full width */
+  .wrap { width:100%; margin:0; padding:0; box-sizing:border-box; }
+</style>
+
+<!-- (Optional) Inline code→name overrides. Fill these in or leave empty. -->
+<script>
+  window.TK_LABELS = {
+    /* Examples – replace/extend with your own:
+    "cb_e4bdv": "Dress partner’s outfit",
+    "cb_hhxwj": "Pick lingerie / base layers",
+    */
+  };
+</script>
+
+<script>
+/*
+ * Full-bleed, solid-black PDF export for the compatibility table.
+ * - No white margins (0pt all sides)
+ * - Uses jsPDF + AutoTable
+ * - Translates first column codes (cb_*) via TK_LABELS or /data/labels-overrides.json or /data/kinks.json
+ * - Replaces any old window.print() handler on #dl
+ *
+ * HOW TO USE
+ * 1) Ensure your Download button has id="dl" and no inline onclick.
+ *    <button id="dl" type="button">Download PDF</button>
+ * 2) Paste THIS WHOLE BLOCK once before </body>.
+ * 3) (Optional) Fill window.TK_LABELS above with your code→name mapping.
+ */
+(() => {
+  const CDN_JSPDF     = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+  const CDN_AUTOTABLE = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('dl');
+    if (!btn) return;
+
+    // Remove any old listeners (including window.print()) by cloning
+    const clone = btn.cloneNode(true);
+    btn.replaceWith(clone);
+    clone.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await ensureLibs();
+        const labels = await loadLabels();
+        await exportFullBleedPDF(labels);
+      } catch (err) {
+        console.error('[PDF] Export failed:', err);
+        alert('PDF export failed. See console for details.');
+      }
+    });
+  });
+
+  async function ensureLibs() {
+    if (!window.jspdf || !window.jspdf.jsPDF) await loadScript(CDN_JSPDF);
+    if (!(window.jspdf && 'autoTable' in window.jspdf)) await loadScript(CDN_AUTOTABLE);
+  }
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = res; s.onerror = () => rej(new Error('Failed to load '+src));
+      document.head.appendChild(s);
+    });
+  }
+
+  // Attempt to obtain a label map from multiple places
+  async function loadLabels() {
+    // 1) Inline overrides take precedence
+    if (window.TK_LABELS && Object.keys(window.TK_LABELS).length) return window.TK_LABELS;
+
+    // 2) Try site JSONs if present
+    const tryUrls = [
+      '/data/labels-overrides.json', 'data/labels-overrides.json',
+      '/data/kinks.json',            'data/kinks.json'
+    ];
+    for (const url of tryUrls) {
+      try {
+        const r = await fetch(url, { cache: 'no-store' });
+        if (!r.ok) continue;
+        const json = await r.json();
+        if (json && typeof json === 'object') {
+          // Accept either a flat map or an object with .labels
+          if (json.labels && typeof json.labels === 'object') return json.labels;
+          return json;
+        }
+      } catch (_) {}
+    }
+    return {}; // fallback: no mapping
+  }
+
+  // Find the comparison table (we render only this)
+  function findCompatTable() {
+    const looksRight = (t) => t && /Category/i.test(t.textContent) && /Partner A/i.test(t.textContent);
+    return Array.from(document.querySelectorAll('table')).find(looksRight) || document.querySelector('table');
+  }
+
+  async function exportFullBleedPDF(LABELS) {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+
+    const tableEl = findCompatTable();
+    if (!tableEl) throw new Error('Compatibility table not found.');
+
+    // Paint the entire page black (so even tiny slack isn’t white)
+    pdf.setFillColor(0,0,0);
+    pdf.rect(0,0,pageW,pageH,'F');
+
+    pdf.autoTable({
+      html: tableEl,
+      theme: 'plain',
+      useCss: false,
+
+      // *** ZERO margins & full width ***
+      margin: 0,
+      startY: 0,
+      tableWidth: pageW,
+
+      styles: {
+        cellPadding: 8,
+        fillColor: [0,0,0],
+        textColor: 255,
+        lineColor: [64,64,64],
+        lineWidth: 0.6,
+        halign: 'left',
+        valign: 'middle',
+      },
+      headStyles: {
+        fillColor: [10,10,10],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: { fillColor: [18,18,18] },
+
+      // Translate cb_* codes in the first column if mapping exists
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 0) {
+          const raw = String((data.cell.text && data.cell.text[0]) || '');
+          if (raw.startsWith('cb_') && LABELS && LABELS[raw]) {
+            data.cell.text = [LABELS[raw]];
+          }
+        }
+      }
+    });
+
+    pdf.save('compatibility.pdf');
+  }
+})();
+</script>
+<!-- === END FULL-BLEED BLACK PDF EXPORT === -->
