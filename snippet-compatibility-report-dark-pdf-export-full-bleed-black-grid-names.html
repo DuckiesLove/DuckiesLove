@@ -1,7 +1,7 @@
 <!-- === Full-Bleed Black PDF + Full Grid + Label Mapping === -->
 <script>
 (async function () {
-  // ---- load libs ----
+  /* Load libs */
   const need = (ok, src) => ok ? Promise.resolve() : new Promise((res, rej) => {
     const s = document.createElement('script');
     s.src = src;
@@ -12,43 +12,21 @@
   await need(window.jspdf && window.jspdf.jsPDF, 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
   await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable, 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js');
 
-  // ---- helpers ----
+  /* Helpers */
   const clean = s => String(s || '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
-  const keyVars = k => {
-    const base = clean(k).toLowerCase();
-    return [base, base.replace(/^cb_/, '')];
-  };
-  const titleize = s => clean(s)
-    .replace(/^cb_/i, '')
-    .replace(/[_-]+/g, ' ')
+  const keyVars = k => { const base = clean(k).toLowerCase(); return [base, base.replace(/^cb_/, '')]; };
+  const pretty = s => clean(s).replace(/^cb_/i, '').replace(/[_-]+/g, ' ')
     .replace(/\b([a-z])([a-z]*)/gi, (_, a, b) => a.toUpperCase() + b.toLowerCase());
-
-  async function fetchJSON(url) {
-    try {
-      const res = await fetch(url, { cache: 'no-store' });
-      return res.ok ? res.json() : null;
-    } catch {
-      return null;
-    }
-  }
-
+  async function fetchJSON(url) { try { const res = await fetch(url, { cache: 'no-store' }); return res.ok ? res.json() : null; } catch { return null; } }
   function normalizeAny(input) {
-    const out = {};
-    const put = (k, v) => {
+    const out = {}, put = (k, v) => {
       const val = clean(v) || clean(k);
-      keyVars(k).forEach(kk => {
-        if (kk) out[kk] = val;
-      });
+      keyVars(k).forEach(kk => { if (kk) out[kk] = val; });
     };
-
     if (!input) return out;
-
     if (Array.isArray(input)) {
       for (const it of input) {
-        if (Array.isArray(it) && it.length >= 2) {
-          put(it[0], it[1]);
-          continue;
-        }
+        if (Array.isArray(it) && it.length >= 2) { put(it[0], it[1]); continue; }
         if (it && typeof it === 'object') {
           const k = it.code ?? it.id ?? it.key ?? it.slug ?? it.name ?? it.kink ?? it.value;
           const v = it.title ?? it.label ?? it.display ?? it.name ?? it.text ?? it.pretty ?? it.kink ?? it.value;
@@ -57,23 +35,18 @@
       }
       return out;
     }
-
     for (const [k, v] of Object.entries(input)) {
       if (v && typeof v === 'object') {
         put(k, v.title ?? v.label ?? v.name ?? v.display ?? v.text ?? v.pretty ?? k);
-      } else {
-        put(k, v);
-      }
+      } else put(k, v);
     }
     return out;
   }
 
-  // ---- build label map if available ----
+  /* Build label map (helper → /data/kinks.json → /data/labels-overrides.json → window.tkLabels) */
   let raw = null;
   if (typeof window.buildLabelMapSafely === 'function') {
-    try {
-      raw = await window.buildLabelMapSafely();
-    } catch {}
+    try { raw = await window.buildLabelMapSafely(); } catch {}
   }
   if (!raw) {
     const [base, over] = await Promise.all([
@@ -84,93 +57,49 @@
   }
   const MAP = normalizeAny(raw);
 
-  // ---- read the current table ----
-  const tbl = document.querySelector('table');
-  if (!tbl) {
-    alert('No <table> found.');
-    return;
-  }
-  const headers = [...tbl.querySelectorAll('thead th')].map(th => clean(th.textContent)) || ['Category', 'Partner A', 'Match %', 'Partner B'];
+  /* Read table on page */
+  const tbl = document.querySelector('table'); if (!tbl) { alert('No <table> found.'); return; }
+  const headers = [...tbl.querySelectorAll('thead th')].map(th => clean(th.textContent));
   const rows = [...tbl.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => clean(td.textContent)));
 
-  // ---- swap first column ----
-  const finalRows = rows.map(r => {
-    let label = null;
-    for (const kv of keyVars(r[0])) {
-      if (MAP[kv]) {
-        label = MAP[kv];
-        break;
-      }
-    }
-    r[0] = label || titleize(r[0]);
-    for (let i = 0; i < r.length; i++) {
-      if (r[i] === '' || r[i] === '—') r[i] = ' ';
-    }
+  /* Replace first column with name: prefer MAP; else prettified (no cb_) */
+  const body = rows.map(r => {
+    let label = null; for (const kv of keyVars(r[0])) if (MAP[kv]) { label = MAP[kv]; break; }
+    r[0] = label || pretty(r[0]);
+    for (let i = 0; i < r.length; i++) if (r[i] === '' || r[i] === '—') r[i] = ' ';
     return r;
   });
 
-  // ---- make PDF ----
+  /* Render PDF: black bg + full grid + nice outer outline */
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true, putOnlyUsedFonts: true });
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
 
-  doc.setFillColor(0, 0, 0);
-  doc.rect(0, 0, W, H, 'F');
-  doc.setTextColor(255, 255, 255);
+  // full-bleed black
+  doc.setFillColor(0, 0, 0); doc.rect(0, 0, W, H, 'F'); doc.setTextColor(255, 255, 255);
 
-  const OUTER = 40;
-  const GRID = [160, 160, 160];
-  const OUTLINE = [200, 200, 200];
-  const OUTLINE_W = 1.6;
+  // styles
+  const OUTER = 40;                 // page margin
+  const GRID = [160, 160, 160];       // grid dividers
+  const OUTLINE = [200, 200, 200];    // outer outline color
+  const OUTLINE_W = 1.6;            // outer outline thickness
 
   doc.autoTable({
-    head: [headers],
-    body: finalRows,
-    theme: 'grid',
+    head: [headers.length ? headers : ['Category', 'Partner A', 'Match %', 'Partner B']],
+    body, theme: 'grid',
     margin: { top: OUTER, right: OUTER, bottom: OUTER, left: OUTER },
     tableWidth: W - OUTER * 2,
-    styles: {
-      font: 'helvetica',
-      fontSize: 13,
-      textColor: [255, 255, 255],
-      fillColor: null,
-      cellPadding: 12,
-      lineWidth: 0.7,
-      lineColor: GRID,
-      minCellHeight: 24
-    },
-    headStyles: {
-      fontStyle: 'bold',
-      textColor: [255, 255, 255],
-      fillColor: null,
-      lineWidth: 0.9,
-      lineColor: GRID
-    },
-    tableLineWidth: 0.9,
-    tableLineColor: GRID,
-    columnStyles: {
-      0: { halign: 'left' },
-      1: { halign: 'center' },
-      2: { halign: 'center' },
-      3: { halign: 'center' }
-    },
-    didAddPage() {
-      doc.setFillColor(0, 0, 0);
-      doc.rect(0, 0, W, H, 'F');
-      doc.setTextColor(255, 255, 255);
-    }
+    styles: { font: 'helvetica', fontSize: 13, textColor: [255, 255, 255], fillColor: null,
+             cellPadding: 12, lineWidth: 0.7, lineColor: GRID, minCellHeight: 24 },
+    headStyles: { fontStyle: 'bold', textColor: [255, 255, 255], fillColor: null, lineWidth: 0.9, lineColor: GRID },
+    tableLineWidth: 0.9, tableLineColor: GRID,
+    columnStyles: {0: { halign: 'left' }, 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }},
+    didAddPage() { doc.setFillColor(0, 0, 0); doc.rect(0, 0, W, H, 'F'); doc.setTextColor(255, 255, 255); }
   });
 
-  const topY = OUTER;
-  const botY = doc.lastAutoTable.finalY;
-  const leftX = OUTER;
-  const width = W - OUTER * 2;
-  const height = Math.max(0, botY - topY);
-
-  doc.setLineWidth(OUTLINE_W);
-  doc.setDrawColor(...OUTLINE);
-  doc.rect(leftX, topY, width, height, 'S');
+  // outer outline
+  const topY = OUTER, botY = doc.lastAutoTable.finalY, leftX = OUTER, width = W - OUTER * 2, height = Math.max(0, botY - topY);
+  doc.setLineWidth(OUTLINE_W); doc.setDrawColor(...OUTLINE); doc.rect(leftX, topY, width, height, 'S');
 
   doc.save('compatibility-black-grid-NAMES.pdf');
 })();
