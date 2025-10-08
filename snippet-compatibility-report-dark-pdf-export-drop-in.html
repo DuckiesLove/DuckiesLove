@@ -1,209 +1,175 @@
-<!-- 
-Talk Kink — Compatibility Report • Dark Mode Exporter
-====================================================
+<!-- TK FULL-BLEED PDF + LABEL MAP + BUTTON FIX (drop-in) -->
+<style id="tk-fullbleed-css">
+  :root{--fg:#e6e6e6}
+  html,body{background:#000;color:var(--fg);margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{width:100%;margin:0;padding:24px 24px 40px;box-sizing:border-box}
+  /* Print CSS (in case someone uses the browser dialog) */
+  @media print {
+    @page{size:auto;margin:0}
+    html,body{background:#000!important}
+    .wrap{padding:0}
+  }
+</style>
 
-📖 Directions:
-1. Make sure your table is present on the page 
-   (id="compatibilityTable", class="results-table compat", or just <table>).
-
-2. Add a button with id="downloadBtn" somewhere in your HTML if you want 
-   users to click and download:
-     <button id="downloadBtn">Download PDF</button>
-
-3. Paste this <script> block before </body> in your HTML 
-   OR paste just the JS part in DevTools Console.
-
-4. Use either:
-   - Click the button (#downloadBtn), OR
-   - Run TKPDF_forceDark() in the console.
-
-A PDF called compatibility-dark.pdf will be downloaded.
--->
 <script>
-(async function () {
-  // loader
-  const load = (src) =>
-    new Promise((res, rej) => {
-      if (document.querySelector(`script[src="${src}"]`)) return res();
-      const s = document.createElement("script");
-      s.src = src;
-      s.onload = res;
-      s.onerror = () => rej(new Error("Failed to load " + src));
-      document.head.appendChild(s);
-    });
+(function(){
+  const log=(...a)=>console.log('[TK-PDF]',...a);
 
-  async function ensureLibs() {
-    if (!(window.jspdf && window.jspdf.jsPDF)) {
-      await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+  /* ------------------------------ BUTTON RESCUE ----------------------------- */
+  // Find an existing download button (by id / text), or create a floating one.
+  function findOrCreateDownloadBtn(){
+    let btn = document.querySelector('#dl, #download, button#dl, button#download, [data-action="download"]');
+    if(!btn){
+      // fallback: look for text
+      btn = Array.from(document.querySelectorAll('button,a')).find(b=>{
+        const t=(b.textContent||'').toLowerCase();
+        return t.includes('download pdf')||t.includes('export pdf');
+      });
     }
-    const hasAT =
-      (window.jspdf && window.jspdf.autoTable) ||
-      (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable);
-    if (!hasAT) {
-      await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+    if(!btn){
+      btn = document.createElement('button');
+      btn.id='dl';
+      btn.textContent='Download PDF';
+      btn.type='button';
+      btn.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;background:#00d1ff;color:#000;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35)';
+      document.body.appendChild(btn);
     }
+    // neutralize old window.print handlers
+    btn.onclick=null;
+    return btn;
   }
 
-  const tidy = (s) => (s || "").replace(/\s+/g, " ").trim();
-  const toNum = (v) => {
-    const n = Number(String(v ?? "").replace(/[^\d.-]/g, ""));
-    return Number.isFinite(n) ? n : null;
-  };
-  const isValidScore = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
-
-  function findTable() {
-    return (
-      document.querySelector("#compatibilityTable") ||
-      document.querySelector(".results-table.compat") ||
-      document.querySelector("table")
-    );
+  /* ------------------------------ LABEL MERGE ------------------------------- */
+  async function getJSON(url){
+    try{
+      const r=await fetch(url,{cache:'no-store'});
+      if(!r.ok) throw new Error(r.status);
+      return await r.json();
+    }catch(e){ return null }
   }
-
-  function extractRows(table) {
-    // rows that have <td> cells (some sites use <td> for headers)
-    const trs = [...table.querySelectorAll("tr")].filter(
-      (tr) => tr.querySelectorAll("td").length > 0
-    );
-
-    const isHeaderLike = (cellTexts) => {
-      const first = (cellTexts[0] || "").toLowerCase();
-      const joined = cellTexts.map((t) => (t || "").toLowerCase()).join(" | ");
-      if (first === "category") return true;
-      if (/partner a|partner b|match/.test(joined)) return true;
-      if (!cellTexts.some((t) => /\S/.test(t))) return true;
-      return false;
-    };
-
-    const rows = [];
-    for (const tr of trs) {
-      const cells = [...tr.querySelectorAll("td")].map((td) => tidy(td.textContent));
-      if (!cells.length) continue;
-      if (isHeaderLike(cells)) continue;
-
-      const category = cells[0] || "—";
-      const numeric = cells.map(toNum).filter((n) => n !== null);
-      const Araw = numeric.length ? numeric[0] : null;
-      const Braw = numeric.length ? numeric[numeric.length - 1] : null;
-
-      const aValid = isValidScore(Araw);
-      const bValid = isValidScore(Braw);
-
-      let pct = cells.find((c) => /%$/.test(c)) || null;
-      if (!pct && aValid && bValid) {
-        const p = Math.round(100 - (Math.abs(Araw - Braw) / 5) * 100);
-        pct = `${Math.max(0, Math.min(100, p))}%`;
+  async function mergeLabels(){
+    const merged = Object.assign({}, window.TK_LABELS || {});
+    // 1) site overrides
+    const o = await getJSON('/data/labels-overrides.json');
+    if(o && typeof o==='object') Object.assign(merged,o);
+    // 2) base kinks data (works if it’s { id->label } OR { items:[{id,label}] })
+    const k = await getJSON('/data/kinks.json');
+    if(k && typeof k==='object'){
+      if(Array.isArray(k.items)){
+        k.items.forEach(it=>{ if(it?.id && it?.label) merged[it.id]=it.label; });
+      }else{
+        Object.assign(merged,k);
       }
-      if (!pct) pct = "—";
-
-      rows.push([category, aValid ? Araw : "—", pct, bValid ? Braw : "—"]);
     }
-
-    return rows;
+    return merged;
+  }
+  function applyLabels(map){
+    const cells = document.querySelectorAll('table tr td:first-child, table tr th:first-child');
+    let replaced=0;
+    cells.forEach(td=>{
+      const raw=(td.textContent||'').trim();
+      if(/^cb_[a-z0-9]+$/i.test(raw) && map[raw]){
+        td.textContent = map[raw];
+        replaced++;
+      }
+    });
+    log(`labels applied: ${replaced}`);
   }
 
-  async function TKPDF_exportDark() {
-    try {
-      await ensureLibs();
-      const { jsPDF } = window.jspdf;
-      const table = findTable();
-      if (!table) return alert("No table found.");
-      const body = extractRows(table);
-      if (!body.length) return alert("No rows to export.");
-
-      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-      const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
-
-      const paintBg = () => {
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, pageW, pageH, "F");
-        doc.setTextColor(255, 255, 255);
-      };
-
-      paintBg();
-      doc.setFontSize(24);
-      doc.text("Talk Kink • Compatibility Report", pageW / 2, 42, { align: "center" });
-
-      const marginLR = 30;
-      const usable = pageW - marginLR * 2;
-      const Awidth = 90, Mwidth = 110, Bwidth = 90;
-      const CatWidth = Math.max(220, usable - (Awidth + Mwidth + Bwidth));
-
-      const runAT = (opts) => {
-        if (typeof doc.autoTable === "function") return doc.autoTable(opts);
-        if (window.jspdf && typeof window.jspdf.autoTable === "function")
-          return window.jspdf.autoTable(doc, opts);
-        throw new Error("AutoTable not available");
-      };
-
-      const originalAddPage = doc.addPage;
-      doc.addPage = function patchedAddPage(...args) {
-        const result = originalAddPage.apply(this, args);
-        paintBg();
-        return result;
-      };
-
-      try {
-        runAT({
-          theme: "grid",
-          head: [["Category", "Partner A", "Match %", "Partner B"]],
-          body,
-          startY: 64,
-          margin: { left: marginLR, right: marginLR, top: 64, bottom: 40 },
-          tableWidth: usable,
-          styles: {
-            fontSize: 11,
-            cellPadding: 6,
-            textColor: [255, 255, 255],
-            fillColor: [0, 0, 0],
-            lineColor: [255, 255, 255],
-            lineWidth: 1.2,
-            halign: "center",
-            valign: "middle",
-          },
-          headStyles: {
-            fillColor: [0, 0, 0],
-            textColor: [255, 255, 255],
-            fontStyle: "bold",
-            lineColor: [255, 255, 255],
-            lineWidth: 1.6,
-          },
-          bodyStyles: {
-            fillColor: [0, 0, 0],
-            textColor: [255, 255, 255],
-          },
-          alternateRowStyles: {
-            fillColor: [0, 0, 0],
-            textColor: [255, 255, 255],
-          },
-          columnStyles: {
-            0: { cellWidth: CatWidth, halign: "left" },
-            1: { cellWidth: Awidth, halign: "center" },
-            2: { cellWidth: Mwidth, halign: "center" },
-            3: { cellWidth: Bwidth, halign: "center" },
-          },
-          willDrawPage: paintBg,
+  /* ----------------------------- LIB LOADER --------------------------------- */
+  function getByPath(obj, path){ return path.split('.').reduce((o,k)=>o&&o[k], obj) }
+  async function ensureLib(srcs, globalPath){
+    if(getByPath(window, globalPath)) return getByPath(window, globalPath);
+    for(const src of srcs){
+      try{
+        await new Promise((res,rej)=>{
+          const s=document.createElement('script');
+          s.src=src; s.async=true; s.onload=res; s.onerror=rej;
+          document.head.appendChild(s);
         });
-      } finally {
-        doc.addPage = originalAddPage;
-      }
-
-      doc.save("compatibility-dark.pdf");
-    } catch (err) {
-      console.error("[TK-PDF] Export failed:", err);
-      alert("PDF export failed: " + (err?.message || err));
+        if(getByPath(window, globalPath)) return getByPath(window, globalPath);
+      }catch(_){ }
     }
+    throw new Error('Failed to load '+globalPath);
   }
 
-  window.TKPDF_forceDark = TKPDF_exportDark;
+  /* --------------------------- FULL-BLEED EXPORT ---------------------------- */
+  async function makeFullBleedPDF(){
+    log('export start');
 
-  const btn = document.querySelector("#downloadBtn");
-  if (btn) {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      TKPDF_exportDark();
+    // 1) translate cb_* on screen before snapshot
+    const labels = await mergeLabels();
+    applyLabels(labels);
+
+    // 2) libs
+    const html2canvas = await ensureLib(
+      ['/js/vendor/html2canvas.min.js','https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'],
+      'html2canvas'
+    );
+    const { jsPDF } = await ensureLib(
+      ['/js/vendor/jspdf.umd.min.js','https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'],
+      'jspdf'
+    );
+
+    // 3) choose capture root
+    const root = document.querySelector('.wrap') || document.body;
+
+    // 4) force black backing so no gaps appear
+    const oldBg = root.style.backgroundColor;
+    root.style.backgroundColor='#000';
+
+    // 5) render to canvas (hi-dpi)
+    const canvas = await html2canvas(root,{
+      backgroundColor:'#000',
+      scale:2,
+      useCORS:true,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight
     });
-    console.log("[TK-PDF] Bound Download PDF button");
+
+    root.style.backgroundColor = oldBg || '';
+
+    const imgData = canvas.toDataURL('image/png');
+    const pxW = canvas.width;
+    const pxH = canvas.height;
+
+    // Convert CSS pixels -> points (approx 96dpi -> 72pt)
+    const ptW = pxW * (72/96);
+    const ptH = pxH * (72/96);
+    const landscape = ptW>=ptH;
+
+    // 6) create a PDF *exactly* the canvas size -> NO MARGINS
+    const pdf = new jsPDF({ unit:'pt', format:[ptW,ptH], orientation:landscape?'landscape':'portrait' });
+    pdf.setProperties({ title:'Compatibility' });
+    pdf.addImage(imgData,'PNG',0,0,ptW,ptH, undefined, 'FAST');
+    pdf.save('compatibility.pdf');
+
+    log('export done');
   }
+
+  /* ------------------------------- WIRE IT ---------------------------------- */
+  const dlBtn = findOrCreateDownloadBtn();
+  dlBtn.addEventListener('click',(ev)=>{
+    ev.preventDefault();
+    ev.stopPropagation();
+    makeFullBleedPDF().catch(err=>{
+      console.error('[TK-PDF] export failed:', err);
+      alert('PDF export failed: '+ err.message);
+    });
+  },{capture:true});
+
+  // Also hijack *any* other “Download PDF / Export PDF” elements on the page.
+  Array.from(document.querySelectorAll('a,button')).forEach(el=>{
+    const t=(el.textContent||'').toLowerCase();
+    if(t.includes('download pdf')||t.includes('export pdf')){
+      el.onclick=null;
+      el.addEventListener('click',(e)=>{e.preventDefault();makeFullBleedPDF();},{capture:true});
+    }
+  });
+
+  // Apply labels once for on-screen table too
+  mergeLabels().then(applyLabels);
+
+  log('armed — click “Download PDF”.');
 })();
 </script>
