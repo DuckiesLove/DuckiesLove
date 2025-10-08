@@ -1,6 +1,6 @@
 <!-- === Full-Bleed Black PDF + Full Grid + Label Mapping + Floating Trigger === -->
 <script>
-(() => {
+(async () => {
   const clean = s => String(s || '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
   const keyVars = k => { const b = clean(k).toLowerCase(); return [b, b.replace(/^cb_/, '')]; };
   const pretty = s => clean(s).replace(/^cb_/i, '').replace(/[_-]+/g, ' ')
@@ -31,38 +31,31 @@
     }
     return out;
   };
+  await need(window.jspdf && window.jspdf.jsPDF, 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+  await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable, 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js');
 
-  async function buildMap() {
-    let raw = null;
-    if (typeof window.buildLabelMapSafely === 'function') {
-      try { raw = await window.buildLabelMapSafely(); } catch {}
-    }
-    if (!raw) {
-      const [base, over] = await Promise.all([
-        fetchJSON('/data/kinks.json'),
-        fetchJSON('/data/labels-overrides.json')
-      ]);
-      raw = { ...(base || {}), ...(over || {}), ...(window.tkLabels || {}) };
-    }
-    return normalizeAny(raw);
+  let raw = null;
+  if (typeof window.buildLabelMapSafely === 'function') {
+    try { raw = await window.buildLabelMapSafely(); } catch {}
   }
+  if (!raw) {
+    const [base, over] = await Promise.all([
+      fetchJSON('/data/kinks.json'),
+      fetchJSON('/data/labels-overrides.json')
+    ]);
+    raw = { ...(base || {}), ...(over || {}), ...(window.tkLabels || {}) };
+  }
+  const MAP = normalizeAny(raw);
 
   function readTable() {
     const tbl = document.querySelector('table'); if (!tbl) throw new Error('No <table> found');
-    const headers = [...tbl.querySelectorAll('thead th')].map(th => clean(th.textContent)) || ['Category', 'Partner A', 'Match %', 'Partner B'];
+    const head = [...tbl.querySelectorAll('thead th')].map(th => clean(th.textContent)) || ['Category', 'Partner A', 'Match %', 'Partner B'];
     const rows = [...tbl.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => clean(td.textContent)));
-    return { headers, rows };
+    return { head, rows };
   }
 
-  async function ensurePDF() {
-    await need(window.jspdf && window.jspdf.jsPDF, 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
-    await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable, 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js');
-  }
-
-  async function exportPDF() {
-    await ensurePDF();
-    const MAP = await buildMap();
-    const { headers, rows } = readTable();
+  function exportPDF() {
+    const { head, rows } = readTable();
 
     const body = rows.map(r => {
       let label = null; for (const kv of keyVars(r[0])) if (MAP[kv]) { label = MAP[kv]; break; }
@@ -86,7 +79,7 @@
     };
 
     doc.autoTable({
-      head: [headers], body, theme: 'grid',
+      head: [head], body, theme: 'grid',
       margin: { top: OUTER, right: OUTER, bottom: OUTER, left: OUTER },
       tableWidth,
       styles: { font: 'helvetica', fontSize: 13, textColor: [255, 255, 255], fillColor: null,
@@ -103,7 +96,35 @@
     doc.save('compatibility-black-grid-NAMES.pdf');
   }
 
-  function addFloating() {
+  function hijack(root = document) {
+    const cand = [...root.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]')];
+    for (const el of cand) {
+      const txt = (el.textContent || el.value || '').toLowerCase();
+      const href = (el.getAttribute('href') || '').toLowerCase();
+      if (!(/pdf|export|download|save|print/.test(txt + href) || /\.pdf\b/.test(href))) continue;
+      const clone = el.cloneNode(true);
+      el.replaceWith(clone);
+      clone.addEventListener('click', e => {
+        e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+        exportPDF();
+      }, { capture: true });
+    }
+  }
+  hijack();
+  new MutationObserver(() => hijack()).observe(document.documentElement, { childList: true, subtree: true });
+
+  document.addEventListener('click', e => {
+    const el = e.target.closest('a,button,[role="button"],input[type="button"],input[type="submit"]');
+    if (!el) return;
+    const txt = (el.textContent || el.value || '').toLowerCase();
+    const href = (el.getAttribute('href') || '').toLowerCase();
+    if (/pdf|export|download|save|print/.test(txt + href) || /\.pdf\b/.test(href)) {
+      e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+      exportPDF();
+    }
+  }, true);
+
+  (function addFloating() {
     if (document.getElementById('tk-pdf-btn')) return;
     const b = document.createElement('button'); b.id = 'tk-pdf-btn';
     Object.assign(b.style, { position: 'fixed', right: '18px', bottom: '18px', zIndex: 2147483647, padding: '10px 14px',
@@ -113,9 +134,9 @@
     b.addEventListener('click', e => { e.preventDefault(); e.stopImmediatePropagation(); exportPDF(); }, { capture: true });
     document.body.appendChild(b);
     window.addEventListener('keydown', e => { if (e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); exportPDF(); } }, true);
-  }
-  addFloating();
+  })();
 
   window.tk = Object.assign(window.tk || {}, { export: exportPDF });
+  console.log('[tk] hijacker armed — click your Download PDF and it will use the new exporter.');
 })();
 </script>

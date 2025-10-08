@@ -2875,7 +2875,7 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
 </script>
 <!-- ======================== /TK ONE-PASTE PATCH ======================== -->
   <script>
-  (() => {
+  (async () => {
     const clean = s => String(s||'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
     const keyVars = k => { const b=clean(k).toLowerCase(); return [b, b.replace(/^cb_/,'')]; };
     const pretty  = s => clean(s).replace(/^cb_/i,'').replace(/[_-]+/g,' ')
@@ -2891,31 +2891,26 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
       return out;
     };
 
-    async function buildMap(){
-      let raw=null;
-      if(typeof window.buildLabelMapSafely==='function'){ try{ raw=await window.buildLabelMapSafely(); }catch{} }
-      if(!raw){ const [base,over]=await Promise.all([fetchJSON('/data/kinks.json'), fetchJSON('/data/labels-overrides.json')]); raw={...(base||{}),...(over||{}),...(window.tkLabels||{})}; }
-      return normalizeAny(raw);
-    }
+    await need(window.jspdf && window.jspdf.jsPDF,"https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js");
+    await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable,"https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js");
+
+    let raw=null;
+    if(typeof window.buildLabelMapSafely==='function'){ try{ raw=await window.buildLabelMapSafely(); }catch{} }
+    if(!raw){ const [base,over]=await Promise.all([fetchJSON('/data/kinks.json'), fetchJSON('/data/labels-overrides.json')]); raw={...(base||{}),...(over||{}),...(window.tkLabels||{})}; }
+    const MAP=normalizeAny(raw);
+
     function readTable(){
       const tbl=document.querySelector('table'); if(!tbl) throw new Error('No <table> found');
-      const headers=[...tbl.querySelectorAll('thead th')].map(th=>clean(th.textContent))||['Category','Partner A','Match %','Partner B'];
+      const head=[...tbl.querySelectorAll('thead th')].map(th=>clean(th.textContent))||['Category','Partner A','Match %','Partner B'];
       const rows=[...tbl.querySelectorAll('tbody tr')].map(tr=>[...tr.children].map(td=>clean(td.textContent)));
-      return {headers,rows};
-    }
-    async function ensurePDF(){ 
-      await need(window.jspdf && window.jspdf.jsPDF,"https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js");
-      await need(window.jspdf && window.jspdf.jsPDF?.prototype?.autoTable,"https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js");
+      return {head,rows};
     }
 
-    async function exportPDF(){
-      await ensurePDF();
-      const MAP=await buildMap();
-      const {headers,rows}=readTable();
-
+    function exportPDF(){
+      const {head,rows}=readTable();
       const body=rows.map(r=>{
         let label=null; for(const kv of keyVars(r[0])) if(MAP[kv]){ label=MAP[kv]; break; }
-        r[0]=label || pretty(r[0]);                            // remove cb_ always
+        r[0]=label || pretty(r[0]);
         for(let i=0;i<r.length;i++) if(r[i]===''||r[i]==='—') r[i]=' ';
         return r;
       });
@@ -2926,8 +2921,8 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
       doc.setFillColor(0,0,0); doc.rect(0,0,W,H,'F'); doc.setTextColor(255,255,255);
 
       const OUTER=40, GRID=[160,160,160], OUTLINE=[200,200,200], OUTLINE_W=1.6;
-      const tableWidth = W - OUTER*2;
-      const col = {
+      const tableWidth=W-OUTER*2;
+      const col={
         0:{cellWidth:tableWidth*0.40,halign:'left'},
         1:{cellWidth:tableWidth*0.20,halign:'center'},
         2:{cellWidth:tableWidth*0.20,halign:'center'},
@@ -2935,39 +2930,49 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
       };
 
       doc.autoTable({
-        head:[headers], body, theme:'grid',
+        head:[head], body, theme:'grid',
         margin:{top:OUTER,right:OUTER,bottom:OUTER,left:OUTER},
         tableWidth,
-        styles:{ font:'helvetica', fontSize:13, textColor:[255,255,255], fillColor:null,
-                 cellPadding:12, lineWidth:0.7, lineColor:GRID, minCellHeight:24 },
-        headStyles:{ fontStyle:'bold', textColor:[255,255,255], fillColor:null, lineWidth:0.9, lineColor:GRID },
+        styles:{font:'helvetica',fontSize:13,textColor:[255,255,255],fillColor:null,cellPadding:12,lineWidth:0.7,lineColor:GRID,minCellHeight:24},
+        headStyles:{fontStyle:'bold',textColor:[255,255,255],fillColor:null,lineWidth:0.9,lineColor:GRID},
         tableLineWidth:0.9, tableLineColor:GRID,
-        columnStyles: col,
-        didAddPage(){ doc.setFillColor(0,0,0); doc.rect(0,0,W,H,'F'); doc.setTextColor(255,255,255); }
+        columnStyles:col,
+        didAddPage(){doc.setFillColor(0,0,0);doc.rect(0,0,W,H,'F');doc.setTextColor(255,255,255);}
       });
 
-      const topY=OUTER, botY=doc.lastAutoTable.finalY, leftX=OUTER, height=Math.max(0, botY-topY);
+      const topY=OUTER, botY=doc.lastAutoTable.finalY, leftX=OUTER, height=Math.max(0,botY-topY);
       doc.setLineWidth(OUTLINE_W); doc.setDrawColor(...OUTLINE); doc.rect(leftX, topY, tableWidth, height, 'S');
       doc.save('compatibility-black-grid-NAMES.pdf');
     }
 
-    // ---- PERMANENT HIJACK: route ALL PDF-like clicks to exportPDF ----
-    function bindExporter(root=document){
-      const els=[...root.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]')];
-      for(const el of els){
-        const label=(el.textContent||el.value||'').toLowerCase();
-        const attrs=(el.getAttributeNames?.()||[]).map(n=>(el.getAttribute(n)||'').toLowerCase()).join(' ');
-        const looksPdf=/pdf|export|download|save|print/.test(label+attrs) || /\.pdf(?:\b|$)/.test(el.getAttribute('href')||'');
-        if(!looksPdf) continue;
-        el.removeAttribute('href'); el.onclick=null; el.onmousedown=null; el.onmouseup=null;
-        const clone=el.cloneNode(true); el.replaceWith(clone);
-        clone.addEventListener('click', (e)=>{ e.preventDefault(); e.stopImmediatePropagation(); exportPDF(); }, {capture:true});
+    function hijack(root=document){
+      const cand=[...root.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]')];
+      for(const el of cand){
+        const txt=(el.textContent||el.value||'').toLowerCase();
+        const href=(el.getAttribute('href')||'').toLowerCase();
+        if(!(/pdf|export|download|save|print/.test(txt+href)||/\.pdf\b/.test(href))) continue;
+        const clone=el.cloneNode(true);
+        el.replaceWith(clone);
+        clone.addEventListener('click', e=>{
+          e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+          exportPDF();
+        }, {capture:true});
       }
     }
-    bindExporter();
-    new MutationObserver(()=>bindExporter()).observe(document.documentElement,{childList:true,subtree:true});
+    hijack();
+    new MutationObserver(()=>hijack()).observe(document.documentElement,{childList:true,subtree:true});
 
-    // add a floating button + hotkey too
+    document.addEventListener('click', e=>{
+      const el=e.target.closest('a,button,[role="button"],input[type="button"],input[type="submit"]');
+      if(!el) return;
+      const txt=(el.textContent||el.value||'').toLowerCase();
+      const href=(el.getAttribute('href')||'').toLowerCase();
+      if(/pdf|export|download|save|print/.test(txt+href)||/\.pdf\b/.test(href)){
+        e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+        exportPDF();
+      }
+    }, true);
+
     (function addButton(){
       if (document.getElementById('tk-pdf-btn')) return;
       const b=document.createElement('button'); b.id='tk-pdf-btn';
@@ -2980,8 +2985,8 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
       window.addEventListener('keydown',e=>{ if(e.shiftKey&&(e.key==='D'||e.key==='d')){ e.preventDefault(); exportPDF(); } },true);
     })();
 
-    // expose for console
     window.tk = Object.assign(window.tk||{}, { export: exportPDF });
+    console.log('[tk] hijacker armed — click your Download PDF and it will use the new exporter.');
   })();
   </script>
 </body>
