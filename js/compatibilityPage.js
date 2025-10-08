@@ -386,7 +386,8 @@ function maybeUpdateComparison() {
   // Disable export until both sides present
   const pdfBtn =
     document.querySelector('#downloadPdfBtn') ||
-    document.querySelector('#downloadBtn');
+    document.querySelector('#downloadBtn') ||
+    document.querySelector('#downloadPdf');
   if (pdfBtn) pdfBtn.disabled = !bothReady();
 
   if (!bothReady()) {
@@ -454,6 +455,61 @@ if (typeof window.processSurveyB !== 'function') {
     return null;
   };
 
+  const safeAttr = (value) => {
+    if (typeof value !== 'string' || !value) return '';
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+      return CSS.escape(value);
+    }
+    return value.replace(/"/g, '\\"');
+  };
+
+  const collectTriggers = (input, which) => {
+    const triggers = new Set();
+    if (!(input instanceof HTMLElement)) return triggers;
+    const selectors = [];
+    const id = input.id && input.id.trim();
+    if (id) selectors.push(`[data-upload-trigger="${safeAttr(id)}"]`);
+    if (which) selectors.push(`[data-upload-trigger="${safeAttr(which)}"]`);
+
+    const qsa = (sel) => {
+      if (!sel) return [];
+      try {
+        return Array.from(document.querySelectorAll(sel));
+      } catch (err) {
+        console.warn('[compat] invalid upload trigger selector', sel, err);
+        return [];
+      }
+    };
+
+    selectors.forEach((sel) => qsa(sel).forEach((el) => {
+      if (el instanceof HTMLElement) triggers.add(el);
+    }));
+
+    const wrapper = input.closest('.upload-button, [data-upload-wrapper]');
+    if (wrapper) {
+      wrapper.querySelectorAll('[data-upload-trigger], .upload-trigger').forEach((el) => {
+        if (el instanceof HTMLElement) triggers.add(el);
+      });
+    }
+
+    return triggers;
+  };
+
+  const bindUploadTriggers = (input, which) => {
+    if (!(input instanceof HTMLInputElement)) return;
+    collectTriggers(input, which).forEach((trigger) => {
+      if (trigger.dataset.tkUploadBound) return;
+      trigger.addEventListener('click', (event) => {
+        try {
+          if (trigger.matches(':disabled,[aria-disabled="true"]')) return;
+        } catch {}
+        event.preventDefault();
+        input.click();
+      });
+      trigger.dataset.tkUploadBound = '1';
+    });
+  };
+
   const upA = findUpload('A');
   const upB = findUpload('B');
 
@@ -464,6 +520,9 @@ if (typeof window.processSurveyB !== 'function') {
 
   upA.setAttribute('accept', 'application/json');
   upB.setAttribute('accept', 'application/json');
+
+  bindUploadTriggers(upA, 'A');
+  bindUploadTriggers(upB, 'B');
 
   const parse = (txt, side) => {
     try {
