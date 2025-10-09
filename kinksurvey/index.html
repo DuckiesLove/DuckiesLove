@@ -14,6 +14,23 @@
 <link rel="stylesheet" href="/css/theme.css">
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
 
+<!-- TK HOTFIX: make survey load resilient even when kinks.json returns an object or fails -->
+<script>
+(function () {
+  if (!Object.prototype.hasOwnProperty('forEach')) {
+    Object.defineProperty(Object.prototype, 'forEach', {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value: function (cb, thisArg) {
+        if (Array.isArray(this) || this === null || typeof this !== 'object') return;
+        return Object.values(this).forEach(cb, thisArg);
+      }
+    });
+  }
+})();
+</script>
+
 <!-- ONE-BOX: guarantee survey dataset + normalize shape -->
 <script type="module">
 /* 1) Inline fallback dataset (trim this list to what you want visible). */
@@ -39,64 +56,95 @@ const TK_INLINE_DATASET = {
   ]
 };
 
-/* 2) Normalize ANY incoming shape into { items: Array<{id,label,group?}> }. */
+/* 2) Normalize ANY incoming shape into { items: Array<{id,label,group?,type?}> }. */
 function normalizeDataset(raw) {
-  // already correct
-  if (raw && Array.isArray(raw.items)) return { items: raw.items };
+  const coerceEntries = (input) => {
+    if (!input) return [];
+    if (Array.isArray(input)) return input;
+    if (typeof input === "object") {
+      return Object.entries(input).map(([id, val]) => {
+        if (val && typeof val === "object") {
+          return {
+            id: val.id ?? val.code ?? val.key ?? id ?? "",
+            label: val.label ?? val.name ?? val.title ?? val.text ?? String(id ?? ""),
+            group: val.group ?? val.category,
+            type: val.type ?? val.input
+          };
+        }
+        return { id: id ?? "", label: String(val ?? id ?? "") };
+      });
+    }
+    return [];
+  };
 
-  // raw is array: assume array of {id,label} or strings
+  const normalizeItem = (entry) => {
+    if (!entry || typeof entry !== "object") {
+      const text = String(entry ?? "");
+      return text ? { id: text, label: text } : null;
+    }
+    const id = String(entry.id ?? entry.code ?? entry.key ?? entry.name ?? "").trim();
+    const label = String(entry.label ?? entry.name ?? entry.title ?? entry.text ?? id).trim();
+    const group = entry.group ?? entry.category;
+    const type = entry.type ?? entry.input;
+    const out = { id: id || label, label: label || id };
+    if (group) out.group = group;
+    if (type) out.type = type;
+    return out;
+  };
+
+  const itemsFrom = (input) => coerceEntries(input).map(normalizeItem).filter(Boolean);
+
+  if (raw && Array.isArray(raw.items)) {
+    const items = raw.items.map(normalizeItem).filter(Boolean);
+    return { items };
+  }
+
+  if (raw && raw.items && typeof raw.items === "object") {
+    const items = itemsFrom(raw.items);
+    if (items.length) return { items };
+  }
+
   if (Array.isArray(raw)) {
-    const items = raw.map(x => {
-      if (typeof x === "string") return { id: x, label: x };
-      if (x && typeof x === "object") return { id: x.id ?? x.code ?? "", label: x.label ?? x.name ?? x.id ?? "" };
-      return null;
-    }).filter(Boolean);
+    const items = raw.map(normalizeItem).filter(Boolean);
     return { items };
   }
 
-  // raw is object map { id: "Label", ... }
   if (raw && typeof raw === "object") {
-    const items = Object.entries(raw).map(([id, label]) => ({ id, label: String(label) }));
-    return { items };
+    const items = itemsFrom(raw);
+    if (items.length) return { items };
   }
 
-  // last resort: inline dataset
   return { items: TK_INLINE_DATASET.items.slice() };
 }
 
 /* 3) Hijack fetch ONLY for kinks.json; always return valid JSON */
 const ORIG_FETCH = window.fetch.bind(window);
+const respondWith = (data) => new Response(JSON.stringify(data), {
+  status: 200,
+  headers: { "Content-Type": "application/json" }
+});
+const isKinksJson = (input) => {
+  const str = typeof input === "string" ? input : (input && input.url) || "";
+  return /(?:^|\/)(?:kinksurvey\/|assets\/)?(?:data\/)?kinks\.json(?:[?#]|$)/i.test(str);
+};
 window.fetch = async function hijackKinks(url, opts) {
   try {
-    const u = (typeof url === "string") ? url : (url && url.url);
-    if (typeof u === "string" && /\/data\/kinks\.json(\?|$)/.test(u)) {
-      // 3a) Try the real request first; if it fails or returns bad JSON, fall back.
+    if (isKinksJson(url)) {
       try {
         const res = await ORIG_FETCH(url, { cache: "no-store", ...opts });
         if (!res.ok) throw new Error("HTTP " + res.status);
-        // Parse JSON safely; if it’s HTML or garbage this will throw.
         const data = await res.clone().json().catch(() => null);
-        if (data) {
-          const normalized = normalizeDataset(data);
-          return new Response(JSON.stringify(normalized), {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-        throw new Error("Bad JSON body");
+        const normalized = normalizeDataset(data);
+        return respondWith(normalized);
       } catch (e) {
         console.warn("[kinksurvey] Fetch failed, using inline dataset:", e?.message || e);
-        const normalized = normalizeDataset(TK_INLINE_DATASET);
-        return new Response(JSON.stringify(normalized), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
+        return respondWith(normalizeDataset(TK_INLINE_DATASET));
       }
     }
   } catch (e) {
     console.warn("[kinksurvey] fetch hijacker error:", e);
+    return respondWith(normalizeDataset(TK_INLINE_DATASET));
   }
-  // non-kinks.json requests: pass through
   return ORIG_FETCH(url, opts);
 };
 
@@ -460,12 +508,32 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   async function safeJson(url) {
     try {
       const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch {
-      return null;
+      if (!res.ok) return { data: null, error: `HTTP ${res.status}` };
+      const data = await res.clone().json().catch(() => null);
+      if (!data) return { data: null, error: 'Invalid JSON body' };
+      return { data, error: null };
+    } catch (err) {
+      return { data: null, error: err?.message || 'Network error' };
     }
   }
+
+  const FALLBACK_ITEMS = [
+    { id: "cb_e4bdv", label: "Dress partner’s outfit", group: "Appearance" },
+    { id: "cb_hhxwj", label: "Pick lingerie / base layers", group: "Appearance" },
+    { id: "cb_a19jy", label: "Uniforms (school, military, nurse, etc.)", group: "Appearance" },
+    { id: "cb_5gzwk", label: "Time-period dress-up", group: "Appearance" },
+    { id: "cb_jmxxq", label: "Dollification / polished object aesthetics", group: "Appearance" },
+    { id: "cb_67z7h", label: "Hair-based play (brushing, ribbons, tying)", group: "Appearance" },
+    { id: "cb_d8lcg", label: "Head coverings / symbolic hoods", group: "Appearance" },
+    { id: "cb_h1ua2", label: "Coordinated looks / dress codes", group: "Appearance" },
+    { id: "cb_6zi8g", label: "Ritualized grooming", group: "Appearance" },
+    { id: "cb_5ca8j", label: "Praise for pleasing visual display", group: "Appearance" },
+    { id: "cb_k3ig3", label: "Clothing as power-role signal", group: "Appearance" },
+    { id: "cb_20kgs", label: "Makeup as protocol or control", group: "Appearance" }
+  ];
+
+  const cloneItems = (items = []) => items.map(item => ({ ...item }));
+  const fallbackDataset = () => ({ items: cloneItems(FALLBACK_ITEMS) });
 
   async function loadKinksDataset() {
     const v = Date.now();
@@ -474,14 +542,19 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       `/kinksurvey/data/kinks.json?v=${v}`,
       `data/kinks.json?v=${v}`
     ];
+    const errors = [];
     for (const u of urls) {
-      const j = await safeJson(u);
-      if (j) return j;
+      const { data, error } = await safeJson(u);
+      if (data) return { dataset: data, source: u, errors };
+      if (error) errors.push(`${u}: ${error}`);
     }
-    if (window.TK_DATASET && Array.isArray(window.TK_DATASET.items)) {
-      return window.TK_DATASET;
+    if (window.KINKS_BANK) {
+      return { dataset: window.KINKS_BANK, source: 'window.KINKS_BANK', errors, usedFallback: true };
     }
-    return null;
+    if (window.TK_DATASET && Array.isArray(window.TK_DATASET.items) && window.TK_DATASET.items.length) {
+      return { dataset: { items: cloneItems(window.TK_DATASET.items) }, source: 'inline dataset', errors, usedFallback: true };
+    }
+    return { dataset: fallbackDataset(), source: 'embedded fallback', errors, usedFallback: true };
   }
 
   // Elements
@@ -639,12 +712,29 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
   const sortCats = arr => arr.sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
+  const toItemsArray = (items) => {
+    if (!items) return [];
+    if (Array.isArray(items)) return items;
+    if (typeof items === 'object') {
+      return Object.entries(items).map(([id, val]) => {
+        if (val && typeof val === 'object') {
+          return {
+            id: val.id ?? val.code ?? val.key ?? id ?? '',
+            label: val.label ?? val.name ?? val.title ?? val.text ?? String(id ?? ''),
+            type: val.type ?? val.input ?? 'scale'
+          };
+        }
+        return { id: id ?? '', label: String(val ?? id ?? ''), type: 'scale' };
+      });
+    }
+    return [];
+  };
   function normalize(raw){
     const out=[];
     const push=(name,items)=>{
       const cat=tidy(name); if(!cat) return;
       const arr=[];
-      (items||[]).forEach(it=>{
+      toItemsArray(items).forEach(it=>{
         const id=tidy(it?.id||it?.key||it?.name||'');
         const label=tidy(it?.label||it?.text||'');
         const type=tidy(it?.type||'scale');
@@ -652,9 +742,9 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       });
       if(arr.length) out.push({category:cat, items:arr});
     };
-    if (raw && typeof raw === 'object' && Array.isArray(raw.items)){
+    if (raw && typeof raw === 'object' && (Array.isArray(raw.items) || (raw.items && typeof raw.items === 'object'))){
       const grouped = new Map();
-      raw.items.forEach(it=>{
+      toItemsArray(raw.items).forEach(it=>{
         const id=tidy(it?.id||it?.code||it?.key||it?.name||'');
         const label=tidy(it?.label||it?.name||it?.title||'');
         const type=tidy(it?.type||'scale');
@@ -667,7 +757,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       grouped.forEach((items, name)=>push(name, items));
       return out;
     }
-    if (Array.isArray(raw)) raw.forEach(x=>push(x?.category ?? x?.name, x?.items));
+    if (Array.isArray(raw)) raw.forEach(x=>push(x?.category ?? x?.name, x?.items ?? x));
     else if (raw && typeof raw==='object') Object.entries(raw).forEach(([k,v])=>push(k,v));
     return out;
   }
@@ -745,11 +835,26 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   // Boot
   try{
-    const dataset = await loadKinksDataset();
+    const info = await loadKinksDataset();
+    const dataset = info?.dataset;
     if (!dataset) throw new Error('Dataset unavailable. Expected /data/kinks.json');
-    S.cats = sortCats(normalize(dataset));
+    let cats = sortCats(normalize(dataset));
+    if (!cats.length && !info?.usedFallback) {
+      cats = sortCats(normalize(fallbackDataset()));
+    }
+    if (!cats.length) throw new Error('Dataset unavailable. Expected /data/kinks.json');
+    S.cats = cats;
     renderPanel(S.cats);
-    status.textContent = `Loaded ${S.cats.length} categories`;
+    const suffix = info?.usedFallback ? ' (fallback dataset)' : '';
+    status.textContent = `Loaded ${S.cats.length} categories${suffix}`;
+    const problems = Array.isArray(info?.errors) ? info.errors.filter(Boolean) : [];
+    if (problems.length) {
+      showDiag(`Using fallback dataset. Issues encountered:\n- ${problems.join('\n- ')}`);
+    } else if (info?.usedFallback) {
+      showDiag('Using embedded fallback dataset until /data/kinks.json is available.');
+    } else {
+      diag.style.display = 'none';
+    }
     maybeRevealPanel();
   }catch(e){
     const msg = e?.message || 'Dataset unavailable. Expected /data/kinks.json';
