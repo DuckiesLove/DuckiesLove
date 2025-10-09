@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TK Enhancement Loader + Safety Fallback (drop-in)</title>
+</head>
+<body>
+<!-- TK enhancement loader + safety fallback (drop-in) -->
+<style>
+  /* SAFETY: never completely hide content because JS didn't load. */
+  /* Keep this lightweight: we don't touch your layout/colors.      */
+  html.tk-preload body { opacity: 1; }
+  /* If you used any "gate" attributes/classes to hide the app until JS: */
+  .js-gate,[data-gate],[data-reveal] {
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+</style>
+
+<script id="tk-enhance-loader">
+(function () {
+  const HTML = document.documentElement;
+
+  // Mark a soft "preload" state (can be used for subtle transitions),
+  // but we DO NOT hide content — black screens are worse than no animation.
+  HTML.classList.add('tk-preload');
+
+  // Ensure the app becomes visible no matter what.
+  const ungate = () => {
+    HTML.classList.remove('tk-preload');
+    HTML.classList.add('tk-ready');
+
+    // If anything was hidden via "gate" markers, unhide it.
+    document.querySelectorAll('.js-gate,[data-gate],[data-reveal],[hidden]')
+      .forEach(el => {
+        if (el.matches('.js-gate,[data-gate],[data-reveal]')) {
+          el.classList.remove('js-gate');
+          el.removeAttribute('data-gate');
+          el.removeAttribute('data-reveal');
+          el.style.visibility = 'visible';
+          el.style.opacity = '';
+        }
+        if (el.hasAttribute('hidden')) el.hidden = false;
+      });
+  };
+
+  // Generic loader that resolves URLs against the current page location.
+  function loadScript(relPath) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.defer = true;
+      // Resolve relative URL against document.baseURI so /kinks/ works.
+      s.src = new URL(relPath, document.baseURI).href;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load ' + relPath));
+      document.head.appendChild(s);
+    });
+  }
+
+  // Timeout guard: don’t block the page longer than this.
+  const timeout = (ms) => new Promise((_, rej) =>
+    setTimeout(() => rej(new Error('timeout after ' + ms + 'ms')), ms)
+  );
+
+  // Try to load both enhancement scripts; if they fail or stall, we still ungate.
+  Promise.race([
+    Promise.all([
+      loadScript('tk_reveal.js'),
+      loadScript('tk_clickfix.js'),
+    ]),
+    timeout(1500) // adjust if your host is very slow, but keep it short
+  ])
+  .catch(err => console.warn('[TK] Enhancements failed; continuing without them:', err))
+  .finally(ungate);
+})();
+</script>
+</body>
+</html>
