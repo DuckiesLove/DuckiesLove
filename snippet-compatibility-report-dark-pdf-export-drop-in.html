@@ -12,164 +12,110 @@
 </style>
 
 <script>
-(function(){
-  const log=(...a)=>console.log('[TK-PDF]',...a);
+(() => {
+  const BTN_SELECTOR = '#dl';
+  const TARGET_SELECTOR = '.wrap';
+  const JSPDF_URL = '/js/vendor/jspdf.umd.min.js';
+  const H2C_URL = '/js/vendor/html2canvas.min.js';
 
-  /* ------------------------------ BUTTON RESCUE ----------------------------- */
-  // Find an existing download button (by id / text), or create a floating one.
-  function findOrCreateDownloadBtn(){
-    let btn = document.querySelector('#dl, #download, button#dl, button#download, [data-action="download"]');
-    if(!btn){
-      // fallback: look for text
-      btn = Array.from(document.querySelectorAll('button,a')).find(b=>{
-        const t=(b.textContent||'').toLowerCase();
-        return t.includes('download pdf')||t.includes('export pdf');
-      });
-    }
-    if(!btn){
-      btn = document.createElement('button');
-      btn.id='dl';
-      btn.textContent='Download PDF';
-      btn.type='button';
-      btn.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;background:#00d1ff;color:#000;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35)';
-      document.body.appendChild(btn);
-    }
-    // neutralize old window.print handlers
-    btn.onclick=null;
-    return btn;
-  }
+  const log = (...a) => console.log('[TK-PDF]', ...a);
 
-  /* ------------------------------ LABEL MERGE ------------------------------- */
-  async function getJSON(url){
-    try{
-      const r=await fetch(url,{cache:'no-store'});
-      if(!r.ok) throw new Error(r.status);
-      return await r.json();
-    }catch(e){ return null }
-  }
-  async function mergeLabels(){
-    const merged = Object.assign({}, window.TK_LABELS || {});
-    // 1) site overrides
-    const o = await getJSON('/data/labels-overrides.json');
-    if(o && typeof o==='object') Object.assign(merged,o);
-    // 2) base kinks data (works if it’s { id->label } OR { items:[{id,label}] })
-    const k = await getJSON('/data/kinks.json');
-    if(k && typeof k==='object'){
-      if(Array.isArray(k.items)){
-        k.items.forEach(it=>{ if(it?.id && it?.label) merged[it.id]=it.label; });
-      }else{
-        Object.assign(merged,k);
-      }
-    }
-    return merged;
-  }
-  function applyLabels(map){
-    const cells = document.querySelectorAll('table tr td:first-child, table tr th:first-child');
-    let replaced=0;
-    cells.forEach(td=>{
-      const raw=(td.textContent||'').trim();
-      if(/^cb_[a-z0-9]+$/i.test(raw) && map[raw]){
-        td.textContent = map[raw];
-        replaced++;
-      }
-    });
-    log(`labels applied: ${replaced}`);
-  }
-
-  /* ----------------------------- LIB LOADER --------------------------------- */
-  function getByPath(obj, path){ return path.split('.').reduce((o,k)=>o&&o[k], obj) }
-  async function ensureLib(srcs, globalPath){
-    if(getByPath(window, globalPath)) return getByPath(window, globalPath);
-    for(const src of srcs){
-      try{
-        await new Promise((res,rej)=>{
-          const s=document.createElement('script');
-          s.src=src; s.async=true; s.onload=res; s.onerror=rej;
-          document.head.appendChild(s);
-        });
-        if(getByPath(window, globalPath)) return getByPath(window, globalPath);
-      }catch(_){ }
-    }
-    throw new Error('Failed to load '+globalPath);
-  }
-
-  /* --------------------------- FULL-BLEED EXPORT ---------------------------- */
-  async function makeFullBleedPDF(){
-    log('export start');
-
-    // 1) translate cb_* on screen before snapshot
-    const labels = await mergeLabels();
-    applyLabels(labels);
-
-    // 2) libs
-    const html2canvas = await ensureLib(
-      ['/js/vendor/html2canvas.min.js','https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'],
-      'html2canvas'
-    );
-    const { jsPDF } = await ensureLib(
-      ['/js/vendor/jspdf.umd.min.js','https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'],
-      'jspdf'
-    );
-
-    // 3) choose capture root
-    const root = document.querySelector('.wrap') || document.body;
-
-    // 4) force black backing so no gaps appear
-    const oldBg = root.style.backgroundColor;
-    root.style.backgroundColor='#000';
-
-    // 5) render to canvas (hi-dpi)
-    const canvas = await html2canvas(root,{
-      backgroundColor:'#000',
-      scale:2,
-      useCORS:true,
-      windowWidth: document.documentElement.scrollWidth,
-      windowHeight: document.documentElement.scrollHeight
-    });
-
-    root.style.backgroundColor = oldBg || '';
-
-    const imgData = canvas.toDataURL('image/png');
-    const pxW = canvas.width;
-    const pxH = canvas.height;
-
-    // Convert CSS pixels -> points (approx 96dpi -> 72pt)
-    const ptW = pxW * (72/96);
-    const ptH = pxH * (72/96);
-    const landscape = ptW>=ptH;
-
-    // 6) create a PDF *exactly* the canvas size -> NO MARGINS
-    const pdf = new jsPDF({ unit:'pt', format:[ptW,ptH], orientation:landscape?'landscape':'portrait' });
-    pdf.setProperties({ title:'Compatibility' });
-    pdf.addImage(imgData,'PNG',0,0,ptW,ptH, undefined, 'FAST');
-    pdf.save('compatibility.pdf');
-
-    log('export done');
-  }
-
-  /* ------------------------------- WIRE IT ---------------------------------- */
-  const dlBtn = findOrCreateDownloadBtn();
-  dlBtn.addEventListener('click',(ev)=>{
-    ev.preventDefault();
-    ev.stopPropagation();
-    makeFullBleedPDF().catch(err=>{
-      console.error('[TK-PDF] export failed:', err);
-      alert('PDF export failed: '+ err.message);
-    });
-  },{capture:true});
-
-  // Also hijack *any* other “Download PDF / Export PDF” elements on the page.
-  Array.from(document.querySelectorAll('a,button')).forEach(el=>{
-    const t=(el.textContent||'').toLowerCase();
-    if(t.includes('download pdf')||t.includes('export pdf')){
-      el.onclick=null;
-      el.addEventListener('click',(e)=>{e.preventDefault();makeFullBleedPDF();},{capture:true});
-    }
+  // Safe loader for vendor libs
+  const loadScript = (src) => new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = new URL(src, document.baseURI).href;
+    s.defer = true;
+    s.onload = res;
+    s.onerror = () => rej(new Error('Failed to load ' + src));
+    document.head.appendChild(s);
   });
 
-  // Apply labels once for on-screen table too
-  mergeLabels().then(applyLabels);
+  async function ensureVendors() {
+    if (!globalThis.jspdf) await loadScript(JSPDF_URL);
+    if (!globalThis.html2canvas) await loadScript(H2C_URL);
+    if (!globalThis.jspdf || !globalThis.html2canvas) {
+      throw new Error('jsPDF or html2canvas not available');
+    }
+  }
 
-  log('armed — click “Download PDF”.');
+  async function makeFullBleedPDF() {
+    log('Export start');
+    await ensureVendors();
+
+    // Force a black background for the snapshot
+    const target = document.querySelector(TARGET_SELECTOR) || document.body;
+    const prevHtmlBg = getComputedStyle(document.documentElement).backgroundColor;
+    const prevBodyBg = getComputedStyle(document.body).backgroundColor;
+    document.documentElement.style.background = '#000';
+    document.body.style.background = '#000';
+
+    try {
+      // Snapshot: scale up for sharper PDF
+      const canvas = await globalThis.html2canvas(target, {
+        backgroundColor: '#000',
+        scale: Math.min(2, window.devicePixelRatio || 1.5),
+        allowTaint: true,
+        useCORS: true,
+        logging: false
+      });
+
+      const { jsPDF } = globalThis.jspdf;
+      // Landscape if your table is wide; flip to 'p' for portrait if you prefer
+      const doc = new jsPDF({ orientation: 'l', unit: 'pt', format: 'a4' });
+
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      // BLACK PAGE, NO MARGINS
+      doc.setFillColor(0,0,0);
+      doc.rect(0, 0, pageW, pageH, 'F');
+
+      // Fit canvas edge-to-edge (preserving aspect)
+      const imgData = canvas.toDataURL('image/png');
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+      const ratio = Math.min(pageW / imgW, pageH / imgH);
+      const drawW = imgW * ratio;
+      const drawH = imgH * ratio;
+      const x = (pageW - drawW) / 2;
+      const y = (pageH - drawH) / 2;
+
+      doc.addImage(imgData, 'PNG', x, y, drawW, drawH, undefined, 'FAST');
+      doc.save('compatibility.pdf');
+      log('Export complete');
+    } catch (err) {
+      console.error('[TK-PDF] Export failed:', err);
+      alert('PDF export failed. See console for details.');
+    } finally {
+      // restore any previous backgrounds
+      document.documentElement.style.background = prevHtmlBg;
+      document.body.style.background = prevBodyBg;
+    }
+  }
+
+  // Intercept clicks robustly (works even if another handler exists)
+  function bindDownload() {
+    const btn = document.querySelector(BTN_SELECTOR);
+    if (!btn) {
+      log(`Button ${BTN_SELECTOR} not found; will re-try after DOMContentLoaded`);
+      document.addEventListener('DOMContentLoaded', bindDownload, { once: true });
+      return;
+    }
+    // Remove any inline onclick to avoid window.print()
+    btn.removeAttribute('onclick');
+
+    // Capture phase to beat bubbling handlers that call print()
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      makeFullBleedPDF();
+    }, true);
+
+    log('Hijacker armed — click your Download PDF and it will use the new exporter.');
+  }
+
+  // Arm immediately and after DOM is ready
+  bindDownload();
+  document.addEventListener('DOMContentLoaded', bindDownload, { once: true });
 })();
 </script>
