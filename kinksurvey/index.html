@@ -1920,5 +1920,217 @@ setTimeout(() => {
 })();
 </script>
 <script src="/kinksurvey/focus-panel-shim.js" defer></script>
+<!-- =====================  DROP-IN PATCH (ONE BOX)  =====================
+
+Goal:
+- The survey’s category picker should list *categories from kinks.json* (not “labels”).
+- “Select All / Deselect All” must work even when the list is rendered later.
+- Be defensive if kinks.json changes shape or fails (no more “forEach is not a function”).
+- Avoid aria-hidden focus trap issues when opening/closing the panel.
+
+How to use:
+1) Paste this whole block near the end of /kinksurvey/index.html (right before </body>),
+   OR put everything inside a new file /js/kinks-category-panel.js and load it with:
+     <script type="module" src="/js/kinks-category-panel.js"></script>
+2) Ensure these IDs exist in your panel markup:
+     #categoryList, #selectAllBtn, #deselectAllBtn, #catCounter,
+     #categorySurveyPanel (the <aside> panel), #openPanelBtn, #closePanelBtn
+   (You likely already have them; adjust selectors below if yours differ.)
+3) Remove any older click handlers that were bound to these same controls.
+
+======================================================================== -->
+<style>
+  /* Make sure the panel and its controls can actually be clicked */
+  #categorySurveyPanel [hidden] { display: none !important; }
+  #categorySurveyPanel label,
+  #categorySurveyPanel input,
+  #selectAllBtn, #deselectAllBtn { pointer-events: auto; }
+
+  /* Simple list styling (optional) */
+  .cat-list { list-style: none; margin: 0; padding: 0; }
+  .cat-row  { display:flex; align-items:center; gap:.75rem; padding:.5rem 0; }
+  .cat-row input { width:1.1rem; height:1.1rem; }
+  .cat-row .name { flex:1; }
+</style>
+
+<script type="module">
+(() => {
+  // ----------------------------- DOM HOOKS -----------------------------
+  const els = {
+    panel:        document.getElementById('categorySurveyPanel'),   // <aside>
+    openPanelBtn: document.getElementById('openPanelBtn'),          // your “Start Survey” or menu btn
+    closePanelBtn:document.getElementById('closePanelBtn'),         // the small X close button
+
+    list:         document.getElementById('categoryList'),
+    selectAll:    document.getElementById('selectAllBtn'),
+    deselectAll:  document.getElementById('deselectAllBtn'),
+    counter:      document.getElementById('catCounter'),
+  };
+
+  // Guard — if the panel isn’t on this page, stop quietly.
+  if (!els.panel || !els.list) return;
+
+  // ----------------------------- PANEL A11Y -----------------------------
+  // Avoid hiding a focused element with aria-hidden (was causing the console warning).
+  function openPanel() {
+    els.panel.removeAttribute('hidden');
+    els.panel.setAttribute('aria-hidden', 'false');
+    // move focus to first control for screen-readers
+    (els.selectAll || els.panel).focus({ preventScroll:true });
+  }
+  function closePanel() {
+    els.panel.setAttribute('aria-hidden', 'true');
+    els.panel.setAttribute('hidden', '');
+    // return focus to the button that opened the panel if present
+    els.openPanelBtn?.focus({ preventScroll:true });
+  }
+  els.openPanelBtn?.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+  els.closePanelBtn?.addEventListener('click', (e) => { e.preventDefault(); closePanel(); });
+
+  // ----------------------------- DATA LOADER ----------------------------
+  // We ONLY want categories derived from kinks.json (ignore "labels").
+  // Accept multiple possible shapes of kinks.json to be resilient:
+  //   A) { kinks:[{ id, category, name, ... }], labels:{...} }
+  //   B) [{ id, category, ... }, ...]
+  //   C) { categories:[ "Impact Play", ... ] }
+  const KINKS_URL = `/data/kinks.json?v=${Date.now()}`;
+
+  async function fetchJson(url) {
+    const res = await fetch(url, { cache:'no-store' });
+    if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
+    return res.json();
+  }
+
+  function extractCategories(data) {
+    // Return a deduped, alpha-sorted array of category names (strings).
+    let categories = [];
+
+    if (Array.isArray(data)) {
+      // flat array of kink items
+      categories = data.map(k => k?.category).filter(Boolean);
+    } else if (data && Array.isArray(data.kinks)) {
+      // object with kinks array
+      categories = data.kinks.map(k => k?.category).filter(Boolean);
+    } else if (data && Array.isArray(data.categories)) {
+      // already just categories
+      categories = data.categories.slice();
+    } else {
+      // Unknown shape — try scanning any array-like fields just in case
+      for (const v of Object.values(data || {})) {
+        if (Array.isArray(v) && v.length && typeof v[0] === 'object') {
+          categories.push(...v.map(x => x?.category).filter(Boolean));
+        }
+      }
+    }
+
+    // Deduplicate + sort A→Z
+    return [...new Set(categories)].sort((a, b) =>
+      String(a).localeCompare(String(b), undefined, { sensitivity:'base' })
+    );
+  }
+
+  // ----------------------------- RENDER ---------------------------------
+  function renderCategoryList(categoryNames) {
+    // Build list HTML
+    const frag = document.createDocumentFragment();
+
+    categoryNames.forEach((name, idx) => {
+      const li = document.createElement('li');
+      li.className = 'cat-row';
+
+      const label = document.createElement('label');
+      label.className = 'tk-check';
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = 'category';
+      input.value = name;
+      input.id = `cat_${idx}`;
+
+      const spanName = document.createElement('span');
+      spanName.className = 'name';
+      spanName.textContent = name;
+
+      label.htmlFor = input.id;
+      label.appendChild(input);
+      label.appendChild(spanName);
+      li.appendChild(label);
+      frag.appendChild(li);
+    });
+
+    // Replace the list contents in one go
+    els.list.classList.add('cat-list');
+    els.list.replaceChildren(frag);
+
+    updateCounter();
+  }
+
+  // ----------------------------- CONTROLS -------------------------------
+  const getBoxes = () =>
+    Array.from(els.list.querySelectorAll('input[name="category"]'));
+
+  function updateCounter() {
+    const all = getBoxes();
+    const on  = all.filter(b => b.checked).length;
+    els.counter && (els.counter.textContent = `${on} selected / ${all.length} total`);
+  }
+
+  function selectAll()   { getBoxes().forEach(b => b.checked = true);  updateCounter(); }
+  function deselectAll() { getBoxes().forEach(b => b.checked = false); updateCounter(); }
+
+  els.selectAll?.addEventListener('click',  (e) => { e.preventDefault(); selectAll(); });
+  els.deselectAll?.addEventListener('click',(e) => { e.preventDefault(); deselectAll(); });
+
+  // Delegated click (works even if rows are re-rendered)
+  els.list.addEventListener('click', (e) => {
+    const label = e.target.closest('label');
+    const input = label?.querySelector('input[name="category"]')
+               ||  e.target.closest('input[name="category"]');
+    if (!input) return;
+
+    if (e.target !== input) {
+      input.checked = !input.checked;
+      e.preventDefault();
+    }
+    updateCounter();
+  });
+
+  els.list.addEventListener('keydown', (e) => {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    const row = e.target.closest('li, .cat-row');
+    const box = row?.querySelector('input[name="category"]');
+    if (!box) return;
+    box.checked = !box.checked;
+    updateCounter();
+    e.preventDefault();
+  });
+
+  // ----------------------------- INIT -----------------------------------
+  async function init() {
+    try {
+      const data = await fetchJson(KINKS_URL);
+      const categories = extractCategories(data);
+
+      if (!categories.length) {
+        // Keep the UI stable with a short message if nothing found
+        els.list.innerHTML = '<li class="cat-row"><em>No categories found.</em></li>';
+        updateCounter();
+        return;
+      }
+      renderCategoryList(categories);
+    } catch (err) {
+      console.error('[kinksurvey] categories load failed:', err);
+      els.list.innerHTML = '<li class="cat-row"><em>Dataset unavailable.</em></li>';
+      updateCounter();
+    }
+  }
+
+  init();
+
+  // Expose a small hook if your app needs to refresh after other actions
+  window.__tk_refreshCategories = init;
+
+})();
+</script>
 </body>
 </html>
