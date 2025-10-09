@@ -14,6 +14,102 @@
 <link rel="stylesheet" href="/css/theme.css">
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
 
+<!-- ONE-BOX: guarantee survey dataset + normalize shape -->
+<script type="module">
+/* 1) Inline fallback dataset (trim this list to what you want visible). */
+const TK_INLINE_DATASET = {
+  items: [
+    // Appearance Play (examples)
+    { id: "cb_e4bdv", label: "Dress partner’s outfit", group: "Appearance" },
+    { id: "cb_hhxwj", label: "Pick lingerie / base layers", group: "Appearance" },
+    { id: "cb_a19jy", label: "Uniforms (school, military, nurse, etc.)", group: "Appearance" },
+    { id: "cb_5gzwk", label: "Time-period dress-up", group: "Appearance" },
+    { id: "cb_jmxxq", label: "Dollification / polished object aesthetics", group: "Appearance" },
+    { id: "cb_67z7h", label: "Hair-based play (brushing, ribbons, tying)", group: "Appearance" },
+    { id: "cb_d8lcg", label: "Head coverings / symbolic hoods", group: "Appearance" },
+    { id: "cb_h1ua2", label: "Coordinated looks / dress codes", group: "Appearance" },
+    { id: "cb_6zi8g", label: "Ritualized grooming", group: "Appearance" },
+    { id: "cb_5ca8j", label: "Praise for pleasing visual display", group: "Appearance" },
+    { id: "cb_4kbnf", label: "Formal appearance protocols", group: "Appearance" },
+    { id: "cb_k3ig3", label: "Clothing as power-role signal", group: "Appearance" },
+    { id: "cb_20kgs", label: "Makeup as protocol or control", group: "Appearance" },
+
+    // Add more categories across your sections:
+    // Impact Play, Breath Play, Roleplay, Service/Protocol, Psychological, etc.
+    // { id: "cb_xxxx", label: "Pretty Name", group: "Section" },
+  ]
+};
+
+/* 2) Normalize ANY incoming shape into { items: Array<{id,label,group?}> }. */
+function normalizeDataset(raw) {
+  // already correct
+  if (raw && Array.isArray(raw.items)) return { items: raw.items };
+
+  // raw is array: assume array of {id,label} or strings
+  if (Array.isArray(raw)) {
+    const items = raw.map(x => {
+      if (typeof x === "string") return { id: x, label: x };
+      if (x && typeof x === "object") return { id: x.id ?? x.code ?? "", label: x.label ?? x.name ?? x.id ?? "" };
+      return null;
+    }).filter(Boolean);
+    return { items };
+  }
+
+  // raw is object map { id: "Label", ... }
+  if (raw && typeof raw === "object") {
+    const items = Object.entries(raw).map(([id, label]) => ({ id, label: String(label) }));
+    return { items };
+  }
+
+  // last resort: inline dataset
+  return { items: TK_INLINE_DATASET.items.slice() };
+}
+
+/* 3) Hijack fetch ONLY for kinks.json; always return valid JSON */
+const ORIG_FETCH = window.fetch.bind(window);
+window.fetch = async function hijackKinks(url, opts) {
+  try {
+    const u = (typeof url === "string") ? url : (url && url.url);
+    if (typeof u === "string" && /\/data\/kinks\.json(\?|$)/.test(u)) {
+      // 3a) Try the real request first; if it fails or returns bad JSON, fall back.
+      try {
+        const res = await ORIG_FETCH(url, { cache: "no-store", ...opts });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        // Parse JSON safely; if it’s HTML or garbage this will throw.
+        const data = await res.clone().json().catch(() => null);
+        if (data) {
+          const normalized = normalizeDataset(data);
+          return new Response(JSON.stringify(normalized), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+        throw new Error("Bad JSON body");
+      } catch (e) {
+        console.warn("[kinksurvey] Fetch failed, using inline dataset:", e?.message || e);
+        const normalized = normalizeDataset(TK_INLINE_DATASET);
+        return new Response(JSON.stringify(normalized), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("[kinksurvey] fetch hijacker error:", e);
+  }
+  // non-kinks.json requests: pass through
+  return ORIG_FETCH(url, opts);
+};
+
+/* 4) Safety net for code that reads from globals instead of fetch */
+window.TK_DATASET = normalizeDataset(TK_INLINE_DATASET);
+
+/* 5) Optional: if the app already pulled a bad dataset into a global, fix it. */
+if (window.kinks && !Array.isArray(window.kinks.items)) {
+  window.kinks = normalizeDataset(window.kinks);
+}
+</script>
+
 <!-- TK/kinksurvey: center hero + real off-canvas panel -->
 <style>
   /* Scope to this page only */
@@ -338,6 +434,9 @@
       const j = await safeJson(u);
       if (j) return j;
     }
+    if (window.TK_DATASET && Array.isArray(window.TK_DATASET.items)) {
+      return window.TK_DATASET;
+    }
     return null;
   }
 
@@ -495,6 +594,7 @@
   const S = { cats:[], sel:[], i:0 };
 
   const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
+  const sortCats = arr => arr.sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
   function normalize(raw){
     const out=[];
     const push=(name,items)=>{
@@ -508,6 +608,21 @@
       });
       if(arr.length) out.push({category:cat, items:arr});
     };
+    if (raw && typeof raw === 'object' && Array.isArray(raw.items)){
+      const grouped = new Map();
+      raw.items.forEach(it=>{
+        const id=tidy(it?.id||it?.code||it?.key||it?.name||'');
+        const label=tidy(it?.label||it?.name||it?.title||'');
+        const type=tidy(it?.type||'scale');
+        if(!id || !label) return;
+        const groupRaw = tidy(it?.group||it?.category||'');
+        const bucket = groupRaw || 'General';
+        if(!grouped.has(bucket)) grouped.set(bucket, []);
+        grouped.get(bucket).push({id,label,type});
+      });
+      grouped.forEach((items, name)=>push(name, items));
+      return out;
+    }
     if (Array.isArray(raw)) raw.forEach(x=>push(x?.category ?? x?.name, x?.items));
     else if (raw && typeof raw==='object') Object.entries(raw).forEach(([k,v])=>push(k,v));
     return out;
@@ -586,7 +701,7 @@
   try{
     const dataset = await loadKinksDataset();
     if (!dataset) throw new Error('Dataset unavailable. Expected /data/kinks.json');
-    S.cats = normalize(dataset);
+    S.cats = sortCats(normalize(dataset));
     renderPanel(S.cats);
     status.textContent = `Loaded ${S.cats.length} categories`;
     maybeRevealPanel();
