@@ -1,0 +1,130 @@
+<!-- ===== ONE-BOX: kill JSON problems & show real category names ===== -->
+<script type="module">
+/* ------------------------------------------------------------------
+   0) EDIT ME: put your cb_* → pretty label mappings here.
+      (You can add the rest later; unknown codes will show the raw cb_*)
+------------------------------------------------------------------- */
+const INLINE_LABELS = {
+  "cb_e4bdv": "Dress partner’s outfit",
+  "cb_hhxwj": "Pick lingerie / base layers",
+  "cb_a19jy": "Uniforms (school, military, nurse, etc.)",
+  "cb_5gzwk": "Time-period dress-up",
+  "cb_jmxxq": "Dollification / polished object aesthetics",
+  "cb_67z7h": "Hair-based play (brushing, ribbons, tying)",
+  "cb_d8lcg": "Head coverings / symbolic hoods",
+  "cb_h1ua2": "Coordinated looks / dress codes",
+  "cb_6zi8g": "Ritualized grooming",
+  "cb_5ca8j": "Praise for pleasing visual display",
+  "cb_4kbnf": "Formal appearance protocols",
+  "cb_k3ig3": "Clothing as power-role signal",
+  "cb_20kgs": "Makeup as protocol or control",
+  // …add the rest of your codes here…
+};
+
+/* (Optional) A starter survey if your UI needs it */
+const INLINE_TEMPLATE_SURVEY = {
+  version: 1,
+  categories: [] // fill if your page uses a template
+};
+
+/* ------------------------------------------------------------------
+   1) Tiny resilient loader: try JSON, then JS module, then inline.
+      You can keep your old files; this just guarantees we NEVER block.
+------------------------------------------------------------------- */
+async function loadJsonOrJs(url, { fallback, globalKey } = {}) {
+  // Try network JSON first (nice when it works)
+  try {
+    if (url) {
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.ok) return await res.json();
+      console.warn("[TK] Fetch not OK:", url, res.status);
+    }
+  } catch (e) {
+    console.warn("[TK] Fetch failed:", url, e);
+  }
+
+  // Try sibling JS module (foo.json → foo.js)
+  try {
+    if (url) {
+      const jsUrl = url.replace(/\.json($|\?)/, ".js$1");
+      const mod = await import(jsUrl);
+      const data = mod.default ?? mod.TK_DEFAULT ?? mod[globalKey];
+      if (data) {
+        console.log("[TK] Using module fallback:", jsUrl);
+        return data;
+      }
+    }
+  } catch (e) {
+    console.warn("[TK] Module fallback failed:", url, e);
+  }
+
+  // Finally, use inline (this one-box data)
+  if (fallback) {
+    console.log("[TK] Using inline fallback for", globalKey || "data");
+    return fallback;
+  }
+
+  throw new Error("No data available for " + (globalKey || "unknown"));
+}
+
+/* ------------------------------------------------------------------
+   2) Load labels & (optional) template.
+      If you still have JSON/JS files on disk, set their URLs below.
+      Otherwise leave them empty and we’ll use the inline objects.
+------------------------------------------------------------------- */
+const LABELS_URL = "";            // e.g. "/data/labels-overrides.json"
+const TEMPLATE_URL = "";          // e.g. "/template-survey.json"
+
+export const TK_LABELS = await loadJsonOrJs(LABELS_URL, {
+  fallback: INLINE_LABELS,
+  globalKey: "TK_LABELS"
+});
+
+export const TK_TEMPLATE = await loadJsonOrJs(TEMPLATE_URL, {
+  fallback: INLINE_TEMPLATE_SURVEY,
+  globalKey: "TK_TEMPLATE"
+}).catch(() => INLINE_TEMPLATE_SURVEY);
+
+// Expose for legacy scripts
+window.TK_LABELS = TK_LABELS;
+window.TK_TEMPLATE = TK_TEMPLATE;
+
+/* ------------------------------------------------------------------
+   3) Helper: pretty name for a cb_* code
+------------------------------------------------------------------- */
+window.prettyCategory = function prettyCategory(code) {
+  return (window.TK_LABELS && window.TK_LABELS[code]) || code;
+};
+
+/* ------------------------------------------------------------------
+   4) OPTIONAL: auto-relabel an existing comparison table by swapping
+      the “Category” column cells whose text starts with "cb_".
+      If you already render with pretty names, you can delete this.
+------------------------------------------------------------------- */
+(function relabelExistingTable() {
+  const catHeader = Array.from(document.querySelectorAll("th,td"))
+    .find(el => /category/i.test(el.textContent.trim()));
+  if (!catHeader) return;
+
+  // Find column index of Category header
+  const headerRow = catHeader.closest("tr");
+  if (!headerRow) return;
+  const cells = Array.from(headerRow.children);
+  const colIndex = cells.indexOf(catHeader);
+  if (colIndex < 0) return;
+
+  // Walk table body and replace cb_* with pretty label
+  const table = headerRow.closest("table");
+  if (!table) return;
+
+  table.querySelectorAll("tbody tr").forEach(tr => {
+    const td = tr.children[colIndex];
+    if (!td) return;
+    const raw = (td.textContent || "").trim();
+    if (/^cb_[a-z0-9]+$/i.test(raw)) {
+      td.textContent = window.prettyCategory(raw);
+    }
+  });
+})();
+</script>
+<!-- ===== END ONE-BOX ===== -->
