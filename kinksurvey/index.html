@@ -503,7 +503,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     <button id="deselectAll" class="themed-button category-button">Deselect All</button>
   </div>
   <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
-  <div id="categoryList" class="category-list" role="list"></div>
+  <ul id="categoryList" class="category-list" role="list"></ul>
   <div style="display:flex;justify-content:center;margin-top:12px">
     <button id="start" class="themed-button start-survey-btn" disabled>Start Survey</button>
   </div>
@@ -731,9 +731,77 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     openDrawer({ focusFirst: true, trigger });
   });
 
+  const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
+  const asArray = v => Array.isArray(v) ? v : (v == null ? [] : [v]);
+
+  function extractCategories(payload){
+    const p = payload?.data || payload;
+
+    if (Array.isArray(p?.categories)) return p.categories;
+    if (Array.isArray(p?.kinks)) return p.kinks;
+
+    if (Array.isArray(p)){
+      const bucket = p.find(b => /kinks|categories/i.test(b?.key || b?.name || b?.label || ''));
+      if (bucket) return asArray(bucket.items);
+    }
+
+    if (p && typeof p === 'object'){
+      const direct = [];
+      for (const [key, value] of Object.entries(p)){
+        if (/labels?/i.test(key)) continue;
+        if (Array.isArray(value)){
+          direct.push({ category: key, items: value });
+          continue;
+        }
+        if (value && typeof value === 'object'){
+          const items = value.items ?? value.values ?? value.data ?? value.list;
+          if (Array.isArray(items) || (items && typeof items === 'object')){
+            direct.push({ category: value.category || value.name || value.title || key, items });
+          }
+        }
+      }
+      if (direct.length) return direct;
+    }
+
+    const guess = [];
+    function ensureBucket(name){
+      const label = tidy(name || 'General');
+      let bucket = guess.find(entry => entry.category === label);
+      if (!bucket){
+        bucket = { category: label, items: [] };
+        guess.push(bucket);
+      }
+      return bucket;
+    }
+    function walk(node, hint){
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)){
+        node.forEach(child => walk(child, hint));
+        return;
+      }
+      const rawItems = node.items;
+      if (Array.isArray(rawItems) || (rawItems && typeof rawItems === 'object')){
+        const name = tidy(node.category || node.name || node.title || node.id || node.key || hint);
+        const bucket = ensureBucket(name);
+        if (Array.isArray(rawItems)) rawItems.forEach(item => bucket.items.push(item));
+        else Object.values(rawItems).forEach(item => bucket.items.push(item));
+        return;
+      }
+      if ('id' in node && ('title' in node || 'name' in node || 'label' in node) && !/label/i.test(node.type || node.kind || '')){
+        ensureBucket(node.category || node.group || hint).items.push(node);
+      }
+      for (const [key, value] of Object.entries(node)){
+        if (/labels?/i.test(key)) continue;
+        const nextHint = tidy(node.category || node.name || node.title || key);
+        walk(value, nextHint || hint);
+      }
+    }
+    walk(p, '');
+    return guess;
+  }
+
   const S = { cats:[], sel:[], i:0 };
 
-  const tidy = s=>String(s??'').replace(/\s+/g,' ').trim();
   const sortCats = arr => arr.sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
   const toItemsArray = (items) => {
     if (!items) return [];
@@ -755,6 +823,29 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   function normalize(raw){
     const out=[];
+    const categoriesOnly = extractCategories(raw);
+    if (Array.isArray(categoriesOnly) && categoriesOnly.length){
+      categoriesOnly.forEach(entry => {
+        if (!entry) return;
+        const catName = tidy(entry.category || entry.name || entry.title || entry.key || entry.id || '');
+        const bucketItems = entry.items ?? entry.values ?? entry.data ?? entry.list ?? entry.entries;
+        if (Array.isArray(bucketItems) || (bucketItems && typeof bucketItems === 'object')){
+          const arr=[];
+          toItemsArray(bucketItems).forEach(it=>{
+            const id=tidy(it?.id||it?.code||it?.key||it?.name||'');
+            const label=tidy(it?.label||it?.text||it?.name||it?.title||'');
+            const type=tidy(it?.type||it?.input||'scale');
+            if(id && label) arr.push({id,label,type});
+          });
+          if(arr.length){
+            out.push({category:catName || 'General', items:arr});
+          }
+          return;
+        }
+      });
+      if (out.length) return out;
+    }
+
     const push=(name,items)=>{
       const cat=tidy(name); if(!cat) return;
       const arr=[];
@@ -813,11 +904,15 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   function renderPanel(cats){
     list.innerHTML='';
     cats.forEach(c=>{
-      const id='cb_'+Math.random().toString(36).slice(2,7);
-      const row=document.createElement('label');
-      row.setAttribute('role','listitem');
-      row.innerHTML = `<input class="category-checkbox" type="checkbox" id="${id}" value="${c.category}"> <span>${c.category}</span>`;
-      list.appendChild(row);
+      const inputId='cb_'+Math.random().toString(36).slice(2,7);
+      const item=document.createElement('li');
+      item.setAttribute('role','listitem');
+      item.innerHTML = `
+        <label class="tk-check">
+          <input class="category-checkbox" type="checkbox" id="${inputId}" value="${c.category}">
+          <span>${c.category}</span>
+        </label>`;
+      list.appendChild(item);
     });
     updateStart();
   }
@@ -826,8 +921,9 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   function updateStart(){
     const n = selected().length;
+    const total = S.cats.length;
     startBtn.disabled = !n;
-    status.textContent = n ? `${n} selected` : 'Choose one or more categories';
+    status.textContent = total ? `${n} selected / ${total} total` : (n ? `${n} selected` : 'Choose one or more categories');
   }
 
   function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; }
@@ -894,7 +990,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     S.cats = cats;
     renderPanel(S.cats);
     const suffix = info?.usedFallback ? ' (fallback dataset)' : '';
-    status.textContent = `Loaded ${S.cats.length} categories${suffix}`;
+    status.textContent = `Loaded ${S.cats.length} categories${suffix}. 0 selected / ${S.cats.length} total.`;
     const problems = Array.isArray(info?.errors) ? info.errors.filter(Boolean) : [];
     if (problems.length) {
       showDiag(`Using fallback dataset. Issues encountered:\n- ${problems.join('\n- ')}`);
@@ -1719,5 +1815,6 @@ setTimeout(() => {
   mo.observe(document.body, { childList: true, subtree: true });
 })();
 </script>
+<script src="/kinksurvey/focus-panel-shim.js" defer></script>
 </body>
 </html>
