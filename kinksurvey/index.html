@@ -499,8 +499,9 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 <aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection" aria-hidden="true" data-ksv-panel>
   <h2 class="panel-title">Select categories</h2>
   <div class="top-buttons">
-    <button id="selectAll" class="themed-button category-button">Select All</button>
-    <button id="deselectAll" class="themed-button category-button">Deselect All</button>
+    <button id="selectAllBtn" type="button" class="themed-button category-button">Select All</button>
+    <button id="deselectAllBtn" type="button" class="themed-button category-button">Deselect All</button>
+    <span id="catCounter" class="muted" aria-live="polite"></span>
   </div>
   <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
   <ul id="categoryList" class="category-list" role="list"></ul>
@@ -509,6 +510,74 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   </div>
   <div id="diag" class="notice" style="display:none"></div>
 </aside>
+
+<script>
+/* kinksurvey controls: select/deselect + delegated toggling */
+(() => {
+  const els = {
+    list:       document.getElementById('categoryList'),
+    selectAll:  document.getElementById('selectAllBtn'),
+    deselectAll:document.getElementById('deselectAllBtn'),
+    counter:    document.getElementById('catCounter'),
+  };
+
+  // Guard if the panel hasn't been mounted yet
+  if (!els.list) return;
+
+  const qBoxes = () =>
+    Array.from(els.list.querySelectorAll('input[name="category"]'));
+
+  function updateCounters() {
+    const boxes = qBoxes();
+    const selected = boxes.filter(b => b.checked).length;
+    if (els.counter) els.counter.textContent = `${selected} selected / ${boxes.length} total`;
+  }
+
+  function selectAll()   { qBoxes().forEach(b => { b.checked = true;  }); updateCounters(); }
+  function deselectAll() { qBoxes().forEach(b => { b.checked = false; }); updateCounters(); }
+
+  // Attach button handlers (if present)
+  els.selectAll?.addEventListener('click',  selectAll);
+  els.deselectAll?.addEventListener('click',deselectAll);
+
+  // Delegated click for any category row/label (works after dynamic rendering)
+  els.list.addEventListener('click', (e) => {
+    // If they clicked a label or its content, toggle the associated checkbox
+    const label = e.target.closest('label');
+    const input = (label?.querySelector('input[name="category"]')) ||
+                  e.target.closest('input[name="category"]');
+    if (!input) return;
+
+    // If the click wasn't directly on the checkbox, flip it manually
+    if (e.target !== input) {
+      input.checked = !input.checked;
+      e.preventDefault();
+    }
+    updateCounters();
+  });
+
+  // Also support keyboard toggling on the whole row
+  els.list.addEventListener('keydown', (e) => {
+    if (!(e.key === ' ' || e.key === 'Enter')) return;
+    const row = e.target.closest('li, .row, .tk-check');
+    if (!row) return;
+    const box = row.querySelector('input[name="category"]');
+    if (!box) return;
+    box.checked = !box.checked;
+    updateCounters();
+    e.preventDefault();
+  });
+
+  // Expose a hook you can call after you re-render the list
+  window.__tk_updateCategoryCounter = updateCounters;
+
+  // If your render function already ran, update once on load
+  document.addEventListener('DOMContentLoaded', () => {
+    // give any async render a tick
+    setTimeout(updateCounters, 0);
+  });
+})();
+</script>
 
 <main id="content" class="content full">
   <div class="survey-box" id="survey" style="display:none">
@@ -592,6 +661,13 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   const title = $('catTitle');
   const items = $('items');
   const done = $('done');
+  const selectAllBtn = $('selectAllBtn');
+  const deselectAllBtn = $('deselectAllBtn');
+
+  const rawCounterUpdate = typeof window.__tk_updateCategoryCounter === 'function'
+    ? window.__tk_updateCategoryCounter
+    : () => {};
+  const syncCategoryCounter = () => rawCounterUpdate();
 
   if (document.body){
     document.body.classList.remove('tk-no-js');
@@ -909,21 +985,37 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       item.setAttribute('role','listitem');
       item.innerHTML = `
         <label class="tk-check">
-          <input class="category-checkbox" type="checkbox" id="${inputId}" value="${c.category}">
+          <input class="category-checkbox" type="checkbox" name="category" id="${inputId}" value="${c.category}">
           <span>${c.category}</span>
         </label>`;
       list.appendChild(item);
     });
-    updateStart();
+    updateStart({ syncCounter: false });
+    if (typeof window.__tk_updateCategoryCounter === 'function') {
+      window.__tk_updateCategoryCounter();
+    } else {
+      syncCategoryCounter();
+    }
   }
 
   const selected = () => Array.from(document.querySelectorAll('.category-checkbox')).filter(cb=>cb.checked).map(cb=>cb.value);
 
-  function updateStart(){
+  function updateStart(options = {}){
+    const { syncCounter = true } = options;
     const n = selected().length;
     const total = S.cats.length;
     startBtn.disabled = !n;
     status.textContent = total ? `${n} selected / ${total} total` : (n ? `${n} selected` : 'Choose one or more categories');
+    if (syncCounter) syncCategoryCounter();
+  }
+
+  if (typeof window.__tk_updateCategoryCounter === 'function') {
+    window.__tk_updateCategoryCounter = () => {
+      rawCounterUpdate();
+      updateStart({ syncCounter: false });
+    };
+  } else {
+    window.__tk_updateCategoryCounter = () => updateStart({ syncCounter: false });
   }
 
   function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; }
@@ -956,11 +1048,23 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   document.addEventListener('change', (e)=>{
     if (e.target && e.target.classList && e.target.classList.contains('category-checkbox')) updateStart();
   });
-  document.getElementById('selectAll').addEventListener('click', ()=>{
-    document.querySelectorAll('.category-checkbox').forEach(cb=>cb.checked=true); updateStart();
+
+  if (list){
+    list.addEventListener('click', ()=>{
+      setTimeout(()=>updateStart(), 0);
+    });
+    list.addEventListener('keydown', (e)=>{
+      if (e.key === ' ' || e.key === 'Enter'){
+        setTimeout(()=>updateStart(), 0);
+      }
+    });
+  }
+
+  selectAllBtn?.addEventListener('click', ()=>{
+    setTimeout(()=>updateStart(), 0);
   });
-  document.getElementById('deselectAll').addEventListener('click', ()=>{
-    document.querySelectorAll('.category-checkbox').forEach(cb=>cb.checked=false); updateStart();
+  deselectAllBtn?.addEventListener('click', ()=>{
+    setTimeout(()=>updateStart(), 0);
   });
 
   startBtn.addEventListener('click', ()=>{

@@ -14,6 +14,15 @@
   --tk-toolbar-shadow:0 10px 30px rgba(0,0,0,.45);
 }
 
+/* Ensure list items and buttons accept clicks inside the panel */
+.category-list label,
+.category-list input,
+#selectAllBtn,
+#deselectAllBtn{pointer-events:auto;}
+
+/* Hide panel when [hidden] is set (and avoid ghost overlays) */
+[hidden]{display:none !important;}
+
 body[data-kinksurvey="1"].has-category-panel,
 body.tk-ksv.has-category-panel{padding-left:0;}
 
