@@ -57,6 +57,24 @@ const TK_INLINE_DATASET = {
 };
 
 /* 2) Normalize ANY incoming shape into { items: Array<{id,label,group?,type?}> }. */
+const flattenKinksEntries = (value) => {
+  const list = Array.isArray(value) ? value : Object.values(value || {});
+  return list
+    .map(entry => {
+      if (!entry || typeof entry !== "object") return null;
+      const id = String(entry.id ?? entry.code ?? entry.key ?? entry.name ?? "").trim();
+      const label = String(entry.label ?? entry.name ?? entry.title ?? entry.text ?? id).trim();
+      const group = entry.group ?? entry.category;
+      const type = entry.type ?? entry.input;
+      if (!id && !label) return null;
+      const out = { id: id || label, label: label || id };
+      if (group) out.group = group;
+      if (type) out.type = type;
+      return out;
+    })
+    .filter(Boolean);
+};
+
 function normalizeDataset(raw) {
   const coerceEntries = (input) => {
     if (!input) return [];
@@ -101,6 +119,11 @@ function normalizeDataset(raw) {
 
   if (raw && raw.items && typeof raw.items === "object") {
     const items = itemsFrom(raw.items);
+    if (items.length) return { items };
+  }
+
+  if (raw && typeof raw === "object" && raw.kinks) {
+    const items = flattenKinksEntries(raw.kinks);
     if (items.length) return { items };
   }
 
@@ -729,6 +752,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     }
     return [];
   };
+
   function normalize(raw){
     const out=[];
     const push=(name,items)=>{
@@ -741,6 +765,24 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
         if(id && label) arr.push({id,label,type});
       });
       if(arr.length) out.push({category:cat, items:arr});
+    };
+    const pushFromKinks = (input) => {
+      const list = Array.isArray(input) ? input : Object.values(input || {});
+      if (!list.length) return false;
+      const grouped = new Map();
+      list.forEach(entry => {
+        if (!entry || typeof entry !== 'object') return;
+        const id = tidy(entry.id || entry.code || entry.key || entry.name || '');
+        const label = tidy(entry.label || entry.name || entry.title || '');
+        const type = tidy(entry.type || entry.input || 'scale');
+        const cat = tidy(entry.category || entry.group || '');
+        if (!id || !label) return;
+        const bucket = cat || 'General';
+        if (!grouped.has(bucket)) grouped.set(bucket, []);
+        grouped.get(bucket).push({ id, label, type });
+      });
+      grouped.forEach((items, name) => push(name, items));
+      return grouped.size > 0;
     };
     if (raw && typeof raw === 'object' && (Array.isArray(raw.items) || (raw.items && typeof raw.items === 'object'))){
       const grouped = new Map();
@@ -758,7 +800,13 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       return out;
     }
     if (Array.isArray(raw)) raw.forEach(x=>push(x?.category ?? x?.name, x?.items ?? x));
-    else if (raw && typeof raw==='object') Object.entries(raw).forEach(([k,v])=>push(k,v));
+    else if (raw && typeof raw==='object') {
+      if (raw.kinks && pushFromKinks(raw.kinks)) return out;
+      Object.entries(raw).forEach(([k,v])=>{
+        if (k === 'labels' || k === 'kinks' || k === 'items') return;
+        push(k,v);
+      });
+    }
     return out;
   }
 

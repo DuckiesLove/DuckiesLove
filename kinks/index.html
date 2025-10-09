@@ -664,6 +664,15 @@
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
       if (Array.isArray(raw.categories)) return normalizeBank(raw.categories);
       if (Array.isArray(raw.kinks)) return normalizeBank(raw.kinks);
+      if (raw.kinks && typeof raw.kinks === "object") {
+        const flat = Object.entries(raw.kinks).map(([id, value]) => {
+          if (value && typeof value === "object") {
+            return { id: value.id ?? value.code ?? value.key ?? id, ...value };
+          }
+          return { id, label: String(value ?? id) };
+        });
+        return normalizeBank(flat);
+      }
       if (Array.isArray(raw.data)) return normalizeBank(raw.data);
     }
     // Accepts:
@@ -734,7 +743,10 @@
         }
       }
     } else if (isObj(raw)){
-      Object.entries(raw).forEach(([k,v])=>pushCat(k, v));
+      Object.entries(raw).forEach(([k,v])=>{
+        if (k === "labels" || k === "kinks" || k === "items") return;
+        pushCat(k, v);
+      });
     } else {
       throw new Error("Unsupported JSON shape. Use array-of-categories or object map.");
     }
