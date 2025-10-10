@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/theme.css">
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
+<link rel="stylesheet" href="/css/tk-panel-safe.css">
 
 <!-- TK HOTFIX: make survey load resilient even when kinks.json returns an object or fails -->
 <script>
@@ -496,22 +497,24 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
 <button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="false">☰</button>
 
-<aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection" aria-hidden="true" data-ksv-panel>
-  <div class="ksv-close">
-    <button type="button" class="tk-close-drawer" data-action="close-panel" data-legacy-id="closePanelBtn" data-ksv-close>Close ✕</button>
+<aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection" data-ksv-panel>
+  <div class="panel-content">
+    <div class="ksv-close">
+      <button type="button" class="tk-close-drawer" data-action="close-panel" data-legacy-id="closePanelBtn" data-ksv-close>Close ✕</button>
+    </div>
+    <h2 class="panel-title">Select categories</h2>
+    <div class="top-buttons">
+      <button id="btnSelectAll" data-legacy-id="selectAllBtn" type="button" class="themed-button category-button">Select All</button>
+      <button id="btnDeselectAll" data-legacy-id="deselectAllBtn" type="button" class="themed-button category-button">Deselect All</button>
+      <span id="selectedCountBadge" data-legacy-id="catCounter" class="muted" aria-live="polite"></span>
+    </div>
+    <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
+    <div id="categoryChecklist" data-legacy-id="categoryList" class="category-list" role="list"></div>
+    <div style="display:flex;justify-content:center;margin-top:12px">
+      <button id="beginSurveyFromPanel" data-legacy-id="start" class="themed-button start-survey-btn">Start Survey</button>
+    </div>
+    <div id="diag" class="notice" style="display:none"></div>
   </div>
-  <h2 class="panel-title">Select categories</h2>
-  <div class="top-buttons">
-    <button id="btnSelectAll" data-legacy-id="selectAllBtn" type="button" class="themed-button category-button">Select All</button>
-    <button id="btnDeselectAll" data-legacy-id="deselectAllBtn" type="button" class="themed-button category-button">Deselect All</button>
-    <span id="selectedCountBadge" data-legacy-id="catCounter" class="muted" aria-live="polite"></span>
-  </div>
-  <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
-  <div id="categoryChecklist" data-legacy-id="categoryList" class="category-list" role="list"></div>
-  <div style="display:flex;justify-content:center;margin-top:12px">
-    <button id="beginSurveyFromPanel" data-legacy-id="start" class="themed-button start-survey-btn" disabled>Start Survey</button>
-  </div>
-  <div id="diag" class="notice" style="display:none"></div>
 </aside>
 
 <script>
