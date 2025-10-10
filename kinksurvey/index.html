@@ -506,12 +506,12 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     <div class="top-buttons">
       <button id="btnSelectAll" data-legacy-id="selectAllBtn" type="button" class="themed-button category-button">Select All</button>
       <button id="btnDeselectAll" data-legacy-id="deselectAllBtn" type="button" class="themed-button category-button">Deselect All</button>
-      <span id="selectedCountBadge" data-legacy-id="catCounter" class="muted" aria-live="polite"></span>
+      <span id="selectedCountBadge" data-legacy-id="catCounter" data-tk="cat-count" class="muted" aria-live="polite"></span>
     </div>
     <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
-    <div id="categoryChecklist" data-legacy-id="categoryList" class="category-list" role="list"></div>
+    <div id="categoryChecklist" data-legacy-id="categoryList" data-tk="category-list" class="category-list" role="list"></div>
     <div style="display:flex;justify-content:center;margin-top:12px">
-      <button id="beginSurveyFromPanel" data-legacy-id="start" class="themed-button start-survey-btn">Start Survey</button>
+      <button id="beginSurveyFromPanel" data-legacy-id="start" data-tk="start" class="themed-button start-survey-btn">Start Survey</button>
     </div>
     <div id="diag" class="notice" style="display:none"></div>
   </div>
@@ -2231,7 +2231,7 @@ How to use:
 </script>
 <!-- === end TK hotfix === -->
 <script src="/js/tk-data-loader.js"></script>
-<script src="/js/kinksurvey.js"></script>
+<script src="/js/kinksurvey.js" defer></script>
 <!--
 ===============================================================================
 TALK KINK – ONE-PASTE FIX

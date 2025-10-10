@@ -1,122 +1,146 @@
-/*  Unfreezes Start Survey + category panel.
-    - Keeps your look; only toggles .is-open on #categorySurveyPanel (no focus traps).
-    - On “Begin” it emits `tk:start-survey` with selected categories.
-    - If no code handles it within 150ms, it navigates to /kinksurvey/?run=1&cats=...
-    - Guarantees progress (no more frozen clicks).
-*/
-(function(){
-  const qs  = (s, r=document) => r.querySelector(s);
-  const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
+/* ------------------------------------------------------------
+   FILE:  /js/kinksurvey.js
+   PURPOSE: Robust loader + Start Survey wiring + label map + categories fallback
+   ------------------------------------------------------------ */
+(() => {
+  // --- small helpers --------------------------------------------------------
+  const log = (...a) => console.log("[TK]", ...a);
+  const $  = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const fetchJSON = async (url) => {
+    const res = await fetch(url, {cache:"no-store"});
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    return res.json();
+  };
 
-  const panel         = qs('#categorySurveyPanel');
-  const startBtnHome  = qs('#startSurveyBtn');
-  const panelCloseBtn = panel ? panel.querySelector('[data-action="close-panel"], .js-close, .tk-close') : null;
-  const selectAllBtn  = qs('#btnSelectAll');
-  const deselectBtn   = qs('#btnDeselectAll');
-  const catListBox    = qs('#categoryChecklist');
-  const beginBtn      = qs('#beginSurveyFromPanel');
-  const selectedBadge = qs('#selectedCountBadge');
+  // --- data cache ------------------------------------------------------------
+  const Data = {
+    kinks: null,                 // full kinks.json (array or object)
+    categoriesFile: null,        // optional categories.json (array of strings or {id,name}[])
+    labelOverrides: {},          // labels-overrides.json (code->name)
+    labelMap: {},                // final code->name map (merged)
+    categories: [],              // final category list (strings)
+  };
 
-  let CATEGORIES = [];
-  let LABELS     = {};
-  let selected   = new Set();
-
-  function openPanel(){ if(panel) panel.classList.add('is-open'); }
-  function closePanel(){ if(panel) panel.classList.remove('is-open'); }
-
-  function updateSelectedBadge(){
-    if(!selectedBadge) return;
-    selectedBadge.textContent = `${selected.size} selected / ${CATEGORIES.length} total`;
-  }
-
-  function renderCategoryChecklist(){
-    if(!catListBox) return;
-    catListBox.innerHTML = '';
-    const frag = document.createDocumentFragment();
-
-    const items = [...CATEGORIES].sort((a,b)=>
-      (a.title||a.id).localeCompare((b.title||b.id), undefined, { sensitivity:'base' })
-    );
-
-    for(const cat of items){
-      const label = document.createElement('label');
-      label.className = 'tk-check';
-
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.value = cat.id;
-      input.className = 'tk-check__input';
-      input.addEventListener('change', ()=>{
-        if(input.checked) selected.add(cat.id); else selected.delete(cat.id);
-        updateSelectedBadge();
-      });
-
-      const text = document.createElement('span');
-      text.className = 'tk-check__label';
-      text.textContent = LABELS[cat.id] || cat.title || cat.id;
-
-      label.appendChild(input);
-      label.appendChild(text);
-      frag.appendChild(label);
-    }
-    catListBox.appendChild(frag);
-    updateSelectedBadge();
-  }
-
-  function selectAll(checked){
-    qsa('input[type="checkbox"]', catListBox).forEach(cb=>{
-      cb.checked = !!checked;
-      if(checked) selected.add(cb.value); else selected.delete(cb.value);
+  // --- derive categories if categories.json is missing -----------------------
+  function deriveCategoriesFromKinks(kinks) {
+    // Accept both array-of-objects or {items:[...]} shapes
+    const list = Array.isArray(kinks) ? kinks : (kinks?.items || []);
+    const set = new Set();
+    list.forEach(it => {
+      // common fields: it.category, it.categories, it.group
+      if (typeof it?.category === "string" && it.category.trim()) set.add(it.category.trim());
+      if (Array.isArray(it?.categories)) it.categories.forEach(c => c && set.add(String(c).trim()));
+      if (typeof it?.group === "string" && it.group.trim()) set.add(it.group.trim());
     });
-    updateSelectedBadge();
+    return Array.from(set).sort((a,b) => a.localeCompare(b));
   }
 
-  function startSurveyRun(){
-    try{
-      closePanel();
-      const detail = { includeCategories:[...selected] };
-      const evt = new CustomEvent('tk:start-survey', { detail, bubbles:true });
-      document.dispatchEvent(evt);
+  // --- build label map for cb_* codes -> friendly names ----------------------
+  function buildLabelMap(kinks, overrides) {
+    const map = {...overrides};
+    const list = Array.isArray(kinks) ? kinks : (kinks?.items || []);
+    list.forEach(it => {
+      if (it?.id && it?.name) map[String(it.id)] = String(it.name);
+      if (it?.code && it?.name) map[String(it.code)] = String(it.name);
+      if (it?.cb && it?.label) map[String(it.cb)]  = String(it.label);
+    });
+    return map;
+  }
 
-      // Runner can set window.__TK_SURVEY_STARTED = true to suppress fallback.
-      setTimeout(()=>{
-        if(!window.__TK_SURVEY_STARTED){
-          const params = new URLSearchParams();
-          if(detail.includeCategories.length) params.set('cats', detail.includeCategories.join(','));
-          params.set('run','1');
-          window.location.href = `/kinksurvey/?${params.toString()}`;
+  // --- UI: render category chips/checkboxes (keeps your look) ----------------
+  function renderCategoryChooser(categories) {
+    const mount = document.getElementById("categoryList") || document.querySelector("[data-tk='category-list']");
+    if (!mount) return;
+    mount.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    categories.forEach(cat => {
+      const row = document.createElement("label");
+      row.className = "tk-chip"; // reuses existing styles
+      row.innerHTML = `
+        <input type="checkbox" class="tk-cat" value="${cat}">
+        <span class="txt">${cat}</span>
+      `;
+      frag.appendChild(row);
+    });
+    mount.appendChild(frag);
+    // counters
+    const badge = document.getElementById("catCount") || document.querySelector("[data-tk='cat-count']");
+    const updateBadge = () => { if (badge) badge.textContent = `${$$(".tk-cat:checked", mount).length} selected / ${categories.length} total`; };
+    mount.addEventListener("change", updateBadge);
+    updateBadge();
+    // select/deselect all
+    const btnSelAll = document.getElementById("btnSelectAll");
+    const btnDesel  = document.getElementById("btnDeselectAll");
+    btnSelAll?.addEventListener("click", () => { $$(".tk-cat", mount).forEach(c => (c.checked = true)); mount.dispatchEvent(new Event("change")); });
+    btnDesel?.addEventListener("click", () => { $$(".tk-cat", mount).forEach(c => (c.checked = false)); mount.dispatchEvent(new Event("change")); });
+  }
+
+  // --- START SURVEY wiring (no freeze if categories file missing) ------------
+  function wireStartSurvey() {
+    const btn = document.getElementById("startSurvey") || document.querySelector("[data-tk='start']");
+    if (!btn) return;
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      try {
+        // selected categories (empty => use all)
+        const sel = $$(".tk-cat:checked").map(c => c.value);
+        const chosen = sel.length ? sel : Data.categories;
+        if (!chosen.length) throw new Error("No categories available.");
+        // Call your existing survey bootstrap function if present
+        if (window.tkBeginSurvey) {
+          window.tkBeginSurvey({ categories: chosen, kinks: Data.kinks, labels: Data.labelMap });
+        } else {
+          // Minimal fallback so the button does *something* without changing your visuals
+          alert(`Survey would start with ${chosen.length} categories.`);
         }
-      }, 150);
-    }catch(err){
-      console.error('[TK] startSurveyRun failed, using fallback:', err);
-      window.location.href = '/kinksurvey/?run=1';
-    }
+      } catch (err) {
+        console.error("[TK] start survey failed:", err);
+        alert("Sorry, something prevented the survey from starting. Check the console for details.");
+      }
+    });
   }
 
-  async function init(){
-    try{
-      const data = await (window.TK && typeof TK.loadKinkData === 'function'
-        ? TK.loadKinkData()
-        : Promise.resolve({ categories:[], labelsMap:{} })
-      );
-      CATEGORIES = data.categories || [];
-      LABELS     = data.labelsMap || {};
+  // --- boot loader -----------------------------------------------------------
+  async function loadAll() {
+    // 1) core data (must exist)
+    const kinksUrl  = "/data/kinks.json";
+    const labelsUrl = "/data/labels-overrides.json";
+    // 2) optional categories file; if 404 we auto-derive
+    const catsUrl   = "/data/categories.json";
 
-      renderCategoryChecklist();
-
-      if(startBtnHome)  startBtnHome.addEventListener('click', e=>{ e.preventDefault(); openPanel(); });
-      if(panelCloseBtn) panelCloseBtn.addEventListener('click', e=>{ e.preventDefault(); closePanel(); });
-      if(selectAllBtn)  selectAllBtn.addEventListener('click', ()=>selectAll(true));
-      if(deselectBtn)   deselectBtn.addEventListener('click', ()=>selectAll(false));
-      if(beginBtn)      beginBtn.addEventListener('click', e=>{ e.preventDefault(); startSurveyRun(); });
-
-      closePanel(); // start closed
-      console.log(`[TK] Loaded ${CATEGORIES.length} categories; UI wired.`);
-    }catch(err){
-      console.error('[TK] kinksurvey init failed; enabling direct fallback. Error:', err);
-      if(startBtnHome) startBtnHome.addEventListener('click', ()=>{ window.location.href = '/kinksurvey/?run=1'; });
+    Data.kinks = await fetchJSON(kinksUrl);
+    try {
+      Data.categoriesFile = await fetchJSON(catsUrl);
+    } catch (e) {
+      Data.categoriesFile = null; // signal fallback
     }
+    try {
+      Data.labelOverrides = await fetchJSON(labelsUrl);
+    } catch (e) {
+      Data.labelOverrides = {};
+    }
+
+    Data.labelMap = buildLabelMap(Data.kinks, Data.labelOverrides);
+
+    // normalize categories
+    if (Array.isArray(Data.categoriesFile)) {
+      // can be ["Impact Play","Breath Play", ...] or [{id,name},...]
+      Data.categories = Data.categoriesFile.map(c => typeof c === "string" ? c : (c?.name || c?.id || "")).filter(Boolean);
+    } else {
+      Data.categories = deriveCategoriesFromKinks(Data.kinks);
+    }
+
+    renderCategoryChooser(Data.categories);
+    wireStartSurvey();
+    log(`Loaded ${Data.categories.length} categories; UI wired.`);
+    window.__TK__ = Data; // handy for other modules (e.g., PDF + compat page)
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  // run when DOM is ready
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", loadAll, {once:true});
+  } else {
+    loadAll();
+  }
 })();

@@ -311,7 +311,7 @@
         </label>
       </div>
 
-      <button class="themed-button wide-button" id="downloadPdf" data-action="download-pdf" disabled>Download PDF</button>
+      <button class="themed-button wide-button" id="downloadPdf" data-action="download-pdf" data-tk="download" disabled>Download PDF</button>
       <p id="exportTip" class="export-tip">Upload both surveys before exporting.</p>
     </div>
 
@@ -3121,7 +3121,8 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
   </script>
   <script src="/js/tk-data-loader.js"></script>
   <script src="/js/tk-labels.js"></script>
-  <script src="/js/pdfDownload.js"></script>
+  <script src="/js/compatibilityLabels.js" defer></script>
+  <script src="/js/pdfDownload.js" defer></script>
 <!--
 ===============================================================================
 TALK KINK – ONE-PASTE FIX
