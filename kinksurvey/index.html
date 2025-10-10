@@ -2132,5 +2132,94 @@ How to use:
 
 })();
 </script>
+<!-- === TK hotfix: normalize /data/kinks.json so buttons work === -->
+<script>
+(() => {
+  if (window.__tkKinksFixInstalled) return; // avoid double install
+  window.__tkKinksFixInstalled = true;
+
+  const origFetch = window.fetch ? window.fetch.bind(window) : null;
+  if (!origFetch) return;
+
+  function toArray(v) {
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === "object") return Object.values(v);
+    return [];
+  }
+
+  function normalizeKinksJson(data) {
+    // Handle both shapes:
+    //  A) { categories: [ { id, name, items:[...] }, ... ] }
+    //  B) { categories: { catId:{...}, ... }  and/or items as object maps }
+    if (!data || typeof data !== "object") return data;
+
+    if (data.categories) {
+      const cats = toArray(data.categories).map(cat => {
+        if (!cat || typeof cat !== "object") return cat;
+        if ("items" in cat) cat.items = toArray(cat.items);
+        return cat;
+      });
+      data.categories = cats;
+    }
+
+    // Some builds tuck content under data.kinks or data.labels; keep it forgiving
+    if (data.kinks && !data.categories) {
+      const cats = toArray(data.kinks).map(cat => {
+        if (!cat || typeof cat !== "object") return cat;
+        if ("items" in cat) cat.items = toArray(cat.items);
+        return cat;
+      });
+      if (cats.length) data.categories = cats;
+    }
+
+    return data;
+  }
+
+  async function fixIfKinksJson(response, requestUrl) {
+    try {
+      const url = typeof requestUrl === "string" ? requestUrl : (requestUrl && requestUrl.url) || "";
+      if (!/\/data\/kinks\.json(\?|$)/.test(url)) return response; // only touch kinks.json
+
+      // Clone original and parse JSON
+      const clone = response.clone();
+      const json = await clone.json().catch(() => null);
+      if (!json) return response;
+
+      const normalized = normalizeKinksJson(json);
+      // If nothing changed, keep original
+      if (normalized === json) return response;
+
+      // Return a new Response with fixed JSON
+      const blob = new Blob([JSON.stringify(normalized)], { type: "application/json" });
+      return new Response(blob, {
+        status: 200,
+        statusText: "OK",
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch {
+      return response; // never break network
+    }
+  }
+
+  window.fetch = async function(request, init) {
+    const res = await origFetch(request, init);
+    return fixIfKinksJson(res, request);
+  };
+
+  // Optional UX: if the Start Survey panel was left aria-hidden due to a prior crash,
+  // unhide it after the first successful normalization so the button responds.
+  document.addEventListener("click", (e) => {
+    const target = e.target.closest('#start-survey, [data-action="start-survey"]');
+    if (!target) return;
+    queueMicrotask(() => {
+      const panel = document.querySelector("#categorySurveyPanel, .category-panel");
+      if (panel && panel.getAttribute("aria-hidden") === "true") {
+        panel.setAttribute("aria-hidden", "false");
+      }
+    });
+  });
+})();
+</script>
+<!-- === end TK hotfix === -->
 </body>
 </html>
