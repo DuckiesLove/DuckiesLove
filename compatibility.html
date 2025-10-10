@@ -64,7 +64,6 @@
     td.pct-cell .pct .txt { position:relative; display:block; text-align:center; }
     td.pct-cell { min-width:5rem; }
   </style>
-  <script defer src="/js/tk-labels.js"></script>
   <style>
   #pdf-container {
     width: 100%;
@@ -312,7 +311,7 @@
         </label>
       </div>
 
-      <button class="themed-button wide-button" id="downloadPdf" disabled>Download PDF</button>
+      <button class="themed-button wide-button" id="downloadPdf" data-action="download-pdf" disabled>Download PDF</button>
       <p id="exportTip" class="export-tip">Upload both surveys before exporting.</p>
     </div>
 
@@ -3120,5 +3119,8 @@ document.getElementById('copyAtoB')?.addEventListener('click', () => {
     console.log('[tk] hijacker armed — click your Download PDF and it will use the new exporter.');
   })();
   </script>
+  <script src="/js/tk-data-loader.js"></script>
+  <script src="/js/tk-labels.js"></script>
+  <script src="/js/pdfDownload.js"></script>
 </body>
 </html>

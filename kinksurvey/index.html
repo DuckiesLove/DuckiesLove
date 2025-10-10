@@ -484,7 +484,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 <section id="ksvHeroStack" data-ksv-fallback>
   <h1>Talk Kink Survey</h1>
   <nav class="ksvButtons">
-    <a class="ksvBtn" id="btnStartSurvey" href="#start">Start Survey</a>
+    <a class="ksvBtn" id="startSurveyBtn" data-legacy-id="btnStartSurvey" href="#beginSurveyFromPanel">Start Survey</a>
 
     <!-- Force the two buttons to your direct URLs -->
     <a class="ksvBtn" id="btn-compat" href="https://talkkink.org/compatibility.html">Compatibility Page</a>
@@ -497,16 +497,19 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 <button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="false">☰</button>
 
 <aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection" aria-hidden="true" data-ksv-panel>
+  <div class="ksv-close">
+    <button type="button" class="tk-close-drawer" data-action="close-panel" data-legacy-id="closePanelBtn" data-ksv-close>Close ✕</button>
+  </div>
   <h2 class="panel-title">Select categories</h2>
   <div class="top-buttons">
-    <button id="selectAllBtn" type="button" class="themed-button category-button">Select All</button>
-    <button id="deselectAllBtn" type="button" class="themed-button category-button">Deselect All</button>
-    <span id="catCounter" class="muted" aria-live="polite"></span>
+    <button id="btnSelectAll" data-legacy-id="selectAllBtn" type="button" class="themed-button category-button">Select All</button>
+    <button id="btnDeselectAll" data-legacy-id="deselectAllBtn" type="button" class="themed-button category-button">Deselect All</button>
+    <span id="selectedCountBadge" data-legacy-id="catCounter" class="muted" aria-live="polite"></span>
   </div>
   <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
-  <ul id="categoryList" class="category-list" role="list"></ul>
+  <div id="categoryChecklist" data-legacy-id="categoryList" class="category-list" role="list"></div>
   <div style="display:flex;justify-content:center;margin-top:12px">
-    <button id="start" class="themed-button start-survey-btn" disabled>Start Survey</button>
+    <button id="beginSurveyFromPanel" data-legacy-id="start" class="themed-button start-survey-btn" disabled>Start Survey</button>
   </div>
   <div id="diag" class="notice" style="display:none"></div>
 </aside>
@@ -514,11 +517,12 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 <script>
 /* kinksurvey controls: select/deselect + delegated toggling */
 (() => {
+  const getEl = (id) => document.getElementById(id) || document.querySelector(`[data-legacy-id="${id}"]`);
   const els = {
-    list:       document.getElementById('categoryList'),
-    selectAll:  document.getElementById('selectAllBtn'),
-    deselectAll:document.getElementById('deselectAllBtn'),
-    counter:    document.getElementById('catCounter'),
+    list:       getEl('categoryChecklist') || getEl('categoryList'),
+    selectAll:  getEl('btnSelectAll') || getEl('selectAllBtn'),
+    deselectAll:getEl('btnDeselectAll') || getEl('deselectAllBtn'),
+    counter:    getEl('selectedCountBadge') || getEl('catCounter'),
   };
 
   // Guard if the panel hasn't been mounted yet
@@ -650,7 +654,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   }
 
   // Elements
-  const $ = (id)=>document.getElementById(id);
+  const $ = (id)=>document.getElementById(id) || document.querySelector(`[data-legacy-id="${id}"]`);
   const panel = $('categorySurveyPanel');
   const toggle = $('panelToggle');
   const list = $('categoryList');
@@ -661,8 +665,8 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   const title = $('catTitle');
   const items = $('items');
   const done = $('done');
-  const selectAllBtn = $('selectAllBtn');
-  const deselectAllBtn = $('deselectAllBtn');
+  const selectAllBtn = $('btnSelectAll') || $('selectAllBtn');
+  const deselectAllBtn = $('btnDeselectAll') || $('deselectAllBtn');
 
   const rawCounterUpdate = typeof window.__tk_updateCategoryCounter === 'function'
     ? window.__tk_updateCategoryCounter
@@ -1726,6 +1730,7 @@ setTimeout(() => {
   const SEL_ACTIONS = '#ksv-actions'; // container for the three buttons
   const HERO_SELECTOR = '.ksvButtons a';
   const FALLBACK_SELECTORS = [
+    '#startSurveyBtn',
     '#btnStartSurvey',
     'a[data-action="start-survey"]',
     'a[href*="kinksurvey"]',
@@ -1933,7 +1938,7 @@ How to use:
    OR put everything inside a new file /js/kinks-category-panel.js and load it with:
      <script type="module" src="/js/kinks-category-panel.js"></script>
 2) Ensure these IDs exist in your panel markup:
-     #categoryList, #selectAllBtn, #deselectAllBtn, #catCounter,
+    #categoryChecklist, #categoryList, #btnSelectAll, #selectAllBtn, #btnDeselectAll, #deselectAllBtn, #selectedCountBadge, #catCounter,
      #categorySurveyPanel (the <aside> panel), #openPanelBtn, #closePanelBtn
    (You likely already have them; adjust selectors below if yours differ.)
 3) Remove any older click handlers that were bound to these same controls.
@@ -1944,7 +1949,7 @@ How to use:
   #categorySurveyPanel [hidden] { display: none !important; }
   #categorySurveyPanel label,
   #categorySurveyPanel input,
-  #selectAllBtn, #deselectAllBtn { pointer-events: auto; }
+  #btnSelectAll, #selectAllBtn, #btnDeselectAll, #deselectAllBtn { pointer-events: auto; }
 
   /* Simple list styling (optional) */
   .cat-list { list-style: none; margin: 0; padding: 0; }
@@ -1956,15 +1961,16 @@ How to use:
 <script type="module">
 (() => {
   // ----------------------------- DOM HOOKS -----------------------------
+  const byId = (id) => document.getElementById(id) || document.querySelector(`[data-legacy-id="${id}"]`);
   const els = {
-    panel:        document.getElementById('categorySurveyPanel'),   // <aside>
-    openPanelBtn: document.getElementById('openPanelBtn'),          // your “Start Survey” or menu btn
-    closePanelBtn:document.getElementById('closePanelBtn'),         // the small X close button
+    panel:        byId('categorySurveyPanel'),   // <aside>
+    openPanelBtn: byId('openPanelBtn'),          // your “Start Survey” or menu btn
+    closePanelBtn:byId('closePanelBtn'),         // the small X close button
 
-    list:         document.getElementById('categoryList'),
-    selectAll:    document.getElementById('selectAllBtn'),
-    deselectAll:  document.getElementById('deselectAllBtn'),
-    counter:      document.getElementById('catCounter'),
+    list:         byId('categoryChecklist') || byId('categoryList'),
+    selectAll:    byId('btnSelectAll') || byId('selectAllBtn'),
+    deselectAll:  byId('btnDeselectAll') || byId('deselectAllBtn'),
+    counter:      byId('selectedCountBadge') || byId('catCounter'),
   };
 
   // Guard — if the panel isn’t on this page, stop quietly.
@@ -2221,5 +2227,7 @@ How to use:
 })();
 </script>
 <!-- === end TK hotfix === -->
+<script src="/js/tk-data-loader.js"></script>
+<script src="/js/kinksurvey.js"></script>
 </body>
 </html>
