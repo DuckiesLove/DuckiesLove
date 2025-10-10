@@ -2307,34 +2307,25 @@ NO VISUAL TAKEOVER
 -->
 
 <style>
-  #categorySurveyPanel {
-    position: fixed; inset: 0; display: none; z-index: 9999;
-    background: rgba(0,0,0,.65); backdrop-filter: blur(2px);
-    pointer-events: auto;
-  }
-  #categorySurveyPanel.visible { display: block; }
-  #categorySurveyPanel .panel {
-    position: absolute; inset: 6% auto auto 6%; right: 6%;
-    max-height: 88vh; overflow: auto; padding: 24px;
-    border: 2px solid var(--teal,#00e5ff); border-radius: 16px;
-    background: #000; color: #fff; box-shadow: 0 12px 40px rgba(0,0,0,.6);
-  }
-  #categoryChecklist { display: grid; gap: 10px; grid-template-columns: 1fr; }
-  #categoryChecklist label {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border: 1px solid #2a2a2a; border-radius: 12px;
-    background: #090909; transition: background .15s, border-color .15s;
-  }
-  #categoryChecklist input[type="checkbox"] { width: 18px; height: 18px; }
-  .themed-button { cursor: pointer; }
+  #categorySurveyPanel { position:fixed; inset:0; display:none; z-index:9999;
+    background:rgba(0,0,0,.65); backdrop-filter:blur(2px); }
+  #categorySurveyPanel.visible { display:block; }
+  #categorySurveyPanel .panel { position:absolute; inset:6% 6% auto 6%;
+    max-height:88vh; overflow:auto; padding:24px; border:2px solid var(--teal,#00e5ff);
+    border-radius:16px; background:#000; color:#fff; box-shadow:0 12px 40px rgba(0,0,0,.6); }
+  #categoryChecklist { display:grid; gap:10px; grid-template-columns:1fr; }
+  #categoryChecklist label { display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border:1px solid #2a2a2a; border-radius:12px; background:#090909; }
+  #categoryChecklist input[type="checkbox"] { width:18px; height:18px; }
+  .themed-button { cursor:pointer; }
 </style>
 
-<aside id="categorySurveyPanel" class="category-panel tk-wide-panel" role="dialog"
-       aria-label="Category selection" aria-modal="true" aria-hidden="true">
+<aside id="categorySurveyPanel" role="dialog" aria-label="Category selection"
+       aria-modal="true" aria-hidden="true">
   <div class="panel">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <h2 style="margin:0">Select categories</h2>
-      <button id="btnClosePanel" class="themed-button" aria-label="Close panel">Close ✕</button>
+      <button id="btnClosePanel" class="themed-button" aria-label="Close">Close ✕</button>
     </div>
 
     <div style="display:flex;gap:12px;align-items:center;margin:6px 0 14px">
@@ -2352,142 +2343,202 @@ NO VISUAL TAKEOVER
 </aside>
 
 <script>
-/* ------------------------------ tiny toast --------------------------------- */
-function tkToast(msg){ console.log('[TK]', msg); }
+/* ------------------------------- helpers ---------------------------------- */
+const tkLog = (...a)=>console.log('[TK]', ...a);
 
-/* -------------------------- load data + labels ----------------------------- */
+function tkNormalizeItems(raw){
+  // Accept arrays or objects with common property names
+  if (Array.isArray(raw)) return raw;
+  if (!raw || typeof raw !== 'object') return [];
+  return raw.items || raw.kinks || raw.categories || raw.data || raw.rows || [];
+}
+
+function tkNormalizeOverrides(raw){
+  // Accept a mapping {id:name} or array of {id,name}/{code,label}
+  if (!raw) return {};
+  if (Array.isArray(raw)){
+    const map = {};
+    for (const r of raw){
+      const id = r.id || r.code || r.key;
+      const nm = r.name || r.label || r.title;
+      if (id && nm) map[id] = nm;
+    }
+    return map;
+  }
+  if (typeof raw === 'object') return raw;
+  return {};
+}
+
+async function tkFetchJSON(url){
+  const r = await fetch(url, {cache:'no-store'});
+  if (!r.ok) throw new Error(`${url} ${r.status}`);
+  return r.json();
+}
+
+/* ----------------------------- robust loader ------------------------------ */
 async function tkLoadKinkData(){
   if (window.__TK_DATA) return window.__TK_DATA;
 
-  async function get(url){
-    const r = await fetch(url, {cache:'no-store'});
-    if (!r.ok) throw new Error(url+' '+r.status);
-    return r.json();
+  const now = Date.now();
+  const candidates = [
+    `/data/kinks.json?v=${now}`,
+    `/data/categories.json?v=${now}`,      // optional fallback
+  ];
+
+  let items = [];
+  let lastErr;
+  for (const url of candidates){
+    try{
+      const raw = await tkFetchJSON(url);
+      items = tkNormalizeItems(raw);
+      if (items && items.length) { tkLog(`loaded ${items.length} raw items from`, url); break; }
+    }catch(e){ lastErr = e; }
+  }
+  if (!items || !items.length){
+    tkLog('no items available', lastErr || '');
+    items = []; // continue gracefully
   }
 
-  const base = '/data';
-  const items = await get(`${base}/kinks.json`);
-  let overrides = {};
-  try { overrides = await get(`${base}/labels-overrides.json`); } catch {}
+  // Overrides (optional)
+  let overridesMap = {};
+  try{
+    const rawOver = await tkFetchJSON(`/data/labels-overrides.json?v=${now}`);
+    overridesMap = tkNormalizeOverrides(rawOver);
+  }catch{}
 
+  // Build labels map
   const labelsMap = {};
   for (const it of items){
-    const id = it.id || it.code;
+    const id = it?.id ?? it?.code ?? it?.key ?? null;
     if (!id) continue;
-    labelsMap[id] = (overrides[id] || it.name || id).trim();
+    const baseName = it?.name ?? it?.label ?? it?.title ?? id;
+    labelsMap[id] = (overridesMap[id] || baseName).toString().trim();
   }
-  window.__TK_LABELS = labelsMap;
+
   window.__TK_DATA   = { items, labelsMap };
-  tkToast(`Loaded ${items.length} categories; UI wired.`);
+  window.__TK_LABELS = labelsMap;     // expose for PDF
   return window.__TK_DATA;
 }
 
-/* ---------------------------- modal + wiring ------------------------------- */
+/* ------------------------ modal + “Start Survey” wiring ------------------- */
 (function tkSurveyInit(){
   const $  = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
 
-  const panel   = $('#categorySurveyPanel');
-  const list    = $('#categoryChecklist');
-  const closeB  = $('#btnClosePanel');
-  const allB    = $('#btnSelectAll');
-  const noneB   = $('#btnDeselectAll');
-  const badge   = $('#selectedCountBadge');
-  const goB     = $('#beginSurveyFromPanel');
+  const panel = $('#categorySurveyPanel');
+  const list  = $('#categoryChecklist');
+  const badge = $('#selectedCountBadge');
+  const btnClose = $('#btnClosePanel');
+  const btnAll   = $('#btnSelectAll');
+  const btnNone  = $('#btnDeselectAll');
+  const btnGo    = $('#beginSurveyFromPanel');
 
-  if (!panel || !list || !goB){ console.warn('[TK] panel skeleton missing'); return; }
+  if (!panel || !list || !btnGo){ console.warn('[TK] panel skeleton missing'); return; }
 
   let ALL_IDS = [];
   let selected = new Set();
 
   const nameFor = id => (window.__TK_LABELS && window.__TK_LABELS[id]) || id;
 
+  function updateBadge(){ badge.textContent = `${selected.size} selected / ${ALL_IDS.length} total`; }
+  function open(){ panel.classList.add('visible'); panel.setAttribute('aria-hidden','false'); (btnClose||panel).focus({preventScroll:true}); }
+  function close(){ panel.classList.remove('visible'); panel.setAttribute('aria-hidden','true'); }
+
   function render(){
     const f = document.createDocumentFragment();
-    ALL_IDS.forEach(id=>{
-      const L = document.createElement('label');
-      const cb = document.createElement('input');
-      cb.type='checkbox'; cb.value=id; cb.checked=selected.has(id);
-      cb.addEventListener('change',()=>{ cb.checked?selected.add(id):selected.delete(id); updateBadge(); });
-      const t = document.createElement('span'); t.textContent = nameFor(id);
-      L.append(cb,t); f.append(L);
-    });
+    if (!ALL_IDS.length){
+      const p = document.createElement('p');
+      p.style.opacity = .8;
+      p.textContent = 'Dataset unavailable. Please try again shortly.';
+      f.append(p);
+    }else{
+      for (const id of ALL_IDS){
+        const L = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type='checkbox'; cb.value=id; cb.checked=selected.has(id);
+        cb.addEventListener('change',()=>{ cb.checked?selected.add(id):selected.delete(id); updateBadge(); });
+        const t = document.createElement('span'); t.textContent = nameFor(id);
+        L.append(cb,t); f.append(L);
+      }
+    }
     list.replaceChildren(f);
     list.setAttribute('aria-busy','false');
     updateBadge();
   }
-  function updateBadge(){ badge.textContent = `${selected.size} selected / ${ALL_IDS.length} total`; }
-  function open(){ panel.classList.add('visible'); panel.setAttribute('aria-hidden','false'); (closeB||panel).focus({preventScroll:true}); }
-  function close(){ panel.classList.remove('visible'); panel.setAttribute('aria-hidden','true'); }
 
   async function prepareAndOpen(){
-    list.setAttribute('aria-busy','true');
     try{
-      const {items}=await tkLoadKinkData();
-      ALL_IDS = items.map(it=>it.id||it.code).filter(Boolean);
+      list.setAttribute('aria-busy','true');
+      const { items } = await tkLoadKinkData();               // never throws fatally
+      ALL_IDS = (items||[]).map(it=>it.id||it.code||it.key).filter(Boolean);
       const saved = JSON.parse(localStorage.getItem('__TK_SELECTED_CATEGORIES')||'[]');
-      selected = new Set(saved.length?saved:ALL_IDS); // default to all
+      selected = new Set(saved.length ? saved : ALL_IDS);     // default to all when present
       render();
       open();
-    }catch(e){ console.error('[TK] data load failed', e); }
+    }catch(e){
+      console.error('[TK] data load failed', e);
+      ALL_IDS = [];
+      selected = new Set();
+      render();
+      open();
+    }
   }
 
-  // primary explicit wiring for known IDs/attributes
-  function wireKnownButtons(){
-    const known = $$('#startSurveyBtn, [data-tk-start-survey]');
-    known.forEach(btn=>{
-      btn.__tkWired = true;
-      btn.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); prepareAndOpen(); }, {capture:true});
-    });
-    return known.length;
-  }
-
-  // heuristic wiring (text content, href)
-  function wireHeuristicButtons(){
-    const cands = $$('a,button').filter(el=>{
-      if (el.__tkWired) return false;
-      const txt = (el.textContent||'').trim().toLowerCase();
-      const href = (el.getAttribute('href')||'').toLowerCase();
-      return /start\s*survey/.test(txt) || /\/kinksurvey\/?$/.test(href);
-    });
-    cands.forEach(el=>{
+  // Wire explicit IDs/attributes first
+  function wireKnown(){
+    let n = 0;
+    for (const el of $$('#startSurveyBtn, [data-tk-start-survey]')){
+      if (el.__tkWired) continue;
       el.__tkWired = true;
       el.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); prepareAndOpen(); }, {capture:true});
-    });
-    return cands.length;
+      n++;
+    }
+    return n;
   }
 
-  // last-resort hijacker: capture anything that *looks* like Start Survey
-  function installGlobalHijacker(){
-    document.addEventListener('click', (ev)=>{
-      const target = ev.target.closest('a,button,[role="button"]');
-      if (!target) return;
-      if (target.__tkWired) return;
-      const txt = (target.textContent||'').toLowerCase();
-      const href = (target.getAttribute('href')||'').toLowerCase();
+  // Heuristic wiring (text/href)
+  function wireHeuristic(){
+    let n = 0;
+    for (const el of $$('a,button')){
+      if (el.__tkWired) continue;
+      const txt = (el.textContent||'').trim().toLowerCase();
+      const href = (el.getAttribute('href')||'').toLowerCase();
       if (/start\s*survey/.test(txt) || /\/kinksurvey\/?$/.test(href)){
-        ev.preventDefault(); ev.stopPropagation();
-        prepareAndOpen();
+        el.__tkWired = true;
+        el.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); prepareAndOpen(); }, {capture:true});
+        n++;
       }
-    }, true); // capture phase on purpose
+    }
+    return n;
   }
 
-  // wire buttons now (and again after small delay for late-rendered UIs)
-  const wiredNow  = wireKnownButtons() + wireHeuristicButtons();
-  setTimeout(()=> wireKnownButtons()+wireHeuristicButtons(), 250);
-  installGlobalHijacker();
+  // Global capture guard so nested elements can’t swallow the click
+  document.addEventListener('click', (ev)=>{
+    const t = ev.target.closest('a,button,[role="button"]');
+    if (!t || t.__tkWired) return;
+    const txt = (t.textContent||'').toLowerCase();
+    const href = (t.getAttribute('href')||'').toLowerCase();
+    if (/start\s*survey/.test(txt) || /\/kinksurvey\/?$/.test(href)){
+      ev.preventDefault(); ev.stopPropagation();
+      prepareAndOpen();
+    }
+  }, true);
 
-  // Controls inside panel
-  closeB && closeB.addEventListener('click', close);
-  allB   && allB.addEventListener('click', ()=>{ selected = new Set(ALL_IDS); render(); });
-  noneB  && noneB.addEventListener('click', ()=>{ selected = new Set(); render(); });
+  // Wire now + after small delay for late UI
+  const wired0 = wireKnown() + wireHeuristic();
+  setTimeout(()=>{ wireKnown(); wireHeuristic(); }, 250);
 
-  goB.addEventListener('click', ()=>{
+  // Panel controls
+  btnClose && btnClose.addEventListener('click', close);
+  btnAll   && btnAll.addEventListener('click', ()=>{ selected = new Set(ALL_IDS); render(); });
+  btnNone  && btnNone.addEventListener('click', ()=>{ selected = new Set(); render(); });
+
+  btnGo.addEventListener('click', ()=>{
     const choice = Array.from(selected);
     localStorage.setItem('__TK_SELECTED_CATEGORIES', JSON.stringify(choice));
     const evt = new CustomEvent('tk:start-survey', { detail: { includeCategories: choice }});
     document.dispatchEvent(evt);
-
+    // If your runner sets this to true we won’t navigate
     setTimeout(()=>{
       if (!window.__TK_SURVEY_STARTED){
         const qs = new URLSearchParams({ run:'1', cats: choice.join(',') });
@@ -2496,18 +2547,19 @@ async function tkLoadKinkData(){
     }, 120);
   });
 
-  // Auto-open if asked via URL or no obvious start button existed
-  if (/[#?](survey|start=1)/i.test(location.href) || wiredNow === 0){
+  // Auto-open if hinted via URL or if no button was wired
+  if (/[#?](survey|start=1)/i.test(location.href) || wired0 === 0){
     setTimeout(prepareAndOpen, 60);
   }
 })();
 
-/* ------------------------- PDF helper (names, not codes) --------------------
-On the PDF/compatibility page, you can safely call:
+/* ---------------------------- PDF name helper ------------------------------
+Anywhere on the compatibility/PDF page, call:
   const nameFor = id => (window.__TK_LABELS||{})[id] || id;
-If labels not present yet on that page, run:
-  (async()=>{ if(!window.__TK_LABELS){ const {labelsMap}=await tkLoadKinkData(); window.__TK_LABELS=labelsMap; }})();
------------------------------------------------------------------------------ */
+
+If __TK_LABELS isn’t ready yet on that page, preload:
+  (async()=>{ if(!window.__TK_LABELS){ const d=await tkLoadKinkData(); window.__TK_LABELS=d.labelsMap; }})();
+---------------------------------------------------------------------------- */
 </script>
 
 </body>
