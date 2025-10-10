@@ -1,71 +1,106 @@
-;(function () {
-  window.TK = window.TK || {};
-  const BUST = String(Date.now());
-
-  // ---- Replace this minimal fallback with your full set when you’re ready. ----
-  const KINKS_FALLBACK = {
-    categories: [
-      { id: "cb_e4bdv", title: "Dress partner’s outfit" },
-      { id: "cb_hhxwj", title: "Pick lingerie / base layers" },
-      { id: "cb_a19iy", title: "Uniforms (school, military, nurse, etc.)" },
-      { id: "cb_5gzwk", title: "Time-period dress-up" },
-      { id: "cb_jmxxq", title: "Dollification / polished object aesthetics" },
-      { id: "cb_67z7h", title: "Hair-based play (brushing, ribbons, tying)" },
-      { id: "cb_d8lcg", title: "Head coverings / symbolic hoods" },
-      { id: "cb_h1ua2", title: "Coordinated looks / dress codes" },
-      { id: "cb_6zi8g", title: "Ritualized grooming" },
-      { id: "cb_5ca8j", title: "Praise for pleasing visual display" },
-      { id: "cb_4kbnf", title: "Formal appearance protocols" },
-      { id: "cb_k3ig3", title: "Clothing as power-role signal" }
-      // …add the rest of your categories here using the same IDs you already use
-    ],
-    labels: {
-      cb_e4bdv: "Dress partner’s outfit",
-      cb_hhxwj: "Pick lingerie / base layers",
-      cb_a19iy: "Uniforms (school, military, nurse, etc.)",
-      cb_5gzwk: "Time-period dress-up",
-      cb_jmxxq: "Dollification / polished object aesthetics",
-      cb_67z7h: "Hair-based play (brushing, ribbons, tying)",
-      cb_d8lcg: "Head coverings / symbolic hoods",
-      cb_h1ua2: "Coordinated looks / dress codes",
-      cb_6zi8g: "Ritualized grooming",
-      cb_5ca8j: "Praise for pleasing visual display",
-      cb_4kbnf: "Formal appearance protocols",
-      cb_k3ig3: "Clothing as power-role signal"
-      // …mirror the same keys (ID -> label)
+/*  Minimal, robust data loader.
+    Exposes: TK.loadKinkData(): Promise<{ categories: Array<{id,title}>, labelsMap: Record<string,string> }>
+    Strategy:
+      1) Try to fetch /data/kinks.json (and optional /data/labels-overrides.json).
+      2) Detect shape and extract categories.
+      3) Build labelsMap from both sources.
+      4) If fetch fails, return a tiny safe fallback so UI stays interactive.
+*/
+window.TK = window.TK || {};
+(function(){
+  const fetchJson = async (url, timeoutMs=5000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try{
+      const r = await fetch(url, { signal: ctrl.signal, credentials: 'same-origin' });
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    }finally{
+      clearTimeout(t);
     }
   };
 
-  async function fetchJSON(url) {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+  function normalizeCategories(source){
+    // Try common shapes:
+    //  a) { categories: [ { id, title }, ... ] }
+    //  b) { categories: { cb_xxxx: "Name", ... } }
+    //  c) { items: [ { id, label }, ... ] }
+    //  d) Map-like { cb_xxxx: {...} }  (fall back to keys)
+    if(!source) return [];
+    if(Array.isArray(source.categories)){
+      return source.categories
+        .map(x => ({ id: x.id || x.code || x.key || '', title: x.title || x.name || '' }))
+        .filter(x => x.id);
+    }
+    if(source.categories && typeof source.categories === 'object'){
+      return Object.entries(source.categories).map(([id, val]) => ({
+        id, title: (typeof val === 'string' ? val : (val && (val.title||val.name))) || id
+      }));
+    }
+    if(Array.isArray(source.items)){
+      return source.items
+        .map(x => ({ id: x.id || x.code || x.key || '', title: x.label || x.title || x.name || '' }))
+        .filter(x => x.id);
+    }
+    // Try map-of-objects fallback
+    if(typeof source === 'object'){
+      const keys = Object.keys(source).filter(k => /^cb_/.test(k));
+      if(keys.length){
+        return keys.map(k => ({ id:k, title: (source[k] && (source[k].title||source[k].name)) || k }));
+      }
+    }
+    return [];
   }
 
-  function normalize(data) {
-    // Accept shapes:
-    //   { categories:[...], labels:{...} }
-    //   { kinks:{ categories:[...], labels:{...} } }
-    const categories =
-      (data && Array.isArray(data.categories) && data.categories) ||
-      (data && data.kinks && Array.isArray(data.kinks.categories) && data.kinks.categories) ||
-      [];
-    const labelsMap =
-      (data && data.labels) ||
-      (data && data.kinks && data.kinks.labels) ||
-      {};
-    if (!categories.length) throw new Error("No categories array in data.");
-    return { categories, labelsMap };
+  function mergeLabels(baseMap, overrideMap){
+    const out = { ...(baseMap||{}) };
+    if(overrideMap && typeof overrideMap === 'object'){
+      for(const [k,v] of Object.entries(overrideMap)){
+        if(typeof v === 'string' && v.trim()) out[k] = v.trim();
+      }
+    }
+    return out;
   }
 
-  async function loadKinkData() {
-    try {
-      const url = `/data/kinks.json?v=${BUST}`;
-      const json = await fetchJSON(url);
-      return normalize(json);
-    } catch (e) {
-      console.warn("[kinkdata] Falling back to embedded dataset:", e);
-      return normalize(KINKS_FALLBACK);
+  async function loadKinkData(){
+    // Primary locations (adjust if your paths differ)
+    const kinksURL    = '/data/kinks.json';
+    const labelsURL   = '/data/labels-overrides.json';   // optional
+
+    try{
+      const [kinks, labelsOverrides] = await Promise.allSettled([
+        fetchJson(kinksURL),
+        fetchJson(labelsURL)
+      ]);
+
+      const ksrc   = kinks.status === 'fulfilled' ? kinks.value : null;
+      const lovr   = labelsOverrides.status === 'fulfilled' ? labelsOverrides.value : null;
+      const cats   = normalizeCategories(ksrc);
+      // Build base labels map from cats and source:
+      let base = {};
+      for(const c of cats){
+        base[c.id] = c.title || c.id;
+      }
+      // Also merge any direct map ksrc.categories (object form)
+      if(ksrc && ksrc.categories && typeof ksrc.categories === 'object' && !Array.isArray(ksrc.categories)){
+        for(const [id, val] of Object.entries(ksrc.categories)){
+          if(!base[id]){
+            base[id] = (typeof val === 'string' ? val : (val && (val.title||val.name))) || id;
+          }
+        }
+      }
+      const labelsMap = mergeLabels(base, lovr);
+
+      return { categories: cats, labelsMap };
+    }catch(err){
+      console.warn('[TK] loadKinkData failed, using fallback:', err);
+      // Tiny fallback so the UI works no matter what.
+      const fallback = [
+        { id:'cb_sample1', title:'Sample Category A' },
+        { id:'cb_sample2', title:'Sample Category B' }
+      ];
+      const labelsMap = { cb_sample1:'Sample Category A', cb_sample2:'Sample Category B' };
+      return { categories: fallback, labelsMap };
     }
   }
 
