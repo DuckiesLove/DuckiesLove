@@ -2232,5 +2232,253 @@ How to use:
 <!-- === end TK hotfix === -->
 <script src="/js/tk-data-loader.js"></script>
 <script src="/js/kinksurvey.js"></script>
+<!--
+===============================================================================
+TALK KINK – ONE-PASTE FIX
+===============================================================================
+WHAT THIS DOES
+1) Fixes “Start Survey” not responding / frozen dialog.
+2) Shows a category picker with your current dark look (non-intrusive CSS).
+3) Loads all categories from /data/kinks.json (+ optional /data/labels-overrides.json).
+4) Saves the chosen categories and launches the survey (or emits an event your
+   runner can catch).
+5) Exposes window.__TK_LABELS so your Compatibility/PDF code can print human
+   names instead of cb_* codes.
+
+HOW TO USE (ONE STEP)
+Paste this entire block before </body> on BOTH:
+  • /kinksurvey/ (or the page with the Start Survey button)
+  • /compatibility.html (so the PDF can resolve names)
+
+BUTTON HOOK
+Your Start button must have id="startSurveyBtn" OR attribute data-tk-start-survey.
+Example: <a id="startSurveyBtn" class="themed-button">Start Survey</a>
+
+SURVEY HANDOFF (optional)
+If you have a custom runner, listen once for:
+  document.addEventListener('tk:start-survey', (e) => {
+    window.__TK_SURVEY_STARTED = true; // prevent fallback navigation
+    const cats = e.detail.includeCategories; // array of IDs
+    // ...start your survey with `cats`
+  });
+
+FALLBACK
+If no listener starts the survey, the code navigates to /kinksurvey/?run=1&cats=…
+after 120ms so users always proceed.
+
+PDF NAMES
+On the PDF page, after this block, you can do:
+  const nameFor = id => (window.__TK_LABELS||{})[id] || id;
+
+===============================================================================
+-->
+
+<!-- ====== TK SURVEY PANEL (UI + WIRING + LAUNCH) ====== -->
+<style>
+  /* Minimal, theme-friendly additions (keeps your current look) */
+  #categorySurveyPanel {
+    position: fixed; inset: 0; display: none; z-index: 9999;
+    background: rgba(0,0,0,.65); backdrop-filter: blur(2px);
+  }
+  #categorySurveyPanel.visible { display: block; }
+  #categorySurveyPanel .panel {
+    position: absolute; inset: 6% auto auto 6%; right: 6%;
+    max-height: 88vh; overflow: auto; padding: 24px;
+    border: 2px solid var(--teal,#00e5ff); border-radius: 16px;
+    background: #000; color: #fff; box-shadow: 0 12px 40px rgba(0,0,0,.6);
+  }
+  #categoryChecklist { display: grid; gap: 10px; grid-template-columns: 1fr; }
+  #categoryChecklist label {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border: 1px solid #2a2a2a; border-radius: 12px;
+    background: #090909; transition: background .15s, border-color .15s;
+  }
+  #categoryChecklist input[type="checkbox"] { width: 18px; height: 18px; }
+  .themed-button { cursor: pointer; }
+</style>
+
+<!-- Modal skeleton (safe even if already present; IDs are required) -->
+<aside id="categorySurveyPanel" class="category-panel tk-wide-panel" role="region"
+       aria-label="Category selection" aria-hidden="true" data-ksv-panel
+       data-tk-stop-prop="1" data-tk-enhanced="1">
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h2 style="margin:0">Select categories</h2>
+      <button id="btnClosePanel" class="themed-button" aria-label="Close panel">Close ✕</button>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;margin:6px 0 14px">
+      <button id="btnSelectAll"   class="themed-button">Select All</button>
+      <button id="btnDeselectAll" class="themed-button">Deselect All</button>
+      <span id="selectedCountBadge" style="opacity:.7">0 selected / 0 total</span>
+    </div>
+
+    <div id="categoryChecklist" aria-live="polite" aria-busy="true">
+      <!-- rendered dynamically -->
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:12px">
+      <button id="beginSurveyFromPanel" class="themed-button">Start Survey</button>
+    </div>
+  </div>
+</aside>
+
+<script>
+/* ------------------------------ Console toast ------------------------------ */
+function tkToast(msg) {
+  console.log('[TK]', msg);
+  try {
+    let t = document.getElementById('tk-toast'); if (!t) {
+      t = document.createElement('div'); t.id = 'tk-toast';
+      Object.assign(t.style, {position:'fixed',left:'50%',bottom:'24px',transform:'translateX(-50%)',
+        background:'#111',color:'#0ff',padding:'10px 14px',border:'1px solid #044',borderRadius:'10px',
+        zIndex:10000,font:'14px system-ui',transition:'opacity .2s'} );
+      document.body.appendChild(t);
+    }
+    t.textContent = msg; t.style.opacity = '1';
+    clearTimeout(t._h); t._h = setTimeout(()=> t.style.opacity='0', 1800);
+  } catch {}
+}
+
+/* ------------------------------ Data loader -------------------------------- */
+async function tkLoadKinkData() {
+  if (window.__TK_DATA) return window.__TK_DATA;
+
+  const fetchJson = async (url) => {
+    const r = await fetch(url, {cache:'no-store'});
+    if (!r.ok) throw new Error(url + ' ' + r.status);
+    return r.json();
+  };
+
+  const base = '/data';
+  const items = await fetchJson(`${base}/kinks.json`);
+  let overrides = {};
+  try { overrides = await fetchJson(`${base}/labels-overrides.json`); } catch {}
+
+  const labelsMap = {};
+  for (const it of items) {
+    const id = it.id || it.code;
+    if (!id) continue;
+    labelsMap[id] = (overrides[id] || it.name || id).trim();
+  }
+  window.__TK_LABELS = labelsMap;
+  window.__TK_DATA = { items, labelsMap };
+  tkToast(`Loaded ${items.length} categories; UI wired.`);
+  return window.__TK_DATA;
+}
+
+/* ------------------------------ Survey UI wiring --------------------------- */
+(function tkSurveyBootstrap(){
+  const $ = (sel,root=document)=> root.querySelector(sel);
+  const $$ = (sel,root=document)=> Array.from(root.querySelectorAll(sel));
+
+  // Start buttons (either id or data attribute)
+  const startButtons = $$('#startSurveyBtn, [data-tk-start-survey]');
+  const panelEl   = $('#categorySurveyPanel');
+  const listEl    = $('#categoryChecklist');
+  const closeEl   = $('#btnClosePanel');
+  const selAllEl  = $('#btnSelectAll');
+  const deselEl   = $('#btnDeselectAll');
+  const badgeEl   = $('#selectedCountBadge');
+  const goEl      = $('#beginSurveyFromPanel');
+
+  if (!panelEl || !listEl || !badgeEl || !goEl) {
+    console.warn('[TK] Panel skeleton missing — modal wiring skipped.');
+    return;
+  }
+
+  let ALL_IDS = [];
+  let selected = new Set();
+
+  const nameFor = (id)=> (window.__TK_LABELS && window.__TK_LABELS[id]) || id;
+
+  function updateBadge() {
+    badgeEl.textContent = `${selected.size} selected / ${ALL_IDS.length} total`;
+  }
+
+  function renderList() {
+    const frag = document.createDocumentFragment();
+    ALL_IDS.forEach(id => {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = id; cb.checked = selected.has(id);
+      cb.addEventListener('change', () => { cb.checked ? selected.add(id) : selected.delete(id); updateBadge(); });
+      const text = document.createElement('span'); text.textContent = nameFor(id);
+      label.append(cb, text); frag.append(label);
+    });
+    listEl.replaceChildren(frag);
+    listEl.setAttribute('aria-busy','false');
+    updateBadge();
+  }
+
+  function openPanel() {
+    panelEl.classList.add('visible');
+    panelEl.removeAttribute('aria-hidden');
+    panelEl.removeAttribute('inert');
+    (closeEl || panelEl).focus({preventScroll:true});
+  }
+  function closePanel() {
+    panelEl.classList.remove('visible');
+    panelEl.setAttribute('aria-hidden','true');
+  }
+
+  async function ensureDataThenOpen() {
+    try {
+      listEl.setAttribute('aria-busy','true');
+      const { items } = await tkLoadKinkData();
+      ALL_IDS = items.map(it => it.id || it.code).filter(Boolean);
+      const saved = JSON.parse(localStorage.getItem('__TK_SELECTED_CATEGORIES')||'[]');
+      selected = new Set(saved.length ? saved : ALL_IDS);  // default to all
+      renderList();
+      openPanel();
+    } catch (err) {
+      console.error('[TK] Failed to load data', err);
+      tkToast('Could not load categories. Check /data/kinks.json');
+    }
+  }
+
+  // Wire buttons
+  startButtons.forEach(btn => btn.addEventListener('click', (e)=>{ e.preventDefault(); ensureDataThenOpen(); }));
+  closeEl && closeEl.addEventListener('click', ()=> closePanel());
+  selAllEl && selAllEl.addEventListener('click', ()=> { selected = new Set(ALL_IDS); renderList(); });
+  deselEl && deselEl.addEventListener('click', ()=> { selected = new Set(); renderList(); });
+
+  goEl.addEventListener('click', () => {
+    const choice = Array.from(selected);
+    localStorage.setItem('__TK_SELECTED_CATEGORIES', JSON.stringify(choice));
+
+    // Broadcast for custom runner
+    const evt = new CustomEvent('tk:start-survey', { detail: { includeCategories: choice }});
+    document.dispatchEvent(evt);
+
+    // Fallback navigation if nothing consumed it
+    setTimeout(() => {
+      if (!window.__TK_SURVEY_STARTED) {
+        const qs = new URLSearchParams({ run:'1', cats: choice.join(',') });
+        location.href = `/kinksurvey/?${qs}`;
+      }
+    }, 120);
+  });
+
+  // Optional: ESC close
+  document.addEventListener('keydown', (e)=> {
+    if (e.key === 'Escape' && panelEl.classList.contains('visible')) closePanel();
+  });
+})();
+
+/* ------------------------------ PDF helper ---------------------------------
+Use this on compatibility/PDF pages to show names (not codes).
+
+Example inside your PDF builder:
+  const nameFor = id => (window.__TK_LABELS||{})[id] || id;
+  doc.text(nameFor(row.categoryId), x, y);
+
+If __TK_LABELS might not be initialized on that page, you can ensure it:
+  (async () => {
+    if (!window.__TK_LABELS) { const {labelsMap} = await tkLoadKinkData(); window.__TK_LABELS = labelsMap; }
+  })();
+----------------------------------------------------------------------------- */
+</script>
+<!-- ====== /TK SURVEY PANEL ====== -->
 </body>
 </html>
