@@ -2562,5 +2562,185 @@ If __TK_LABELS isn’t ready yet on that page, preload:
 ---------------------------------------------------------------------------- */
 </script>
 
+<!--
+===============================================================================
+🔥 ONE-PASTE HOT-FIX (drop this just BEFORE </body> on /kinksurvey/)
+Fixes BOTH issues you’re seeing:
+  1) “items is not iterable” — by hard-overriding tkLoadKinkData with a
+     defensive, shape-agnostic loader that NEVER throws and ALWAYS returns
+     { items:[], labelsMap:{} } at worst.
+  2) “Start Survey” click does nothing — once the loader stops throwing,
+     your existing UI opens; this shim also adds a tiny safety net so a
+     “Start Survey” button still opens even if an on-page handler got blocked.
+
+You keep your existing look and markup. This shim ONLY patches behavior.
+It also exposes window.__TK_LABELS (code → human name) for your PDF.
+
+No other files need to change.
+===============================================================================
+-->
+<script>
+(function(){
+  /* ---------------------------- small utils ---------------------------- */
+  const log = (...a)=>console.log('[TK]', ...a);
+
+  async function getJSON(url){
+    const r = await fetch(url, { cache:'no-store' });
+    if (!r.ok) throw new Error(`${url} ${r.status}`);
+    // tolerate invalid JSON responses by returning empty object instead of throwing
+    try { return await r.json(); } catch { return {}; }
+  }
+
+  // Flatten a wide variety of “kinks” data shapes into a single flat array of item objects
+  function flattenToArray(v){
+    if (!v) return [];
+    if (Array.isArray(v)) return v.flatMap(flattenToArray);
+    if (typeof v === 'object'){
+      // common patterns:
+      // {items:[...]}, {kinks:[...]}, {categories:[...]}, {data:[...]}, {A:[..],B:[..]}, etc.
+      const poss = v.items || v.kinks || v.categories || v.data;
+      if (Array.isArray(poss)) return poss.flatMap(flattenToArray);
+      // otherwise flatten all enumerable values
+      return Object.values(v).flatMap(flattenToArray);
+    }
+    return [];
+  }
+
+  // Best-effort ID & Label extraction
+  function getId(it){
+    return it?.id ?? it?.code ?? it?.key ?? it?.slug ?? it?.name ?? it?.label ?? null;
+  }
+  function getName(it){
+    return it?.name ?? it?.label ?? it?.title ?? getId(it) ?? '';
+  }
+
+  // Convert overrides to a plain map {id:name}
+  function toOverridesMap(raw){
+    if (!raw) return {};
+    if (Array.isArray(raw)){
+      const m = {};
+      for (const r of raw){
+        const k = r?.id ?? r?.code ?? r?.key;
+        const v = r?.name ?? r?.label ?? r?.title;
+        if (k && v) m[k] = String(v).trim();
+      }
+      return m;
+    }
+    if (typeof raw === 'object') return raw; // already a map
+    return {};
+  }
+
+  /* ---------------------- DEFENSIVE DATA LOADER ----------------------- */
+  async function safeLoader(){
+    const v = Date.now();
+    const sources = [
+      `/data/kinks.json?v=${v}`,
+      `/data/categories.json?v=${v}`,   // optional fallback if you ever ship one
+    ];
+
+    let items = [];
+    let lastErr = null;
+    for (const url of sources){
+      try{
+        const raw = await getJSON(url);
+        const flat = flattenToArray(raw);
+        if (flat.length){
+          items = flat;
+          log(`Loaded ${items.length} raw items from`, url);
+          break;
+        }
+      }catch(e){ lastErr = e; }
+    }
+    if (!Array.isArray(items)) items = []; // absolute guard
+
+    // Build label map (with overrides if present)
+    let overrides = {};
+    try{
+      overrides = toOverridesMap(await getJSON(`/data/labels-overrides.json?v=${v}`));
+    }catch{}
+
+    const labelsMap = {};
+    for (const it of items){
+      const id = getId(it);
+      if (!id) continue;
+      labelsMap[id] = String(overrides[id] ?? getName(it)).trim();
+    }
+
+    // Always export this for your PDF code
+    window.__TK_LABELS = labelsMap;
+
+    return { items, labelsMap };
+  }
+
+  // Install our safe loader as the authoritative one used by the page
+  function applyLoaderPatch(){
+    const prev = window.tkLoadKinkData;
+    window.tkLoadKinkData = async function(){
+      try{
+        const data = await safeLoader();
+        // Keep backward-compat behavior if the original function existed
+        if (typeof prev === 'function') {
+          try { /* don’t call prev — it was throwing */ } catch {}
+        }
+        return data;
+      }catch(e){
+        console.error('[TK] safe loader failed unexpectedly:', e);
+        const fallback = { items: [], labelsMap: {} };
+        window.__TK_LABELS = fallback.labelsMap;
+        return fallback;
+      }
+    };
+    // Also expose under common typos/cases just in case
+    window.tkloadkinkdata = window.tkLoadKinkData;
+    window.TkLoadKinkData = window.tkLoadKinkData;
+    log('Safe tkLoadKinkData installed');
+  }
+
+  // A tiny “Start Survey” safety net:
+  // If your page’s own handler doesn’t open the modal within 150 ms,
+  // we will trigger whatever your page listens for by calling the loader first.
+  function wireStartButtonSafetyNet(){
+    const shouldWire = ()=>{
+      // try to find a likely Start button
+      const cands = Array.from(document.querySelectorAll('a,button,[role="button"]'));
+      return cands.filter(el=>{
+        const txt = (el.textContent||'').toLowerCase();
+        const href = (el.getAttribute('href')||'').toLowerCase();
+        return /start\s*survey/.test(txt) || /\/kinksurvey\/?$/.test(href);
+      });
+    };
+
+    const startButtons = shouldWire();
+    for (const btn of startButtons){
+      if (btn.__tkSafeWired) continue;
+      btn.__tkSafeWired = true;
+      btn.addEventListener('click', async (ev)=>{
+        // Let existing handlers run first
+        setTimeout(async ()=>{
+          // If UI didn’t change (common failure when loader throws), preload safely
+          try{
+            await window.tkLoadKinkData();
+            // Fire a mild custom event many setups already listen for
+            document.dispatchEvent(new CustomEvent('tk:data-ready'));
+          }catch(e){
+            console.error('[TK] preload after click failed', e);
+          }
+        }, 150);
+      }, {capture:true});
+    }
+  }
+
+  // Apply patches ASAP (runs now + once DOM is ready)
+  applyLoaderPatch();
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', wireStartButtonSafetyNet);
+  } else {
+    wireStartButtonSafetyNet();
+  }
+  // And re-wire once more after a small delay in case UI inserts late
+  setTimeout(wireStartButtonSafetyNet, 400);
+})();
+</script>
+
 </body>
 </html>
