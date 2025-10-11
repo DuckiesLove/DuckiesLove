@@ -3730,4 +3730,3 @@ select {
 .themed-button{padding:12px 18px}
 .themed-button.ghost{background:transparent;border:1px solid rgba(255,255,255,.2)}
 .themed-button.primary{background:var(--teal);color:#001111}
-#btnOpenCats{display:block;margin:24px auto 32px}
