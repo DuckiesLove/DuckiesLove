@@ -3713,3 +3713,57 @@ select {
   }
 }
 
+
+/* ===== Category panel mechanics (keeps your neon look) =================== */
+.category-panel{
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,.65);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+  z-index: 9999;
+}
+.category-panel.is-open{
+  opacity: 1;
+  pointer-events: auto;
+}
+.category-panel[aria-hidden="true"]{ display:block; }
+.panel-chrome{
+  width: min(960px, 92vw);
+  max-height: 86vh;
+  border: 2px solid var(--teal, #00e6e6);
+  border-radius: 18px;
+  background: #000;
+  color: var(--fg, #fff);
+  box-shadow: 0 0 40px rgba(0,230,230,.15);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+}
+.panel-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+.panel-toolbar{
+  display:flex; gap:12px; align-items:center; padding: 12px 22px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.category-list{
+  padding: 18px 22px; overflow:auto; display:grid; gap:14px;
+  grid-template-columns: repeat(auto-fit, minmax(280px,1fr));
+}
+.panel-footer{ padding: 16px 22px; border-top:1px solid rgba(255,255,255,.08); }
+.chip{ opacity:.8; font-size:.9rem }
+.pill{
+  display:flex; align-items:center; gap:12px; padding:12px 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px; background:#0a0a0a;
+}
+.pill input{ width:18px; height:18px; accent-color: var(--teal,#00e6e6); }
+.pill .lbl{ font-weight:600; letter-spacing:.2px; }
+
+/* Lock body scroll while panel is open (prevents “page jumps”) */
+body.tk-lock{ overflow:hidden; }

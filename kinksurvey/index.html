@@ -485,7 +485,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 <section id="ksvHeroStack" data-ksv-fallback>
   <h1>Talk Kink Survey</h1>
   <nav class="ksvButtons">
-    <a class="ksvBtn" id="startSurveyBtn" data-legacy-id="btnStartSurvey" href="#beginSurveyFromPanel">Start Survey</a>
+    <button id="startSurveyBtn" data-legacy-id="btnStartSurvey" class="ksvBtn" type="button">Start Survey</button>
 
     <!-- Force the two buttons to your direct URLs -->
     <a class="ksvBtn" id="btn-compat" href="https://talkkink.org/compatibility.html">Compatibility Page</a>
@@ -495,97 +495,32 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   <noscript><p class="ksvFallbackNote">JavaScript is required to load the category list and run the survey.</p></noscript>
 </section>
 
-<button id="panelToggle" class="panel-toggle" aria-controls="categorySurveyPanel" aria-expanded="false">☰</button>
-
-<aside id="categorySurveyPanel" class="category-panel" role="region" aria-label="Category selection" data-ksv-panel>
-  <div class="panel-content">
-    <div class="ksv-close">
-      <button type="button" class="tk-close-drawer" data-action="close-panel" data-legacy-id="closePanelBtn" data-ksv-close>Close ✕</button>
+<aside
+  id="categorySurveyPanel"
+  class="category-panel tk-wide-panel"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Select categories"
+  aria-hidden="true"
+>
+  <div class="panel-chrome">
+    <header class="panel-header">
+      <h2>Select categories</h2>
+      <button id="closeCategoryPanelBtn" class="icon-btn close" type="button" aria-label="Close">✕</button>
+    </header>
+    <div class="panel-toolbar">
+      <button id="selectAllCatsBtn" class="themed-button">Select All</button>
+      <button id="deselectAllCatsBtn" class="themed-button ghost">Deselect All</button>
+      <span id="catCount" class="chip">0 selected / 0 total</span>
     </div>
-    <h2 class="panel-title">Select categories</h2>
-    <div class="top-buttons">
-      <button id="btnSelectAll" data-legacy-id="selectAllBtn" type="button" class="themed-button category-button">Select All</button>
-      <button id="btnDeselectAll" data-legacy-id="deselectAllBtn" type="button" class="themed-button category-button">Deselect All</button>
-      <span id="selectedCountBadge" data-legacy-id="catCounter" data-tk="cat-count" class="muted" aria-live="polite"></span>
+    <div id="categoryList" class="category-list" tabindex="-1" data-scroll="y">
+      <!-- JS will inject the 35 category pills here in alphabetical order -->
     </div>
-    <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
-    <div id="categoryChecklist" data-legacy-id="categoryList" data-tk="category-list" class="category-list" role="list"></div>
-    <div style="display:flex;justify-content:center;margin-top:12px">
-      <button id="beginSurveyFromPanel" data-legacy-id="start" data-tk="start" class="themed-button start-survey-btn">Start Survey</button>
-    </div>
-    <div id="diag" class="notice" style="display:none"></div>
+    <footer class="panel-footer">
+      <button id="startSurveyNowBtn" class="themed-button primary" type="button">Start</button>
+    </footer>
   </div>
 </aside>
-
-<script>
-/* kinksurvey controls: select/deselect + delegated toggling */
-(() => {
-  const getEl = (id) => document.getElementById(id) || document.querySelector(`[data-legacy-id="${id}"]`);
-  const els = {
-    list:       getEl('categoryChecklist') || getEl('categoryList'),
-    selectAll:  getEl('btnSelectAll') || getEl('selectAllBtn'),
-    deselectAll:getEl('btnDeselectAll') || getEl('deselectAllBtn'),
-    counter:    getEl('selectedCountBadge') || getEl('catCounter'),
-  };
-
-  // Guard if the panel hasn't been mounted yet
-  if (!els.list) return;
-
-  const qBoxes = () =>
-    Array.from(els.list.querySelectorAll('input[name="category"]'));
-
-  function updateCounters() {
-    const boxes = qBoxes();
-    const selected = boxes.filter(b => b.checked).length;
-    if (els.counter) els.counter.textContent = `${selected} selected / ${boxes.length} total`;
-  }
-
-  function selectAll()   { qBoxes().forEach(b => { b.checked = true;  }); updateCounters(); }
-  function deselectAll() { qBoxes().forEach(b => { b.checked = false; }); updateCounters(); }
-
-  // Attach button handlers (if present)
-  els.selectAll?.addEventListener('click',  selectAll);
-  els.deselectAll?.addEventListener('click',deselectAll);
-
-  // Delegated click for any category row/label (works after dynamic rendering)
-  els.list.addEventListener('click', (e) => {
-    // If they clicked a label or its content, toggle the associated checkbox
-    const label = e.target.closest('label');
-    const input = (label?.querySelector('input[name="category"]')) ||
-                  e.target.closest('input[name="category"]');
-    if (!input) return;
-
-    // If the click wasn't directly on the checkbox, flip it manually
-    if (e.target !== input) {
-      input.checked = !input.checked;
-      e.preventDefault();
-    }
-    updateCounters();
-  });
-
-  // Also support keyboard toggling on the whole row
-  els.list.addEventListener('keydown', (e) => {
-    if (!(e.key === ' ' || e.key === 'Enter')) return;
-    const row = e.target.closest('li, .row, .tk-check');
-    if (!row) return;
-    const box = row.querySelector('input[name="category"]');
-    if (!box) return;
-    box.checked = !box.checked;
-    updateCounters();
-    e.preventDefault();
-  });
-
-  // Expose a hook you can call after you re-render the list
-  window.__tk_updateCategoryCounter = updateCounters;
-
-  // If your render function already ran, update once on load
-  document.addEventListener('DOMContentLoaded', () => {
-    // give any async render a tick
-    setTimeout(updateCounters, 0);
-  });
-})();
-</script>
-
 <main id="content" class="content full">
   <div class="survey-box" id="survey" style="display:none">
     <h2 class="catTitle" id="catTitle"></h2>
