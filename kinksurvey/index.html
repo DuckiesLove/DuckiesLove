@@ -9,6 +9,25 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 
+<script>
+(function(){
+  const STORAGE_KEY = 'tk:theme';
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const isExplicit = saved === 'light' || saved === 'dark';
+    const sys = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    const actual = isExplicit
+      ? saved
+      : (sys && typeof sys.matches === 'boolean' && sys.matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', actual);
+    document.documentElement.dataset.tkThemeChoice = isExplicit ? saved : 'auto';
+    document.documentElement.dataset.tkThemeActual = actual;
+  } catch (err) {
+    console.warn('[tk-theme] early init failed:', err);
+  }
+})();
+</script>
+
 <!-- Reuse site styles for familiar look; local CSS below makes panel behave like /kinks/ -->
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/theme.css">
@@ -293,6 +312,51 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 <!-- TK/kinksurvey: center hero + real off-canvas panel -->
 <style>
   /* Scope to this page only */
+  :root{
+    --tk-bg:#000;
+    --tk-fg:#e6ffff;
+    --accent:#00e6ff;
+    --line:rgba(0,230,255,.33);
+    --tk-hero-text:#ffffff;
+    --tk-btn-bg:rgba(0,0,0,.25);
+    --tk-btn-border:rgba(0,230,255,.9);
+    --tk-btn-border-inner:rgba(0,230,255,.15);
+    --tk-btn-hover-bg:rgba(0,230,255,.08);
+    --tk-btn-fg:#d9ffff;
+    --tk-btn-shadow:0 6px 24px rgba(0,0,0,.35);
+    --tk-note-color:#8fefff;
+    --tk-panel-bg:#071317;
+    --tk-panel-border:rgba(0,230,255,.35);
+    --tk-panel-header:linear-gradient(180deg, rgba(10,15,20,1) 70%, rgba(10,15,20,0) 100%);
+    --tk-card-bg:#0a0f14;
+    --tk-card-border:var(--line);
+    --tk-input-bg:#06161a;
+    --tk-input-border:#115;
+    --tk-link:#00e6ff;
+  }
+  :root[data-theme="light"]{
+    --tk-bg:#f5feff;
+    --tk-fg:#042731;
+    --accent:#00a9cf;
+    --line:rgba(0,170,200,.32);
+    --tk-hero-text:#052b35;
+    --tk-btn-bg:color-mix(in srgb, var(--tk-bg), var(--accent) 10%);
+    --tk-btn-border:color-mix(in srgb, var(--accent), transparent 35%);
+    --tk-btn-border-inner:color-mix(in srgb, var(--accent), transparent 70%);
+    --tk-btn-hover-bg:color-mix(in srgb, var(--tk-bg), var(--accent) 18%);
+    --tk-btn-fg:#06313a;
+    --tk-btn-shadow:0 6px 24px rgba(0,105,135,.18);
+    --tk-note-color:color-mix(in srgb, var(--accent), #000 20%);
+    --tk-panel-bg:color-mix(in srgb, var(--tk-bg), #fff 88%);
+    --tk-panel-border:color-mix(in srgb, var(--accent), transparent 65%);
+    --tk-panel-header:linear-gradient(180deg, color-mix(in srgb, var(--tk-panel-bg), var(--accent) 10%) 70%, transparent 100%);
+    --tk-card-bg:color-mix(in srgb, var(--tk-bg), #fff 70%);
+    --tk-card-border:color-mix(in srgb, var(--accent), transparent 55%);
+    --tk-input-bg:color-mix(in srgb, var(--tk-bg), #fff 68%);
+    --tk-input-border:color-mix(in srgb, var(--accent), transparent 50%);
+    --tk-link:color-mix(in srgb, var(--accent), #05414f 20%);
+  }
+
   body.tk-ksv { overflow-x: hidden; }
 
   body.tk-no-js #panelToggle{ display:none; }
@@ -304,7 +368,9 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     width:min(720px,92vw);
     margin:0 auto 32px;
     border-radius:16px;
-    border:1px solid rgba(0,230,255,.35);
+    border:1px solid var(--tk-panel-border);
+    background:var(--tk-panel-bg);
+    color:var(--tk-fg);
   }
   body.tk-no-js .category-panel .ksv-close{ display:none; }
   body.tk-no-js .content{ padding-top:0; }
@@ -326,7 +392,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     line-height: 1.06;
     font-weight: 800;
     letter-spacing:.02em;
-    color:#fff;
+    color:var(--tk-hero-text);
     text-align:center;
   }
   .ksvButtons{
@@ -337,7 +403,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     gap: clamp(14px, 1.8vh, 18px);
   }
   .ksvFallbackNote{
-    color:#8fefff;
+    color:var(--tk-note-color);
     font-weight:600;
     max-width:720px;
     margin:4px auto 0;
@@ -352,15 +418,15 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     margin-right:auto;
     padding: clamp(10px, 1.2vw, 16px) clamp(16px, 2.2vw, 22px);
     border-radius: 16px;
-    border: 2px solid rgba(0,230,255,.9);
-    background: rgba(0,0,0,.25);
-    box-shadow: 0 0 0 2px rgba(0,230,255,.15) inset, 0 6px 24px rgba(0,0,0,.35);
-    color:#d9ffff; font-weight:800;
+    border: 2px solid var(--tk-btn-border);
+    background: var(--tk-btn-bg);
+    box-shadow: 0 0 0 2px var(--tk-btn-border-inner) inset, var(--tk-btn-shadow);
+    color:var(--tk-btn-fg); font-weight:800;
     font-size: clamp(18px, 2.1vw, 28px);
     line-height:1; text-decoration:none; text-align:center;
     transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
   }
-  .ksvBtn:hover{ transform: translateY(-1px); background: rgba(0,230,255,.08); }
+  .ksvBtn:hover{ transform: translateY(-1px); background: var(--tk-btn-hover-bg); }
   .ksvBtn:active{ transform: translateY(0); }
 
   .ksvThemeRow{
@@ -376,15 +442,75 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     gap:6px;
     align-items:center;
     font-weight:600;
-    color:#d9ffff;
+    color:var(--tk-fg);
+  }
+
+  #tkThemeBox{
+    max-width:720px;
+    width: min(92vw, 720px);
+    margin:16px auto 0;
+    padding:16px;
+    border:2px solid var(--accent);
+    border-radius:22px;
+    background:color-mix(in srgb, var(--tk-bg), #fff 4%);
+    box-shadow:0 0 0 1px color-mix(in srgb, var(--accent), transparent 60%),
+               0 0 28px -10px color-mix(in srgb, var(--accent), transparent 10%);
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  #tkThemeBox h3{
+    margin:0;
+    text-align:center;
+    font-weight:800;
+    letter-spacing:.3px;
+    font-size:20px;
+    color:var(--tk-fg);
+  }
+  .tk-theme-choices{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:12px;
+  }
+  .tk-theme-btn{
+    appearance:none;
+    border:2px solid color-mix(in srgb, var(--accent), transparent 40%);
+    border-radius:18px;
+    background:color-mix(in srgb, var(--tk-bg), var(--accent) 12%);
+    color:var(--tk-btn-fg);
+    padding:12px 10px;
+    font-weight:800;
+    letter-spacing:.3px;
+    text-align:center;
+    cursor:pointer;
+    box-shadow:0 0 0 1px color-mix(in srgb, var(--accent), transparent 70%),
+               0 8px 26px -14px color-mix(in srgb, var(--accent), transparent 10%);
+    transition:transform .08s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .tk-theme-btn:hover{ transform:translateY(-1px); }
+  .tk-theme-btn[aria-pressed="true"]{
+    background:color-mix(in srgb, var(--accent), var(--tk-bg) 75%);
+    border-color:color-mix(in srgb, var(--accent), #fff 25%);
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--accent), transparent 30%),
+               0 0 24px -6px color-mix(in srgb, var(--accent), transparent 5%);
+  }
+  .tk-theme-help{
+    margin-top:2px;
+    text-align:center;
+    font-size:12px;
+    color:color-mix(in srgb, var(--tk-fg), #000 35%);
+  }
+  @media (max-width: 640px){
+    .tk-theme-choices{ grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); }
   }
 
   /* OFF-CANVAS CATEGORY PANEL (real off-canvas so it doesn't push hero) */
   body.tk-js .category-panel{
     position: fixed !important; top:0; left:0;
     height:100vh; width: clamp(340px, 92vw, 980px); max-width:92vw;
-    background: var(--tk-panel-bg, rgba(5,18,24,.98));
-    border-right: 1px solid rgba(0,230,255,.35);
+    background: var(--tk-panel-bg);
+    border-right: 1px solid var(--tk-panel-border);
+    color:var(--tk-fg);
     overflow:auto; -webkit-overflow-scrolling:touch;
     transform: translateX(-110%); visibility:hidden; pointer-events:none;
     transition: transform 280ms ease, visibility 0s linear 280ms;
@@ -405,12 +531,12 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 </style>
 
 <style>
-  :root { --panel-w: 320px; --tk-drawer-w: clamp(340px, 92vw, 980px); --bg:#000; --fg:#e6ffff; --accent:#00e6ff; --line:#00e5ff33; }
+  :root { --panel-w: 320px; --tk-drawer-w: clamp(340px, 92vw, 980px); --bg:var(--tk-bg); --fg:var(--tk-fg); }
   html,body{height:100%}
   body{
     margin:0;
-    background:#000;
-    color:var(--fg);
+    background:var(--tk-bg);
+    color:var(--tk-fg);
     font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
     display:flex;
     flex-direction:column;
@@ -421,11 +547,15 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   /* LEFT SIDE PANEL (classic /kinks/ feel) */
   body.tk-js #panelToggle{
     position:fixed; left:12px; top:12px; z-index:2147483648;
-    background:#06161a; border:1px solid var(--line); color:var(--fg);
+    background:color-mix(in srgb, var(--tk-bg), #000 45%);
+    border:1px solid var(--line);
+    color:var(--tk-fg);
     border-radius:10px; padding:8px 12px; cursor:pointer;
   }
   .category-panel{
-    background:#071317;
+    background:var(--tk-panel-bg);
+    color:var(--tk-fg);
+    border:1px solid var(--tk-panel-border);
     padding:14px 14px 18px;
     overflow:auto;
     text-align:center;
@@ -443,15 +573,15 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     display:flex;
     justify-content:flex-end;
     padding:12px 12px 0 12px;
-    background:linear-gradient(180deg, rgba(10,15,20,1) 70%, rgba(10,15,20,0) 100%);
+    background:var(--tk-panel-header);
   }
 
   [data-ksv-close]{
     -webkit-tap-highlight-color:transparent;
     appearance:none;
-    border:2px solid rgba(0,255,255,.55);
-    color:#a9fbff;
-    background:rgba(0,255,255,.08);
+    border:2px solid color-mix(in srgb, var(--accent), transparent 45%);
+    color:color-mix(in srgb, var(--accent), #fff 25%);
+    background:color-mix(in srgb, var(--tk-bg), var(--accent) 15%);
     font:700 16px/1.1 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,sans-serif;
     border-radius:14px;
     padding:10px 14px;
@@ -459,11 +589,11 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     box-shadow:0 0 0 0 rgba(0,255,255,.35);
     transition:box-shadow .15s ease, transform .05s ease, background .15s ease;
   }
-  [data-ksv-close]:hover{ background:rgba(0,255,255,.12); }
+  [data-ksv-close]:hover{ background:color-mix(in srgb, var(--tk-bg), var(--accent) 22%); }
   [data-ksv-close]:active{ transform:translateY(1px); }
   [data-ksv-close]:focus-visible{
     outline:none;
-    box-shadow:0 0 0 3px rgba(0,255,255,.35);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent), transparent 55%);
   }
 
   #tkScrim{
@@ -490,9 +620,9 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     padding:.55rem .9rem;
     border-radius:10px;
     cursor:pointer;
-    background:#0a0f14;
-    color:#aefcff;
-    border:1px solid #00e6ff55;
+    background:var(--tk-card-bg);
+    color:var(--tk-fg);
+    border:1px solid var(--tk-panel-border);
   }
 
   /* Shift content when panel open */
@@ -509,38 +639,39 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   .content.full{ margin:0 auto; }
 
   .themed-button, .category-button{
-    padding:12px 18px; border:2px solid rgba(0,230,255,.55);
-    border-radius:10px; background:transparent; color:#eaffff;
+    padding:12px 18px; border:2px solid color-mix(in srgb, var(--accent), transparent 45%);
+    border-radius:10px; background:color-mix(in srgb, var(--tk-bg), var(--accent) 8%); color:var(--tk-fg);
     font-weight:700; letter-spacing:.2px; cursor:pointer;
   }
   .themed-button:hover, .category-button:hover{
-    border-color:rgba(0,230,255,.9); box-shadow:0 0 0 2px rgba(0,230,255,.18) inset;
+    border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent), transparent 70%) inset;
   }
 
   .category-list{ display:grid; grid-template-columns:1fr; gap:10px; justify-items:center; }
   .category-list label{
     display:flex; gap:10px; align-items:center; justify-content:center; padding:8px 10px;
-    border:1px solid var(--line); border-radius:10px; background:#060b0f; cursor:pointer;
+    border:1px solid var(--line); border-radius:10px; background:color-mix(in srgb, var(--tk-bg), #000 40%); cursor:pointer;
+    color:var(--tk-fg);
     text-align:center;
   }
 
-  .panel-title{ margin:6px 0 10px; font-weight:800; color:#7ef9ff; }
+  .panel-title{ margin:6px 0 10px; font-weight:800; color:var(--accent); }
   .top-buttons{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
 
   .panel-title, #statusMsg, #diag{ text-align:center; }
 
   .survey-box{
-    border:1px solid var(--line); border-radius:12px; background:#0a0f14; padding:16px;
+    border:1px solid var(--tk-card-border); border-radius:12px; background:var(--tk-card-bg); padding:16px;
     max-width:1000px; margin:0 auto;
     text-align:center;
   }
-  .catTitle{ margin:0 0 8px; color:#7ef9ff }
-  .item{ display:flex; align-items:flex-start; justify-content:flex-start; gap:10px; padding:8px 0; border-top:1px dashed #00e5ff22; text-align:left; flex-wrap:wrap; }
+  .catTitle{ margin:0 0 8px; color:var(--accent) }
+  .item{ display:flex; align-items:flex-start; justify-content:flex-start; gap:10px; padding:8px 0; border-top:1px dashed color-mix(in srgb, var(--accent), transparent 80%); text-align:left; flex-wrap:wrap; }
   .item label{ flex:1 1 auto; text-align:left; }
   .item:first-child{ border-top:0; }
-  select,input[type=text]{ padding:6px 8px; border:1px solid #115; border-radius:8px; background:#06161a; color:var(--fg); }
+  select,input[type=text]{ padding:6px 8px; border:1px solid var(--tk-input-border); border-radius:8px; background:var(--tk-input-bg); color:var(--tk-fg); }
 
-  .notice{ margin:14px 0; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; background:#071317; text-align:center; }
+  .notice{ margin:14px 0; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; background:var(--tk-panel-bg); color:var(--tk-fg); text-align:center; }
 </style>
 
 <!-- TK helpers v2: scoped tweaks for category panel controls + download button -->
@@ -641,7 +772,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   <div id="done" class="notice" style="display:none; max-width:1000px; margin:18px auto 0">
     <h3>Survey complete!</h3>
-    <p>You’ve reached the end of the selected categories. <a href="/" style="color:#00e6ff">Back to home</a></p>
+    <p>You’ve reached the end of the selected categories. <a href="/" style="color:var(--tk-link)">Back to home</a></p>
   </div>
 </main>
 

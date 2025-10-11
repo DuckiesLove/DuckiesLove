@@ -157,6 +157,116 @@
     if (analysis) applyHardNavigation(analysis, 'https://talkkink.org/individualkinkanalysis.html');
   }
 
+  const ThemeControl = (() => {
+    const STORAGE_KEY = 'tk:theme';
+    const CHOICES = ['auto','light','dark'];
+    const root = document.documentElement;
+    const sys = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-color-scheme: dark)')
+      : null;
+    let buttons = [];
+    let currentChoice = 'auto';
+    let bound = false;
+
+    const readSaved = () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (CHOICES.includes(saved)) return saved;
+      } catch (err) {
+        console.warn('[tk-theme] Unable to read saved theme:', err);
+      }
+      return 'auto';
+    };
+
+    const setPressed = (choice) => {
+      buttons.forEach(btn => btn.setAttribute('aria-pressed', btn.dataset.theme === choice ? 'true' : 'false'));
+    };
+
+    const apply = (choice, { persist = true } = {}) => {
+      if (!CHOICES.includes(choice)) choice = 'auto';
+      currentChoice = choice;
+      if (persist) {
+        try { localStorage.setItem(STORAGE_KEY, choice); }
+        catch (err) { console.warn('[tk-theme] Unable to save theme:', err); }
+      }
+      const actual = choice === 'auto'
+        ? (sys && typeof sys.matches === 'boolean' ? (sys.matches ? 'dark' : 'light') : 'dark')
+        : choice;
+
+      if (root){
+        root.setAttribute('data-theme', actual);
+        root.dataset.tkThemeChoice = choice;
+        root.dataset.tkThemeActual = actual;
+      }
+      const body = document.body;
+      if (body){
+        body.classList.remove('theme-dark','theme-light');
+        body.classList.add(actual === 'dark' ? 'theme-dark' : 'theme-light');
+        body.classList.toggle('theme-auto', choice === 'auto');
+        body.dataset.tkThemeActual = actual;
+      }
+      setPressed(choice);
+    };
+
+    const ensureSystemListener = () => {
+      if (!sys || bound) return;
+      const handler = () => {
+        if (currentChoice === 'auto') apply('auto', { persist: false });
+      };
+      if (sys.addEventListener) sys.addEventListener('change', handler);
+      else if (sys.addListener) sys.addListener(handler);
+      bound = true;
+    };
+
+    const titleCase = (value) => value.charAt(0).toUpperCase() + value.slice(1);
+
+    const createButton = (choice) => {
+      const btn = el('button', {
+        type: 'button',
+        class: 'tk-theme-btn',
+        'data-theme': choice,
+        'aria-pressed': 'false',
+      }, titleCase(choice));
+      btn.addEventListener('click', () => apply(choice));
+      buttons.push(btn);
+      return btn;
+    };
+
+    const mount = (container) => {
+      if (!container) return null;
+      let existing = container.querySelector('#tkThemeBox');
+      if (existing) return existing;
+
+      buttons = [];
+      const box = el('section', { id: 'tkThemeBox', 'aria-label': 'Theme controls' });
+      box.appendChild(el('h3', {}, 'Theme'));
+
+      const choices = el('div', {
+        class: 'tk-theme-choices',
+        role: 'group',
+        'aria-label': 'Theme selection',
+      });
+      CHOICES.forEach(choice => choices.appendChild(createButton(choice)));
+      box.appendChild(choices);
+      box.appendChild(el('div', { class: 'tk-theme-help' }, '“Auto” follows your system preference and updates live.'));
+
+      container.appendChild(box);
+
+      ensureSystemListener();
+      const saved = readSaved();
+      apply(saved, { persist: false });
+      setPressed(saved);
+      return box;
+    };
+
+    const initial = readSaved();
+    apply(initial, { persist: false });
+
+    return { mount, apply };
+  })();
+  window.tkThemeControl = ThemeControl;
+  window.tkApplyTheme = (mode) => ThemeControl.apply(mode, { persist: false });
+
   function ensureHero(){
     $$('#tkHero, #tk-hero, .tk-hero, #ksvHeroStack').forEach(node => node.remove());
 
@@ -192,6 +302,7 @@
     const themeRow = el('div',{class:'ksvThemeRow', id:'tkThemeRow'});
     moveThemeInto(themeRow, legacyWrap);
     if (themeRow.childElementCount) hero.appendChild(themeRow);
+    ThemeControl.mount(hero);
 
     if (anchor && anchor.parentNode === wrap) {
       wrap.insertBefore(hero, anchor);
