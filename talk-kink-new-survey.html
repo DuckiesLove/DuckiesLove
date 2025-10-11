@@ -514,6 +514,7 @@
   });
 
   document.getElementById('startBtn').addEventListener('click', ()=>{
+    if (window.tkClosePanel) window.tkClosePanel();
     const want = new Set(selected().map(s=>s.toLowerCase()));
     state.sel = state.cats
       .slice()
@@ -542,6 +543,163 @@
     showDiag('Dataset unavailable. Expected /data/kinks.json');
     $status.textContent = 'Dataset unavailable';
   }
+})();
+</script>
+<!-- TK: survey panel + overlay wiring (non-destructive) -->
+<style id="tk-wireup-css">
+  /* Keep your look; only ensure the panel sits above the scrim and can toggle */
+  #tkOverlay,
+  .tk-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    display: none;
+    opacity: 0;
+    transition: opacity .18s ease;
+    z-index: 9990; /* below panel, above page */
+  }
+
+  #tkOverlay.tk-open,
+  .tk-overlay.tk-open {
+    display: block;
+    opacity: 1;
+  }
+
+  /* Category panel floats above the scrim when opened */
+  #categorySurveyPanel.category-panel.tk-open,
+  #categoryPanel.category-panel.tk-open,
+  .category-panel.tk-open.tk-wide-panel {
+    position: relative;
+    z-index: 10000;
+  }
+
+  /* Optional: keep drawer variants above everything */
+  .tk-wide-panel {
+    z-index: 10000;
+  }
+
+  /* Theme hook (keeps your existing styles; we just toggle a data attr) */
+  :root[data-theme="neon"] {}
+  :root[data-theme="night"] {}
+</style>
+
+<script id="tk-wireup-js">
+(() => {
+  const $ = (sel, ctx = document) => ctx.querySelector(sel);
+  const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+
+  const panel = $('#categorySurveyPanel') || $('.category-panel');
+  if (!panel) {
+    console.warn('[TK] category panel not found');
+    return;
+  }
+
+  if (panel.dataset.tkWireup === 'wired') {
+    console.info('[TK] panel already wired.');
+    return;
+  }
+  panel.dataset.tkWireup = 'wired';
+
+  const initialHidden = panel.getAttribute('aria-hidden');
+  const root = document.documentElement;
+  const body = document.body;
+  const originalOverflow = root.style.overflow;
+
+  let overlay = $('#tkOverlay') || $('.tk-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'tkOverlay';
+    overlay.classList.add('tk-overlay');
+    document.body.appendChild(overlay);
+  }
+  overlay.removeAttribute('hidden');
+
+  const startButtons = [
+    '#startSurveyBtn',            // legacy bottom “Start Survey”
+    '#startSurvey',               // top “Start Survey” link/button
+    '#heroStart',                 // new hero start button
+    '[data-tk-start]',            // any declarative start trigger
+    '.start-survey-btn',          // safety: class based
+    'button.themed-button.start-survey-btn', // legacy styled button
+    'a[href="#start"]'          // hash-based fallbacks
+  ].flatMap(sel => $$(sel));
+
+  const uniqueStarts = Array.from(new Set(startButtons));
+
+  const closeButtons = [
+    '[data-action="close"]',
+    '#tkCloseDrawer',
+    '#closePanelBtn',
+    '[data-tk-close]'
+  ].flatMap(sel => $$(sel, panel));
+
+  const uniqueCloses = Array.from(new Set(closeButtons));
+
+  function tkOpenPanel() {
+    overlay.classList.add('tk-open');
+    overlay.style.pointerEvents = 'auto';
+    panel.classList.add('tk-open');
+    panel.setAttribute('aria-hidden', 'false');
+    root.classList.add('tk-panel-open');
+    body.classList.add('tk-panel-open');
+    root.style.overflow = 'hidden';
+  }
+
+  function tkClosePanel() {
+    panel.classList.remove('tk-open');
+    if (initialHidden != null) panel.setAttribute('aria-hidden', initialHidden);
+    else panel.removeAttribute('aria-hidden');
+    overlay.classList.remove('tk-open');
+    overlay.style.pointerEvents = 'none';
+    root.classList.remove('tk-panel-open');
+    body.classList.remove('tk-panel-open');
+    root.style.overflow = originalOverflow;
+  }
+
+  uniqueStarts.forEach(btn => {
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      tkOpenPanel();
+    }, { passive: false });
+  });
+
+  uniqueCloses.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      tkClosePanel();
+    }, { passive: false });
+  });
+
+  overlay.addEventListener('click', tkClosePanel, { passive: true });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('tk-open')) tkClosePanel();
+  });
+
+  function tkSetTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+
+  function tkProbe() {
+    const vis = (el) => !!(el && el.offsetParent !== null);
+    const starts = uniqueStarts.map(b => b?.outerHTML?.slice(0, 60) || '[btn]');
+    const rows = [
+      { key: 'panel',   selector: '#categorySurveyPanel | .category-panel', present: !!panel,        visible: vis(panel) },
+      { key: 'overlay', selector: '#tkOverlay | .tk-overlay',              present: !!overlay,      visible: vis(overlay) },
+      { key: 'starts',  selector: '(multiple)',                            present: !!uniqueStarts.length, visible: uniqueStarts.some(vis) },
+    ];
+    console.table(rows);
+    return { panel, overlay, starts };
+  }
+
+  Object.assign(window, { tkOpenPanel, tkClosePanel, tkProbe, tkSetTheme });
+
+  setTimeout(() => {
+    if (location.hash === '#start') tkOpenPanel();
+  }, 120);
+
+  console.log('[TK] panel wired; overlay=', !!overlay, 'drawer=', !!panel);
 })();
 </script>
 <script>
