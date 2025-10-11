@@ -547,7 +547,7 @@
 </script>
 <!-- TK: survey panel + overlay wiring (non-destructive) -->
 <style id="tk-wireup-css">
-  /* Keep your look; only ensure the panel sits above the scrim and can toggle */
+  /* Force overlay + panel visibility regardless of ancestor transforms */
   #tkOverlay,
   .tk-overlay {
     position: fixed;
@@ -556,29 +556,64 @@
     display: none;
     opacity: 0;
     transition: opacity .18s ease;
-    z-index: 9990; /* below panel, above page */
+    z-index: 2147483646;
+    pointer-events: none;
   }
 
   #tkOverlay.tk-open,
   .tk-overlay.tk-open {
     display: block;
     opacity: 1;
+    pointer-events: auto;
   }
 
-  /* Category panel floats above the scrim when opened */
-  #categorySurveyPanel.category-panel.tk-open,
-  #categoryPanel.category-panel.tk-open,
-  .category-panel.tk-open.tk-wide-panel {
-    position: relative;
-    z-index: 10000;
+  .tk-elevate {
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    contain: unset !important;
+    will-change: auto !important;
   }
 
-  /* Optional: keep drawer variants above everything */
-  .tk-wide-panel {
-    z-index: 10000;
+  #categorySurveyPanel.tk-open-force {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 2147483647 !important;
+    width: min(980px, 92vw) !important;
+    max-height: 85vh !important;
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch;
+    outline: 4px solid magenta;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    background: rgba(10,10,10,.97);
+    border-radius: 12px;
   }
 
-  /* Theme hook (keeps your existing styles; we just toggle a data attr) */
+  #categorySurveyPanel:not(.tk-open-force) {
+    display: none !important;
+  }
+
+  #categorySurveyPanel.tk-open-force * {
+    pointer-events: auto !important;
+  }
+
+  #categorySurveyPanel.tk-open-force .tk-debug-bar {
+    position: sticky;
+    top: 0;
+    background: #ff00ff;
+    color: #000;
+    font: 600 12px/1.2 ui-sans-serif,system-ui;
+    padding: 6px 10px;
+    z-index: 1;
+  }
+
   :root[data-theme="neon"] {}
   :root[data-theme="night"] {}
 </style>
@@ -600,72 +635,119 @@
   }
   panel.dataset.tkWireup = 'wired';
 
-  const initialHidden = panel.getAttribute('aria-hidden');
   const root = document.documentElement;
   const body = document.body;
-  const originalOverflow = root.style.overflow;
+  const initialHidden = panel.getAttribute('aria-hidden');
+  const originalRootOverflow = root.style.overflow;
+  const originalBodyOverflow = body.style.overflow;
+  const originalMinWidth = panel.style.minWidth;
+  const originalMinHeight = panel.style.minHeight;
 
   let overlay = $('#tkOverlay') || $('.tk-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'tkOverlay';
-    overlay.classList.add('tk-overlay');
+    overlay.className = 'tk-overlay';
     document.body.appendChild(overlay);
   }
   overlay.removeAttribute('hidden');
+  overlay.classList.remove('tk-open');
 
-  const startButtons = [
-    '#startSurveyBtn',            // legacy bottom “Start Survey”
-    '#startSurvey',               // top “Start Survey” link/button
-    '#heroStart',                 // new hero start button
-    '[data-tk-start]',            // any declarative start trigger
-    '.start-survey-btn',          // safety: class based
-    'button.themed-button.start-survey-btn', // legacy styled button
-    'a[href="#start"]'          // hash-based fallbacks
-  ].flatMap(sel => $$(sel));
+  function elevateAncestors(el) {
+    for (let node = el; node && node !== document.body; node = node.parentElement) {
+      node.classList.add('tk-elevate');
+      const cs = getComputedStyle(node);
+      if (cs.position === 'static') node.style.position = 'relative';
+    }
+  }
 
-  const uniqueStarts = Array.from(new Set(startButtons));
+  function ensureDebugBar() {
+    if (!panel.querySelector('.tk-debug-bar')) {
+      const bar = document.createElement('div');
+      bar.className = 'tk-debug-bar';
+      bar.textContent = '[TK] Category panel (forced open)';
+      panel.prepend(bar);
+    }
+  }
 
-  const closeButtons = [
-    '[data-action="close"]',
-    '#tkCloseDrawer',
-    '#closePanelBtn',
-    '[data-tk-close]'
-  ].flatMap(sel => $$(sel, panel));
-
-  const uniqueCloses = Array.from(new Set(closeButtons));
+  function reportRect(where) {
+    const r = panel.getBoundingClientRect();
+    console.log(`[TK] ${where} rect:`, {
+      x: Math.round(r.x),
+      y: Math.round(r.y),
+      w: Math.round(r.width),
+      h: Math.round(r.height)
+    });
+  }
 
   function tkOpenPanel() {
+    elevateAncestors(panel);
     overlay.classList.add('tk-open');
-    overlay.style.pointerEvents = 'auto';
-    panel.classList.add('tk-open');
+    panel.classList.add('tk-open-force');
     panel.setAttribute('aria-hidden', 'false');
     root.classList.add('tk-panel-open');
     body.classList.add('tk-panel-open');
     root.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+
+    ensureDebugBar();
+    try { panel.scrollIntoView({ block: 'center' }); } catch {}
+    reportRect('opened');
+
+    const r = panel.getBoundingClientRect();
+    if (r.width < 200 || r.height < 200) {
+      panel.style.minWidth = '420px';
+      panel.style.minHeight = '420px';
+      reportRect('after-minsize');
+    }
+
+    console.log('[TK] Panel opened.');
   }
 
   function tkClosePanel() {
-    panel.classList.remove('tk-open');
-    if (initialHidden != null) panel.setAttribute('aria-hidden', initialHidden);
-    else panel.removeAttribute('aria-hidden');
+    panel.classList.remove('tk-open-force');
     overlay.classList.remove('tk-open');
-    overlay.style.pointerEvents = 'none';
     root.classList.remove('tk-panel-open');
     body.classList.remove('tk-panel-open');
-    root.style.overflow = originalOverflow;
+    if (initialHidden != null) panel.setAttribute('aria-hidden', initialHidden);
+    else panel.removeAttribute('aria-hidden');
+    root.style.overflow = originalRootOverflow;
+    body.style.overflow = originalBodyOverflow;
+    panel.style.minWidth = originalMinWidth;
+    panel.style.minHeight = originalMinHeight;
+
+    console.log('[TK] Panel closed.');
   }
+
+  const startSel = [
+    '#startSurveyBtn',
+    '#startSurvey',
+    '#heroStart',
+    '[data-tk-start]',
+    '.start-survey-btn',
+    'button.themed-button.start-survey-btn',
+    'a[href="#start"]'
+  ];
+  const uniqueStarts = Array.from(new Set(startSel.flatMap(sel => $$(sel))));
+
+  const closeSel = [
+    '[data-action="close"]',
+    '#tkCloseDrawer',
+    '#closePanelBtn',
+    '[data-tk-close]'
+  ];
+  const uniqueCloses = Array.from(new Set(closeSel.flatMap(sel => $$(sel, panel))));
 
   uniqueStarts.forEach(btn => {
     if (!btn) return;
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', e => {
       e.preventDefault();
       tkOpenPanel();
     }, { passive: false });
   });
 
   uniqueCloses.forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', e => {
       e.preventDefault();
       tkClosePanel();
     }, { passive: false });
@@ -673,24 +755,33 @@
 
   overlay.addEventListener('click', tkClosePanel, { passive: true });
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && overlay.classList.contains('tk-open')) tkClosePanel();
-  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && (overlay.classList.contains('tk-open') || panel.classList.contains('tk-open-force'))) {
+      tkClosePanel();
+    }
+  }, true);
+
+  function tkProbe() {
+    const vis = el => !!(el && el.offsetParent !== null);
+    console.table([
+      { key: 'panel',   selector: '#categorySurveyPanel | .category-panel', present: !!panel,   visible: vis(panel) },
+      { key: 'overlay', selector: '#tkOverlay | .tk-overlay',              present: !!overlay, visible: vis(overlay) }
+    ]);
+    const rect = panel.getBoundingClientRect();
+    return {
+      panel,
+      overlay,
+      rect: {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      }
+    };
+  }
 
   function tkSetTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-  }
-
-  function tkProbe() {
-    const vis = (el) => !!(el && el.offsetParent !== null);
-    const starts = uniqueStarts.map(b => b?.outerHTML?.slice(0, 60) || '[btn]');
-    const rows = [
-      { key: 'panel',   selector: '#categorySurveyPanel | .category-panel', present: !!panel,        visible: vis(panel) },
-      { key: 'overlay', selector: '#tkOverlay | .tk-overlay',              present: !!overlay,      visible: vis(overlay) },
-      { key: 'starts',  selector: '(multiple)',                            present: !!uniqueStarts.length, visible: uniqueStarts.some(vis) },
-    ];
-    console.table(rows);
-    return { panel, overlay, starts };
   }
 
   Object.assign(window, { tkOpenPanel, tkClosePanel, tkProbe, tkSetTheme });
@@ -699,7 +790,7 @@
     if (location.hash === '#start') tkOpenPanel();
   }, 120);
 
-  console.log('[TK] panel wired; overlay=', !!overlay, 'drawer=', !!panel);
+  console.log('[TK] visibility patch loaded; use tkOpenPanel()/tkClosePanel()/tkProbe().');
 })();
 </script>
 <script>
@@ -735,7 +826,7 @@
   const scrim = document.querySelector(SEL_SCRIM);
 
   const visible = el => el && el.offsetParent !== null;
-  const isOpen  = () => document.body.classList.contains('tk-panel-open');
+  const isOpen  = () => document.body.classList.contains('tk-panel-open') || panel?.classList.contains('tk-open-force');
 
   function dock(){
     if (!(isOpen() && panel && visible(panel))){
