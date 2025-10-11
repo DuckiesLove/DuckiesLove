@@ -98,6 +98,32 @@ window.tkSafe = {
    ----------------------------------------------------------------- */
 </script>
 
+<!-- Suppress noisy fallback warnings while leaving other console output intact -->
+<script>
+(function () {
+  const TK_FALLBACK_RE = /^\[TK\]\s+Provided fallback element\b/;
+  const bind = (method) => (typeof method === 'function' ? method.bind(console) : () => {});
+  const originalWarn = bind(console.warn);
+  const originalInfo = bind(console.info);
+  const originalDebug = bind(console.debug);
+
+  function filterFactory(original) {
+    return function (...args) {
+      try {
+        const first = typeof args[0] === 'string' ? args[0] : String(args[0] ?? '');
+        if (TK_FALLBACK_RE.test(first)) return;
+      } catch {}
+      return original(...args);
+    };
+  }
+
+  console.warn = filterFactory(originalWarn);
+  console.info = filterFactory(originalInfo);
+  console.debug = filterFactory(originalDebug);
+  window.TK_SILENCE_FALLBACK_LOGS = true;
+})();
+</script>
+
 <!-- TK HOTFIX: make survey load resilient even when kinks.json returns an object or fails -->
 <script>
 (function () {
@@ -604,8 +630,6 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   </aside>
 
   <!-- Your “Start Survey” launcher must exist somewhere on the page: -->
-  <button id="btnOpenCats" class="themed-button primary" type="button">Start Survey</button>
-
   <div class="survey-box" id="survey" style="display:none">
     <h2 class="catTitle" id="catTitle"></h2>
     <div id="items"></div>
@@ -1637,8 +1661,8 @@ setTimeout(() => {
     const existing = q(sel);
     if (existing) return existing;
     const el = document.createElement(tag);
-    if (sel.startswith('#')) el.id = sel[1:];
-    if (sel.startswith('.')) el.className = sel[1:];
+    if (sel.startsWith('#')) el.id = sel.slice(1);
+    if (sel.startsWith('.')) el.className = sel.slice(1);
     Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
     el.classList.add('tk-ghost-hook'); el.tabIndex=-1; document.body.appendChild(el);
     onCreate && onCreate(el);
@@ -1649,14 +1673,6 @@ setTimeout(() => {
   log('wired; overlay=', !!overlay, 'drawer=', !!drawer);
 })();
 </script>
-
-
-</body>)
-     Goal: make the categories panel sit ABOVE the full-screen #tkScrim overlay.
-     Why: when <body> gets .tk-panel-open the site shows #tkScrim (z-index: 9999, pointer-events: auto),
-           but .category-panel is only z-index: 200 → the scrim captures all clicks and the panel
-           looks “slightly transparent / unusable”.
-     Fix: raise the panel’s stacking context (or, optionally, lower the scrim on this page). -->
 
 <style id="tk-panel-zfix">
   /* ✅ Raise the categories panel above the scrim (target common selectors) */

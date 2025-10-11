@@ -3,7 +3,6 @@
 // =============================
 (function(){
   const MUST_HAVE = [
-    '#btnOpenCats',
     '#btnCloseCats',
     '#btnSelectAll',
     '#btnDeselectAll',
@@ -54,8 +53,14 @@
   const $  = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
+  const openButton =
+    $('#btnOpenCats') ||
+    $('#startSurveyBtn') ||
+    document.querySelector('[data-legacy-id="btnStartSurvey"]') ||
+    document.querySelector('[data-tk-start-survey]');
+
   const el = {
-    open:        $('#btnOpenCats'),
+    open:        openButton,
     panel:       $('#categorySurveyPanel'),
     list:        $('#categoryList'),
     selectAll:   $('#btnSelectAll'),
@@ -136,9 +141,13 @@
   hide();
 
   tkSafe.add(el.open, 'click', show);
-  const legacyOpeners = [$('#startSurveyBtn'), ...document.querySelectorAll('[data-tk-start-survey]')];
+  const legacyOpeners = new Set([
+    $('#startSurveyBtn'),
+    document.querySelector('[data-legacy-id="btnStartSurvey"]'),
+    ...document.querySelectorAll('[data-tk-start-survey]')
+  ].filter(Boolean));
   legacyOpeners.forEach(btn => {
-    if(btn && btn !== el.open){
+    if (btn !== el.open) {
       tkSafe.add(btn, 'click', evt => {
         evt?.preventDefault?.();
         show();
