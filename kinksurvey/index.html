@@ -564,246 +564,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 </style>
 </head>
 <body class="theme-dark has-category-panel tk-no-js">
-<!-- ✅ ONE BOX: guaranteed “Start Survey” panel skeleton + opener wiring
-     Paste this RIGHT AFTER your opening <body> on /kinksurvey/.
 
-     WHAT THIS DOES
-     • If your real panel exists (#categorySurveyPanel, .category-panel, #tkCategoryDrawer),
-       it will use it and just wire the open/close buttons.
-     • If NO panel exists, it injects a minimal, invisible-but-styled overlay + drawer so
-       clicking “Start Survey” actually opens something (your loader can still populate it).
-     • Avoids the “Cannot read properties of null (reading 'addEventListener')” by creating
-       the hooks before any wiring runs.
-     • Keeps your neon look (simple theme tokens; modify if you want).
-
-     You don’t need to remove anything else; this is additive and safe.
--->
-
-<style>
-  :root{
-    --tk-bg:#000; --tk-fg:#e7feff; --tk-accent:#00E6E6; --tk-ring:rgba(0,230,230,.55);
-    --tk-dim:#0c0c0c; --tk-border:#2b2b2b;
-  }
-  /* Overlay + drawer (only shows when [data-open]) */
-  #tkOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:saturate(1.2) blur(2px);
-    display:none;z-index:9999}
-  #tkOverlay[data-open="true"]{display:block}
-  #tkCategoryDrawer{position:fixed; inset:4% 4% auto 4%; max-height:92vh; overflow:auto;
-    background:var(--tk-bg); color:var(--tk-fg); border:2px solid var(--tk-border);
-    box-shadow:0 0 0 2px var(--tk-ring), 0 15px 50px rgba(0,0,0,.7);
-    border-radius:18px; padding:22px 22px 26px; width:min(980px, 92vw); margin:auto}
-  #tkCategoryDrawer h2{margin:0 0 16px; font-size:28px; letter-spacing:.5px}
-  .tk-row{display:flex; gap:16px; flex-wrap:wrap; align-items:center}
-  .tk-spread{justify-content:space-between}
-  .tk-btn{appearance:none; border:2px solid var(--tk-accent); color:var(--tk-fg);
-    background:transparent; border-radius:14px; padding:10px 18px; font-weight:700;
-    cursor:pointer; transition:transform .06s ease, box-shadow .12s ease}
-  .tk-btn:hover{box-shadow:0 0 0 3px var(--tk-ring)}
-  .tk-btn[data-variant="filled"]{background:var(--tk-accent); color:#032a2a}
-  .tk-pill{display:inline-flex; align-items:center; gap:12px; padding:12px 16px;
-    border:1px solid var(--tk-border); border-radius:14px; background:#0b0b0b}
-  .tk-pill input{width:20px;height:20px}
-  .category-list{display:grid; grid-template-columns:repeat(2, minmax(280px, 1fr));
-    gap:14px 18px; margin-top:12px}
-  @media (max-width:720px){.category-list{grid-template-columns:1fr}}
-  /* Ghost hooks are hidden and inert */
-  .tk-ghost-hook{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
-</style>
-
-<div id="tkOverlay" hidden data-tk-fallback="true">
-  <!-- Injected fallback drawer; if your real drawer exists we won’t use this -->
-  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-labelledby="tkCatTitle" hidden data-tk-fallback="true">
-    <div class="tk-row tk-spread" style="margin-bottom:10px">
-      <h2 id="tkCatTitle">Select categories</h2>
-      <button class="tk-btn" id="tkCloseX" data-action="close" aria-label="Close">Close ✕</button>
-    </div>
-    <div class="tk-row" style="margin:6px 0 14px">
-      <button class="tk-btn" id="tkAll" data-variant="filled">Select All</button>
-      <button class="tk-btn" id="tkNone">Deselect All</button>
-      <div style="opacity:.7;margin-left:auto" id="tkCount">0 selected / — total</div>
-    </div>
-    <div class="category-list category-list--fallback" id="tkCats">
-      <!-- Placeholder; your loader can replace/populate this -->
-      <label class="tk-pill"><input type="checkbox" /> Appearance Play</label>
-      <label class="tk-pill"><input type="checkbox" /> Behavioral Play</label>
-    </div>
-  </aside>
-</div>
-
-<script>
-(function(){
-  /* ---------- A) Find or create the panel we will open/close ---------- */
-  const q = s => document.querySelector(s);
-  const fallbackOverlay = q('#tkOverlay[data-tk-fallback="true"]') || (()=>{
-    const o = document.createElement('div');
-    o.id = 'tkOverlay';
-    o.hidden = true;
-    o.setAttribute('data-tk-fallback','true');
-    document.body.appendChild(o);
-    return o;
-  })();
-  const fallbackDrawer = fallbackOverlay.querySelector('#tkCategoryDrawer[data-tk-fallback="true"]');
-
-  const resolveDrawer = () =>
-    q('#categorySurveyPanel') ||
-    q('#tkCategoryDrawer:not([data-tk-fallback="true"])') ||
-    q('.category-panel') ||
-    q('[role="dialog"][aria-label="category selection"]') ||
-    fallbackDrawer;
-
-  let overlay = q('#tkOverlay:not([data-tk-fallback="true"])') || fallbackOverlay;
-  let drawer = resolveDrawer();
-  let attachObserver = () => {};
-
-  function syncTargets(){
-    const realOverlay = q('#tkOverlay:not([data-tk-fallback="true"])');
-    const realDrawer = resolveDrawer();
-    if (realOverlay) overlay = realOverlay;
-    if (realDrawer) drawer = realDrawer;
-    if ((realOverlay || realDrawer) && fallbackOverlay && fallbackOverlay !== overlay && fallbackOverlay.isConnected) {
-      fallbackOverlay.remove();
-    }
-    attachObserver();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', syncTargets, { once: true });
-  } else {
-    syncTargets();
-  }
-  const syncObserver = new MutationObserver(syncTargets);
-  syncObserver.observe(document.documentElement, { childList: true, subtree: true });
-
-  // Guard: expose as window.tkPanel so other scripts can use it
-  const tkPanel = {
-    open(){
-      syncTargets();
-      if (!overlay) return;
-      overlay.hidden = false;
-      overlay.setAttribute('data-open','true');
-      drawer && drawer.removeAttribute('hidden');
-      drawer?.focus?.();
-    },
-    close(){
-      syncTargets();
-      if (!overlay) return;
-      overlay.removeAttribute('data-open');
-      overlay.hidden = true;
-      drawer && drawer.setAttribute('hidden','');
-    }
-  };
-  window.tkPanel = tkPanel;
-
-  /* ---------- B) Wire openers / closers (and create ghost hooks) ---------- */
-  function on(el, ev, fn){ el && el.addEventListener(ev, fn, {passive:false}); }
-
-  // Main “Start Survey” button(s)
-  const startBtn = q('#tkStartNow') ||
-                   [...document.querySelectorAll('a,button')].find(b => /^start\s*survey$/i.test((b.textContent||'').trim()));
-  if (startBtn) on(startBtn, 'click', e => { e.preventDefault(); tkPanel.open(); });
-  document.addEventListener('click', e => {
-    const trigger = e.target.closest('a,button');
-    if (!trigger) return;
-    if (/^start\s*survey$/i.test((trigger.textContent||'').trim())) {
-      e.preventDefault();
-      tkPanel.open();
-    }
-  });
-
-  // Any generic openers the older code might look for:
-  ensureGhost('#panelToggle', 'button', {type:'button', 'aria-controls':'categorySurveyPanel'}, btn=>{
-    on(btn,'click', e=>{e.preventDefault(); tkPanel.open();});
-  });
-  ensureGhost('[aria-controls="categorySurveyPanel"]','button',{type:'button'}, btn=>{
-    on(btn,'click', e=>{e.preventDefault(); tkPanel.open();});
-  });
-  ensureGhost('#tkStartNow','button',{type:'button'}, btn=>{
-    on(btn,'click', e=>{e.preventDefault(); tkPanel.open();});
-  });
-  // Any “close” actions:
-  const closeX = q('[data-action="close"]') || q('#tkCloseX') ||
-                 ensureGhost('[data-action="close"]','button',{type:'button'}, null);
-  on(closeX,'click', e=>{e.preventDefault(); tkPanel.close();});
-  document.addEventListener('click', e=>{
-    const closer = e.target.closest('[data-action="close"]');
-    if (closer){
-      e.preventDefault();
-      tkPanel.close();
-    }
-  });
-  document.addEventListener('click', e=>{
-    syncTargets();
-    if (overlay && e.target === overlay) tkPanel.close();
-  });
-
-  /* ---------- C) Friendly count + select all/none (works for fallback or real) ---------- */
-  const cats = () => {
-    syncTargets();
-    return drawer ? [...drawer.querySelectorAll('input[type="checkbox"]')] : [];
-  };
-  const countEl = () => {
-    syncTargets();
-    return drawer?.querySelector('#tkCount') || null;
-  };
-
-  function updateCount(){
-    const countNode = countEl();
-    if (!countNode) return;
-    const c = cats();
-    const sel = c.filter(x=>x.checked).length;
-    const total = c.length || '—';
-    countNode.textContent = `${sel} selected / ${total} total`;
-  }
-  function selectAll(v){ cats().forEach(cb=>{cb.checked = !!v;}); updateCount(); }
-
-  document.addEventListener('click', e=>{
-    if (e.target.closest('#tkAll')){ e.preventDefault(); selectAll(true); }
-    if (e.target.closest('#tkNone')){ e.preventDefault(); selectAll(false); }
-  });
-  // Dynamic count as user clicks
-  const ob = new MutationObserver(updateCount);
-  let observedDrawer = null;
-  attachObserver = () => {
-    if (!drawer || drawer === observedDrawer) return;
-    ob.disconnect();
-    ob.observe(drawer, {subtree:true, childList:true});
-    observedDrawer = drawer;
-  };
-  attachObserver();
-  document.addEventListener('change', e=>{
-    if (e.target && e.target.matches('input[type="checkbox"]')) updateCount();
-  });
-  // First count after any async population
-  setTimeout(updateCount, 0);
-
-  /* ---------- D) Tiny utility to create invisible hooks if missing ---------- */
-  function ensureGhost(sel, tag='div', attrs={}, onCreate){
-    let el = q(sel);
-    if (el) return el;
-    // Build an element matching the selector semantics
-    const make = document.createElement(tag);
-    // Simple id/class cases:
-    if (sel.startsWith('#')) make.id = sel.slice(1);
-    if (sel.startsWith('.')) make.className = sel.slice(1);
-    // If the selector is an attribute selector we already have tag + attrs passed in
-    Object.entries(attrs).forEach(([k,v])=>make.setAttribute(k,v));
-    make.classList.add('tk-ghost-hook'); make.tabIndex=-1; document.body.appendChild(make);
-    onCreate && onCreate(make);
-    return make;
-  }
-
-  /* ---------- E) Optional: silence ONLY the specific fallback line ---------- */
-  try{
-    const _warn = console.warn.bind(console);
-    console.warn = (...args)=>{
-      const skip = args.some(a => typeof a === 'string' &&
-        a.includes('[TK] Provided fallback element for missing selector'));
-      if (skip) return;
-      _warn(...args);
-    };
-  }catch(_){}
-})();
-</script>
 
 <section id="ksvHeroStack" data-ksv-fallback>
   <h1>Talk Kink Survey</h1>
@@ -1726,7 +1487,171 @@ setTimeout(() => {
   }, true);
 })();
 </script>
-<!-- 🔧 HOTFIX: put this at the very BOTTOM of /kinksurvey/ (right before </body>)
+<!-- 🔧 HOTFIX: put this at the very BOTTOM of /kinksurvey/ (right before 
+<!-- ✅ ONE BOX (drop-in) — guarantees the “Start Survey” panel opens
+     Paste this near the end of <body> on /kinksurvey/ (after your buttons).
+     It keeps your styling, creates a fallback overlay+drawer ONLY if you don’t
+     already have one, and wires every “Start Survey” button to open it. -->
+
+<style>
+  :root{
+    --tk-bg:#000; --tk-fg:#e7feff; --tk-accent:#00E6E6; --tk-ring:rgba(0,230,230,.5);
+    --tk-dim:#0b0b0b; --tk-border:#2a2a2a;
+  }
+  /* Overlay (clicking backdrop closes) */
+  #tkOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);
+    backdrop-filter:saturate(1.2) blur(2px);display:none;z-index:999999}
+  #tkOverlay[data-open="true"]{display:block}
+  /* Drawer */
+  #tkCategoryDrawer{position:fixed;inset:4% 4% auto 4%;max-height:92vh;overflow:auto;
+    background:var(--tk-bg);color:var(--tk-fg);border:2px solid var(--tk-border);
+    box-shadow:0 0 0 2px var(--tk-ring), 0 16px 60px rgba(0,0,0,.75);
+    border-radius:18px;padding:22px 22px 26px;width:min(980px,92vw);margin:auto}
+  #tkCategoryDrawer[hidden]{display:none}
+  #tkCategoryDrawer h2{margin:0 0 16px;font-size:28px;letter-spacing:.4px}
+  .tk-row{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  .tk-spread{justify-content:space-between}
+  .tk-btn{appearance:none;border:2px solid var(--tk-accent);color:var(--tk-fg);
+    background:transparent;border-radius:14px;padding:10px 18px;font-weight:700;
+    cursor:pointer;transition:transform .06s ease, box-shadow .12s ease}
+  .tk-btn:hover{box-shadow:0 0 0 3px var(--tk-ring)}
+  .tk-btn[data-variant="filled"]{background:var(--tk-accent);color:#032b2b}
+  .tk-pill{display:inline-flex;align-items:center;gap:12px;padding:12px 16px;
+    border:1px solid var(--tk-border);border-radius:14px;background:var(--tk-dim)}
+  .tk-pill input{width:20px;height:20px}
+  .category-list{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));
+    gap:14px 18px;margin-top:12px}
+  @media (max-width:720px){.category-list{grid-template-columns:1fr}}
+  .tk-ghost-hook{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
+</style>
+
+<!-- Fallback overlay + drawer (used only if no real panel exists) -->
+<div id="tkOverlay" data-tk-fallback="true" hidden>
+  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-labelledby="tkCatTitle" hidden data-tk-fallback="true">
+    <div class="tk-row tk-spread" style="margin-bottom:10px">
+      <h2 id="tkCatTitle">Select categories</h2>
+      <button class="tk-btn" id="tkCloseX" data-action="close" aria-label="Close">Close ✕</button>
+    </div>
+    <div class="tk-row" style="margin:6px 0 14px">
+      <button class="tk-btn" id="tkAll" data-variant="filled">Select All</button>
+      <button class="tk-btn" id="tkNone">Deselect All</button>
+      <div style="opacity:.75;margin-left:auto" id="tkCount">0 selected / — total</div>
+    </div>
+    <div class="category-list" id="tkCats">
+      <!-- Placeholder pills; your real loader can replace these -->
+      <label class="tk-pill"><input type="checkbox" /> Appearance Play</label>
+      <label class="tk-pill"><input type="checkbox" /> Behavioral Play</label>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function(){
+  const q  = s => document.querySelector(s);
+  const qa = s => Array.from(document.querySelectorAll(s));
+  const log = (...a)=>console.debug('[TK] Panel:',...a);
+
+  const fallbackOverlay = q('#tkOverlay[data-tk-fallback="true"]');
+  let overlay = q('#tkOverlay:not([data-tk-fallback])');
+  if (!overlay) overlay = fallbackOverlay;
+  if (!overlay) {
+    const o = document.createElement('div');
+    o.id = 'tkOverlay';
+    o.hidden = true;
+    o.dataset.tkFallback = 'true';
+    document.body.appendChild(o);
+    overlay = o;
+  }
+
+  let drawer =
+      q('#categorySurveyPanel') ||
+      q('[aria-controls="categorySurveyPanel"] ~ [role="dialog"]') ||
+      q('#tkCategoryDrawer:not([data-tk-fallback])') ||
+      q('.category-panel') ||
+      q('[role="dialog"][aria-label="category selection"]');
+
+  if (!drawer && overlay) {
+    drawer = overlay.querySelector('#tkCategoryDrawer');
+  }
+  if (!drawer && fallbackOverlay && fallbackOverlay !== overlay) {
+    drawer = fallbackOverlay.querySelector('#tkCategoryDrawer');
+  }
+
+  if (overlay && fallbackOverlay && overlay !== fallbackOverlay && fallbackOverlay.isConnected) {
+    fallbackOverlay.remove();
+  }
+
+  document.body.appendChild(overlay);
+
+  const tkPanel = {
+    open(){ overlay.hidden=false; overlay.setAttribute('data-open','true');
+            drawer?.removeAttribute('hidden'); drawer?.focus?.(); log('open'); },
+    close(){ overlay.removeAttribute('data-open'); overlay.hidden=true;
+             drawer?.setAttribute('hidden',''); log('close'); }
+  };
+  window.tkPanel = Object.assign(window.tkPanel || {}, tkPanel);
+
+  const startCandidates = new Set([
+    '#tkStartNow','#startSurveyBtn','#start-survey-btn','#startSurvey',
+  ]);
+  qa('a,button').forEach(el=>{
+    const txt=(el.textContent||'').trim().toLowerCase();
+    if (txt==='start survey' || [...startCandidates].some(sel=>el.matches(sel))) {
+      el.addEventListener('click', e=>{ e.preventDefault(); tkPanel.open(); }, {passive:false});
+    }
+  });
+
+  ensureGhost('#tkStartNow','button',{type:'button'}, btn=>{
+    btn.addEventListener('click', e=>{e.preventDefault(); tkPanel.open();});
+  });
+  ensureGhost('[aria-controls="categorySurveyPanel"]','button',{type:'button'}, btn=>{
+    btn.addEventListener('click', e=>{e.preventDefault(); tkPanel.open();});
+  });
+
+  const closeX = q('[data-action="close"]') || q('#tkCloseX') ||
+                 ensureGhost('[data-action="close"]','button',{type:'button'});
+  closeX?.addEventListener('click', e=>{e.preventDefault(); tkPanel.close();}, {passive:false});
+  overlay.addEventListener('click', e=>{ if (e.target === overlay) tkPanel.close(); });
+
+  const checks = ()=> drawer ? Array.from(drawer.querySelectorAll('input[type="checkbox"]')): [];
+  const countEl = drawer?.querySelector('#tkCount');
+  const allBtn  = drawer?.querySelector('#tkAll');
+  const noneBtn = drawer?.querySelector('#tkNone');
+
+  function updateCount(){
+    if (!countEl) return;
+    const list = checks();
+    const sel  = list.filter(cb=>cb.checked).length;
+    countEl.textContent = `${sel} selected / ${list.length || '—'} total`;
+  }
+  allBtn?.addEventListener('click', e=>{e.preventDefault(); checks().forEach(c=>c.checked=true);  updateCount();});
+  noneBtn?.addEventListener('click', e=>{e.preventDefault(); checks().forEach(c=>c.checked=false); updateCount();});
+  drawer?.addEventListener('change', e=>{ if (e.target?.matches('input[type="checkbox"]')) updateCount(); });
+
+  if (drawer){
+    new MutationObserver(()=>updateCount()).observe(drawer,{subtree:true,childList:true});
+  }
+  setTimeout(updateCount, 0);
+
+  function ensureGhost(sel, tag='div', attrs={}, onCreate){
+    const existing = q(sel);
+    if (existing) return existing;
+    const el = document.createElement(tag);
+    if (sel.startswith('#')) el.id = sel[1:];
+    if (sel.startswith('.')) el.className = sel[1:];
+    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+    el.classList.add('tk-ghost-hook'); el.tabIndex=-1; document.body.appendChild(el);
+    onCreate && onCreate(el);
+    log('ghost created for', sel);
+    return el;
+  }
+
+  log('wired; overlay=', !!overlay, 'drawer=', !!drawer);
+})();
+</script>
+
+
+</body>)
      Goal: make the categories panel sit ABOVE the full-screen #tkScrim overlay.
      Why: when <body> gets .tk-panel-open the site shows #tkScrim (z-index: 9999, pointer-events: auto),
            but .category-panel is only z-index: 200 → the scrim captures all clicks and the panel
@@ -3246,7 +3171,169 @@ No other files need to change.
 
   updateCount();
   // Expose small API (optional)
-  window.tkPanel = { open: openPanel, close: closePanel };
+  window.tkPanel = Object.assign(window.tkPanel || {}, { open: openPanel, close: closePanel });
+})();
+</script>
+
+<!-- ✅ ONE BOX (drop-in) — guarantees the “Start Survey” panel opens
+     Paste this near the end of <body> on /kinksurvey/ (after your buttons).
+     It keeps your styling, creates a fallback overlay+drawer ONLY if you don’t
+     already have one, and wires every “Start Survey” button to open it. -->
+
+<style>
+  :root{
+    --tk-bg:#000; --tk-fg:#e7feff; --tk-accent:#00E6E6; --tk-ring:rgba(0,230,230,.5);
+    --tk-dim:#0b0b0b; --tk-border:#2a2a2a;
+  }
+  /* Overlay (clicking backdrop closes) */
+  #tkOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);
+    backdrop-filter:saturate(1.2) blur(2px);display:none;z-index:999999}
+  #tkOverlay[data-open="true"]{display:block}
+  /* Drawer */
+  #tkCategoryDrawer{position:fixed;inset:4% 4% auto 4%;max-height:92vh;overflow:auto;
+    background:var(--tk-bg);color:var(--tk-fg);border:2px solid var(--tk-border);
+    box-shadow:0 0 0 2px var(--tk-ring), 0 16px 60px rgba(0,0,0,.75);
+    border-radius:18px;padding:22px 22px 26px;width:min(980px,92vw);margin:auto}
+  #tkCategoryDrawer[hidden]{display:none}
+  #tkCategoryDrawer h2{margin:0 0 16px;font-size:28px;letter-spacing:.4px}
+  .tk-row{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  .tk-spread{justify-content:space-between}
+  .tk-btn{appearance:none;border:2px solid var(--tk-accent);color:var(--tk-fg);
+    background:transparent;border-radius:14px;padding:10px 18px;font-weight:700;
+    cursor:pointer;transition:transform .06s ease, box-shadow .12s ease}
+  .tk-btn:hover{box-shadow:0 0 0 3px var(--tk-ring)}
+  .tk-btn[data-variant="filled"]{background:var(--tk-accent);color:#032b2b}
+  .tk-pill{display:inline-flex;align-items:center;gap:12px;padding:12px 16px;
+    border:1px solid var(--tk-border);border-radius:14px;background:var(--tk-dim)}
+  .tk-pill input{width:20px;height:20px}
+  .category-list{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));
+    gap:14px 18px;margin-top:12px}
+  @media (max-width:720px){.category-list{grid-template-columns:1fr}}
+  .tk-ghost-hook{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
+</style>
+
+<!-- Fallback overlay + drawer (used only if no real panel exists) -->
+<div id="tkOverlay" data-tk-fallback="true" hidden>
+  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-labelledby="tkCatTitle" hidden data-tk-fallback="true">
+    <div class="tk-row tk-spread" style="margin-bottom:10px">
+      <h2 id="tkCatTitle">Select categories</h2>
+      <button class="tk-btn" id="tkCloseX" data-action="close" aria-label="Close">Close ✕</button>
+    </div>
+    <div class="tk-row" style="margin:6px 0 14px">
+      <button class="tk-btn" id="tkAll" data-variant="filled">Select All</button>
+      <button class="tk-btn" id="tkNone">Deselect All</button>
+      <div style="opacity:.75;margin-left:auto" id="tkCount">0 selected / — total</div>
+    </div>
+    <div class="category-list" id="tkCats">
+      <!-- Placeholder pills; your real loader can replace these -->
+      <label class="tk-pill"><input type="checkbox" /> Appearance Play</label>
+      <label class="tk-pill"><input type="checkbox" /> Behavioral Play</label>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function(){
+  const q  = s => document.querySelector(s);
+  const qa = s => Array.from(document.querySelectorAll(s));
+  const log = (...a)=>console.debug('[TK] Panel:',...a);
+
+  const fallbackOverlay = q('#tkOverlay[data-tk-fallback="true"]');
+  let overlay = q('#tkOverlay:not([data-tk-fallback])');
+  if (!overlay) overlay = fallbackOverlay;
+  if (!overlay) {
+    const o = document.createElement('div');
+    o.id = 'tkOverlay';
+    o.hidden = true;
+    o.dataset.tkFallback = 'true';
+    document.body.appendChild(o);
+    overlay = o;
+  }
+
+  let drawer =
+      q('#categorySurveyPanel') ||
+      q('[aria-controls="categorySurveyPanel"] ~ [role="dialog"]') ||
+      q('#tkCategoryDrawer:not([data-tk-fallback])') ||
+      q('.category-panel') ||
+      q('[role="dialog"][aria-label="category selection"]');
+
+  if (!drawer && overlay) {
+    drawer = overlay.querySelector('#tkCategoryDrawer');
+  }
+  if (!drawer && fallbackOverlay && fallbackOverlay !== overlay) {
+    drawer = fallbackOverlay.querySelector('#tkCategoryDrawer');
+  }
+
+  if (overlay && fallbackOverlay && overlay !== fallbackOverlay && fallbackOverlay.isConnected) {
+    fallbackOverlay.remove();
+  }
+
+  document.body.appendChild(overlay);
+
+  const tkPanel = {
+    open(){ overlay.hidden=false; overlay.setAttribute('data-open','true');
+            drawer?.removeAttribute('hidden'); drawer?.focus?.(); log('open'); },
+    close(){ overlay.removeAttribute('data-open'); overlay.hidden=true;
+             drawer?.setAttribute('hidden',''); log('close'); }
+  };
+  window.tkPanel = Object.assign(window.tkPanel || {}, tkPanel);
+
+  const startCandidates = new Set([
+    '#tkStartNow','#startSurveyBtn','#start-survey-btn','#startSurvey',
+  ]);
+  qa('a,button').forEach(el=>{
+    const txt=(el.textContent||'').trim().toLowerCase();
+    if (txt==='start survey' || [...startCandidates].some(sel=>el.matches(sel))) {
+      el.addEventListener('click', e=>{ e.preventDefault(); tkPanel.open(); }, {passive:false});
+    }
+  });
+
+  ensureGhost('#tkStartNow','button',{type:'button'}, btn=>{
+    btn.addEventListener('click', e=>{e.preventDefault(); tkPanel.open();});
+  });
+  ensureGhost('[aria-controls="categorySurveyPanel"]','button',{type:'button'}, btn=>{
+    btn.addEventListener('click', e=>{e.preventDefault(); tkPanel.open();});
+  });
+
+  const closeX = q('[data-action="close"]') || q('#tkCloseX') ||
+                 ensureGhost('[data-action="close"]','button',{type:'button'});
+  closeX?.addEventListener('click', e=>{e.preventDefault(); tkPanel.close();}, {passive:false});
+  overlay.addEventListener('click', e=>{ if (e.target === overlay) tkPanel.close(); });
+
+  const checks = ()=> drawer ? Array.from(drawer.querySelectorAll('input[type="checkbox"]')): [];
+  const countEl = drawer?.querySelector('#tkCount');
+  const allBtn  = drawer?.querySelector('#tkAll');
+  const noneBtn = drawer?.querySelector('#tkNone');
+
+  function updateCount(){
+    if (!countEl) return;
+    const list = checks();
+    const sel  = list.filter(cb=>cb.checked).length;
+    countEl.textContent = `${sel} selected / ${list.length || '—'} total`;
+  }
+  allBtn?.addEventListener('click', e=>{e.preventDefault(); checks().forEach(c=>c.checked=true);  updateCount();});
+  noneBtn?.addEventListener('click', e=>{e.preventDefault(); checks().forEach(c=>c.checked=false); updateCount();});
+  drawer?.addEventListener('change', e=>{ if (e.target?.matches('input[type="checkbox"]')) updateCount(); });
+
+  if (drawer){
+    new MutationObserver(()=>updateCount()).observe(drawer,{subtree:true,childList:true});
+  }
+  setTimeout(updateCount, 0);
+
+  function ensureGhost(sel, tag='div', attrs={}, onCreate){
+    const existing = q(sel);
+    if (existing) return existing;
+    const el = document.createElement(tag);
+    if (sel.startsWith('#')) el.id = sel.slice(1);
+    if (sel.startsWith('.')) el.className = sel.slice(1);
+    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+    el.classList.add('tk-ghost-hook'); el.tabIndex=-1; document.body.appendChild(el);
+    onCreate && onCreate(el);
+    log('ghost created for', sel);
+    return el;
+  }
+
+  log('wired; overlay=', !!overlay, 'drawer=', !!drawer);
 })();
 </script>
 
