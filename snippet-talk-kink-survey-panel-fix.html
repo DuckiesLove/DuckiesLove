@@ -1,157 +1,104 @@
-<!-- ========== TK panel hard-override (one-paste) ========== -->
-<script>
-(function TK_PATCH(){
-  if (window.tkOpenPanel) { console.log('[TK] patch already installed'); return; }
-
-  const css = `
-    #tkPortalRoot{position:fixed;inset:0;z-index:2147483000;pointer-events:none}
-    #tkOverlay{position:fixed;inset:0;background:rgba(0,0,0,.62);opacity:0;transition:opacity .18s ease;pointer-events:none}
-    #categorySurveyPanel{position:fixed;top:0;right:0;height:100dvh;width:min(720px,92vw);
-      background:#0b0b0c;color:#eafcff;border-left:2px solid #00e6ff;
-      box-shadow:-22px 0 44px rgba(0,0,0,.55);transform:translateX(100%);
-      transition:transform .22s ease;display:flex;flex-direction:column;contain:content}
-    .tk-panel-open #tkOverlay{opacity:1;pointer-events:auto}
-    .tk-panel-open #categorySurveyPanel{transform:translateX(0)}
-    .tk-skel header{display:flex;align-items:center;justify-content:space-between;
-      padding:16px 18px;border-bottom:1px solid #00e6ff}
-    .tk-skel h2{margin:0;font:700 20px/1.2 system-ui}
-    .tk-skel .actions{display:flex;gap:8px}
-    .tk-skel .btn{background:#081214;border:1px solid #00e6ff;color:#eafcff;border-radius:10px;
-      padding:.44rem .72rem;font:600 13px/1 system-ui;cursor:pointer}
-    .tk-skel .body{padding:16px 18px;overflow:auto}
-    .tk-skel .hint{opacity:.75;font:500 13px/1.4 system-ui}
-    #tkBadge{position:fixed;left:8px;top:8px;background:#00e6ff;color:#001015;
-      font:700 11px/1.1 system-ui;border-radius:6px;padding:5px 7px;box-shadow:0 2px 8px rgba(0,0,0,.4);
-      z-index:2147483646;display:none}
-    .tk-panel-open #tkBadge{display:inline-block}
-  `;
-  const style = document.createElement('style');
-  style.setAttribute('data-tk','panel');
-  style.textContent = css;
-  document.documentElement.appendChild(style);
-
-  function ensure(id, maker){
-    return document.getElementById(id) || maker();
+<!-- Talk-Kink survey panel overlay + trigger fix -->
+<style id="tk-fix-styles">
+  /* --- force the drawer to be above the  full-screen overlay --- */
+  #tkOverlay.tk-overlay { z-index: 10000 !important; pointer-events: auto; }
+  #categorySurveyPanel.category-panel {
+    z-index: 10050 !important;
+    display: none; visibility: hidden; opacity: 0;
+    transition: opacity .18s ease-out;
   }
-  const portal = ensure('tkPortalRoot', () => {
-    const d = document.createElement('div'); d.id='tkPortalRoot';
-    d.innerHTML = `
-      <div id="tkOverlay"></div>
-      <aside id="categorySurveyPanel" role="dialog" aria-modal="true" aria-hidden="true" class="tk-skel">
-        <header>
-          <h2>Select categories</h2>
-          <div class="actions">
-            <button type="button" class="btn" id="tkSelectAll">Select All</button>
-            <button type="button" class="btn" id="tkDeselectAll">Deselect All</button>
-            <button type="button" class="btn" id="tkClose">Close ✕</button>
-          </div>
-        </header>
-        <div class="body">
-          <p class="hint">Skeleton panel shown. Your app can mount real UI into <code>#tkCatMount</code>.</p>
-          <div id="tkCatMount"></div>
-        </div>
-      </aside>`;
-    document.body.appendChild(d);
-    const badge = document.createElement('div'); badge.id='tkBadge'; badge.textContent='TK Panel';
-    document.body.appendChild(badge);
-    return d;
-  });
-  const scrim = document.getElementById('tkOverlay');
-  const panel = document.getElementById('categorySurveyPanel');
+  /* visible state when we open the panel */
+  .tk-panel-open #categorySurveyPanel.category-panel {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  .tk-panel-open body, body.tk-panel-open { overflow: hidden; }
+</style>
 
-  function tkOpenPanel(){
+<script id="tk-fix-script">
+(() => {
+  /* small helpers */
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+  const panel   = $('#categorySurveyPanel');
+  const overlay = $('#tkOverlay');
+
+  if (!panel || !overlay) {
+    console.warn('[TK] Fix could not find required nodes:', { panel: !!panel, overlay: !!overlay });
+    return;
+  }
+
+  /* make sure ARIA doesn't hide the panel while it has focusable children */
+  panel.removeAttribute('aria-hidden');
+
+  /* ----- public controls (available in console too) ----- */
+  window.tkOpenPanel = function tkOpenPanel() {
     document.documentElement.classList.add('tk-panel-open');
-    portal.style.pointerEvents='auto';
-    panel.setAttribute('aria-hidden','false');
-    console.log('[TK] Panel OPEN');
-  }
-  function tkClosePanel(){
+    document.body.classList.add('tk-panel-open');
+    panel.style.display   = 'flex';
+    panel.style.visibility= 'visible';
+    panel.style.opacity   = '1';
+    overlay.style.display = 'block';
+    overlay.style.visibility = 'visible';
+    // focus a safe element if present
+    const firstFocusable = panel.querySelector('[tabindex],button,[href],input,select,textarea');
+    firstFocusable?.focus({ preventScroll: true });
+  };
+
+  window.tkClosePanel = function tkClosePanel() {
     document.documentElement.classList.remove('tk-panel-open');
-    portal.style.pointerEvents='none';
-    panel.setAttribute('aria-hidden','true');
-    console.log('[TK] Panel CLOSE');
-  }
-  Object.assign(window,{ tkOpenPanel, tkClosePanel });
-
-  scrim.addEventListener('click', tkClosePanel, {passive:true});
-  panel.addEventListener('click', (e)=>{ if(e.target && e.target.id==='tkClose') tkClosePanel(); }, {passive:true});
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') tkClosePanel(); }, {passive:true});
-
-  const wired = new WeakSet();
-  function looksLikeStart(el){
-    return el && typeof el.textContent==='string' && /^start\s*survey$/i.test(el.textContent.trim());
-  }
-  function wire(root=document){
-    const set = new Set();
-    ['#startSurveyBtn','.start-survey-btn','[data-tk-start]'].forEach(sel=>{
-      const n=root.querySelector(sel); if(n) set.add(n);
-    });
-    root.querySelectorAll('a,button,[role="button"]').forEach(n=>{ if(looksLikeStart(n)) set.add(n); });
-    set.forEach(btn=>{
-      if(wired.has(btn)) return;
-      btn.addEventListener('click', (ev)=>{
-        try{ ev.stopImmediatePropagation(); }catch{}
-        ev.preventDefault();
-        tkOpenPanel();
-      }, {capture:true});
-      wired.add(btn);
-    });
-  }
-  wire();
-  new MutationObserver(()=>wire(document)).observe(document.documentElement,{childList:true,subtree:true});
-
-  if(!sessionStorage.getItem('tk_auto_opened_v3')){
-    sessionStorage.setItem('tk_auto_opened_v3','1');
-    setTimeout(()=>tkOpenPanel(), 450);
-  }
-
-  setTimeout(()=>{
-    const cs=getComputedStyle(panel);
-    if (cs.display==='none' || cs.visibility==='hidden' || +cs.opacity===0) {
-      console.log('[TK] Panel hidden by external CSS; forcing visible.');
-      panel.style.display='flex'; panel.style.visibility='visible'; panel.style.opacity='1';
-      tkOpenPanel();
-    }
-  }, 1000);
-
-  console.log('[TK] hard-override installed. Try tkOpenPanel() / tkClosePanel().');
-})();
-</script>
-<script>
-(function tkFollowUpFixes(){
-  // 1) Force-open once to confirm the panel renders
-  if (typeof window.tkOpenPanel === 'function') {
-    window.tkOpenPanel();
-  } else {
-    console.warn('tkOpenPanel() not found — paste the TK_PATCH snippet again.');
-  }
-
-  // 2) Make sure the visible Start buttons are marked as triggers
-  (function markStartButtons(){
-    document.querySelectorAll('a,button,[role="button"]').forEach(el=>{
-      if (/^\s*start\s*survey\s*$/i.test(el.textContent||'')) {
-        el.setAttribute('data-tk-start','');
+    document.body.classList.remove('tk-panel-open');
+    panel.style.opacity = '0';
+    // after fade, fully hide
+    setTimeout(() => {
+      if (!document.body.classList.contains('tk-panel-open')) {
+        panel.style.display = 'none';
+        panel.style.visibility = 'hidden';
+        overlay.style.display = '';
+        overlay.style.visibility = '';
       }
-    });
-    console.log('[TK] start buttons tagged.');
-  })();
+    }, 180);
+  };
 
-  // 3) Re-wire in case the DOM changed after load
-  if (typeof window.tkOpenPanel === 'function') {
-    document.dispatchEvent(new Event('tk-rewire', { bubbles: true }));
-  }
+  /* ----- wire “Start Survey” triggers robustly ----- */
+  const startSelectors = [
+    '#startSurveyBtn',           // if you have one
+    '#startSurvey',              // common id
+    '[data-action="start-survey"]',
+    '.start-survey-btn'
+  ];
 
-  // 4) Last resort: guarantee the panel sits above any site scrim/overlay
-  (() => {
-    const fix = document.createElement('style');
-    fix.textContent = `
-      #tkPortalRoot{position:fixed;inset:0;z-index:2147483646;pointer-events:none}
-      #tkOverlay{z-index:2147483645}
-      #categorySurveyPanel{z-index:2147483646}
-    `;
-    document.documentElement.appendChild(fix);
-    console.log('[TK] z-index hard-fix applied.');
-  })();
+  // 1) explicit selectors
+  startSelectors.forEach(sel => {
+    $$(sel).forEach(el => el.addEventListener('click', e => { e.preventDefault(); tkOpenPanel(); }));
+  });
+
+  // 2) text fallback (“Start Survey” buttons or links)
+  $$('a,button,[role="button"]').forEach(el => {
+    const t = (el.textContent || '').trim().toLowerCase();
+    if (t === 'start survey') {
+      el.addEventListener('click', e => { e.preventDefault(); tkOpenPanel(); });
+    }
+  });
+
+  // close wiring (X button / backdrop if you want)
+  $('[data-action="close"]')?.addEventListener('click', e => { e.preventDefault(); tkClosePanel(); });
+  overlay.addEventListener('click', () => tkClosePanel());
+
+  // ESC to close
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('tk-panel-open')) tkClosePanel();
+  });
+
+  // sanity log & quick probe
+  console.log('[TK] Panel wired; overlay=', !!overlay, ' drawer=', !!panel, 'true');
+  window.tkProbe = function tkProbe() {
+    const vis = el => !!el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden' && getComputedStyle(el).opacity !== '0';
+    return [
+      { key:'panel',   selector:'#categorySurveyPanel', present: !!panel,   visible: vis(panel)   },
+      { key:'overlay', selector:'#tkOverlay',           present: !!overlay, visible: vis(overlay) },
+    ];
+  };
 })();
 </script>
-<!-- ========== /end TK panel hard-override ========== -->
