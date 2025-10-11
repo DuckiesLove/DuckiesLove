@@ -1,130 +1,115 @@
-<!-- ========== TK ONE-PASTE: drawer fix + z-index + theme + passive listeners ========== -->
+<!-- ===== TK: guaranteed panel open + optional skeleton (one-paste) ===== -->
 <style>
-  /* Minimal theme tokens that won’t disturb your current look,
-     but give the Theme picker something to switch. */
-  :root {
-    --tk-bg:#090909; --tk-fg:#eafcff; --tk-accent:#00e6ff; --tk-accent-2:#41fff0;
-    --tk-chip:#0f0f0f; --tk-border:#00e6ff;
-  }
-  html.tk-theme-neo   { --tk-bg:#070b0c; --tk-fg:#eafcff; --tk-accent:#00edff; --tk-chip:#061214; }
-  html.tk-theme-contrast {
-    --tk-bg:#000; --tk-fg:#fff; --tk-accent:#00ffff; --tk-chip:#000; --tk-border:#00ffff;
-  }
-  /* Only scope minor overrides to the panel bits we might create */
-  #tkThemeDock{
-    position:fixed; left:1rem; bottom:1rem; z-index:10050; display:flex; gap:.5rem;
-    background:color-mix(in oklab, var(--tk-bg) 80%, #000); border:1px solid var(--tk-border);
-    color:var(--tk-fg); border-radius:12px; padding:.5rem .6rem; box-shadow:0 8px 28px rgba(0,0,0,.45);
-    backdrop-filter: blur(6px);
-  }
-  #tkThemeDock button{
-    background:var(--tk-chip); color:var(--tk-fg); border:1px solid var(--tk-border);
-    padding:.35rem .6rem; border-radius:10px; font:600 13px/1.1 system-ui,Segoe UI,Arial;
-    letter-spacing:.2px; cursor:pointer;
-  }
-  #tkThemeDock button[aria-pressed="true"]{
-    outline:0; border-color:var(--tk-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--tk-accent) 40%, transparent);
-  }
-
-  /* Make sure our overlay/panel always sit above all site layers */
-  #tkOverlay{ position:fixed; inset:0; background:rgba(0,0,0,.6); opacity:0; pointer-events:none;
-              transition:opacity .18s ease; z-index:9998; }
-  #categorySurveyPanel{ position:fixed; top:0; right:0; height:100dvh; width:min(720px,92vw);
-    background:var(--tk-bg); color:var(--tk-fg); border-left:2px solid var(--tk-border);
-    box-shadow:-20px 0 40px rgba(0,0,0,.45); transform:translateX(100%); transition:transform .2s ease;
-    z-index:10000; display:flex; flex-direction:column;
-  }
-  .tk-panel-open #tkOverlay{ opacity:1; pointer-events:auto; }
-  .tk-panel-open #categorySurveyPanel{ transform:translateX(0); }
+  /* Keep your current look; just ensure stacking order + smooth open */
+  #tkOverlay{position:fixed;inset:0;background:rgba(0,0,0,.62);opacity:0;pointer-events:none;
+             transition:opacity .18s ease;z-index:9998}
+  #categorySurveyPanel{position:fixed;top:0;right:0;height:100dvh;width:min(720px,92vw);
+    background:#0b0b0c;color:#eafcff;border-left:2px solid #00e6ff;
+    box-shadow:-22px 0 44px rgba(0,0,0,.55);transform:translateX(100%);
+    transition:transform .22s ease;z-index:10000;display:flex;flex-direction:column}
+  .tk-panel-open #tkOverlay{opacity:1;pointer-events:auto}
+  .tk-panel-open #categorySurveyPanel{transform:translateX(0)}
+  /* very light internal styling only if we had to create a skeleton */
+  .tk-skel header{display:flex;align-items:center;justify-content:space-between;
+    padding:16px 18px;border-bottom:1px solid #00e6ff}
+  .tk-skel h2{margin:0;font:700 20px/1.2 system-ui}
+  .tk-skel .actions{display:flex;gap:8px}
+  .tk-skel .btn{background:#081214;border:1px solid #00e6ff;color:#eafcff;border-radius:10px;
+    padding:.4rem .7rem;font:600 13px/1 system-ui;cursor:pointer}
+  .tk-skel .body{padding:16px 18px;overflow:auto}
+  .tk-skel .hint{opacity:.75;font:500 13px/1.4 system-ui}
 </style>
 
 <script>
-(() => {
-  /* ---------- A) Passive listeners for touch/wheel (silence console violations) ---------- */
-  let supportsPassive=false;
-  try{const o=Object.defineProperty({},"passive",{get(){supportsPassive=true}});
-      window.addEventListener("tk-passive-test",()=>{},o);
-      window.removeEventListener("tk-passive-test",()=>{},o);}catch(_){ }
-  if (supportsPassive && !window.__tkPatchedPassive__) {
-    window.__tkPatchedPassive__=true;
-    const orig = EventTarget.prototype.addEventListener;
-    const passiveFirst = new Set(["touchstart","touchmove","touchend","touchcancel","wheel"]);
-    EventTarget.prototype.addEventListener = function(type, listener, options){
-      if (passiveFirst.has(type)) {
-        if (options == null) options = { passive:true };
-        else if (typeof options === "boolean") options = { capture:options, passive:true };
-        else if (typeof options === "object" && !("passive" in options)) options = {...options, passive:true};
-      }
-      return orig.call(this, type, listener, options);
-    };
-  }
+(()=>{
 
-  /* ---------- B) DOM helpers + ensure overlay/panel exist and sit on top ---------- */
-  const $  = (s,root=document)=>root.querySelector(s);
-  const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
-  const ensure = (id, tag, attrs={})=>{
-    let el = document.getElementById(id);
-    if(!el){ el = Object.assign(document.createElement(tag), { id, ...attrs }); document.body.appendChild(el); }
+  /* ---------- helpers ---------- */
+  const $=(s,r=document)=>r.querySelector(s);
+  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const ensure=(id,tag,attrs={})=>{
+    let el=document.getElementById(id);
+    if(!el){el=document.createElement(tag);el.id=id;Object.assign(el,attrs);document.body.appendChild(el);}
     return el;
   };
-  const scrim = ensure("tkOverlay","div");
-  const panel = ensure("categorySurveyPanel","aside",{ role:"dialog","aria-modal":"true","aria-hidden":"true" });
+
+  /* ---------- overlay + panel always exist and on top ---------- */
+  const scrim = ensure('tkOverlay','div');
+  const panel = ensure('categorySurveyPanel','aside');
+  if(!panel.hasChildNodes()){
+    // We assume the site didn’t render the panel; add a safe skeleton
+    panel.classList.add('tk-skel');
+    panel.setAttribute('role','dialog'); panel.setAttribute('aria-modal','true'); panel.setAttribute('aria-hidden','true');
+    panel.innerHTML = `
+      <header>
+        <h2>Select categories</h2>
+        <div class="actions">
+          <button type="button" class="btn" id="tkSelectAll">Select All</button>
+          <button type="button" class="btn" id="tkDeselectAll">Deselect All</button>
+          <button type="button" class="btn" id="tkClose">Close ✕</button>
+        </div>
+      </header>
+      <div class="body">
+        <p class="hint">Panel skeleton loaded. Your real category UI will render here when your app binds data.</p>
+        <div id="tkCatMount"></div>
+      </div>`;
+  }
 
   function openPanel(){
-    document.documentElement.classList.add("tk-panel-open");
-    panel.setAttribute("aria-hidden","false");
+    document.documentElement.classList.add('tk-panel-open');
+    panel.setAttribute('aria-hidden','false');
   }
   function closePanel(){
-    document.documentElement.classList.remove("tk-panel-open");
-    panel.setAttribute("aria-hidden","true");
+    document.documentElement.classList.remove('tk-panel-open');
+    panel.setAttribute('aria-hidden','true');
   }
-  scrim.addEventListener("click", closePanel);
+  scrim.addEventListener('click', closePanel);
+  panel.addEventListener('click', (e)=>{ if(e.target.id==='tkClose') closePanel(); });
 
-  /* ---------- C) Robust Start Survey binding (id, class, data attr, OR exact text) ------- */
-  const byText = (txt)=>
-    $$("a,button").filter(el => (el.textContent||"").trim().toLowerCase() === txt);
-  const startButtons = [
-    '#startSurveyBtn','.start-survey-btn','[data-tk-start]'
-  ].flatMap(sel => $$(sel)).concat(byText('start survey'));
-  startButtons.forEach(btn=>{
-    if(!btn.__tkWired){ btn.addEventListener("click",(e)=>{e.preventDefault(); openPanel();}); btn.__tkWired=true; }
-  });
+  /* ---------- bind to ALL Start Survey variants ---------- */
+  function wireStartButtons(){
+    const seen = new WeakSet();
+    const candidates = [
+      '#startSurveyBtn','.start-survey-btn','[data-tk-start]',
+      ...$$('button,a').filter(el=>/^\s*start\s+survey\s*$/i.test(el.textContent||'')),
+    ].filter(Boolean);
 
-  /* ---------- D) Theme picker (Dark / Neo-Teal / High Contrast) ------------------------- */
-  function applyTheme(name){
-    const html=document.documentElement;
-    html.classList.remove('tk-theme-neo','tk-theme-contrast');
-    if(name==='neo') html.classList.add('tk-theme-neo');
-    if(name==='contrast') html.classList.add('tk-theme-contrast');
-    localStorage.setItem('tkTheme',name);
-    // reflect pressed state
-    $$(`#tkThemeDock button`).forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.theme===name)));
+    candidates.forEach(btn=>{
+      if(!seen.has(btn)){
+        btn.addEventListener('click',(ev)=>{ ev.preventDefault(); openPanel(); }, {passive:false});
+        seen.add(btn);
+      }
+    });
   }
-  function buildThemeDock(){
-    if($('#tkThemeDock')) return;
-    const dock = document.createElement('div');
-    dock.id = 'tkThemeDock';
-    dock.innerHTML = `
-      <button type="button" data-theme="dark"      aria-pressed="false" title="Dark">Dark</button>
-      <button type="button" data-theme="neo"       aria-pressed="false" title="Neo-Teal">Neo-Teal</button>
-      <button type="button" data-theme="contrast"  aria-pressed="false" title="High Contrast">High Contrast</button>
-    `;
-    dock.addEventListener('click', (e)=>{
-      const b = e.target.closest('button[data-theme]'); if(!b) return;
-      applyTheme(b.dataset.theme);
-    }, { passive:true });
-    document.body.appendChild(dock);
-    const saved = localStorage.getItem('tkTheme') || 'dark';
-    applyTheme(saved);
-  }
-  buildThemeDock();
+  wireStartButtons();
 
-  /* ---------- E) If your app exposes a “Prepare & Open” step, hook it as well ----------- */
-  // If there’s a custom event you dispatch when the data finishes binding,
-  // you can open the panel automatically by listening to it:
-  // document.addEventListener('tk:data-ready', openPanel);
+  /* ---------- optional: expose helpers for quick debugging ---------- */
+  window.tkOpenPanel = openPanel;
+  window.tkClosePanel = closePanel;
 
-  console.log("[TK] One-paste ready → panel wired, overlay on top, theme dock active.");
+  /* ---------- if your app dispatches an event when UI is ready, hook it ---------- */
+  document.addEventListener('tk:ui-ready', ()=>{ /* openPanel(); */ });
+
+  /* ---------- quality-of-life: mark touch listeners passive to silence warnings ---------- */
+  try{
+    let supportsPassive=false;
+    const opt=Object.defineProperty({},"passive",{get(){supportsPassive=true}});
+    window.addEventListener("tk-passive",()=>{},opt); window.removeEventListener("tk-passive",()=>{},opt);
+    if(supportsPassive && !window.__tkPatchedPassive__){
+      window.__tkPatchedPassive__=true;
+      const orig=EventTarget.prototype.addEventListener;
+      const preferPassive=new Set(["touchstart","touchmove","touchend","wheel"]);
+      EventTarget.prototype.addEventListener=function(type,listener,options){
+        if(preferPassive.has(type)){
+          if(options==null) options={passive:true};
+          else if(typeof options==="boolean") options={capture:options,passive:true};
+          else if(typeof options==="object" && !("passive" in options)) options={...options,passive:true};
+        }
+        return orig.call(this,type,listener,options);
+      };
+    }
+  }catch(_){ }
+
+  console.log("[TK] One-paste: panel skeleton ensured and Start Survey wired.");
 })();
 </script>
-<!-- ============================== /END ONE-PASTE ======================================== -->
+<!-- ===== /end one-paste ===== -->
