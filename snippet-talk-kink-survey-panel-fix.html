@@ -1,0 +1,182 @@
+<!-- ==== TALK KINK — SURVEY PANEL FIX (drop-in) ========================= -->
+<style>
+  /* Overlay (scrim) above everything. */
+  #tkOverlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .18s ease;
+    z-index: 9998;
+  }
+  body.tk-panel-open #tkOverlay { opacity: 1; pointer-events: auto; }
+
+  /* Drawer panel */
+  #categorySurveyPanel {
+    position: fixed; top: 0; right: 0; height: 100dvh; width: min(720px, 92vw);
+    background: #0b0b0b; color: #eafcff; border-left: 2px solid #00e6ff;
+    box-shadow: -20px 0 40px rgba(0,0,0,.45);
+    transform: translateX(100%); transition: transform .2s ease;
+    z-index: 10000; /* ABOVE overlay */
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  body.tk-panel-open #categorySurveyPanel { transform: translateX(0); }
+
+  /* Header + close */
+  #tkPanelHeader {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px; border-bottom: 1px solid rgba(0,230,255,.25);
+    font-size: clamp(18px, 2.2vw, 22px); font-weight: 700;
+    color: #00e6ff;
+  }
+  #tkCloseDrawer {
+    appearance: none; border: 1px solid #00e6ff66; color: #00e6ff;
+    background: transparent; padding: 6px 12px; border-radius: 12px;
+    font-weight: 700; cursor: pointer;
+  }
+  #tkCloseDrawer:hover { border-color: #00e6ff; }
+
+  /* Body area for your categories list UI (already “UI wired” in your logs) */
+  #tkDrawerContent { overflow: auto; padding: 16px; flex: 1; }
+
+  /* Footer actions */
+  #tkDrawerActions {
+    display: flex; gap: 12px; padding: 12px 16px; border-top: 1px solid rgba(0,230,255,.25);
+  }
+  .tk-btn {
+    appearance: none; border-radius: 16px; padding: 10px 16px; font-weight: 800;
+    border: 2px solid #00e6ff; color: #001417; background: #00e6ff; cursor: pointer;
+  }
+  .tk-btn.secondary { background: transparent; color: #00e6ff; }
+  .tk-hidden { display: none !important; }
+</style>
+
+<!-- Panel skeleton (created only if missing) -->
+<div id="tkOverlay" aria-hidden="true" class="tk-hidden"></div>
+<aside id="categorySurveyPanel" class="tk-hidden" role="dialog" aria-modal="true"
+       aria-label="Select categories" aria-hidden="true">
+  <div id="tkPanelHeader">
+    <span>Select categories</span>
+    <button id="tkCloseDrawer" type="button" aria-label="Close">Close ×</button>
+  </div>
+  <div id="tkDrawerContent">
+    <!-- Your existing code will populate / wire the categories here. -->
+    <!-- If your app renders into a specific container, add that ID below: -->
+    <div id="tkCategoryMount"></div>
+  </div>
+  <div id="tkDrawerActions">
+    <button id="tkStartNow" class="tk-btn" type="button">Start Survey</button>
+    <button id="tkCancel" class="tk-btn secondary" type="button">Cancel</button>
+  </div>
+</aside>
+
+<script>
+(() => {
+  // ---- 0) Helpers ---------------------------------------------------------
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const byText = (txt) => Array.from(document.querySelectorAll('button,a'))
+    .filter(el => (el.textContent || '').trim().toLowerCase() === txt);
+
+  const overlay   = $('#tkOverlay')    || document.body.appendChild(Object.assign(document.createElement('div'), { id:'tkOverlay' }));
+  const panel     = $('#categorySurveyPanel') || document.body.appendChild(Object.assign(document.createElement('aside'), { id:'categorySurveyPanel' }));
+  const header    = $('#tkPanelHeader') || panel.appendChild(Object.assign(document.createElement('div'), { id:'tkPanelHeader' }));
+  const content   = $('#tkDrawerContent') || panel.appendChild(Object.assign(document.createElement('div'), { id:'tkDrawerContent' }));
+  const actions   = $('#tkDrawerActions') || panel.appendChild(Object.assign(document.createElement('div'), { id:'tkDrawerActions' }));
+  const ensureVisible = (el) => el.classList.remove('tk-hidden');
+
+  ensureVisible(overlay); ensureVisible(panel);
+  panel.setAttribute('role','dialog'); panel.setAttribute('aria-modal','true'); panel.setAttribute('aria-hidden','true');
+
+  // ---- 1) Safe open / close with ARIA + focus trap ------------------------
+  let lastActive = null;
+  const FOCUSABLE = 'a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
+
+  function openPanel() {
+    lastActive = document.activeElement;
+    document.body.classList.add('tk-panel-open');
+    panel.setAttribute('aria-hidden','false');
+    overlay.setAttribute('aria-hidden','false');
+    // focus first focusable control
+    const first = panel.querySelector(FOCUSABLE);
+    (first || panel).focus({ preventScroll:true });
+    document.addEventListener('keydown', onKey);
+  }
+
+  function closePanel() {
+    document.body.classList.remove('tk-panel-open');
+    panel.setAttribute('aria-hidden','true');
+    overlay.setAttribute('aria-hidden','true');
+    document.removeEventListener('keydown', onKey);
+    if (lastActive && document.contains(lastActive)) lastActive.focus({ preventScroll:true });
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape') { e.preventDefault(); closePanel(); }
+    if (e.key === 'Tab') {
+      // focus trap
+      const nodes = $$(FOCUSABLE, panel);
+      if (!nodes.length) return;
+      const first = nodes[0], last = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+
+  // ---- 2) Wire buttons (be generous about what we bind to) -----------------
+  // Accept any of these hooks:
+  //   #startSurveyBtn, .start-survey-btn, [data-tk-start], or a/button with exact text "Start Survey"
+  const startButtons = [
+    '#startSurveyBtn',
+    '.start-survey-btn',
+    '[data-tk-start]'
+  ].flatMap(sel => $$(sel))
+   .concat(byText('start survey'));
+
+  startButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+    btn.setAttribute('data-tk-wired', 'start');
+  });
+
+  // Close hooks
+  $('#tkCloseDrawer')?.addEventListener('click', closePanel);
+  $('#tkCancel')?.addEventListener('click', closePanel);
+  overlay.addEventListener('click', closePanel);
+
+  // ---- 3) Make sure your existing category UI mounts inside the drawer ----
+  // If your app already builds the category list, make sure it renders into
+  // #tkDrawerContent or #tkCategoryMount. If it renders elsewhere, move that
+  // node in here when panel opens:
+  const externalMount = document.getElementById('categoryPanelRoot') || null;
+  if (externalMount) {
+    // If your framework renders outside, relocate it once:
+    if (!content.contains(externalMount)) content.appendChild(externalMount);
+  }
+
+  // If your existing code expects a specific IDs to exist, create shims:
+  if (!document.getElementById('tkDrawerContent')) {
+    content.id = 'tkDrawerContent';
+  }
+  if (!document.getElementById('tkCloseDrawer')) {
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'tkCloseDrawer'; closeBtn.className = 'tk-btn secondary';
+    closeBtn.textContent = 'Close';
+    closeBtn.addEventListener('click', closePanel);
+    actions.appendChild(closeBtn);
+  }
+  if (!document.getElementById('tkStartNow')) {
+    const startNow = document.createElement('button');
+    startNow.id = 'tkStartNow'; startNow.className = 'tk-btn';
+    startNow.textContent = 'Start Survey';
+    // Hook to your existing "proceed" handler if you have one:
+    startNow.addEventListener('click', () => {
+      // Example: window.tkBeginSurvey && window.tkBeginSurvey();
+      closePanel();
+    });
+    actions.prepend(startNow);
+  }
+
+  // ---- 4) Diagnostics ------------------------------------------------------
+  console.log('[TK] Panel: wired; overlay=', !!overlay, 'drawer=', !!panel);
+})();
+</script>
+<!-- ==== /SURVEY PANEL FIX ================================================ -->
