@@ -40,12 +40,32 @@
   /* ===================== PANEL CREATION/CONTROL ===================== */
   function ensureCategoryPanel() {
     let panel = document.getElementById("categorySurveyPanel");
-    if (panel) return panel;
+    if (panel) {
+      panel.classList.add("tk-force");
+      if (!panel._openPanel) {
+        panel._openPanel = () => {
+          panel.setAttribute("aria-hidden", "false");
+          panel.classList.add("is-open");
+          panel.style.display = "";
+          document.body?.classList?.add("tk-panel-open");
+        };
+      }
+      if (!panel._closePanel) {
+        panel._closePanel = () => {
+          panel.setAttribute("aria-hidden", "true");
+          panel.classList.remove("is-open");
+          panel.style.display = "none";
+          document.body?.classList?.remove("tk-panel-open");
+        };
+      }
+      return panel;
+    }
 
     panel = document.createElement("aside");
     panel.id = "categorySurveyPanel";
-    panel.className = "category-panel tk-wide-panel";
-    panel.setAttribute("role", "region");
+    panel.className = "category-panel tk-wide-panel tk-force";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
     panel.setAttribute("aria-label", "Category selection");
     panel.setAttribute("aria-hidden", "true");
     panel.style.display = "none";        // make sure hidden by default
@@ -78,11 +98,13 @@
       panel.setAttribute("aria-hidden", "false");
       panel.classList.add("is-open");
       panel.style.display = ""; // let your stylesheet style it
+      document.body?.classList?.add("tk-panel-open");
     };
     const closePanel = () => {
       panel.setAttribute("aria-hidden", "true");
       panel.classList.remove("is-open");
       panel.style.display = "none";
+      document.body?.classList?.remove("tk-panel-open");
     };
 
     panel.dataset.tkOpen  = "1";
@@ -99,7 +121,8 @@
     panel?._openPanel?.();
   }
   function closeCategoryPanel() {
-    $("#categorySurveyPanel")?._closePanel?.();
+    const panel = $("#categorySurveyPanel");
+    panel?._closePanel?.();
   }
 
   /* ===================== RENDER CHOOSER ===================== */
@@ -121,11 +144,19 @@
     listEl.appendChild(frag);
 
     const badge = $("#catCount") || $("[data-tk='cat-count']");
-    const update = () => { if (badge) badge.textContent = `${$$(".tk-cat:checked", listEl).length} selected / ${categories.length} total`; };
+    const update = () => {
+      if (badge) badge.textContent = `${$$(".tk-cat:checked", listEl).length} selected / ${categories.length} total`;
+    };
     listEl.addEventListener("change", update); update();
 
-    $("#btnSelectAll")?.addEventListener("click", () => { $$(".tk-cat", listEl).forEach(c => c.checked = true);  listEl.dispatchEvent(new Event("change")); });
-    $("#btnDeselectAll")?.addEventListener("click", () => { $$(".tk-cat", listEl).forEach(c => c.checked = false); listEl.dispatchEvent(new Event("change")); });
+    $("#btnSelectAll")?.addEventListener("click", () => {
+      $$(".tk-cat", listEl).forEach(c => { c.checked = true; });
+      update();
+    });
+    $("#btnDeselectAll")?.addEventListener("click", () => {
+      $$(".tk-cat", listEl).forEach(c => { c.checked = false; });
+      update();
+    });
 
     $("#btnProceed")?.addEventListener("click", () => {
       const sel = $$(".tk-cat:checked", listEl).map(c => c.value);
@@ -167,7 +198,7 @@
   }
 
   // 2) Direct wire if a known element exists at load (no harm if also caught by delegation).
-  function wireKnownStartButtons() {
+  function wireKnownStartButtons(root=document) {
     const candidates = [
       "#startSurvey",
       ".start-survey-btn",
@@ -176,10 +207,25 @@
       "a[href*='#start']"
     ];
     candidates.forEach(sel => {
-      $$(sel).forEach(el => {
+      $$(sel, root).forEach(el => {
+        if (el.dataset.tkStartHook === "1") return;
+        el.dataset.tkStartHook = "1";
         el.addEventListener("click", (e) => { e.preventDefault(); openCategoryPanel(); }, { capture:true, once:false });
       });
     });
+  }
+
+  function observeStartButtons() {
+    const mo = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (!m.addedNodes || !m.addedNodes.length) continue;
+        m.addedNodes.forEach(node => {
+          if (!(node instanceof Element)) return;
+          wireKnownStartButtons(node);
+        });
+      }
+    });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
   }
 
   /* ===================== BOOT ===================== */
@@ -198,9 +244,12 @@
     renderCategoryChooser(Data.categories);
     installGlobalStartListener();
     wireKnownStartButtons();
+    observeStartButtons();
 
     // Make data globally available
     window.__TK__ = Data;
+    window.tkOpenCategories = openCategoryPanel;
+    window.tkCloseCategories = closeCategoryPanel;
 
     log(`Loaded ${Data.categories.length} categories; UI wired.`);
   }
