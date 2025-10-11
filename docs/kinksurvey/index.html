@@ -393,7 +393,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 <section id="ksvHeroStack" data-ksv-fallback>
   <h1>Talk Kink Survey</h1>
   <nav class="ksvButtons">
-    <a class="ksvBtn" id="btnStartSurvey" href="#start">Start Survey</a>
+    <a class="ksvBtn" id="btnStartSurvey" data-tk-start href="#start">Start Survey</a>
 
     <!-- Force the two buttons to your direct URLs -->
     <a class="ksvBtn" id="btn-compat" href="https://talkkink.org/compatibility.html">Compatibility Page</a>
@@ -414,7 +414,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   <div id="statusMsg" class="themed-text" style="opacity:.85;margin:10px 0 8px">Loading categories…</div>
   <div id="categoryList" class="category-list" role="list"></div>
   <div style="display:flex;justify-content:center;margin-top:12px">
-    <button id="start" class="themed-button start-survey-btn" disabled>Start Survey</button>
+    <button id="start" class="themed-button start-survey-btn" data-tk-start disabled>Start Survey</button>
   </div>
   <div id="diag" class="notice" style="display:none"></div>
 </aside>
