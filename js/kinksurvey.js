@@ -42,11 +42,16 @@
     let panel = document.getElementById("categorySurveyPanel");
     if (panel) {
       panel.classList.add("tk-force");
+      panel.style.position = "fixed";
+      panel.style.inset = "0";
+      panel.style.zIndex = "2147483000"; // higher than anything else on the page
+      if (!panel.classList.contains("is-open")) panel.style.opacity = "0";
       if (!panel._openPanel) {
         panel._openPanel = () => {
           panel.setAttribute("aria-hidden", "false");
           panel.classList.add("is-open");
-          panel.style.display = "";
+          panel.style.display = "block";
+          panel.style.opacity = "1";
           document.body?.classList?.add("tk-panel-open");
         };
       }
@@ -54,6 +59,7 @@
         panel._closePanel = () => {
           panel.setAttribute("aria-hidden", "true");
           panel.classList.remove("is-open");
+          panel.style.opacity = "0";
           panel.style.display = "none";
           document.body?.classList?.remove("tk-panel-open");
         };
@@ -68,28 +74,33 @@
     panel.setAttribute("aria-modal", "true");
     panel.setAttribute("aria-label", "Category selection");
     panel.setAttribute("aria-hidden", "true");
+    panel.style.position = "fixed";
+    panel.style.inset = "0";
+    panel.style.opacity = "0";
     panel.style.display = "none";        // make sure hidden by default
-    panel.style.zIndex = "9999";         // bring to front (keeps your look)
+    panel.style.zIndex = "2147483000";   // bring to front (keeps your look)
 
     panel.innerHTML = `
-      <div class="category-panel__header">
-        <button class="themed-button" id="panelCloseBtn" aria-label="Close">Close ✕</button>
-      </div>
-
-      <div class="category-panel__body">
-        <h3 class="themed-heading">Select categories</h3>
-
-        <div class="tk-btn-row">
-          <button id="btnSelectAll" class="themed-button">Select All</button>
-          <button id="btnDeselectAll" class="themed-button">Deselect All</button>
-          <span class="badge" id="catCount" data-tk="cat-count">0 selected</span>
+      <div class="tk-card" role="document">
+        <div class="category-panel__header">
+          <button class="themed-button" id="panelCloseBtn" aria-label="Close">Close ✕</button>
         </div>
 
-        <div id="categoryList" data-tk="category-list" class="tk-chip-wrap" style="margin-top:1rem"></div>
-      </div>
+        <div class="category-panel__body">
+          <h3 class="themed-heading">Select categories</h3>
 
-      <div class="category-panel__footer">
-        <button id="btnProceed" class="themed-button start-survey-btn">Proceed</button>
+          <div class="tk-btn-row">
+            <button id="btnSelectAll" class="themed-button">Select All</button>
+            <button id="btnDeselectAll" class="themed-button">Deselect All</button>
+            <span class="badge" id="catCount" data-tk="cat-count">0 selected</span>
+          </div>
+
+          <div id="categoryList" data-tk="category-list" class="tk-chip-wrap" style="margin-top:1rem"></div>
+        </div>
+
+        <div class="category-panel__footer">
+          <button id="btnProceed" class="themed-button start-survey-btn">Start Survey</button>
+        </div>
       </div>
     `;
     document.body.appendChild(panel);
@@ -158,7 +169,9 @@
       update();
     });
 
-    $("#btnProceed")?.addEventListener("click", () => {
+    $("#btnProceed")?.addEventListener("click", (ev) => {
+      ev?.preventDefault?.();
+      ev?.stopPropagation?.();
       const sel = $$(".tk-cat:checked", listEl).map(c => c.value);
       const chosen = sel.length ? sel : Data.categories;
       if (!chosen.length) return alert("No categories available.");
@@ -177,55 +190,124 @@
   }
 
   /* ===================== START BUTTON WIRING (ROBUST) ===================== */
-  function textContent(el) {
-    return (el?.textContent || "").replace(/\s+/g," ").trim().toLowerCase();
+  const textContent = (el) => (el?.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+  function looksLikeStart(el) {
+    if (!el || !(el instanceof Element)) return false;
+    if (el.dataset.tkStartHook === "1") return false;
+
+    if (
+      el.matches?.(
+        "#startSurvey, #startSurveyBtn, #startSurveyButton, .start-survey-btn, [data-tk='start'], [data-tk-start], [data-tk-start-survey], [data-action='start-survey'], [data-tk='start-survey'], [data-tk='start']"
+      )
+    ) {
+      return true;
+    }
+
+    const txt = textContent(el);
+    if (txt && /start\s*survey/.test(txt)) return true;
+
+    const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+    if (aria && /start\s*survey/.test(aria)) return true;
+
+    const href = (el.getAttribute("href") || "").toLowerCase();
+    if (href && (/\/kinksurvey\/?$/.test(href) || href.includes("start"))) return true;
+
+    return false;
   }
 
-  // 1) Event delegation: catch clicks anywhere and match likely “Start Survey” triggers.
-  function installGlobalStartListener() {
-    document.addEventListener("click", (e) => {
-      const clickEl = e.target.closest(
-        "#startSurvey, .start-survey-btn, [data-tk='start'], [data-action='start-survey'], a[href*='#start']"
-      );
-      if (clickEl) { e.preventDefault(); openCategoryPanel(); return; }
-
-      // Fallback: button-like element whose visible text is “Start Survey”
-      const btn = e.target.closest("button, a, div, span");
-      if (btn && textContent(btn) === "start survey") {
-        e.preventDefault(); openCategoryPanel();
-      }
-    }, true);
+  function wireStartButton(el) {
+    if (!looksLikeStart(el)) return false;
+    el.dataset.tkStartHook = "1";
+    el.addEventListener(
+      "click",
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openCategoryPanel();
+      },
+      { capture: true }
+    );
+    return true;
   }
 
-  // 2) Direct wire if a known element exists at load (no harm if also caught by delegation).
-  function wireKnownStartButtons(root=document) {
-    const candidates = [
+  function wireAllStartButtons(root = document) {
+    let wired = 0;
+    const priority = [
       "#startSurvey",
+      "#startSurveyBtn",
+      "#startSurveyButton",
       ".start-survey-btn",
       "[data-tk='start']",
+      "[data-tk-start]",
+      "[data-tk-start-survey]",
       "[data-action='start-survey']",
+      "[data-tk='start-survey']",
       "a[href*='#start']"
     ];
-    candidates.forEach(sel => {
-      $$(sel, root).forEach(el => {
-        if (el.dataset.tkStartHook === "1") return;
-        el.dataset.tkStartHook = "1";
-        el.addEventListener("click", (e) => { e.preventDefault(); openCategoryPanel(); }, { capture:true, once:false });
+    priority.forEach((sel) => {
+      $$(sel, root).forEach((el) => {
+        wired += wireStartButton(el) ? 1 : 0;
       });
     });
+
+    $$("a,button,[role='button'],.themed-button,div,span", root).forEach((el) => {
+      wired += wireStartButton(el) ? 1 : 0;
+    });
+    return wired;
+  }
+
+  function installGlobalStartListener() {
+    document.addEventListener(
+      "click",
+      (e) => {
+        const clickEl = e.target.closest(
+          "a,button,[role='button'],.themed-button,div,span"
+        );
+        if (!clickEl) return;
+        if (looksLikeStart(clickEl)) {
+          e.preventDefault();
+          e.stopPropagation();
+          openCategoryPanel();
+        }
+      },
+      true
+    );
   }
 
   function observeStartButtons() {
     const mo = new MutationObserver((mutations) => {
       for (const m of mutations) {
         if (!m.addedNodes || !m.addedNodes.length) continue;
-        m.addedNodes.forEach(node => {
+        m.addedNodes.forEach((node) => {
           if (!(node instanceof Element)) return;
-          wireKnownStartButtons(node);
+          wireAllStartButtons(node);
         });
       }
     });
     mo.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  function diagnosticAutoOpen() {
+    const storageKey = "__TK_PANEL_AUTO_OPENED";
+    if (window.__TK_PANEL_AUTO_OPENED) return;
+    try {
+      if (sessionStorage.getItem(storageKey) === "1") {
+        window.__TK_PANEL_AUTO_OPENED = true;
+        return;
+      }
+      sessionStorage.setItem(storageKey, "1");
+    } catch {}
+    window.__TK_PANEL_AUTO_OPENED = true;
+    setTimeout(() => {
+      const panel = ensureCategoryPanel();
+      if (!panel) return;
+      if (panel.classList.contains("is-open")) return;
+      openCategoryPanel();
+      log(
+        "Auto-opened panel (diagnostic). If you see this, clicks were being blocked."
+      );
+    }, 800);
   }
 
   /* ===================== BOOT ===================== */
@@ -243,8 +325,9 @@
     ensureCategoryPanel();
     renderCategoryChooser(Data.categories);
     installGlobalStartListener();
-    wireKnownStartButtons();
+    wireAllStartButtons();
     observeStartButtons();
+    diagnosticAutoOpen();
 
     // Make data globally available
     window.__TK__ = Data;
