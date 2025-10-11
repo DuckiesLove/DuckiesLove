@@ -1,0 +1,184 @@
+<!-- Talk-Kink: console patch for portal/neutralize/wiring -->
+<script>
+/* TK console patch: portal + neutralize + wiring */
+(function () {
+  // 1) Inject CSS via JS so we don't paste any <style> tags
+  const css = `
+#tkOverlay, .tk-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.55);
+  display:none; opacity:.0; transition:opacity .18s ease;
+  z-index:2147483646; pointer-events:none;
+}
+#tkOverlay.tk-open, .tk-overlay.tk-open{ display:block; opacity:1; pointer-events:auto; }
+#tkPortalHost{ position:fixed; inset:0; z-index:2147483647; pointer-events:none; }
+#tkPortalHost > .tk-panel-shell{
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+  max-height:85vh; width:min(980px,92vw);
+  background:rgba(10,10,10,.97); border-radius:12px;
+  overflow:auto; -webkit-overflow-scrolling:touch; pointer-events:auto;
+  outline:4px solid magenta; /* debug, remove later */
+  box-shadow:0 20px 60px rgba(0,0,0,.6);
+}
+.tk-open-force{
+  position:fixed !important; left:50% !important; top:50% !important;
+  transform:translate(-50%,-50%) !important;
+  display:block !important; visibility:visible !important; opacity:1 !important;
+  z-index:2147483647 !important; width:min(980px,92vw) !important; max-height:85vh !important;
+  overflow:auto !important; pointer-events:auto !important;
+  outline:4px solid magenta; /* debug, remove later */
+}
+.tk-neutralize{
+  transform:none !important; filter:none !important;
+  opacity:1 !important; visibility:visible !important;
+  contain:unset !important; will-change:auto !important;
+}`;
+  const style = document.createElement('style');
+  style.id = 'tkConsolePatchStyles';
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // 2) Helpers
+  const $ = s => document.querySelector(s);
+
+  const panel = $('#categorySurveyPanel') || document.querySelector('.category-panel');
+  if (!panel) { console.warn('[TK] No panel element found (#categorySurveyPanel or .category-panel).'); return; }
+
+  let overlay = document.querySelector('#tkOverlay, .tk-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'tkOverlay';
+    overlay.className = 'tk-overlay';
+    document.body.appendChild(overlay);
+  }
+
+  let portalHost = document.getElementById('tkPortalHost');
+  if (!portalHost) {
+    portalHost = document.createElement('div');
+    portalHost.id = 'tkPortalHost';
+    document.body.appendChild(portalHost);
+  }
+
+  let restore = null;
+
+  function needsPortal(el){
+    for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+      const cs = getComputedStyle(n);
+      if (n.hidden || n.hasAttribute('inert') || cs.display === 'none') return true;
+    }
+    return false;
+  }
+
+  function neutralizeAncestors(el){
+    const touched = [];
+    for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+      n.classList.add('tk-neutralize');
+      if (getComputedStyle(n).position === 'static') n.style.position = 'relative';
+      const rec = { node:n, hidden:n.hidden, inert:n.hasAttribute('inert'), style:{} };
+      if (n.hidden) n.hidden = false;
+      if (n.hasAttribute('inert')) n.removeAttribute('inert');
+      if (getComputedStyle(n).display === 'none') { rec.style.display = n.style.display; n.style.display = 'block'; }
+      touched.push(rec);
+    }
+    return touched;
+  }
+
+  function tkOpenPanel(){
+    overlay.classList.add('tk-open');
+    document.documentElement.style.overflow = 'hidden';
+
+    const doPortal = needsPortal(panel);
+    restore = restore || {};
+
+    const touched = neutralizeAncestors(panel);
+
+    if (doPortal) {
+      const shell = document.createElement('div');
+      shell.className = 'tk-panel-shell';
+      portalHost.appendChild(shell);
+      restore.parent = panel.parentNode;
+      restore.sibling = panel.nextSibling;
+      restore.inPortal = true;
+      shell.appendChild(panel);
+    } else {
+      panel.classList.add('tk-open-force');
+      restore.inPortal = false;
+    }
+
+    panel.hidden = false;
+    panel.removeAttribute('inert');
+    panel.style.display = 'block';
+    panel.style.visibility = 'visible';
+    panel.style.opacity = '1';
+
+    restore.touched = touched;
+
+    try { panel.scrollIntoView({block:'center'}); } catch {}
+    const r = panel.getBoundingClientRect();
+    console.log('[TK] Panel open; rect:', {x:Math.round(r.x), y:Math.round(r.y), w:Math.round(r.width), h:Math.round(r.height), portal:doPortal});
+    if (r.width < 240 || r.height < 240) {
+      panel.style.minWidth = '420px';
+      panel.style.minHeight = '420px';
+    }
+  }
+
+  function tkClosePanel(){
+    try {
+      if (restore) {
+        if (restore.inPortal) {
+          if (restore.parent) {
+            if (restore.sibling) restore.parent.insertBefore(panel, restore.sibling);
+            else restore.parent.appendChild(panel);
+          }
+          const shell = portalHost.querySelector('.tk-panel-shell');
+          if (shell) shell.remove();
+        } else {
+          panel.classList.remove('tk-open-force');
+        }
+        if (Array.isArray(restore.touched)) {
+          for (const rec of restore.touched) {
+            rec.node.classList.remove('tk-neutralize');
+            rec.node.hidden = rec.hidden;
+            if (rec.inert) rec.node.setAttribute('inert','');
+            if (rec.style && 'display' in rec.style) rec.node.style.display = rec.style.display || '';
+          }
+        }
+      }
+    } catch(e){ console.warn('[TK] close restore error', e); }
+    document.documentElement.style.overflow = '';
+    overlay.classList.remove('tk-open');
+    restore = null;
+    console.log('[TK] Panel closed.');
+  }
+
+  // Wire Start Survey buttons again
+  const startSel = [
+    '#startSurveyBtn','#startSurvey','.start-survey-btn',
+    'button.themed-button.start-survey-btn','a[href="#start"]'
+  ].join(',');
+  const closeSel = ['[data-action="close"]', '#tkCloseDrawer', '#closePanelBtn'].join(',');
+
+  document.querySelectorAll(startSel).forEach(b=>{
+    b.addEventListener('click', e=>{ e.preventDefault(); tkOpenPanel(); }, {passive:false});
+  });
+  document.querySelectorAll(closeSel).forEach(b=>{
+    b.addEventListener('click', e=>{ e.preventDefault(); tkClosePanel(); }, {passive:false});
+  });
+  overlay.addEventListener('click', tkClosePanel, {passive:true});
+
+  // Debug helpers
+  window.tkOpenPanel  = tkOpenPanel;
+  window.tkClosePanel = tkClosePanel;
+  window.tkProbe = () => {
+    const r = panel.getBoundingClientRect();
+    const present = !!panel;
+    const visible = r.width>1 && r.height>1;
+    console.table([
+      { key:'panel', selector:'#categorySurveyPanel|.category-panel', present, visible },
+      { key:'overlay', selector:'#tkOverlay|.tk-overlay', present: !!overlay, visible: overlay && (overlay.style.display!=='none') }
+    ]);
+    return { panel, overlay, portalHost, rect:{x:r.x,y:r.y,width:r.width,height:r.height}, restore };
+  };
+
+  console.log('[TK] console patch installed; use tkOpenPanel()/tkClosePanel()/tkProbe().');
+})();
+</script>
