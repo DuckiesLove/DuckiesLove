@@ -6,6 +6,30 @@
 <title>Category Panel Snippet</title>
 <link rel="stylesheet" href="css/theme.css">
 <style>
+/* keep your look; just guarantee layering + toggling */
+#tkOverlay, .tk-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  z-index: 9990;
+  pointer-events: none;
+}
+#tkOverlay.tk-open, .tk-overlay.tk-open {
+  display: block;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#categorySurveyPanel {
+  z-index: 10000;
+}
+#categorySurveyPanel:not(.tk-open) {
+  display: none !important;
+}
+
 /* THEME COLOR ROOTS */
 :root {
   --accent-text: #00ffff;
@@ -82,6 +106,12 @@
   color: #000;
 }
 
+.category-panel .panel-close {
+  margin-left: auto;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
 /* UNIFORM CATEGORY BOXES */
 .category-panel label {
   display: flex;
@@ -119,7 +149,8 @@
 </style>
 </head>
 <body class="theme-dark">
-<div class="category-panel">
+<div id="categorySurveyPanel" class="category-panel tk-open" aria-hidden="false">
+  <button type="button" class="panel-close" data-action="close">Close</button>
   <h2>Select the categories you want to include:</h2>
   <div class="category-buttons">
     <button id="selectAll">Select All</button>
@@ -322,6 +353,73 @@ document.getElementById('deselectAll').addEventListener('click', () => {
         }
       });
   </script>
+<script>
+(function(){
+  const $ = (s, ctx = document) => ctx.querySelector(s);
+  const $$ = (s, ctx = document) => Array.from(ctx.querySelectorAll(s));
+
+  const panel = $('#categorySurveyPanel') || $('.category-panel');
+  if (!panel) {
+    console.warn('[TK] No category panel found (#categorySurveyPanel)');
+    return;
+  }
+
+  let overlay = $('#tkOverlay') || $('.tk-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'tkOverlay';
+    overlay.className = 'tk-overlay';
+    document.body.appendChild(overlay);
+  }
+
+  function open() {
+    overlay.classList.add('tk-open');
+    panel.classList.add('tk-open');
+    panel.setAttribute('aria-hidden', 'false');
+    document.documentElement.style.overflow = 'hidden';
+  }
+
+  function close() {
+    panel.classList.remove('tk-open');
+    panel.setAttribute('aria-hidden', 'true');
+    overlay.classList.remove('tk-open');
+    document.documentElement.style.overflow = '';
+  }
+
+  const startSel = [
+    '#startSurveyBtn',
+    '#startSurvey',
+    '.start-survey-btn',
+    'button.themed-button.start-survey-btn',
+    'a[href="#start"]'
+  ].join(',');
+  const closeSel = ['[data-action="close"]', '#tkCloseDrawer', '#closePanelBtn'].join(',');
+
+  $$(startSel).forEach((btn) => btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    open();
+  }, { passive: false }));
+  $$(closeSel, panel).forEach((btn) => btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    close();
+  }, { passive: false }));
+  overlay.addEventListener('click', close, { passive: true });
+
+  window.tkOpenPanel = open;
+  window.tkClosePanel = close;
+  window.tkProbe = () => {
+    const vis = (el) => !!(el && el.offsetParent !== null);
+    console.table([
+      { key: 'panel', selector: '#categorySurveyPanel', present: !!panel, visible: vis(panel) },
+      { key: 'overlay', selector: '#tkOverlay|.tk-overlay', present: !!overlay, visible: vis(overlay) },
+      { key: 'starts', selector: startSel, present: !!$$(startSel).length, visible: $$(startSel).some(vis) }
+    ]);
+    return { panel, overlay, starts: $$(startSel) };
+  };
+
+  console.log('[TK] Start Survey wired; overlay=%o, panel=%o', !!overlay, !!panel);
+})();
+</script>
 <!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
 <script>
 /* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
