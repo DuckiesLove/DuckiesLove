@@ -564,6 +564,142 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 </style>
 </head>
 <body class="theme-dark has-category-panel tk-no-js">
+<!-- ✅ ONE BOX: kill the “[TK] Provided fallback element for missing selector …” spam
+     AND pre-create the probed hooks so the warnings never fire.
+
+     📍 WHERE TO PASTE
+     Put this immediately after your opening <body> tag on /kinksurvey/ so it
+     runs before your loader probes the DOM.
+
+     WHAT IT DOES
+     1) Synchronously creates tiny, hidden “ghost” hooks for every selector your
+        bootstrap probes (the ones shown in your screenshot):
+           - doc:#panelToggle
+           - doc:.landing-wrapper
+           - el:#themeSelector
+           - el:#warning
+           - el:.category-list
+           - el:#tkStartNow
+           - doc:[aria-controls="categorySurveyPanel"]
+           - el:[data-action="close"]
+     2) Wires any opener hooks to open the category panel, and any closers to close it.
+     3) (Optional) Silences ONLY the specific fallback warning text if some other
+        script still emits it.
+
+     NOTES
+     - “doc:” means the logger looked on document for that selector; we just create
+       the matching node in <body>.
+     - These ghosts are inert/invisible and won’t affect layout or tab order.
+-->
+
+<style>
+  .tk-ghost-hook { position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden; }
+</style>
+
+<script>
+(function(){
+  /* ---------- (A) OPTIONAL: mute ONLY the noisy fallback line ---------- */
+  // If your loader still logs its own fallback messages, hide that single line.
+  // Comment this block out if you prefer to see those logs.
+  try {
+    const _warn = console.warn.bind(console);
+    console.warn = (...args) => {
+      const hit = args.some(a => typeof a === 'string' &&
+        a.includes('[TK] Provided fallback element for missing selector'));
+      if (hit) return; // swallow that one noisy line
+      _warn(...args);
+    };
+  } catch(_) {}
+
+  /* ---------- (B) Panel open/close helpers ---------- */
+  function openPanel(ev){
+    if (ev) ev.preventDefault();
+    // Prefer official API if the enhanced panel is present:
+    if (window.tkPanel && typeof window.tkPanel.open === 'function') return window.tkPanel.open();
+    // Fallback: reveal overlay we inject later / already present:
+    const o = document.getElementById('tkOverlay');
+    if (o) o.hidden = false;
+  }
+  function closePanel(ev){
+    if (ev) ev.preventDefault();
+    if (window.tkPanel && typeof window.tkPanel.close === 'function') return window.tkPanel.close();
+    const o = document.getElementById('tkOverlay');
+    if (o) o.hidden = true;
+  }
+
+  /* ---------- (C) Ghost creation utilities (synchronous) ---------- */
+  function ensureSimple(sel, tag='div', attrs={}, onCreate){
+    let el = document.querySelector(sel);
+    if (el) return el;
+    el = document.createElement(tag);
+    if (sel.startsWith('#')) el.id = sel.slice(1);
+    else if (sel.startsWith('.')) el.className = sel.slice(1);
+    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+    el.classList.add('tk-ghost-hook');
+    el.tabIndex = -1;
+    document.body.appendChild(el);
+    onCreate && onCreate(el);
+    return el;
+  }
+  function ensureWithAttrs(tag, attrs, onCreate){
+    const sel = tag + Object.entries(attrs).map(([k,v])=>`[${k}="${v}"]`).join('');
+    let el = document.querySelector(sel);
+    if (el) return el;
+    el = document.createElement(tag);
+    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+    el.classList.add('tk-ghost-hook');
+    el.tabIndex = -1;
+    document.body.appendChild(el);
+    onCreate && onCreate(el);
+    return el;
+  }
+
+  /* ---------- (D) Pre-create every probed selector BEFORE your loader runs ---------- */
+
+  // doc:#panelToggle → legacy opener some code expects
+  ensureSimple('#panelToggle', 'button', {type:'button', 'aria-controls':'tkCategoryDrawer'}, el=>{
+    el.addEventListener('click', openPanel, {passive:false});
+    if (!el.title) el.title = 'Open categories';
+  });
+
+  // doc:.landing-wrapper → historically present container
+  ensureSimple('.landing-wrapper', 'div');
+
+  // el:#themeSelector → harmless placeholder select (you can wire real theme switching later)
+  ensureSimple('#themeSelector', 'select');
+
+  // el:#warning → status region some probes expect
+  ensureSimple('#warning', 'div', {role:'status','aria-live':'polite'});
+
+  // el:.category-list → your panel has one already, but ensure presence for early probes
+  ensureSimple('.category-list', 'div');
+
+  // el:#tkStartNow → “Start Survey” hook (if not on your main button yet)
+  ensureSimple('#tkStartNow', 'button', {type:'button'}, el=>{
+    el.addEventListener('click', openPanel, {passive:false});
+  });
+
+  // doc:[aria-controls="categorySurveyPanel"] → legacy opener id
+  ensureWithAttrs('button', {'aria-controls':'categorySurveyPanel', type:'button'}, el=>{
+    el.addEventListener('click', openPanel, {passive:false});
+  });
+
+  // el:[data-action="close"] → generic closer probe
+  ensureWithAttrs('button', {'data-action':'close', type:'button'}, el=>{
+    el.addEventListener('click', closePanel, {passive:false});
+  });
+
+  // Defensive: if you have a visible “Start Survey” label without an id, wire it:
+  Array.from(document.querySelectorAll('a,button')).forEach(btn=>{
+    const t = (btn.textContent||'').trim();
+    if (/^start\s*survey$/i.test(t) && !btn._tkWired){
+      btn._tkWired = true;
+      btn.setAttribute('aria-controls','tkCategoryDrawer');
+      btn.addEventListener('click', openPanel, {passive:false});
+    }
+  });
+})();
+</script>
 
 <section id="ksvHeroStack" data-ksv-fallback>
   <h1>Talk Kink Survey</h1>
