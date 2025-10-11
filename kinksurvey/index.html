@@ -2813,30 +2813,49 @@ No other files need to change.
 })();
 </script>
 
-<!-- ✅ ONE-BOX PATCH (drop-in). Fixes all the “missing selector” warnings,
-     keeps your neon/black look, wires Start Survey → category panel,
-     AND provides legacy alias elements:
-     #tkStartNow, #startSurvey, #start-survey-btn, #startSurveyBtn,
-     #openPanelBtn, #closePanelBtn, [aria-controls="categorySurveyPanel"],
-     [data-action="close"].
+<!-- ✅ ONE-BOX PATCH v2 — Category panel perfectly aligned + ALL legacy selectors present
+     Drop this block just before </body> on https://talkkink.org/kinksurvey/.
 
-     Paste this near the END of https://talkkink.org/kinksurvey/ (just before </body>).
+     What this does
+     --------------
+     • Renders your neon-on-black category picker in a clean, responsive grid.
+     • Wires the visible “Start Survey” button to open the panel.
+     • Emits tk:categories:selected with the chosen category IDs when “Start Survey” is pressed.
+     • Provides EVERY legacy hook your old scripts log about, so the yellow
+       “[TK] Provided fallback element for missing selector …” warnings go away:
+         #tkCategoryDrawer, #tkDrawerContent, #tkDrawerBackdrop, #tkCloseDrawer,
+         .tk-drawer-actions, .category-list, #tkStartNow, [data-action="close"],
+         #startSurvey, #startSurveyBtn, #start-survey-btn, #openPanelBtn, #closePanelBtn, #dl
+     • Keeps your look; only adds tight alignment styles for the grid “pills”.
+
+     How to verify
+     -------------
+     1) Reload the page, click “Start Survey” → panel opens.
+     2) Confirm the category pills align in a tidy grid (desktop+mobile).
+     3) Open DevTools Console: the previous “missing selector” warnings should be gone.
+     4) Click Select All / Deselect All; the counter updates.
+     5) Click Start Survey → the panel closes and your app receives:
+        window.addEventListener('tk:categories:selected', e => console.log(e.detail.selected))
 -->
 
-<!-- (A) Stub a Download button because some code expects #dl to exist -->
+<!-- (A) Minimal #dl to satisfy exporters that probe it -->
 <button id="dl" hidden type="button"></button>
 
-<!-- (B) Category overlay UI (keeps your look) -->
+<!-- (B) Category “drawer” overlay (ids/classes chosen to satisfy legacy selectors) -->
 <div id="tkOverlay" class="tk-overlay" hidden>
-  <aside id="categorySurveyPanel" class="category-panel tk-wide-panel" role="region"
-         aria-label="Select categories" aria-hidden="false" data-ksv-panel="category">
+  <!-- legacy: #tkDrawerBackdrop -->
+  <div id="tkDrawerBackdrop" class="tk-backdrop" aria-hidden="true"></div>
+
+  <aside id="tkCategoryDrawer" class="category-panel tk-wide-panel" role="dialog"
+         aria-modal="true" aria-label="Select categories">
     <header class="tk-panel-head">
       <h2 class="tk-title">Select categories</h2>
-      <button id="tkClose" class="tk-btn tk-btn-close" type="button"
+      <!-- legacy: #tkCloseDrawer + [data-action="close"] -->
+      <button id="tkCloseDrawer" class="tk-btn tk-btn-close" type="button"
               data-action="close" aria-label="Close">Close ✕</button>
     </header>
 
-    <div class="tk-toolbar">
+    <div class="tk-toolbar tk-drawer-actions">
       <button id="tkAll"  class="tk-btn" type="button">Select All</button>
       <button id="tkNone" class="tk-btn" type="button">Deselect All</button>
       <span class="tk-count">
@@ -2845,171 +2864,149 @@ No other files need to change.
       </span>
     </div>
 
-    <!-- Categories render here in A→Z order -->
-    <div id="tkCats" class="tk-cats" aria-live="polite"></div>
+    <!-- legacy: #tkDrawerContent (id) and .category-list (class) -->
+    <div id="tkDrawerContent" class="tk-cats category-list" aria-live="polite"></div>
 
-    <footer class="tk-panel-foot">
+    <footer class="tk-panel-foot tk-drawer-actions">
       <button id="tkGo" class="tk-btn tk-btn-primary" type="button">Start Survey</button>
     </footer>
   </aside>
 </div>
 
-<!-- (C) Hidden legacy alias elements so your old scripts stop warning.
-       Each opens/closes the panel when clicked. -->
+<!-- (C) Hidden legacy alias elements so older code can find and click them -->
 <div hidden>
   <button id="tkStartNow"        type="button"></button>
   <button id="startSurvey"       type="button"></button>
   <button id="start-survey-btn"  type="button"></button>
   <button id="startSurveyBtn"    type="button"></button>
-  <button id="openPanelBtn"      type="button" aria-controls="categorySurveyPanel"></button>
+  <button id="openPanelBtn"      type="button" aria-controls="tkCategoryDrawer"></button>
   <button id="closePanelBtn"     type="button" data-action="close"></button>
-  <!-- doc:#startSurveyBtn compatibility for code that queries the document -->
-  <a id="startSurveyBtn_doc" href="#categorySurveyPanel" aria-controls="categorySurveyPanel"></a>
 </div>
 
-<!-- (D) Styles (compact, aligned pill grid; neon-on-black) -->
+<!-- (D) Tight, aligned pill-grid styles (keeps your neon/black aesthetic) -->
 <style>
-  :root { --tk-bg:#000; --tk-fg:#e7ffff; --tk-accent:#00e6e6; --tk-border:#00e6e6; }
-  .tk-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:grid;place-items:center;z-index:9999}
-  .category-panel{outline:2px solid var(--tk-border);border-radius:18px;padding:20px 20px 16px;
-    max-width:1100px;width:min(92vw,1100px);background:#050505;color:var(--tk-fg);
-    box-shadow:0 0 0 2px #0ff3 inset,0 0 40px rgba(0,255,255,.08)}
-  .tk-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-  .tk-title{font-size:clamp(22px,2.6vw,34px);margin:0;letter-spacing:.5px}
-  .tk-toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:8px 0 16px}
+  :root{--tk-bg:#000;--tk-fg:#e7ffff;--tk-accent:#00e6e6;--tk-border:#00e6e6}
+  .tk-overlay{position:fixed;inset:0;display:grid;place-items:center;z-index:9999}
+  .tk-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.82)}
+  .category-panel{position:relative;background:#050505;color:var(--tk-fg);
+    border-radius:18px;outline:2px solid var(--tk-border);box-shadow:0 0 0 2px #0ff3 inset,0 0 40px rgba(0,255,255,.08);
+    padding:18px;max-width:1100px;width:min(92vw,1100px)}
+  .tk-panel-head{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 10px}
+  .tk-title{margin:0;font-size:clamp(22px,2.4vw,34px);letter-spacing:.4px}
+  .tk-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:6px 2px 14px}
   .tk-count{margin-left:auto;opacity:.9}
-  .tk-btn{background:transparent;color:var(--tk-fg);border:2px solid var(--tk-border);border-radius:14px;
-    padding:10px 16px;font-weight:700;letter-spacing:.4px;cursor:pointer;
+  .tk-btn{background:#0b0b0b;color:var(--tk-fg);border:2px solid var(--tk-border);
+    border-radius:14px;padding:10px 16px;font-weight:700;letter-spacing:.4px;cursor:pointer;
     transition:transform .05s ease,box-shadow .15s ease}
   .tk-btn:hover{box-shadow:0 0 0 3px rgba(0,230,230,.25) inset}
   .tk-btn:active{transform:translateY(1px)}
   .tk-btn-primary{background:var(--tk-accent);color:#001;border-color:var(--tk-accent)}
   .tk-btn-close{background:#111}
-  .tk-cats{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));margin:6px 0 14px}
+  /* Aligned responsive grid */
+  .tk-cats.category-list{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));margin:6px 2px 14px}
   .tk-pill{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:16px;border:2px solid #2ee;
-    background:#0b0b0b;color:var(--tk-fg);user-select:none;box-shadow:inset 0 0 0 1px rgba(0,255,255,.18)}
-  .tk-pill input{width:22px;height:22px;accent-color:var(--tk-accent)}
+    background:#0b0b0b;color:var(--tk-fg);min-height:52px;box-shadow:inset 0 0 0 1px rgba(0,255,255,.18)}
+  .tk-pill input{width:22px;height:22px;accent-color:var(--tk-accent);flex:0 0 auto}
+  .tk-pill span{line-height:1.25}
+  .tk-panel-foot{display:flex;justify-content:flex-end}
   @media (max-width:560px){.tk-toolbar{gap:10px}.tk-count{width:100%;margin-left:0}}
 </style>
 
-<!-- (E) Script:  loads categories, renders A→Z, wires buttons, and
-         creates alias hooks so old code stops logging “Provided fallback element…” -->
+<!-- (E) Logic: load categories, render A→Z, wire buttons, add legacy hooks -->
 <script>
 (function(){
-  const $ = (s, r=document)=>r.querySelector(s);
-  const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
+  const $=(s,r=document)=>r.querySelector(s);
+  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 
   const overlay = $('#tkOverlay');
-  const panel   = $('#categorySurveyPanel');
-  const catsBox = $('#tkCats');
-  const $count  = $('#tkCount');
-  const $total  = $('#tkTotal');
-  const $all    = $('#tkAll');
-  const $none   = $('#tkNone');
-  const $close  = $('#tkClose');
-  const $go     = $('#tkGo');
+  const backdrop = $('#tkDrawerBackdrop');
+  const drawer   = $('#tkCategoryDrawer');
+  const listBox  = $('#tkDrawerContent');
+  const btnClose = $('[data-action="close"]', drawer) || $('#tkCloseDrawer');
+  const btnAll   = $('#tkAll');
+  const btnNone  = $('#tkNone');
+  const btnGo    = $('#tkGo');
+  const $count   = $('#tkCount');
+  const $total   = $('#tkTotal');
 
-  if(!overlay || !catsBox) return;
+  if(!overlay || !drawer || !listBox) return;
 
-  // --- Locate categories (accept several global shapes) ---
-  function findCategories(){
-    const g = window;
-    const candidates = [
+  // --- Collect categories from likely globals (keeps working even if your loader changes) ---
+  function harvest(){
+    const g=window;
+    const pools=[
       g.tkCategories,
       g.tkKinkData && g.tkKinkData.categories,
       g.tkData && g.tkData.categories,
       g.tk && g.tk.categories
     ];
-    for(const c of candidates){
-      if(Array.isArray(c) && c.length){
-        return c.map(x=>({ id: x.id ?? x.key ?? x.slug ?? String(x.name ?? x.label ?? ''),
-                           name: x.name ?? x.label ?? String(x.id ?? x.key ?? x.slug ?? '') }));
+    for(const p of pools){
+      if(Array.isArray(p) && p.length){
+        return p.map(x=>({id:x.id??x.key??x.slug??String(x.name??x.label??''),name:x.name??x.label??String(x.id??x.key??x.slug??'')}));
       }
     }
-    return []; // ok if your app paints its own list; ours still satisfies legacy selectors
+    return [];
   }
-  const CATS = findCategories();
-  $total.textContent = CATS.length;
+  const CATS=harvest();
+  $total.textContent=CATS.length;
 
-  // --- Render category pills A→Z ---
-  catsBox.innerHTML = CATS
-    .slice()
-    .sort((a,b)=>a.name.localeCompare(b.name))
-    .map(c => `
-      <label class="tk-pill">
-        <input type="checkbox" class="tk-cat" value="${c.id}">
-        <span>${c.name}</span>
-      </label>
-    `).join('');
+  // --- Render grid (alphabetical) ---
+  listBox.innerHTML=CATS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(c=>`
+    <label class="tk-pill">
+      <input type="checkbox" class="tk-cat" value="${c.id}" />
+      <span>${c.name}</span>
+    </label>
+  `).join('');
 
-  function updateCount(){
-    $count.textContent = $$('.tk-cat', catsBox).filter(cb=>cb.checked).length;
-  }
-  catsBox.addEventListener('change', e=>{
-    if(e.target && e.target.classList.contains('tk-cat')) updateCount();
-  });
-  $all .addEventListener('click', ()=>{ $$('.tk-cat', catsBox).forEach(cb=>cb.checked=true);  updateCount(); });
-  $none.addEventListener('click', ()=>{ $$('.tk-cat', catsBox).forEach(cb=>cb.checked=false); updateCount(); });
-  $close.addEventListener('click', ()=> overlay.setAttribute('hidden',''));
+  function updateCount(){ $count.textContent = $$('.tk-cat', listBox).filter(cb=>cb.checked).length; }
+  listBox.addEventListener('change', e=>{ if(e.target?.classList.contains('tk-cat')) updateCount(); });
+  btnAll .addEventListener('click', ()=>{ $$('.tk-cat', listBox).forEach(cb=>cb.checked=true);  updateCount(); });
+  btnNone.addEventListener('click', ()=>{ $$('.tk-cat', listBox).forEach(cb=>cb.checked=false); updateCount(); });
 
-  // --- Notify app when user proceeds ---
-  $go.addEventListener('click', ()=>{
-    const selected = $$('.tk-cat', catsBox).filter(cb=>cb.checked).map(cb=>cb.value);
-    window.dispatchEvent(new CustomEvent('tk:categories:selected', { detail:{ selected } }));
-    overlay.setAttribute('hidden','');
-  });
+  // --- Open/close helpers ---
+  function openPanel(ev){ if(ev){ev.preventDefault();} overlay.hidden=false; }
+  function closePanel(ev){ if(ev){ev.preventDefault();} overlay.hidden=true; }
+  btnClose.addEventListener('click', closePanel);
+  backdrop.addEventListener('click', closePanel);
+  document.addEventListener('keydown', e=>{ if(!overlay.hidden && e.key==='Escape') closePanel(); });
 
-  // --- Hook the visible “Start Survey” button(s) ---
-  function visibleStarts(){
-    return Array.from(document.querySelectorAll('a,button'))
-      .filter(el => /start\s*survey/i.test(el.textContent || ''));
-  }
-  function openPanel(ev){ if(ev){ ev.preventDefault(); } overlay.removeAttribute('hidden'); }
-
-  // Give the real UI an aria-controls to appease older code
-  visibleStarts().forEach(el=>{
-    el.setAttribute('aria-controls','categorySurveyPanel');
-    el.addEventListener('click', openPanel, {passive:false});
+  // --- Proceed → notify app with selected category IDs ---
+  btnGo.addEventListener('click', ()=>{
+    const selected = $$('.tk-cat', listBox).filter(cb=>cb.checked).map(cb=>cb.value);
+    window.dispatchEvent(new CustomEvent('tk:categories:selected',{detail:{selected}}));
+    closePanel();
   });
 
-  // --- Legacy alias elements (silence “fallback element” logs) ---
-  const aliasMap = {
-    '#tkStartNow'       : openPanel,
-    '#startSurvey'      : openPanel,
-    '#start-survey-btn' : openPanel,
-    '#startSurveyBtn'   : openPanel,
-    '#openPanelBtn'     : openPanel,
-    '#closePanelBtn'    : ()=>overlay.setAttribute('hidden',''),
-    '#startSurveyBtn_doc': openPanel
+  // --- Hook visible “Start Survey” buttons by text, and give them aria-controls for legacy code ---
+  function visibleStarts(){return Array.from(document.querySelectorAll('a,button')).filter(el=>/start\s*survey/i.test(el.textContent||''));}
+  visibleStarts().forEach(el=>{ el.setAttribute('aria-controls','tkCategoryDrawer'); el.addEventListener('click', openPanel, {passive:false}); });
+
+  // --- Legacy click aliases (to silence “missing selector” warnings) ---
+  const alias = {
+    '#tkStartNow'      : openPanel,
+    '#startSurvey'     : openPanel,
+    '#start-survey-btn': openPanel,
+    '#startSurveyBtn'  : openPanel,
+    '#openPanelBtn'    : openPanel,
+    '#closePanelBtn'   : closePanel
   };
-  Object.entries(aliasMap).forEach(([sel,fn])=>{
-    const el = $(sel) || document.createElement('button');
-    if(!el.isConnected){
-      el.id = sel.replace(/^#/, '');
-      el.hidden = true;
-      document.body.appendChild(el);
-    }
-    // Ensure required attributes for legacy selectors
-    if(sel==='#openPanelBtn'){ el.setAttribute('aria-controls','categorySurveyPanel'); }
-    if(sel==='#closePanelBtn'){ el.setAttribute('data-action','close'); }
+  Object.entries(alias).forEach(([sel,fn])=>{
+    let el=$(sel);
+    if(!el){ el=document.createElement('button'); el.id=sel.slice(1); el.hidden=true; document.body.appendChild(el); }
+    if(sel==='#openPanelBtn')  el.setAttribute('aria-controls','tkCategoryDrawer');
+    if(sel==='#closePanelBtn') el.setAttribute('data-action','close');
     el.addEventListener('click', fn, {passive:false});
   });
 
-  // Keep doc-level [aria-controls="categorySurveyPanel"] present even if UI shifts
-  if(!document.querySelector('[aria-controls="categorySurveyPanel"]')){
-    const ghost = document.createElement('a');
-    ghost.hidden = true;
-    ghost.setAttribute('aria-controls','categorySurveyPanel');
-    document.body.appendChild(ghost);
+  // Provide one always-present element with [data-action="close"] for old selectors
+  if(!document.querySelector('[data-action="close"]')){
+    const ghost=document.createElement('button'); ghost.hidden=true; ghost.setAttribute('data-action','close'); document.body.appendChild(ghost);
+    ghost.addEventListener('click', closePanel);
   }
 
   updateCount();
-
-  // Optional: expose simple API if you need to trigger open/close from elsewhere
-  window.tkPanel = {
-    open : ()=>overlay.removeAttribute('hidden'),
-    close: ()=>overlay.setAttribute('hidden','')
-  };
+  // Expose small API (optional)
+  window.tkPanel = { open: openPanel, close: closePanel };
 })();
 </script>
 
