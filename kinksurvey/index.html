@@ -2817,10 +2817,11 @@ No other files need to change.
 
 <script>
 (() => {
-  const log=(...a)=>console.log("[TK]",...a);
+  // --- tiny utils
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 
+  // --- overlay
   function ensureOverlay(){
     let o=$("#tkOverlay");
     if(!o){
@@ -2844,16 +2845,17 @@ No other files need to change.
         </div>`;
       document.body.appendChild(o);
     }
-    o.style.cssText = o.style.cssText + ';position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.88);z-index:2147483647';
     return o;
   }
   function openOverlay(){ ensureOverlay().classList.add("tk-open"); }
   function closeOverlay(){ ensureOverlay().classList.remove("tk-open"); }
 
+  // --- categories loader (forces alphabetical A→Z, case-insensitive)
   async function loadCategories(){
+    const alphaSort=(a,b)=>String(a).localeCompare(String(b), undefined, {sensitivity:"base"});
     try{
       if(Array.isArray(window.__TK_CATEGORIES__) && window.__TK_CATEGORIES__.length){
-        return window.__TK_CATEGORIES__.slice();
+        return window.__TK_CATEGORIES__.slice().sort(alphaSort);
       }
       const r=await fetch("/data/kinks.json",{cache:"no-store"});
       const data=await r.json();
@@ -2864,25 +2866,28 @@ No other files need to change.
         if(Array.isArray(it?.categories)) it.categories.forEach(c=>c&&set.add(String(c).trim()));
         if(it?.group) set.add(String(it.group).trim());
       }
-      return Array.from(set).filter(Boolean).sort((a,b)=>a.localeCompare(b));
-    }catch(e){ console.warn("[TK] category load failed:",e); return []; }
+      return Array.from(set).filter(Boolean).sort(alphaSort);
+    }catch(e){
+      console.warn("[TK] category load failed:",e);
+      return [];
+    }
   }
 
+  // --- render
   function render(categories){
     const wrap=$("#tkCats"); const count=$("#tkCount");
-    if(!wrap) return;
     wrap.innerHTML="";
     const frag=document.createDocumentFragment();
     categories.forEach(c=>{
       const lab=document.createElement("label");
       lab.className="tk-chip";
-      lab.innerHTML=`<input type="checkbox" class="tk-cat" value="${c}"><span>${c}</span>`;
+      lab.innerHTML=`<input type="checkbox" class="tk-cat" value="${c}">
+                     <span>${c}</span>`;
       frag.appendChild(lab);
     });
     wrap.appendChild(frag);
     const upd=()=>{ count.textContent = `${$$(".tk-cat:checked",wrap).length} selected / ${categories.length} total`; };
     wrap.addEventListener("change",upd); upd();
-
     $("#tkAll")?.addEventListener("click",()=>{$$(".tk-cat",wrap).forEach(i=>i.checked=true);upd();});
     $("#tkNone")?.addEventListener("click",()=>{$$(".tk-cat",wrap).forEach(i=>i.checked=false);upd();});
     $("#tkClose")?.addEventListener("click",closeOverlay);
@@ -2893,47 +2898,43 @@ No other files need to change.
       if(typeof window.tkBeginSurvey==="function"){
         window.tkBeginSurvey({categories:final});
       }else{
-        alert(`Survey would start with ${final.length} categories.\n(Connect via window.tkBeginSurvey)`);
+        alert(`Connect your starter via window.tkBeginSurvey({categories})`);
       }
     });
   }
 
+  // --- wire ONLY the Start Survey button (no auto-open)
   function looksStart(el){
     const t=(el?.textContent||"").replace(/\s+/g," ").trim().toLowerCase();
     return t==="start survey" || /start\s*survey/.test(t) || t==="start";
   }
-  function wireKnown(){
-    const sels=["#startSurvey",".start-survey-btn","[data-tk='start']","[data-action='start-survey']","a[href*='#start']","button","a"];
-    sels.forEach(s => $$(s).forEach(btn=>{
+  function wireStart(cats){
+    const selectors=[
+      "#startSurvey",".start-survey-btn","[data-tk='start']",
+      "[data-action='start-survey']", "a[href*='#start']","button","a"
+    ];
+    const tryWire=(btn)=>{
       if(btn._tkWired) return;
       if(!looksStart(btn) && !btn.matches("#startSurvey,.start-survey-btn,[data-tk='start'],[data-action='start-survey'],a[href*='#start']")) return;
       btn.addEventListener("click",(ev)=>{ev.preventDefault();ev.stopPropagation();openOverlay();},{capture:true,passive:false});
-      btn._tkWired=true;
-    }));
-  }
-  function globalCapture(){
-    document.addEventListener("click",(ev)=>{
-      const t=ev.target.closest("a,button,[role='button'],.themed-button,div,span");
-      if(t && looksStart(t)){ ev.preventDefault();ev.stopPropagation();openOverlay(); }
-    },true);
-  }
-  function observeMutations(){
-    const mo=new MutationObserver(wireKnown);
-    mo.observe(document.documentElement,{subtree:true,childList:true});
+      btn._tkWired = true;
+    };
+    selectors.forEach(sel => $$(sel).forEach(tryWire));
+    // keep wiring if DOM changes
+    new MutationObserver(()=>selectors.forEach(sel => $$(sel).forEach(tryWire)))
+      .observe(document.documentElement,{childList:true,subtree:true});
   }
 
   async function boot(){
     ensureOverlay();
     const cats=await loadCategories();
     render(cats);
-    wireKnown(); globalCapture(); observeMutations();
-
-    setTimeout(()=>{ openOverlay(); log("Panel auto-opened (diagnostic). Click Start to confirm wiring."); }, 600);
-    window.tkPing = () => { openOverlay(); return "TK overlay opened"; };
-
-    log(`Ready with ${cats.length} categories. (Use tkPing() if needed)`);
+    wireStart(cats);                    // ONLY opens on Start Survey click
   }
-  (document.readyState==="loading")?document.addEventListener("DOMContentLoaded",boot,{once:true}):boot();
+
+  (document.readyState==="loading")
+    ? document.addEventListener("DOMContentLoaded",boot,{once:true})
+    : boot();
 })();
 </script>
 <!-- /TK—Nuclear panel & wiring -->
