@@ -3714,149 +3714,20 @@ select {
 }
 
 
-/* ===== Category panel mechanics (keeps your neon look) =================== */
-.category-panel{
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(0,0,0,.65);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .18s ease;
-  z-index: 9999;
-}
-.category-panel.is-open{
-  opacity: 1;
-  pointer-events: auto;
-}
-.category-panel[aria-hidden="true"]{ display:block; }
-.panel-chrome{
-  width: min(960px, 92vw);
-  max-height: 86vh;
-  border: 2px solid var(--teal, #00e6e6);
-  border-radius: 18px;
-  background: #000;
-  color: var(--fg, #fff);
-  box-shadow: 0 0 40px rgba(0,230,230,.15);
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-}
-.panel-header{
-  display:flex; align-items:center; justify-content:space-between;
-  padding: 18px 22px;
-  border-bottom: 1px solid rgba(255,255,255,.12);
-}
-.panel-toolbar{
-  display:flex; gap:12px; align-items:center; padding: 12px 22px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
-}
-.category-list{
-  padding: 18px 22px; overflow:auto; display:grid; gap:14px;
-  grid-template-columns: repeat(auto-fit, minmax(280px,1fr));
-}
-.panel-footer{ padding: 16px 22px; border-top:1px solid rgba(255,255,255,.08); }
-.chip{ opacity:.8; font-size:.9rem }
-.pill{
-  display:flex; align-items:center; gap:12px; padding:12px 14px;
-  border: 1px solid rgba(255,255,255,.18);
-  border-radius: 999px; background:#0a0a0a;
-}
-.pill input{ width:18px; height:18px; accent-color: var(--teal,#00e6e6); }
-.pill .lbl{ font-weight:600; letter-spacing:.2px; }
-
-/* Lock body scroll while panel is open (prevents “page jumps”) */
-body.tk-lock{ overflow:hidden; }
-:root{
-  --teal: #00e6e6;           /* already used in your theme */
-  --grid-gutter: 14px;       /* horizontal & vertical spacing between pills */
-  --pill-min-h: 52px;        /* equal pill height for visual rhythm */
-}
-
-/* ========== Category Panel Layout ========== */
-.panel-header h2{
-  margin: 0;
-  line-height: 1.2;
-  font-size: clamp(20px, 2.2vw, 28px);
-}
-.panel-toolbar{
-  display: grid;
-  grid-template-columns: auto auto 1fr; /* [Select All][Deselect All][count aligns right] */
-  gap: 12px;
-  align-items: center;
-}
-#catCount{
-  justify-self: end;
-  opacity: .85;
-}
-
-/* Responsive, even grid for categories */
-.category-list{
-  display: grid;
-  gap: var(--grid-gutter);
-  grid-template-columns: repeat(2, minmax(280px, 1fr)); /* default: 2 columns */
-  align-items: start;
-}
-@media (min-width: 1100px){
-  .category-list{ grid-template-columns: repeat(3, minmax(280px, 1fr)); } /* 3 columns on wide */
-}
-@media (max-width: 640px){
-  .category-list{ grid-template-columns: 1fr; } /* single column on phones */
-}
-
-/* ========== Category "pill" alignment ========== */
-.pill{
-  display: flex;
-  align-items: center;               /* centers checkbox & text vertically */
-  gap: 12px;
-  padding: 12px 16px;
-  min-height: var(--pill-min-h);     /* equal height across the grid */
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.18);
-  background: #0a0a0a;
-  color: #fff;
-  box-shadow: 0 0 0 0 rgba(0,230,230,0);
-  transition: box-shadow .15s ease, background .15s ease;
-}
-.pill:hover{
-  background: #0e0e0e;
-  box-shadow: 0 0 0 2px rgba(0,230,230,.15) inset;
-}
-.pill:focus-within{
-  outline: 2px solid var(--teal);
-  outline-offset: 2px;
-}
-
-/* Checkbox sizing & vertical centering across browsers */
-.pill input[type="checkbox"]{
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  accent-color: var(--teal);
-  position: relative;
-  top: .5px;                /* Firefox/Safari nudge to center optically */
-}
-
-/* Label text takes remaining space, wraps cleanly */
-.pill .lbl{
-  flex: 1 1 auto;
-  font-weight: 600;
-  letter-spacing: .2px;
-  line-height: 1.25;        /* keeps two-line items compact */
-  word-break: break-word;   /* no overflow when names are long */
-}
-
-/* Buttons in panel keep consistent sizing */
-.themed-button{
-  line-height: 1;           /* avoid vertical wobble */
-  padding: 12px 18px;
-}
-.themed-button.ghost{
-  background: transparent;
-  border: 1px solid rgba(255,255,255,.2);
-}
-.themed-button.primary{
-  background: var(--teal);
-  color: #001111;
-}
+/* ============ Category Panel Layout ============ */
+:root{ --teal:#00e6e6; --grid-gutter:14px; --pill-min-h:52px; }
+.category-panel{border:1px solid rgba(0,230,230,.35);border-radius:16px;padding:18px;background:#000;color:#fff;max-width:980px;margin-inline:auto}
+.panel-header h2{margin:0 0 10px;font-size:clamp(20px,2.2vw,28px)}
+.panel-toolbar{display:grid;grid-template-columns:auto auto 1fr;gap:12px;align-items:center;margin-bottom:12px}
+#catCount{justify-self:end;opacity:.85}
+.category-list{display:grid;gap:var(--grid-gutter);grid-template-columns:repeat(2,minmax(280px,1fr))}
+@media(min-width:1100px){.category-list{grid-template-columns:repeat(3,minmax(280px,1fr))}}
+@media(max-width:640px){.category-list{grid-template-columns:1fr}}
+.pill{display:flex;align-items:center;gap:12px;padding:12px 16px;min-height:var(--pill-min-h);border-radius:999px;border:1px solid rgba(255,255,255,.18);background:#0a0a0a}
+.pill:hover{background:#0e0e0e;box-shadow:0 0 0 2px rgba(0,230,230,.15) inset}
+.pill input[type="checkbox"]{flex:0 0 auto;width:18px;height:18px;margin:0;accent-color:var(--teal);position:relative;top:.5px}
+.pill .lbl{flex:1 1 auto;font-weight:600;letter-spacing:.2px;line-height:1.25;word-break:break-word}
+.themed-button{padding:12px 18px}
+.themed-button.ghost{background:transparent;border:1px solid rgba(255,255,255,.2)}
+.themed-button.primary{background:var(--teal);color:#001111}
+#btnOpenCats{display:block;margin:24px auto 32px}
