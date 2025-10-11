@@ -610,9 +610,9 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   .tk-ghost-hook{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
 </style>
 
-<div id="tkOverlay" hidden>
+<div id="tkOverlay" hidden data-tk-fallback="true">
   <!-- Injected fallback drawer; if your real drawer exists we won’t use this -->
-  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-labelledby="tkCatTitle" hidden>
+  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-labelledby="tkCatTitle" hidden data-tk-fallback="true">
     <div class="tk-row tk-spread" style="margin-bottom:10px">
       <h2 id="tkCatTitle">Select categories</h2>
       <button class="tk-btn" id="tkCloseX" data-action="close" aria-label="Close">Close ✕</button>
@@ -634,31 +634,63 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 (function(){
   /* ---------- A) Find or create the panel we will open/close ---------- */
   const q = s => document.querySelector(s);
-
-  // Prefer an existing, real panel if your app already rendered one:
-  let drawer =
-    q('#categorySurveyPanel') ||
-    q('#tkCategoryDrawer') ||
-    q('.category-panel') ||
-    q('[role="dialog"][aria-label="category selection"]');
-
-  // Ensure overlay exists
-  let overlay = q('#tkOverlay') || (()=>{
+  const fallbackOverlay = q('#tkOverlay[data-tk-fallback="true"]') || (()=>{
     const o = document.createElement('div');
-    o.id = 'tkOverlay'; o.hidden = true; document.body.appendChild(o); return o;
+    o.id = 'tkOverlay';
+    o.hidden = true;
+    o.setAttribute('data-tk-fallback','true');
+    document.body.appendChild(o);
+    return o;
   })();
+  const fallbackDrawer = fallbackOverlay.querySelector('#tkCategoryDrawer[data-tk-fallback="true"]');
 
-  // If no real drawer, use our injected fallback inside #tkOverlay
-  if (!drawer) {
-    drawer = overlay.querySelector('#tkCategoryDrawer');
+  const resolveDrawer = () =>
+    q('#categorySurveyPanel') ||
+    q('#tkCategoryDrawer:not([data-tk-fallback="true"])') ||
+    q('.category-panel') ||
+    q('[role="dialog"][aria-label="category selection"]') ||
+    fallbackDrawer;
+
+  let overlay = q('#tkOverlay:not([data-tk-fallback="true"])') || fallbackOverlay;
+  let drawer = resolveDrawer();
+  let attachObserver = () => {};
+
+  function syncTargets(){
+    const realOverlay = q('#tkOverlay:not([data-tk-fallback="true"])');
+    const realDrawer = resolveDrawer();
+    if (realOverlay) overlay = realOverlay;
+    if (realDrawer) drawer = realDrawer;
+    if ((realOverlay || realDrawer) && fallbackOverlay && fallbackOverlay !== overlay && fallbackOverlay.isConnected) {
+      fallbackOverlay.remove();
+    }
+    attachObserver();
   }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncTargets, { once: true });
+  } else {
+    syncTargets();
+  }
+  const syncObserver = new MutationObserver(syncTargets);
+  syncObserver.observe(document.documentElement, { childList: true, subtree: true });
 
   // Guard: expose as window.tkPanel so other scripts can use it
   const tkPanel = {
-    open(){ overlay.hidden = false; overlay.setAttribute('data-open','true');
-            drawer && drawer.removeAttribute('hidden'); drawer?.focus?.(); },
-    close(){ overlay.removeAttribute('data-open'); overlay.hidden = true;
-             drawer && drawer.setAttribute('hidden',''); }
+    open(){
+      syncTargets();
+      if (!overlay) return;
+      overlay.hidden = false;
+      overlay.setAttribute('data-open','true');
+      drawer && drawer.removeAttribute('hidden');
+      drawer?.focus?.();
+    },
+    close(){
+      syncTargets();
+      if (!overlay) return;
+      overlay.removeAttribute('data-open');
+      overlay.hidden = true;
+      drawer && drawer.setAttribute('hidden','');
+    }
   };
   window.tkPanel = tkPanel;
 
@@ -669,6 +701,14 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   const startBtn = q('#tkStartNow') ||
                    [...document.querySelectorAll('a,button')].find(b => /^start\s*survey$/i.test((b.textContent||'').trim()));
   if (startBtn) on(startBtn, 'click', e => { e.preventDefault(); tkPanel.open(); });
+  document.addEventListener('click', e => {
+    const trigger = e.target.closest('a,button');
+    if (!trigger) return;
+    if (/^start\s*survey$/i.test((trigger.textContent||'').trim())) {
+      e.preventDefault();
+      tkPanel.open();
+    }
+  });
 
   // Any generic openers the older code might look for:
   ensureGhost('#panelToggle', 'button', {type:'button', 'aria-controls':'categorySurveyPanel'}, btn=>{
@@ -684,33 +724,55 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   const closeX = q('[data-action="close"]') || q('#tkCloseX') ||
                  ensureGhost('[data-action="close"]','button',{type:'button'}, null);
   on(closeX,'click', e=>{e.preventDefault(); tkPanel.close();});
-  on(overlay,'click', e=>{ if (e.target === overlay) tkPanel.close(); });
+  document.addEventListener('click', e=>{
+    const closer = e.target.closest('[data-action="close"]');
+    if (closer){
+      e.preventDefault();
+      tkPanel.close();
+    }
+  });
+  document.addEventListener('click', e=>{
+    syncTargets();
+    if (overlay && e.target === overlay) tkPanel.close();
+  });
 
   /* ---------- C) Friendly count + select all/none (works for fallback or real) ---------- */
-  const cats = () => drawer?.querySelectorAll('input[type="checkbox"]') || [];
-  const countEl = drawer?.querySelector('#tkCount');
-  const allBtn  = drawer?.querySelector('#tkAll');
-  const noneBtn = drawer?.querySelector('#tkNone');
+  const cats = () => {
+    syncTargets();
+    return drawer ? [...drawer.querySelectorAll('input[type="checkbox"]')] : [];
+  };
+  const countEl = () => {
+    syncTargets();
+    return drawer?.querySelector('#tkCount') || null;
+  };
 
   function updateCount(){
-    if (!countEl) return;
-    const c = [...cats()];
+    const countNode = countEl();
+    if (!countNode) return;
+    const c = cats();
     const sel = c.filter(x=>x.checked).length;
     const total = c.length || '—';
-    countEl.textContent = `${sel} selected / ${total} total`;
+    countNode.textContent = `${sel} selected / ${total} total`;
   }
-  function selectAll(v){ [...cats()].forEach(cb=>{cb.checked = !!v;}); updateCount(); }
+  function selectAll(v){ cats().forEach(cb=>{cb.checked = !!v;}); updateCount(); }
 
-  on(allBtn,'click', e=>{e.preventDefault(); selectAll(true);});
-  on(noneBtn,'click', e=>{e.preventDefault(); selectAll(false);});
+  document.addEventListener('click', e=>{
+    if (e.target.closest('#tkAll')){ e.preventDefault(); selectAll(true); }
+    if (e.target.closest('#tkNone')){ e.preventDefault(); selectAll(false); }
+  });
   // Dynamic count as user clicks
   const ob = new MutationObserver(updateCount);
-  if (drawer){
+  let observedDrawer = null;
+  attachObserver = () => {
+    if (!drawer || drawer === observedDrawer) return;
+    ob.disconnect();
     ob.observe(drawer, {subtree:true, childList:true});
-    drawer.addEventListener('change', e=>{
-      if (e.target && e.target.matches('input[type="checkbox"]')) updateCount();
-    });
-  }
+    observedDrawer = drawer;
+  };
+  attachObserver();
+  document.addEventListener('change', e=>{
+    if (e.target && e.target.matches('input[type="checkbox"]')) updateCount();
+  });
   // First count after any async population
   setTimeout(updateCount, 0);
 
