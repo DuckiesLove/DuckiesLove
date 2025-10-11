@@ -1,135 +1,120 @@
 <!-- ========== TK panel hard-override (one-paste) ========== -->
-<style>
-  /* Highest priority layer; avoid being trapped in other stacking contexts */
-  #tkPortalRoot{position:fixed;inset:0;z-index:2147483000;pointer-events:none}
-
-  #tkOverlay{position:fixed;inset:0;background:rgba(0,0,0,.62);opacity:0;
-             transition:opacity .18s ease;pointer-events:none}
-
-  #categorySurveyPanel{position:fixed;top:0;right:0;height:100dvh;width:min(720px,92vw);
-    background:#0b0b0c;color:#eafcff;border-left:2px solid #00e6ff;
-    box-shadow:-22px 0 44px rgba(0,0,0,.55);transform:translateX(100%);
-    transition:transform .22s ease;display:flex;flex-direction:column;contain:content}
-
-  .tk-panel-open #tkOverlay{opacity:1;pointer-events:auto}
-  .tk-panel-open #categorySurveyPanel{transform:translateX(0)}
-  .tk-skel header{display:flex;align-items:center;justify-content:space-between;
-    padding:16px 18px;border-bottom:1px solid #00e6ff}
-  .tk-skel h2{margin:0;font:700 20px/1.2 system-ui}
-  .tk-skel .actions{display:flex;gap:8px}
-  .tk-skel .btn{background:#081214;border:1px solid #00e6ff;color:#eafcff;border-radius:10px;
-    padding:.44rem .72rem;font:600 13px/1 system-ui;cursor:pointer}
-  .tk-skel .body{padding:16px 18px;overflow:auto}
-  .tk-skel .hint{opacity:.75;font:500 13px/1.4 system-ui}
-
-  /* tiny visible badge so you know the script ran (sits above everything) */
-  #tkBadge{position:fixed;left:8px;top:8px;background:#00e6ff;color:#001015;
-           font:700 11px/1.1 system-ui;border-radius:6px;padding:5px 7px;
-           box-shadow:0 2px 8px rgba(0,0,0,.4);z-index:2147483646;display:none}
-  .tk-panel-open #tkBadge{display:inline-block}
-</style>
-
-<div id="tkPortalRoot" aria-hidden="true">
-  <div id="tkOverlay"></div>
-  <aside id="categorySurveyPanel" role="dialog" aria-modal="true" aria-hidden="true" class="tk-skel">
-    <header>
-      <h2>Select categories</h2>
-      <div class="actions">
-        <button type="button" class="btn" id="tkSelectAll">Select All</button>
-        <button type="button" class="btn" id="tkDeselectAll">Deselect All</button>
-        <button type="button" class="btn" id="tkClose">Close ✕</button>
-      </div>
-    </header>
-    <div class="body">
-      <p class="hint">Skeleton panel shown. Your real category UI will mount here once the app binds.</p>
-      <div id="tkCatMount"></div>
-    </div>
-  </aside>
-</div>
-<div id="tkBadge">TK Panel</div>
-
 <script>
-(()=>{ // TK hard-override
-  const log=(...a)=>console.log("[TK]",...a);
-  const portal = document.getElementById('tkPortalRoot');
-  const scrim  = document.getElementById('tkOverlay');
-  const panel  = document.getElementById('categorySurveyPanel');
+(function TK_PATCH(){
+  if (window.tkOpenPanel) { console.log('[TK] patch already installed'); return; }
 
-  function openPanel(){
+  const css = `
+    #tkPortalRoot{position:fixed;inset:0;z-index:2147483000;pointer-events:none}
+    #tkOverlay{position:fixed;inset:0;background:rgba(0,0,0,.62);opacity:0;transition:opacity .18s ease;pointer-events:none}
+    #categorySurveyPanel{position:fixed;top:0;right:0;height:100dvh;width:min(720px,92vw);
+      background:#0b0b0c;color:#eafcff;border-left:2px solid #00e6ff;
+      box-shadow:-22px 0 44px rgba(0,0,0,.55);transform:translateX(100%);
+      transition:transform .22s ease;display:flex;flex-direction:column;contain:content}
+    .tk-panel-open #tkOverlay{opacity:1;pointer-events:auto}
+    .tk-panel-open #categorySurveyPanel{transform:translateX(0)}
+    .tk-skel header{display:flex;align-items:center;justify-content:space-between;
+      padding:16px 18px;border-bottom:1px solid #00e6ff}
+    .tk-skel h2{margin:0;font:700 20px/1.2 system-ui}
+    .tk-skel .actions{display:flex;gap:8px}
+    .tk-skel .btn{background:#081214;border:1px solid #00e6ff;color:#eafcff;border-radius:10px;
+      padding:.44rem .72rem;font:600 13px/1 system-ui;cursor:pointer}
+    .tk-skel .body{padding:16px 18px;overflow:auto}
+    .tk-skel .hint{opacity:.75;font:500 13px/1.4 system-ui}
+    #tkBadge{position:fixed;left:8px;top:8px;background:#00e6ff;color:#001015;
+      font:700 11px/1.1 system-ui;border-radius:6px;padding:5px 7px;box-shadow:0 2px 8px rgba(0,0,0,.4);
+      z-index:2147483646;display:none}
+    .tk-panel-open #tkBadge{display:inline-block}
+  `;
+  const style = document.createElement('style');
+  style.setAttribute('data-tk','panel');
+  style.textContent = css;
+  document.documentElement.appendChild(style);
+
+  function ensure(id, maker){
+    return document.getElementById(id) || maker();
+  }
+  const portal = ensure('tkPortalRoot', () => {
+    const d = document.createElement('div'); d.id='tkPortalRoot';
+    d.innerHTML = `
+      <div id="tkOverlay"></div>
+      <aside id="categorySurveyPanel" role="dialog" aria-modal="true" aria-hidden="true" class="tk-skel">
+        <header>
+          <h2>Select categories</h2>
+          <div class="actions">
+            <button type="button" class="btn" id="tkSelectAll">Select All</button>
+            <button type="button" class="btn" id="tkDeselectAll">Deselect All</button>
+            <button type="button" class="btn" id="tkClose">Close ✕</button>
+          </div>
+        </header>
+        <div class="body">
+          <p class="hint">Skeleton panel shown. Your app can mount real UI into <code>#tkCatMount</code>.</p>
+          <div id="tkCatMount"></div>
+        </div>
+      </aside>`;
+    document.body.appendChild(d);
+    const badge = document.createElement('div'); badge.id='tkBadge'; badge.textContent='TK Panel';
+    document.body.appendChild(badge);
+    return d;
+  });
+  const scrim = document.getElementById('tkOverlay');
+  const panel = document.getElementById('categorySurveyPanel');
+
+  function tkOpenPanel(){
     document.documentElement.classList.add('tk-panel-open');
-    portal.style.pointerEvents="auto";
+    portal.style.pointerEvents='auto';
     panel.setAttribute('aria-hidden','false');
-    log("Panel OPEN");
+    console.log('[TK] Panel OPEN');
   }
-  function closePanel(){
+  function tkClosePanel(){
     document.documentElement.classList.remove('tk-panel-open');
-    portal.style.pointerEvents="none";
+    portal.style.pointerEvents='none';
     panel.setAttribute('aria-hidden','true');
-    log("Panel CLOSE");
+    console.log('[TK] Panel CLOSE');
   }
-  window.tkOpenPanel  = openPanel;
-  window.tkClosePanel = closePanel;
+  Object.assign(window,{ tkOpenPanel, tkClosePanel });
 
-  /* Close interactions */
-  scrim.addEventListener('click', closePanel, {passive:true});
-  panel.addEventListener('click', (e)=>{ if(e.target.id==='tkClose') closePanel(); }, {passive:true});
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closePanel(); }, {passive:true});
+  scrim.addEventListener('click', tkClosePanel, {passive:true});
+  panel.addEventListener('click', (e)=>{ if(e.target && e.target.id==='tkClose') tkClosePanel(); }, {passive:true});
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') tkClosePanel(); }, {passive:true});
 
-  /* Catch Start Survey even if other handlers swallow it. */
   const wired = new WeakSet();
   function looksLikeStart(el){
-    const t=(el.textContent||'').trim();
-    return /^start\s*survey$/i.test(t);
+    return el && typeof el.textContent==='string' && /^start\s*survey$/i.test(el.textContent.trim());
   }
   function wire(root=document){
-    const nodes = new Set();
-    // explicit hooks
+    const set = new Set();
     ['#startSurveyBtn','.start-survey-btn','[data-tk-start]'].forEach(sel=>{
-      const n=root.querySelector(sel); if(n) nodes.add(n);
+      const n=root.querySelector(sel); if(n) set.add(n);
     });
-    // by text
-    root.querySelectorAll('a,button,[role="button"]').forEach(n=>{
-      if(looksLikeStart(n)) nodes.add(n);
-    });
-    nodes.forEach(btn=>{
+    root.querySelectorAll('a,button,[role="button"]').forEach(n=>{ if(looksLikeStart(n)) set.add(n); });
+    set.forEach(btn=>{
       if(wired.has(btn)) return;
-      // capture first; stop other listeners from hijacking
-      const handler=(ev)=>{
+      btn.addEventListener('click', (ev)=>{
         try{ ev.stopImmediatePropagation(); }catch{}
         ev.preventDefault();
-        log("Start clicked -> opening (capture override)", btn);
-        setTimeout(openPanel,0);
-      };
-      btn.addEventListener('click', handler, {capture:true});
+        tkOpenPanel();
+      }, {capture:true});
       wired.add(btn);
     });
   }
   wire();
-
-  // Re-wire when DOM mutates (SPA frameworks)
   new MutationObserver(()=>wire(document)).observe(document.documentElement,{childList:true,subtree:true});
 
-  // Auto-open once (post-hydration) so you can verify it appears
-  if(!sessionStorage.getItem('tk_auto_opened_v2')){
-    sessionStorage.setItem('tk_auto_opened_v2','1');
-    // Give any router/hydrator a moment, then open.
-    setTimeout(()=>{ log("Auto-open to verify visibility"); openPanel(); }, 450);
+  if(!sessionStorage.getItem('tk_auto_opened_v3')){
+    sessionStorage.setItem('tk_auto_opened_v3','1');
+    setTimeout(()=>tkOpenPanel(), 450);
   }
 
-  // If something still hides us, force visibility after 1s and log CSS culprits
   setTimeout(()=>{
     const cs=getComputedStyle(panel);
-    const hidden = cs.display==='none' || cs.visibility==='hidden' || +cs.opacity === 0;
-    if(hidden){
-      log("Panel appears hidden by external CSS; forcing visible.");
-      panel.style.display='flex';
-      panel.style.visibility='visible';
-      panel.style.opacity='1';
-      openPanel();
+    if (cs.display==='none' || cs.visibility==='hidden' || +cs.opacity===0) {
+      console.log('[TK] Panel hidden by external CSS; forcing visible.');
+      panel.style.display='flex'; panel.style.visibility='visible'; panel.style.opacity='1';
+      tkOpenPanel();
     }
   }, 1000);
 
-  log("Hard-override installed. Use tkOpenPanel()/tkClosePanel() in console.");
+  console.log('[TK] hard-override installed. Try tkOpenPanel() / tkClosePanel().');
 })();
 </script>
 <!-- ========== /end TK panel hard-override ========== -->
