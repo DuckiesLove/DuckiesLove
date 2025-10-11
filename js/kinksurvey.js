@@ -324,3 +324,201 @@
   btn?.addEventListener("click",(e)=>{ e.preventDefault(); makeFullBleedPDF(); });
   window.tkMakeCompatibilityPDF = makeFullBleedPDF;
 })();
+/* ========= TK SURVEY UX PATCH (safe, console/inline-ready) =========
+   What this does:
+   1) Finds visible "Start Survey" buttons/links and makes them open the
+      category panel.
+   2) Ensures the panel/overlay sit above any site scrim (z-index fix).
+   3) Exposes tkOpenPanel()/tkClosePanel() for programmatic control.
+   4) Adds a tiny Theme switcher ("Theme" label on the page) that toggles
+      between 'theme-dark' and 'theme-light' and remembers the choice.
+
+   How to install:
+   - Put this entire block at the very end of kinksurvey.js (or load it
+     in a separate file AFTER kinksurvey.js).
+   - No markup changes required. It uses your existing panel.
+
+   Rollback:
+   - Remove this block or wrap in a feature flag.
+==================================================================== */
+
+(function TK_SURVEY_PATCH(){
+  const WIN = window;
+  const DOC = document;
+
+  // ---------- Configurable selectors ----------
+  const SEL = {
+    startButtons: 'a,button,[role="button"]',
+    panel:        '#categorySurveyPanel',  // Your drawer panel element
+    overlay:      '#tkOverlay',            // Your dark backdrop if present
+    portalRoot:   '#tkPortalRoot',         // Root container if present
+    themeAnchor:  '#themeSelector, .theme-selector, [data-tk-theme]', // optional
+  };
+
+  // ---------- z-index hard-fix (keeps your panel above any scrim) ----------
+  (function injectZFix(){
+    if (DOC.getElementById('tkZFix')) return;
+    const style = DOC.createElement('style');
+    style.id = 'tkZFix';
+    style.textContent = `
+      /* Keep our layer on top of any site overlay */
+      #tkPortalRoot{position:fixed; inset:0; z-index:2147483646; pointer-events:none}
+      #tkOverlay{z-index:2147483645}
+      #categorySurveyPanel{z-index:2147483646}
+      html.tk-panel-open{overflow:hidden}
+      html.tk-panel-open #categorySurveyPanel{display:flex; visibility:visible; opacity:1; pointer-events:auto}
+    `;
+    DOC.documentElement.appendChild(style);
+  })();
+
+  // ---------- Utilities ----------
+  function bySel(s){ return DOC.querySelector(s); }
+  function bySelAll(s){ return Array.from(DOC.querySelectorAll(s)); }
+  function isVisible(el){
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    return !!(r.width || r.height) && getComputedStyle(el).visibility !== 'hidden';
+  }
+  function textEquals(el, re){
+    const t = (el.textContent || '').trim();
+    return re.test(t);
+  }
+
+  // ---------- Panel control ----------
+  function getPanel(){ return bySel(SEL.panel); }
+  function getOverlay(){ return bySel(SEL.overlay); }
+
+  function tkOpenPanel(){
+    const panel = getPanel();
+    if (!panel){ console.warn('[TK] No panel found at', SEL.panel); return; }
+    // Ensure panel is attached to top portal so it’s not clipped
+    let root = bySel(SEL.portalRoot);
+    if (!root){
+      root = DOC.createElement('div');
+      root.id = 'tkPortalRoot';
+      DOC.body.appendChild(root);
+    }
+    if (!root.contains(panel)) root.appendChild(panel);
+
+    // Make sure panel is interactable (your CSS does the rest)
+    panel.style.display     = 'flex';
+    panel.style.visibility  = 'visible';
+    panel.style.opacity     = '1';
+    panel.style.pointerEvents = 'auto';
+
+    const ov = getOverlay();
+    if (ov){
+      ov.style.display = 'block';
+      ov.style.visibility = 'visible';
+      ov.style.opacity = '1';
+    }
+
+    DOC.documentElement.classList.add('tk-panel-open');
+  }
+
+  function tkClosePanel(){
+    const panel = getPanel();
+    if (panel){
+      panel.style.pointerEvents = 'none';
+      panel.style.opacity = '0';
+      panel.style.visibility = 'hidden';
+      panel.style.display = 'none';
+    }
+    const ov = getOverlay();
+    if (ov){
+      ov.style.opacity = '0';
+      ov.style.visibility = 'hidden';
+      ov.style.display = 'none';
+    }
+    DOC.documentElement.classList.remove('tk-panel-open');
+  }
+
+  // Expose for console/other code
+  WIN.tkOpenPanel  = tkOpenPanel;
+  WIN.tkClosePanel = tkClosePanel;
+
+  // ---------- Wire “Start Survey” buttons ----------
+  function wireStarts(){
+    const RE = /^\s*start\s*survey\s*$/i;
+    let count = 0;
+    bySelAll(SEL.startButtons).forEach(el=>{
+      if (!isVisible(el)) return;
+      if (!textEquals(el, RE)) return;
+      if (el.dataset.tkWired === '1') return;
+      el.dataset.tkWired = '1';
+      el.addEventListener('click', (ev)=>{
+        try{ ev.preventDefault(); }catch(_){}
+        tkOpenPanel();
+      }, {passive:false});
+      count++;
+    });
+    if (count) console.log(`[TK] wired ${count} Start Survey trigger(s).`);
+  }
+
+  // ---------- Keyboard ESC to close, "S" to open ----------
+  function wireKeys(){
+    if (DOC.documentElement.dataset.tkKeys === '1') return;
+    DOC.documentElement.dataset.tkKeys = '1';
+    DOC.addEventListener('keydown', (e)=>{
+      if (e.key === 'Escape') tkClosePanel();
+      if (e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey)) tkOpenPanel();
+    });
+  }
+
+  // ---------- Theme toggle (simple, persistent) ----------
+  function applyTheme(theme){
+    const html = DOC.documentElement;
+    html.classList.remove('theme-light', 'theme-dark');
+    html.classList.add(theme);
+    try{ localStorage.setItem('tkTheme', theme); }catch(_){}
+  }
+  function readTheme(){
+    try { return localStorage.getItem('tkTheme') || 'theme-dark'; }
+    catch(_){ return 'theme-dark'; }
+  }
+  function ensureThemeUI(){
+    // If you have a specific placeholder element, we’ll use it; otherwise add one under the main buttons.
+    let host = bySel(SEL.themeAnchor);
+    if (!host){
+      host = bySel('#theme') || bySel('h1, .title, .page-title');
+      if (host && host.nextElementSibling && host.nextElementSibling.matches('.tk-theme-row')) {
+        // already installed
+      } else {
+        const row = DOC.createElement('div');
+        row.className = 'tk-theme-row';
+        row.style.cssText = 'margin:16px 0; display:flex; gap:12px; align-items:center; justify-content:center; font-size:18px;';
+        row.innerHTML = `
+          <span style="opacity:.75">Theme</span>
+          <button type="button" class="themed-button" id="tkThemeDark">Dark</button>
+          <button type="button" class="themed-button" id="tkThemeLight">Light</button>
+        `;
+        (host && host.parentNode ? host.parentNode : DOC.body).appendChild(row);
+      }
+    }
+    const t = readTheme();
+    applyTheme(t);
+    const btnDark = bySel('#tkThemeDark');
+    const btnLight = bySel('#tkThemeLight');
+    if (btnDark && !btnDark.dataset.w){
+      btnDark.dataset.w='1';
+      btnDark.addEventListener('click', ()=>applyTheme('theme-dark'));
+    }
+    if (btnLight && !btnLight.dataset.w){
+      btnLight.dataset.w='1';
+      btnLight.addEventListener('click', ()=>applyTheme('theme-light'));
+    }
+  }
+
+  // ---------- Rewire on DOM changes (resilient to page updates) ----------
+  function rewire(){
+    wireStarts();
+    wireKeys();
+    ensureThemeUI();
+  }
+  WIN.addEventListener('tk-rewire', rewire);
+
+  // Initial wiring (after current microtask to let your core UI finish)
+  setTimeout(rewire, 0);
+
+  console.log('[TK] UX patch installed. You can call tkOpenPanel() / tkClosePanel().');
+})();
