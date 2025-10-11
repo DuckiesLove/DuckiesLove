@@ -1,171 +1,128 @@
 /* /js/kinksurvey.js
    Reliable Start Survey → Category Panel + label map + full-bleed PDF.
 */
-(() => {
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-  const byText = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
-
-  const btnOpen = $('#startSurveyBtn');
-  const panel = $('#categorySurveyPanel');
-  const btnClose = $('#closeCategoryPanelBtn');
-  const btnAll = $('#selectAllCatsBtn');
-  const btnNone = $('#deselectAllCatsBtn');
-  const listEl = $('#categoryList');
-  const btnGo = $('#startSurveyNowBtn');
-  const countEl = $('#catCount');
-
-  if (!btnOpen || !panel || !listEl) {
+// ============ 3) SAFE WIRING (JS) ============ //
+// Drop into /js/kinksurvey.js (after your data loader). This avoids the null .addEventListener crash
+// and prints the “[TK] Panel skeleton not found” only if the HTML above is missing.
+(function(){
+  const q = (sel, root=document) => root.querySelector(sel);
+  const el = {
+    open: q('#btnOpenCats'),
+    panel: q('#categorySurveyPanel'),
+    list: q('#categoryList'),
+    selectAll: q('#btnSelectAll'),
+    deselectAll: q('#btnDeselectAll'),
+    close: q('#btnCloseCats'),
+    start: q('#btnStartSurvey'),
+    count: q('#catCount')
+  };
+  // Guard: if the skeleton is not present, don’t try to wire (prevents “null.addEventListener”)
+  if(!el.panel || !el.list || !el.selectAll || !el.deselectAll || !el.close || !el.start){
     console.warn('[TK] Panel skeleton not found; skipping enhanced wiring.');
     return;
   }
 
-  let categories = [];
-  let ready = false;
-  let wiredOpen = false;
-  let wiredClose = false;
-  let wiredSelect = false;
-  let wiredGo = false;
-
-  function escapeHtml(value = '') {
-    return value.replace(/[&<>"']/g, (m) => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    })[m]);
-  }
-
-  function renderList() {
-    listEl.innerHTML = '';
-    const frag = document.createDocumentFragment();
-    for (const item of categories) {
-      const pill = document.createElement('label');
-      pill.className = 'pill';
-      pill.dataset.code = item.code;
-      pill.innerHTML = `
-        <input type="checkbox" value="${item.code}">
-        <span class="lbl">${escapeHtml(item.name)}</span>
-      `;
-      frag.appendChild(pill);
-    }
-    listEl.appendChild(frag);
-    refreshCount();
-  }
-
-  function refreshCount() {
-    if (!countEl) return;
-    const total = categories.length;
-    const selected = $$('input[type="checkbox"]:checked', listEl).length;
-    countEl.textContent = `${selected} selected / ${total} total`;
-  }
-
-  function setAll(val) {
-    $$('input[type="checkbox"]', listEl).forEach((cb) => {
-      cb.checked = val;
-    });
-    refreshCount();
-  }
-
-  function selectedCodes() {
-    return $$('input[type="checkbox"]:checked', listEl).map((cb) => cb.value);
-  }
-
-  function openPanel() {
-    if (!ready) {
-      if (Array.isArray(window.tkCategories) && window.tkCategories.length) {
-        window.tkWireCategoryPanel(window.tkCategories);
-      }
-    }
-    panel.classList.add('is-open');
-    panel.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('tk-lock');
-    setTimeout(() => {
-      try { listEl.focus({ preventScroll: true }); } catch {}
-    }, 0);
-  }
-
-  function closePanel() {
-    panel.classList.remove('is-open');
-    panel.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('tk-lock');
-    btnOpen?.focus?.();
-  }
-
-  function wireButtons() {
-    if (!wiredOpen && btnOpen) {
-      btnOpen.addEventListener('click', openPanel, { passive: true });
-      wiredOpen = true;
-    }
-    if (!wiredClose) {
-      if (btnClose) btnClose.addEventListener('click', closePanel);
-      panel.addEventListener('click', (event) => {
-        if (event.target === panel) closePanel();
-      });
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && panel.classList.contains('is-open')) closePanel();
-      });
-      wiredClose = true;
-    }
-    if (!wiredSelect) {
-      if (btnAll) btnAll.addEventListener('click', () => setAll(true));
-      if (btnNone) btnNone.addEventListener('click', () => setAll(false));
-      listEl.addEventListener('change', refreshCount);
-      wiredSelect = true;
-    }
-    if (!wiredGo && btnGo) {
-      btnGo.addEventListener('click', () => {
-        const chosen = selectedCodes();
-        if (typeof window.tkStartSurvey === 'function') {
-          window.tkStartSurvey(chosen);
-        } else if (typeof window.startSurveyWithCategories === 'function') {
-          window.startSurveyWithCategories(chosen);
-        } else {
-          try {
-            localStorage.setItem('tk:selectedCategories', JSON.stringify(chosen));
-          } catch {}
-        }
-        closePanel();
-      });
-      wiredGo = true;
-    }
-  }
-
-  window.tkWireCategoryPanel = (cats) => {
-    try {
-      categories = (cats || [])
-        .map((entry) => {
-          if (typeof entry === 'string') {
-            const text = entry.trim();
-            return text ? { code: text, name: text } : null;
-          }
-          if (!entry || typeof entry !== 'object') return null;
-          const code = entry.code ?? entry.id ?? entry.key ?? entry.name ?? '';
-          const name = entry.name ?? entry.label ?? entry.title ?? code;
-          const cleanCode = String(code || name || '').trim();
-          const cleanName = String(name || code || '').trim();
-          if (!cleanCode || !cleanName) return null;
-          return { code: cleanCode, name: cleanName };
-        })
-        .filter(Boolean)
-        .sort((a, b) => byText(a.name, b.name));
-
-      renderList();
-      wireButtons();
-      ready = true;
-      console.info(`[TK] Category panel wired with ${categories.length} categories.`);
-    } catch (error) {
-      console.error('[TK] tkWireCategoryPanel failed:', error);
-    }
+  const toArray = (input) => {
+    if (!input) return [];
+    if (Array.isArray(input)) return input;
+    if (typeof input === 'object') return Object.values(input);
+    return [];
   };
 
-  if (Array.isArray(window.tkCategories) && window.tkCategories.length) {
-    window.tkWireCategoryPanel(window.tkCategories);
+  const normalizeCategory = (cat) => {
+    if (!cat) return null;
+    if (typeof cat === 'string') {
+      const text = cat.trim();
+      return text ? { id: text, name: text } : null;
+    }
+    if (typeof cat !== 'object') return null;
+    const id = cat.id ?? cat.code ?? cat.key ?? cat.value ?? cat.slug ?? cat.name ?? '';
+    const name = cat.name ?? cat.label ?? cat.title ?? id;
+    const cleanName = String(name ?? '').trim();
+    const cleanId = String(id ?? cleanName ?? '').trim();
+    if (!cleanName && !cleanId) return null;
+    return {
+      id: cleanId || cleanName,
+      name: cleanName || cleanId
+    };
+  };
+
+  function renderCategories(source){
+    const normalized = toArray(source)
+      .map(normalizeCategory)
+      .filter(Boolean)
+      .sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+
+    const frag = document.createDocumentFragment();
+    normalized.forEach(cat=>{
+      const pill = document.createElement('label');
+      pill.className = 'pill';
+      pill.dataset.id = cat.id;
+      pill.innerHTML = `
+        <input type="checkbox" value="${cat.id}" aria-label="${cat.name}">
+        <span class="lbl">${cat.name}</span>
+      `;
+      frag.appendChild(pill);
+    });
+    el.list.replaceChildren(frag);
+    updateCount();
+    return normalized;
   }
 
-  window.tkOpenCategories = openPanel;
-  window.tkCloseCategories = closePanel;
+  let currentCategories = renderCategories(
+    (window.tkLoadKinkData && window.tkLoadKinkData.categories) ||
+    window.tkCategories ||
+    (window.kinks && (window.kinks.categories || window.kinks))
+  );
+
+  // Panel open/close
+  const show = () => { el.panel.setAttribute('aria-hidden','false'); el.panel.style.display='block'; };
+  const hide = () => { el.panel.setAttribute('aria-hidden','true');  el.panel.style.display='none';  };
+  hide(); // start hidden
+  el.open?.addEventListener('click', show);
+  const legacyOpeners = [q('#startSurveyBtn'), ...document.querySelectorAll('[data-tk-start-survey]')];
+  legacyOpeners.forEach(btn => {
+    if(btn && btn !== el.open){
+      btn.addEventListener('click', evt => { evt?.preventDefault?.(); show(); });
+    }
+  });
+  el.close.addEventListener('click', hide);
+
+  // Select / Deselect all
+  el.selectAll.addEventListener('click', ()=>{
+    el.list.querySelectorAll('input[type="checkbox"]').forEach(c=>{ c.checked = true; });
+    updateCount();
+  });
+  el.deselectAll.addEventListener('click', ()=>{
+    el.list.querySelectorAll('input[type="checkbox"]').forEach(c=>{ c.checked = false; });
+    updateCount();
+  });
+
+  // Count badge
+  el.list.addEventListener('change', e=>{
+    if(e.target && e.target.matches('input[type="checkbox"]')) updateCount();
+  });
+  function updateCount(){
+    const total = el.list.querySelectorAll('input[type="checkbox"]').length;
+    const sel   = el.list.querySelectorAll('input[type="checkbox"]:checked').length;
+    el.count.textContent = `${sel} selected / ${total} total`;
+  }
+
+  // Start Survey → hand off selected category ids to your existing flow
+  el.start.addEventListener('click', ()=>{
+    const selected = Array.from(el.list.querySelectorAll('input[type="checkbox"]:checked')).map(c=>c.value);
+    // You likely already have a function to proceed; call it here:
+    if(typeof window.tkBeginSurvey === 'function'){
+      window.tkBeginSurvey({ categories: selected });
+    }
+    hide();
+  });
+
+  window.tkWireCategoryPanel = (cats) => {
+    currentCategories = renderCategories(cats);
+  };
+  window.tkOpenCategories = show;
+  window.tkCloseCategories = hide;
 })();
 
 (() => {
