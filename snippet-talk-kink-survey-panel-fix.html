@@ -1,6 +1,5 @@
-<!-- ===== TK: guaranteed panel open + optional skeleton (one-paste) ===== -->
+<!-- ==== TK one-paste: always-open panel + Start Survey wiring + diag ==== -->
 <style>
-  /* Keep your current look; just ensure stacking order + smooth open */
   #tkOverlay{position:fixed;inset:0;background:rgba(0,0,0,.62);opacity:0;pointer-events:none;
              transition:opacity .18s ease;z-index:9998}
   #categorySurveyPanel{position:fixed;top:0;right:0;height:100dvh;width:min(720px,92vw);
@@ -9,7 +8,7 @@
     transition:transform .22s ease;z-index:10000;display:flex;flex-direction:column}
   .tk-panel-open #tkOverlay{opacity:1;pointer-events:auto}
   .tk-panel-open #categorySurveyPanel{transform:translateX(0)}
-  /* very light internal styling only if we had to create a skeleton */
+  /* lightweight skeleton only if your app didn’t render the real panel */
   .tk-skel header{display:flex;align-items:center;justify-content:space-between;
     padding:16px 18px;border-bottom:1px solid #00e6ff}
   .tk-skel h2{margin:0;font:700 20px/1.2 system-ui}
@@ -23,20 +22,22 @@
 <script>
 (()=>{
 
-  /* ---------- helpers ---------- */
-  const $=(s,r=document)=>r.querySelector(s);
-  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  /* ===== helpers ===== */
+  const $  =(s,r=document)=>r.querySelector(s);
+  const $$ =(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const log=(...a)=>console.log("[TK]",...a);
+
   const ensure=(id,tag,attrs={})=>{
     let el=document.getElementById(id);
     if(!el){el=document.createElement(tag);el.id=id;Object.assign(el,attrs);document.body.appendChild(el);}
     return el;
   };
 
-  /* ---------- overlay + panel always exist and on top ---------- */
+  /* ===== guarantee scrim + panel exist and are on top ===== */
   const scrim = ensure('tkOverlay','div');
   const panel = ensure('categorySurveyPanel','aside');
+
   if(!panel.hasChildNodes()){
-    // We assume the site didn’t render the panel; add a safe skeleton
     panel.classList.add('tk-skel');
     panel.setAttribute('role','dialog'); panel.setAttribute('aria-modal','true'); panel.setAttribute('aria-hidden','true');
     panel.innerHTML = `
@@ -49,7 +50,7 @@
         </div>
       </header>
       <div class="body">
-        <p class="hint">Panel skeleton loaded. Your real category UI will render here when your app binds data.</p>
+        <p class="hint">Skeleton panel shown. Your real category UI will appear here when your app binds.</p>
         <div id="tkCatMount"></div>
       </div>`;
   }
@@ -57,39 +58,64 @@
   function openPanel(){
     document.documentElement.classList.add('tk-panel-open');
     panel.setAttribute('aria-hidden','false');
+    log("Panel opened.");
   }
   function closePanel(){
     document.documentElement.classList.remove('tk-panel-open');
     panel.setAttribute('aria-hidden','true');
+    log("Panel closed.");
   }
+
+  // Close interactions
   scrim.addEventListener('click', closePanel);
   panel.addEventListener('click', (e)=>{ if(e.target.id==='tkClose') closePanel(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closePanel(); });
 
-  /* ---------- bind to ALL Start Survey variants ---------- */
-  function wireStartButtons(){
-    const seen = new WeakSet();
-    const candidates = [
-      '#startSurveyBtn','.start-survey-btn','[data-tk-start]',
-      ...$$('button,a').filter(el=>/^\s*start\s+survey\s*$/i.test(el.textContent||'')),
-    ].filter(Boolean);
+  // Expose for console diagnostics
+  window.tkOpenPanel  = openPanel;
+  window.tkClosePanel = closePanel;
 
-    candidates.forEach(btn=>{
-      if(!seen.has(btn)){
-        btn.addEventListener('click',(ev)=>{ ev.preventDefault(); openPanel(); }, {passive:false});
-        seen.add(btn);
+  /* ===== robust Start Survey wiring =====
+     - matches your buttons by id, data attr, or visible text
+     - re-wires if your framework replaces nodes after hydration
+  */
+  const wired = new WeakSet();
+  function wireStartButtons(root=document){
+    const explicit = [
+      '#startSurveyBtn','.start-survey-btn','[data-tk-start]'
+    ].map(sel=>$(sel,root)).filter(Boolean);
+
+    const byText = $$('a,button',root).filter(el=>{
+      const t=(el.textContent||'').trim();
+      return /^start\s+survey$/i.test(t);
+    });
+
+    [...new Set([...explicit,...byText])].forEach(btn=>{
+      if(!wired.has(btn)){
+        btn.addEventListener('click',(ev)=>{ ev.preventDefault(); log("Start Survey clicked.", btn); openPanel(); }, {passive:false});
+        wired.add(btn);
       }
     });
   }
   wireStartButtons();
 
-  /* ---------- optional: expose helpers for quick debugging ---------- */
-  window.tkOpenPanel = openPanel;
-  window.tkClosePanel = closePanel;
+  // Observe DOM for re-renders and re-wire
+  const mo=new MutationObserver(muts=>{
+    for(const m of muts){
+      if(m.type==='childList' && (m.addedNodes.length||m.removedNodes.length)){
+        wireStartButtons(document);
+      }
+    }
+  });
+  mo.observe(document.documentElement,{subtree:true,childList:true});
 
-  /* ---------- if your app dispatches an event when UI is ready, hook it ---------- */
-  document.addEventListener('tk:ui-ready', ()=>{ /* openPanel(); */ });
+  // Optional: auto-open once after first load so you can visually verify
+  if(!sessionStorage.getItem('tk_auto_opened')){
+    sessionStorage.setItem('tk_auto_opened','1');
+    setTimeout(()=>{ log("Auto-open (first load) to verify UI."); openPanel(); }, 250);
+  }
 
-  /* ---------- quality-of-life: mark touch listeners passive to silence warnings ---------- */
+  // Silence passive touch warnings (optional)
   try{
     let supportsPassive=false;
     const opt=Object.defineProperty({},"passive",{get(){supportsPassive=true}});
@@ -107,9 +133,10 @@
         return orig.call(this,type,listener,options);
       };
     }
-  }catch(_){ }
+  }catch(_){
+  }
 
-  console.log("[TK] One-paste: panel skeleton ensured and Start Survey wired.");
+  log("One-paste installed: Start Survey wired; panel guaranteed; use tkOpenPanel()/tkClosePanel().");
 })();
 </script>
-<!-- ===== /end one-paste ===== -->
+<!-- ==== /end TK one-paste ==== -->
