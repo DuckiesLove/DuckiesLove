@@ -26,8 +26,29 @@
 #categorySurveyPanel {
   z-index: 10000;
 }
-#categorySurveyPanel:not(.tk-open) {
+
+#categorySurveyPanel.tk-open-force {
+  position: fixed !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: 10000 !important;
+  max-height: 85vh !important;
+  width: min(980px, 92vw) !important;
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+#categorySurveyPanel:not(.tk-open-force) {
   display: none !important;
+}
+
+#categorySurveyPanel.tk-open-force * {
+  pointer-events: auto;
 }
 
 /* THEME COLOR ROOTS */
@@ -149,7 +170,7 @@
 </style>
 </head>
 <body class="theme-dark">
-<div id="categorySurveyPanel" class="category-panel tk-open" aria-hidden="false">
+<div id="categorySurveyPanel" class="category-panel" aria-hidden="true">
   <button type="button" class="panel-close" data-action="close">Close</button>
   <h2>Select the categories you want to include:</h2>
   <div class="category-buttons">
@@ -364,7 +385,7 @@ document.getElementById('deselectAll').addEventListener('click', () => {
     return;
   }
 
-  let overlay = $('#tkOverlay') || $('.tk-overlay');
+  let overlay = document.querySelector('#tkOverlay, .tk-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'tkOverlay';
@@ -374,16 +395,21 @@ document.getElementById('deselectAll').addEventListener('click', () => {
 
   function open() {
     overlay.classList.add('tk-open');
-    panel.classList.add('tk-open');
+    panel.classList.add('tk-open-force');
     panel.setAttribute('aria-hidden', 'false');
     document.documentElement.style.overflow = 'hidden';
+    try {
+      panel.scrollIntoView({ block: 'center', behavior: 'instant' });
+    } catch (_) {}
+    console.log('[TK] Panel opened.');
   }
 
   function close() {
-    panel.classList.remove('tk-open');
+    panel.classList.remove('tk-open-force');
     panel.setAttribute('aria-hidden', 'true');
     overlay.classList.remove('tk-open');
     document.documentElement.style.overflow = '';
+    console.log('[TK] Panel closed.');
   }
 
   const startSel = [
@@ -410,7 +436,13 @@ document.getElementById('deselectAll').addEventListener('click', () => {
   window.tkProbe = () => {
     const vis = (el) => !!(el && el.offsetParent !== null);
     console.table([
-      { key: 'panel', selector: '#categorySurveyPanel', present: !!panel, visible: vis(panel) },
+      {
+        key: 'panel',
+        selector: '#categorySurveyPanel',
+        present: !!panel,
+        visible: vis(panel),
+        forced: panel.classList.contains('tk-open-force')
+      },
       { key: 'overlay', selector: '#tkOverlay|.tk-overlay', present: !!overlay, visible: vis(overlay) },
       { key: 'starts', selector: startSel, present: !!$$(startSel).length, visible: $$(startSel).some(vis) }
     ]);
