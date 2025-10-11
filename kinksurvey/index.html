@@ -3566,6 +3566,8 @@ No other files need to change.
     document.querySelector('[role="dialog"][aria-label="category selection"]') ||
     document.querySelector('#tkCategoryDrawer');
 
+  const fallbackOverlay = panel?.closest('#tkOverlay[data-tk-fallback="true"]');
+
   // Fallback: create a light wrapper if none was found, and try to
   // adopt likely content (e.g., #tkDrawerContent) to preserve your UI.
   if (!panel) {
@@ -3586,6 +3588,12 @@ No other files need to change.
     html.classList.add('tk-panel-open');
     panel.classList.add('tk-show');
     panel.removeAttribute('aria-hidden');
+    if (panel.hasAttribute('hidden')) {
+      panel.removeAttribute('hidden');
+    }
+    if (fallbackOverlay && fallbackOverlay.hasAttribute('hidden')) {
+      fallbackOverlay.removeAttribute('hidden');
+    }
 
     // Focus a sensible element if available (does nothing if not found)
     const first = panel.querySelector(
@@ -3598,6 +3606,12 @@ No other files need to change.
     panel.classList.remove('tk-show');
     html.classList.remove('tk-panel-open');
     panel.setAttribute('aria-hidden', 'true');
+    if (!panel.hasAttribute('hidden')) {
+      panel.setAttribute('hidden', '');
+    }
+    if (fallbackOverlay && !fallbackOverlay.hasAttribute('hidden')) {
+      fallbackOverlay.setAttribute('hidden', '');
+    }
   }
 
   // 2) Wire *all* “Start Survey” triggers (explicit selectors + text fallback)
