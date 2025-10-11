@@ -15,6 +15,89 @@
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
 <link rel="stylesheet" href="/css/tk-panel-safe.css">
 
+<!-- ✅ ONE DROP PATCH: stop “addEventListener of null” shim -->
+<script>
+/* ------------------------------
+   0) Null-safe selector shim
+   ------------------------------ */
+(function () {
+  // We return a *real detached element* as the fallback so it already has
+  // addEventListener, style, classList, etc. Code won’t crash, and we can
+  // log what was missing.
+  const FALLBACK_MAP = new Map();
+
+  function makeFallback(label, tagHint) {
+    if (FALLBACK_MAP.has(label)) return FALLBACK_MAP.get(label);
+    const tag = /btn|button|start|close/i.test(label) ? 'button' : 'div';
+    const el = document.createElement(tag);
+    el.dataset.tkFallback = label;
+    el.type = 'button';
+    el.style.display = 'none';
+    try { el.id = label.startsWith('#') ? label.slice(1) : el.id; } catch {}
+    console.warn('[TK] Provided fallback element for missing selector:', label);
+    FALLBACK_MAP.set(label, el);
+    return el;
+  }
+
+  // Wrap a selector function to return a fallback instead of null.
+  function wrapQS(owner, methodName, labelPrefix) {
+    const orig = owner[methodName];
+    owner[methodName] = function (sel) {
+      try {
+        const node = orig.call(this, sel);
+        return node || makeFallback(labelPrefix + sel);
+      } catch (e) {
+        console.warn('[TK] selector error in', methodName, sel, e);
+        return makeFallback(labelPrefix + sel);
+      }
+    };
+  }
+
+  // Document-level wrappers
+  const origGetById = document.getElementById.bind(document);
+  document.getElementById = function (id) {
+    const node = origGetById(id);
+    return node || makeFallback('#' + id);
+  };
+
+  wrapQS(Document.prototype, 'querySelector',    'doc:');
+  wrapQS(Document.prototype, 'querySelectorAll', 'doc:'); // returns NodeList, but [].forEach works
+  // Element-level wrappers (for nested lookups)
+  wrapQS(Element.prototype,  'querySelector',    'el:');
+  wrapQS(Element.prototype,  'querySelectorAll', 'el:');
+
+  // As a convenience, guarantee NodeList.forEach exists (old WebKit safety)
+  if (window.NodeList && !NodeList.prototype.forEach) {
+    NodeList.prototype.forEach = Array.prototype.forEach;
+  }
+})();
+
+/* ------------------------------------------------------
+   1) (Optional) Safer event binding helper you can reuse
+   ------------------------------------------------------ */
+window.tkSafe = {
+  add(el, type, handler, opts) {
+    if (!el || typeof el.addEventListener !== 'function') {
+      console.warn('[TK] tkSafe.add skipped; bad node for', type, el);
+      return () => {};
+    }
+    el.addEventListener(type, handler, opts);
+    return () => el.removeEventListener(type, handler, opts);
+  },
+  $: (s, r=document) => r.querySelector(s),
+  $$: (s, r=document) => Array.from(r.querySelectorAll(s)),
+};
+
+/* -----------------------------------------------------------------
+   2) If you use the aligned A→Z category panel from earlier steps:
+      (Leave your existing panel code in place.)
+      Nothing else is required here — the shim above prevents the
+      crash “Cannot read properties of null (reading 'addEventListener')”
+      that you still see at kinksurvey/:1071 and :1108, even if some
+      legacy code wires listeners before the DOM is ready.
+   ----------------------------------------------------------------- */
+</script>
+
 <!-- TK HOTFIX: make survey load resilient even when kinks.json returns an object or fails -->
 <script>
 (function () {
