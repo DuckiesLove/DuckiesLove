@@ -726,7 +726,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 <section id="ksvHeroStack" data-ksv-fallback>
   <h1>Talk Kink Survey</h1>
   <nav class="ksvButtons">
-    <button id="startSurveyBtn" data-legacy-id="btnStartSurvey" class="ksvBtn" type="button">Start Survey</button>
+    <button id="startSurveyBtn" data-legacy-id="btnStartSurvey" data-tk-start class="ksvBtn" type="button">Start Survey</button>
 
     <!-- Force the two buttons to your direct URLs -->
     <a class="ksvBtn" id="btn-compat" href="https://talkkink.org/compatibility.html">Compatibility Page</a>
@@ -756,7 +756,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     </div>
     <div class="panel-footer">
       <button id="btnCloseCats" class="themed-button ghost">Close ✕</button>
-      <button id="btnStartSurvey" class="themed-button primary">Start Survey</button>
+      <button id="btnStartSurvey" data-tk-start class="themed-button primary">Start Survey</button>
     </div>
   </aside>
 
@@ -3567,7 +3567,8 @@ No other files need to change.
   // 2) Wire *all* “Start Survey” triggers (explicit selectors + text fallback)
   const explicitStartSelectors = [
     '#startSurveyBtn', '#start-survey-btn', '#tkStartNow',
-    '[aria-controls="categorySurveyPanel"]', '.start-survey', '.survey-btn'
+    '[aria-controls="categorySurveyPanel"]', '.start-survey', '.survey-btn',
+    '[data-tk-start]'
   ];
 
   const textLooksLikeStart = el => (el.textContent || '').trim().toLowerCase() === 'start survey';
@@ -3591,6 +3592,21 @@ No other files need to change.
     });
   }
   wireStartButtons();
+
+  // Expose for frameworks that hydrate or replace buttons after load
+  window.tkWireStartButtons = (root) => {
+    try {
+      const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+      wireStartButtons(scope);
+    } catch (err) {
+      console.warn('[TK] wireStartButtons failed:', err);
+    }
+  };
+
+  document.addEventListener('tk:wire-start-buttons', (event) => {
+    const targetRoot = event?.detail?.root;
+    window.tkWireStartButtons(targetRoot);
+  });
 
   // If your UI hydrates later, keep wiring newly inserted buttons
   const mo = new MutationObserver(muts => muts.forEach(m => wireStartButtons(m.target)));
