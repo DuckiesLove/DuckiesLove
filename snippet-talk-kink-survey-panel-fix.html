@@ -117,4 +117,41 @@
   console.log('[TK] hard-override installed. Try tkOpenPanel() / tkClosePanel().');
 })();
 </script>
+<script>
+(function tkFollowUpFixes(){
+  // 1) Force-open once to confirm the panel renders
+  if (typeof window.tkOpenPanel === 'function') {
+    window.tkOpenPanel();
+  } else {
+    console.warn('tkOpenPanel() not found — paste the TK_PATCH snippet again.');
+  }
+
+  // 2) Make sure the visible Start buttons are marked as triggers
+  (function markStartButtons(){
+    document.querySelectorAll('a,button,[role="button"]').forEach(el=>{
+      if (/^\s*start\s*survey\s*$/i.test(el.textContent||'')) {
+        el.setAttribute('data-tk-start','');
+      }
+    });
+    console.log('[TK] start buttons tagged.');
+  })();
+
+  // 3) Re-wire in case the DOM changed after load
+  if (typeof window.tkOpenPanel === 'function') {
+    document.dispatchEvent(new Event('tk-rewire', { bubbles: true }));
+  }
+
+  // 4) Last resort: guarantee the panel sits above any site scrim/overlay
+  (() => {
+    const fix = document.createElement('style');
+    fix.textContent = `
+      #tkPortalRoot{position:fixed;inset:0;z-index:2147483646;pointer-events:none}
+      #tkOverlay{z-index:2147483645}
+      #categorySurveyPanel{z-index:2147483646}
+    `;
+    document.documentElement.appendChild(fix);
+    console.log('[TK] z-index hard-fix applied.');
+  })();
+})();
+</script>
 <!-- ========== /end TK panel hard-override ========== -->
