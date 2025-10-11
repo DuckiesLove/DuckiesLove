@@ -1016,6 +1016,65 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     if (syncCounter) syncCategoryCounter();
   }
 
+  function applyCategorySelection(categoryNames = []) {
+    const boxes = Array.from(document.querySelectorAll('.category-checkbox'));
+    if (!boxes.length) return;
+
+    const normalized = Array.isArray(categoryNames)
+      ? categoryNames.map(name => String(name ?? '').trim()).filter(Boolean)
+      : [];
+
+    const matchAll = normalized.length === 0;
+    const lookup = new Set(normalized.map(name => name.toLowerCase()));
+
+    boxes.forEach(box => {
+      const value = String(box.value ?? '').trim();
+      if (!value) return;
+      box.checked = matchAll || lookup.has(value.toLowerCase());
+    });
+
+    updateStart();
+  }
+
+  function beginSurveyFlow(categoryNames = [], { syncCheckboxes = true } = {}) {
+    if (!S.cats.length) {
+      showDiag('Dataset is still loading. Please try again in a moment.');
+      return false;
+    }
+
+    const normalizedInput = Array.isArray(categoryNames)
+      ? categoryNames.map(name => String(name ?? '').trim()).filter(Boolean)
+      : [];
+
+    if (syncCheckboxes) {
+      applyCategorySelection(normalizedInput);
+    }
+
+    let active = selected();
+    if (!active.length) {
+      active = normalizedInput.length ? normalizedInput : S.cats.map(cat => cat.category);
+      if (syncCheckboxes) {
+        applyCategorySelection(active);
+        active = selected();
+      }
+    }
+
+    const want = new Set(active.map(name => String(name).toLowerCase()));
+    S.sel = S.cats
+      .filter(c => want.has(c.category.toLowerCase()))
+      .sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
+
+    if (!S.sel.length){
+      showDiag('No matching categories in dataset.');
+      return false;
+    }
+
+    S.i = 0;
+    closeDrawer({ focusToggle: false });
+    renderCat(S.i);
+    return true;
+  }
+
   if (typeof window.__tk_updateCategoryCounter === 'function') {
     window.__tk_updateCategoryCounter = () => {
       rawCounterUpdate();
@@ -1075,16 +1134,10 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   });
 
   startBtn.addEventListener('click', ()=>{
-    const want = new Set(selected().map(s=>s.toLowerCase()));
-    S.sel = S.cats
-      .filter(c=>want.has(c.category.toLowerCase()))
-      .sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
-    S.i = 0;
-    if (!S.sel.length){ showDiag('No matching categories in dataset.'); return; }
-    // Collapse the panel like the classic page
-    closeDrawer({ focusToggle: false });
-    renderCat(S.i);
+    beginSurveyFlow(selected(), { syncCheckboxes: false });
   });
+  window.tkStartWithCategories = (names = []) => beginSurveyFlow(names, { syncCheckboxes: true });
+  window.tkStartSurveyWithCategories = window.tkStartWithCategories;
   document.getElementById('skip').addEventListener('click', ()=>{ S.i++; renderCat(S.i); });
   document.getElementById('next').addEventListener('click', ()=>{ S.i++; renderCat(S.i); });
 
@@ -2740,6 +2793,182 @@ No other files need to change.
   // And re-wire once more after a small delay in case UI inserts late
   setTimeout(wireStartButtonSafetyNet, 400);
 })();
+</script>
+
+<!-- TK—Nuclear panel & wiring (cannot be suppressed) -->
+<style id="tkPanelStyle">
+  #tkOverlay{position:fixed!important;inset:0!important;display:none!important;opacity:0!important;
+    background:rgba(0,0,0,.88)!important;z-index:2147483647!important;transition:opacity .18s ease!important}
+  #tkOverlay.tk-open{display:block!important;opacity:1!important}
+  #tkCard{box-sizing:border-box!important;max-width:min(960px,94vw)!important;margin:6vh auto!important;
+    padding:20px!important;background:#050505!important;color:#e6f7f7!important;border:1px solid #00ffff!important;
+    border-radius:16px!important;box-shadow:0 0 0 1px rgba(0,255,255,.2),0 16px 60px rgba(0,0,0,.6)!important}
+  .tk-row{display:flex!important;gap:.75rem!important;align-items:center!important;flex-wrap:wrap!important}
+  .tk-head{color:#00ffff!important;font-weight:800!important;font-size:20px!important}
+  .tk-btn{border:1px solid #00ffff!important;color:#00ffff!important;background:transparent!important;
+    padding:.55rem .95rem!important;border-radius:999px!important;cursor:pointer!important}
+  .tk-btn:hover{background:rgba(0,255,255,.1)!important}
+  .tk-muted{color:#a7bcc1!important;font-size:.92rem!important}
+  .tk-chip{display:inline-flex!important;align-items:center!important;gap:.55rem!important;
+    padding:.38rem .8rem!important;margin:.3rem!important;border-radius:999px!important;
+    border:1px solid #2a2f31!important;color:#e6f7f7!important;background:#0b0e0f!important;cursor:pointer!important}
+  .tk-chip input{transform:scale(1.15)!important;accent-color:#00ffff!important}
+</style>
+
+<script>
+(() => {
+  const log=(...a)=>console.log("[TK]",...a);
+  const $=(s,r=document)=>r.querySelector(s);
+  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+
+  function ensureOverlay(){
+    let o=$("#tkOverlay");
+    if(!o){
+      o=document.createElement("div");
+      o.id="tkOverlay";
+      o.innerHTML=`
+        <div id="tkCard">
+          <div class="tk-row" style="justify-content:space-between;margin-bottom:8px">
+            <div class="tk-head">Select categories</div>
+            <button class="tk-btn" id="tkClose" aria-label="Close">Close ✕</button>
+          </div>
+          <div class="tk-row" style="margin-bottom:10px">
+            <button class="tk-btn" id="tkAll">Select All</button>
+            <button class="tk-btn" id="tkNone">Deselect All</button>
+            <span class="tk-muted" id="tkCount">0 selected</span>
+          </div>
+          <div id="tkCats" class="tk-row" style="margin-bottom:14px"></div>
+          <div class="tk-row" style="justify-content:flex-end">
+            <button class="tk-btn" id="tkGo">Proceed</button>
+          </div>
+        </div>`;
+      document.body.appendChild(o);
+    }
+    o.style.cssText = o.style.cssText + ';position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.88);z-index:2147483647';
+    return o;
+  }
+  function openOverlay(){ ensureOverlay().classList.add("tk-open"); }
+  function closeOverlay(){ ensureOverlay().classList.remove("tk-open"); }
+
+  async function loadCategories(){
+    try{
+      if(Array.isArray(window.__TK_CATEGORIES__) && window.__TK_CATEGORIES__.length){
+        return window.__TK_CATEGORIES__.slice();
+      }
+      const r=await fetch("/data/kinks.json",{cache:"no-store"});
+      const data=await r.json();
+      const arr=Array.isArray(data)?data:(data?.items||[]);
+      const set=new Set();
+      for(const it of arr){
+        if(it?.category) set.add(String(it.category).trim());
+        if(Array.isArray(it?.categories)) it.categories.forEach(c=>c&&set.add(String(c).trim()));
+        if(it?.group) set.add(String(it.group).trim());
+      }
+      return Array.from(set).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+    }catch(e){ console.warn("[TK] category load failed:",e); return []; }
+  }
+
+  function render(categories){
+    const wrap=$("#tkCats"); const count=$("#tkCount");
+    if(!wrap) return;
+    wrap.innerHTML="";
+    const frag=document.createDocumentFragment();
+    categories.forEach(c=>{
+      const lab=document.createElement("label");
+      lab.className="tk-chip";
+      lab.innerHTML=`<input type="checkbox" class="tk-cat" value="${c}"><span>${c}</span>`;
+      frag.appendChild(lab);
+    });
+    wrap.appendChild(frag);
+    const upd=()=>{ count.textContent = `${$$(".tk-cat:checked",wrap).length} selected / ${categories.length} total`; };
+    wrap.addEventListener("change",upd); upd();
+
+    $("#tkAll")?.addEventListener("click",()=>{$$(".tk-cat",wrap).forEach(i=>i.checked=true);upd();});
+    $("#tkNone")?.addEventListener("click",()=>{$$(".tk-cat",wrap).forEach(i=>i.checked=false);upd();});
+    $("#tkClose")?.addEventListener("click",closeOverlay);
+    $("#tkGo")?.addEventListener("click",()=>{
+      const chosen=$$(".tk-cat:checked",wrap).map(i=>i.value);
+      closeOverlay();
+      const final=chosen.length?chosen:categories;
+      if(typeof window.tkBeginSurvey==="function"){
+        window.tkBeginSurvey({categories:final});
+      }else{
+        alert(`Survey would start with ${final.length} categories.\n(Connect via window.tkBeginSurvey)`);
+      }
+    });
+  }
+
+  function looksStart(el){
+    const t=(el?.textContent||"").replace(/\s+/g," ").trim().toLowerCase();
+    return t==="start survey" || /start\s*survey/.test(t) || t==="start";
+  }
+  function wireKnown(){
+    const sels=["#startSurvey",".start-survey-btn","[data-tk='start']","[data-action='start-survey']","a[href*='#start']","button","a"];
+    sels.forEach(s => $$(s).forEach(btn=>{
+      if(btn._tkWired) return;
+      if(!looksStart(btn) && !btn.matches("#startSurvey,.start-survey-btn,[data-tk='start'],[data-action='start-survey'],a[href*='#start']")) return;
+      btn.addEventListener("click",(ev)=>{ev.preventDefault();ev.stopPropagation();openOverlay();},{capture:true,passive:false});
+      btn._tkWired=true;
+    }));
+  }
+  function globalCapture(){
+    document.addEventListener("click",(ev)=>{
+      const t=ev.target.closest("a,button,[role='button'],.themed-button,div,span");
+      if(t && looksStart(t)){ ev.preventDefault();ev.stopPropagation();openOverlay(); }
+    },true);
+  }
+  function observeMutations(){
+    const mo=new MutationObserver(wireKnown);
+    mo.observe(document.documentElement,{subtree:true,childList:true});
+  }
+
+  async function boot(){
+    ensureOverlay();
+    const cats=await loadCategories();
+    render(cats);
+    wireKnown(); globalCapture(); observeMutations();
+
+    setTimeout(()=>{ openOverlay(); log("Panel auto-opened (diagnostic). Click Start to confirm wiring."); }, 600);
+    window.tkPing = () => { openOverlay(); return "TK overlay opened"; };
+
+    log(`Ready with ${cats.length} categories. (Use tkPing() if needed)`);
+  }
+  (document.readyState==="loading")?document.addEventListener("DOMContentLoaded",boot,{once:true}):boot();
+})();
+</script>
+<!-- /TK—Nuclear panel & wiring -->
+
+<script>
+  window.tkBeginSurvey = ({ categories } = {}) => {
+    const list = Array.isArray(categories)
+      ? categories.map(name => String(name ?? '').trim()).filter(Boolean)
+      : [];
+
+    try {
+      localStorage.setItem('__TK_SELECTED_CATEGORIES', JSON.stringify(list));
+    } catch (err) {
+      console.warn('[TK] Unable to persist selected categories:', err);
+    }
+
+    const detail = { includeCategories: list.slice() };
+
+    if (typeof window.tkStartWithCategories === 'function') {
+      const started = window.tkStartWithCategories(list);
+      detail.started = Boolean(started);
+      document.dispatchEvent(new CustomEvent('tk:start-survey', { detail }));
+      if (!started) {
+        const qs = new URLSearchParams({ run: '1', cats: list.join(',') });
+        setTimeout(() => { window.location.href = `/kinksurvey/?${qs}`; }, 60);
+      }
+      return started;
+    }
+
+    detail.started = false;
+    document.dispatchEvent(new CustomEvent('tk:start-survey', { detail }));
+    const qs = new URLSearchParams({ run: '1', cats: list.join(',') });
+    window.location.href = `/kinksurvey/?${qs}`;
+    return false;
+  };
 </script>
 
 </body>
