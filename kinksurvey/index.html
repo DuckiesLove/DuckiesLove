@@ -3337,125 +3337,136 @@ No other files need to change.
 })();
 </script>
 
-<!-- ✅ ONE-PASTE “start survey opens the panel” + “panel stays above scrim” fix
-     Put this near the END of <body> on https://talkkink.org/kinksurvey/ -->
+<!-- ✅ ONE-PASTE FIX: make “Start Survey” open the category panel reliably,
+     and keep the panel above your scrim/overlay without changing your look. -->
 
 <style>
-  /* Keep your look; only fix stacking & click-through */
+  /* Only stacking/context tweaks; your existing theme stays intact */
   .tk-panel-open #tkScrim,
   .tk-panel-open #tkOverlay,
   .tk-panel-open .tk-scrim {
-    z-index: 9990 !important;           /* below the dialog */
-    pointer-events: none !important;     /* don’t steal clicks while dialog is open */
+    z-index: 9990 !important;             /* below the dialog we show */
+    pointer-events: none !important;       /* avoid eating clicks */
   }
 
-  /* The category selector dialog (use any that exists on your page) */
+  /* The category selector panel itself (support several possible nodes) */
   #categorySurveyPanel,
   .category-panel[role="dialog"],
   [role="dialog"][aria-label="category selection"],
   #tkCategoryDrawer {
-    position: fixed !important;          /* escape local stacking contexts */
-    inset: 0 !important;                 /* fullscreen panel (your own CSS still styles inside) */
-    z-index: 10050 !important;           /* above scrim */
+    position: fixed !important;
+    inset: 0 !important;                   /* full-screen panel */
+    z-index: 10050 !important;             /* above scrim */
     pointer-events: auto !important;
-    display: none;                       /* default hidden; toggled by JS below */
+    display: none;                         /* default hidden; JS toggles */
   }
-
-  /* visible state we toggle */
+  /* Visible state we toggle from JS */
   .tk-show { display: block !important; }
 </style>
 
 <script>
-/*
-  What this does (without changing your visual style):
-  1) Finds your category dialog element (several selectors supported).
-  2) Wires ALL “Start Survey” buttons/links to open that dialog.
-  3) Ensures the dialog sits above the scrim and accepts clicks.
-  4) Adds Close wiring (ESC key + elements with [data-action="close"]).
-*/
-
+/* -------------------------------------------------------------
+   Talk Kink — Start Survey panel opener (resilient wiring)
+   What this does:
+   1) Finds (or creates a wrapper for) your category panel.
+   2) Wires every “Start Survey” button/link to open it.
+   3) Ensures the panel sits above the scrim and is clickable.
+   4) Wires ESC and [data-action="close"] to close it.
+   ------------------------------------------------------------- */
 (function () {
   const html = document.documentElement;
 
-  // The dialog that holds the category list (support several possible ids/roles)
-  const panel =
+  // 1) Find an existing category panel (support multiple markups)
+  let panel =
     document.querySelector('#categorySurveyPanel') ||
     document.querySelector('.category-panel[role="dialog"]') ||
     document.querySelector('[role="dialog"][aria-label="category selection"]') ||
     document.querySelector('#tkCategoryDrawer');
 
-  // If nothing to show, bail (keeps console quiet in non-survey pages)
-  if (!panel) return;
+  // Fallback: create a light wrapper if none was found, and try to
+  // adopt likely content (e.g., #tkDrawerContent) to preserve your UI.
+  if (!panel) {
+    const adopt = document.querySelector('#tkDrawerContent');
+    panel = document.createElement('aside');
+    panel.id = 'categorySurveyPanel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'category selection');
+    panel.style.background = 'transparent';      // keep your look
+    panel.style.display = 'none';
+    if (adopt) panel.appendChild(adopt);         // preserve existing content
+    document.body.appendChild(panel);
+    console.info('[TK] Created #categorySurveyPanel wrapper (no visual changes).');
+  }
 
-  // Helper: open/close
+  // Open / close helpers
   function openPanel() {
     html.classList.add('tk-panel-open');
     panel.classList.add('tk-show');
     panel.removeAttribute('aria-hidden');
-    // focus trap entry point, if present:
-    const firstFocus = panel.querySelector('[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    if (firstFocus) { try { firstFocus.focus({preventScroll:true}); } catch(_){} }
+
+    // Focus a sensible element if available (does nothing if not found)
+    const first = panel.querySelector(
+      '[autofocus],button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'
+    );
+    try { first && first.focus({ preventScroll: true }); } catch {}
   }
+
   function closePanel() {
     panel.classList.remove('tk-show');
     html.classList.remove('tk-panel-open');
-    panel.setAttribute('aria-hidden','true');
+    panel.setAttribute('aria-hidden', 'true');
   }
 
-  // Wire ESC to close
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && panel.classList.contains('tk-show')) {
-      e.preventDefault(); closePanel();
-    }
-  });
-
-  // Any element that says it closes the panel
-  panel.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-action="close"],[aria-label="Close"],.tk-close');
-    if (t) { e.preventDefault(); closePanel(); }
-  });
-
-  // Find every “Start Survey” control and wire it to open the dialog
-  const startSelectors = [
+  // 2) Wire *all* “Start Survey” triggers (explicit selectors + text fallback)
+  const explicitStartSelectors = [
     '#startSurveyBtn', '#start-survey-btn', '#tkStartNow',
-    '[aria-controls="categorySurveyPanel"]', '.start-survey', '.survey-btn',
+    '[aria-controls="categorySurveyPanel"]', '.start-survey', '.survey-btn'
   ];
-  const readsLikeStart = (el) => (el.textContent || '').trim().toLowerCase() === 'start survey';
 
-  function wireStarts(root=document) {
-    // 1) Explicit selectors
-    startSelectors.forEach(sel => {
+  const textLooksLikeStart = el => (el.textContent || '').trim().toLowerCase() === 'start survey';
+
+  function wireStartButtons(root = document) {
+    // Explicit handles
+    explicitStartSelectors.forEach(sel => {
       root.querySelectorAll(sel).forEach(btn => {
         if (!btn.dataset.tkWired) {
           btn.dataset.tkWired = '1';
-          btn.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+          btn.addEventListener('click', ev => { ev.preventDefault(); openPanel(); });
         }
       });
     });
-    // 2) Fallback: any button/link whose text is exactly “Start Survey”
+    // Fallback by exact text
     root.querySelectorAll('a,button').forEach(btn => {
-      if (!btn.dataset.tkWired && readsLikeStart(btn)) {
+      if (!btn.dataset.tkWired && textLooksLikeStart(btn)) {
         btn.dataset.tkWired = '1';
-        btn.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+        btn.addEventListener('click', ev => { ev.preventDefault(); openPanel(); });
       }
     });
   }
-  wireStarts();
+  wireStartButtons();
 
-  // If your UI is hydrated later, keep wiring newly inserted buttons
-  const mo = new MutationObserver((m) => m.forEach(rec => wireStarts(rec.target)));
+  // If your UI hydrates later, keep wiring newly inserted buttons
+  const mo = new MutationObserver(muts => muts.forEach(m => wireStartButtons(m.target)));
   mo.observe(document.body, { childList: true, subtree: true });
 
-  // If an overlay element flips “open” state, mirror it onto <html> for the CSS above
+  // 3) Keep scrim underneath whenever our panel is open
   const scrim = document.querySelector('#tkScrim, #tkOverlay, .tk-scrim');
   if (scrim) {
     const scrimObs = new MutationObserver(() => {
-      const visible = scrim.offsetParent !== null || getComputedStyle(scrim).display !== 'none';
-      // only enforce when our panel is up; otherwise honor your normal scrim usage
-      if (panel.classList.contains('tk-show')) html.classList.toggle('tk-panel-open', true);
+      if (panel.classList.contains('tk-show')) html.classList.add('tk-panel-open');
     });
-    scrimObs.observe(scrim, { attributes:true, attributeFilter:['class','style','hidden'] });
+    scrimObs.observe(scrim, { attributes: true, attributeFilter: ['class','style','hidden'] });
   }
+
+  // 4) Close mechanics: ESC + any element with [data-action="close"] (or aria-label Close)
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && panel.classList.contains('tk-show')) { e.preventDefault(); closePanel(); }
+  });
+
+  panel.addEventListener('click', e => {
+    const closer = e.target.closest('[data-action="close"],[aria-label="Close"],.tk-close');
+    if (closer) { e.preventDefault(); closePanel(); }
+  });
 })();
 </script>
 
