@@ -3337,5 +3337,72 @@ No other files need to change.
 })();
 </script>
 
+<!-- ✅ ONE-BOX FIX: Make the category panel render ABOVE any full-screen scrim -->
+<style>
+  /* 1) Lower the scrim slightly when the panel is open so the panel can sit above it. */
+  .tk-panel-open #tkScrim,
+  .tk-panel-open #tkOverlay,
+  .tk-panel-open .tk-scrim {
+    z-index: 9990 !important;
+  }
+
+  /* 2) Force the real category dialog to sit at the very top of the stacking order. */
+  #categorySurveyPanel,
+  .category-panel[role="dialog"],
+  [role="dialog"][aria-label="category selection"],
+  #tkCategoryDrawer {
+    position: fixed !important;
+    z-index: 10050 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    will-change: transform;
+  }
+
+  /* 3) Ensure children inherit a neutral z-index so nothing inside is artificially lowered. */
+  #categorySurveyPanel:where(*) *,
+  .category-panel[role="dialog"]:where(*) *,
+  [role="dialog"][aria-label="category selection"]:where(*) * {
+    z-index: auto;
+  }
+
+  /* 4) Safety: prevent pseudo-element scrims from swallowing clicks above the dialog. */
+  .tk-panel-open #tkScrim::after { pointer-events: none !important; }
+</style>
+
+<script>
+(function () {
+  const html = document.documentElement;
+
+  function markOpen()  { html.classList.add('tk-panel-open'); }
+  function markClose() { html.classList.remove('tk-panel-open'); }
+
+  const overlay = document.querySelector('#tkOverlay, .tk-scrim, #tkScrim');
+
+  if (window.tkPanel && typeof window.tkPanel.open === 'function') {
+    const open0  = window.tkPanel.open.bind(window.tkPanel);
+    const close0 = window.tkPanel.close?.bind(window.tkPanel);
+    window.tkPanel.open  = function(){ markOpen();  return open0();  };
+    if (close0) window.tkPanel.close = function(){ markClose(); return close0(); };
+  }
+
+  document.addEventListener('click', (e)=>{
+    const t = e.target;
+    const txt = (t.textContent||'').trim().toLowerCase();
+    if (txt === 'start survey' || t.matches('#startSurveyBtn,#start-survey-btn,#tkStartNow,[aria-controls="categorySurveyPanel"]')) {
+      markOpen();
+    }
+    if (t.matches('[data-action="close"],#tkCloseX,[aria-label="Close"]')) {
+      markClose();
+    }
+  }, true);
+
+  const obs = new MutationObserver(()=>{
+    const opened = overlay && (overlay.offsetParent !== null || overlay.getAttribute('data-open') === 'true');
+    html.classList.toggle('tk-panel-open', !!opened);
+  });
+  if (overlay) obs.observe(overlay,{attributes:true,attributeFilter:['style','hidden','data-open','class']});
+})();
+</script>
+
 </body>
 </html>
