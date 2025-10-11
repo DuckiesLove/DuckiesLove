@@ -1,24 +1,72 @@
+// =============================
+// 0) SAFETY SHIMS (load FIRST!)
+// =============================
+(function(){
+  const MUST_HAVE = [
+    '#btnOpenCats',
+    '#btnCloseCats',
+    '#btnSelectAll',
+    '#btnDeselectAll',
+    '#btnStartSurvey'
+  ];
+
+  function ensure(sel){
+    if(!sel || sel[0] !== '#') return;
+    if(document.querySelector(sel)) return;
+    const id = sel.slice(1);
+    const tag = (/btn|button|start|close/i.test(id) ? 'button' : 'div');
+    const el  = document.createElement(tag);
+    el.id = id;
+    if(tag === 'button') el.type = 'button';
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    console.warn('[TK] created fallback element for missing selector', sel);
+  }
+
+  function ensureAll(){ MUST_HAVE.forEach(ensure); }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ensureAll, { once: true });
+  } else {
+    ensureAll();
+  }
+
+  window.tkSafe = {
+    add(el, type, handler, opts){
+      if(!el){
+        console.warn('[TK] safeAdd: missing node for', type);
+        return () => {};
+      }
+      el.addEventListener(type, handler, opts);
+      return () => el.removeEventListener(type, handler, opts);
+    },
+    bySel(sel){
+      return document.querySelector(sel);
+    }
+  };
+})();
+
 /* /js/kinksurvey.js
    Reliable Start Survey → Category Panel + label map + full-bleed PDF.
 */
 // ============ 3) SAFE WIRING (JS) ============ //
-// Drop into /js/kinksurvey.js (after your data loader). This avoids the null .addEventListener crash
-// and prints the “[TK] Panel skeleton not found” only if the HTML above is missing.
 (function(){
-  const q = (sel, root=document) => root.querySelector(sel);
+  const $  = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
   const el = {
-    open: q('#btnOpenCats'),
-    panel: q('#categorySurveyPanel'),
-    list: q('#categoryList'),
-    selectAll: q('#btnSelectAll'),
-    deselectAll: q('#btnDeselectAll'),
-    close: q('#btnCloseCats'),
-    start: q('#btnStartSurvey'),
-    count: q('#catCount')
+    open:        $('#btnOpenCats'),
+    panel:       $('#categorySurveyPanel'),
+    list:        $('#categoryList'),
+    selectAll:   $('#btnSelectAll'),
+    deselectAll: $('#btnDeselectAll'),
+    close:       $('#btnCloseCats'),
+    start:       $('#btnStartSurvey'),
+    count:       $('#catCount')
   };
-  // Guard: if the skeleton is not present, don’t try to wire (prevents “null.addEventListener”)
-  if(!el.panel || !el.list || !el.selectAll || !el.deselectAll || !el.close || !el.start){
-    console.warn('[TK] Panel skeleton not found; skipping enhanced wiring.');
+
+  if(!el.panel || !el.list){
+    console.warn('[TK] Panel skeleton missing; skip enhanced wiring.');
     return;
   }
 
@@ -51,10 +99,10 @@
     const normalized = toArray(source)
       .map(normalizeCategory)
       .filter(Boolean)
-      .sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+      .sort((a,b)=>a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
     const frag = document.createDocumentFragment();
-    normalized.forEach(cat=>{
+    normalized.forEach(cat => {
       const pill = document.createElement('label');
       pill.className = 'pill';
       pill.dataset.id = cat.id;
@@ -72,57 +120,71 @@
   let currentCategories = renderCategories(
     (window.tkLoadKinkData && window.tkLoadKinkData.categories) ||
     window.tkCategories ||
-    (window.kinks && (window.kinks.categories || window.kinks))
+    (window.kinks && (window.kinks.categories || window.kinks)) ||
+    []
   );
 
-  // Panel open/close
-  const show = () => { el.panel.setAttribute('aria-hidden','false'); el.panel.style.display='block'; };
-  const hide = () => { el.panel.setAttribute('aria-hidden','true');  el.panel.style.display='none';  };
-  hide(); // start hidden
-  el.open?.addEventListener('click', show);
-  const legacyOpeners = [q('#startSurveyBtn'), ...document.querySelectorAll('[data-tk-start-survey]')];
+  const show = () => {
+    el.panel.setAttribute('aria-hidden', 'false');
+    el.panel.style.display = 'block';
+  };
+  const hide = () => {
+    el.panel.setAttribute('aria-hidden', 'true');
+    el.panel.style.display = 'none';
+  };
+
+  hide();
+
+  tkSafe.add(el.open, 'click', show);
+  const legacyOpeners = [$('#startSurveyBtn'), ...document.querySelectorAll('[data-tk-start-survey]')];
   legacyOpeners.forEach(btn => {
     if(btn && btn !== el.open){
-      btn.addEventListener('click', evt => { evt?.preventDefault?.(); show(); });
+      tkSafe.add(btn, 'click', evt => {
+        evt?.preventDefault?.();
+        show();
+      });
     }
   });
-  el.close.addEventListener('click', hide);
+  tkSafe.add(el.close, 'click', hide);
 
-  // Select / Deselect all
-  el.selectAll.addEventListener('click', ()=>{
-    el.list.querySelectorAll('input[type="checkbox"]').forEach(c=>{ c.checked = true; });
-    updateCount();
-  });
-  el.deselectAll.addEventListener('click', ()=>{
-    el.list.querySelectorAll('input[type="checkbox"]').forEach(c=>{ c.checked = false; });
-    updateCount();
-  });
-
-  // Count badge
-  el.list.addEventListener('change', e=>{
-    if(e.target && e.target.matches('input[type="checkbox"]')) updateCount();
-  });
   function updateCount(){
-    const total = el.list.querySelectorAll('input[type="checkbox"]').length;
-    const sel   = el.list.querySelectorAll('input[type="checkbox"]:checked').length;
-    el.count.textContent = `${sel} selected / ${total} total`;
+    const total = $$('input[type="checkbox"]', el.list).length;
+    const sel   = $$('input[type="checkbox"]:checked', el.list).length;
+    if(el.count) el.count.textContent = `${sel} selected / ${total} total`;
   }
 
-  // Start Survey → hand off selected category ids to your existing flow
-  el.start.addEventListener('click', ()=>{
-    const selected = Array.from(el.list.querySelectorAll('input[type="checkbox"]:checked')).map(c=>c.value);
-    // You likely already have a function to proceed; call it here:
+  tkSafe.add(el.selectAll, 'click', () => {
+    $$('input[type="checkbox"]', el.list).forEach(c => { c.checked = true; });
+    updateCount();
+  });
+  tkSafe.add(el.deselectAll, 'click', () => {
+    $$('input[type="checkbox"]', el.list).forEach(c => { c.checked = false; });
+    updateCount();
+  });
+
+  tkSafe.add(el.list, 'change', (e) => {
+    if(e.target && e.target.matches('input[type="checkbox"]')) updateCount();
+  });
+  updateCount();
+
+  tkSafe.add(el.start, 'click', () => {
+    const selected = $$('input[type="checkbox"]:checked', el.list).map(c => c.value);
     if(typeof window.tkBeginSurvey === 'function'){
       window.tkBeginSurvey({ categories: selected });
+    } else {
+      console.info('[TK] selected categories', selected);
     }
     hide();
   });
 
   window.tkWireCategoryPanel = (cats) => {
     currentCategories = renderCategories(cats);
+    return currentCategories;
   };
   window.tkOpenCategories = show;
   window.tkCloseCategories = hide;
+  window.tkGetSelectedCategories = () =>
+    $$('input[type="checkbox"]:checked', el.list).map(c => c.value);
 })();
 
 (() => {
