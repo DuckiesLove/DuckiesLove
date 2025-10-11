@@ -832,12 +832,48 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   // Elements
   const $ = (id)=>document.getElementById(id) || document.querySelector(`[data-legacy-id="${id}"]`);
+  const isFallbackNode = (node) => Boolean(node && node.dataset && node.dataset.tkFallback);
+  const ensureNode = (node, { id, tag = 'div' } = {}) => {
+    if (node && !isFallbackNode(node)) return node;
+    const stub = document.createElement(tag);
+    if (id && !stub.id) stub.id = id;
+    return stub;
+  };
+  const findReal = (selectors = [], scope = document) => {
+    for (const sel of selectors){
+      const node = scope.querySelector(sel);
+      if (node && !isFallbackNode(node)) return node;
+    }
+    return null;
+  };
+
   const panel = $('categorySurveyPanel');
   const toggle = $('panelToggle');
   const list = $('categoryList');
-  const status = $('statusMsg');
-  const startBtn = $('start');
-  const diag = $('diag');
+  const status = ensureNode($('statusMsg'), { id: 'statusMsg' });
+  let startBtn = $('start');
+  const diag = ensureNode($('diag'), { id: 'diag' });
+
+  if (!startBtn || isFallbackNode(startBtn)){
+    const panelStart = panel && !isFallbackNode(panel)
+      ? findReal([
+          '[data-ksv-start]',
+          '[data-tk-start]',
+          '#btnStartSurvey',
+          '#startSurvey',
+          '#start'
+        ], panel)
+      : null;
+    const globalStart = findReal([
+      '#categorySurveyPanel [data-tk-start]',
+      '#categorySurveyPanel #btnStartSurvey',
+      '#btnStartSurvey',
+      '#startSurvey',
+      '#startSurveyBtn',
+      '[data-tk-start]'
+    ]);
+    startBtn = panelStart || globalStart || ensureNode(startBtn, { tag: 'button', id: 'start' });
+  }
   const survey = $('survey');
   const title = $('catTitle');
   const items = $('items');
