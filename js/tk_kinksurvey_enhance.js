@@ -548,19 +548,40 @@
       body.classList.remove('tk-fullscreen','tk-body-lock');
     };
 
-    const startButton =
-      $('#startSurvey') ||
-      $('#start') ||
-      $('#startSurveyBtn') ||
-      ($$('button').find(btn => /start\s*survey/i.test(btn.textContent || '')) || null);
+    const startHooks = [
+      '#startSurvey',
+      '#start',
+      '#startSurveyBtn',
+      '#startBtn',
+      '.start-survey-btn',
+      '[data-start]',
+      '[data-start-survey]',
+      '[data-tk-start]',
+      '[data-tk-start-survey]'
+    ];
 
-    if (startButton){
-      startButton.addEventListener('click', (event) => {
+    const startCandidates = new Set();
+    startHooks.forEach(sel => {
+      $$(sel).forEach(node => {
+        if (node) startCandidates.add(node);
+      });
+    });
+
+    $$("button,a").forEach(node => {
+      if (/^start\s*survey$/i.test((node.textContent || '').trim())) {
+        startCandidates.add(node);
+      }
+    });
+
+    startCandidates.forEach(btn => {
+      if (!btn || btn.dataset.tkStartWired === 'drawer') return;
+      btn.addEventListener('click', (event) => {
         event?.preventDefault?.();
         event?.stopImmediatePropagation?.();
         openFullscreen();
-      }, {capture:true});
-    }
+      }, { capture: true });
+      btn.dataset.tkStartWired = 'drawer';
+    });
 
     startNow?.addEventListener('click', async (event) => {
       event?.preventDefault?.();
