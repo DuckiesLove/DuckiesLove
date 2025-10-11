@@ -522,3 +522,183 @@
 
   console.log('[TK] UX patch installed. You can call tkOpenPanel() / tkClosePanel().');
 })();
+
+/* ======================= TK SURVEY FORCE-OPEN PATCH =======================
+ * Purpose: make the “Start Survey” button open your categories drawer/panel,
+ * even if IDs/classes changed. Includes a probe you can run: tkProbe().
+ * Install: paste at the very bottom of kinksurvey.js (no <script> tags).
+ * Remove: delete this block.
+ * ======================================================================== */
+
+(function TK_FORCE_OPEN(){
+  const DOC = document, WIN = window;
+
+  // ---- Candidates we’ll try for panel / overlay / start buttons ----
+  const CAND = {
+    panel: [
+      '#categorySurveyPanel', '#tkCategoryDrawer', '#tkDrawer', '#drawer',
+      '.category-panel', '.tkDrawerContent', '.tk-drawer-content', '.tk-drawer',
+      '[role="region"][aria-label*="category"]', '[data-ksv-panel]'
+    ],
+    overlay: [
+      '#tkOverlay', '#tkScrim', '.tk-scrim', '.drawer-backdrop', '[data-tk-scrim]'
+    ],
+    start: [
+      '#startSurveyBtn', '#startSurvey', '#start-survey-btn', '.start-survey-btn',
+      '[data-action="start-survey"]', '#tkStartNow', 'a[href="#start"]', 'button'
+    ]
+  };
+
+  // ---- Helpers ----
+  const q1 = sel => DOC.querySelector(sel);
+  const qA = sel => Array.from(DOC.querySelectorAll(sel));
+  const vis = el => !!el && !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+  const byText = (els, re) => els.find(el => re.test((el.textContent||'').trim()));
+
+  function firstMatch(list){
+    for (const sel of list){
+      const el = q1(sel);
+      if (vis(el)) return el;
+      if (el) return el; // allow hidden; we’ll unhide
+    }
+    return null;
+  }
+
+  // Find the panel by several strategies
+  function findPanel(){
+    // 1) Best guess from candidates
+    let p = firstMatch(CAND.panel);
+    if (p) return p;
+    // 2) Fallback: anything that looks like a drawer with category text inside
+    const regions = qA('[role="region"],aside,section,div')
+      .filter(n => (n.className||'').match(/(drawer|category|panel)/i));
+    for (const n of regions){
+      if ((n.textContent||'').match(/Select\s+categories/i)) return n;
+    }
+    return null;
+  }
+
+  function findOverlay(){
+    return firstMatch(CAND.overlay);
+  }
+
+  function findStartButtons(){
+    // candidate selectors
+    const hits = CAND.start.flatMap(sel => qA(sel));
+    const uniq = Array.from(new Set(hits));
+    // include any visible element whose text is "Start Survey"
+    const textHit = byText(qA('a,button,[role="button"]'), /^\s*start\s*survey\s*$/i);
+    if (textHit && !uniq.includes(textHit)) uniq.unshift(textHit);
+    return uniq.filter(Boolean);
+  }
+
+  // ---- Open / Close logic (forces visibility) ----
+  function tkOpenPanel(){
+    const panel = findPanel();
+    if (!panel){ console.warn('[TK] No panel found.'); return; }
+
+    // Ensure it’s attached and visible
+    panel.style.display = 'flex';
+    panel.style.visibility = 'visible';
+    panel.style.opacity = '1';
+    panel.style.pointerEvents = 'auto';
+    panel.removeAttribute('aria-hidden');
+    panel.setAttribute('aria-expanded', 'true');
+
+    // Bring to the very top
+    panel.style.position = panel.style.position || 'fixed';
+    panel.style.zIndex = '2147483646';
+    const overlay = findOverlay();
+    if (overlay){
+      overlay.style.display = 'block';
+      overlay.style.visibility = 'visible';
+      overlay.style.opacity = '1';
+      overlay.style.zIndex = '2147483645';
+      overlay.style.pointerEvents = 'auto';
+    }
+    DOC.documentElement.classList.add('tk-panel-open');
+    console.log('[TK] Panel opened.');
+  }
+
+  function tkClosePanel(){
+    const panel = findPanel();
+    if (panel){
+      panel.style.pointerEvents = 'none';
+      panel.style.opacity = '0';
+      panel.style.visibility = 'hidden';
+      panel.style.display = 'none';
+      panel.setAttribute('aria-hidden','true');
+      panel.setAttribute('aria-expanded','false');
+    }
+    const overlay = findOverlay();
+    if (overlay){
+      overlay.style.opacity = '0';
+      overlay.style.visibility = 'hidden';
+      overlay.style.display = 'none';
+      overlay.style.pointerEvents = 'none';
+    }
+    DOC.documentElement.classList.remove('tk-panel-open');
+    console.log('[TK] Panel closed.');
+  }
+
+  // Expose for console/manual checks
+  WIN.tkOpenPanel  = tkOpenPanel;
+  WIN.tkClosePanel = tkClosePanel;
+
+  // ---- Wire all “Start Survey” buttons to open the panel ----
+  function wireStarts(){
+    const starts = findStartButtons();
+    let wired = 0;
+    starts.forEach(btn=>{
+      if (btn.dataset.tkWired === '1') return;
+      // Only wire the ones that look like Start Survey or are your known buttons
+      const label = (btn.textContent||'').trim();
+      const isStart = /^\s*start\s*survey\s*$/i.test(label) ||
+                      CAND.start.some(sel => btn.matches(sel));
+      if (!isStart) return;
+      btn.dataset.tkWired = '1';
+      btn.addEventListener('click', e=>{
+        try{ e.preventDefault(); e.stopPropagation(); }catch(_){}
+        tkOpenPanel();
+      }, {passive:false});
+      wired++;
+    });
+    if (wired) console.log(`[TK] wired ${wired} Start Survey trigger(s).`);
+  }
+
+  // ---- Auto rewire if DOM changes (SPA safe) ----
+  const mo = new MutationObserver(()=>{
+    wireStarts();
+  });
+  mo.observe(DOC.documentElement, {childList:true, subtree:true});
+
+  // ---- One-time CSS to avoid getting masked by site overlays ----
+  (function ensureTopCSS(){
+    if (DOC.getElementById('tkForceTop')) return;
+    const s = DOC.createElement('style');
+    s.id = 'tkForceTop';
+    s.textContent = `
+      html.tk-panel-open{overflow:hidden}
+      .tk-scrim, #tkScrim, #tkOverlay{transition:none!important}
+    `;
+    DOC.head.appendChild(s);
+  })();
+
+  // ---- Initial wire after the page finishes its own setup ----
+  setTimeout(wireStarts, 0);
+
+  // ---- Probe helper so you can see what was found ----
+  WIN.tkProbe = function(){
+    const panel = findPanel();
+    const overlay = findOverlay();
+    const starts = findStartButtons();
+    console.table([
+      { key:'panel',   selector: panel ? (panel.id ? '#'+panel.id : panel.className) : '(none)', present: !!panel, visible: panel ? (panel.offsetParent!==null || panel.style.display!=='none') : false },
+      { key:'overlay', selector: overlay ? (overlay.id ? '#'+overlay.id : overlay.className) : '(none)', present: !!overlay, visible: overlay ? (overlay.offsetParent!==null || overlay.style.display!=='none') : false },
+      { key:'starts',  selector: starts.map(b=>b.id?('#'+b.id):b.className||b.tagName).join(', ') || '(none)', present: !!starts.length, visible: starts.some(vis) }
+    ]);
+    return {panel, overlay, starts};
+  };
+
+  console.log('[TK] Force-open patch loaded. Try tkProbe(), tkOpenPanel().');
+})();
