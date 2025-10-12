@@ -1,0 +1,167 @@
+<!-- Talk-Kink category panel portal v2 (force-visible) -->
+<script>
+(function(){
+  if (window.__tkPortalV2Installed) return; // allow v2 to install once even if v1 existed
+  window.__tkPortalV2Installed = true;
+
+  const Z = 2147483000; // stay on top of everything
+  const findPanel = () =>
+    document.querySelector('#categorySurveyPanel, .category-panel, aside[aria-label*="category"], aside[aria-controls*="category"]');
+
+  // ---- create portal + scrim ----
+  const scrim = Object.assign(document.createElement('div'), { id: 'tkScrim' });
+  Object.assign(scrim.style, {
+    position:'fixed', inset:'0', background:'rgba(0,0,0,.60)',
+    display:'none', opacity:'0', transition:'opacity .18s ease',
+    zIndex: Z, pointerEvents:'none'
+  });
+
+  const portal = Object.assign(document.createElement('div'), { id: 'tkPortal' });
+  Object.assign(portal.style, { position:'fixed', inset:'0', display:'none', zIndex: Z+1, pointerEvents:'none' });
+
+  // visible shell (neutral, not styled by site CSS)
+  const shell = Object.assign(document.createElement('div'), { className:'tk-shell' });
+  Object.assign(shell.style, {
+    position:'fixed', left:'50%', top:'50%', transform:'translate(-50%,-50%)',
+    maxHeight:'85vh', width:'min(980px,92vw)', background:'rgba(10,10,10,.97)',
+    border:'1px solid #00f0ff', borderRadius:'12px', boxShadow:'0 24px 64px rgba(0,0,0,.55)',
+    overflow:'auto', pointerEvents:'auto', padding:'16px', color:'#eafcff'
+  });
+
+  // title bar so you can SEE the portal even if content is empty
+  const bar = document.createElement('div');
+  bar.textContent = 'Select categories';
+  Object.assign(bar.style, {
+    font:'600 20px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+    letterSpacing:'.3px', margin:'2px 0 12px 2px', color:'#00f0ff', textShadow:'0 0 8px rgba(0,240,255,.35)'
+  });
+
+  // content host: either we MOVE the original panel here, or we CLONE its children here
+  const host = document.createElement('div');
+  Object.assign(host.style, { minHeight:'240px' });
+
+  shell.append(bar, host);
+  document.body.append(scrim, portal);
+  portal.appendChild(shell);
+
+  // ---- state / original placement backup ----
+  let panel = findPanel();
+  let origParent = panel ? panel.parentNode : null;
+  let origNext = panel ? panel.nextSibling : null;
+  let mountedMode = null; // 'move' or 'extract'
+
+  function neutralize(el){
+    if (!el) return;
+    ['hidden','inert','aria-hidden'].forEach(a => { try{ el.removeAttribute(a);}catch{} });
+    try{ el.classList.remove('hidden','is-hidden','closed','tk-hidden','tk-closed'); }catch{}
+    Object.assign(el.style,{
+      display:'block', visibility:'visible', opacity:'1', filter:'none', transform:'none'
+    });
+  }
+
+  function mountMove(){
+    if (!panel) return false;
+    neutralize(panel);
+    host.innerHTML = '';
+    host.appendChild(panel);
+    mountedMode = 'move';
+    // If panel remains “invisible” (height too small), report false
+    const h = host.getBoundingClientRect().height;
+    return h >= 40;
+  }
+
+  function mountExtract(){
+    if (!panel) return false;
+    neutralize(panel);
+    host.innerHTML = '';
+    // copy children into neutral host to dodge site CSS on the panel root
+    Array.from(panel.childNodes).forEach(n => host.appendChild(n.cloneNode(true)));
+    mountedMode = 'extract';
+    return true;
+  }
+
+  function unmount(){
+    if (mountedMode === 'move' && origParent && panel && host.contains(panel)) {
+      if (origNext) origParent.insertBefore(panel, origNext);
+      else origParent.appendChild(panel);
+    }
+    mountedMode = null;
+    host.innerHTML = '';
+  }
+
+  function showPortal(){
+    scrim.style.display = 'block';
+    portal.style.display = 'block';
+    requestAnimationFrame(() => { scrim.style.opacity = '1'; scrim.style.pointerEvents = 'auto'; });
+    document.documentElement.style.overflow = 'hidden';
+  }
+
+  function hidePortal(){
+    scrim.style.opacity = '0';
+    scrim.style.pointerEvents = 'none';
+    setTimeout(() => {
+      scrim.style.display = 'none';
+      portal.style.display = 'none';
+      document.documentElement.style.overflow = '';
+      unmount();
+    }, 180);
+  }
+
+  function openCore(forceExtract){
+    panel = findPanel();
+    if (!panel) {
+      console.warn('[TK] No category panel found.');
+      return;
+    }
+    origParent = panel.parentNode; origNext = panel.nextSibling;
+
+    let ok = false;
+    if (!forceExtract) ok = mountMove();
+    if (!ok) ok = mountExtract(); // fallback
+    showPortal();
+    console.log('[TK] Panel opened. Mode =', mountedMode);
+  }
+
+  function closeCore(){ hidePortal(); console.log('[TK] Panel closed.'); }
+
+  scrim.addEventListener('click', closeCore, { passive:true });
+
+  // ---- public helpers ----
+  window.tkOpenPanel = () => openCore(false);
+  window.tkOpenPanelStrong = () => openCore(true);
+  window.tkClosePanel = closeCore;
+  window.tkProbe = () => {
+    const p = findPanel();
+    const r = p ? p.getBoundingClientRect() : { width:0, height:0, x:0, y:0 };
+    console.table([
+      { key:'panel-present', value: !!p },
+      { key:'panel-w', value: Math.round(r.width) },
+      { key:'panel-h', value: Math.round(r.height) },
+      { key:'mode', value: mountedMode || '(closed)' }
+    ]);
+    return { present: !!p, rect:r, mode: mountedMode };
+  };
+
+  // ---- wire buttons (selector + text match + capture) ----
+  const startSelectors = [
+    '#startSurveyBtn', '#startSurvey', '.start-survey-btn',
+    'button.themed-button.start-survey-btn', 'a[href="#start"]'
+  ];
+  document.querySelectorAll(startSelectors.join(',')).forEach(btn => {
+    btn.addEventListener('click', e => { e.preventDefault(); openCore(false); }, { passive:false });
+  });
+
+  // global capture: anything that looks like a Start Survey button
+  document.addEventListener('click', function(e){
+    const t = e.target.closest('button, a, [role="button"]');
+    if (!t) return;
+    const txt = (t.textContent || '').trim().toLowerCase();
+    if (txt === 'start survey' || txt === 'start' || txt.includes('start survey')) {
+      e.preventDefault();
+      openCore(false);
+    }
+  }, true);
+
+  console.log('[TK] Portal v2 installed. Click “Start Survey”, or run tkOpenPanel()/tkOpenPanelStrong().');
+})();
+</script>
