@@ -351,7 +351,25 @@
   const $qCounter   = el('qCounter');
   const $qFill      = el('qFill');
 
+  const LS_KEY = '__TK_SELECTED_CATEGORIES';
   const state = { cats:[], sel:[], idx:0 };
+  const savedSet = new Set();
+
+  function loadSaved(){
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      return Array.isArray(raw) ? raw.map(v => String(v ?? '').trim()).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveSelection(ids){
+    try {
+      const uniq = Array.from(new Set(ids.map(v => String(v ?? '').trim()).filter(Boolean)));
+      localStorage.setItem(LS_KEY, JSON.stringify(uniq));
+    } catch {}
+  }
 
   const tidy = (s)=>String(s??'').replace(/\s+/g,' ').trim();
   const slugify = (s)=>{
@@ -410,6 +428,7 @@
         if (cb){
           cb.name = `cat_${slug}`;
           cb.dataset.kinkId = slug;
+          cb.checked = savedSet.has(c.category.toLowerCase());
         }
         grid.appendChild(row);
       });
@@ -420,7 +439,11 @@
   }
 
   function selected(){
-    return Array.from($list.querySelectorAll('input[type="checkbox"]')).filter(cb=>cb.checked).map(cb=>cb.value);
+    if (!$list) return [];
+    return Array.from($list.querySelectorAll('input[type="checkbox"]'))
+      .filter(cb=>cb.checked)
+      .map(cb=>cb.value?.trim())
+      .filter(Boolean);
   }
   function updateStart(){
     const sel = selected().length;
@@ -429,6 +452,12 @@
     $start.classList.toggle('tk-disabled', !ready);
     $start.classList.toggle('tk-pulse', ready);
     $status.textContent = `${sel} selected / ${state.cats.length} total`;
+  }
+  function persistSelection(){
+    const ids = selected();
+    savedSet.clear();
+    ids.forEach(id => savedSet.add(id.toLowerCase()));
+    saveSelection(ids);
   }
   function showDiag(msg){ $diag.style.display='block'; $diag.textContent=msg; }
 
@@ -526,17 +555,29 @@
 
   /* ---------- bindings ---------- */
   $panel.addEventListener('change', (e)=>{
-    if (e.target && e.target.matches('input[type="checkbox"]')) updateStart();
+    if (e.target && e.target.matches('input[type="checkbox"]')){
+      persistSelection();
+      updateStart();
+    }
   });
   document.getElementById('selectAll').addEventListener('click', ()=>{
-    $panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true); updateStart();
+    $panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true);
+    persistSelection();
+    updateStart();
   });
   document.getElementById('deselectAll').addEventListener('click', ()=>{
-    $panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); updateStart();
+    $panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false);
+    persistSelection();
+    updateStart();
   });
 
   document.getElementById('startBtn').addEventListener('click', ()=>{
-    const want = new Set(selected().map(s=>s.toLowerCase()));
+    const choice = selected();
+    if (!choice.length) return;
+    saveSelection(choice);
+    savedSet.clear();
+    choice.forEach(id => savedSet.add(id.toLowerCase()));
+    const want = new Set(choice.map(s=>s.toLowerCase()));
     state.sel = state.cats
       .slice()
       .filter(c=>want.has(c.category.toLowerCase()))
@@ -546,6 +587,17 @@
     $panel.style.display='none';
     renderSelectedCategories();
     renderCategory(state.idx);
+    window.__TK_SURVEY_STARTED = true;
+    const evt = new CustomEvent('tk:start-survey', { detail: { includeCategories: choice }});
+    document.dispatchEvent(evt);
+    setTimeout(()=>{
+      if (!window.__TK_SURVEY_STARTED){
+        const u = new URL('/kinksurvey/', location.origin);
+        u.searchParams.set('run','1');
+        if (choice.length) u.searchParams.set('cats', choice.join(','));
+        location.assign(u.toString());
+      }
+    }, 120);
   });
 
   document.getElementById('skipBtn').addEventListener('click', ()=>{ state.idx++; renderCategory(state.idx); });
@@ -557,7 +609,26 @@
     if (!dataset) throw new Error('Dataset unavailable. Expected /data/kinks.json');
     state.cats = normalize(dataset);
     state.cats.sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
+
+    const saved = loadSaved();
+    if (saved.length){
+      const byName = new Map(state.cats.map(c => [c.category.toLowerCase(), c.category]));
+      const cleaned = [];
+      savedSet.clear();
+      saved.forEach(id => {
+        const canonical = byName.get(id.toLowerCase());
+        if (canonical){
+          savedSet.add(canonical.toLowerCase());
+          cleaned.push(canonical);
+        }
+      });
+      if (cleaned.length !== saved.length) saveSelection(cleaned);
+    } else {
+      savedSet.clear();
+    }
+
     renderPanel(state.cats);
+    persistSelection();
   }catch(e){
     const msg = e?.message || 'Dataset unavailable. Expected /data/kinks.json';
     console.warn('[talkkink] kinks dataset fetch failed:', msg);
