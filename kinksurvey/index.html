@@ -409,6 +409,40 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     margin:4px auto 0;
     opacity:.85;
   }
+  .tkPanelHint{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: clamp(10px, 2.2vw, 18px);
+    background: color-mix(in srgb, var(--tk-panel-bg), #ffffff 12%);
+    border: 2px solid color-mix(in srgb, var(--accent), transparent 30%);
+    border-radius: 18px;
+    padding: clamp(12px, 2vw, 20px);
+    max-width: 760px;
+    margin: 12px auto 0;
+    color: var(--tk-note-color);
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 0 18px 48px -28px rgba(0,0,0,.6);
+  }
+  .tkPanelHint::before{
+    content: '⬅';
+    font-size: clamp(22px, 3vw, 30px);
+    line-height: 1;
+    opacity:.85;
+  }
+  .tkPanelHint[hidden]{
+    display:none !important;
+  }
+  @media (max-width: 720px){
+    .tkPanelHint{
+      flex-direction:column;
+      gap:8px;
+    }
+    .tkPanelHint::before{
+      content:'☰';
+    }
+  }
   .ksvBtn{
     display:flex; align-items:center; justify-content:center;
     box-sizing:border-box;
@@ -744,6 +778,10 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
         aria-label="Toggle category panel">
   <span aria-hidden="true">☰ Categories</span>
 </button>
+
+<p class="tkPanelHint" data-tk-panel-hint>
+  The category panel is docked on the left side. If you don’t see it, scroll slightly or use the “☰ Categories” button above to reopen it.
+</p>
 
 <!-- ===== TK: Docked left panel + 1/4 right rail (Start only in panel) ===== -->
 <style>
@@ -1109,6 +1147,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   const panel = $('categorySurveyPanel');
   const toggle = $('panelToggle');
+  const panelHint = document.querySelector('[data-tk-panel-hint]');
   const list = $('categoryList');
   const status = ensureNode($('statusMsg'), { id: 'statusMsg' });
   let startBtn = $('start');
@@ -1151,6 +1190,11 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     document.body.classList.add('tk-js');
   }
 
+  const hidePanelHint = () => {
+    if (!panelHint || panelHint.hidden) return;
+    panelHint.setAttribute('hidden', '');
+  };
+
   let scrim = document.getElementById('tkScrim');
   if (!scrim){
     scrim = document.createElement('div');
@@ -1184,6 +1228,8 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       stickyRow.appendChild(closeBtn);
       panel.prepend(stickyRow);
     }
+    panel.addEventListener('pointerdown', hidePanelHint);
+    panel.addEventListener('focusin', hidePanelHint);
   }
 
   const triggerSelectors = ['#startSurvey','#startSurveyBtn','#start','#tkHeroStart','[data-start-survey="1"]'];
@@ -1251,6 +1297,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   function openDrawer(options = {}){
     const { focusFirst = true, trigger = null, focusTarget = null } = options;
+    hidePanelHint();
     lastOpenTrigger = trigger || focusTarget || lastOpenTrigger || findOpenTrigger();
     setDrawerState(true);
     if (focusFirst){
@@ -1341,11 +1388,13 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       toggle.classList.add('tk-locked-toggle');
       toggle.addEventListener('click', event => {
         event.preventDefault();
+        hidePanelHint();
         setDrawerState(true);
       });
     } else {
       toggle.addEventListener('click', (event)=>{
         event.preventDefault();
+        hidePanelHint();
         const isOpen = panel?.classList.contains('open');
         if (isOpen) closeDrawer({ focusToggle: true, focusTarget: toggle });
         else openDrawer({ focusFirst: true, trigger: toggle });
