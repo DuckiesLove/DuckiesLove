@@ -1,218 +1,119 @@
 <!-- TalkKink: Docked Category Panel (inline styles, persistent dock) -->
 <script>
-(() => {
-  const DOCK_WIDTH = 'clamp(360px,30vw,520px)';
-  const HOST_ID = 'tkDockHard';
+(() =>{
+  const HOST = document.getElementById('tkDockHard');
+  if(!HOST){ console.warn('[TK] no dock host found'); return; }
+  const list   = HOST.querySelector('div > div:nth-of-type(3)');  // checklist container
+  const badge  = HOST.querySelector('span');                      // "x selected / y total"
+  const btnAll = HOST.querySelector('button:nth-of-type(1)');     // Select All
+  const btnNone= HOST.querySelector('button:nth-of-type(2)');     // Deselect All
+  const btnGo  = HOST.querySelector('button:last-of-type');       // Start Survey
 
-  if (document.getElementById(HOST_ID)) {
-    console.log('[TK] dock already present');
-    return;
-  }
-
-  const host = document.createElement('aside');
-  host.id = HOST_ID;
-  host.setAttribute('role','dialog');
-  host.setAttribute('aria-modal','true');
-  Object.assign(host.style, {
-    position: 'fixed',
-    inset: '0 0 0 0',
-    zIndex: '2147483647',
-    pointerEvents: 'none'
-  });
-
-  const dock = document.createElement('div');
-  Object.assign(dock.style, {
-    position: 'fixed',
-    top: '88px',
-    left: '24px',
-    bottom: '24px',
-    width: 'min(520px,30vw)',
-    maxWidth: '520px',
-    minWidth: '320px',
-    overflow: 'auto',
-    padding: '24px',
-    border: '2px solid var(--teal, #00e5ff)',
-    borderRadius: '16px',
-    background: '#000',
-    color: '#fff',
-    boxShadow: '0 12px 40px rgba(0,0,0,.6)',
-    pointerEvents: 'auto'
-  });
-
-  const header = document.createElement('div');
-  Object.assign(header.style, {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    margin: '0 0 10px'
-  });
-  const h2 = document.createElement('h2');
-  h2.textContent = 'Select categories';
-  Object.assign(h2.style, { margin: 0 });
-
-  const btnClose = document.createElement('button');
-  btnClose.textContent = 'Close ✕';
-  Object.assign(btnClose.style, {
-    cursor: 'pointer',
-    border: '1px solid var(--teal,#00e5ff)',
-    color: 'var(--teal,#00e5ff)',
-    background: '#000',
-    borderRadius: '12px',
-    padding: '8px 12px'
-  });
-  header.append(h2, btnClose);
-
-  const row = document.createElement('div');
-  Object.assign(row.style, {
-    display: 'flex',
-    gap: '12px',
-    alignItems: 'center',
-    margin: '8px 0 14px'
-  });
-
-  const btnAll = document.createElement('button');
-  btnAll.textContent = 'Select All';
-  const btnNone = document.createElement('button');
-  btnNone.textContent = 'Deselect All';
-  const countBadge = document.createElement('span');
-  countBadge.textContent = '0 selected / 0 total';
-  countBadge.style.opacity = '.75';
-
-  for (const b of [btnAll, btnNone]) {
-    Object.assign(b.style, {
-      cursor: 'pointer',
-      border: '1px solid var(--teal,#00e5ff)',
-      color: 'var(--teal,#00e5ff)',
-      background: '#000',
-      borderRadius: '12px',
-      padding: '8px 12px'
-    });
-  }
-  row.append(btnAll, btnNone, countBadge);
-
-  const list = document.createElement('div');
-  list.id = 'tkList';
-  Object.assign(list.style, { display: 'grid', gap: '10px' });
-  list.innerHTML = '<div style="opacity:.8">Loading categories…</div>';
-
-  const bottomRow = document.createElement('div');
-  Object.assign(bottomRow.style, { display: 'flex', gap: '12px', marginTop: '16px' });
-
-  const btnStart = document.createElement('button');
-  btnStart.textContent = 'Start Survey';
-  Object.assign(btnStart.style, {
-    cursor: 'pointer',
-    border: '1px solid var(--teal,#00e5ff)',
-    color: '#000',
-    background: 'var(--teal,#00e5ff)',
-    borderRadius: '12px',
-    padding: '10px 14px',
-    fontWeight: '700'
-  });
-  bottomRow.append(btnStart);
-
-  dock.append(header, row, list, bottomRow);
-  host.append(dock);
-  document.documentElement.append(host);
-
-  try {
-    document.body.style.marginLeft = DOCK_WIDTH;
-  } catch { /* ignore */ }
-
-  const STORE = '__TK_SELECTED_CATEGORIES';
-  const getSel = () => new Set(JSON.parse(localStorage.getItem(STORE) || '[]'));
-  const setSel = (arr) => localStorage.setItem(STORE, JSON.stringify(Array.from(new Set(arr))));
-
-  const refreshCount = () => {
-    const total = list.querySelectorAll('input[type=checkbox]').length;
-    const selected = list.querySelectorAll('input[type=checkbox]:checked').length;
-    countBadge.textContent = `${selected} selected / ${total} total`;
+  const KEY='__TK_SELECTED_CATEGORIES';
+  const getSel =()=>new Set(JSON.parse(localStorage.getItem(KEY)||'[]'));
+  const setSel =(arr)=>localStorage.setItem(KEY,JSON.stringify(Array.from(new Set(arr))));
+  const updateBadge =()=> {
+    const total=list.querySelectorAll('input[type=checkbox]').length;
+    const sel  =list.querySelectorAll('input[type=checkbox]:checked').length;
+    badge.textContent=`${sel} selected / ${total} total`;
+    btnGo.disabled = sel===0;  // disable Start until something selected
+    btnGo.style.opacity = sel===0 ? .6 : 1;
+    btnGo.style.cursor  = sel===0 ? 'not-allowed' : 'pointer';
   };
 
-  const addCheckRow = ({ id, name }) => {
-    const label = document.createElement('label');
-    Object.assign(label.style, {
-      display: 'flex', alignItems: 'center', gap: '10px',
-      padding: '10px 12px', border: '1px solid #2a2a2a',
-      borderRadius: '12px', background: '#090909'
-    });
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.value = id;
-    input.checked = getSel().has(id);
-    Object.assign(input.style, { width: '18px', height: '18px' });
-    input.addEventListener('change', () => {
-      const sel = Array.from(list.querySelectorAll('input:checked')).map(n => n.value);
-      setSel(sel);
-      refreshCount();
-    });
-    const span = document.createElement('span');
-    span.textContent = name;
-    label.append(input, span);
-    list.append(label);
-  };
+  function addRow(id,name){
+    const L=document.createElement('label');
+    Object.assign(L.style,{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',
+                           border:'1px solid #2a2a2a',borderRadius:'12px',background:'#0b0b0b'});
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.value=id; cb.style.width=cb.style.height='18px';
+    cb.checked=getSel().has(id);
+    cb.onchange=()=>{
+      const ids=Array.from(list.querySelectorAll('input:checked')).map(n=>n.value);
+      setSel(ids); updateBadge();
+    };
+    const s=document.createElement('span'); s.textContent=name;
+    L.append(cb,s); list.append(L);
+  }
 
-  (async () => {
-    let cats = [];
-    try {
+  function normalizeCats(raw){
+    if(!raw) return [];
+    // accept many shapes: [{id,name}], [{code,label}], etc.
+    return raw.map(c=>{
+      const id = String(c.id||c.value||c.slug||c.code||c.name||'').trim();
+      const name = String(c.name||c.title||c.label||c.slug||c.code||id).trim();
+      return id && name ? {id,name} : null;
+    }).filter(Boolean);
+  }
+
+  async function getCats(){
+    try{
+      // 1) official loader (if exposed)
       if (typeof window.tkLoadKinkData === 'function') {
-        const data = await window.tkLoadKinkData();
-        cats = (data && Array.isArray(data.categories)) ? data.categories :
-               (data?.kinks?.categories || data?.cats || []);
-      } else if (Array.isArray(window.__TK_CATS)) {
-        cats = window.__TK_CATS;
+        const d = await window.tkLoadKinkData();
+        return normalizeCats( (d?.categories) || (d?.kinks?.categories) || [] );
       }
-    } catch (e) {
-      console.warn('[TK] category load failed:', e);
-    }
-
-    if (!cats || !cats.length) {
-      list.innerHTML = '<div style="opacity:.8">No category feed detected yet. Panel is locked; when your categories load, rerun the snippet or refresh.</div>';
-      console.log('[TK] panel visible; no categories found');
-    } else {
-      list.innerHTML = '';
-      const seen = new Set();
-      for (const c of cats) {
-        const id = String(c.id || c.value || c.slug || c.code || c.name || '').trim();
-        const name = String(c.name || c.title || c.label || c.slug || c.code || id).trim();
-        if (!id || !name || seen.has(id)) continue;
-        seen.add(id);
-        addCheckRow({ id, name });
+      // 2) promise variant (if a promise exists)
+      if (window.tkLoadKinkDataPromise && typeof window.tkLoadKinkDataPromise.then==='function'){
+        const d = await window.tkLoadKinkDataPromise;
+        return normalizeCats( (d?.categories) || (d?.kinks?.categories) || [] );
       }
-      refreshCount();
-      console.log('[TK] categories rendered:', seen.size);
+      // 3) preloaded global
+      if (Array.isArray(window.__TK_CATS)) return normalizeCats(window.__TK_CATS);
+    }catch(e){ console.warn('[TK] getCats error', e); }
+    return [];
+  }
+
+  async function hydrate(){
+    const cats = await getCats();
+    if (!cats.length) return false;
+
+    list.innerHTML='';
+    const seen=new Set();
+    for(const {id,name} of cats){
+      if(seen.has(id)) continue; seen.add(id);
+      addRow(id,name);
     }
-  })();
+    // Restore previous selection if it contains unknown IDs, drop them
+    setSel(Array.from(getSel()).filter(id=>seen.has(id)));
+    updateBadge();
 
-  btnAll.addEventListener('click', () => {
-    list.querySelectorAll('input[type=checkbox]').forEach(n => n.checked = true);
-    setSel(Array.from(list.querySelectorAll('input:checked')).map(n => n.value));
-    refreshCount();
-  });
-  btnNone.addEventListener('click', () => {
-    list.querySelectorAll('input[type=checkbox]').forEach(n => n.checked = false);
-    setSel([]);
-    refreshCount();
-  });
+    // Select/Deselect all
+    btnAll.onclick = ()=>{
+      list.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=true);
+      setSel(Array.from(list.querySelectorAll('input:checked')).map(n=>n.value));
+      updateBadge();
+    };
+    btnNone.onclick = ()=>{
+      list.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=false);
+      setSel([]); updateBadge();
+    };
 
-  btnStart.addEventListener('click', () => {
-    const ids = JSON.parse(localStorage.getItem(STORE) || '[]');
-    document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids } }));
-    setTimeout(() => {
-      if (!window.__TK_SURVEY_STARTED) {
-        const u = new URL('/kinksurvey/', location.origin);
-        u.searchParams.set('run', '1');
-        if (ids.length) u.searchParams.set('cats', ids.join(','));
+    // Start Survey
+    btnGo.onclick = ()=>{
+      const ids=Array.from(getSel());
+      document.dispatchEvent(new CustomEvent('tk:start-survey',{detail:{includeCategories:ids}}));
+      setTimeout(()=>{ if(!window.__TK_SURVEY_STARTED){
+        const u=new URL('/kinksurvey/',location.origin);
+        u.searchParams.set('run','1'); if(ids.length) u.searchParams.set('cats',ids.join(','));
         location.assign(u.toString());
-      }
-    }, 120);
-  });
+      }},120);
+    };
 
-  btnClose.addEventListener('click', () => {
-    try { document.body.style.marginLeft = ''; } catch {}
-    host.remove();
-  });
+    console.log('[TK] dock hydrated with', cats.length, 'categories');
+    return true;
+  }
 
-  console.log('[TK] dock injected & locked (inline styles). If you do not see it, check CSP errors in Console.');
+  // Try immediately, then poll a few times, then listen for a future signal
+  (async()=>{
+    if (await hydrate()) return;
+    for (let i=0;i<20;i++){       // ~4s total
+      await new Promise(r=>setTimeout(r,200));
+      if (await hydrate()) return;
+    }
+    // If your loader dispatches a signal later, catch it
+    window.addEventListener('tk:kinkdata-ready', hydrate, {once:true});
+    document.addEventListener('tk:kinkdata-ready', hydrate, {once:true});
+    console.log('[TK] waiting for kink data …');
+  })();
 })();
 </script>
