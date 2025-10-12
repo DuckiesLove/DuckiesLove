@@ -3238,13 +3238,179 @@ NO VISUAL TAKEOVER
 /* ------------------------------- helpers ---------------------------------- */
 const tkLog = (...a)=>console.log('[TK]', ...a);
 
-function tkNormalizeItems(raw){
-  // Accept arrays or objects with common property names
-  if (Array.isArray(raw)) return raw;
-  if (!raw || typeof raw !== 'object') return [];
-  return raw.items || raw.kinks || raw.categories || raw.data || raw.rows || [];
-}
+ /* --------------------------- state + data plumbing ------------------------ */
+ const LS_KEY = '__TK_SELECTED_CATEGORIES';
 
+ function tkNormalizeItems(raw){
+   if (!raw) return [];
+   // Try to normalize a few likely shapes
+   if (Array.isArray(raw)) {
+     return raw.map(x => ({
+       id: String(x.id ?? x.ID ?? x.value ?? x.slug ?? x.code ?? x.name).trim(),
+       name: String(x.name ?? x.title ?? x.label ?? x.slug ?? x.code ?? x.id).trim()
+     })).filter(x => x.id && x.name);
+   }
+   if (raw.categories && Array.isArray(raw.categories)) return tkNormalizeItems(raw.categories);
+   if (raw.cats && Array.isArray(raw.cats))             return tkNormalizeItems(raw.cats);
+   return [];
+ }
+
+ async function tkGetCategories(){
+   // Prefer site globals if present
+   try {
+     if (typeof window.tkLoadKinkData === 'function') {
+       const data = await window.tkLoadKinkData();
+       const cats = tkNormalizeItems(data?.categories ?? data?.cats ?? data?.kinks?.categories);
+       if (cats.length) return cats;
+     }
+   } catch(e){ tkLog('tkLoadKinkData error', e); }
+
+   // Fallback to any hydrated globals the site left around
+   const guesses = [
+     window.__TK_KINK_DATA,
+     window.__TK_DATA,
+     window.__KINKS__,
+   ].filter(Boolean);
+   for (const g of guesses) {
+     const cats = tkNormalizeItems(g);
+     if (cats.length) return cats;
+   }
+
+   // Last resort: empty list (UI will still render)
+   return [];
+ }
+
+ function loadSelection(){
+   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+   catch{ return []; }
+ }
+ function saveSelection(ids){
+   try { localStorage.setItem(LS_KEY, JSON.stringify(Array.from(new Set(ids)))); } catch {}
+ }
+
+ /* ------------------------------ UI wiring -------------------------------- */
+ function qs(sel,root=document){ return root.querySelector(sel); }
+ function qsa(sel,root=document){ return Array.from(root.querySelectorAll(sel)); }
+
+ function setDocked(docked){
+   document.body.classList.toggle('tk-docked', !!docked);
+   const wrap = qs('#categorySurveyPanel');
+   wrap?.classList.toggle('visible', !!docked);
+   if (wrap) wrap.setAttribute('aria-hidden', docked ? 'false' : 'true');
+ }
+
+ function updateBadge(){
+   const total = qsa('input[type="checkbox"]', qs('#categoryChecklist')).length;
+   const selected = qsa('input[type="checkbox"]:checked', qs('#categoryChecklist')).length;
+   const badge = qs('#selectedCountBadge');
+   if (badge) badge.textContent = `${selected} selected / ${total} total`;
+ }
+
+ function renderCategories(cats){
+   const list = qs('#categoryChecklist');
+   if (!list) return;
+   list.setAttribute('aria-busy','true');
+   list.innerHTML = '';
+
+   const chosen = new Set(loadSelection());
+   const frag = document.createDocumentFragment();
+   for (const c of cats) {
+     const id = `cat_${c.id.replace(/[^a-z0-9_-]/gi,'_')}`;
+     const label = document.createElement('label');
+     label.setAttribute('for', id);
+     label.innerHTML = `
+       <input id="${id}" type="checkbox" value="${c.id}">
+       <span>${c.name}</span>
+     `;
+     const checkbox = label.querySelector('input');
+     checkbox.checked = chosen.has(c.id);
+     checkbox.addEventListener('change', () => {
+       const ids = qsa('input[type="checkbox"]:checked', list).map(n => n.value);
+       saveSelection(ids);
+       updateBadge();
+     });
+     frag.appendChild(label);
+   }
+   list.appendChild(frag);
+   list.setAttribute('aria-busy','false');
+   updateBadge();
+ }
+
+ function wireControls(){
+   const list = qs('#categoryChecklist');
+   const btnAll  = qs('#btnSelectAll');
+   const btnNone = qs('#btnDeselectAll');
+   const btnClose= qs('#btnClosePanel');
+   const btnStart= qs('#beginSurveyFromPanel');
+
+   btnAll?.addEventListener('click', () => {
+     qsa('input[type="checkbox"]', list).forEach(n => n.checked = true);
+     saveSelection(qsa('input[type="checkbox"]', list).map(n=>n.value));
+     updateBadge();
+   });
+   btnNone?.addEventListener('click', () => {
+     qsa('input[type="checkbox"]', list).forEach(n => n.checked = false);
+     saveSelection([]);
+     updateBadge();
+   });
+   btnClose?.addEventListener('click', () => setDocked(false));
+
+   btnStart?.addEventListener('click', () => {
+     const ids = loadSelection();
+     // 1) persist
+     saveSelection(ids);
+     // 2) broadcast intent
+     const ev = new CustomEvent('tk:start-survey', { detail: { includeCategories: ids } });
+     document.dispatchEvent(ev);
+     // if a runner starts the survey, it should set this:
+     setTimeout(() => {
+       if (!window.__TK_SURVEY_STARTED) {
+         // 3) fallback navigation
+         const u = new URL('/kinksurvey/', location.origin);
+         u.searchParams.set('run','1');
+         if (ids.length) u.searchParams.set('cats', ids.join(','));
+         location.assign(u.toString());
+       }
+     }, 120);
+   });
+ }
+
+ /* ------------------------------ bootstrap -------------------------------- */
+ (async function initCategoryPanel(){
+   // Ensure docking CSS exists (margin shift for right content)
+   const extraCSS = `
+     body.tk-docked{ margin-left: clamp(360px, 32vw, 520px) !important; transition: margin-left .15s ease; }
+     #categorySurveyPanel .panel{
+       position: fixed !important;
+       top: 88px !important;
+       left: 24px !important;
+       right: auto !important;
+       bottom: 24px !important;
+       width: clamp(360px, 30vw, 500px) !important;
+       height: calc(100vh - 112px) !important;
+     }
+     /* Hide any legacy “Start Survey” buttons elsewhere to make the panel authoritative */
+     .start-survey, [data-role="start-survey"], .btn-start { display:none !important; }
+   `;
+   const s = document.createElement('style'); s.textContent = extraCSS; document.head.appendChild(s);
+
+   // Load and render categories
+   const cats = await tkGetCategories();
+   renderCategories(cats);
+   wireControls();
+
+   // Lock panel open on first paint
+   setDocked(true);
+   tkLog('Loaded', cats.length, 'categories; UI wired.');
+ })();
+ </script>
+
+<!-- end TK panel block -->
+
+<style>
+/* keep styles close for maintainability; this block ensures docking works on any page */
+body.tk-docked{ margin-left: clamp(360px, 32vw, 520px) !important; }
+</style>
 function tkNormalizeOverrides(raw){
   // Accept a mapping {id:name} or array of {id,name}/{code,label}
   if (!raw) return {};
