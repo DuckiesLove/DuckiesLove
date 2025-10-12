@@ -1,0 +1,150 @@
+<!-- Talk-Kink: Lock category panel in left dock on load -->
+<style id="tk-lock-panel-left">
+  #tkDock {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 24px;
+    min-height: 100vh;
+    align-items: start;
+    padding: 24px clamp(12px, 4vw, 48px);
+    box-sizing: border-box;
+  }
+  #tkTitleWrap {
+    padding: 32px clamp(12px, 4vw, 48px) 8px;
+  }
+  #tkDock .tk-left {
+    max-height: calc(100vh - 120px);
+    overflow: auto;
+  }
+  #tkDock .tk-right {
+    min-height: 1px;
+  }
+  #categorySurveyPanel,
+  aside.category-panel {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 1 !important;
+    max-width: 100% !important;
+  }
+  #tkOverlay,
+  .tk-overlay {
+    display: none !important;
+    pointer-events: none !important;
+  }
+  body.tk-panel-open {
+    overflow: auto !important;
+  }
+  [data-tk-landing="removed"] {
+    display: none !important;
+  }
+  @media (max-width: 980px) {
+    #tkDock {
+      grid-template-columns: minmax(320px, 1fr);
+    }
+  }
+</style>
+<script id="tk-lock-panel-left-js">
+(() => {
+  const log = (...a) => console.log('[TK panel]', ...a);
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+  const findPanel = () =>
+    $('#categorySurveyPanel') ||
+    $('aside.category-panel') ||
+    $('aside.categorySurveyPanel') ||
+    $$('aside,div,section').find(n =>
+      /category.*panel/i.test(n.className || '') ||
+      /category.*panel/i.test(n.id || '')
+    );
+
+  const killOverlay = () => {
+    $('#tkOverlay')?.remove();
+    $$('.tk-overlay')?.forEach(n => n.remove());
+    document.body.classList.remove('tk-panel-open', 'panel-open', 'modal-open');
+  };
+
+  const ensureDock = () => {
+    if (!$('#tkTitleWrap')) {
+      const wrap = document.createElement('div');
+      wrap.id = 'tkTitleWrap';
+      const h1 = document.querySelector('h1, .page-title, [data-title]');
+      if (h1) {
+        h1.before(wrap);
+        wrap.appendChild(h1);
+      } else {
+        wrap.innerHTML = '<h1>Talk Kink Survey</h1>';
+        document.body.prepend(wrap);
+      }
+    }
+    if (!$('#tkDock')) {
+      const dock = document.createElement('section');
+      dock.id = 'tkDock';
+      dock.innerHTML = '<div class="tk-left"></div><div class="tk-right"></div>';
+      $('#tkTitleWrap').after(dock);
+    }
+    return { left: $('#tkDock .tk-left'), right: $('#tkDock .tk-right') };
+  };
+
+  const hideOldLanding = () => {
+    const all = $$('a,button,[role="button"]');
+    const by = t => all.find(b => (b.textContent || '').trim().toLowerCase() === t);
+    const start = by('start survey') || all.find(b => /start\s*survey/i.test(b.textContent || ''));
+    const compat = by('compatibility page') || all.find(b => /compatibility/i.test(b.textContent || ''));
+    const analysis = by('individual kink analysis') || all.find(b => /individual.*analysis/i.test(b.textContent || ''));
+    const wrappers = new Set(
+      [start, compat, analysis]
+        .filter(Boolean)
+        .map(b => b.closest('section,main,.landing-wrapper,.stack,.hero,.container,.row,.col,div'))
+        .filter(Boolean)
+    );
+    wrappers.forEach(w => w.setAttribute('data-tk-landing', 'removed'));
+  };
+
+  const lockPanel = () => {
+    killOverlay();
+    const panel = findPanel();
+    if (!panel) {
+      log('panel not found yet');
+      return false;
+    }
+    const { left } = ensureDock();
+    if (panel.parentNode !== left) {
+      left.appendChild(panel);
+      Object.assign(panel.style, {
+        position: 'static',
+        display: 'block',
+        visibility: 'visible',
+        opacity: '1',
+        pointerEvents: 'auto',
+        zIndex: '1'
+      });
+      log('panel docked left');
+    }
+    return true;
+  };
+
+  const run = () => {
+    hideOldLanding();
+    ensureDock();
+    lockPanel();
+  };
+  run();
+
+  let tries = 0;
+  const maxTries = 40;
+  const tick = setInterval(() => {
+    if (lockPanel() || ++tries >= maxTries) clearInterval(tick);
+  }, 150);
+
+  const mo = new MutationObserver(() => lockPanel());
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+
+  window.addEventListener('popstate', () => setTimeout(run, 50));
+  window.addEventListener('hashchange', () => setTimeout(run, 50));
+})();
+</script>
