@@ -864,14 +864,32 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   // Find buttons by their labels
   const findBtn = label => {
     const rx = new RegExp(label, 'i');
-    return $$('button,a[role="button"],a,div[role="button"]').find(b => rx.test((b.textContent || '').trim()));
+    return $$('button,a[role="button"],a,div[role="button"]').find(b =>
+      !b.closest('#categorySurveyPanel, .category-panel, #tkDock') &&
+      rx.test((b.textContent || '').trim())
+    );
   };
   const btnStart = findBtn('^\s*Start\s*Survey\s*$');
   const btnCompat = findBtn('compatibility\s*page');
   const btnIndiv = findBtn('individual\s*kink\s*analysis');
 
   // Right rail gets the navigation buttons + theme controls
-  [btnCompat, btnIndiv].forEach(b => b && rail.appendChild(b));
+  [btnCompat, btnIndiv].forEach(b => {
+    if (b && b.parentNode !== rail) rail.appendChild(b);
+  });
+
+  if (btnStart) btnStart.style.display = 'none';
+
+  const landingWrappers = new Set(
+    [btnStart, btnCompat, btnIndiv]
+      .filter(Boolean)
+      .map(btn =>
+        btn.closest('section, main, .landing-wrapper, .stack, .hero, .container, .row, .col, div')
+      )
+      .filter(Boolean)
+      .filter(w => !w.closest('#tkDock'))
+  );
+  landingWrappers.forEach(w => w.setAttribute('data-tk-landing', 'removed'));
 
   function moveThemeIntoRail(){
     const themeRow = $('#tkThemeRow');
