@@ -999,6 +999,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
          class="category-panel tk-wide-panel"
          role="region"
          aria-label="Select categories"
+         data-testid="select-categories-panel"
          aria-hidden="true"
          data-ksv-panel="categories">
     <div class="panel-header">
@@ -1994,7 +1995,8 @@ setTimeout(() => {
 
 <!-- Fallback overlay + drawer (used only if no real panel exists) -->
 <div id="tkOverlay" data-tk-fallback="true" hidden>
-  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-labelledby="tkCatTitle" hidden data-tk-fallback="true">
+  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-labelledby="tkCatTitle" hidden data-tk-fallback="true"
+         data-testid="select-categories-drawer">
     <div class="tk-row tk-spread" style="margin-bottom:10px">
       <h2 id="tkCatTitle">Select categories</h2>
       <button class="tk-btn" id="tkCloseX" data-action="close" aria-label="Close">Close ✕</button>
@@ -3016,7 +3018,8 @@ NO VISUAL TAKEOVER
 </style>
 
 <aside id="categorySurveyPanel" role="dialog" aria-label="Category selection"
-       aria-modal="true" aria-hidden="true">
+       aria-modal="true" aria-hidden="true"
+       data-testid="select-categories-panel">
   <div class="panel">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <h2 style="margin:0">Select categories</h2>
@@ -3471,7 +3474,8 @@ No other files need to change.
   <div id="tkDrawerBackdrop" class="tk-backdrop" aria-hidden="true"></div>
 
   <aside id="tkCategoryDrawer" class="category-panel tk-wide-panel" role="dialog"
-         aria-modal="true" aria-label="Select categories">
+         aria-modal="true" aria-label="Select categories"
+         data-testid="select-categories-drawer">
     <header class="tk-panel-head">
       <h2 class="tk-title">Select categories</h2>
       <!-- legacy: #tkCloseDrawer + [data-action="close"] -->
@@ -3673,7 +3677,8 @@ No other files need to change.
 
 <!-- Fallback overlay + drawer (used only if no real panel exists) -->
 <div id="tkOverlay" data-tk-fallback="true" hidden>
-  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-labelledby="tkCatTitle" hidden data-tk-fallback="true">
+  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-labelledby="tkCatTitle" hidden data-tk-fallback="true"
+         data-testid="select-categories-drawer">
     <div class="tk-row tk-spread" style="margin-bottom:10px">
       <h2 id="tkCatTitle">Select categories</h2>
       <button class="tk-btn" id="tkCloseX" data-action="close" aria-label="Close">Close ✕</button>
