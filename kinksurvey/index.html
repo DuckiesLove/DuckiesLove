@@ -3137,8 +3137,24 @@ async function tkLoadKinkData(){
   const nameFor = id => (window.__TK_LABELS && window.__TK_LABELS[id]) || id;
 
   function updateBadge(){ badge.textContent = `${selected.size} selected / ${ALL_IDS.length} total`; }
-  function open(){ panel.classList.add('visible'); panel.setAttribute('aria-hidden','false'); (btnClose||panel).focus({preventScroll:true}); }
-  function close(){ panel.classList.remove('visible'); panel.setAttribute('aria-hidden','true'); }
+  function setInert(node, value){
+    try{
+      if(node && 'inert' in node){ node.inert = value; }
+    }catch(e){}
+  }
+  function open(){
+    panel.classList.add('visible');
+    panel.removeAttribute('hidden');
+    panel.setAttribute('aria-hidden','false');
+    setInert(panel, false);
+    (btnClose||panel).focus({preventScroll:true});
+  }
+  function close(){
+    panel.classList.remove('visible');
+    panel.setAttribute('aria-hidden','true');
+    panel.setAttribute('hidden','');
+    setInert(panel, true);
+  }
 
   function render(){
     const f = document.createDocumentFragment();

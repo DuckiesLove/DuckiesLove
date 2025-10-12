@@ -129,13 +129,25 @@
     []
   );
 
+  const setInert = (node, value) => {
+    try {
+      if (node && 'inert' in node) {
+        node.inert = value;
+      }
+    } catch (_) {}
+  };
+
   const show = () => {
+    el.panel.removeAttribute('hidden');
     el.panel.setAttribute('aria-hidden', 'false');
     el.panel.style.display = 'block';
+    setInert(el.panel, false);
   };
   const hide = () => {
     el.panel.setAttribute('aria-hidden', 'true');
     el.panel.style.display = 'none';
+    el.panel.setAttribute('hidden', '');
+    setInert(el.panel, true);
   };
 
   hide();
