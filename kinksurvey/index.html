@@ -972,19 +972,11 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     undockCSS(panel);
     if (!L.contains(panel)) L.appendChild(panel);
 
-    // Ensure Start Survey exists only in the panel:
-    // if there’s a Start button elsewhere, hide it.
-    if (btnStart && !panel.contains(btnStart)) {
-      btnStart.style.display = 'none';
-      btnStart.setAttribute('aria-hidden', 'true');
-      const parent = btnStart.closest('nav, .ksvButtons, .tk-start-shell');
-      if (parent) {
-        const visibleActions = parent.querySelectorAll('a,button,[role="button"]').length;
-        if (visibleActions <= 1) {
-          parent.style.display = 'none';
-        }
-      }
-    }
+    // Keep any existing Start Survey launcher visible so the panel can be opened.
+    // Some visitors arrive with localStorage already marking the panel as “seen”,
+    // which keeps it closed on load. If we hide the external trigger button the
+    // user loses the only obvious way to reopen the panel. Leave the original
+    // button in place and let the later wiring hook its click handler.
   }
 
   // Retry loop while app hydrates the panel
@@ -1167,6 +1159,8 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   }
   scrim.setAttribute('data-ksv-backdrop','');
 
+  const LOCK_DRAWER_OPEN = true;
+
   if (panel){
     panel.setAttribute('aria-expanded','false');
     panel.setAttribute('data-ksv-panel','');
@@ -1179,7 +1173,14 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       closeBtn.setAttribute('data-ksv-close','');
       closeBtn.setAttribute('aria-label','Close categories panel');
       closeBtn.textContent = 'Close ✕';
-      closeBtn.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
+      if (LOCK_DRAWER_OPEN) {
+        closeBtn.setAttribute('aria-disabled','true');
+        closeBtn.setAttribute('disabled','');
+        closeBtn.disabled = true;
+        closeBtn.classList.add('tk-locked-close');
+      } else {
+        closeBtn.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
+      }
       stickyRow.appendChild(closeBtn);
       panel.prepend(stickyRow);
     }
@@ -1200,7 +1201,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   let lastOpenTrigger = null;
 
   function setDrawerState(open){
-    const want = Boolean(open);
+    const want = LOCK_DRAWER_OPEN ? true : Boolean(open);
     if (panel){
       panel.classList.toggle('open', want);
       panel.classList.toggle('is-open', want);
@@ -1235,6 +1236,17 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       scrim.style.pointerEvents = want ? 'auto' : 'none';
       scrim.classList.toggle('is-open', want);
     }
+    if (want) disableCloseControls();
+  }
+
+  function disableCloseControls(){
+    if (!LOCK_DRAWER_OPEN || !panel) return;
+    const closers = panel.querySelectorAll('[data-ksv-close], [data-action="close"], .tk-close-drawer, button[aria-label*="close" i]');
+    closers.forEach(btn => {
+      btn.setAttribute('aria-disabled','true');
+      btn.setAttribute('disabled','');
+      btn.classList.add('tk-locked-close');
+    });
   }
 
   function openDrawer(options = {}){
@@ -1250,6 +1262,10 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   }
 
   function closeDrawer(options = {}){
+    if (LOCK_DRAWER_OPEN) {
+      setDrawerState(true);
+      return;
+    }
     const { focusToggle = false } = options;
     setDrawerState(false);
     if (focusToggle){
@@ -1264,9 +1280,13 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   window.tkKinksurveyOpenPanel = (opts) => openDrawer(opts || {});
   window.tkKinksurveyClosePanel = (opts) => closeDrawer(opts || {});
 
-  setDrawerState(false);
+  setDrawerState(LOCK_DRAWER_OPEN);
 
   function maybeRevealPanel(){
+    if (LOCK_DRAWER_OPEN) {
+      setDrawerState(true);
+      return;
+    }
     try{
       const storage = window.localStorage;
       const key = 'tk_ksv_panel_seen';
@@ -1280,7 +1300,14 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   if (scrim && !scrim.dataset.tkBind){
     scrim.dataset.tkBind = '1';
-    scrim.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
+    if (LOCK_DRAWER_OPEN) {
+      scrim.addEventListener('click', event => {
+        event.preventDefault();
+        setDrawerState(true);
+      });
+    } else {
+      scrim.addEventListener('click', ()=>closeDrawer({ focusToggle: true }));
+    }
   }
 
   if (panel && !panel.dataset.tkStopProp){
@@ -1288,19 +1315,42 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     panel.addEventListener('click', (event)=>event.stopPropagation());
   }
 
-  window.addEventListener('keydown', (event)=>{
-    if (event.key === 'Escape' && panel?.classList.contains('open')) closeDrawer({ focusToggle: true });
-  });
+  if (LOCK_DRAWER_OPEN && panel && !panel.dataset.tkLockObserver){
+    panel.dataset.tkLockObserver = '1';
+    new MutationObserver(disableCloseControls).observe(panel,{subtree:true,childList:true});
+  }
+
+  if (!LOCK_DRAWER_OPEN) {
+    window.addEventListener('keydown', (event)=>{
+      if (event.key === 'Escape' && panel?.classList.contains('open')) closeDrawer({ focusToggle: true });
+    });
+  } else {
+    window.addEventListener('keydown', (event)=>{
+      if (event.key === 'Escape' && panel?.classList.contains('open')){
+        event.preventDefault();
+        setDrawerState(true);
+      }
+    });
+  }
 
   // Toggle panel open/closed (like /kinks/)
   if (toggle && !toggle.dataset.tkBind){
     toggle.dataset.tkBind = '1';
-    toggle.addEventListener('click', (event)=>{
-      event.preventDefault();
-      const isOpen = panel?.classList.contains('open');
-      if (isOpen) closeDrawer({ focusToggle: true, focusTarget: toggle });
-      else openDrawer({ focusFirst: true, trigger: toggle });
-    });
+    if (LOCK_DRAWER_OPEN) {
+      toggle.setAttribute('aria-disabled','true');
+      toggle.classList.add('tk-locked-toggle');
+      toggle.addEventListener('click', event => {
+        event.preventDefault();
+        setDrawerState(true);
+      });
+    } else {
+      toggle.addEventListener('click', (event)=>{
+        event.preventDefault();
+        const isOpen = panel?.classList.contains('open');
+        if (isOpen) closeDrawer({ focusToggle: true, focusTarget: toggle });
+        else openDrawer({ focusFirst: true, trigger: toggle });
+      });
+    }
   }
 
   document.addEventListener('click', (event)=>{
@@ -1811,6 +1861,8 @@ setTimeout(() => {
   const cats = findCategoriesContainer();
   if (!cats) return;
 
+  const LOCK_DRAWER_OPEN = true;
+
   // Build overlay once
   let backdrop = d.getElementById('ksv-backdrop');
   if (!backdrop){
@@ -1847,6 +1899,11 @@ setTimeout(() => {
   }
   const content = d.getElementById('ksv-content');
   const closeBtn = d.getElementById('ksv-close');
+  if (LOCK_DRAWER_OPEN && closeBtn){
+    closeBtn.setAttribute('aria-disabled','true');
+    closeBtn.setAttribute('disabled','');
+    closeBtn.classList.add('tk-locked-close');
+  }
 
   // Move the existing categories UI into the panel
   if (!content.contains(cats)){
@@ -1910,6 +1967,11 @@ setTimeout(() => {
     backdrop.classList.add('is-open');
     panel.setAttribute('aria-hidden','false');
     document.body.classList.add('ksv-lock');
+    if (LOCK_DRAWER_OPEN && closeBtn){
+      closeBtn.setAttribute('aria-disabled','true');
+      closeBtn.setAttribute('disabled','');
+      closeBtn.classList.add('tk-locked-close');
+    }
     setTimeout(() => {
       (
         panel.querySelector('input[type="checkbox"]:not([disabled])') ||
@@ -1920,6 +1982,10 @@ setTimeout(() => {
   }
 
   function closePanel(){
+    if (LOCK_DRAWER_OPEN){
+      openPanel();
+      return;
+    }
     panel.classList.remove('is-open');
     backdrop.classList.remove('is-open');
     panel.setAttribute('aria-hidden','true');
@@ -1952,9 +2018,20 @@ setTimeout(() => {
     e.stopImmediatePropagation();
     overlayAwareOpen({ trigger: startBtn });
   });
-  closeBtn.addEventListener('click', closePanel);
-  backdrop.addEventListener('click', closePanel);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closePanel(); });
+  if (LOCK_DRAWER_OPEN){
+    closeBtn?.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+    backdrop.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && backdrop.classList.contains('is-open')) {
+        e.preventDefault();
+        openPanel();
+      }
+    });
+  } else {
+    closeBtn.addEventListener('click', closePanel);
+    backdrop.addEventListener('click', closePanel);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closePanel(); });
+  }
 
   // Guard against global click-away handlers
   panel.addEventListener('click', (e) => e.stopPropagation());
@@ -1962,6 +2039,9 @@ setTimeout(() => {
     if (!backdrop.classList.contains('is-open')) return;
     if (panel.contains(e.target)) e.stopPropagation();
   }, true);
+  if (LOCK_DRAWER_OPEN) {
+    openPanel();
+  }
 })();
 </script>
 <!-- 🔧 HOTFIX: put this at the very BOTTOM of /kinksurvey/ (right before 
@@ -2060,11 +2140,29 @@ setTimeout(() => {
 
   document.body.appendChild(overlay);
 
+  const LOCK_DRAWER_OPEN = true;
+
   const tkPanel = {
-    open(){ overlay.hidden=false; overlay.setAttribute('data-open','true');
-            drawer?.removeAttribute('hidden'); drawer?.focus?.(); log('open'); },
-    close(){ overlay.removeAttribute('data-open'); overlay.hidden=true;
-             drawer?.setAttribute('hidden',''); log('close'); }
+    open(){
+      overlay.hidden = false;
+      overlay.setAttribute('data-open','true');
+      document.body.classList.add('tk-drawer-open');
+      drawer?.removeAttribute('hidden');
+      drawer?.focus?.();
+      log('open');
+    },
+    close(reason){
+      if (LOCK_DRAWER_OPEN) {
+        log('close blocked; drawer locked open', reason || '');
+        this.open();
+        return;
+      }
+      overlay.removeAttribute('data-open');
+      overlay.hidden = true;
+      document.body.classList.remove('tk-drawer-open');
+      drawer?.setAttribute('hidden','');
+      log('close');
+    }
   };
   window.tkPanel = Object.assign(window.tkPanel || {}, tkPanel);
 
@@ -2087,8 +2185,22 @@ setTimeout(() => {
 
   const closeX = q('[data-action="close"]') || q('#tkCloseX') ||
                  ensureGhost('[data-action="close"]','button',{type:'button'});
-  closeX?.addEventListener('click', e=>{e.preventDefault(); tkPanel.close();}, {passive:false});
-  overlay.addEventListener('click', e=>{ if (e.target === overlay) tkPanel.close(); });
+  if (LOCK_DRAWER_OPEN) {
+    closeX?.setAttribute('aria-disabled','true');
+    closeX?.setAttribute('disabled','');
+    closeX?.classList.add('tk-locked-close');
+  }
+  closeX?.addEventListener('click', e=>{e.preventDefault(); tkPanel.close('close button');}, {passive:false});
+  if (!LOCK_DRAWER_OPEN) {
+    overlay.addEventListener('click', e=>{ if (e.target === overlay) tkPanel.close('overlay click'); });
+  } else {
+    overlay.addEventListener('click', e=>{
+      if (e.target === overlay) {
+        e.preventDefault();
+        tkPanel.open();
+      }
+    });
+  }
 
   const checks = ()=> drawer ? Array.from(drawer.querySelectorAll('input[type="checkbox"]')): [];
   const countEl = drawer?.querySelector('#tkCount');
@@ -2123,7 +2235,9 @@ setTimeout(() => {
     return el;
   }
 
-  log('wired; overlay=', !!overlay, 'drawer=', !!drawer);
+  tkPanel.open();
+
+  log('wired; overlay=', !!overlay, 'drawer=', !!drawer, 'locked=', LOCK_DRAWER_OPEN);
 })();
 </script>
 
@@ -2681,8 +2795,16 @@ How to use:
     counter:      byId('selectedCountBadge') || byId('catCounter'),
   };
 
+  const LOCK_DRAWER_OPEN = true;
+
   // Guard — if the panel isn’t on this page, stop quietly.
   if (!els.panel || !els.list) return;
+
+  if (LOCK_DRAWER_OPEN && els.closePanelBtn){
+    els.closePanelBtn.setAttribute('aria-disabled','true');
+    els.closePanelBtn.setAttribute('disabled','');
+    els.closePanelBtn.classList.add('tk-locked-close');
+  }
 
   // ----------------------------- PANEL A11Y -----------------------------
   // Avoid hiding a focused element with aria-hidden (was causing the console warning).
@@ -2693,13 +2815,22 @@ How to use:
     (els.selectAll || els.panel).focus({ preventScroll:true });
   }
   function closePanel() {
+    if (LOCK_DRAWER_OPEN) {
+      openPanel();
+      return;
+    }
     els.panel.setAttribute('aria-hidden', 'true');
     els.panel.setAttribute('hidden', '');
     // return focus to the button that opened the panel if present
     els.openPanelBtn?.focus({ preventScroll:true });
   }
   els.openPanelBtn?.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
-  els.closePanelBtn?.addEventListener('click', (e) => { e.preventDefault(); closePanel(); });
+  if (LOCK_DRAWER_OPEN) {
+    els.closePanelBtn?.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+    openPanel();
+  } else {
+    els.closePanelBtn?.addEventListener('click', (e) => { e.preventDefault(); closePanel(); });
+  }
 
   // ----------------------------- DATA LOADER ----------------------------
   // We ONLY want categories derived from kinks.json (ignore "labels").
@@ -3578,6 +3709,13 @@ No other files need to change.
   const btnGo    = $('#tkGo');
   const $count   = $('#tkCount');
   const $total   = $('#tkTotal');
+  const LOCK_DRAWER_OPEN = true;
+
+  if (LOCK_DRAWER_OPEN && btnClose){
+    btnClose.setAttribute('aria-disabled','true');
+    btnClose.setAttribute('disabled','');
+    btnClose.classList.add('tk-locked-close');
+  }
 
   if(!overlay || !drawer || !listBox) return;
 
@@ -3614,11 +3752,37 @@ No other files need to change.
   btnNone.addEventListener('click', ()=>{ $$('.tk-cat', listBox).forEach(cb=>cb.checked=false); updateCount(); });
 
   // --- Open/close helpers ---
-  function openPanel(ev){ if(ev){ev.preventDefault();} overlay.hidden=false; }
-  function closePanel(ev){ if(ev){ev.preventDefault();} overlay.hidden=true; }
-  btnClose.addEventListener('click', closePanel);
-  backdrop.addEventListener('click', closePanel);
-  document.addEventListener('keydown', e=>{ if(!overlay.hidden && e.key==='Escape') closePanel(); });
+  function openPanel(ev){
+    if(ev){ev.preventDefault();}
+    overlay.hidden=false;
+    if (LOCK_DRAWER_OPEN && btnClose){
+      btnClose.setAttribute('aria-disabled','true');
+      btnClose.setAttribute('disabled','');
+      btnClose.classList.add('tk-locked-close');
+    }
+  }
+  function closePanel(ev){
+    if(ev){ev.preventDefault();}
+    if (LOCK_DRAWER_OPEN){
+      overlay.hidden=false;
+      return;
+    }
+    overlay.hidden=true;
+  }
+  if (LOCK_DRAWER_OPEN){
+    btnClose?.addEventListener('click', openPanel);
+    backdrop.addEventListener('click', openPanel);
+    document.addEventListener('keydown', e=>{
+      if(!overlay.hidden && e.key==='Escape'){
+        e.preventDefault();
+        openPanel();
+      }
+    });
+  } else {
+    btnClose.addEventListener('click', closePanel);
+    backdrop.addEventListener('click', closePanel);
+    document.addEventListener('keydown', e=>{ if(!overlay.hidden && e.key==='Escape') closePanel(); });
+  }
 
   // --- Proceed → notify app with selected category IDs ---
   btnGo.addEventListener('click', ()=>{
@@ -3638,7 +3802,7 @@ No other files need to change.
     '#start-survey-btn': openPanel,
     '#startSurveyBtn'  : openPanel,
     '#openPanelBtn'    : openPanel,
-    '#closePanelBtn'   : closePanel
+    '#closePanelBtn'   : LOCK_DRAWER_OPEN ? openPanel : closePanel
   };
   Object.entries(alias).forEach(([sel,fn])=>{
     let el=$(sel);
@@ -3651,10 +3815,13 @@ No other files need to change.
   // Provide one always-present element with [data-action="close"] for old selectors
   if(!document.querySelector('[data-action="close"]')){
     const ghost=document.createElement('button'); ghost.hidden=true; ghost.setAttribute('data-action','close'); document.body.appendChild(ghost);
-    ghost.addEventListener('click', closePanel);
+    ghost.addEventListener('click', LOCK_DRAWER_OPEN ? openPanel : closePanel);
   }
 
   updateCount();
+  if (LOCK_DRAWER_OPEN) {
+    openPanel();
+  }
   // Expose small API (optional)
   window.tkPanel = Object.assign(window.tkPanel || {}, { open: openPanel, close: closePanel });
 })();
@@ -3755,11 +3922,29 @@ No other files need to change.
 
   document.body.appendChild(overlay);
 
+  const LOCK_DRAWER_OPEN = true;
+
   const tkPanel = {
-    open(){ overlay.hidden=false; overlay.setAttribute('data-open','true');
-            drawer?.removeAttribute('hidden'); drawer?.focus?.(); log('open'); },
-    close(){ overlay.removeAttribute('data-open'); overlay.hidden=true;
-             drawer?.setAttribute('hidden',''); log('close'); }
+    open(){
+      overlay.hidden = false;
+      overlay.setAttribute('data-open','true');
+      document.body.classList.add('tk-drawer-open');
+      drawer?.removeAttribute('hidden');
+      drawer?.focus?.();
+      log('open');
+    },
+    close(reason){
+      if (LOCK_DRAWER_OPEN) {
+        log('close blocked; drawer locked open', reason || '');
+        this.open();
+        return;
+      }
+      overlay.removeAttribute('data-open');
+      overlay.hidden = true;
+      document.body.classList.remove('tk-drawer-open');
+      drawer?.setAttribute('hidden','');
+      log('close');
+    }
   };
   window.tkPanel = Object.assign(window.tkPanel || {}, tkPanel);
 
@@ -3782,8 +3967,22 @@ No other files need to change.
 
   const closeX = q('[data-action="close"]') || q('#tkCloseX') ||
                  ensureGhost('[data-action="close"]','button',{type:'button'});
-  closeX?.addEventListener('click', e=>{e.preventDefault(); tkPanel.close();}, {passive:false});
-  overlay.addEventListener('click', e=>{ if (e.target === overlay) tkPanel.close(); });
+  if (LOCK_DRAWER_OPEN) {
+    closeX?.setAttribute('aria-disabled','true');
+    closeX?.setAttribute('disabled','');
+    closeX?.classList.add('tk-locked-close');
+  }
+  closeX?.addEventListener('click', e=>{e.preventDefault(); tkPanel.close('close button');}, {passive:false});
+  if (!LOCK_DRAWER_OPEN) {
+    overlay.addEventListener('click', e=>{ if (e.target === overlay) tkPanel.close('overlay click'); });
+  } else {
+    overlay.addEventListener('click', e=>{
+      if (e.target === overlay) {
+        e.preventDefault();
+        tkPanel.open();
+      }
+    });
+  }
 
   const checks = ()=> drawer ? Array.from(drawer.querySelectorAll('input[type="checkbox"]')): [];
   const countEl = drawer?.querySelector('#tkCount');
@@ -3818,7 +4017,9 @@ No other files need to change.
     return el;
   }
 
-  log('wired; overlay=', !!overlay, 'drawer=', !!drawer);
+  tkPanel.open();
+
+  log('wired; overlay=', !!overlay, 'drawer=', !!drawer, 'locked=', LOCK_DRAWER_OPEN);
 })();
 </script>
 
@@ -3860,6 +4061,7 @@ No other files need to change.
    ------------------------------------------------------------- */
 (function () {
   const html = document.documentElement;
+  const LOCK_DRAWER_OPEN = true;
 
   // 1) Find an existing category panel (support multiple markups)
   let panel =
@@ -3902,9 +4104,14 @@ No other files need to change.
       '[autofocus],button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'
     );
     try { first && first.focus({ preventScroll: true }); } catch {}
+    if (LOCK_DRAWER_OPEN) disableCloseNodes();
   }
 
   function closePanel() {
+    if (LOCK_DRAWER_OPEN) {
+      openPanel();
+      return;
+    }
     panel.classList.remove('tk-show');
     html.classList.remove('tk-panel-open');
     panel.setAttribute('aria-hidden', 'true');
@@ -3914,6 +4121,15 @@ No other files need to change.
     if (fallbackOverlay && !fallbackOverlay.hasAttribute('hidden')) {
       fallbackOverlay.setAttribute('hidden', '');
     }
+  }
+
+  function disableCloseNodes() {
+    if (!LOCK_DRAWER_OPEN) return;
+    panel.querySelectorAll('[data-action="close"], [aria-label="Close"], .tk-close').forEach(node => {
+      node.setAttribute('aria-disabled', 'true');
+      node.setAttribute('disabled', '');
+      node.classList.add('tk-locked-close');
+    });
   }
 
   // 2) Wire *all* “Start Survey” triggers (explicit selectors + text fallback)
@@ -3974,14 +4190,29 @@ No other files need to change.
   }
 
   // 4) Close mechanics: ESC + any element with [data-action="close"] (or aria-label Close)
-  window.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && panel.classList.contains('tk-show')) { e.preventDefault(); closePanel(); }
-  });
+  if (LOCK_DRAWER_OPEN) {
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && panel.classList.contains('tk-show')) { e.preventDefault(); openPanel(); }
+    });
 
-  panel.addEventListener('click', e => {
-    const closer = e.target.closest('[data-action="close"],[aria-label="Close"],.tk-close');
-    if (closer) { e.preventDefault(); closePanel(); }
-  });
+    panel.addEventListener('click', e => {
+      const closer = e.target.closest('[data-action="close"],[aria-label="Close"],.tk-close');
+      if (closer) { e.preventDefault(); openPanel(); }
+    });
+  } else {
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && panel.classList.contains('tk-show')) { e.preventDefault(); closePanel(); }
+    });
+
+    panel.addEventListener('click', e => {
+      const closer = e.target.closest('[data-action="close"],[aria-label="Close"],.tk-close');
+      if (closer) { e.preventDefault(); closePanel(); }
+    });
+  }
+
+  if (LOCK_DRAWER_OPEN) {
+    openPanel();
+  }
 })();
 </script>
 
