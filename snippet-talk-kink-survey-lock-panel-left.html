@@ -1,150 +1,114 @@
-<!-- Talk-Kink: Lock category panel in left dock on load -->
-<style id="tk-lock-panel-left">
-  #tkDock {
-    display: grid;
-    grid-template-columns: 420px 1fr;
-    gap: 24px;
-    min-height: 100vh;
-    align-items: start;
-    padding: 24px clamp(12px, 4vw, 48px);
-    box-sizing: border-box;
-  }
-  #tkTitleWrap {
-    padding: 32px clamp(12px, 4vw, 48px) 8px;
-  }
-  #tkDock .tk-left {
-    max-height: calc(100vh - 120px);
-    overflow: auto;
-  }
-  #tkDock .tk-right {
-    min-height: 1px;
-  }
-  #categorySurveyPanel,
-  aside.category-panel {
-    position: static !important;
-    inset: auto !important;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    z-index: 1 !important;
-    max-width: 100% !important;
-  }
-  #tkOverlay,
-  .tk-overlay {
-    display: none !important;
-    pointer-events: none !important;
-  }
-  body.tk-panel-open {
-    overflow: auto !important;
-  }
-  [data-tk-landing="removed"] {
-    display: none !important;
-  }
-  @media (max-width: 980px) {
-    #tkDock {
-      grid-template-columns: minmax(320px, 1fr);
-    }
-  }
-</style>
-<script id="tk-lock-panel-left-js">
+<!-- Talk-Kink: Hard lock category panel pinned on the left -->
+<script id="tk-hard-lock-panel-left-js">
+/* === TK HARD LOCK: show + pin category panel on the left ================= */
 (() => {
-  const log = (...a) => console.log('[TK panel]', ...a);
-  const $ = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const log = (...a)=>console.log('[TK lock]',...a);
 
-  const findPanel = () =>
-    $('#categorySurveyPanel') ||
-    $('aside.category-panel') ||
-    $('aside.categorySurveyPanel') ||
-    $$('aside,div,section').find(n =>
-      /category.*panel/i.test(n.className || '') ||
-      /category.*panel/i.test(n.id || '')
-    );
+  // 1) Layout rules: fixed left column for the panel, push content right.
+  const css = `
+    :root{ --tk-left:420px; --tk-pad:24px; --tk-top:96px }
+    body{
+      margin-left:calc(var(--tk-left) + var(--tk-pad)) !important;
+      transition:margin-left .15s ease;
+      overflow:auto !important;
+    }
+    #tkPinnedPanel{
+      position:fixed !important;
+      top:var(--tk-top) !important;
+      left:var(--tk-pad) !important;
+      width:var(--tk-left) !important;
+      height:calc(100vh - (var(--tk-top) + 24px)) !important;
+      overflow:auto !important;
+      display:block !important;
+      visibility:visible !important;
+      opacity:1 !important;
+      pointer-events:auto !important;
+      z-index:2147483000 !important;
+      transform:none !important;
+    }
+    /* nuke overlays/scrims */
+    #tkOverlay,.tk-overlay,[data-tk="overlay"],.modal-backdrop{ display:none !important; pointer-events:none !important }
+    body.tk-panel-open, body.panel-open, body.modal-open{ overflow:auto !important }
+    /* ensure only the panel has Start Survey */
+    a[href*="kinksurvey"] .btn-start, .start-survey, [data-role="start-survey"]{ display:none !important }
+  `;
+  const style=document.createElement('style'); style.textContent=css; document.head.append(style);
 
-  const killOverlay = () => {
-    $('#tkOverlay')?.remove();
-    $$('.tk-overlay')?.forEach(n => n.remove());
-    document.body.classList.remove('tk-panel-open', 'panel-open', 'modal-open');
+  // 2) Try to open the panel using site helpers if present.
+  const openPanel = () => {
+    try { if (typeof window.tkOpenPanel === 'function') tkOpenPanel(); } catch(e){}
+    // also click any "Start Survey" triggers the site wired
+    document.querySelectorAll('#startSurveyBtn,[data-action="startSurvey"],#start-survey-btn')
+      .forEach(el => el.click());
   };
 
-  const ensureDock = () => {
-    if (!$('#tkTitleWrap')) {
-      const wrap = document.createElement('div');
-      wrap.id = 'tkTitleWrap';
-      const h1 = document.querySelector('h1, .page-title, [data-title]');
-      if (h1) {
-        h1.before(wrap);
-        wrap.appendChild(h1);
-      } else {
-        wrap.innerHTML = '<h1>Talk Kink Survey</h1>';
-        document.body.prepend(wrap);
+  // 3) Find the actual panel in the DOM.
+  const findPanel = () => {
+    const picks = [
+      '#categorySurveyPanel',
+      'aside.category-panel',
+      'aside[id*="category"][class*="panel"]',
+      '[aria-controls="categorySurveyPanel"]',
+      '[data-panel="category"]',
+      '.category-panel'
+    ];
+    for (const sel of picks) {
+      const hit = document.querySelector(sel);
+      if (hit) {
+        // If selector landed on a control, jump to the panel
+        if (hit.getAttribute('aria-controls')) {
+          const id = hit.getAttribute('aria-controls');
+          const tgt = document.getElementById(id);
+          if (tgt) return tgt;
+        }
+        // Otherwise use the element itself (prefer the panel container)
+        return hit.closest('aside,section,div') || hit;
       }
     }
-    if (!$('#tkDock')) {
-      const dock = document.createElement('section');
-      dock.id = 'tkDock';
-      dock.innerHTML = '<div class="tk-left"></div><div class="tk-right"></div>';
-      $('#tkTitleWrap').after(dock);
-    }
-    return { left: $('#tkDock .tk-left'), right: $('#tkDock .tk-right') };
+    // very broad fallback
+    return Array.from(document.querySelectorAll('aside,section,div'))
+      .find(n => /category.*panel/i.test(n.id||'') || /category.*panel/i.test(n.className||''));
   };
 
-  const hideOldLanding = () => {
-    const all = $$('a,button,[role="button"]');
-    const by = t => all.find(b => (b.textContent || '').trim().toLowerCase() === t);
-    const start = by('start survey') || all.find(b => /start\s*survey/i.test(b.textContent || ''));
-    const compat = by('compatibility page') || all.find(b => /compatibility/i.test(b.textContent || ''));
-    const analysis = by('individual kink analysis') || all.find(b => /individual.*analysis/i.test(b.textContent || ''));
-    const wrappers = new Set(
-      [start, compat, analysis]
-        .filter(Boolean)
-        .map(b => b.closest('section,main,.landing-wrapper,.stack,.hero,.container,.row,.col,div'))
-        .filter(Boolean)
-    );
-    wrappers.forEach(w => w.setAttribute('data-tk-landing', 'removed'));
+  // 4) Remove overlay/scrim + body classes that block interaction.
+  const neuterOverlay = () => {
+    document.querySelector('#tkOverlay')?.remove();
+    document.querySelectorAll('.tk-overlay,[data-tk="overlay"],.modal-backdrop').forEach(n=>n.remove());
+    document.body.classList.remove('tk-panel-open','panel-open','modal-open');
   };
 
-  const lockPanel = () => {
-    killOverlay();
-    const panel = findPanel();
-    if (!panel) {
-      log('panel not found yet');
-      return false;
-    }
-    const { left } = ensureDock();
-    if (panel.parentNode !== left) {
-      left.appendChild(panel);
-      Object.assign(panel.style, {
-        position: 'static',
-        display: 'block',
-        visibility: 'visible',
-        opacity: '1',
-        pointerEvents: 'auto',
-        zIndex: '1'
-      });
-      log('panel docked left');
-    }
+  // 5) Pin the panel to the left and keep it there.
+  const pinPanel = () => {
+    const p = findPanel();
+    if (!p) return false;
+
+    neuterOverlay();
+
+    if (!document.body.contains(p)) document.body.appendChild(p); // reclaim from portals
+    p.id = 'tkPinnedPanel';
+    Object.assign(p.style,{
+      position:'fixed', left:'24px', top:'96px',
+      width:'420px', height:'calc(100vh - 120px)',
+      overflow:'auto', display:'block', visibility:'visible',
+      opacity:'1', zIndex:'2147483000', transform:'none'
+    });
+
+    log('panel pinned', p);
     return true;
   };
 
-  const run = () => {
-    hideOldLanding();
-    ensureDock();
-    lockPanel();
-  };
-  run();
+  // Run now + retry a bit for late hydration, then watch for DOM changes.
+  openPanel();
+  let tries = 0, max = 60;
+  const timer = setInterval(() => { if (pinPanel() || ++tries >= max) clearInterval(timer); }, 120);
 
-  let tries = 0;
-  const maxTries = 40;
-  const tick = setInterval(() => {
-    if (lockPanel() || ++tries >= maxTries) clearInterval(tick);
-  }, 150);
+  new MutationObserver(() => pinPanel())
+    .observe(document.documentElement, {childList:true, subtree:true, attributes:true});
 
-  const mo = new MutationObserver(() => lockPanel());
-  mo.observe(document.documentElement, { childList: true, subtree: true });
-
-  window.addEventListener('popstate', () => setTimeout(run, 50));
-  window.addEventListener('hashchange', () => setTimeout(run, 50));
+  // expose a tiny probe if you want to check
+  window.tkLockProbe = () => ({
+    pinned: !!document.querySelector('#tkPinnedPanel'),
+    overlay: !!document.querySelector('#tkOverlay') || !!document.querySelector('.tk-overlay')
+  });
 })();
 </script>
