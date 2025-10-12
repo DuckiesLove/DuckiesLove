@@ -1,159 +1,146 @@
-<!-- TalkKink: Docked Category Panel (one-shot) -->
+<!-- TalkKink: Docked Category Panel (persistent dock) -->
 <script>
 (() => {
-/* ====================== TalkKink: Docked Category Panel (one-shot) ====================== */
-/* Adds the left-docked category panel, shifts page right, wires Select/Deselect + Start.  */
-/* Safe to run multiple times; it won't duplicate itself.                                   */
+const DOCK_W = 'clamp(360px,30vw,520px)';
+const PANEL_ID = 'categorySurveyDock';
+const STORE = '__TK_SELECTED_CATEGORIES';
 
-const PANEL_ID = 'categorySurveyPanel';
-const STORAGE_KEY = '__TK_SELECTED_CATEGORIES';
-
-if (!document.querySelector(`#${PANEL_ID}`)) {
-  // ----- Styles (docked layout + panel) -----
-  const style = document.createElement('style');
-  style.textContent = `
-    :root { --tk-teal: var(--teal, #00e5ff); }
-    body.tk-docked { margin-left: clamp(360px, 32vw, 520px) !important; transition: margin-left .15s ease; }
-    #${PANEL_ID}{ position:fixed; inset:0; display:none; z-index:9999; background:rgba(0,0,0,0); }
-    #${PANEL_ID}.visible{ display:block; }
-    #${PANEL_ID} .panel{
-      position:fixed; top:88px; left:24px; right:auto; bottom:24px;
-      width:clamp(360px,30vw,520px); height:calc(100vh - 112px);
-      overflow:auto; padding:24px; border:2px solid var(--tk-teal);
-      border-radius:16px; background:#000; color:#fff; box-shadow:0 12px 40px rgba(0,0,0,.6);
-    }
-    #categoryChecklist { display:grid; gap:10px; grid-template-columns:1fr; }
-    #categoryChecklist label{
-      display:flex; align-items:center; gap:10px; padding:10px 12px;
-      border:1px solid #2a2a2a; border-radius:12px; background:#090909;
-    }
-    #categoryChecklist input[type="checkbox"]{ width:18px; height:18px; }
-    .themed-button { cursor:pointer; border:1px solid var(--tk-teal); color:var(--tk-teal); background:#000; border-radius:12px; padding:8px 12px; }
-    .themed-button:focus-visible{ outline:2px solid var(--tk-teal); outline-offset:2px; }
-    /* Hide any legacy Start buttons on the page */
-    .start-survey,[data-role="start-survey"],.btn-start { display:none !important; }
-  `;
-  document.head.appendChild(style);
-
-  // ----- Panel markup -----
-  const wrap = document.createElement('aside');
-  wrap.id = PANEL_ID;
-  wrap.setAttribute('role','dialog');
-  wrap.setAttribute('aria-modal','true');
-  wrap.setAttribute('aria-hidden','true');
-  wrap.setAttribute('data-testid','select-categories-panel');
-  wrap.innerHTML = `
-    <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <h2 style="margin:0">Select categories</h2>
-        <button id="btnClosePanel" class="themed-button" aria-label="Close">Close ✕</button>
-      </div>
-
-      <div style="display:flex;gap:12px;align-items:center;margin:6px 0 14px">
-        <button id="btnSelectAll"   class="themed-button">Select All</button>
-        <button id="btnDeselectAll" class="themed-button">Deselect All</button>
-        <span id="selectedCountBadge" style="opacity:.7">0 selected / 0 total</span>
-      </div>
-
-      <div id="categoryChecklist" aria-live="polite" aria-busy="true"></div>
-
-      <div style="margin-top:16px;display:flex;gap:12px">
-        <button id="beginSurveyFromPanel" class="themed-button" style="background:var(--tk-teal);color:#000;border-color:var(--tk-teal);font-weight:700">
-          Start Survey
-        </button>
-      </div>
-    </div>
-  `;
-  document.body.prepend(wrap);
+if (document.getElementById(PANEL_ID)) {
+  console.log('[TK] dock already present');
+  return;
 }
 
-// ----- Dock + show panel -----
+const css = `
+:root{--tk-teal:var(--teal,#00e5ff);--tk-dock:${DOCK_W}}
+body.tk-docked{margin-left:var(--tk-dock)!important;transition:margin-left .15s ease}
+#${PANEL_ID}{position:fixed;inset:0;z-index:100000;pointer-events:none}
+#${PANEL_ID} .dock{position:fixed;top:88px;left:24px;bottom:24px;width:var(--tk-dock);max-width:520px;min-width:320px;
+  overflow:auto;padding:24px;border:2px solid var(--tk-teal);border-radius:16px;background:#000;color:#fff;
+  box-shadow:0 12px 40px rgba(0,0,0,.6);pointer-events:auto}
+#${PANEL_ID} .hdr{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
+#${PANEL_ID} .btn{cursor:pointer;border:1px solid var(--tk-teal);color:var(--tk-teal);background:#000;
+  border-radius:12px;padding:8px 12px}
+#${PANEL_ID} .btn.primary{background:var(--tk-teal);color:#000;font-weight:700}
+#${PANEL_ID} .row{display:flex;gap:12px;align-items:center;margin:8px 0 14px}
+#${PANEL_ID} .list{display:grid;gap:10px}
+#${PANEL_ID} label{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #2a2a2a;border-radius:12px;background:#090909}
+#${PANEL_ID} input[type=checkbox]{width:18px;height:18px}
+/* hide any legacy “start survey” buttons on the page itself */
+.start-survey,[data-role="start-survey"],.btn-start{display:none!important}
+`;
+const style = document.createElement('style');
+style.textContent = css;
+document.head.appendChild(style);
 document.body.classList.add('tk-docked');
-const panel = document.getElementById(PANEL_ID);
-panel.classList.add('visible');
-panel.setAttribute('aria-hidden','false');
 
-// ----- Helpers -----
-const $ = sel => panel.querySelector(sel);
-const $$ = sel => Array.from(panel.querySelectorAll(sel));
-const getChosen = () => new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
-const setChosen = ids => localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(new Set(ids))));
-const updateBadge = () => {
+const host = document.createElement('aside');
+host.id = PANEL_ID;
+host.setAttribute('role', 'dialog');
+host.setAttribute('aria-modal', 'true');
+host.innerHTML = `
+  <div class="dock" aria-label="Category selection">
+    <div class="hdr">
+      <h2 style="margin:0">Select categories</h2>
+      <button class="btn" id="tkCloseDock" aria-label="Close">Close ✕</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="tkAll">Select All</button>
+      <button class="btn" id="tkNone">Deselect All</button>
+      <span id="tkCount" style="opacity:.75">0 selected / 0 total</span>
+    </div>
+    <div id="tkList" class="list" aria-live="polite" aria-busy="true">
+      <div style="opacity:.8">Loading categories…</div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:12px">
+      <button class="btn primary" id="tkStart">Start Survey</button>
+    </div>
+  </div>`;
+document.body.prepend(host);
+
+const $ = sel => host.querySelector(sel);
+const $$ = sel => Array.from(host.querySelectorAll(sel));
+const badge = $('#tkCount');
+const list = $('#tkList');
+
+const getSel = () => new Set(JSON.parse(localStorage.getItem(STORE) || '[]'));
+const setSel = ids => localStorage.setItem(STORE, JSON.stringify(Array.from(new Set(ids))));
+const refresh = () => {
   const total = $$('input[type=checkbox]').length;
   const selected = $$('input[type=checkbox]:checked').length;
-  $('#selectedCountBadge').textContent = `${selected} selected / ${total} total`;
+  badge.textContent = `${selected} selected / ${total} total`;
 };
 
-// ----- Load categories (prefers tkLoadKinkData if present) -----
-(async () => {
-  const list = $('#categoryChecklist');
-  if (!list) return;
-
-  const normalize = a => (a||[]).map(x=>({
-    id: String(x.id ?? x.value ?? x.slug ?? x.code ?? x.name).trim(),
-    name: String(x.name ?? x.title ?? x.label ?? x.slug ?? x.code ?? x.id).trim()
-  })).filter(x=>x.id && x.name);
-
-  let cats = [];
-  try {
-    if (typeof window.tkLoadKinkData === 'function') {
-      const data = await window.tkLoadKinkData();
-      cats = normalize(data?.categories ?? data?.cats ?? data?.kinks?.categories);
-    }
-  } catch(e){ console.warn('[TK] Category load failed:', e); }
-
-  // Fallback: leave empty panel if none available
+const fill = cats => {
   list.innerHTML = '';
-  const chosen = getChosen();
+  const sel = getSel();
   const frag = document.createDocumentFragment();
-
   for (const c of cats) {
-    const idAttr = `cat_${c.id.replace(/[^a-z0-9_-]/gi,'_')}`;
+    const id = String(c.id || c.value || c.slug || c.code || c.name || '').trim();
+    const name = String(c.name || c.title || c.label || c.slug || c.code || id || '').trim();
+    if (!id || !name) continue;
+    const safe = `tkc_${id.replace(/[^a-z0-9_-]/gi, '_')}`;
     const label = document.createElement('label');
-    label.innerHTML = `<input id="${idAttr}" type="checkbox" value="${c.id}" ${chosen.has(c.id)?'checked':''}><span>${c.name}</span>`;
+    label.innerHTML = `<input id="${safe}" type="checkbox" value="${id}" ${sel.has(id)?'checked':''}><span>${name}</span>`;
     label.querySelector('input').addEventListener('change', () => {
-      const ids = $$('input[type=checkbox]:checked').map(n=>n.value);
-      setChosen(ids);
-      updateBadge();
+      setSel($$('input[type=checkbox]:checked').map(n => n.value));
+      refresh();
     });
     frag.appendChild(label);
   }
   list.appendChild(frag);
-  updateBadge();
+  refresh();
+};
 
-  // Select/Deselect all
-  $('#btnSelectAll')?.addEventListener('click', () => {
-    $$('input[type=checkbox]').forEach(n=>n.checked=true);
-    setChosen($$('input[type=checkbox]:checked').map(n=>n.value));
-    updateBadge();
-  });
-  $('#btnDeselectAll')?.addEventListener('click', () => {
-    $$('input[type=checkbox]').forEach(n=>n.checked=false);
-    setChosen([]);
-    updateBadge();
-  });
+(async () => {
+  let cats = [];
+  try {
+    if (typeof window.tkLoadKinkData === 'function') {
+      const data = await window.tkLoadKinkData();
+      cats = (data && Array.isArray(data.categories) ? data.categories : (data?.kinks?.categories || data?.cats) || []);
+    } else if (Array.isArray(window.__TK_CATS)) {
+      cats = window.__TK_CATS;
+    }
+  } catch (e) {
+    console.warn('[TK] category load failed', e);
+  }
 
-  // Start Survey from the panel
-  $('#beginSurveyFromPanel')?.addEventListener('click', () => {
-    const ids = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids } }));
-    // Fallback navigation if your runner doesn't start it:
-    setTimeout(() => {
-      if (!window.__TK_SURVEY_STARTED) {
-        const u = new URL('/kinksurvey/', location.origin);
-        u.searchParams.set('run','1');
-        if (ids.length) u.searchParams.set('cats', ids.join(','));
-        location.assign(u.toString());
-      }
-    }, 120);
-  });
-
-  // Optional close (keeps dock unless you also remove the class)
-  $('#btnClosePanel')?.addEventListener('click', () => {
-    panel.classList.remove('visible');
-    panel.setAttribute('aria-hidden','true');
-    document.body.classList.remove('tk-docked');
-  });
+  if (!cats.length) {
+    list.innerHTML = '<div style="opacity:.8">No category feed detected. Panel is locked in; you can still use Select/Deselect later when data loads.</div>';
+  } else {
+    fill(cats);
+  }
 })();
+
+$('#tkAll').addEventListener('click', () => {
+  $$('input[type=checkbox]').forEach(n => (n.checked = true));
+  setSel($$('input[type=checkbox]:checked').map(n => n.value));
+  refresh();
+});
+
+$('#tkNone').addEventListener('click', () => {
+  $$('input[type=checkbox]').forEach(n => (n.checked = false));
+  setSel([]);
+  refresh();
+});
+
+$('#tkStart').addEventListener('click', () => {
+  const ids = JSON.parse(localStorage.getItem(STORE) || '[]');
+  document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids } }));
+  setTimeout(() => {
+    if (!window.__TK_SURVEY_STARTED) {
+      const u = new URL('/kinksurvey/', location.origin);
+      u.searchParams.set('run', '1');
+      if (ids.length) u.searchParams.set('cats', ids.join(','));
+      location.assign(u.toString());
+    }
+  }, 120);
+});
+
+$('#tkCloseDock').addEventListener('click', () => {
+  document.body.classList.remove('tk-docked');
+  host.remove();
+});
+
+console.log('[TK] docked panel injected & locked');
 })();
 </script>
