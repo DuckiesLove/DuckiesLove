@@ -807,6 +807,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const byText = (root, sel, rx) => $$(sel, root).find(n => rx.test((n.textContent || '').trim()));
+  const isFallback = (node) => !!(node && node.dataset && node.dataset.tkFallback);
 
   // Create the dock below the page title
   const dock = document.createElement('div');
@@ -838,7 +839,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
   // Neuter any existing overlay so it can’t block clicks
   const overlay = $('#tkOverlay') || $('.tk-overlay');
-  if (overlay) {
+  if (overlay && !isFallback(overlay)) {
     overlay.style.pointerEvents = 'none';
     overlay.style.opacity = '0';
     overlay.style.visibility = 'visible';
@@ -855,13 +856,15 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   function findPanel() {
     for (const s of panelSelectors) {
       const el = $(s);
-      if (!el) continue;
+      if (!el || isFallback(el) || !el.isConnected) continue;
       if (el.matches('[aria-controls]')) {
         const id = el.getAttribute('aria-controls');
         const p = id && document.getElementById(id);
-        if (p) return p;
+        if (p && !isFallback(p)) return p;
       }
-      return el.closest('aside') || el;
+      const resolved = el.closest('aside') || el;
+      if (isFallback(resolved)) continue;
+      return resolved;
     }
     return null;
   }
