@@ -736,6 +736,184 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   <noscript><p class="ksvFallbackNote">JavaScript is required to load the category list and run the survey.</p></noscript>
 </section>
 
+<!-- ===== TK: Docked left panel + 1/4 right rail (Start only in panel) ===== -->
+<style>
+  /* two-column shell: ~75% left (panel) + ~25% right (buttons) */
+  #tkDock {
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    gap: clamp(16px, 2.4vw, 28px);
+    width: min(1400px, 100%);
+    margin: 0 auto;
+    padding: clamp(12px, 2vw, 24px);
+    box-sizing: border-box;
+  }
+  /* left: locked (sticky), scrolls inside */
+  #tkDock .tk-left {
+    position: sticky;
+    top: 0;
+    height: calc(100vh - 24px);
+    overflow: auto;
+    border: 2px solid rgba(0, 255, 255, .35);
+    border-radius: 16px;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  /* right rail */
+  #tkDock .tk-right {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(18px, 2.4vw, 26px);
+  }
+  #tkDock .tk-right .tk-rail {
+    display: grid;
+    gap: clamp(18px, 2.2vw, 24px);
+  }
+  #tkDock .tk-right .tk-rail > * {
+    width: 100%;
+  }
+  #tkDock .tk-meta {
+    margin-top: 8px;
+    opacity: .8;
+    text-align: center;
+  }
+
+  /* neuter any legacy full-screen overlay/scrim */
+  #tkOverlay,
+  .tk-overlay {
+    pointer-events: none !important;
+    opacity: 0 !important;
+    visibility: visible !important;
+  }
+
+  /* small screens: stack (panel first, then rail) */
+  @media (max-width: 980px) {
+    #tkDock {
+      grid-template-columns: 1fr;
+    }
+    #tkDock .tk-left {
+      height: auto;
+      max-height: none;
+    }
+  }
+</style>
+
+<script>
+/* eslint-disable */
+(function () {
+  if (window.__tkDockRail) return;
+  window.__tkDockRail = true;
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const byText = (root, sel, rx) => $$(sel, root).find(n => rx.test((n.textContent || '').trim()));
+
+  // Create the dock below the page title
+  const dock = document.createElement('div');
+  dock.id = 'tkDock';
+  const L = document.createElement('div');
+  L.className = 'tk-left';
+  const R = document.createElement('div');
+  R.className = 'tk-right';
+  const rail = document.createElement('div');
+  rail.className = 'tk-rail';
+  R.appendChild(rail);
+  dock.append(L, R);
+
+  const title = byText(document.body, 'h1,h2,.title,.hero', /talk\s*kink\s*survey/i) || document.body.firstElementChild;
+  (title && title.parentNode ? title.parentNode : document.body)
+    .insertBefore(dock, (title ? title.nextSibling : document.body.firstChild));
+
+  // Find buttons by their labels
+  const findBtn = label => {
+    const rx = new RegExp(label, 'i');
+    return $$('button,a[role="button"],a,div[role="button"]').find(b => rx.test((b.textContent || '').trim()));
+  };
+  const btnStart = findBtn('^\s*Start\s*Survey\s*$');
+  const btnCompat = findBtn('compatibility\s*page');
+  const btnIndiv = findBtn('individual\s*kink\s*analysis');
+
+  // Right rail gets only the other two buttons
+  [btnCompat, btnIndiv].forEach(b => b && rail.appendChild(b));
+
+  // Neuter any existing overlay so it can’t block clicks
+  const overlay = $('#tkOverlay') || $('.tk-overlay');
+  if (overlay) {
+    overlay.style.pointerEvents = 'none';
+    overlay.style.opacity = '0';
+    overlay.style.visibility = 'visible';
+  }
+
+  // Locate the real categories panel (hydration can be async)
+  const panelSelectors = [
+    '#categorySurveyPanel',
+    '.category-panel',
+    'aside.category-panel',
+    '[aria-controls="categorySurveyPanel"]',
+    '.category-list'
+  ];
+  function findPanel() {
+    for (const s of panelSelectors) {
+      const el = $(s);
+      if (!el) continue;
+      if (el.matches('[aria-controls]')) {
+        const id = el.getAttribute('aria-controls');
+        const p = id && document.getElementById(id);
+        if (p) return p;
+      }
+      return el.closest('aside') || el;
+    }
+    return null;
+  }
+  function undockCSS(panel) {
+    panel.removeAttribute('aria-hidden');
+    panel.removeAttribute('hidden');
+    panel.removeAttribute('inert');
+    panel.style.removeProperty('position');
+    panel.style.removeProperty('inset');
+    panel.style.removeProperty('left');
+    panel.style.removeProperty('top');
+    panel.style.removeProperty('right');
+    panel.style.removeProperty('bottom');
+    panel.style.removeProperty('transform');
+    panel.style.display = 'block';
+  }
+
+  function wirePanel(panel) {
+    undockCSS(panel);
+    if (!L.contains(panel)) L.appendChild(panel);
+
+    // Ensure Start Survey exists only in the panel:
+    // if there’s a Start button elsewhere, hide it.
+    if (btnStart && !panel.contains(btnStart)) {
+      btnStart.style.display = 'none';
+      btnStart.setAttribute('aria-hidden', 'true');
+      const parent = btnStart.closest('nav, .ksvButtons, .tk-start-shell');
+      if (parent) {
+        const visibleActions = parent.querySelectorAll('a,button,[role="button"]').length;
+        if (visibleActions <= 1) {
+          parent.style.display = 'none';
+        }
+      }
+    }
+  }
+
+  // Retry loop while app hydrates the panel
+  let tries = 0;
+  (function wait() {
+    const p = findPanel();
+    if (p) {
+      wirePanel(p);
+    } else if (tries++ < 120) {
+      setTimeout(wait, 250); // ~30s max
+    } else {
+      L.innerHTML = '<div style="opacity:.75">Categories panel not found.</div>';
+    }
+  })();
+})();
+</script>
+<!-- =========================== /TK Dock Rail =========================== -->
+
 <main id="content" class="content full">
   <aside id="categorySurveyPanel"
          class="category-panel tk-wide-panel"
@@ -3706,6 +3884,30 @@ No other files need to change.
   /* Guard: install once */
   if (window.__tkPortalInstalled) return;
   window.__tkPortalInstalled = true;
+
+  if (document.getElementById('tkDock')) {
+    window.tkOpenPanel = function tkOpenPanel() {
+      const panel = document.querySelector('#categorySurveyPanel, .category-panel');
+      if (!panel) return;
+      panel.focus?.({ preventScroll: true });
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    window.tkClosePanel = function tkClosePanel() {
+      /* panel is inline; nothing to close */
+    };
+    window.tkProbe = function tkProbe() {
+      const panel = document.querySelector('#categorySurveyPanel, .category-panel');
+      if (!panel) return { panel: false };
+      const rect = panel.getBoundingClientRect();
+      return {
+        panel: true,
+        rect: { width: Math.round(rect.width), height: Math.round(rect.height) },
+        docked: panel.closest('#tkDock') !== null
+      };
+    };
+    console.log('[TK] Dock layout active; skipping portal overlay.');
+    return;
+  }
 
   const Z = 2147483000; // max-ish z-index so we're always above everything.
 
