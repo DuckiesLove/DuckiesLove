@@ -575,16 +575,41 @@
     const anchor = title?.parentNode || DOC.body;
     anchor.insertBefore(dock, title ? title.nextSibling : anchor.firstChild);
 
-    // Move the three hero buttons (Start/Compatibility/IKA) to the right column
-    const actions = $$('a,button,[role="button"]', anchor)
-      .filter(btn => !btn.closest('#categorySurveyPanel, .category-panel'))
-      .filter(btn => hasText(btn, /^(start\s*survey|compatibility\s*page|individual\s*kink\s*analysis)$/i));
-    actions.forEach(btn => {
-      const movable = btn.closest('a,button,[role="button"]') || btn;
-      if (movable && movable.parentNode !== right) right.appendChild(movable);
-    });
-
     return dock;
+  }
+
+  function collectLandingButtons(){
+    const pool = $$('a,button,[role="button"]', DOC.body)
+      .filter(btn => !btn.closest('#categorySurveyPanel, .category-panel, #tkDock'));
+    const grab = rx => pool.find(btn => hasText(btn, rx));
+    return {
+      start: grab(/^start\s*survey$/i),
+      compatibility: grab(/compatibility\s*page/i),
+      analysis: grab(/individual\s*kink\s*analysis/i)
+    };
+  }
+
+  function moveUtilityButtons(buttons){
+    const right = $('#tkDock .tk-right');
+    if (!right) return;
+    if (buttons.compatibility && buttons.compatibility.parentNode !== right) right.appendChild(buttons.compatibility);
+    if (buttons.analysis && buttons.analysis.parentNode !== right) right.appendChild(buttons.analysis);
+  }
+
+  function hideLegacyLanding(buttons){
+    const wrappers = new Set([buttons.start, buttons.compatibility, buttons.analysis]
+      .filter(Boolean)
+      .map(btn => btn.closest('section, main, .landing-wrapper, .stack, .hero, .container, .row, .col, div'))
+      .filter(Boolean)
+      .filter(wrapper => !wrapper.closest('#tkDock')));
+    wrappers.forEach(wrapper => wrapper.setAttribute('data-tk-landing', 'removed'));
+    if (buttons.start) buttons.start.style.display = 'none';
+  }
+
+  function tidyLanding(){
+    const buttons = collectLandingButtons();
+    moveUtilityButtons(buttons);
+    hideLegacyLanding(buttons);
   }
 
   function pickPanel(){
@@ -654,6 +679,7 @@
   function boot(){
     injectCSS();
     buildDock();
+    tidyLanding();
     openPanelIfAvailable();
 
     if (ensurePanel()) return;
