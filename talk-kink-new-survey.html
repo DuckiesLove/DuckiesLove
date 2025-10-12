@@ -22,14 +22,65 @@
   /* WIDER PAGE */
   .wrap{max-width:1440px;margin:28px auto;padding:0 20px}
 
+  /* Layout shell */
+  #tkPortal {
+    display: grid;
+    grid-template-columns: minmax(320px, 420px) 1fr;
+    gap: clamp(16px, 2.4vw, 28px);
+    align-items: start;
+    width: min(1400px, 100%);
+    margin: 0 auto;
+    padding: clamp(12px, 2vw, 24px);
+    box-sizing: border-box;
+  }
+  .tk-left {
+    min-height: 60vh;
+    max-height: calc(100vh - 9rem);
+    overflow: auto;
+    border: 2px solid rgba(0,255,255,.35);
+    border-radius: 16px;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  .tk-right {
+    display: grid;
+    justify-items: center;
+    gap: clamp(18px, 2.8vw, 28px);
+  }
+
+  .tk-right .tk-stack {
+    display: grid;
+    gap: clamp(18px, 2.4vw, 26px);
+    width: min(900px, 92vw);
+    justify-self: center;
+  }
+
+  .tk-right .tk-meta {
+    margin-top: 8px;
+    opacity: .8;
+    text-align: center;
+  }
+
+  /* Disabled + ready states for Start button */
+  .tk-disabled {
+    pointer-events: none !important;
+    opacity: .45 !important;
+    filter: grayscale(.25);
+  }
+  .tk-pulse { animation: tkPulse 1.25s ease-in-out infinite; }
+  @keyframes tkPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(0,240,255,.35) }
+    50%     { box-shadow: 0 0 0 10px rgba(0,240,255,0) }
+  }
+
+  /* Responsive: stack on narrow screens */
+  @media (max-width: 980px) {
+    #tkPortal { grid-template-columns: 1fr; }
+    .tk-left { max-height: none; }
+  }
+
   h1{font-size:clamp(28px,5vw,48px);margin:0 0 18px 0;text-align:center}
 
-  /* HERO BUTTONS (centered) */
-  .hero{
-    display:flex; flex-direction:column; align-items:center; gap:16px;
-    margin:8px auto 22px; text-align:center;
-  }
-  .heroRow{display:flex; gap:16px; flex-wrap:wrap; justify-content:center}
   .btn{
     display:inline-block;padding:14px 22px;border:2px solid var(--btnb);
     border-radius:12px;background:var(--btn);color:var(--btnfg);
@@ -38,27 +89,7 @@
   .btn[disabled]{opacity:.45;cursor:not-allowed}
   .btn:hover{transform:translateY(-1px)}
   .btn.xl{padding:16px 26px;font-size:1.05rem}
-  /* Dockable action buttons */
-  .ksv-btn{display:inline-flex;align-items:center;justify-content:center;text-align:center}
-  #ksv-actions{
-    display:flex;flex-direction:column;gap:20px;
-    width:min(64ch,88vw);margin:32px auto 0;z-index:2;
-  }
-  body.tk-panel-open #categoryPanel{z-index:2147483500!important}
-  body.tk-panel-open #ksv-actions.is-docked{
-    position:fixed;
-    left:calc(var(--ksv-panel-w) + 24px);
-    right:24px;
-    top:96px;
-    max-width:360px;width:auto;margin:0;align-items:stretch;gap:14px;pointer-events:auto;
-    z-index:2147483600!important;
-  }
-  body.tk-panel-open #ksv-actions.is-docked .ksv-btn{
-    width:100%!important;max-width:none!important;margin:0!important;
-    padding:12px 16px!important;border-radius:12px!important;
-    font-size:clamp(14px,1.3vw,18px)!important;line-height:1.2;box-sizing:border-box;
-  }
-  .hero select{
+  .tk-meta select{
     padding:12px 14px;border:2px solid var(--btnb);border-radius:12px;
     background:#05151a;color:var(--fg);font-weight:700
   }
@@ -115,8 +146,6 @@
   .row label{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:700}
 
   .notice{margin:14px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;background:#071317}
-  .center{display:flex;justify-content:center;margin-top:10px}
-
   /* SURVEY */
   .survey{margin-top:24px;border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:16px}
   .catTitle{margin:0 0 8px 0;color:#7ef9ff}
@@ -217,39 +246,36 @@
   <div class="wrap">
     <h1>Talk Kink — Survey</h1>
 
-    <!-- HERO BUTTONS (center) -->
-    <section class="hero" aria-label="Main actions">
-      <div class="heroRow">
-        <button class="btn xl" id="heroStart" data-tk-start>Start Survey</button>
+    <div id="tkPortal">
+      <div class="tk-left">
+        <!-- WIDE CATEGORY PANEL -->
+        <section class="panel category-panel" id="categoryPanel" aria-label="Category selection">
+          <div class="panelHeader">
+            <button class="btn" id="selectAll">Select All</button>
+            <button class="btn" id="deselectAll">Deselect All</button>
+            <span class="status" id="statusMsg">Loading categories…</span>
+          </div>
+          <div id="categoryList"></div>
+        </section>
       </div>
-      <div class="heroRow">
-        <a class="btn" href="/compatibility/">Compatibility Page</a>
-        <a class="btn" href="/ika/">Individual Kink Analysis</a>
+      <div class="tk-right">
+        <div class="tk-stack" aria-label="Main actions">
+          <button class="btn xl tk-disabled" id="startBtn" data-tk-start disabled>Start Survey</button>
+          <a class="btn" href="/compatibility/">Compatibility Page</a>
+          <a class="btn" href="/ika/">Individual Kink Analysis</a>
+        </div>
+        <div class="tk-meta" aria-label="Theme">
+          <label style="display:flex;gap:10px;align-items:center;justify-content:center">
+            <span style="font-weight:800">Theme</span>
+            <select id="themeSelect">
+              <option value="dark" selected>Dark</option>
+              <option value="lipstick">Lipstick</option>
+              <option value="forest">Forest</option>
+            </select>
+          </label>
+        </div>
       </div>
-      <div class="heroRow" aria-label="Theme">
-        <label style="display:flex;gap:10px;align-items:center">
-          <span style="font-weight:800">Theme</span>
-          <select id="themeSelect">
-            <option value="dark" selected>Dark</option>
-            <option value="lipstick">Lipstick</option>
-            <option value="forest">Forest</option>
-          </select>
-        </label>
-      </div>
-    </section>
-
-    <!-- WIDE CATEGORY PANEL -->
-    <section class="panel category-panel" id="categoryPanel" aria-label="Category selection">
-      <div class="panelHeader">
-        <button class="btn" id="selectAll">Select All</button>
-        <button class="btn" id="deselectAll">Deselect All</button>
-        <span class="status" id="statusMsg">Loading categories…</span>
-      </div>
-      <div id="categoryList"></div>
-      <div class="center">
-        <button class="btn xl" id="startBtn" data-tk-start disabled>Start Survey</button>
-      </div>
-    </section>
+    </div>
 
     <div id="diag" class="notice" style="display:none"></div>
 
@@ -315,7 +341,6 @@
   const $list  = el('categoryList');
   const $status= el('statusMsg');
   const $diag  = el('diag');
-  const $heroStart = el('heroStart');
   const $start = el('startBtn');
   const $survey= el('survey');
   const $title = el('catTitle');
@@ -399,7 +424,10 @@
   }
   function updateStart(){
     const sel = selected().length;
-    $start.disabled = sel===0;
+    const ready = sel > 0;
+    $start.disabled = !ready;
+    $start.classList.toggle('tk-disabled', !ready);
+    $start.classList.toggle('tk-pulse', ready);
     $status.textContent = `${sel} selected / ${state.cats.length} total`;
   }
   function showDiag(msg){ $diag.style.display='block'; $diag.textContent=msg; }
@@ -507,14 +535,7 @@
     $panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); updateStart();
   });
 
-  // HERO start -> scroll to panel, focus Start button
-  $heroStart.addEventListener('click', ()=>{
-    $panel.scrollIntoView({behavior:'smooth', block:'start'});
-    setTimeout(()=> $start.focus(), 400);
-  });
-
   document.getElementById('startBtn').addEventListener('click', ()=>{
-    if (window.tkClosePanel) window.tkClosePanel();
     const want = new Set(selected().map(s=>s.toLowerCase()));
     state.sel = state.cats
       .slice()
@@ -543,327 +564,6 @@
     showDiag('Dataset unavailable. Expected /data/kinks.json');
     $status.textContent = 'Dataset unavailable';
   }
-})();
-</script>
-<!-- TK: survey panel + overlay wiring (non-destructive) -->
-<style id="tk-wireup-css">
-  /* Force overlay + panel visibility regardless of ancestor transforms */
-  #tkOverlay,
-  .tk-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.55);
-    display: none;
-    opacity: 0;
-    transition: opacity .18s ease;
-    z-index: 2147483646;
-    pointer-events: none;
-  }
-
-  #tkOverlay.tk-open,
-  .tk-overlay.tk-open {
-    display: block;
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .tk-elevate {
-    transform: none !important;
-    filter: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    contain: unset !important;
-    will-change: auto !important;
-  }
-
-  #categorySurveyPanel.tk-open-force {
-    position: fixed !important;
-    left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    z-index: 2147483647 !important;
-    width: min(980px, 92vw) !important;
-    max-height: 85vh !important;
-    overflow: auto !important;
-    -webkit-overflow-scrolling: touch;
-    outline: 4px solid magenta;
-    box-shadow: 0 20px 60px rgba(0,0,0,.6);
-    background: rgba(10,10,10,.97);
-    border-radius: 12px;
-  }
-
-  #categorySurveyPanel:not(.tk-open-force) {
-    display: none !important;
-  }
-
-  #categorySurveyPanel.tk-open-force * {
-    pointer-events: auto !important;
-  }
-
-  #categorySurveyPanel.tk-open-force .tk-debug-bar {
-    position: sticky;
-    top: 0;
-    background: #ff00ff;
-    color: #000;
-    font: 600 12px/1.2 ui-sans-serif,system-ui;
-    padding: 6px 10px;
-    z-index: 1;
-  }
-
-  :root[data-theme="neon"] {}
-  :root[data-theme="night"] {}
-</style>
-
-<script id="tk-wireup-js">
-(() => {
-  const $ = (sel, ctx = document) => ctx.querySelector(sel);
-  const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
-
-  const panel = $('#categorySurveyPanel') || $('.category-panel');
-  if (!panel) {
-    console.warn('[TK] category panel not found');
-    return;
-  }
-
-  if (panel.dataset.tkWireup === 'wired') {
-    console.info('[TK] panel already wired.');
-    return;
-  }
-  panel.dataset.tkWireup = 'wired';
-
-  const root = document.documentElement;
-  const body = document.body;
-  const initialHidden = panel.getAttribute('aria-hidden');
-  const originalRootOverflow = root.style.overflow;
-  const originalBodyOverflow = body.style.overflow;
-  const originalMinWidth = panel.style.minWidth;
-  const originalMinHeight = panel.style.minHeight;
-
-  let overlay = $('#tkOverlay') || $('.tk-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'tkOverlay';
-    overlay.className = 'tk-overlay';
-    document.body.appendChild(overlay);
-  }
-  overlay.removeAttribute('hidden');
-  overlay.classList.remove('tk-open');
-
-  function elevateAncestors(el) {
-    for (let node = el; node && node !== document.body; node = node.parentElement) {
-      node.classList.add('tk-elevate');
-      const cs = getComputedStyle(node);
-      if (cs.position === 'static') node.style.position = 'relative';
-    }
-  }
-
-  function ensureDebugBar() {
-    if (!panel.querySelector('.tk-debug-bar')) {
-      const bar = document.createElement('div');
-      bar.className = 'tk-debug-bar';
-      bar.textContent = '[TK] Category panel (forced open)';
-      panel.prepend(bar);
-    }
-  }
-
-  function reportRect(where) {
-    const r = panel.getBoundingClientRect();
-    console.log(`[TK] ${where} rect:`, {
-      x: Math.round(r.x),
-      y: Math.round(r.y),
-      w: Math.round(r.width),
-      h: Math.round(r.height)
-    });
-  }
-
-  function tkOpenPanel() {
-    elevateAncestors(panel);
-    overlay.classList.add('tk-open');
-    panel.classList.add('tk-open-force');
-    panel.setAttribute('aria-hidden', 'false');
-    root.classList.add('tk-panel-open');
-    body.classList.add('tk-panel-open');
-    root.style.overflow = 'hidden';
-    body.style.overflow = 'hidden';
-
-    ensureDebugBar();
-    try { panel.scrollIntoView({ block: 'center' }); } catch {}
-    reportRect('opened');
-
-    const r = panel.getBoundingClientRect();
-    if (r.width < 200 || r.height < 200) {
-      panel.style.minWidth = '420px';
-      panel.style.minHeight = '420px';
-      reportRect('after-minsize');
-    }
-
-    console.log('[TK] Panel opened.');
-  }
-
-  function tkClosePanel() {
-    panel.classList.remove('tk-open-force');
-    overlay.classList.remove('tk-open');
-    root.classList.remove('tk-panel-open');
-    body.classList.remove('tk-panel-open');
-    if (initialHidden != null) panel.setAttribute('aria-hidden', initialHidden);
-    else panel.removeAttribute('aria-hidden');
-    root.style.overflow = originalRootOverflow;
-    body.style.overflow = originalBodyOverflow;
-    panel.style.minWidth = originalMinWidth;
-    panel.style.minHeight = originalMinHeight;
-
-    console.log('[TK] Panel closed.');
-  }
-
-  const startSel = [
-    '#startSurveyBtn',
-    '#startSurvey',
-    '#heroStart',
-    '[data-tk-start]',
-    '.start-survey-btn',
-    'button.themed-button.start-survey-btn',
-    'a[href="#start"]'
-  ];
-  const uniqueStarts = Array.from(new Set(startSel.flatMap(sel => $$(sel))));
-
-  const closeSel = [
-    '[data-action="close"]',
-    '#tkCloseDrawer',
-    '#closePanelBtn',
-    '[data-tk-close]'
-  ];
-  const uniqueCloses = Array.from(new Set(closeSel.flatMap(sel => $$(sel, panel))));
-
-  uniqueStarts.forEach(btn => {
-    if (!btn) return;
-    btn.addEventListener('click', e => {
-      e.preventDefault();
-      tkOpenPanel();
-    }, { passive: false });
-  });
-
-  uniqueCloses.forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.preventDefault();
-      tkClosePanel();
-    }, { passive: false });
-  });
-
-  overlay.addEventListener('click', tkClosePanel, { passive: true });
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && (overlay.classList.contains('tk-open') || panel.classList.contains('tk-open-force'))) {
-      tkClosePanel();
-    }
-  }, true);
-
-  function tkProbe() {
-    const vis = el => !!(el && el.offsetParent !== null);
-    console.table([
-      { key: 'panel',   selector: '#categorySurveyPanel | .category-panel', present: !!panel,   visible: vis(panel) },
-      { key: 'overlay', selector: '#tkOverlay | .tk-overlay',              present: !!overlay, visible: vis(overlay) }
-    ]);
-    const rect = panel.getBoundingClientRect();
-    return {
-      panel,
-      overlay,
-      rect: {
-        x: Math.round(rect.x),
-        y: Math.round(rect.y),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height)
-      }
-    };
-  }
-
-  function tkSetTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-  }
-
-  Object.assign(window, { tkOpenPanel, tkClosePanel, tkProbe, tkSetTheme });
-
-  setTimeout(() => {
-    if (location.hash === '#start') tkOpenPanel();
-  }, 120);
-
-  console.log('[TK] visibility patch loaded; use tkOpenPanel()/tkClosePanel()/tkProbe().');
-})();
-</script>
-<script>
-(()=> {
-  const SEL_PANEL  = '#categoryPanel, .category-panel, [data-panel="category"]';
-  const SEL_SCRIM  = '#tkScrim, .tk-scrim, .drawer-scrim';
-  const LABELS = [/^start\s+survey$/i,/^compatibility\s+page$/i,/^individual\s+kink\s+analysis$/i];
-
-  function ensureActions(){
-    let actions = document.getElementById('ksv-actions');
-    if (!actions){
-      const found = [...document.querySelectorAll('a,button')].filter(el=>{
-        const t=(el.textContent||'').trim();
-        return LABELS.some(rx=>rx.test(t)) && el.offsetParent !== null;
-      });
-      if (!found.length) return null;
-
-      actions = document.createElement('nav');
-      actions.id = 'ksv-actions';
-      actions.setAttribute('aria-label','Survey actions');
-
-      const host = document.querySelector('#ksvHeroStack')?.parentElement || found[0].parentElement || document.body;
-      host.insertBefore(actions, found[0]);
-      found.forEach(el => { el.classList.add('ksv-btn'); actions.appendChild(el); });
-    }
-    return actions;
-  }
-
-  const actions = ensureActions();
-  if (!actions) return;
-
-  const panel = document.querySelector(SEL_PANEL);
-  const scrim = document.querySelector(SEL_SCRIM);
-
-  const visible = el => el && el.offsetParent !== null;
-  const isOpen  = () => document.body.classList.contains('tk-panel-open') || panel?.classList.contains('tk-open-force');
-
-  function dock(){
-    if (!(isOpen() && panel && visible(panel))){
-      actions.classList.remove('is-docked');
-      actions.style.top = '';
-      return;
-    }
-    const r = panel.getBoundingClientRect();
-    document.documentElement.style.setProperty('--ksv-panel-w', r.width + 'px');
-
-    const available = window.innerWidth - r.width - 48;
-    if (available < 220){
-      actions.classList.remove('is-docked');
-      actions.style.top = '';
-      return;
-    }
-    const top = Math.max(72, r.top + 24 + window.scrollY);
-    actions.style.top = top + 'px';
-    actions.classList.add('is-docked');
-  }
-
-  if (scrim){
-    const stop = e => { if (isOpen()){ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); } };
-    ['click','mousedown','touchstart'].forEach(ev => scrim.addEventListener(ev, stop, true));
-  }
-  window.addEventListener('keydown', e=>{
-    if (isOpen() && (e.key === 'Escape' || e.keyCode === 27)){
-      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-    }
-  }, true);
-
-  const mo = new MutationObserver(dock);
-  mo.observe(document.body, {attributes:true, attributeFilter:['class']});
-  window.addEventListener('resize', dock);
-  window.addEventListener('scroll', () => { if (isOpen()) dock(); }, {passive:true});
-
-  dock();
 })();
 </script>
 <!-- TK: Kink Survey helpers (zero defaults, download JSON on completion) -->
