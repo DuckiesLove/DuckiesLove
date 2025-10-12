@@ -1,0 +1,132 @@
+<!-- Talk-Kink survey: dock panel, move buttons, wire Start inside panel -->
+<script>
+(function dockPanelAndWireStart(){
+  const log = (...a)=>console.log('[TK]', ...a);
+
+  const getButtons = () => {
+    const all = Array.from(document.querySelectorAll('a,button,[role="button"]'));
+    const byText = t => all.find(b => (b.textContent||'').trim().toLowerCase() === t);
+    return {
+      start:          byText('start survey') || all.find(b => /start\s*survey/i.test((b.textContent||''))),
+      compatibility:  byText('compatibility page') || all.find(b => /compatibility/i.test((b.textContent||''))),
+      analysis:       byText('individual kink analysis') || all.find(b => /individual.*analysis/i.test((b.textContent||'')))
+    };
+  };
+
+  function ensureDock() {
+    if (document.getElementById('tkDock')) return document.getElementById('tkDock');
+
+    const dock = document.createElement('div'); dock.id = 'tkDock';
+    const left = document.createElement('div'); left.className = 'tk-left';
+    const right = document.createElement('div'); right.className = 'tk-right';
+    dock.append(left, right);
+
+    // Insert dock right under the main heading
+    const h1 = Array.from(document.querySelectorAll('h1,h2'))
+      .find(h => /talk\s*kink\s*survey/i.test((h.textContent||'')));
+    (h1 && h1.parentNode ? h1.parentNode : document.body).insertBefore(dock, h1 ? h1.nextSibling : document.body.firstChild);
+
+    return dock;
+  }
+
+  function dockPanel(panel) {
+    // Strip drawer/hidden classes and inline props that keep it off-screen
+    (panel.classList || []).forEach(c => {
+      if (/drawer|hidden|off|overlay|close/i.test(c)) panel.classList.remove(c);
+    });
+    ['left','right','top','bottom','transform','opacity','visibility','display','position','zIndex']
+      .forEach(k => { if (k in panel.style) panel.style[k] = ''; });
+
+    panel.classList.add('tk-docked');
+
+    // Kill scrim
+    document.querySelectorAll('#tkOverlay,.tk-overlay').forEach(s => {
+      s.style.display = 'none'; s.style.pointerEvents = 'none';
+    });
+
+    // Mount into the left column
+    const left = document.querySelector('#tkDock .tk-left');
+    if (panel.parentNode !== left) left.appendChild(panel);
+  }
+
+  function moveButtonsRight() {
+    const right = document.querySelector('#tkDock .tk-right');
+    const { start, compatibility, analysis } = getButtons();
+
+    // Keep the original Start button hidden (we’ll click it from the panel)
+    if (start) { start.style.display = 'none'; start.id = start.id || 'tkLandingStartBtn'; }
+
+    // Show only the other two on the right
+    [compatibility, analysis].forEach(b => b && right.appendChild(b));
+  }
+
+  function addStartInPanel(panel) {
+    if (panel.querySelector('#tkPanelStart')) return;
+
+    const bar = document.createElement('div');
+    bar.style.margin = '1rem 0 0.25rem';
+    bar.style.display = 'flex';
+    bar.style.justifyContent = 'flex-end';
+
+    const btn = document.createElement('button');
+    btn.id = 'tkPanelStart';
+    btn.textContent = 'Start Survey';
+    btn.style.fontWeight = '700';
+    btn.style.padding = '0.9rem 1.25rem';
+    btn.style.borderRadius = '0.9rem';
+    btn.style.border = '2px solid #00eaff';
+    btn.style.background = 'transparent';
+    btn.style.color = '#00eaff';
+    btn.style.cursor = 'not-allowed';
+    btn.disabled = true;
+
+    bar.appendChild(btn);
+    panel.appendChild(bar);
+
+    // Enable Start when at least 1 category is selected
+    const checkboxes = panel.querySelectorAll('input[type="checkbox"]');
+    const evalState = () => {
+      const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+      btn.disabled = !anyChecked;
+      btn.style.opacity = anyChecked ? '1' : '0.5';
+      btn.style.cursor  = anyChecked ? 'pointer' : 'not-allowed';
+    };
+    evalState();
+    checkboxes.forEach(cb => cb.addEventListener('change', evalState));
+
+    // When clicked, dispatch the original Start (we kept it hidden)
+    btn.addEventListener('click', () => {
+      const landingStart = document.getElementById('tkLandingStartBtn') ||
+        Array.from(document.querySelectorAll('a,button,[role="button"]'))
+          .find(b => /start\s*survey/i.test((b.textContent||'')));
+      if (landingStart) landingStart.click();
+    });
+  }
+
+  function run() {
+    const dock = ensureDock();
+
+    // Try to open the site’s panel function once (creates DOM in some builds)
+    if (typeof window.tkOpenPanel === 'function') { try { window.tkOpenPanel(); } catch(e){} }
+
+    // Find your real panel
+    const panel = document.querySelector('aside#categorySurveyPanel.category-panel.tk-wide-panel')
+              || document.getElementById('categorySurveyPanel')
+              || document.querySelector('.category-panel');
+
+    if (!panel) { console.warn('[TK] category panel not found'); return; }
+
+    dockPanel(panel);
+    moveButtonsRight();
+    addStartInPanel(panel);
+
+    log('Dock layout active; skipping portal overlay.');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run, { once:true });
+  } else {
+    run();
+  }
+})();
+</script>
