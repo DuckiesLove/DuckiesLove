@@ -523,6 +523,155 @@
   console.log('[TK] UX patch installed. You can call tkOpenPanel() / tkClosePanel().');
 })();
 
+/* ======================= TK DOCKED PANEL V3 =======================
+ * Purpose: reshape the classic landing (Start/Compatibility/IKA buttons)
+ *          into a left/right dock where the category panel stays visible.
+ * Notes:   - Installs once (window.__tkDockV3 guard)
+ *          - Moves the existing buttons into a right rail
+ *          - Pulls the real category panel into the left column and
+ *            strips drawer/overlay styles so it behaves inline
+ *          - Falls back to MutationObserver until the panel exists
+ * ================================================================= */
+(function TK_DOCK_V3(){
+  if (window.__tkDockV3) return;
+  window.__tkDockV3 = true;
+
+  const DOC = document;
+  const $  = (sel, root = DOC) => root.querySelector(sel);
+  const $$ = (sel, root = DOC) => Array.from(root.querySelectorAll(sel));
+  const hasText = (el, rx) => !!el && rx.test((el.textContent || '').trim());
+
+  const CSS = `
+#tkDock{display:flex;gap:2rem;align-items:flex-start;margin:24px auto;max-width:1200px;padding:0 24px}
+#tkDock .tk-left{flex:1 1 auto;min-width:640px}
+#tkDock .tk-right{flex:0 0 25%;max-width:25%;display:flex;flex-direction:column;gap:20px}
+#tkDock .tk-right > *{width:100%}
+@media (max-width:1100px){#tkDock{flex-direction:column;padding:0 16px}#tkDock .tk-right{max-width:none;flex:0 0 auto}}
+.tk-docked-panel{position:relative!important;inset:auto!important;transform:none!important;opacity:1!important;visibility:visible!important;display:flex!important;flex-direction:column;max-height:80vh;overflow:auto;z-index:10010!important}
+#tkOverlay,.tk-overlay{display:none!important;pointer-events:none!important}
+`;
+
+  function injectCSS(){
+    if (DOC.getElementById('tkDockStylesV3')) return;
+    const style = DOC.createElement('style');
+    style.id = 'tkDockStylesV3';
+    style.textContent = CSS;
+    DOC.head.appendChild(style);
+  }
+
+  function buildDock(){
+    let dock = DOC.getElementById('tkDock');
+    if (dock) return dock;
+
+    dock = DOC.createElement('div');
+    dock.id = 'tkDock';
+    const left = DOC.createElement('div');
+    left.className = 'tk-left';
+    const right = DOC.createElement('div');
+    right.className = 'tk-right';
+    dock.append(left, right);
+
+    const title = $$('h1,h2,.title,.hero', DOC.body).find(h => hasText(h, /talk\s*kink\s*survey/i));
+    const anchor = title?.parentNode || DOC.body;
+    anchor.insertBefore(dock, title ? title.nextSibling : anchor.firstChild);
+
+    // Move the three hero buttons (Start/Compatibility/IKA) to the right column
+    const actions = $$('a,button,[role="button"]', anchor)
+      .filter(btn => !btn.closest('#categorySurveyPanel, .category-panel'))
+      .filter(btn => hasText(btn, /^(start\s*survey|compatibility\s*page|individual\s*kink\s*analysis)$/i));
+    actions.forEach(btn => {
+      const movable = btn.closest('a,button,[role="button"]') || btn;
+      if (movable && movable.parentNode !== right) right.appendChild(movable);
+    });
+
+    return dock;
+  }
+
+  function pickPanel(){
+    return $('#categorySurveyPanel') ||
+      $('.category-panel') ||
+      $$('aside,section,div').find(n => {
+        const klass = n?.className || '';
+        return /category/.test(klass) && /panel/.test(klass) && n.querySelector('input[type="checkbox"]');
+      }) || null;
+  }
+
+  function resetPanelStyles(panel){
+    if (!panel) return;
+    ['position','inset','left','right','top','bottom','transform','opacity','visibility','display'].forEach(prop => {
+      if (panel.style && panel.style[prop] !== undefined) panel.style[prop] = '';
+    });
+    panel.removeAttribute('hidden');
+    panel.removeAttribute('aria-hidden');
+    panel.removeAttribute('inert');
+    panel.classList.remove('hidden','is-hidden','closed','tk-hidden','tk-closed');
+  }
+
+  function killOverlays(){
+    ['#tkOverlay', '.tk-overlay'].forEach(sel => {
+      $$(sel).forEach(el => {
+        el.style.display = 'none';
+        el.style.pointerEvents = 'none';
+      });
+    });
+  }
+
+  function dockPanel(panel){
+    const left = $('#tkDock .tk-left');
+    if (!panel || !left) return;
+    if (panel.parentNode !== left) left.appendChild(panel);
+    resetPanelStyles(panel);
+    panel.classList.add('tk-docked-panel');
+  }
+
+  function ensurePanel(){
+    const panel = pickPanel();
+    if (!panel) return false;
+    dockPanel(panel);
+    killOverlays();
+    DOC.documentElement.classList.remove('tk-panel-open');
+    DOC.body?.classList?.remove('tk-panel-open');
+    DOC.documentElement.style.overflow = '';
+    if (DOC.body) DOC.body.style.overflow = '';
+    return true;
+  }
+
+  function openPanelIfAvailable(){
+    try {
+      if (typeof window.tkOpenPanel === 'function') {
+        window.tkOpenPanel();
+        return;
+      }
+    } catch (err) {
+      console.warn('[TK] tkOpenPanel failed during dock init:', err);
+    }
+    const trigger = $$('a,button,[role="button"]').find(el => hasText(el, /^start\s*survey$/i));
+    if (trigger) {
+      try { trigger.click(); } catch (_) {}
+    }
+  }
+
+  function boot(){
+    injectCSS();
+    buildDock();
+    openPanelIfAvailable();
+
+    if (ensurePanel()) return;
+
+    const mo = new MutationObserver(() => {
+      if (ensurePanel()) mo.disconnect();
+    });
+    mo.observe(DOC.documentElement, { childList: true, subtree: true });
+    setTimeout(() => mo.disconnect(), 30000);
+  }
+
+  if (DOC.readyState === 'loading') {
+    DOC.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
+})();
+
 /* ======================= TK SURVEY FORCE-OPEN PATCH =======================
  * Purpose: make the “Start Survey” button open your categories drawer/panel,
  * even if IDs/classes changed. Includes a probe you can run: tkProbe().
