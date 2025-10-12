@@ -44,6 +44,51 @@
   // addEventListener, style, classList, etc. Code won’t crash, and we can
   // log what was missing.
   const FALLBACK_MAP = new Map();
+  const SELECTOR_ALIAS_GETTERS = new Map();
+  const ID_ALIAS_GETTERS = new Map();
+
+  function normalizeSelector(sel) {
+    return typeof sel === 'string' ? sel.trim() : '';
+  }
+
+  function resolveAlias(sel) {
+    const key = normalizeSelector(sel);
+    if (!key) return null;
+    let getter = SELECTOR_ALIAS_GETTERS.get(key);
+    if (!getter && key.startsWith('#')) {
+      getter = ID_ALIAS_GETTERS.get(key.slice(1));
+    }
+    if (!getter) return null;
+    try {
+      const node = getter();
+      return node || null;
+    } catch (err) {
+      console.warn('[TK] selector alias failed for', sel, err);
+      return null;
+    }
+  }
+
+  function aliasNodeList(node) {
+    if (!node) return [];
+    const list = [node];
+    if (!list.forEach) list.forEach = Array.prototype.forEach;
+    if (!list.item) list.item = (idx) => list[idx] ?? null;
+    return list;
+  }
+
+  function registerSelectorAlias(sel, value) {
+    const key = normalizeSelector(sel);
+    if (!key) return;
+    const getter = typeof value === 'function' ? (() => value()) : (() => value);
+    SELECTOR_ALIAS_GETTERS.set(key, getter);
+    if (key.startsWith('#')) {
+      const idKey = key.slice(1);
+      if (idKey) ID_ALIAS_GETTERS.set(idKey, getter);
+    }
+  }
+
+  window.tkRegisterSelectorAlias = registerSelectorAlias;
+  window.tkResolveSelectorAlias = resolveAlias;
 
   function makeFallback(label, tagHint) {
     if (FALLBACK_MAP.has(label)) return FALLBACK_MAP.get(label);
@@ -64,6 +109,15 @@
     owner[methodName] = function (sel) {
       try {
         const node = orig.call(this, sel);
+        if (node && (methodName !== 'querySelectorAll' || node.length)) {
+          return node;
+        }
+        const alias = resolveAlias(sel);
+        if (alias) {
+          return methodName === 'querySelectorAll'
+            ? aliasNodeList(alias)
+            : alias;
+        }
         return node || makeFallback(labelPrefix + sel);
       } catch (e) {
         console.warn('[TK] selector error in', methodName, sel, e);
@@ -76,7 +130,10 @@
   const origGetById = document.getElementById.bind(document);
   document.getElementById = function (id) {
     const node = origGetById(id);
-    return node || makeFallback('#' + id);
+    if (node) return node;
+    const alias = resolveAlias('#' + id) || resolveAlias(id);
+    if (alias) return alias;
+    return makeFallback('#' + id);
   };
 
   wrapQS(Document.prototype, 'querySelector',    'doc:');
@@ -2158,6 +2215,8 @@ setTimeout(() => {
   const qa = s => Array.from(document.querySelectorAll(s));
   const log = (...a)=>console.debug('[TK] Panel:',...a);
 
+  const registerAlias = window.tkRegisterSelectorAlias || (() => {});
+
   const fallbackOverlay = q('#tkOverlay[data-tk-fallback="true"]');
   let overlay = q('#tkOverlay:not([data-tk-fallback])');
   if (!overlay) overlay = fallbackOverlay;
@@ -2274,14 +2333,22 @@ setTimeout(() => {
 
   function ensureGhost(sel, tag='div', attrs={}, onCreate){
     const existing = q(sel);
-    if (existing) return existing;
+    if (existing) {
+      onCreate && onCreate(existing);
+      registerAlias(sel, () => existing);
+      return existing;
+    }
     const el = document.createElement(tag);
     if (sel.startsWith('#')) el.id = sel.slice(1);
     if (sel.startsWith('.')) el.className = sel.slice(1);
-    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
-    el.classList.add('tk-ghost-hook'); el.tabIndex=-1; document.body.appendChild(el);
+    Object.entries(attrs).forEach(([k,v])=>{
+      try { el.setAttribute(k,v); } catch {}
+    });
+    el.tabIndex = -1;
+    el.dataset.tkAlias = sel;
     onCreate && onCreate(el);
-    log('ghost created for', sel);
+    registerAlias(sel, () => el);
+    log('alias created for', sel);
     return el;
   }
 
@@ -3704,16 +3771,6 @@ No other files need to change.
   </aside>
 </div>
 
-<!-- (C) Hidden legacy alias elements so older code can find and click them -->
-<div hidden>
-  <button id="tkStartNow"        type="button"></button>
-  <button id="startSurvey"       type="button"></button>
-  <button id="start-survey-btn"  type="button"></button>
-  <button id="startSurveyBtn"    type="button"></button>
-  <button id="openPanelBtn"      type="button" aria-controls="tkCategoryDrawer"></button>
-  <button id="closePanelBtn"     type="button" data-action="close"></button>
-</div>
-
 <!-- (D) Tight, aligned pill-grid styles (keeps your neon/black aesthetic) -->
 <style>
   :root{--tk-bg:#000;--tk-fg:#e7ffff;--tk-accent:#00e6e6;--tk-border:#00e6e6}
@@ -3846,27 +3903,47 @@ No other files need to change.
   visibleStarts().forEach(el=>{ el.setAttribute('aria-controls','tkCategoryDrawer'); el.addEventListener('click', openPanel, {passive:false}); });
 
   // --- Legacy click aliases (to silence “missing selector” warnings) ---
-  const alias = {
-    '#tkStartNow'      : openPanel,
-    '#startSurvey'     : openPanel,
-    '#start-survey-btn': openPanel,
-    '#startSurveyBtn'  : openPanel,
-    '#openPanelBtn'    : openPanel,
-    '#closePanelBtn'   : LOCK_DRAWER_OPEN ? openPanel : closePanel
-  };
-  Object.entries(alias).forEach(([sel,fn])=>{
-    let el=$(sel);
-    if(!el){ el=document.createElement('button'); el.id=sel.slice(1); el.hidden=true; document.body.appendChild(el); }
-    if(sel==='#openPanelBtn')  el.setAttribute('aria-controls','tkCategoryDrawer');
-    if(sel==='#closePanelBtn') el.setAttribute('data-action','close');
-    el.addEventListener('click', fn, {passive:false});
-  });
+  const registerAlias = window.tkRegisterSelectorAlias || (() => {});
 
-  // Provide one always-present element with [data-action="close"] for old selectors
-  if(!document.querySelector('[data-action="close"]')){
-    const ghost=document.createElement('button'); ghost.hidden=true; ghost.setAttribute('data-action','close'); document.body.appendChild(ghost);
-    ghost.addEventListener('click', LOCK_DRAWER_OPEN ? openPanel : closePanel);
+  function makeAliasButton(sel, handler, extraAttrs) {
+    const btn = document.createElement('button');
+    if (sel.startsWith('#')) btn.id = sel.slice(1);
+    btn.type = 'button';
+    btn.tabIndex = -1;
+    btn.dataset.tkAlias = sel;
+    btn.setAttribute('aria-hidden', 'true');
+    btn.addEventListener('click', handler, { passive: false });
+    if (extraAttrs) {
+      Object.entries(extraAttrs).forEach(([k, v]) => {
+        try { btn.setAttribute(k, v); } catch {}
+      });
+    }
+    return btn;
   }
+
+  function wireLegacyAlias(sel, handler, extraAttrs) {
+    let el = $(sel);
+    if (!el) {
+      el = makeAliasButton(sel, handler, extraAttrs);
+    } else {
+      el.addEventListener('click', handler, { passive: false });
+      if (extraAttrs) {
+        Object.entries(extraAttrs).forEach(([k, v]) => {
+          try { el.setAttribute(k, v); } catch {}
+        });
+      }
+    }
+    registerAlias(sel, () => el);
+    return el;
+  }
+
+  wireLegacyAlias('#tkStartNow',       openPanel);
+  wireLegacyAlias('#startSurvey',      openPanel);
+  wireLegacyAlias('#start-survey-btn', openPanel);
+  wireLegacyAlias('#startSurveyBtn',   openPanel);
+  wireLegacyAlias('#openPanelBtn',     openPanel, { 'aria-controls': 'tkCategoryDrawer' });
+  wireLegacyAlias('#closePanelBtn',    LOCK_DRAWER_OPEN ? openPanel : closePanel, { 'data-action': 'close' });
+  wireLegacyAlias('[data-action="close"]', LOCK_DRAWER_OPEN ? openPanel : closePanel);
 
   updateCount();
   if (LOCK_DRAWER_OPEN) {
