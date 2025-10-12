@@ -741,7 +741,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   /* two-column shell: ~75% left (panel) + ~25% right (buttons) */
   #tkDock {
     display: grid;
-    grid-template-columns: 3fr 1fr;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
     gap: clamp(16px, 2.4vw, 28px);
     width: min(1400px, 100%);
     margin: 0 auto;
@@ -758,20 +758,50 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     border-radius: 16px;
     padding: 16px;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  #tkDock .tk-left .category-panel {
+    width: 100%;
+    max-width: none;
   }
   /* right rail */
   #tkDock .tk-right {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     gap: clamp(18px, 2.4vw, 26px);
   }
   #tkDock .tk-right .tk-rail {
     display: grid;
     gap: clamp(18px, 2.2vw, 24px);
+    align-content: start;
   }
   #tkDock .tk-right .tk-rail > * {
     width: 100%;
+  }
+  #tkDock .tk-right .ksvThemeRow {
+    width: 100%;
+    justify-content: center;
+    margin: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  #tkDock .tk-right .ksvThemeRow label {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+  }
+  #tkDock .tk-right #tkThemeBox {
+    width: 100%;
+    margin: 0;
+  }
+  #tkDock .tk-right #tkThemeBox .tk-theme-choices {
+    grid-template-columns: 1fr;
   }
   #tkDock .tk-meta {
     margin-top: 8px;
@@ -795,6 +825,12 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
     #tkDock .tk-left {
       height: auto;
       max-height: none;
+    }
+    #tkDock .tk-right .ksvThemeRow {
+      justify-content: center;
+    }
+    #tkDock .tk-right #tkThemeBox .tk-theme-choices {
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     }
   }
 </style>
@@ -834,8 +870,31 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   const btnCompat = findBtn('compatibility\s*page');
   const btnIndiv = findBtn('individual\s*kink\s*analysis');
 
-  // Right rail gets only the other two buttons
+  // Right rail gets the navigation buttons + theme controls
   [btnCompat, btnIndiv].forEach(b => b && rail.appendChild(b));
+
+  function moveThemeIntoRail(){
+    const themeRow = $('#tkThemeRow');
+    if (themeRow && !rail.contains(themeRow) && !isFallback(themeRow)) {
+      themeRow.classList.add('tk-rail-theme-row');
+      rail.appendChild(themeRow);
+    }
+
+    const themeBox = $('#tkThemeBox');
+    if (themeBox && !rail.contains(themeBox) && !isFallback(themeBox)) {
+      rail.appendChild(themeBox);
+    }
+
+    const rowInRail = themeRow ? rail.contains(themeRow) : false;
+    const boxInRail = themeBox ? rail.contains(themeBox) : false;
+    if (moveThemeObserver && boxInRail && (!themeRow || rowInRail)) {
+      moveThemeObserver.disconnect();
+    }
+  }
+
+  const moveThemeObserver = new MutationObserver(() => moveThemeIntoRail());
+  moveThemeObserver.observe(document.body, { childList: true, subtree: true });
+  moveThemeIntoRail();
 
   // Neuter any existing overlay so it can’t block clicks
   const overlay = $('#tkOverlay') || $('.tk-overlay');
@@ -4015,6 +4074,125 @@ No other files need to change.
   console.log('[TK] Portal installed. Click “Start Survey”, or run tkOpenPanel().');
 })();
 </script>
+
+<!-- ===== TK Start Gate (enable Start only when ALL categories selected) ===== -->
+<script>
+(function(){
+  if (window.__tkStartGateV1) return; window.__tkStartGateV1 = true;
+
+  const $  = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+  const hasText = (el, rx)=> rx.test((el?.textContent||'').trim());
+
+  /* find the docked panel that TK Docked Panel v2 placed on the left */
+  const findPanel = ()=> $('#tkDock .tk-left aside, #tkDock .tk-left .category-panel, #tkDock .tk-left [role="region"]') || null;
+
+  /* find the Start button that lives INSIDE the panel */
+  const findStart = (panel)=>{
+    return $$('button,a[role="button"],a,div[role="button"]', panel)
+      .find(b => hasText(b, /^\s*start\s*survey\s*$/i));
+  };
+
+  /* collect category checkboxes (be tolerant of markup) */
+  const getBoxes = (panel)=>{
+    // most likely: inputs under the panel content
+    let boxes = $$('input[type="checkbox"]', panel);
+    // if the panel has housekeeping checkboxes (e.g., "select all" at top), keep them out by label text
+    // but since we need "all selected", including those still satisfies the rule; no hard filtering
+    return boxes;
+  };
+
+  /* optional counter chip we’ll pin near Start */
+  const ensureCounter = (startBtn)=>{
+    let chip = startBtn.parentNode.querySelector('.tk-start-counter');
+    if (!chip){
+      chip = document.createElement('div');
+      chip.className='tk-start-counter';
+      chip.style.cssText = 'margin-top:8px;font-size:12px;color:rgba(0,255,255,.75);';
+      startBtn.parentNode.appendChild(chip);
+    }
+    return chip;
+  };
+
+  const disableStart = (btn)=>{
+    btn.classList.add('tk-start-disabled');
+    btn.setAttribute('aria-disabled','true');
+    btn.setAttribute('tabindex','-1');
+    btn.__tkBlocked = true;
+  };
+  const enableStart = (btn)=>{
+    btn.classList.remove('tk-start-disabled');
+    btn.removeAttribute('aria-disabled');
+    btn.removeAttribute('tabindex');
+    btn.__tkBlocked = false;
+  };
+
+  const wireClickBlocker = (btn)=>{
+    if (btn.__tkHasBlocker) return;
+    btn.addEventListener('click', (e)=>{
+      if (btn.__tkBlocked){
+        e.preventDefault();
+        e.stopPropagation();
+        // brief nudge
+        btn.animate([{transform:'translateX(0)'},{transform:'translateX(-2px)'},
+                     {transform:'translateX(2px)'},{transform:'translateX(0)'}],
+                     {duration:180,iterations:1});
+      }
+    }, true);
+    btn.__tkHasBlocker = true;
+  };
+
+  const install = ()=>{
+    const panel = findPanel();
+    if (!panel) return false;
+
+    const startBtn = findStart(panel);
+    if (!startBtn) return false;
+
+    const boxes = getBoxes(panel);
+    if (!boxes.length) return false;
+
+    wireClickBlocker(startBtn);
+    const chip = ensureCounter(startBtn);
+
+    const compute = ()=>{
+      const total = boxes.length;
+      const checked = boxes.filter(b=>b.checked && !b.disabled).length;
+      const allOn = total>0 && checked === total;
+
+      chip.textContent = `${checked} selected / ${total} total — ${allOn ? 'Ready' : 'Select all to start'}`;
+      if (allOn) enableStart(startBtn); else disableStart(startBtn);
+    };
+
+    /* react to changes */
+    boxes.forEach(b=> b.addEventListener('change', compute));
+
+    /* also watch for panel “Select All / Deselect All” buttons by label */
+    panel.addEventListener('click', (e)=>{
+      const t = e.target.closest('button,a,[role="button"]');
+      if (!t) return;
+      if (hasText(t,/select\s*all/i) || hasText(t,/deselect\s*all/i)){
+        // let DOM update then recompute
+        setTimeout(compute, 0);
+      }
+    });
+
+    // initial state
+    compute();
+    return true;
+  };
+
+  /* try now, then observe if panel arrives later */
+  if (!install()){
+    const mo = new MutationObserver(()=>{
+      if (install()) mo.disconnect();
+    });
+    mo.observe(document.documentElement, {subtree:true, childList:true});
+    setTimeout(()=>mo.disconnect(), 30000);
+  }
+})();
+</script>
+<!-- ====================== /TK Start Gate ====================== -->
 
 </body>
 </html>
