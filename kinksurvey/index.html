@@ -938,6 +938,24 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
       panel.classList.toggle('is-open', want);
       panel.setAttribute('aria-expanded', want ? 'true' : 'false');
       panel.setAttribute('aria-hidden', want ? 'false' : 'true');
+
+      if (want){
+        panel.removeAttribute('hidden');
+        panel.removeAttribute('inert');
+        try {
+          if ('inert' in panel) panel.inert = false;
+        } catch (err) {
+          /* noop */
+        }
+      } else {
+        panel.setAttribute('hidden', '');
+        panel.setAttribute('inert', '');
+        try {
+          if ('inert' in panel) panel.inert = true;
+        } catch (err) {
+          /* noop */
+        }
+      }
     }
     document.body.classList.toggle('panel-open', want);
     document.body.classList.toggle('tk-panel-open', want);
