@@ -145,7 +145,8 @@
     <span class="tk-chip" id="tkSelChip">0 selected</span>
   </div>
   <div id="tkDrawerBackdrop" tabindex="-1" aria-hidden="true"></div>
-  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-label="Select categories" aria-hidden="true">
+  <aside id="tkCategoryDrawer" role="dialog" aria-modal="true" aria-label="Select categories" aria-hidden="true"
+         data-testid="select-categories-drawer">
     <div class="tk-drawer-header">
       <div class="tk-drawer-title">Select categories</div>
       <div class="tk-drawer-actions">
@@ -160,7 +161,8 @@
   <button id="panelToggle" class="panel-toggle" aria-label="Toggle category panel" aria-controls="categorySurveyPanel" aria-expanded="true">☰</button>
 
   <!-- Category selection panel -->
-  <div id="categorySurveyPanel" class="category-panel open" role="region" aria-label="Category selection">
+  <div id="categorySurveyPanel" class="category-panel open" role="region" aria-label="Category selection"
+       data-testid="select-categories-panel">
     <h2>Select the categories you want to include:</h2>
     <div class="category-buttons top-buttons">
       <button id="selectAll" class="themed-button category-button">Select All</button>
