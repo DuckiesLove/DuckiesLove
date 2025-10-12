@@ -754,7 +754,7 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
   }
 </style>
 </head>
-<body class="theme-dark has-category-panel tk-no-js">
+<body class="theme-dark has-category-panel tk-no-js panel-open tk-panel-open tk-drawer-open ksv-lock">
 
 
 <section id="ksvHeroStack" data-ksv-fallback>
@@ -1035,11 +1035,12 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 
 <main id="content" class="content full">
   <aside id="categorySurveyPanel"
-         class="category-panel tk-wide-panel"
+         class="category-panel tk-wide-panel open is-open"
          role="region"
          aria-label="Select categories"
          data-testid="select-categories-panel"
-         aria-hidden="true"
+         aria-hidden="false"
+         aria-expanded="true"
          data-ksv-panel="categories">
     <div class="panel-header">
       <h2>Select categories</h2>
