@@ -3452,5 +3452,114 @@ If __TK_LABELS isn’t ready yet on that page, preload:
   (async()=>{ if(!window.__TK_LABELS){ const d=await tkLoadKinkData(); window.__TK_LABELS=d.labelsMap; }})();
 ---------------------------------------------------------------------------- */
 </script>
+<script>
+(function () {
+  /* Guard: install once */
+  if (window.__tkPortalInstalled) return;
+  window.__tkPortalInstalled = true;
+
+  const Z = 2147483000; // max-ish z-index so we're always above everything.
+
+  /* 1) Find the existing panel (your drawer) */
+  const panel = document.querySelector('#categorySurveyPanel, .category-panel');
+  if (!panel) {
+    console.warn('[TK] No panel found (#categorySurveyPanel or .category-panel).');
+    return;
+  }
+
+  /* 2) Create scrim and portal wrapper that sit at the top of the page stack */
+  const scrim = Object.assign(document.createElement('div'), { id: 'tkScrim' });
+  Object.assign(scrim.style, {
+    position: 'fixed', inset: '0', background: 'rgba(0,0,0,.6)',
+    display: 'none', opacity: '0', transition: 'opacity .18s ease', zIndex: Z, pointerEvents: 'none'
+  });
+
+  const portal = Object.assign(document.createElement('div'), { id: 'tkPortal' });
+  Object.assign(portal.style, { position: 'fixed', inset: '0', display: 'none', zIndex: Z + 1, pointerEvents: 'none' });
+
+  const shell = Object.assign(document.createElement('div'), { className: 'tk-shell' });
+  Object.assign(shell.style, {
+    position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+    maxHeight: '85vh', width: 'min(980px, 92vw)',
+    background: 'rgba(10,10,10,.97)', border: '1px solid #00f0ff', borderRadius: '12px',
+    boxShadow: '0 24px 64px rgba(0,0,0,.55)', overflow: 'auto', pointerEvents: 'auto', padding: '16px'
+  });
+
+  document.body.appendChild(scrim);
+  document.body.appendChild(portal);
+  portal.appendChild(shell);
+
+  /* 3) Remember original location so we can restore on close */
+  const origParent = panel.parentNode;
+  const origNext = panel.nextSibling;
+
+  /* 4) Neutralize common hiding mechanisms on the panel itself */
+  ['hidden', 'inert', 'aria-hidden'].forEach(a => { try { panel.removeAttribute(a); } catch {} });
+  try { panel.classList.remove('hidden','is-hidden','closed','tk-hidden','tk-closed'); } catch {}
+  Object.assign(panel.style, {
+    display: 'block', visibility: 'visible', opacity: '1', filter: 'none', transform: 'none'
+  });
+
+  /* 5) Mount/unmount helpers */
+  function mountPanel(){
+    // Pull into portal and ensure it can't be 0x0
+    shell.appendChild(panel);
+    if (panel.getBoundingClientRect().height < 40) {
+      panel.style.minHeight = '240px';   // safety so you see something
+    }
+  }
+  function unmountPanel(){
+    if (!origParent) return;
+    if (origNext) origParent.insertBefore(panel, origNext);
+    else origParent.appendChild(panel);
+  }
+
+  /* 6) Open/close controls */
+  function open(){
+    mountPanel();
+    scrim.style.display = 'block';
+    portal.style.display = 'block';
+    requestAnimationFrame(() => { scrim.style.opacity = '1'; scrim.style.pointerEvents = 'auto'; });
+    document.documentElement.style.overflow = 'hidden';
+    console.log('[TK] Panel opened (portal mode).');
+  }
+  function close(){
+    scrim.style.opacity = '0';
+    scrim.style.pointerEvents = 'none';
+    setTimeout(() => {
+      scrim.style.display = 'none';
+      portal.style.display = 'none';
+      document.documentElement.style.overflow = '';
+      unmountPanel();
+      console.log('[TK] Panel closed (restored to original DOM).');
+    }, 180);
+  }
+  scrim.addEventListener('click', close, { passive: true });
+
+  /* 7) Public probes (handy in console) */
+  window.tkOpenPanel = open;
+  window.tkClosePanel = close;
+  window.tkProbe = function(){
+    const r = panel.getBoundingClientRect();
+    console.table([
+      { key: 'panel',   present: !!panel,   w: Math.round(r.width), h: Math.round(r.height),
+        inPortal: panel.parentNode === shell },
+      { key: 'overlay', present: true,      visible: scrim.style.display !== 'none' }
+    ]);
+    return { rect: r, inPortal: panel.parentNode === shell };
+  };
+
+  /* 8) Wire your Start buttons */
+  const startSelectors = [
+    '#startSurveyBtn', '#startSurvey', '.start-survey-btn',
+    'button.themed-button.start-survey-btn', 'a[href="#start"]'
+  ].join(',');
+  document.querySelectorAll(startSelectors).forEach(btn => {
+    btn.addEventListener('click', e => { e.preventDefault(); open(); }, { passive: false });
+  });
+
+  console.log('[TK] Portal installed. Click “Start Survey”, or run tkOpenPanel().');
+})();
+</script>
 </body>
 </html>
