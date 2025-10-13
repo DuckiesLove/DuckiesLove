@@ -13,6 +13,62 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>See Our Compatibility</title>
+  <style>
+    /* Kill any category dock/panel overlays without layout shift */
+    #tkDockCard,
+    #categorySurveyPanel,
+    aside.category-panel,
+    .category-panel,
+    [data-testid="select-categories-panel"],
+    #tkOverlay,
+    .tk-overlay {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* Ensure body isn't pushed for a removed dock */
+    html.tk-dock body {
+      margin-left: 0 !important;
+    }
+  </style>
+  <script>
+    (function killCategoryPanel() {
+      const selectors = [
+        '#tkDockCard',
+        '#categorySurveyPanel',
+        'aside.category-panel',
+        '.category-panel',
+        '[data-testid="select-categories-panel"]',
+        '#tkOverlay',
+        '.tk-overlay'
+      ];
+
+      window.__TK_DISABLE_PANEL__ = true;
+      window.__TK_DISABLE_PORTAL__ = true;
+
+      const purge = () => {
+        document.documentElement.classList.remove('tk-dock');
+        if (document.body) {
+          document.body.style.marginLeft = '';
+        }
+        selectors.forEach((selector) => {
+          document.querySelectorAll(selector).forEach((node) => node.remove());
+        });
+      };
+
+      purge();
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', purge, { once: true });
+      }
+
+      const observer = new MutationObserver(purge);
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 4000);
+    })();
+  </script>
   <!-- Import theme and global layout styles -->
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/global.css" />
