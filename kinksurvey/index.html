@@ -34,6 +34,74 @@
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
 <link rel="stylesheet" href="/css/tk-panel-safe.css">
 
+<style id="tk-kink-dock">
+  html, body { margin: 0; }
+
+  /* Hide any legacy overlay layers that might obscure the dock */
+  .tk-overlay,
+  #tkOverlay { display: none !important; }
+
+  /* Dock the survey panel on the left at roughly 75% width */
+  #categorySurveyPanel {
+    position: fixed !important;
+    inset: 0 !important;
+    display: block !important;
+    visibility: visible !important;
+    background: transparent !important;
+    pointer-events: none !important;
+    z-index: 2147483640 !important;
+  }
+
+  #categorySurveyPanel .panel {
+    position: absolute !important;
+    left: 2vw !important;
+    top: 2vh !important;
+    bottom: 2vh !important;
+    width: 75vw !important;
+    max-width: none !important;
+    overflow: auto !important;
+    border-radius: 16px !important;
+    border: 2px solid var(--teal, #00e5ff) !important;
+    background: #000 !important;
+    color: #fff !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,.6) !important;
+    pointer-events: auto !important;
+  }
+
+  /* Push the rest of the page over to the remaining 25% */
+  main,
+  #app,
+  .home,
+  .wrap,
+  .container {
+    margin-left: 77vw !important;
+    padding: 2vh 2vw !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Mobile fallback: revert to the standard overlay */
+  @media (max-width: 900px) {
+    #categorySurveyPanel {
+      pointer-events: auto !important;
+    }
+
+    #categorySurveyPanel .panel {
+      left: 2vw !important;
+      right: 2vw !important;
+      width: auto !important;
+    }
+
+    main,
+    #app,
+    .home,
+    .wrap,
+    .container {
+      margin-left: 0 !important;
+      padding: 12px !important;
+    }
+  }
+</style>
+
 <!-- ✅ ONE DROP PATCH: stop “addEventListener of null” shim -->
 <script>
 /* ------------------------------
@@ -4598,6 +4666,79 @@ No other files need to change.
 })();
 </script>
 <!-- ====================== /TK Start Gate ====================== -->
+
+<script>
+(function () {
+  const panel = document.getElementById('categorySurveyPanel');
+  if (!panel) {
+    console.warn('[TK] Category panel not found on /kinksurvey/.');
+    return;
+  }
+
+  const ensureVisible = () => {
+    panel.classList.remove('drawer', 'overlay', 'hidden');
+    if (!panel.classList.contains('visible')) panel.classList.add('visible');
+    if (panel.hasAttribute('hidden')) panel.removeAttribute('hidden');
+    if (panel.getAttribute('aria-hidden') === 'true') panel.setAttribute('aria-hidden', 'false');
+    if (panel.style.display !== 'block') panel.style.display = 'block';
+    if (panel.style.opacity !== '1') panel.style.opacity = '1';
+    if (panel.style.pointerEvents !== 'none') panel.style.pointerEvents = 'none';
+    try {
+      if ('inert' in panel) panel.inert = false;
+    } catch {}
+  };
+
+  ensureVisible();
+  panel.dataset.tkDocked = 'true';
+
+  const closeBtn = document.getElementById('btnClosePanel');
+  if (closeBtn) {
+    closeBtn.setAttribute('aria-label', 'Panel is docked');
+    closeBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      return false;
+    }, true);
+  }
+
+  document.querySelectorAll('[aria-controls="categorySurveyPanel"]').forEach((btn) => {
+    btn.setAttribute('aria-expanded', 'true');
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      return false;
+    }, true);
+  });
+
+  const observer = new MutationObserver(ensureVisible);
+  observer.observe(panel, { attributes: true, attributeFilter: ['class', 'hidden', 'aria-hidden', 'style'] });
+
+  const list = document.getElementById('categoryChecklist');
+  let attempts = 0;
+
+  function triggerOpen() {
+    const trigger = document.querySelector('#startSurveyBtn, [data-tk-start-survey]');
+    if (!trigger) return false;
+    const ev = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+    trigger.dispatchEvent(ev);
+    return true;
+  }
+
+  function ensureContent() {
+    if (!list || list.childElementCount > 0) return;
+    if (attempts++ > 4) return;
+    triggerOpen();
+    setTimeout(ensureContent, 250);
+  }
+
+  if (list && list.childElementCount === 0) {
+    setTimeout(() => {
+      triggerOpen();
+      ensureContent();
+    }, 120);
+  }
+})();
+</script>
 
 </body>
 </html>
