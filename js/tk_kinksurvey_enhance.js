@@ -48,8 +48,14 @@
   const normalizedPath = rawPath.replace(/\/+$/, '') || '/';
   const isKinkSurveyPath = /^\/kinksurvey(?:\/.*)?$/i.test(rawPath);
   const isKinkSurveyLanding = normalizedPath === '/kinksurvey';
+  const isCompatibilityPage = /\/compatibility\.html$/i.test(normalizedPath);
 
-  function teardownDockLayout(){
+  function teardownDockLayout({ compatibility = false } = {}){
+    window.__TK_DISABLE_PORTAL__ = false;
+    if (compatibility){
+      window.__TK_DISABLE_PANEL__ = true;
+    }
+
     document.querySelectorAll('#tkRightRail,#tkDockCSS,#tkDockCSS_live').forEach(node => {
       try {
         node?.remove?.();
@@ -57,6 +63,39 @@
         /* noop */
       }
     });
+
+    const card = document.getElementById('tkDockCard');
+    if (card){
+      if (typeof card.__tkDockRO?.disconnect === 'function'){
+        try { card.__tkDockRO.disconnect(); } catch (err) { /* noop */ }
+      }
+      if (typeof card.__tkDockPanelObserver?.disconnect === 'function'){
+        try { card.__tkDockPanelObserver.disconnect(); } catch (err) { /* noop */ }
+      }
+      const panel = card.querySelector('#categorySurveyPanel');
+      if (panel && document.body && !document.body.contains(panel)){
+        document.body.appendChild(panel);
+      }
+      try {
+        card.remove();
+      } catch (err) {
+        /* noop */
+      }
+    }
+
+    const docEl = document.documentElement;
+    if (docEl){
+      docEl.classList.remove('tk-dock');
+      if (docEl.__tkDockMutationObserver){
+        try { docEl.__tkDockMutationObserver.disconnect(); } catch (err) { /* noop */ }
+        delete docEl.__tkDockMutationObserver;
+      }
+    }
+
+    if (document.body){
+      try { document.body.style.marginLeft = ''; } catch (err) { /* noop */ }
+    }
+
     document.querySelectorAll('.tk-dock-75').forEach(node => {
       if (node === document.body){
         node.classList.remove('tk-dock-75');
@@ -70,8 +109,156 @@
     });
   }
 
+  function setupDockedSurveyLayout(){
+    if (!isKinkSurveyLanding) return;
+
+    const execute = () => {
+      if (!document.body){
+        window.setTimeout(execute, 16);
+        return;
+      }
+
+      window.__TK_DISABLE_PORTAL__ = true;
+
+      const docEl = document.documentElement;
+      docEl?.classList?.add('tk-dock');
+
+      const removeNode = (node) => {
+        if (!node) return;
+        try {
+          node.remove();
+        } catch (err) {
+          try {
+            node.parentNode?.removeChild?.(node);
+          } catch (err2) {
+            /* noop */
+          }
+        }
+      };
+
+      const ensureCard = () => {
+        let card = document.getElementById('tkDockCard');
+        if (!card){
+          card = document.createElement('aside');
+          card.id = 'tkDockCard';
+          document.body.appendChild(card);
+        }
+        return card;
+      };
+
+      const card = ensureCard();
+
+      const ensurePlaceholder = () => {
+        if (!card.querySelector('[data-tk-dock-placeholder]') && !card.querySelector('#categorySurveyPanel')){
+          const shell = document.createElement('div');
+          shell.className = 'panel';
+          shell.setAttribute('data-tk-dock-placeholder', '1');
+          shell.innerHTML = `
+            <h2 style="margin:16px 0 8px">Select categories</h2>
+            <p style="opacity:.7;margin:0 0 16px">Loading categories…</p>
+          `;
+          card.appendChild(shell);
+        }
+      };
+
+      const adoptPanel = () => {
+        const current = card.querySelector('#categorySurveyPanel');
+        const panel = document.querySelector('#categorySurveyPanel, aside.category-panel, .category-panel');
+        if (panel && panel !== card && !card.contains(panel)){
+          card.appendChild(panel);
+          const placeholder = card.querySelector('[data-tk-dock-placeholder]');
+          if (placeholder) removeNode(placeholder);
+          return;
+        }
+        if (current){
+          const placeholder = card.querySelector('[data-tk-dock-placeholder]');
+          if (placeholder) removeNode(placeholder);
+          return;
+        }
+        ensurePlaceholder();
+      };
+
+      adoptPanel();
+      window.setTimeout(adoptPanel, 0);
+      window.setTimeout(adoptPanel, 150);
+
+      if (typeof MutationObserver === 'function' && !card.__tkDockPanelObserver){
+        const observer = new MutationObserver(() => {
+          adoptPanel();
+          if (card.querySelector('#categorySurveyPanel')){
+            try { observer.disconnect(); } catch (err) { /* noop */ }
+            delete card.__tkDockPanelObserver;
+          }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        card.__tkDockPanelObserver = observer;
+      }
+
+      const ensureSize = () => {
+        const rect = card.getBoundingClientRect();
+        if (!rect.width || !rect.height){
+          Object.assign(card.style, {
+            position: 'fixed',
+            left: '0px',
+            top: '0px',
+            bottom: '0px',
+            width: '75vw',
+            height: '100vh',
+            display: 'block',
+            visibility: 'visible',
+            opacity: '1',
+            zIndex: '2147483647',
+          });
+        }
+      };
+
+      ensureSize();
+
+      if (typeof ResizeObserver === 'function' && !card.__tkDockRO){
+        const ro = new ResizeObserver(ensureSize);
+        ro.observe(card);
+        card.__tkDockRO = ro;
+      }
+
+      const killOverlay = () => {
+        document.querySelectorAll('#tkOverlay,.tk-overlay,[data-overlay]').forEach(node => {
+          if (node && node.style){
+            node.style.display = 'none';
+            node.style.visibility = 'hidden';
+            node.style.pointerEvents = 'none';
+          }
+        });
+      };
+
+      killOverlay();
+      window.setTimeout(killOverlay, 100);
+
+      if (docEl && typeof MutationObserver === 'function' && !docEl.__tkDockMutationObserver){
+        const ensureClass = () => {
+          if (!docEl.classList.contains('tk-dock')){
+            docEl.classList.add('tk-dock');
+          }
+        };
+        const mo = new MutationObserver(ensureClass);
+        mo.observe(docEl, { attributes: true, attributeFilter: ['class'] });
+        docEl.__tkDockMutationObserver = mo;
+        ensureClass();
+      }
+
+      if (typeof window.tkOpenPanel === 'function' && card.querySelector('#categorySurveyPanel')){
+        try { window.tkOpenPanel(); } catch (err) { /* noop */ }
+      }
+    };
+
+    if (document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', execute, { once: true });
+    } else {
+      execute();
+    }
+  }
+
   if (!isKinkSurveyLanding){
-    teardownDockLayout();
+    teardownDockLayout({ compatibility: isCompatibilityPage });
     const panel = document.getElementById('categorySurveyPanel');
     if (panel){
       panel.classList.remove('visible','open');
@@ -90,6 +277,8 @@
     });
     return;
   }
+
+  setupDockedSurveyLayout();
 
   if (!isKinkSurveyPath) return;
 
@@ -299,6 +488,32 @@
 
     const panel = document.getElementById('categorySurveyPanel');
     if (!panel) return;
+
+    const usingDockCard = document.documentElement?.classList?.contains('tk-dock');
+
+    if (usingDockCard){
+      try {
+        panel.removeAttribute('aria-hidden');
+        panel.classList.add('visible','open');
+        panel.setAttribute('aria-expanded','true');
+        panel.style.display = 'block';
+        panel.style.visibility = 'visible';
+      } catch (err) {
+        /* noop */
+      }
+
+      document.body?.classList?.add('tk-panel-open');
+
+      if (typeof window.tkOpenPanel === 'function'){
+        try {
+          window.tkOpenPanel();
+        } catch (err) {
+          /* noop */
+        }
+      }
+
+      return;
+    }
 
     ensureDockStyles();
 

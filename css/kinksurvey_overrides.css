@@ -14,6 +14,41 @@
   --tk-toolbar-shadow:0 10px 30px rgba(0,0,0,.45);
 }
 
+/* Locked dock layout for kinksurvey landing page */
+html.tk-dock{}
+html.tk-dock body{
+  margin-left:75vw !important;
+  transition:margin-left .2s ease;
+}
+
+#tkDockCard{
+  position:fixed !important;
+  inset:0 auto 0 0 !important;
+  width:75vw !important;
+  height:100vh !important;
+  overflow:auto !important;
+  z-index:2147483647 !important;
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+  background:rgba(0,0,0,.85);
+  border-right:2px solid var(--teal,#00e5ff);
+  box-shadow:0 0 0 1px rgba(0,229,255,.15), 0 10px 30px rgba(0,0,0,.5);
+}
+
+#tkDockCard .panel{
+  max-width:min(1180px,72vw);
+  margin:16px 20px;
+}
+
+#tkOverlay,
+.tk-overlay,
+[data-overlay]{
+  display:none !important;
+  visibility:hidden !important;
+}
+
 /* Ensure list items and buttons accept clicks inside the panel */
 .category-list label,
 .category-list input,
