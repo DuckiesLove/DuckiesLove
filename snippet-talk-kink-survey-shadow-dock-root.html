@@ -1,0 +1,209 @@
+<!-- Talk Kink survey: Shadow DOM dock root with lifeguard -->
+<script>
+(() => {
+  // ========================= CONFIG =========================
+  const LS_KEY = '__TK_SELECTED_CATEGORIES';
+  const MAX_Z  = 2147483647;             // stay on top
+  const DOCK_ID = 'tkDockRoot';
+  const FEED_READY_INTERVAL = 250;       // ms
+  // =========================================================
+
+  // 1) Create a root node + Shadow DOM so page CSS can’t collapse us
+  function ensureDockRoot() {
+    let root = document.getElementById(DOCK_ID);
+    if (!root) {
+      root = document.createElement('div');
+      root.id = DOCK_ID;
+      document.body.appendChild(root);
+      root.attachShadow({ mode: 'open' });
+    } else if (!root.isConnected) {
+      document.body.appendChild(root);
+    }
+    // Force on-screen position (also add !important CSS in doc head)
+    Object.assign(root.style, {
+      position: 'fixed', left: '16px', top: '96px',
+      width: '360px', height: '70vh',
+      display: 'block', visibility: 'visible', opacity: '1',
+      zIndex: String(MAX_Z), transform: 'none', pointerEvents: 'auto'
+    });
+    let hard = document.getElementById('tkDockHardCSS');
+    if (!hard) {
+      hard = document.createElement('style');
+      hard.id = 'tkDockHardCSS';
+      hard.textContent = `
+        #${DOCK_ID}{all:initial !important;position:fixed !important;left:16px !important;top:96px !important;
+          width:360px !important;height:70vh !important;display:block !important;visibility:visible !important;
+          opacity:1 !important;z-index:${MAX_Z} !important;pointer-events:auto !important;transform:none !important}
+      `;
+      document.head.appendChild(hard);
+    }
+    return root;
+  }
+
+  // 2) Render the dock UI in the shadow root
+  function renderDock(shadow, categories) {
+    const selectedSaved = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+
+    shadow.innerHTML = `
+      <style>
+        :host{all:initial}
+        .card{box-sizing:border-box;font:400 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+              background:#06181b;color:#fff;border:3px solid #00e5ff;border-radius:14px;
+              width:100%;height:100%;padding:12px;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+        h2{margin:6px 0 10px 2px;font:700 20px/1.2 system-ui}
+        .row{display:flex;gap:10px;align-items:center;margin:8px 0}
+        .btn{cursor:pointer;background:#021114;border:2px solid #00e5ff;border-radius:12px;
+             color:#00e5ff;padding:8px 12px;font-weight:700}
+        .btn.primary{background:#00e5ff;color:#001316}
+        .list{display:grid;gap:10px}
+        label.item{display:flex;gap:10px;align-items:center;padding:10px 12px;
+           border:1px solid #2a2a2a;border-radius:12px;background:#0b1719}
+        input[type="checkbox"]{width:18px;height:18px}
+        .muted{opacity:.7}
+        .foot{margin-top:14px}
+      </style>
+      <div class="card" part="card">
+        <h2>Select categories</h2>
+        <div class="row">
+          <button class="btn" id="selAll">Select All</button>
+          <button class="btn" id="deselAll">Deselect All</button>
+          <span class="muted" id="badge">0 selected / ${categories.length} total</span>
+        </div>
+        <div class="list" id="list" role="group" aria-label="Categories"></div>
+        <div class="foot">
+          <button class="btn primary" id="go">Start Survey</button>
+        </div>
+      </div>
+    `;
+
+    const list = shadow.getElementById('list');
+    const badge = shadow.getElementById('badge');
+    const btnSelAll = shadow.getElementById('selAll');
+    const btnDeselAll = shadow.getElementById('deselAll');
+    const btnGo = shadow.getElementById('go');
+
+    function paintList() {
+      list.innerHTML = '';
+      const selSet = new Set(selectedSaved);
+      for (const { id, name } of categories) {
+        const row = document.createElement('label');
+        row.className = 'item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = id;
+        cb.checked = selSet.has(String(id));
+        const span = document.createElement('span');
+        span.textContent = name;
+        row.append(cb, span);
+        list.appendChild(row);
+      }
+      updateBadge();
+    }
+
+    function getSelected() {
+      return [...list.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+    }
+    function updateBadge() {
+      const count = getSelected().length;
+      badge.textContent = `${count} selected / ${categories.length} total`;
+    }
+
+    list.addEventListener('change', () => {
+      localStorage.setItem(LS_KEY, JSON.stringify(getSelected()));
+      updateBadge();
+    });
+
+    btnSelAll.onclick = () => {
+      list.querySelectorAll('input[type="checkbox"]').forEach(cb => (cb.checked = true));
+      localStorage.setItem(LS_KEY, JSON.stringify(getSelected()));
+      updateBadge();
+    };
+    btnDeselAll.onclick = () => {
+      list.querySelectorAll('input[type="checkbox"]').forEach(cb => (cb.checked = false));
+      localStorage.setItem(LS_KEY, JSON.stringify(getSelected()));
+      updateBadge();
+    };
+
+    // Start Survey button -> event + URL fallback
+    btnGo.onclick = () => {
+      const ids = getSelected();
+      localStorage.setItem(LS_KEY, JSON.stringify(ids));
+      // Dispatch event your runner can hook
+      document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids }}));
+      // Fallback navigate (if runner didn’t set the guard in time)
+      setTimeout(() => {
+        if (!window.__TK_SURVEY_STARTED) {
+          const u = new URL('/kinksurvey/', location.origin);
+          u.searchParams.set('run','1');
+          if (ids.length) u.searchParams.set('cats', ids.join(','));
+          location.assign(u.toString());
+        }
+      }, 120);
+    };
+
+    paintList();
+  }
+
+  // 3) Normalise the incoming feed -> [{id, name}]
+  function getCategoriesFromFeed() {
+    const feed = (window.__TK_KINK_DATA || []);
+    // Expected shapes:
+    //  a) [{ id, name }, ...]
+    //  b) { categories: [...] }
+    const arr = Array.isArray(feed) ? feed : Array.isArray(feed.categories) ? feed.categories : [];
+    return arr.map(x => ({
+      id: x.id ?? x.value ?? x.slug ?? String(x),
+      name: x.name ?? x.label ?? String(x.name || x.label || x)
+    })).filter(x => x.id && x.name);
+  }
+
+  // 4) When feed is ready, mount UI
+  function mountWhenReady() {
+    const root = ensureDockRoot();
+    const shadow = root.shadowRoot;
+    let cats = getCategoriesFromFeed();
+    if (cats.length) {
+      renderDock(shadow, cats);
+      return;
+    }
+    // Wait until feed arrives (poll + optional event)
+    let tries = 0;
+    const timer = setInterval(() => {
+      cats = getCategoriesFromFeed();
+      if (cats.length || ++tries > 80) { // ~20s max
+        clearInterval(timer);
+        renderDock(shadow, cats.length ? cats : [
+          { id: 'demo-1', name: '(demo) Bondage' },
+          { id: 'demo-2', name: '(demo) Roleplay' },
+          { id: 'demo-3', name: '(demo) Impact' }
+        ]);
+      }
+    }, FEED_READY_INTERVAL);
+
+    // If your loader emits a custom event, hook it
+    window.addEventListener('tk:kink-data', () => {
+      const arr = getCategoriesFromFeed();
+      if (arr.length) { clearInterval(timer); renderDock(shadow, arr); }
+    }, { once: true });
+  }
+
+  // 5) Keep the dock alive if something removes/hides it
+  function startLifeGuard() {
+    if (window.__tkDockLifeGuard) return;
+    window.__tkDockLifeGuard = new MutationObserver(() => {
+      const root = document.getElementById(DOCK_ID);
+      if (!root || !root.isConnected || getComputedStyle(root).display === 'none') {
+        ensureDockRoot(); // reattach + force styles
+      }
+    });
+    window.__tkDockLifeGuard.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+  }
+
+  // Boot as soon as DOM is interactive
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { ensureDockRoot(); mountWhenReady(); startLifeGuard(); });
+  } else {
+    ensureDockRoot(); mountWhenReady(); startLifeGuard();
+  }
+})();
+</script>
