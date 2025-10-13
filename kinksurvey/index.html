@@ -4486,8 +4486,11 @@ No other files need to change.
   const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
   const hasText = (el, rx)=> rx.test((el?.textContent||'').trim());
 
-  /* find the docked panel that TK Docked Panel v2 placed on the left */
-  const findPanel = ()=> $('#tkDock .tk-left aside, #tkDock .tk-left .category-panel, #tkDock .tk-left [role="region"]') || null;
+  /* find the docked panel placed on the left */
+  const findPanel = () =>
+    $('#tkLeft #categorySurveyPanel, #tkLeft .category-panel, #tkLayout #categorySurveyPanel, #tkLayout .category-panel, #tkDock .tk-left aside, #tkDock .tk-left .category-panel, #tkDock .tk-left [role="region"]')
+      || $('#categorySurveyPanel')
+      || $('.category-panel');
 
   /* find the Start button that lives INSIDE the panel */
   const findStart = (panel)=>{

@@ -49,6 +49,91 @@
   const isKinkSurveyPath = /^\/kinksurvey(?:\/.*)?$/i.test(rawPath);
   const isKinkSurveyLanding = normalizedPath === '/kinksurvey';
   const isCompatibilityPage = /\/compatibility\.html$/i.test(normalizedPath);
+  const DOCK_BODY_CLASS = 'tk-dock-layout';
+  const DOCK_LAYOUT_ID = 'tkLayout';
+  const DOCK_LEFT_ID = 'tkLeft';
+  const DOCK_RIGHT_ID = 'tkRight';
+
+  function ensureDockLayoutNodes(){
+    const body = document.body;
+    if (!body) return { layout: null, left: null, right: null };
+
+    let layout = document.getElementById(DOCK_LAYOUT_ID);
+    if (!layout){
+      layout = el('main', { id: DOCK_LAYOUT_ID });
+      body.prepend(layout);
+    } else if (!layout.parentNode){
+      body.prepend(layout);
+    }
+
+    let left = document.getElementById(DOCK_LEFT_ID);
+    if (!left){
+      left = el('section', { id: DOCK_LEFT_ID, role: 'region', 'aria-label': 'Survey categories' });
+      layout.appendChild(left);
+    } else if (!layout.contains(left)){
+      layout.appendChild(left);
+    }
+
+    let right = document.getElementById(DOCK_RIGHT_ID);
+    if (!right){
+      right = el('aside', { id: DOCK_RIGHT_ID, role: 'complementary', 'aria-label': 'Survey actions' });
+      layout.appendChild(right);
+    } else if (!layout.contains(right)){
+      layout.appendChild(right);
+    }
+
+    return { layout, left, right };
+  }
+
+  function mountDockPanel(left){
+    if (!left) return null;
+    const panel = document.getElementById('categorySurveyPanel') || document.querySelector('.category-panel');
+    if (!panel) return null;
+
+    if (panel.parentNode !== left){
+      left.appendChild(panel);
+    }
+
+    try {
+      panel.removeAttribute('hidden');
+      panel.removeAttribute('inert');
+      panel.classList.add('open','is-open');
+      panel.setAttribute('aria-expanded','true');
+      panel.setAttribute('aria-hidden','false');
+      panel.style.removeProperty('position');
+      panel.style.removeProperty('inset');
+      panel.style.removeProperty('left');
+      panel.style.removeProperty('right');
+      panel.style.removeProperty('top');
+      panel.style.removeProperty('bottom');
+      panel.style.removeProperty('transform');
+      panel.style.display = 'block';
+      panel.style.visibility = 'visible';
+      panel.style.opacity = '';
+      panel.dataset.tkDocked = '1';
+    } catch (err) {
+      /* noop */
+    }
+
+    return panel;
+  }
+
+  function mountDockActions(right){
+    const rail = ensureRightRail() || right;
+    if (!rail) return;
+
+    const hero = document.getElementById('ksvHeroStack');
+    if (hero && hero.parentNode !== rail){
+      rail.appendChild(hero);
+    }
+
+    const toggle = document.getElementById('panelToggle');
+    if (toggle && toggle.parentNode !== rail){
+      rail.appendChild(toggle);
+    }
+
+    moveButtonsIntoRail(rail);
+  }
 
   function teardownDockLayout({ compatibility = false } = {}){
     window.__TK_DISABLE_PORTAL__ = false;
@@ -63,6 +148,19 @@
         /* noop */
       }
     });
+
+    const layout = document.getElementById(DOCK_LAYOUT_ID);
+    if (layout){
+      const panel = layout.querySelector('#categorySurveyPanel, .category-panel');
+      if (panel && document.body && !document.body.contains(panel)){
+        document.body.appendChild(panel);
+      }
+      try {
+        layout.remove();
+      } catch (err) {
+        /* noop */
+      }
+    }
 
     const card = document.getElementById('tkDockCard');
     if (card){
@@ -92,21 +190,12 @@
       }
     }
 
-    if (document.body){
-      try { document.body.style.marginLeft = ''; } catch (err) { /* noop */ }
+    const body = document.body;
+    if (body){
+      body.classList.remove(DOCK_BODY_CLASS);
+      body.classList.remove('tk-dock-75');
+      try { body.style.marginLeft = ''; } catch (err) { /* noop */ }
     }
-
-    document.querySelectorAll('.tk-dock-75').forEach(node => {
-      if (node === document.body){
-        node.classList.remove('tk-dock-75');
-      } else {
-        try {
-          node.classList.remove('tk-dock-75');
-        } catch (err) {
-          /* noop */
-        }
-      }
-    });
   }
 
   function setupDockedSurveyLayout(){
@@ -119,133 +208,28 @@
       }
 
       window.__TK_DISABLE_PORTAL__ = true;
+      document.body.classList.add(DOCK_BODY_CLASS);
+      ensureDockStyles();
 
-      const docEl = document.documentElement;
-      docEl?.classList?.add('tk-dock');
+      const { left, right } = ensureDockLayoutNodes();
+      const panel = mountDockPanel(left);
+      mountDockActions(right);
 
-      const removeNode = (node) => {
-        if (!node) return;
-        try {
-          node.remove();
-        } catch (err) {
-          try {
-            node.parentNode?.removeChild?.(node);
-          } catch (err2) {
-            /* noop */
-          }
-        }
-      };
-
-      const ensureCard = () => {
-        let card = document.getElementById('tkDockCard');
-        if (!card){
-          card = document.createElement('aside');
-          card.id = 'tkDockCard';
-          document.body.appendChild(card);
-        }
-        return card;
-      };
-
-      const card = ensureCard();
-
-      const ensurePlaceholder = () => {
-        if (!card.querySelector('[data-tk-dock-placeholder]') && !card.querySelector('#categorySurveyPanel')){
-          const shell = document.createElement('div');
-          shell.className = 'panel';
-          shell.setAttribute('data-tk-dock-placeholder', '1');
-          shell.innerHTML = `
-            <h2 style="margin:16px 0 8px">Select categories</h2>
-            <p style="opacity:.7;margin:0 0 16px">Loading categories…</p>
-          `;
-          card.appendChild(shell);
-        }
-      };
-
-      const adoptPanel = () => {
-        const current = card.querySelector('#categorySurveyPanel');
-        const panel = document.querySelector('#categorySurveyPanel, aside.category-panel, .category-panel');
-        if (panel && panel !== card && !card.contains(panel)){
-          card.appendChild(panel);
-          const placeholder = card.querySelector('[data-tk-dock-placeholder]');
-          if (placeholder) removeNode(placeholder);
-          return;
-        }
-        if (current){
-          const placeholder = card.querySelector('[data-tk-dock-placeholder]');
-          if (placeholder) removeNode(placeholder);
-          return;
-        }
-        ensurePlaceholder();
-      };
-
-      adoptPanel();
-      window.setTimeout(adoptPanel, 0);
-      window.setTimeout(adoptPanel, 150);
-
-      if (typeof MutationObserver === 'function' && !card.__tkDockPanelObserver){
-        const observer = new MutationObserver(() => {
-          adoptPanel();
-          if (card.querySelector('#categorySurveyPanel')){
-            try { observer.disconnect(); } catch (err) { /* noop */ }
-            delete card.__tkDockPanelObserver;
-          }
+      if (!panel && typeof MutationObserver === 'function'){
+        const mo = new MutationObserver(() => {
+          if (mountDockPanel(left)) mo.disconnect();
         });
-        observer.observe(document.body, { childList: true, subtree: true });
-        card.__tkDockPanelObserver = observer;
+        mo.observe(document.documentElement, { childList: true, subtree: true });
+        window.setTimeout(() => mo.disconnect(), 5000);
       }
 
-      const ensureSize = () => {
-        const rect = card.getBoundingClientRect();
-        if (!rect.width || !rect.height){
-          Object.assign(card.style, {
-            position: 'fixed',
-            left: '0px',
-            top: '0px',
-            bottom: '0px',
-            width: '75vw',
-            height: '100vh',
-            display: 'block',
-            visibility: 'visible',
-            opacity: '1',
-            zIndex: '2147483647',
-          });
-        }
-      };
-
-      ensureSize();
-
-      if (typeof ResizeObserver === 'function' && !card.__tkDockRO){
-        const ro = new ResizeObserver(ensureSize);
-        ro.observe(card);
-        card.__tkDockRO = ro;
+      if (typeof MutationObserver === 'function'){
+        const buttonsObserver = new MutationObserver(() => mountDockActions(right));
+        buttonsObserver.observe(document.body, { childList: true, subtree: true });
+        window.setTimeout(() => buttonsObserver.disconnect(), 5000);
       }
 
-      const killOverlay = () => {
-        document.querySelectorAll('#tkOverlay,.tk-overlay,[data-overlay]').forEach(node => {
-          if (node && node.style){
-            node.style.display = 'none';
-            node.style.visibility = 'hidden';
-            node.style.pointerEvents = 'none';
-          }
-        });
-      };
-
-      killOverlay();
-      window.setTimeout(killOverlay, 100);
-
-      if (docEl && typeof MutationObserver === 'function' && !docEl.__tkDockMutationObserver){
-        const ensureClass = () => {
-          if (!docEl.classList.contains('tk-dock')){
-            docEl.classList.add('tk-dock');
-          }
-        };
-        const mo = new MutationObserver(ensureClass);
-        mo.observe(docEl, { attributes: true, attributeFilter: ['class'] });
-        docEl.__tkDockMutationObserver = mo;
-        ensureClass();
-      }
-
-      if (typeof window.tkOpenPanel === 'function' && card.querySelector('#categorySurveyPanel')){
+      if (typeof window.tkOpenPanel === 'function'){
         try { window.tkOpenPanel(); } catch (err) { /* noop */ }
       }
     };
@@ -395,45 +379,78 @@
   function ensureDockStyles(){
     if (document.getElementById('tkDockCSS')) return;
     const css = `
-      :root { --tk-panel-w: 75vw; --tk-rail-w: 25vw; }
-      body.tk-dock-75 { overflow: hidden; }
-      #categorySurveyPanel {
-        position: fixed !important;
-        inset: 0 auto 0 0 !important;
-        width: var(--tk-panel-w) !important;
-        height: 100vh !important;
-        display: block !important;
-        visibility: visible !important;
-        background: transparent !important;
-        z-index: 2147483647;
+      html.tk-dock body { margin-left: 0 !important; }
+      body.${DOCK_BODY_CLASS} { margin-left: 0 !important; }
+      body.${DOCK_BODY_CLASS} #${DOCK_LAYOUT_ID} {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+        padding: 24px clamp(16px, 3vw, 48px);
+        box-sizing: border-box;
+        max-width: 1600px;
+        margin: 0 auto;
       }
-      #categorySurveyPanel .panel {
-        position: absolute;
-        inset: 16px 16px 16px 16px;
-        overflow: auto;
-        box-shadow: 0 0 0 2px var(--teal,#00e5ff);
-        border-radius: 16px;
-        background: #081314;
+      body.${DOCK_BODY_CLASS} #${DOCK_LAYOUT_ID} > * {
+        min-width: 0;
       }
-      #tkRightRail {
-        position: fixed;
-        top: 0;
-        right: 0;
-        width: var(--tk-rail-w);
-        height: 100vh;
-        padding: 16px 20px;
+      body.${DOCK_BODY_CLASS} #${DOCK_LEFT_ID} {
+        min-height: calc(100vh - 96px);
+      }
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} {
+        position: sticky;
+        top: 24px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 18px;
         align-items: stretch;
-        overflow: auto;
-        background: transparent;
-        z-index: 2147483647;
-        pointer-events: auto;
       }
-      .tk-overlay, #tkOverlay, .overlay, [data-overlay="true"] {
-        display: none !important;
-        visibility: hidden !important;
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} .themed-button,
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} a,
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} button {
+        width: 100%;
+      }
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} .ksvButtons {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        width: 100%;
+      }
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} #panelToggle {
+        position: static;
+        width: 100%;
+      }
+      body.${DOCK_BODY_CLASS} #${DOCK_LEFT_ID} #categorySurveyPanel,
+      body.${DOCK_BODY_CLASS} #${DOCK_LEFT_ID} .category-panel,
+      body.${DOCK_BODY_CLASS} #${DOCK_LEFT_ID} #tkDockCard,
+      body.${DOCK_BODY_CLASS} #${DOCK_LEFT_ID} .panel,
+      body.${DOCK_BODY_CLASS} #tkDockCard,
+      body.${DOCK_BODY_CLASS} #categorySurveyPanel,
+      body.${DOCK_BODY_CLASS} .category-panel {
+        position: static !important;
+        inset: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: calc(100vh - 128px) !important;
+        overflow: auto !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: auto !important;
+        box-shadow: none !important;
+        background: transparent !important;
+      }
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} nav,
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} section,
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} .ksvBtn {
+        width: 100%;
+      }
+      body.${DOCK_BODY_CLASS} #${DOCK_RIGHT_ID} .ksvBtn {
+        justify-content: center;
+      }
+      body.${DOCK_BODY_CLASS} #${DOCK_LEFT_ID} .panel,
+      body.${DOCK_BODY_CLASS} #${DOCK_LEFT_ID} .category-panel {
+        max-width: none !important;
       }
     `.trim();
     const style = el('style',{ id: 'tkDockCSS' });
@@ -442,20 +459,17 @@
   }
 
   function ensureRightRail(){
-    let rail = document.getElementById('tkRightRail');
-    if (!rail){
-      rail = el('aside',{ id: 'tkRightRail', role: 'complementary', 'aria-label': 'Actions' });
-      document.body?.appendChild(rail);
-    }
-    if (rail && !rail.querySelector('[data-rail-h]')){
+    const { right } = ensureDockLayoutNodes();
+    if (!right) return null;
+    if (!right.querySelector('[data-rail-h]')){
       const header = el('div',{ 'data-rail-h': '1' });
       header.style.margin = '8px 0 12px';
       header.style.opacity = '.9';
       header.style.fontWeight = '600';
       header.textContent = 'Actions';
-      rail.prepend(header);
+      right.prepend(header);
     }
-    return rail;
+    return right;
   }
 
   function moveButtonsIntoRail(rail){
@@ -486,50 +500,20 @@
     const path = (location.pathname || '').replace(/\/+$/, '') || '/';
     if (path !== '/kinksurvey') return;
 
-    const panel = document.getElementById('categorySurveyPanel');
-    if (!panel) return;
+    ensureDockStyles();
+    const { left, right } = ensureDockLayoutNodes();
+    document.body?.classList?.add(DOCK_BODY_CLASS);
 
-    const usingDockCard = document.documentElement?.classList?.contains('tk-dock');
+    const panel = mountDockPanel(left);
+    mountDockActions(right);
+    moveButtonsIntoRail(right);
 
-    if (usingDockCard){
+    if (panel){
       try {
-        panel.removeAttribute('aria-hidden');
-        panel.classList.add('visible','open');
-        panel.setAttribute('aria-expanded','true');
-        panel.style.display = 'block';
-        panel.style.visibility = 'visible';
+        panel.classList.add('visible');
       } catch (err) {
         /* noop */
       }
-
-      document.body?.classList?.add('tk-panel-open');
-
-      if (typeof window.tkOpenPanel === 'function'){
-        try {
-          window.tkOpenPanel();
-        } catch (err) {
-          /* noop */
-        }
-      }
-
-      return;
-    }
-
-    ensureDockStyles();
-
-    document.body?.classList?.add('tk-dock-75');
-
-    const rail = ensureRightRail();
-    moveButtonsIntoRail(rail);
-
-    try {
-      panel.removeAttribute('aria-hidden');
-      panel.classList.add('visible','open');
-      panel.setAttribute('aria-expanded','true');
-      panel.style.display = 'block';
-      panel.style.visibility = 'visible';
-    } catch (err) {
-      /* noop */
     }
 
     document.body?.classList?.add('tk-panel-open');
@@ -876,7 +860,7 @@
     const drawer = $('#tkCategoryDrawer');
     const body = document.body;
     if (!drawer || !body || drawer.dataset.tkFullscreen === '1') return;
-    if (body.classList.contains('tk-dock-75')) return;
+    if (body.classList.contains(DOCK_BODY_CLASS)) return;
     drawer.dataset.tkFullscreen = '1';
 
     const backdrop = $('#tkDrawerBackdrop');
