@@ -5,6 +5,16 @@
   const KEY = '__TK_SELECTED_CATEGORIES';  // localStorage key
   const FEED_KEY = '__TK_KINK_DATA';       // where your feed lands
 
+  /* ---------- Ensure host exists, is attached, and pinned ---------- */
+  let card = document.getElementById('tkDockCard');
+  if (!card) {
+    card = document.createElement('div');
+    card.id = 'tkDockCard';
+    (document.body || document.documentElement).appendChild(card);
+  } else if (!card.isConnected) {
+    (document.body || document.documentElement).appendChild(card);
+  }
+
   /* ---------- CSS: force size/visibility no matter what ---------- */
   if (!document.getElementById('tkDockCSS')) {
     const css = document.createElement('style');
@@ -12,7 +22,8 @@
     css.textContent = `
       #tkDockCard{position:fixed!important;left:16px!important;top:96px!important;width:360px!important;
         height:70vh!important;display:block!important;visibility:visible!important;opacity:1!important;
-        z-index:${Z}!important;pointer-events:auto!important;background:transparent!important;border:0!important}
+        z-index:${Z}!important;pointer-events:auto!important;background:transparent!important;border:0!important;
+        transform:none!important}
       #tkDockCard .tk-card{background:#06181b;color:#fff;border:3px solid #00e5ff;border-radius:14px;
         padding:14px;box-shadow:0 10px 32px rgba(0,0,0,.55);width:100%;height:100%;overflow:auto;
         font:400 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
@@ -27,11 +38,30 @@
     document.head.appendChild(css);
   }
 
+  Object.assign(card.style, {
+    position:'fixed', left:'16px', top:'96px', width:'360px', height:'70vh',
+    display:'block', visibility:'visible', opacity:'1', zIndex:String(Z),
+    pointerEvents:'auto', transform:'none'
+  });
+
+  if (!window.__tkDockReattacher) {
+    window.__tkDockReattacher = new MutationObserver(() => {
+      const host = document.getElementById('tkDockCard');
+      const target = host || card;
+      if (!host || !host.isConnected || getComputedStyle(host).display === 'none') {
+        (document.body || document.documentElement).appendChild(target);
+        Object.assign(target.style, {
+          position:'fixed', left:'16px', top:'96px', width:'360px', height:'70vh',
+          display:'block', visibility:'visible', opacity:'1', zIndex:String(Z),
+          pointerEvents:'auto', transform:'none'
+        });
+      }
+    });
+    window.__tkDockReattacher.observe(document.documentElement, { childList:true, subtree:true, attributes:true });
+  }
+
   /* ---------- Dock skeleton (immediate) ---------- */
-  let card = document.getElementById('tkDockCard');
-  if (!card) {
-    card = document.createElement('div');
-    card.id = 'tkDockCard';
+  if (!card.firstChild) {
     card.innerHTML = `
       <div class="tk-card" role="dialog" aria-label="Category selection" aria-modal="true">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -50,8 +80,12 @@
           <button id="tkGo" class="tk-primary" disabled>Start Survey</button>
         </div>
       </div>`;
-    (document.body || document.documentElement).appendChild(card);
   }
+
+  requestAnimationFrame(() => {
+    const rect = card.getBoundingClientRect();
+    console.log('[TK] dock revived @', rect, 'z=', getComputedStyle(card).zIndex);
+  });
 
   const els = {
     list:   card.querySelector('#tkList'),
