@@ -644,6 +644,34 @@
     panel.classList.remove('hidden','is-hidden','closed','tk-hidden','tk-closed');
   }
 
+  function disableLegacyHelpers(){
+    if (window.__TK_DISABLE_LEGACY_PATCHES) return;
+    window.__TK_DISABLE_LEGACY_PATCHES = true;
+
+    ['#tkOverlay', '.tk-overlay', '#categorySurveyPortal'].forEach(sel => {
+      $$(sel).forEach(node => node.remove());
+    });
+
+    ['tkOpenPanel', 'tkClosePanel', 'tkProbe', 'tkForcePanel'].forEach(key => {
+      try { window[key] = () => {}; } catch (_) {}
+    });
+
+    for (let i = 0; i < 50; i += 1) {
+      try { clearTimeout(i); } catch (_) {}
+      try { clearInterval(i); } catch (_) {}
+    }
+
+    if (!DOC.getElementById('tkLegacyPatchCSS')) {
+      const style = DOC.createElement('style');
+      style.id = 'tkLegacyPatchCSS';
+      style.textContent = `
+        #tkOverlay, .tk-overlay, [data-tk-overlay], .drawer { display:none !important; visibility:hidden !important }
+        #categorySurveyPanel, #tkDockRoot, #tkDockCard { display:block !important; visibility:visible !important; opacity:1 !important }
+      `;
+      DOC.head.appendChild(style);
+    }
+  }
+
   function killOverlays(){
     ['#tkOverlay', '.tk-overlay'].forEach(sel => {
       $$(sel).forEach(el => {
@@ -689,6 +717,7 @@
   }
 
   function boot(){
+    disableLegacyHelpers();
     injectCSS();
     buildDock();
     tidyLanding();
