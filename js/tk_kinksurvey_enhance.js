@@ -157,6 +157,131 @@
     if (analysis) applyHardNavigation(analysis, 'https://talkkink.org/individualkinkanalysis.html');
   }
 
+  function ensureDockStyles(){
+    if (document.getElementById('tkDockCSS')) return;
+    const css = `
+      :root { --tk-panel-w: 75vw; --tk-rail-w: 25vw; }
+      body.tk-dock-75 { overflow: hidden; }
+      #categorySurveyPanel {
+        position: fixed !important;
+        inset: 0 auto 0 0 !important;
+        width: var(--tk-panel-w) !important;
+        height: 100vh !important;
+        display: block !important;
+        visibility: visible !important;
+        background: transparent !important;
+        z-index: 2147483647;
+      }
+      #categorySurveyPanel .panel {
+        position: absolute;
+        inset: 16px 16px 16px 16px;
+        overflow: auto;
+        box-shadow: 0 0 0 2px var(--teal,#00e5ff);
+        border-radius: 16px;
+        background: #081314;
+      }
+      #tkRightRail {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: var(--tk-rail-w);
+        height: 100vh;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+        overflow: auto;
+        background: transparent;
+        z-index: 2147483647;
+        pointer-events: auto;
+      }
+      .tk-overlay, #tkOverlay, .overlay, [data-overlay="true"] {
+        display: none !important;
+        visibility: hidden !important;
+      }
+    `.trim();
+    const style = el('style',{ id: 'tkDockCSS' });
+    style.textContent = css;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function ensureRightRail(){
+    let rail = document.getElementById('tkRightRail');
+    if (!rail){
+      rail = el('aside',{ id: 'tkRightRail', role: 'complementary', 'aria-label': 'Actions' });
+      document.body?.appendChild(rail);
+    }
+    if (rail && !rail.querySelector('[data-rail-h]')){
+      const header = el('div',{ 'data-rail-h': '1' });
+      header.style.margin = '8px 0 12px';
+      header.style.opacity = '.9';
+      header.style.fontWeight = '600';
+      header.textContent = 'Actions';
+      rail.prepend(header);
+    }
+    return rail;
+  }
+
+  function moveButtonsIntoRail(rail){
+    if (!rail) return;
+    const candidates = Array.from(document.querySelectorAll('a,button')).filter(el => {
+      if (!el || rail.contains(el)) return false;
+      const text = (el.textContent || '').trim().toLowerCase();
+      if (!text) return false;
+      if (el.closest('#categorySurveyPanel')) return false;
+      return /(start survey|compatibility page|individual kink analysis)/i.test(text);
+    });
+
+    candidates.forEach(el => {
+      const text = (el.textContent || '').trim().toLowerCase();
+      if (text.includes('start survey')){
+        if (!el.closest('#categorySurveyPanel')){
+          el.style.display = 'none';
+        }
+        return;
+      }
+      el.style.minWidth = 'unset';
+      el.style.width = '100%';
+      rail.appendChild(el);
+    });
+  }
+
+  function dockCategoryPanelLayout(){
+    const path = (location.pathname || '').replace(/\/+$/, '') || '/';
+    if (path !== '/kinksurvey') return;
+
+    const panel = document.getElementById('categorySurveyPanel');
+    if (!panel) return;
+
+    ensureDockStyles();
+
+    document.body?.classList?.add('tk-dock-75');
+
+    const rail = ensureRightRail();
+    moveButtonsIntoRail(rail);
+
+    try {
+      panel.removeAttribute('aria-hidden');
+      panel.classList.add('visible','open');
+      panel.setAttribute('aria-expanded','true');
+      panel.style.display = 'block';
+      panel.style.visibility = 'visible';
+    } catch (err) {
+      /* noop */
+    }
+
+    document.body?.classList?.add('tk-panel-open');
+
+    if (typeof window.tkOpenPanel === 'function'){
+      try {
+        window.tkOpenPanel();
+      } catch (err) {
+        /* noop */
+      }
+    }
+  }
+
   const ThemeControl = (() => {
     const STORAGE_KEY = 'tk:theme';
     const CHOICES = ['auto','light','dark'];
@@ -490,6 +615,7 @@
     const drawer = $('#tkCategoryDrawer');
     const body = document.body;
     if (!drawer || !body || drawer.dataset.tkFullscreen === '1') return;
+    if (body.classList.contains('tk-dock-75')) return;
     drawer.dataset.tkFullscreen = '1';
 
     const backdrop = $('#tkDrawerBackdrop');
@@ -621,6 +747,7 @@
     ensureHero();
     retargetKsvButtons();
     enhancePanel();
+    dockCategoryPanelLayout();
     setupFullscreenDrawer();
   }
 
