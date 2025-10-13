@@ -69,6 +69,62 @@
       setTimeout(() => observer.disconnect(), 4000);
     })();
   </script>
+  <style id="tk-compat-center">
+    /* 1) Kill any dock artifacts if they exist */
+    #tkDockCard,
+    #categorySurveyPanel,
+    .category-panel,
+    .tk-overlay {
+      display: none !important;
+    }
+    html,
+    body {
+      margin: 0;
+    }
+    body[style*="margin-left"] {
+      margin-left: 0 !important;
+    }
+
+    /* 2) Force a centered content column */
+    .compat-wrap,
+    .compat-container,
+    .container,
+    main,
+    #app {
+      box-sizing: border-box;
+      max-width: 960px;
+      width: min(960px, 92vw);
+      margin-inline: auto;
+      padding-inline: 16px;
+    }
+
+    .compat-wrap > *,
+    .compat-container > *,
+    .container > *,
+    main > * {
+      max-width: 100%;
+    }
+  </style>
+  <script>
+    (function killLeftoverDock() {
+      const dock = document.getElementById('tkDockCard');
+      if (dock) dock.remove();
+
+      const overlay = document.querySelector('.tk-overlay');
+      if (overlay) overlay.remove();
+
+      if (document && document.body) {
+        try {
+          document.body.style.marginLeft = '';
+        } catch (err) {
+          console.warn('[compat] unable to clear dock margin', err);
+        }
+      }
+
+      const catPanel = document.getElementById('categorySurveyPanel');
+      if (catPanel) catPanel.remove();
+    })();
+  </script>
   <!-- Import theme and global layout styles -->
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/global.css" />
