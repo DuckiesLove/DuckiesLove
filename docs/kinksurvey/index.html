@@ -2773,6 +2773,12 @@ How to use:
     return res.json();
   }
 
+  const alphaOpts = { sensitivity:'base' };
+  const normForSort = (value) =>
+    String(value ?? '')
+      .replace(/^\(\s*demo\s*\)\s*/i, '')
+      .trim();
+
   function extractCategories(data) {
     // Return a deduped, alpha-sorted array of category names (strings).
     let categories = [];
@@ -2795,10 +2801,17 @@ How to use:
       }
     }
 
-    // Deduplicate + sort A→Z
-    return [...new Set(categories)].sort((a, b) =>
-      String(a).localeCompare(String(b), undefined, { sensitivity:'base' })
-    );
+    const unique = [...new Set(categories)].filter(Boolean);
+
+    unique.sort((a, b) => {
+      const normA = normForSort(a);
+      const normB = normForSort(b);
+      const primary = normA.localeCompare(normB, undefined, alphaOpts);
+      if (primary !== 0) return primary;
+      return String(a).localeCompare(String(b), undefined, alphaOpts);
+    });
+
+    return unique;
   }
 
   // ----------------------------- RENDER ---------------------------------
@@ -2807,9 +2820,6 @@ How to use:
     const frag = document.createDocumentFragment();
 
     categoryNames.forEach((name, idx) => {
-      const li = document.createElement('li');
-      li.className = 'cat-row';
-
       const label = document.createElement('label');
       label.className = 'tk-check';
 
@@ -2826,12 +2836,10 @@ How to use:
       label.htmlFor = input.id;
       label.appendChild(input);
       label.appendChild(spanName);
-      li.appendChild(label);
-      frag.appendChild(li);
+      frag.appendChild(label);
     });
 
     // Replace the list contents in one go
-    els.list.classList.add('cat-list');
     els.list.replaceChildren(frag);
 
     updateCounter();
@@ -2869,7 +2877,7 @@ How to use:
 
   els.list.addEventListener('keydown', (e) => {
     if (e.key !== ' ' && e.key !== 'Enter') return;
-    const row = e.target.closest('li, .cat-row');
+    const row = e.target.closest('label');
     const box = row?.querySelector('input[name="category"]');
     if (!box) return;
     box.checked = !box.checked;
@@ -2885,14 +2893,14 @@ How to use:
 
       if (!categories.length) {
         // Keep the UI stable with a short message if nothing found
-        els.list.innerHTML = '<li class="cat-row"><em>No categories found.</em></li>';
+        els.list.innerHTML = '<div class="cat-row"><em>No categories found.</em></div>';
         updateCounter();
         return;
       }
       renderCategoryList(categories);
     } catch (err) {
       console.error('[kinksurvey] categories load failed:', err);
-      els.list.innerHTML = '<li class="cat-row"><em>Dataset unavailable.</em></li>';
+      els.list.innerHTML = '<div class="cat-row"><em>Dataset unavailable.</em></div>';
       updateCounter();
     }
   }
@@ -3076,10 +3084,68 @@ NO VISUAL TAKEOVER
   #categorySurveyPanel .panel { position:absolute; inset:6% 6% auto 6%;
     max-height:88vh; overflow:auto; padding:24px; border:2px solid var(--teal,#00e5ff);
     border-radius:16px; background:#000; color:#fff; box-shadow:0 12px 40px rgba(0,0,0,.6); }
-  #categoryChecklist { display:grid; gap:10px; grid-template-columns:1fr; }
-  #categoryChecklist label { display:flex; align-items:center; gap:10px;
-    padding:10px 12px; border:1px solid #2a2a2a; border-radius:12px; background:#090909; }
-  #categoryChecklist input[type="checkbox"] { width:18px; height:18px; }
+  #categoryChecklist{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(320px, 1fr));
+    gap:18px;
+    align-items:stretch;
+  }
+
+  #categoryChecklist label{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:16px 18px;
+    min-height:64px;
+    border:2px solid var(--teal, #00e5ff);
+    border-radius:16px;
+    background:rgba(0,0,0,.45);
+    box-shadow:0 0 0 1px rgba(0,229,255,.08) inset;
+    transition:transform .06s ease, box-shadow .12s ease, background .12s ease;
+    cursor:pointer;
+  }
+
+  #categoryChecklist label:hover{
+    background:rgba(0,0,0,.6);
+    box-shadow:0 0 0 2px rgba(0,229,255,.25) inset;
+    transform:translateY(-1px);
+  }
+
+  #categoryChecklist input[type="checkbox"]{
+    width:22px;
+    height:22px;
+    accent-color:var(--teal, #00e5ff);
+    flex:0 0 auto;
+  }
+
+  #categoryChecklist label span,
+  #categoryChecklist label .label,
+  #categoryChecklist label .name{
+    font-size:clamp(16px, 1.6vw, 18.5px);
+    font-weight:700;
+    letter-spacing:.2px;
+    line-height:1.2;
+  }
+
+  #categoryChecklist input[type="checkbox"]:checked + *{
+    text-shadow:0 0 12px rgba(0,229,255,.35);
+  }
+
+  #categoryChecklist input[type="checkbox"]:checked:focus-visible{
+    outline:2px solid var(--teal, #00e5ff);
+    outline-offset:3px;
+  }
+
+  #categoryChecklist .cat-row{
+    grid-column:1/-1;
+    padding:12px 4px;
+    text-align:center;
+    color:rgba(255,255,255,.72);
+  }
+
+  @media (max-width:980px){
+    #categoryChecklist{ grid-template-columns:1fr; }
+  }
   .themed-button { cursor:pointer; }
 </style>
 
