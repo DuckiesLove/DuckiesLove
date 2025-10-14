@@ -1,0 +1,116 @@
+<!-- === TK: Docked panel + right-side actions =========================== -->
+<style>
+  :root{
+    /* Tweak these to taste */
+    --tk-teal: #00e5ff;
+    --tk-dock-w: min(72vw, 1080px);   /* left panel width (≈3/4) */
+    --tk-gutter: 28px;                /* space between panel and sidebar */
+  }
+
+  /* Make sure the body isn't pushing content because of older dock code */
+  html, body { margin: 0; }
+  body { overflow-x: hidden; }
+
+  /* Left: the existing category panel becomes a fixed dock */
+  #categorySurveyPanel{
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;     /* top right bottom left */
+    width: var(--tk-dock-w) !important;
+    border-right: 2px solid var(--tk-teal);
+    background: rgba(0,0,0,.82);
+    box-shadow: 0 0 0 1px rgba(0,229,255,.25) inset;
+    display: block;
+    z-index: 10;
+    overflow: auto;
+  }
+  /* Ensure its inner card uses full space nicely */
+  #categorySurveyPanel .panel{
+    max-width: none !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: clamp(16px, 2.4vw, 32px);
+  }
+
+  /* Right: actions sidebar */
+  #tkSideActions{
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: calc(100vw - var(--tk-dock-w));
+    padding: 40px clamp(16px, 2.2vw, 32px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    z-index: 9;
+  }
+  #tkSideActions .tk-spacer{
+    height: 72px; /* keeps buttons away from very top */
+  }
+  #tkSideActions h2{
+    margin: 0 0 8px;
+    font-size: clamp(18px, 2vw, 22px);
+    font-weight: 700;
+    letter-spacing: .5px;
+    opacity: .85;
+    text-align: center;
+  }
+  #tkSideActions .themed-button{
+    width: min(520px, 90%);
+    display: block;
+    margin: 0 auto;
+  }
+  #tkSideActions .note{
+    margin-top: 8px;
+    font-size: 0.92rem;
+    opacity: .7;
+    text-align: center;
+    max-width: 560px;
+  }
+
+  /* Keep the original big landing buttons out of the way if they still exist */
+  .tk-landing-buttons{ display: none !important; }
+
+  /* Mobile/narrow: use full-width panel and hide sidebar */
+  @media (max-width: 1024px){
+    :root{ --tk-dock-w: 100vw; }
+    #tkSideActions{ display: none; }
+    #categorySurveyPanel{ border-right: none; }
+  }
+</style>
+
+<!-- Right-side actions column -->
+<aside id="tkSideActions" aria-label="Quick actions" role="complementary">
+  <div class="tk-spacer"></div>
+  <h2>Shortcuts</h2>
+
+  <!-- Update hrefs if your paths differ -->
+  <a class="themed-button" href="/compatibility.html">Compatibility Page</a>
+  <a class="themed-button" href="/analysis.html">Individual Kink Analysis</a>
+
+  <p class="note">Choose categories on the left, then press <b>Start Survey</b>. You can jump to other tools here any time.</p>
+</aside>
+
+<script>
+  // Safety tweaks: clear any old dock margins and make sure the panel is visible.
+  (function(){
+    try{
+      document.body.style.marginLeft = '0px';
+      const p = document.getElementById('categorySurveyPanel');
+      if(p){
+        p.classList.add('visible');       // in case your CSS uses .visible
+        p.setAttribute('aria-hidden','false');
+      }
+      // If you have old landing buttons, tag them so CSS can hide them.
+      document.querySelectorAll('a,button')
+        .forEach(el=>{
+          const t = (el.textContent||'').trim().toLowerCase();
+          if(['start survey','compatibility page','individual kink analysis'].includes(t)){
+            el.closest('div,section,main')?.classList?.add('tk-landing-buttons');
+          }
+        });
+    }catch(e){}
+  })();
+</script>
+<!-- ===================================================================== -->
