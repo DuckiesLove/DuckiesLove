@@ -37,27 +37,27 @@
 <style id="tk-kink-dock">
   html, body { margin: 0; }
 
-  /* Hide any legacy overlay layers that might obscure the dock */
+  /* Kill any old overlay layer that might hide the dock */
   .tk-overlay,
   #tkOverlay { display: none !important; }
 
-  /* Dock the survey panel on the left at roughly 75% width */
+  /* Make the panel a left-side dock, always visible */
   #categorySurveyPanel {
     position: fixed !important;
     inset: 0 !important;
     display: block !important;
     visibility: visible !important;
-    background: transparent !important;
-    pointer-events: none !important;
+    background: transparent !important;     /* no dim overlay */
     z-index: 2147483640 !important;
   }
 
+  /* The inner actual card */
   #categorySurveyPanel .panel {
     position: absolute !important;
     left: 2vw !important;
     top: 2vh !important;
     bottom: 2vh !important;
-    width: 75vw !important;
+    width: 75vw !important;                 /* ~3/4 page */
     max-width: none !important;
     overflow: auto !important;
     border-radius: 16px !important;
@@ -65,26 +65,21 @@
     background: #000 !important;
     color: #fff !important;
     box-shadow: 0 12px 40px rgba(0,0,0,.6) !important;
-    pointer-events: auto !important;
   }
 
-  /* Push the rest of the page over to the remaining 25% */
+  /* Push the rest of the page to the right side (about 25%) */
   main,
   #app,
   .home,
   .wrap,
   .container {
-    margin-left: 77vw !important;
+    margin-left: 77vw !important;           /* leave a sliver gap next to 75vw */
     padding: 2vh 2vw !important;
     box-sizing: border-box !important;
   }
 
-  /* Mobile fallback: revert to the standard overlay */
+  /* Mobile: fall back to full-width overlay for small screens */
   @media (max-width: 900px) {
-    #categorySurveyPanel {
-      pointer-events: auto !important;
-    }
-
     #categorySurveyPanel .panel {
       left: 2vw !important;
       right: 2vw !important;
@@ -4680,9 +4675,10 @@ No other files need to change.
     if (!panel.classList.contains('visible')) panel.classList.add('visible');
     if (panel.hasAttribute('hidden')) panel.removeAttribute('hidden');
     if (panel.getAttribute('aria-hidden') === 'true') panel.setAttribute('aria-hidden', 'false');
-    if (panel.style.display !== 'block') panel.style.display = 'block';
-    if (panel.style.opacity !== '1') panel.style.opacity = '1';
-    if (panel.style.pointerEvents !== 'none') panel.style.pointerEvents = 'none';
+    panel.style.visibility = 'visible';
+    panel.style.display = 'block';
+    panel.style.opacity = '1';
+    if (panel.style.pointerEvents) panel.style.pointerEvents = '';
     try {
       if ('inert' in panel) panel.inert = false;
     } catch {}
@@ -4694,6 +4690,12 @@ No other files need to change.
   const closeBtn = document.getElementById('btnClosePanel');
   if (closeBtn) {
     closeBtn.setAttribute('aria-label', 'Panel is docked');
+    closeBtn.onclick = (ev) => {
+      ev?.preventDefault?.();
+      ev?.stopPropagation?.();
+      ev?.stopImmediatePropagation?.();
+      return false;
+    };
     closeBtn.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopImmediatePropagation();
@@ -4712,6 +4714,10 @@ No other files need to change.
 
   const observer = new MutationObserver(ensureVisible);
   observer.observe(panel, { attributes: true, attributeFilter: ['class', 'hidden', 'aria-hidden', 'style'] });
+
+  try {
+    document.body.style.marginLeft = '';
+  } catch {}
 
   const list = document.getElementById('categoryChecklist');
   let attempts = 0;
