@@ -4,6 +4,34 @@
   const KEY = '__TK_SELECTED_CATEGORIES';
   const MAX_Z = 2147483647;
 
+  function ensureDockPushCSS() {
+    if (document.getElementById('tk-kink-dock-push')) return;
+    const style = document.createElement('style');
+    style.id = 'tk-kink-dock-push';
+    style.textContent = `
+html.tk-dock body > :not(#categorySurveyPanel):not(script):not(style) {
+  margin-left: 77vw !important;
+  box-sizing: border-box !important;
+  max-width: 21vw !important;
+  padding: 2vh 2vw !important;
+}
+html.tk-dock :where(main,#app,.home,.wrap,.container) {
+  margin-left: 77vw !important;
+  max-width: 21vw !important;
+  padding: 2vh 2vw !important;
+}
+#categorySurveyPanel { z-index: 2147483640 !important; }
+#categorySurveyPanel .panel { background: #000 !important; }
+`;
+    (document.head || document.documentElement).appendChild(style);
+    document.documentElement.classList.add('tk-dock');
+    try {
+      document.body.style.marginLeft = '';
+    } catch (err) {
+      console.warn('[TK] Unable to reset body marginLeft', err);
+    }
+  }
+
   function ensureUnlockCSS() {
     if (document.getElementById('tkUnlockCSS')) return;
     const style = document.createElement('style');
@@ -193,6 +221,7 @@ html, body {
     return hostInfo;
   }
 
+  ensureDockPushCSS();
   ensureUnlockCSS();
   const host = ensureHost();
   if (!host) {
