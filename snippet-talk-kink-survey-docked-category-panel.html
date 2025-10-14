@@ -56,13 +56,52 @@
   #categorySurveyPanel .themed-button { border:2px solid #00e5ff; border-radius:12px; padding:10px 14px; color:#bafcff; background:#02191c; font-weight:800; cursor:pointer; }
   #categorySurveyPanel .themed-button:hover { background:#052228; }
 
-  #categoryChecklist { overflow: auto; padding-right: 6px; }
-  #categoryChecklist label {
-    display:flex; align-items:center; gap:12px; padding:12px 14px;
-    border:1px solid #2a2a2a; border-radius:12px; background:#090909;
-    margin: 8px 0;
+  #categoryChecklist {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(320px,1fr));
+    gap:18px;
+    align-items:stretch;
+    padding-right:6px;
+    overflow:auto;
   }
-  #categoryChecklist input[type="checkbox"] { width: 18px; height: 18px; }
+  #categoryChecklist label {
+    display:flex; align-items:center; gap:14px;
+    padding:16px 18px;
+    min-height:64px;
+    border:2px solid var(--teal,#00e5ff);
+    border-radius:16px;
+    background:rgba(0,0,0,.45);
+    box-shadow:0 0 0 1px rgba(0,229,255,.08) inset;
+    transition:transform .06s ease, box-shadow .12s ease, background .12s ease;
+    cursor:pointer;
+  }
+  #categoryChecklist label:hover {
+    background:rgba(0,0,0,.6);
+    box-shadow:0 0 0 2px rgba(0,229,255,.25) inset;
+    transform:translateY(-1px);
+  }
+  #categoryChecklist input[type="checkbox"] {
+    width:22px;
+    height:22px;
+    flex:0 0 auto;
+    accent-color:var(--teal,#00e5ff);
+  }
+  #categoryChecklist label span {
+    font-size:clamp(16px,1.6vw,18.5px);
+    font-weight:700;
+    letter-spacing:.2px;
+    line-height:1.2;
+  }
+  #categoryChecklist input[type="checkbox"]:checked + span {
+    text-shadow:0 0 12px rgba(0,229,255,.35);
+  }
+  #categoryChecklist input[type="checkbox"]:checked:focus-visible {
+    outline:2px solid var(--teal,#00e5ff);
+    outline-offset:3px;
+  }
+  @media (max-width:980px){
+    #categoryChecklist{ grid-template-columns:1fr; }
+  }
 
   /* Sticky footer so Start button is always reachable & at bottom of list */
   #tkPanelFooter {
@@ -145,13 +184,25 @@
 
   /* 2) Build the categories into the left panel */
   const KEY = '__TK_SELECTED_CATEGORIES';
+  const alphaOpts = { sensitivity: 'base' };
+  const normForSort = (value = '') =>
+    String(value)
+      .replace(/^\(\s*demo\s*\)\s*/i, '')
+      .trim()
+      .toLowerCase();
 
   function tkNormalizeItems(raw){
     // Accept either simple list or objects with id/name
-    return (raw||[]).map((it,i)=>{
-      if (typeof it === 'string') return { id:String(i+1), name:it };
-      return { id:String(it.id ?? i+1), name:String(it.name ?? it.title ?? `Item ${i+1}`) };
-    });
+    return (raw||[])
+      .map((it,i)=>{
+        if (typeof it === 'string') {
+          return { id:String(i+1), name:it.trim() };
+        }
+        const id = it?.id ?? it?.ID ?? it?.value ?? it?.slug ?? it?.code ?? (i + 1);
+        const name = it?.name ?? it?.title ?? it?.label ?? it?.slug ?? it?.code ?? `Item ${i+1}`;
+        return { id:String(id).trim(), name:String(name).trim() };
+      })
+      .filter(it => it.id && it.name);
   }
 
   async function getKinks(){
@@ -173,30 +224,50 @@
   }
 
   function updateBadge(list){
+    const badge = document.getElementById('selectedCountBadge');
+    if (!badge) return;
     const total = list.querySelectorAll('input[type="checkbox"]').length;
     const sel   = list.querySelectorAll('input[type="checkbox"]:checked').length;
-    document.getElementById('selectedCountBadge').textContent = `${sel} selected / ${total} total`;
+    badge.textContent = `${sel} selected / ${total} total`;
   }
 
   function saveSelection(list){
     const ids = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
-    localStorage.setItem(KEY, JSON.stringify(ids));
+    try {
+      localStorage.setItem(KEY, JSON.stringify(ids));
+    } catch {}
     return ids;
   }
 
   (async () => {
     const items = await getKinks();
     const list  = document.getElementById('categoryChecklist');
-    list.innerHTML = '';
+    if (!list) return;
+    list.setAttribute('aria-busy', 'true');
 
-    items.forEach(({id,name})=>{
+    const frag = document.createDocumentFragment();
+
+    const sorted = (Array.isArray(items) ? [...items] : []).sort((a,b) => {
+      const nameA = normForSort(a?.name);
+      const nameB = normForSort(b?.name);
+      const primary = nameA.localeCompare(nameB, undefined, alphaOpts);
+      if (primary !== 0) return primary;
+      return String(a?.name ?? '').localeCompare(String(b?.name ?? ''), undefined, alphaOpts);
+    });
+
+    sorted.forEach(({id,name})=>{
       const label = document.createElement('label');
       const cb = document.createElement('input');
-      cb.type = 'checkbox'; cb.value = id; cb.setAttribute('aria-label', name);
-      const span = document.createElement('span'); span.textContent = name;
+      cb.type = 'checkbox';
+      cb.value = id;
+      cb.setAttribute('aria-label', name);
+      const span = document.createElement('span');
+      span.textContent = name;
       label.append(cb, span);
-      list.appendChild(label);
+      frag.appendChild(label);
     });
+
+    list.replaceChildren(frag);
 
     // restore previous selection
     try {
@@ -204,28 +275,37 @@
       if (Array.isArray(prev) && prev.length){
         prev.forEach(id => {
           const box = list.querySelector(`input[value="${CSS.escape(id)}"]`);
-          if (box) box.checked = true;
+          if (box) {
+            box.checked = true;
+          }
         });
       }
     } catch {}
 
-    // live badge
-    list.addEventListener('change', () => updateBadge(list));
-    updateBadge(list);
+    const persist = () => {
+      const ids = saveSelection(list);
+      updateBadge(list);
+      return ids;
+    };
+
+    // live badge + persistence
+    list.addEventListener('change', persist);
+    list.setAttribute('aria-busy', 'false');
+    persist();
 
     // select/deselect all
     document.getElementById('btnSelectAll').onclick   = () => {
-      list.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
-      updateBadge(list);
+      list.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = true; });
+      persist();
     };
     document.getElementById('btnDeselectAll').onclick = () => {
-      list.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-      updateBadge(list);
+      list.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+      persist();
     };
 
     // start survey from panel (single source of truth)
     document.getElementById('beginSurveyFromPanel').onclick = () => {
-      const ids = saveSelection(list);
+      const ids = persist();
 
       // your event contract (kept from earlier work)
       document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids }}));
