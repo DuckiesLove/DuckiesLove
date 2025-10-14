@@ -1,368 +1,246 @@
-<!-- TalkKink: Docked Category Panel (inline styles, persistent dock) -->
+<!-- ================= TK DOCKED SURVEY LAYOUT (kinksurvey only) ================= -->
+<style id="tkDockStyles">
+  :root { --tk-railW: clamp(260px, 25vw, 420px); }
+
+  html.tk-dock body { overflow: hidden; } /* no page scroll behind the dock */
+
+  /* Left-side blackout to stop the blurred homepage CTA from showing */
+  #tkDockBackdrop {
+    position: fixed; inset: 0 var(--tk-railW) 0 0;
+    background:#000; z-index: 2147483638;
+  }
+
+  /* Right, fixed rail (1/4) */
+  #tkRightRail {
+    position: fixed; inset: 0 0 0 auto;
+    width: var(--tk-railW);
+    display: flex; flex-direction: column; gap: 18px;
+    padding: 24px 20px;
+    background: transparent;
+    z-index: 2147483640;
+    pointer-events: auto;
+  }
+
+  #tkRightRail h3 {
+    margin: 0 0 6px; font: 700 18px/1.2 system-ui,Segoe UI,Arial; color:#bafcff; letter-spacing:.2px;
+  }
+
+  #tkRightRail .tk-rail-btn {
+    display: block; width: 100%;
+    border: 2px solid #00e5ff; border-radius: 16px;
+    padding: 16px 18px; text-align: center; text-decoration: none;
+    font: 800 20px/1 system-ui,Segoe UI,Arial; color:#bafcff; background: rgba(0,0,0,.35);
+    box-shadow: 0 0 18px rgba(0,229,255,.15) inset, 0 0 22px rgba(0,229,255,.08);
+    transition: transform .05s ease, box-shadow .15s ease, background .15s ease;
+  }
+  #tkRightRail .tk-rail-btn:hover { transform: translateY(-1px); box-shadow:0 0 22px rgba(0,229,255,.24) inset, 0 0 26px rgba(0,229,255,.14); }
+  #tkRightRail .tk-rail-btn:active { transform: translateY(0); }
+
+  /* The survey panel fills the left 3/4, always visible */
+  #categorySurveyPanel {
+    position: fixed !important;
+    inset: 0 var(--tk-railW) 0 0 !important;
+    display: block !important;
+    z-index: 2147483639 !important;
+  }
+  #categorySurveyPanel .panel {
+    position: absolute !important; inset: 0 !important;
+    display: grid; grid-template-rows: auto auto 1fr auto;
+    gap: 12px; height: 100%; overflow: hidden;
+    padding: 18px; border: 2px solid var(--teal,#00e5ff);
+    border-radius: 16px; background:#000; color:#fff;
+    box-shadow: 0 12px 40px rgba(0,0,0,.6);
+  }
+  #categorySurveyPanel .tk-header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  #categorySurveyPanel .tk-actions { display:flex; gap:10px; align-items:center; }
+  #categorySurveyPanel .themed-button { border:2px solid #00e5ff; border-radius:12px; padding:10px 14px; color:#bafcff; background:#02191c; font-weight:800; cursor:pointer; }
+  #categorySurveyPanel .themed-button:hover { background:#052228; }
+
+  #categoryChecklist { overflow: auto; padding-right: 6px; }
+  #categoryChecklist label {
+    display:flex; align-items:center; gap:12px; padding:12px 14px;
+    border:1px solid #2a2a2a; border-radius:12px; background:#090909;
+    margin: 8px 0;
+  }
+  #categoryChecklist input[type="checkbox"] { width: 18px; height: 18px; }
+
+  /* Sticky footer so Start button is always reachable & at bottom of list */
+  #tkPanelFooter {
+    position: sticky; bottom: 0;
+    padding-top: 10px; margin-top: 6px;
+    background: linear-gradient(to top, #000 65%, rgba(0,0,0,0));
+  }
+  #beginSurveyFromPanel {
+    width: 100%;
+    padding: 14px 16px; border-radius: 14px;
+    border: 2px solid #00e5ff; background:#00e5ff; color:#001a1d;
+    font: 900 20px/1 system-ui,Segoe UI,Arial; cursor: pointer;
+  }
+
+  /* Hide the original homepage CTAs so they don’t sit behind the panel */
+  .tk-hidden { display: none !important; }
+</style>
+
+<aside id="categorySurveyPanel" role="dialog" aria-label="Category selection" aria-modal="true" aria-hidden="false">
+  <div class="panel">
+    <div class="tk-header">
+      <h2 style="margin:0">Select categories</h2>
+      <div class="tk-actions">
+        <button id="btnSelectAll"   class="themed-button">Select All</button>
+        <button id="btnDeselectAll" class="themed-button">Deselect All</button>
+        <span id="selectedCountBadge" style="opacity:.75">0 selected / 0 total</span>
+      </div>
+    </div>
+
+    <!-- optional helper line -->
+    <div style="opacity:.68">Choose everything you want included. The Start button is at the bottom.</div>
+
+    <div id="categoryChecklist" aria-live="polite" aria-busy="true"></div>
+
+    <div id="tkPanelFooter">
+      <button id="beginSurveyFromPanel" class="themed-button" style="background:#00e5ff;color:#001a1d;border-color:#00e5ff;">Start Survey</button>
+    </div>
+  </div>
+</aside>
+
+<!-- Right rail -->
+<div id="tkRightRail" aria-label="Survey utilities" hidden>
+  <h3>Shortcuts</h3>
+  <a id="tkGoCompat" class="tk-rail-btn" href="#">Compatibility Page</a>
+  <a id="tkGoIndividual" class="tk-rail-btn" href="#">Individual Kink Analysis</a>
+</div>
+
+<div id="tkDockBackdrop" aria-hidden="true"></div>
+
 <script>
 (() => {
-  const KEY = '__TK_SELECTED_CATEGORIES';
-  const MAX_Z = 2147483647;
+  document.documentElement.classList.add('tk-dock');
 
-  function ensureDockPushCSS() {
-    if (document.getElementById('tk-kink-dock-push')) return;
-    const style = document.createElement('style');
-    style.id = 'tk-kink-dock-push';
-    style.textContent = `
-html.tk-dock body > :not(#categorySurveyPanel):not(script):not(style) {
-  margin-left: 77vw !important;
-  box-sizing: border-box !important;
-  max-width: 21vw !important;
-  padding: 2vh 2vw !important;
-}
-html.tk-dock :where(main,#app,.home,.wrap,.container) {
-  margin-left: 77vw !important;
-  max-width: 21vw !important;
-  padding: 2vh 2vw !important;
-}
-#categorySurveyPanel { z-index: 2147483640 !important; }
-#categorySurveyPanel .panel { background: #000 !important; }
-`;
-    (document.head || document.documentElement).appendChild(style);
-    document.documentElement.classList.add('tk-dock');
-    try {
-      document.body.style.marginLeft = '';
-    } catch (err) {
-      console.warn('[TK] Unable to reset body marginLeft', err);
-    }
-  }
-
-  function ensureUnlockCSS() {
-    if (document.getElementById('tkUnlockCSS')) return;
-    const style = document.createElement('style');
-    style.id = 'tkUnlockCSS';
-    style.textContent = `
-html, body {
-  content-visibility: visible !important;
-  contain: initial !important;
-  transform: none !important;
-  filter: none !important;
-  clip: auto !important;
-  clip-path: none !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-#tkDockHard {
-  all: initial;
-  position: fixed !important;
-  left: 16px !important;
-  top: 96px !important;
-  width: 360px !important;
-  height: 70vh !important;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  z-index: ${MAX_Z} !important;
-  background: transparent !important;
-  border: 0 !important;
-  pointer-events: auto !important;
-}
-`; 
-    (document.head || document.documentElement).appendChild(style);
-  }
-
-  function ensureHost() {
-    let host = document.getElementById('tkDockHard');
-    if (!host) {
-      host = document.createElement('div');
-      host.id = 'tkDockHard';
-      (document.documentElement || document.body).appendChild(host);
-    }
-    host.removeAttribute('hidden');
-    host.style.display = 'block';
-    host.style.visibility = 'visible';
-    host.style.opacity = '1';
-    host.style.pointerEvents = 'auto';
-    if (!host.style.position) host.style.position = 'fixed';
-    if (!host.style.left) host.style.left = '16px';
-    if (!host.style.top) host.style.top = '96px';
-    if (!host.style.width) host.style.width = '360px';
-    if (!host.style.height) host.style.height = '70vh';
-    if (!host.style.zIndex) host.style.zIndex = `${MAX_Z}`;
-    return host;
-  }
-
-  function ensureStructure(host) {
-    const root = host.shadowRoot || host;
-    const hasChildren = typeof root.childElementCount === 'number' ? root.childElementCount > 0 : false;
-    if (!hasChildren) {
-      const scope = host.shadowRoot ? root : host;
-      scope.innerHTML = `
-        <style>
-          :host { all: initial; }
-          [data-tk-dock-card] {
-            background: #06181b;
-            color: #fff;
-            border: 3px solid #00e5ff;
-            border-radius: 14px;
-            padding: 14px;
-            font: 400 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-            box-shadow: 0 10px 32px rgba(0, 0, 0, .55);
-          }
-          h2 {
-            margin: 0 0 10px;
-            font: 700 22px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-          }
-          [data-tk-row] {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            margin: 6px 0 14px;
-          }
-          button {
-            cursor: pointer;
-            color: #fff;
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
-            border-radius: 10px;
-            padding: 8px 12px;
-            font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-          }
-          button[data-tk-primary] {
-            background: #00e5ff;
-            color: #001519;
-            border: 0;
-            border-radius: 12px;
-            padding: 10px 14px;
-            font: 700 16px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-          }
-          [data-tk-list] {
-            display: grid;
-            gap: 10px;
-          }
-          label[data-tk-row-item] {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            padding: 10px 12px;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            background: #0b0b0b;
-            color: #e8f8fa;
-          }
-          label[data-tk-row-item] input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-          }
-        </style>
-        <div data-tk-dock-card>
-          <div data-tk-row style="justify-content:space-between;margin-bottom:8px">
-            <h2>Select categories</h2>
-            <button type="button" data-tk-close>Close ✕</button>
-          </div>
-          <div data-tk-row>
-            <button type="button" data-tk-all>Select All</button>
-            <button type="button" data-tk-none>Deselect All</button>
-            <span data-tk-badge style="opacity:.75">loading…</span>
-          </div>
-          <div data-tk-list aria-live="polite" aria-busy="true"></div>
-          <div data-tk-row style="margin-top:12px">
-            <button type="button" data-tk-primary data-tk-go>Start Survey</button>
-          </div>
-        </div>
-      `;
-    }
-    const scope = host.shadowRoot || host;
-    return {
-      scope,
-      list: scope.querySelector('[data-tk-list]') || scope.querySelector('#list') || scope.querySelector('div > div:nth-of-type(3)'),
-      badge: scope.querySelector('[data-tk-badge]') || scope.querySelector('span'),
-      btnAll: scope.querySelector('[data-tk-all]') || scope.querySelector('button:nth-of-type(1)'),
-      btnNone: scope.querySelector('[data-tk-none]') || scope.querySelector('button:nth-of-type(2)'),
-      btnGo: scope.querySelector('[data-tk-go]') || scope.querySelector('button:last-of-type'),
-      btnClose: scope.querySelector('[data-tk-close]'),
-    };
-  }
-
-  function ensureIframe(hostInfo) {
-    const { host } = hostInfo;
-    const rect = host.getBoundingClientRect();
-    if (rect.width && rect.height) return hostInfo;
-
-    let frame = document.getElementById('tkDockFrame');
-    if (!frame) {
-      frame = document.createElement('iframe');
-      frame.id = 'tkDockFrame';
-      (document.documentElement || document.body).appendChild(frame);
-    }
-
-    frame.removeAttribute('hidden');
-    frame.style.cssText = `
-      position: fixed !important;
-      left: 16px !important;
-      top: 96px !important;
-      width: 360px !important;
-      height: 70vh !important;
-      display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      z-index: ${MAX_Z} !important;
-      background: transparent !important;
-      border: 0 !important;
-    `;
-
-    const doc = frame.contentDocument;
-    if (doc) {
-      doc.open();
-      doc.write('<!doctype html><meta charset="utf-8"><body></body>');
-      doc.close();
-      const innerHost = doc.createElement('div');
-      innerHost.id = 'tkDockHard';
-      doc.body.appendChild(innerHost);
-      const built = ensureStructure(innerHost);
-      return { host: innerHost, frame, ...built };
-    }
-
-    return hostInfo;
-  }
-
-  ensureDockPushCSS();
-  ensureUnlockCSS();
-  const host = ensureHost();
-  if (!host) {
-    console.warn('[TK] no dock host found');
-    return;
-  }
-
-  const base = { host, ...ensureStructure(host) };
-  const dock = ensureIframe(base);
-  const { list, badge, btnAll, btnNone, btnGo, btnClose, scope } = dock;
-
-  if (!list || !badge || !btnAll || !btnNone || !btnGo) {
-    console.warn('[TK] dock controls missing', { list: !!list, badge: !!badge, btnAll: !!btnAll, btnNone: !!btnNone, btnGo: !!btnGo });
-    return;
-  }
-
-  if (btnClose) {
-    btnClose.addEventListener('click', () => {
-      if (dock.frame) {
-        dock.frame.remove();
-      } else {
-        host.style.display = 'none';
-      }
-    });
-  }
-
-  const getSel = () => new Set(JSON.parse(localStorage.getItem(KEY) || '[]'));
-  const setSel = (arr) => localStorage.setItem(KEY, JSON.stringify(Array.from(new Set(arr))));
-
-  const updateBadge = () => {
-    const total = list.querySelectorAll('input[type="checkbox"]').length;
-    const sel = list.querySelectorAll('input[type="checkbox"]:checked').length;
-    badge.textContent = `${sel} selected / ${total} total`;
-    btnGo.disabled = sel === 0;
-    btnGo.style.opacity = sel === 0 ? '0.6' : '1';
-    btnGo.style.cursor = sel === 0 ? 'not-allowed' : 'pointer';
+  /* 1) Wire right-rail buttons to your existing links, then hide the originals */
+  const findByText = (txt) => {
+    const nodes = Array.from(document.querySelectorAll('a,button'));
+    const norm = s => s.replace(/\s+/g,' ').trim().toLowerCase();
+    const tgt = norm(txt);
+    return nodes.find(n => norm(n.textContent) === tgt);
   };
 
-  function addRow(id, name) {
-    const label = scope.ownerDocument.createElement('label');
-    label.setAttribute('data-tk-row-item', '');
-    const checkbox = scope.ownerDocument.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.value = id;
-    checkbox.checked = getSel().has(id);
-    checkbox.addEventListener('change', () => {
-      const ids = Array.from(list.querySelectorAll('input:checked')).map((n) => n.value);
-      setSel(ids);
-      updateBadge();
+  const btnCompat    = findByText('Compatibility Page');
+  const btnIndividual= findByText('Individual Kink Analysis');
+
+  const rail = document.getElementById('tkRightRail');
+  if (btnCompat)    { document.getElementById('tkGoCompat').href    = btnCompat.href || '#';    }
+  if (btnIndividual){ document.getElementById('tkGoIndividual').href= btnIndividual.href || '#';}
+
+  // show rail now that links are set (fallback to # if not found)
+  rail.hidden = false;
+
+  // hide original trio of big CTAs so they never peek through
+  ['Start Survey','Compatibility Page','Individual Kink Analysis'].forEach(txt=>{
+    const n = findByText(txt);
+    if (!n) return;
+    // hide closest reasonable wrapper
+    let wrap = n.closest('a,button,div,section,aside,li') || n;
+    wrap.classList.add('tk-hidden');
+  });
+
+  /* 2) Build the categories into the left panel */
+  const KEY = '__TK_SELECTED_CATEGORIES';
+
+  function tkNormalizeItems(raw){
+    // Accept either simple list or objects with id/name
+    return (raw||[]).map((it,i)=>{
+      if (typeof it === 'string') return { id:String(i+1), name:it };
+      return { id:String(it.id ?? i+1), name:String(it.name ?? it.title ?? `Item ${i+1}`) };
     });
-    const span = scope.ownerDocument.createElement('span');
-    span.textContent = name;
-    label.append(checkbox, span);
-    list.append(label);
   }
 
-  function normalizeCats(raw) {
-    if (!raw) return [];
-    return raw
-      .map((c) => {
-        const id = String(c.id || c.value || c.slug || c.code || c.name || '').trim();
-        const name = String(c.name || c.title || c.label || c.slug || c.code || id).trim();
-        return id && name ? { id, name } : null;
-      })
-      .filter(Boolean);
-  }
-
-  async function getCats() {
+  async function getKinks(){
+    // prefer already-injected data if present
+    if (Array.isArray(window.__TK_KINK_DATA) && window.__TK_KINK_DATA.length) return tkNormalizeItems(window.__TK_KINK_DATA);
+    // try the feed we’ve been using
     try {
-      if (typeof window.tkLoadKinkData === 'function') {
-        const d = await window.tkLoadKinkData();
-        return normalizeCats((d?.categories) || (d?.kinks?.categories) || []);
-      }
-      if (window.tkLoadKinkDataPromise && typeof window.tkLoadKinkDataPromise.then === 'function') {
-        const d = await window.tkLoadKinkDataPromise;
-        return normalizeCats((d?.categories) || (d?.kinks?.categories) || []);
-      }
-      if (Array.isArray(window.__TK_CATS)) return normalizeCats(window.__TK_CATS);
-    } catch (err) {
-      console.warn('[TK] getCats error', err);
-    }
-    return [];
+      const u = new URL('/data/kinks.json', location.origin);
+      u.searchParams.set('v', Date.now());      // bust cache
+      const r = await fetch(u.toString());
+      if (r.ok) return tkNormalizeItems(await r.json());
+    } catch(e){}
+    // last resort: a short demo set so UI isn’t empty
+    return tkNormalizeItems([
+      {id:'demo-1', name:'(demo) Bondage'},
+      {id:'demo-2', name:'(demo) Roleplay'},
+      {id:'demo-3', name:'(demo) Impact'},
+    ]);
   }
 
-  async function hydrate() {
-    const cats = await getCats();
-    if (!cats.length) return false;
+  function updateBadge(list){
+    const total = list.querySelectorAll('input[type="checkbox"]').length;
+    const sel   = list.querySelectorAll('input[type="checkbox"]:checked').length;
+    document.getElementById('selectedCountBadge').textContent = `${sel} selected / ${total} total`;
+  }
 
+  function saveSelection(list){
+    const ids = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
+    localStorage.setItem(KEY, JSON.stringify(ids));
+    return ids;
+  }
+
+  (async () => {
+    const items = await getKinks();
+    const list  = document.getElementById('categoryChecklist');
     list.innerHTML = '';
-    const seen = new Set();
-    for (const { id, name } of cats) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      addRow(id, name);
-    }
 
-    setSel(Array.from(getSel()).filter((id) => seen.has(id)));
-    updateBadge();
+    items.forEach(({id,name})=>{
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = id; cb.setAttribute('aria-label', name);
+      const span = document.createElement('span'); span.textContent = name;
+      label.append(cb, span);
+      list.appendChild(label);
+    });
 
-    btnAll.onclick = () => {
-      list.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-        cb.checked = true;
-      });
-      setSel(Array.from(list.querySelectorAll('input:checked')).map((n) => n.value));
-      updateBadge();
+    // restore previous selection
+    try {
+      const prev = JSON.parse(localStorage.getItem(KEY) || '[]');
+      if (Array.isArray(prev) && prev.length){
+        prev.forEach(id => {
+          const box = list.querySelector(`input[value="${CSS.escape(id)}"]`);
+          if (box) box.checked = true;
+        });
+      }
+    } catch {}
+
+    // live badge
+    list.addEventListener('change', () => updateBadge(list));
+    updateBadge(list);
+
+    // select/deselect all
+    document.getElementById('btnSelectAll').onclick   = () => {
+      list.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+      updateBadge(list);
+    };
+    document.getElementById('btnDeselectAll').onclick = () => {
+      list.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      updateBadge(list);
     };
 
-    btnNone.onclick = () => {
-      list.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-        cb.checked = false;
-      });
-      setSel([]);
-      updateBadge();
-    };
+    // start survey from panel (single source of truth)
+    document.getElementById('beginSurveyFromPanel').onclick = () => {
+      const ids = saveSelection(list);
 
-    btnGo.onclick = () => {
-      const ids = Array.from(getSel());
-      document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids } }));
+      // your event contract (kept from earlier work)
+      document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids }}));
+
+      // Fallback navigation if the runner didn’t start it
       setTimeout(() => {
         if (!window.__TK_SURVEY_STARTED) {
-          const u = new URL('/kinksurvey/', location.origin);
-          u.searchParams.set('run', '1');
+          const u = new URL(location.origin + '/kinksurvey/');
+          u.searchParams.set('run','1');
           if (ids.length) u.searchParams.set('cats', ids.join(','));
           location.assign(u.toString());
         }
       }, 120);
     };
-
-    console.log('[TK] dock hydrated with', cats.length, 'categories');
-    return true;
-  }
-
-  (async () => {
-    if (await hydrate()) return;
-    for (let i = 0; i < 20; i += 1) {
-      await new Promise((r) => setTimeout(r, 200));
-      if (await hydrate()) return;
-    }
-    window.addEventListener('tk:kinkdata-ready', hydrate, { once: true });
-    document.addEventListener('tk:kinkdata-ready', hydrate, { once: true });
-    console.log('[TK] waiting for kink data …');
   })();
 })();
 </script>
+<!-- ================= /TK DOCKED SURVEY LAYOUT ================= -->
