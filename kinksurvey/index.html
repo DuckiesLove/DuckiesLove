@@ -34,68 +34,91 @@
 <link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
 <link rel="stylesheet" href="/css/tk-panel-safe.css">
 
-<style id="tk-kink-dock">
+<!-- ========== TK DOCK LAYOUT: LEFT 75% PANEL, RIGHT 25% RAIL ========== -->
+<style id="tk-dock-layout">
   html, body { margin: 0; }
 
-  /* Kill any old overlay layer that might hide the dock */
-  .tk-overlay,
-  #tkOverlay { display: none !important; }
+  /* Kill any legacy dark overlay that might sit on top/under the panel */
+  #tkOverlay,
+  .tk-overlay { display: none !important; }
 
-  /* Make the panel a left-side dock, always visible */
+  /* Make the dock panel own the left 75% */
   #categorySurveyPanel {
     position: fixed !important;
-    inset: 0 !important;
+    inset: 0 auto 0 0 !important;   /* top:0 right:auto bottom:0 left:0 */
+    width: 75vw !important;
+    height: 100vh !important;
     display: block !important;
-    visibility: visible !important;
-    background: transparent !important;     /* no dim overlay */
-    z-index: 2147483640 !important;
+    background: #000 !important;    /* remove the translucent glow */
+    box-shadow: none !important;
+    z-index: 2147483640 !important; /* always on top */
+    pointer-events: auto !important;
   }
 
-  /* The inner actual card */
+  /* Panel content padding & scroll */
   #categorySurveyPanel .panel {
     position: absolute !important;
-    left: 2vw !important;
-    top: 2vh !important;
-    bottom: 2vh !important;
-    width: 75vw !important;                 /* ~3/4 page */
-    max-width: none !important;
+    inset: 2vh 2vw 2vh 2vw !important;
     overflow: auto !important;
-    border-radius: 16px !important;
-    border: 2px solid var(--teal, #00e5ff) !important;
-    background: #000 !important;
-    color: #fff !important;
-    box-shadow: 0 12px 40px rgba(0,0,0,.6) !important;
+    background: #000 !important;    /* ensure no see-through */
+    box-shadow: 0 12px 40px rgba(0,0,0,.45);
+    border: 2px solid #00e5ff;
+    border-radius: 16px;
+    color: #fff;
   }
 
-  /* Push the rest of the page to the right side (about 25%) */
-  main,
-  #app,
-  .home,
-  .wrap,
-  .container {
-    margin-left: 77vw !important;           /* leave a sliver gap next to 75vw */
-    padding: 2vh 2vw !important;
+  /* OPTIONAL: hide the CLOSE button so the panel is "locked" */
+  #btnClosePanel { display: none !important; }
+
+  /* Push everything that is NOT the panel to the right rail (25%) */
+  html.tk-dock body > :not(#categorySurveyPanel):not(script):not(style) {
+    margin-left: 75vw !important;
+    max-width: 25vw !important;
     box-sizing: border-box !important;
+    padding: 2vh 2vw !important;
+    filter: none !important;        /* remove any blur */
+    opacity: 1 !important;          /* remove any fade */
+    pointer-events: auto !important;
   }
 
-  /* Mobile: fall back to full-width overlay for small screens */
+  /* If you have a known wrapper, this gives it the same rules (harmless if absent) */
+  html.tk-dock :where(main,#app,.wrap,.container,.home) {
+    margin-left: 75vw !important;
+    max-width: 25vw !important;
+    padding: 2vh 2vw !important;
+  }
+
   @media (max-width: 900px) {
+    #categorySurveyPanel {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+
     #categorySurveyPanel .panel {
-      left: 2vw !important;
-      right: 2vw !important;
+      inset: 2vh 4vw !important;
       width: auto !important;
     }
 
-    main,
-    #app,
-    .home,
-    .wrap,
-    .container {
+    html.tk-dock body > :not(#categorySurveyPanel):not(script):not(style),
+    html.tk-dock :where(main,#app,.wrap,.container,.home) {
       margin-left: 0 !important;
+      max-width: none !important;
       padding: 12px !important;
     }
   }
 </style>
+<script>
+  // Flag the page so our right-rail rules apply
+  document.documentElement.classList.add('tk-dock');
+
+  // If anything previously forced a body margin, clear it
+  try { document.body.style.marginLeft = ''; } catch (err) {
+    /* noop */
+  }
+</script>
+<!-- =============================================================== -->
 
 <!-- ✅ ONE DROP PATCH: stop “addEventListener of null” shim -->
 <script>
