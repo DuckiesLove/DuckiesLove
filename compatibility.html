@@ -69,6 +69,75 @@
       setTimeout(() => observer.disconnect(), 4000);
     })();
   </script>
+  <!-- COMPAT PAGE: recentre layout + neutralize any dock margin -->
+  <style id="compat-centering">
+    :root {
+      --tk-dock-width: 0px !important;
+    }
+
+    html,
+    body {
+      margin: 0;
+    }
+
+    .compat-page,
+    .compat-wrapper,
+    #compatRoot,
+    main,
+    .page,
+    .container {
+      max-width: 960px;
+      margin: 0 auto !important;
+      padding: 40px 16px;
+    }
+
+    .compat-buttons,
+    .compat-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .compat-buttons .themed-button,
+    .compat-actions .themed-button,
+    .themed-button.compat {
+      width: min(680px, 90vw);
+    }
+  </style>
+
+  <script>
+    (function () {
+      try {
+        if (document.body) {
+          document.body.style.marginLeft = '0px';
+        }
+        document.documentElement.style.setProperty('--tk-dock-width', '0px');
+
+        const host = document.querySelector(
+          '#compatRoot, .compat-page, .compat-wrapper, main, .page, .container'
+        );
+
+        if (host) {
+          Object.assign(host.style, {
+            maxWidth: '960px',
+            margin: '0 auto',
+            padding: '40px 16px'
+          });
+        }
+
+        document.querySelectorAll('.themed-button').forEach((btn) => {
+          Object.assign(btn.style, {
+            width: 'min(680px, 90vw)',
+            margin: '0 auto',
+            display: 'block'
+          });
+        });
+      } catch (err) {
+        console.warn('[compat] unable to apply centering overrides', err);
+      }
+    })();
+  </script>
   <style id="tk-compat-center">
     /* Remove any panel/dock if an older script injected it */
     #tkDockCard,
