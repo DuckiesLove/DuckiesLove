@@ -1,47 +1,49 @@
+<script>
 (() => {
   const SCRIPT_FLAG = '__tkCategoryPanelBooted';
   if (window[SCRIPT_FLAG]) return;
   window[SCRIPT_FLAG] = true;
 
-  const DATA_URL = '/data/kinks.json';
+  const DATA_URL    = '/data/kinks.json';
   const STORAGE_KEY = '__TK_SELECTED_CATEGORIES';
-  const PANEL_ID = 'categoryChecklist';
+  const PANEL_ID    = 'categoryChecklist';
 
-  const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
-  const host = document.getElementById(PANEL_ID);
+  const host  = document.getElementById(PANEL_ID);
   const badge = document.getElementById('selectedCountBadge');
   if (!host) {
     console.warn('[TK] Missing #categoryChecklist – nothing to render.');
     return;
   }
 
+  // Uniform 2-column grid inside the panel
   Object.assign(host.style, {
     display: 'grid',
     gap: '12px',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
   });
 
+  // Find a likely items array anywhere in a JSON tree
   function findItemArray(root, maxDepth = 6) {
     if (!root || maxDepth < 0) return null;
+
     if (Array.isArray(root)) {
-      const looksRight = root.length && root.every((item) => (
-        item && typeof item === 'object' && (
-          'name' in item || 'label' in item || 'title' in item || 'slug' in item
-        )
-      ));
+      const looksRight = root.length && root.every(
+        item => item && typeof item === 'object' &&
+          ('name' in item || 'label' in item || 'title' in item || 'slug' in item)
+      );
       if (looksRight) return root;
     }
 
     if (typeof root === 'object') {
-      for (const key of ['items', 'categories', 'data', 'kinks', 'results', 'payload']) {
+      for (const key of ['items','categories','data','kinks','results','payload']) {
         if (Array.isArray(root[key])) {
           const hit = findItemArray(root[key], maxDepth - 1);
           if (hit) return hit;
         }
       }
-
       for (const value of Object.values(root)) {
         const hit = findItemArray(value, maxDepth - 1);
         if (hit) return hit;
@@ -51,11 +53,14 @@
     return null;
   }
 
+  // Normalize to {id, name} and sort A→Z
   function normalize(raw) {
     const arr = findItemArray(raw) || (Array.isArray(raw) ? raw : []);
     const out = arr.map((item, index) => {
-      const id = item?.id ?? item?.value ?? item?.slug ?? item?.key ?? `item-${index}`;
-      const name = item?.name ?? item?.label ?? item?.title ?? item?.slug ?? String(id);
+      const id =
+        item?.id ?? item?.value ?? item?.slug ?? item?.key ?? `item-${index}`;
+      const name =
+        item?.name ?? item?.label ?? item?.title ?? item?.slug ?? String(id);
       return { id: String(id), name: String(name) };
     });
     out.sort((a, b) => a.name.localeCompare(b.name));
@@ -64,13 +69,12 @@
 
   async function loadData() {
     if (Array.isArray(window.__TK_KINK_DATA) && window.__TK_KINK_DATA.length) {
-      return window.__TK_KINK_DATA;
+      return window.__TK_KINK_DATA; // already normalized in this script
     }
-
     try {
       const res = await fetch(DATA_URL, { cache: 'no-store' });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const json = await res.json();
+      const json  = await res.json();
       const items = normalize(json);
       window.__TK_KINK_DATA = items;
       if (!items.length) {
@@ -84,29 +88,24 @@
   }
 
   function updateBadge() {
-    const total = $$('input[type="checkbox"]', host).length;
+    const total    = $$('input[type="checkbox"]', host).length;
     const selected = $$('input[type="checkbox"]:checked', host).length;
     if (badge) badge.textContent = `${selected} selected / ${total} total`;
+
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify($$('input[type="checkbox"]:checked', host).map((node) => node.value))
+      JSON.stringify($$('input[type="checkbox"]:checked', host).map(n => n.value))
     );
   }
 
   function restore() {
     let saved = [];
-    try {
-      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    } catch {
-      saved = [];
-    }
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch {}
 
-    saved.forEach((id) => {
-      const value = String(id ?? '');
-      const escaped = typeof CSS !== 'undefined' && CSS.escape
-        ? CSS.escape(value)
-        : value.replace(/"/g, '\\"');
-      const cb = host.querySelector(`input[type="checkbox"][value="${escaped}"]`);
+    saved.forEach(id => {
+      const value   = String(id ?? '');
+      const escaped = (window.CSS && CSS.escape) ? CSS.escape(value) : value.replace(/"/g, '\\"');
+      const cb      = host.querySelector(`input[type="checkbox"][value="${escaped}"]`);
       if (cb) cb.checked = true;
     });
     updateBadge();
@@ -145,8 +144,8 @@
       row.append(cb, span);
       frag.append(row);
     }
-
     host.append(frag);
+
     if (badge) badge.textContent = `0 selected / ${items.length} total`;
     restore();
   }
@@ -159,23 +158,17 @@
     render(items);
 
     document.getElementById('btnSelectAll')?.addEventListener('click', () => {
-      $$('input[type="checkbox"]', host).forEach((cb) => {
-        cb.checked = true;
-      });
+      $$('input[type="checkbox"]', host).forEach(cb => cb.checked = true);
       updateBadge();
     });
-
     document.getElementById('btnDeselectAll')?.addEventListener('click', () => {
-      $$('input[type="checkbox"]', host).forEach((cb) => {
-        cb.checked = false;
-      });
+      $$('input[type="checkbox"]', host).forEach(cb => cb.checked = false);
       updateBadge();
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
-  } else {
-    boot();
-  }
+  document.readyState === 'loading'
+    ? document.addEventListener('DOMContentLoaded', boot, { once:true })
+    : boot();
 })();
+</script>
