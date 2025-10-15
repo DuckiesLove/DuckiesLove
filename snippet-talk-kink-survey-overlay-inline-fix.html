@@ -1,0 +1,81 @@
+<!-- Talk-Kink: force inline survey panel + overlay removal -->
+<script>
+(() => {
+  // --- 0) Tell any of our code not to reopen an overlay
+  window.__TK_PORTAL_DISABLED__ = true;
+  window.__TK_PANEL_DISABLED__  = true;
+  window.__TK_FORCE_INLINE__    = true;
+
+  // --- 1) Try to close via API if available
+  try { typeof tkClosePanel === 'function' && tkClosePanel({ force:true }); } catch {}
+
+  // --- 2) Remove overlay/dock/backdrop nodes & unlock scroll
+  const KILL = [
+    '#tkDock', '#tkDockCard', '#tkDockHard',
+    '.tk-portal-overlay', '.tk-portal', '.tk-backdrop', '.tk-scrim',
+    'iframe[src*="kinksurvey"]'
+  ];
+  document.querySelectorAll(KILL.join(',')).forEach(n => n.remove());
+  document.documentElement.style.overflow = '';
+  document.body.style.overflow = '';
+  document.body.classList.remove('tk-locked','overflow-hidden');
+
+  // --- 3) Ensure the survey lives inline (not in a portal/overlay)
+  const box =
+    document.getElementById('categorySurveyPanel') ||
+    document.querySelector('.category-panel') ||
+    (() => {
+      const d = document.createElement('div');
+      d.id = 'categorySurveyPanel';
+      document.body.prepend(d);
+      return d;
+    })();
+
+  // Make the box a normal block in the page
+  Object.assign(box.style, {
+    position: 'static',
+    inset: 'auto',
+    zIndex: 'auto',
+    width: 'min(1000px, 90vw)',
+    margin: '24px auto',
+    background: 'transparent',
+    boxShadow: 'none'
+  });
+
+  // If the checklist host exists, put it in the box and style it
+  const host = document.getElementById('categoryChecklist');
+  if (host) {
+    box.append(host);
+    Object.assign(host.style, {
+      position: 'static',
+      inset: 'auto',
+      zIndex: 'auto',
+      background: '#050505',
+      border: '1px solid #2a2a2a',
+      borderRadius: '12px',
+      padding: '12px',
+      maxHeight: '60vh',
+      overflow: 'auto'
+    });
+  }
+
+  // --- 4) Keep the overlay from coming back (defensive)
+  const blocker = new MutationObserver(() => {
+    document.querySelectorAll(KILL.join(',')).forEach(n => n.remove());
+  });
+  blocker.observe(document.documentElement, { childList:true, subtree:true });
+  window.__TK_BLOCKER__ = blocker;
+
+  // --- 5) Hard CSS safety (in case something injects styles later)
+  const style = document.createElement('style');
+  style.textContent = `
+    #tkDock, #tkDockCard, #tkDockHard,
+    .tk-portal-overlay, .tk-portal, .tk-backdrop, .tk-scrim { display:none !important; pointer-events:none !important; }
+    body.tk-locked, html.tk-locked { overflow:auto !important; }
+    #categorySurveyPanel, .category-panel { position:static !important; inset:auto !important; z-index:auto !important; }
+  `;
+  document.head.append(style);
+
+  console.log('[TK] Overlay removed, box is inline. You should be able to see and work normally.');
+})();
+</script>
