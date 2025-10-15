@@ -1,136 +1,187 @@
 <!-- Talk Kink survey: hard overlay that rehosts the category panel on top -->
 <script>
 (() => {
-  // ===== 1) Build an overlay that blocks the page behind =====
+  const FLAG = '__TK_FIX_ACTIVE__';
+  if (window[FLAG]) { console.log('[TK] Fix already active. Run __TK_FIX.teardown() to reset.'); return; }
+  window[FLAG] = true;
+
+  // ---------- 0) tiny helpers ----------
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+  // ---------- 1) block background + make a modal container ----------
+  // backdrop
   let blocker = document.getElementById('__tk_blocker');
   if (!blocker) {
-    blocker = document.createElement('div');
-    blocker.id = '__tk_blocker';
+    blocker = Object.assign(document.createElement('div'), { id: '__tk_blocker' });
     Object.assign(blocker.style, {
-      position: 'fixed',
-      inset: '0',
-      background: 'rgba(0,0,0,.7)',   // dim the background
-      zIndex: '2147483646',
-      pointerEvents: 'auto'
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', zIndex: 2147483646
     });
     document.body.appendChild(blocker);
   }
-
+  // modal
   let overlay = document.getElementById('__tk_overlay');
   if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = '__tk_overlay';
+    overlay = Object.assign(document.createElement('div'), { id: '__tk_overlay' });
     Object.assign(overlay.style, {
-      position: 'fixed',
-      top: '6vh',
-      left: '6vw',
-      width: '70vw',
-      maxWidth: '1100px',
-      maxHeight: '80vh',
-      overflow: 'auto',
-      background: '#000',
-      border: '2px solid #00e6e6',
-      borderRadius: '16px',
-      boxShadow: '0 10px 40px rgba(0,0,0,.6)',
-      padding: '16px',
-      zIndex: '2147483647',
-      pointerEvents: 'auto',
-      color: '#fff'
+      position: 'fixed', top: '6vh', left: '50%', transform: 'translateX(-50%)',
+      width: '72vw', maxWidth: '1100px', maxHeight: '80vh', overflow: 'auto',
+      background: '#000', border: '2px solid #00e6e6', borderRadius: '16px',
+      padding: '18px', boxShadow: '0 12px 48px rgba(0,0,0,.55)', color: '#fff',
+      zIndex: 2147483647, fontFamily: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif'
     });
     document.body.appendChild(overlay);
   }
-
-  // Stop clicks to everything except the overlay & blocker
-  const styleId = '__tk_backdrop_css';
+  // disable clicks to everything else
+  const styleId='__tk_block_css';
   if (!document.getElementById(styleId)) {
-    const st = document.createElement('style');
-    st.id = styleId;
-    st.textContent = `
-      body[data-tk-backdrop="1"] > *:not(#__tk_overlay):not(#__tk_blocker) {
-        pointer-events: none !important;
-      }
-      /* ensure overlay content isn't clipped by transforms on ancestors */
-      #__tk_overlay, #__tk_blocker { transform: none !important; }
-    `;
+    const st=document.createElement('style'); st.id=styleId;
+    st.textContent=`body[data-tk-lock="1"]>*:not(#__tk_blocker):not(#__tk_overlay){pointer-events:none!important}`;
     document.head.appendChild(st);
   }
-  document.body.setAttribute('data-tk-backdrop', '1');
+  document.body.setAttribute('data-tk-lock','1');
 
-  // ===== 2) Move the existing panel content into the overlay =====
-  // Try to grab your current panel; fallbacks included
-  let panel =
-    document.querySelector('#categorySurveyPanel, .category-panel, #tkDockCard, #tkDockHard') ||
-    document.getElementById('categoryChecklist')?.parentElement;
-
+  // ---------- 2) move existing panel into overlay & ensure a host ----------
+  let panel = $('#categorySurveyPanel, .category-panel, #tkDockCard, #tkDockHard') ||
+              $('#categoryChecklist')?.parentElement;
   if (!panel) {
-    // As a last resort, make a container so you can see something to attach to
-    panel = document.createElement('div');
-    panel.className = 'category-panel';
+    panel = Object.assign(document.createElement('div'), { className: 'category-panel' });
     overlay.appendChild(panel);
-  } else {
-    overlay.appendChild(panel); // Reparent into our fixed overlay
+  } else if (panel !== overlay) {
+    overlay.appendChild(panel);
   }
 
-  // Make sure the checklist host exists inside the panel
-  let host = document.getElementById('categoryChecklist');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'categoryChecklist';
-    panel.appendChild(host);
+  // header + badge if missing
+  let header = $('#__tk_hdr', panel);
+  if (!header) {
+    header = Object.assign(document.createElement('div'), { id: '__tk_hdr' });
+    header.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;">
+        <h2 style="margin:0;font-size:22px;color:#00e6e6">Select categories</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="btnSelectAll" class="__tk_btn">Select All</button>
+          <button id="btnDeselectAll" class="__tk_btn">Deselect All</button>
+          <span id="selectedCountBadge" style="opacity:.85">0 selected / 0 total</span>
+        </div>
+      </div>`;
+    panel.prepend(header);
   }
 
-  // ===== 3) Force the checklist to be visible and up-front =====
-  Object.assign(host.style, {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: '12px',
-    background: '#020202',
-    border: '2px solid #00e6e6',
-    borderRadius: '12px',
-    padding: '14px',
-    color: '#fff',
-    maxHeight: '60vh',
-    overflow: 'auto',
-    zIndex: '2147483647',
+  // ensure button look
+  $$('.__tk_btn', panel).forEach(b=>{
+    Object.assign(b.style, {
+      background:'transparent', color:'#fff', border:'2px solid #fff', borderRadius:'10px',
+      padding:'10px 16px', fontWeight:700, cursor:'pointer'
+    });
   });
 
-  // ===== 4) If categories didn’t render, inject demo items so you can SEE rows =====
-  if (!host.querySelector('label')) {
-    const demo = Array.from({ length: 12 }, (_, i) => ({
-      id: `demo-${i + 1}`,
-      name: `Demo Category ${String(i + 1).padStart(2, '0')}`
-    }));
-    host.innerHTML = '';
-    const frag = document.createDocumentFragment();
-    for (const { id, name } of demo) {
-      const row = document.createElement('label');
-      row.style.cssText =
-        'display:flex;align-items:center;gap:12px;padding:11px 14px;' +
-        'border:1px solid #2a2a2a;border-radius:12px;background:#0a0a0a;cursor:pointer;' +
-        'user-select:none;font:600 16px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.value = id;
-      cb.style.width = cb.style.height = '18px';
-      const span = document.createElement('span');
-      span.textContent = name;
-      row.append(cb, span);
-      frag.append(row);
+  let host = document.getElementById('categoryChecklist');
+  if (!host) { host = Object.assign(document.createElement('div'), { id: 'categoryChecklist' }); panel.appendChild(host); }
+
+  Object.assign(host.style, {
+    display:'grid', gridTemplateColumns:'repeat(2,minmax(0,1fr))', gap:'12px',
+    background:'#050505', border:'1px solid #2a2a2a', borderRadius:'12px',
+    padding:'12px', maxHeight:'60vh', overflow:'auto'
+  });
+
+  const badge = document.getElementById('selectedCountBadge');
+
+  // ---------- 3) data loader with resilient normalization ----------
+  function findArray(root, depth=5){
+    if (!root || depth<0) return null;
+    if (Array.isArray(root) && root.every(i => i && typeof i==='object')) return root;
+    if (typeof root==='object'){
+      for (const k of ['items','categories','data','kinks','payload','results']) {
+        if (Array.isArray(root[k])) return root[k];
+      }
+      for (const v of Object.values(root)){ const hit=findArray(v,depth-1); if (hit) return hit; }
     }
-    host.append(frag);
+    return null;
+  }
+  function normalize(raw){
+    const arr = findArray(raw) || (Array.isArray(raw) ? raw : []);
+    const out = arr.map((it,i)=>{
+      const id = it?.id ?? it?.value ?? it?.slug ?? it?.key ?? `item-${i}`;
+      const name = it?.name ?? it?.label ?? it?.title ?? it?.slug ?? String(id);
+      return { id:String(id), name:String(name) };
+    });
+    out.sort((a,b)=>a.name.localeCompare(b.name,'en',{sensitivity:'base'}));
+    return out;
+  }
+  async function loadCategories(){
+    if (Array.isArray(window.__TK_KINK_DATA) && window.__TK_KINK_DATA.length) {
+      return normalize(window.__TK_KINK_DATA);
+    }
+    try {
+      const res = await fetch('/data/kinks.json', { cache:'no-store' });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const json = await res.json();
+      const items = normalize(json);
+      window.__TK_KINK_DATA = items;
+      return items;
+    } catch (e) {
+      console.warn('[TK] fetch /data/kinks.json failed, using demo set:', e);
+      return Array.from({length:16},(_,i)=>({id:`demo-${i+1}`,name:`Demo Category ${String(i+1).padStart(2,'0')}`}));
+    }
   }
 
-  // ===== 5) Keep the “selected / total” badge correct (if present) =====
-  const badge = document.getElementById('selectedCountBadge');
-  const updateBadge = () => {
-    const total = host.querySelectorAll('input[type=checkbox]').length;
-    const sel = host.querySelectorAll('input[type=checkbox]:checked').length;
+  // ---------- 4) render + interactions ----------
+  function updateBadge(){
+    const total = $$('input[type=checkbox]', host).length;
+    const sel = $$('input[type=checkbox]:checked', host).length;
     if (badge) badge.textContent = `${sel} selected / ${total} total`;
-  };
-  host.addEventListener('change', (e) => e.target?.type === 'checkbox' && updateBadge());
-  updateBadge();
+    try {
+      localStorage.setItem('__TK_SELECTED_CATEGORIES',
+        JSON.stringify($$('input[type=checkbox]:checked', host).map(n=>n.value)));
+    } catch {}
+  }
+  function restore(){
+    try {
+      const saved = JSON.parse(localStorage.getItem('__TK_SELECTED_CATEGORIES')||'[]');
+      saved.forEach(v=>{
+        const cssEsc = window.CSS?.escape ? CSS.escape(String(v)) : String(v).replace(/"/g,'\\"');
+        const cb = host.querySelector(`input[type="checkbox"][value="${cssEsc}"]`);
+        if (cb) cb.checked = true;
+      });
+    } catch {}
+    updateBadge();
+  }
+  function render(items){
+    host.innerHTML='';
+    const frag=document.createDocumentFragment();
+    items.forEach(({id,name})=>{
+      const row=document.createElement('label');
+      row.style.cssText='display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid #2a2a2a;border-radius:12px;background:#0a0a0a;cursor:pointer;user-select:none;font:600 16px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.value=id; cb.style.width=cb.style.height='18px';
+      cb.addEventListener('change',updateBadge);
+      const span=document.createElement('span'); span.textContent=name;
+      row.append(cb,span); frag.append(row);
+    });
+    host.append(frag);
+    updateBadge(); restore();
+  }
 
-  console.log('%c[TK] Overlay active. Background is blocked; panel is on top.',
-              'color:#0ff');
+  // wire buttons if present (header added earlier ensures they exist)
+  $('#btnSelectAll', panel)?.addEventListener('click', ()=>{ $$('input[type=checkbox]',host).forEach(cb=>cb.checked=true); updateBadge(); });
+  $('#btnDeselectAll', panel)?.addEventListener('click', ()=>{ $$('input[type=checkbox]',host).forEach(cb=>cb.checked=false); updateBadge(); });
+
+  // ---------- 5) go! ----------
+  loadCategories().then(render);
+
+  // ---------- 6) teardown hook ----------
+  window.__TK_FIX = {
+    teardown(){
+      document.body.removeAttribute('data-tk-lock');
+      $('#__tk_blocker')?.remove();
+      $('#__tk_overlay')?.remove();
+      $('#__tk_block_css')?.remove();
+      delete window.__TK_FIX;
+      delete window[FLAG];
+      console.log('[TK] Teardown complete.');
+    }
+  };
+
+  console.log('%c[TK] Panel isolated in overlay; categories will render here. Use __TK_FIX.teardown() to undo.',
+              'color:#00e6e6');
 })();
 </script>
