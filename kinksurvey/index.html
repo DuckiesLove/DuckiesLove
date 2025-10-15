@@ -4020,7 +4020,37 @@ No other files need to change.
 
   if(!overlay || !drawer || !listBox) return;
 
+  function updateCount(){ $count.textContent = $$('.tk-cat', listBox).filter(cb=>cb.checked).length; }
+
   // --- Collect categories from likely globals (keeps working even if your loader changes) ---
+  function normalizeCategory(value){
+    if (!value) return null;
+    if (typeof value === 'string'){
+      const text = value.trim();
+      return text ? { id: text, name: text } : null;
+    }
+    if (typeof value === 'object'){
+      const id = value.id ?? value.code ?? value.key ?? value.slug ?? value.value ?? value.name ?? value.label ?? value.title ?? '';
+      const name = value.name ?? value.label ?? value.title ?? value.text ?? id;
+      const cleanId = String(id || name || '').trim();
+      const cleanName = String(name || id || '').trim();
+      if (!cleanId || !cleanName) return null;
+      return { id: cleanId, name: cleanName };
+    }
+    return null;
+  }
+
+  function uniqueNormalized(list){
+    const seen = new Map();
+    for (const entry of list || []){
+      const cat = normalizeCategory(entry);
+      if (cat && !seen.has(cat.id)){
+        seen.set(cat.id, cat);
+      }
+    }
+    return Array.from(seen.values());
+  }
+
   function harvest(){
     const g=window;
     const pools=[
@@ -4031,23 +4061,96 @@ No other files need to change.
     ];
     for(const p of pools){
       if(Array.isArray(p) && p.length){
-        return p.map(x=>({id:x.id??x.key??x.slug??String(x.name??x.label??''),name:x.name??x.label??String(x.id??x.key??x.slug??'')}));
+        const normalized = uniqueNormalized(p);
+        if (normalized.length) return normalized;
       }
     }
     return [];
   }
-  const CATS=harvest();
-  $total.textContent=CATS.length;
 
-  // --- Render grid (alphabetical) ---
-  listBox.innerHTML=CATS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(c=>`
-    <label class="tk-pill">
-      <input type="checkbox" class="tk-cat" value="${c.id}" />
-      <span>${c.name}</span>
-    </label>
-  `).join('');
+  function deriveFromItems(raw){
+    const source = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.items) ? raw.items : []);
+    const collected = [];
+    for (const item of source){
+      if (!item || typeof item !== 'object') continue;
+      if (item.category) collected.push(item.category);
+      if (item.group) collected.push(item.group);
+      if (Array.isArray(item.categories)) collected.push(...item.categories);
+      if (item.categoryId || item.categoryName || item.categoryLabel) {
+        collected.push({ id: item.categoryId, name: item.categoryName ?? item.categoryLabel });
+      }
+      if (item.groupId || item.groupName || item.groupLabel) {
+        collected.push({ id: item.groupId, name: item.groupName ?? item.groupLabel });
+      }
+    }
+    return uniqueNormalized(collected);
+  }
 
-  function updateCount(){ $count.textContent = $$('.tk-cat', listBox).filter(cb=>cb.checked).length; }
+  function renderCategories(raw){
+    const cats = uniqueNormalized(raw);
+    if (!cats.length){
+      listBox.innerHTML = '';
+      $total.textContent = '0';
+      updateCount();
+      return false;
+    }
+    const sorted = cats.slice().sort((a,b)=>a.name.localeCompare(b.name));
+    listBox.innerHTML = sorted.map(c=>`
+      <label class="tk-pill">
+        <input type="checkbox" class="tk-cat" value="${c.id}" />
+        <span>${c.name}</span>
+      </label>
+    `).join('');
+    $total.textContent = String(sorted.length);
+    updateCount();
+    return true;
+  }
+
+  let hydrated = renderCategories(harvest());
+  let loaderRequested = false;
+
+  async function hydrateFromLoader(){
+    if (hydrated || loaderRequested) return false;
+    if (typeof window.tkLoadKinkData !== 'function') return false;
+    loaderRequested = true;
+    try{
+      const data = await window.tkLoadKinkData();
+      if (renderCategories(deriveFromItems(data))){
+        hydrated = true;
+        return true;
+      }
+    }catch(err){
+      console.warn('[TK] category fallback loader failed', err);
+    }
+    return false;
+  }
+
+  function attemptHydrate(){
+    if (hydrated) return;
+    hydrated = renderCategories(harvest());
+    if (!hydrated) {
+      hydrateFromLoader();
+    }
+  }
+
+  if (!hydrated){
+    const poll = setInterval(()=>{
+      if (hydrated){
+        clearInterval(poll);
+        return;
+      }
+      hydrated = renderCategories(harvest());
+      if (hydrated) clearInterval(poll);
+    }, 200);
+    setTimeout(()=>clearInterval(poll), 6000);
+
+    if (document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', attemptHydrate, { once:true });
+    } else {
+      attemptHydrate();
+    }
+    document.addEventListener('tk:data-ready', attemptHydrate);
+  }
   listBox.addEventListener('change', e=>{ if(e.target?.classList.contains('tk-cat')) updateCount(); });
   btnAll .addEventListener('click', ()=>{ $$('.tk-cat', listBox).forEach(cb=>cb.checked=true);  updateCount(); });
   btnNone.addEventListener('click', ()=>{ $$('.tk-cat', listBox).forEach(cb=>cb.checked=false); updateCount(); });
