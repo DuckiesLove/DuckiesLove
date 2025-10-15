@@ -3279,6 +3279,44 @@ How to use:
 </script>
 <!-- === end TK hotfix === -->
 <script src="/js/tk-data-loader.js"></script>
+<!--
+INSTRUCTIONS (for Codex / one-paste setup)
+
+1) Paste THIS ENTIRE BLOCK into the /kinksurvey/ page (e.g., kinksurvey/index.html),
+   directly ABOVE/BEFORE the script that boots your survey panel (kinksurvey.js).
+   This guarantees the panel finds data immediately and renders the list.
+
+2) If you already serve /data/kinks.json you can skip this. This inline data is just a
+   drop-in fallback that the boot code prefers when present.
+
+3) The array below is alphabetical and uses stable, URL-safe slugs in "id".
+   You can add more later by keeping the same { id, name } shape.
+-->
+<script>
+  (function () {
+    // Only set once; won’t overwrite if you later provide /data/kinks.json or set it earlier.
+    if (Array.isArray(window.__TK_KINK_DATA) && window.__TK_KINK_DATA.length) return;
+
+    window.__TK_KINK_DATA = [
+      {"id":"appearance-play","name":"Appearance Play"},
+      {"id":"behavioral-play","name":"Behavioral Play"},
+      {"id":"body-fluids-and-functions","name":"Body Fluids and Functions"},
+      {"id":"body-modification","name":"Body Modification"},
+      {"id":"body-part-fetish-play","name":"Body Part / Fetish Play"},
+      {"id":"body-part-torture","name":"Body Part Torture"},
+      {"id":"bondage-and-suspension","name":"Bondage and Suspension"},
+      {"id":"breath-play","name":"Breath Play"},
+      {"id":"breeding","name":"Breeding"},
+      {"id":"chastity-devices","name":"Chastity Devices"},
+      {"id":"communication","name":"Communication"},
+      {"id":"cosplay-and-identity-play","name":"Cosplay & Identity Play"},
+      {"id":"gender-play-and-transformation","name":"Gender Play & Transformation"},
+      {"id":"headspace-and-regression","name":"Headspace & Regression"},
+      {"id":"high-intensity-kinks-ssc-aware","name":"High-Intensity Kinks (SSC-Aware)"},
+      {"id":"impact-play","name":"Impact Play"}
+    ];
+  })();
+</script>
 <script src="/js/kinksurvey.js" defer></script>
 <!--
 ===============================================================================
