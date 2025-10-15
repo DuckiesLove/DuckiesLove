@@ -1,698 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Category Panel Snippet</title>
-<link rel="stylesheet" href="css/theme.css">
-<style>
-/* keep your look; just guarantee layering + toggling */
-#tkOverlay, .tk-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: none;
-  opacity: 0;
-  transition: opacity 0.18s ease;
-  z-index: 9990;
-  pointer-events: none;
-}
-#tkOverlay.tk-open, .tk-overlay.tk-open {
-  display: block;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-#categorySurveyPanel {
-  z-index: 10000;
-}
-
-#categorySurveyPanel.tk-open-force {
-  position: fixed !important;
-  left: 50% !important;
-  top: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  z-index: 10000 !important;
-  max-height: 85vh !important;
-  width: min(980px, 92vw) !important;
-  overflow: auto !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-#categorySurveyPanel:not(.tk-open-force) {
-  display: none !important;
-}
-
-#categorySurveyPanel.tk-open-force * {
-  pointer-events: auto;
-}
-
-/* THEME COLOR ROOTS */
-:root {
-  --accent-text: #00ffff;
-}
-.theme-dark {
-  --accent-text: #00ffff;
-}
-.theme-forest {
-  --accent-text: #66ff66;
-}
-.theme-lipstick {
-  --accent-text: #ff3399;
-}
-
-/* OUTLINE TITLE HEADER */
-#page-title,
-.page-title {
-  font-family: 'Fredoka One', sans-serif;
-  font-size: 2.5rem;
-  color: white;
-  text-shadow: 0 0 5px var(--accent-text), 0 0 10px var(--accent-text);
-  text-align: center;
-  padding-bottom: 1rem;
-}
-
-/* CATEGORY PANEL CONTAINER */
-.category-panel {
-  max-height: 80vh;
-  overflow-y: auto;
-  border: 2px solid var(--accent-text);
-  padding: 1rem;
-  border-radius: 12px;
-  font-family: 'Fredoka One', sans-serif;
-  background: #000;
-  color: white;
-  scrollbar-color: var(--accent-text) #000;
-}
-
-.category-panel::-webkit-scrollbar {
-  width: 8px;
-}
-.category-panel::-webkit-scrollbar-thumb {
-  background-color: var(--accent-text);
-  border-radius: 4px;
-}
-
-/* HEADER TEXT */
-.category-panel h2 {
-  font-size: 1rem;
-  color: var(--accent-text);
-  margin-bottom: 0.5rem;
-  line-height: 1.2rem;
-}
-
-/* SELECT/DESELECT BUTTONS */
-.category-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  margin-bottom: 0.5rem;
-}
-.category-panel button {
-  font-family: 'Fredoka One', sans-serif;
-  font-size: 0.75rem;
-  padding: 0.3rem 0.7rem;
-  background-color: #000;
-  border: 2px solid var(--accent-text);
-  color: white;
-  border-radius: 6px;
-  margin: 0.3rem 0.5rem 0.7rem 0;
-  transition: 0.2s ease;
-}
-.category-panel button:hover {
-  background-color: var(--accent-text);
-  color: #000;
-}
-
-.category-panel .panel-close {
-  margin-left: auto;
-  margin-bottom: 0.5rem;
-  display: block;
-}
-
-/* UNIFORM CATEGORY BOXES */
-.category-panel label {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  margin-bottom: 0.5rem;
-  border: 2px solid var(--accent-text);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  line-height: 1.1rem;
-  color: white;
-  background-color: transparent;
-  min-height: 45px;
-  transition: 0.2s ease;
-}
-.category-list label span {
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-}
-.category-panel label:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-/* CHECKBOX STYLE */
-.category-panel input[type="checkbox"] {
-  margin-right: 0.75rem;
-  transform: scale(1.2);
-}
-
-/* HIDE ANY START SURVEY BUTTON ON PAGE */
-#start-actual-button, .start-actual-button, .main-start-survey {
-  display: none !important;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TK Category Panel</title>
+  <link rel="stylesheet" href="css/theme.css">
 </head>
-<body class="theme-dark">
-<div id="categorySurveyPanel" class="category-panel" aria-hidden="true">
-  <button type="button" class="panel-close" data-action="close">Close</button>
-  <h2>Select the categories you want to include:</h2>
-  <div class="category-buttons">
-    <button id="selectAll">Select All</button>
-    <button id="deselectAll">Deselect All</button>
+<body>
+<!-- === TK Category Panel (drop-in block) ================================= -->
+<section id="tk-category-panel" style="max-width:980px;">
+  <header style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0 18px;">
+    <h2 style="margin:0;font-weight:800;color:#17e5e5;letter-spacing:.2px">Select categories</h2>
+    <div id="selectedCountBadge" style="opacity:.9">0 selected / 0 total</div>
+  </header>
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+    <button id="btnSelectAll"   type="button" class="tk-btn">Select All</button>
+    <button id="btnDeselectAll" type="button" class="tk-btn">Deselect All</button>
   </div>
-  <div class="category-list">
-    <label role="listitem"><input type="checkbox" name="category" value="Appearance Play"><span>Appearance Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Behavioral Play"><span>Behavioral Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Body Fluids and Functions"><span>Body Fluids and Functions</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Body Modification"><span>Body Modification</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Body Part / Fetish Play"><span>Body Part / Fetish Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Body Part Torture"><span>Body Part Torture</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Bondage and Suspension"><span>Bondage and Suspension</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Breath Play"><span>Breath Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Breeding"><span>Breeding</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Chastity Devices"><span>Chastity Devices</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Communication"><span>Communication</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Cosplay &amp; Identity Play"><span>Cosplay &amp; Identity Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Gender Play &amp; Transformation"><span>Gender Play &amp; Transformation</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Headspace &amp; Regression"><span>Headspace &amp; Regression</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="High-Intensity Kinks (SSC-Aware)"><span>High-Intensity Kinks (SSC-Aware)</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Impact Play"><span>Impact Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Medical Play"><span>Medical Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Mindfuck &amp; Manipulation"><span>Mindfuck &amp; Manipulation</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Mouth Play"><span>Mouth Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Orgasm Control &amp; Sexual Manipulation"><span>Orgasm Control &amp; Sexual Manipulation</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Other"><span>Other</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Performance &amp; Internal Struggle"><span>Performance &amp; Internal Struggle</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Pet Play"><span>Pet Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Primal &amp; Bratting"><span>Primal &amp; Bratting</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Protocol and Ritual"><span>Protocol and Ritual</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Psychological Primal / Prey"><span>Psychological Primal / Prey</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Psychology Play"><span>Psychology Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Relationship Preferences"><span>Relationship Preferences</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Roleplaying"><span>Roleplaying</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Sensation Play"><span>Sensation Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Sexual Activity"><span>Sexual Activity</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Shibari &amp; Rope Bondage"><span>Shibari &amp; Rope Bondage</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Virtual &amp; Long-Distance Play"><span>Virtual &amp; Long-Distance Play</span></label>
-    <label role="listitem"><input type="checkbox" name="category" value="Voyeurism/Exhibitionism"><span>Voyeurism/Exhibitionism</span></label>
+
+  <!-- Where the category checkboxes will be rendered -->
+  <div id="categoryChecklist" aria-live="polite"></div>
+
+  <div style="display:flex;gap:14px;margin-top:22px">
+    <button type="button" class="tk-btn tk-btn-ghost" onclick="history.back()">Close ✕</button>
+    <button type="button" class="tk-btn" id="tkStartSurvey">Start Survey</button>
   </div>
-</div>
-<script>
-(function(){
-  const FULL = [
-    "Appearance Play",
-    "Behavioral Play",
-    "Body Fluids and Functions",
-    "Body Modification",
-    "Body Part / Fetish Play",
-    "Body Part Torture",
-    "Bondage and Suspension",
-    "Breath Play",
-    "Breeding",
-    "Chastity Devices",
-    "Communication",
-    "Cosplay & Identity Play",
-    "Gender Play & Transformation",
-    "Headspace & Regression",
-    "High-Intensity Kinks (SSC-Aware)",
-    "Impact Play",
-    "Medical Play",
-    "Mindfuck & Manipulation",
-    "Mouth Play",
-    "Orgasm Control & Sexual Manipulation",
-    "Other",
-    "Performance & Internal Struggle",
-    "Pet Play",
-    "Primal & Bratting",
-    "Protocol and Ritual",
-    "Psychological Primal / Prey",
-    "Psychology Play",
-    "Relationship Preferences",
-    "Roleplaying",
-    "Sensation Play",
-    "Sexual Activity",
-    "Shibari & Rope Bondage",
-    "Virtual & Long-Distance Play",
-    "Voyeurism/Exhibitionism"
-  ];
+</section>
 
-  const key = (s) => String(s || "")
-    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-
-  const fullByKey = new Map(FULL.map((n) => [key(n), n]));
-
-  const synonym = new Map([
-    ["voyeurism exhibitionism", "Voyeurism/Exhibitionism"],
-    ["virtual long distance play", "Virtual & Long-Distance Play"],
-    ["cosplay identity play", "Cosplay & Identity Play"],
-    ["orgasm control sexual manipulation", "Orgasm Control & Sexual Manipulation"],
-    ["shibari rope bondage", "Shibari & Rope Bondage"],
-    ["high intensity kinks ssc aware", "High-Intensity Kinks (SSC-Aware)"],
-    ["psychological primal prey", "Psychological Primal / Prey"],
-    ["gender play transformation", "Gender Play & Transformation"],
-    ["performance internal struggle", "Performance & Internal Struggle"]
-  ]);
-
-  const canonical = (name) => {
-    const k = key(name);
-    return fullByKey.get(k) || synonym.get(k) || name;
-  };
-
-  const cmpAZ = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
-
-  function fixPanelText() {
-    const list = document.querySelector(".category-list");
-    if (!list) return;
-    list.querySelectorAll('label[role="listitem"] span').forEach((span) => {
-      const before = (span.textContent || "").trim();
-      const fixed = canonical(before);
-      if (fixed !== before) span.textContent = fixed;
-      span.title = fixed;
-    });
-  }
-
-  function sortPanelAZ() {
-    const list = document.querySelector(".category-list");
-    if (!list) return;
-    const rows = Array.from(list.querySelectorAll('label[role="listitem"]'));
-    if (!rows.length) return;
-    rows.sort((a, b) =>
-      cmpAZ(
-        canonical((a.textContent || "").trim()),
-        canonical((b.textContent || "").trim())
-      )
-    );
-    rows.forEach((r) => list.appendChild(r));
-  }
-
-  function wrapBootAZ() {
-    const boot = window.KINKS_boot;
-    if (!boot || boot.__azWrapped) return;
-    window.KINKS_boot = function (opts) {
-      const o = Object.assign({}, opts || {});
-      if (Array.isArray(o.categories)) {
-        const seen = new Set();
-        const out = [];
-        for (const c of o.categories) {
-          const fixed = canonical(c);
-          const k = key(fixed);
-          if (!k || seen.has(k)) continue;
-          seen.add(k);
-          out.push(fixed);
-        }
-        out.sort(cmpAZ);
-        o.categories = out;
-      }
-      return boot(o);
-    };
-    window.KINKS_boot.__azWrapped = true;
-  }
-
-  function fixHeading() {
-    const h = document.getElementById("categoryTitle");
-    if (!h) return;
-    const before = (h.textContent || "").trim();
-    const fixed = canonical(before);
-    if (fixed !== before) h.textContent = fixed;
-  }
-
-  function init() {
-    fixPanelText();
-    sortPanelAZ();
-    wrapBootAZ();
-    fixHeading();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init, { once: true });
-  } else {
-    init();
-  }
-
-  new MutationObserver(() => {
-    fixPanelText();
-    sortPanelAZ();
-    fixHeading();
-  }).observe(document.body, { subtree: true, childList: true });
-})();
-</script>
-<script>
-document.getElementById('selectAll').addEventListener('click', () => {
-  document.querySelectorAll('.category-list input[type="checkbox"]').forEach(cb => cb.checked = true);
-});
-
-document.getElementById('deselectAll').addEventListener('click', () => {
-  document.querySelectorAll('.category-list input[type="checkbox"]').forEach(cb => cb.checked = false);
-});
-</script>
-  <script>
-    fetch("/check-session", { credentials: "include" })
-      .then(res => {
-        if (res.status === 401) {
-          window.location.href = "/token.html";
-        }
-      });
-  </script>
-<script>
-(function(){
-  const $ = (s, ctx = document) => ctx.querySelector(s);
-  const $$ = (s, ctx = document) => Array.from(ctx.querySelectorAll(s));
-
-  const panel = $('#categorySurveyPanel') || $('.category-panel');
-  if (!panel) {
-    console.warn('[TK] No category panel found (#categorySurveyPanel)');
-    return;
-  }
-
-  let overlay = document.querySelector('#tkOverlay, .tk-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'tkOverlay';
-    overlay.className = 'tk-overlay';
-    document.body.appendChild(overlay);
-  }
-
-  function open() {
-    overlay.classList.add('tk-open');
-    panel.classList.add('tk-open-force');
-    panel.setAttribute('aria-hidden', 'false');
-    document.documentElement.style.overflow = 'hidden';
-    try {
-      panel.scrollIntoView({ block: 'center', behavior: 'instant' });
-    } catch (_) {}
-    console.log('[TK] Panel opened.');
-  }
-
-  function close() {
-    panel.classList.remove('tk-open-force');
-    panel.setAttribute('aria-hidden', 'true');
-    overlay.classList.remove('tk-open');
-    document.documentElement.style.overflow = '';
-    console.log('[TK] Panel closed.');
-  }
-
-  const startSel = [
-    '#startSurveyBtn',
-    '#startSurvey',
-    '.start-survey-btn',
-    'button.themed-button.start-survey-btn',
-    'a[href="#start"]'
-  ].join(',');
-  const closeSel = ['[data-action="close"]', '#tkCloseDrawer', '#closePanelBtn'].join(',');
-
-  $$(startSel).forEach((btn) => btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    open();
-  }, { passive: false }));
-  $$(closeSel, panel).forEach((btn) => btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    close();
-  }, { passive: false }));
-  overlay.addEventListener('click', close, { passive: true });
-
-  window.tkOpenPanel = open;
-  window.tkClosePanel = close;
-  window.tkProbe = () => {
-    const vis = (el) => !!(el && el.offsetParent !== null);
-    console.table([
-      {
-        key: 'panel',
-        selector: '#categorySurveyPanel',
-        present: !!panel,
-        visible: vis(panel),
-        forced: panel.classList.contains('tk-open-force')
-      },
-      { key: 'overlay', selector: '#tkOverlay|.tk-overlay', present: !!overlay, visible: vis(overlay) },
-      { key: 'starts', selector: startSel, present: !!$$(startSel).length, visible: $$(startSel).some(vis) }
-    ]);
-    return { panel, overlay, starts: $$(startSel) };
-  };
-
-  console.log('[TK] Start Survey wired; overlay=%o, panel=%o', !!overlay, !!panel);
-})();
-</script>
-<!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
-<script>
-/* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
-(function () {
-  const LOG = (...a) => console.log("[TK-SAFE]", ...a);
-
-  /* A. QUICK SANITY CHECKS — find & warn about merge markers (these often lock pages) */
-  try {
-    const html = document.documentElement.innerHTML;
-    const HEAD = '<'.repeat(7);
-    const SEP = '='.repeat(7);
-    const TAIL = '>'.repeat(7);
-    if (html.includes(HEAD) && html.includes(SEP) && html.includes(TAIL)) {
-      const conflictPattern = new RegExp(`${HEAD}[\s\S]*?${SEP}[\s\S]*?${TAIL}`);
-      if (conflictPattern.test(html)) {
-        console.warn("[TK-SAFE] Merge conflict markers detected in DOM. Remove them to avoid broken JS/CSS.");
-      }
-    }
-  } catch (_) {}
-
-  /* B. ONE-TIME INIT GUARD (prevents duplicate event bind/render loops) */
-  if (window.__TK_INITED__) {
-    LOG("Init skipped: already initialized.");
-    return;
-  }
-  window.__TK_INITED__ = true;
-
-  /* C. SAFE-MODE FLAGS (use ?safe=1 or ?nopdf=1 or ?noscore=1 to bypass heavy work) */
-  const params = new URLSearchParams(location.search);
-  const SAFE_MODE  = params.has("safe");
-  const NO_PDF     = SAFE_MODE || params.has("nopdf");
-  const NO_SCORE   = SAFE_MODE || params.has("noscore");
-
-  if (SAFE_MODE) LOG("SAFE MODE ON: skipping scoring/render and lazy-loading libraries.");
-
-  /* D. SMALL UTILITIES */
-  const byId = (id) => document.getElementById(id);
-  function once(el, type, handler, opts) {
-    // prevent stacked duplicate listeners after HMR/partials
-    el && el.addEventListener(type, function f(e) {
-      el.removeEventListener(type, f, opts);
-      handler(e);
-    }, opts);
-  }
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) return resolve();
-      const s = document.createElement("script");
-      s.src = src; s.async = true; s.defer = true;
-      s.onload = resolve;
-      s.onerror = () => reject(new Error("Failed to load " + src));
-      document.head.appendChild(s);
-    });
-  }
-  function idle(fn) {
-    // yield back to the browser to keep UI responsive
-    return (window.requestIdleCallback || ((cb)=>setTimeout(cb,0)))(fn);
-  }
-
-  /* E. LAZY LOADERS FOR HEAVY LIBS (loaded only on click) */
-  async function ensureJsPDF() {
-    if (!(window.jspdf && window.jspdf.jsPDF)) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-    }
-  }
-  async function ensureAutoTable() {
-    // Only after jsPDF UMD maps window.jspdf.jsPDF
-    await ensureJsPDF();
-    const hasAT = (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)
-               || (window.jspdf && window.jspdf.autoTable);
-    if (!hasAT) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
-    }
-  }
-
-  /* F. DEFENSIVE BINDINGS (buttons used across pages) */
-  idle(() => {
-    // PDF buttons (compatibility, IKA, etc.)
-    const dl1 = byId("downloadBtn");
-    const dl2 = byId("downloadPdfBtn");
-    const anyDownload = dl1 || dl2;
-
-    if (anyDownload) {
-      const handler = async (e) => {
-        e.preventDefault();
-        if (NO_PDF) { alert("PDF disabled (safe mode). Add ?safe=0 or remove ?nopdf."); return; }
-        try {
-          // Lazy load heavy libs only now
-          await ensureAutoTable();
-          // Yield once more before heavy export:
-          await new Promise(r => setTimeout(r, 0));
-          // Call your existing exporter (must be defined elsewhere)
-          if (typeof window.TKPDF_export === "function") {
-            await window.TKPDF_export();
-          } else if (typeof window.TKPDF_forceDark === "function") {
-            await window.TKPDF_forceDark();
-          } else if (typeof window.exportIKAPdf === "function") {
-            await window.exportIKAPdf();
-          } else {
-            alert("Export function not found. Expected TKPDF_export/TKPDF_forceDark/exportIKAPdf.");
-          }
-        } catch (err) {
-          console.error("[TK-SAFE] PDF export failed:", err);
-          alert("PDF export failed: " + (err?.message || err));
-        }
-      };
-
-      // Bind once to whichever exists
-      if (dl1) once(dl1, "click", handler);
-      if (dl2) once(dl2, "click", handler);
-      LOG("Bound PDF button(s).");
-    }
-
-    // File upload styled label (IKA)
-    const fileInput = byId("ikaFile");
-    const fileLabel = document.querySelector('label[for="ikaFile"]');
-    if (fileInput && fileLabel) {
-      once(fileLabel, "click", () => fileInput.click());
-      LOG("Bound Upload Survey label→input.");
-    }
-  });
-
-  /* G. STOP RUNNING EXPENSIVE WORK ON LOAD (scoring/rendering) */
-  // Wrap your page’s auto-render or scoring in this gate:
-  window.TK_canRunHeavy = function () {
-    if (SAFE_MODE) return false;
-    // Avoid running more than once
-    if (window.__TK_HEAVY_RAN__) return false;
-    window.__TK_HEAVY_RAN__ = true;
-    return true;
-  };
-
-  // Example usage for your pages (leave here; your code can call it):
-  // if (window.TK_canRunHeavy()) {
-  //   // run scoring/render here or schedule with idle(...)
-  //   idle(() => window.renderResults && window.renderResults());
-  // }
-
-  /* H. GLOBAL CATCH FOR ACCIDENTAL LONG TASKS */
-  // If something still locks the UI, advise safe mode.
-  window.addEventListener("error", (e) => {
-    console.warn("[TK-SAFE] Window error:", e.message);
-  });
-})();
-</script>
-<!-- ---------- End Safe Bootstrap ---------- -->
-<!-- ✅ ONE-BOX ADD-ON — silences the NEW “missing selector” warnings you’re seeing -->
+<!-- Optional light styles (uses your neon vibe and rounded cards) -->
 <style>
-  /* keep ghosts truly invisible without interfering with layout or focus */
-  .tk-ghost-hook{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
+  .tk-btn{
+    padding:12px 18px;border:1px solid #088e8e;border-radius:12px;background:#0b0b0b;
+    color:#fff;font-weight:800;letter-spacing:.2px;box-shadow:0 0 0 1px rgba(23,229,229,.25) inset;
+  }
+  .tk-btn:hover{ box-shadow:0 0 0 2px rgba(23,229,229,.45) inset; }
+  .tk-btn-ghost{ background:#0a0a0a;border-color:#2a2a2a;box-shadow:none; }
+  #tk-category-panel{ border:1px solid rgba(23,229,229,.6); border-radius:12px; padding:18px; }
+  /* The checkbox rows are created by the script, but we style them here */
+  #categoryChecklist label{
+    display:flex;align-items:center;gap:12px;
+    padding:11px 14px;border:1px solid #2a2a2a;border-radius:12px;background:#0a0a0a;cursor:pointer;
+  }
+  #categoryChecklist input[type="checkbox"]{ width:18px;height:18px; }
 </style>
 
 <script>
-(function(){
-  // Helper: ensure an element matching a simple selector exists (id/class/tag)
-  function ensureSimple(sel, tag='div', attrs={}, onCreate){
-    let node = document.querySelector(sel);
-    if (node) return node;
+(() => {
+  const SCRIPT_FLAG='__tkCategoryPanelBooted';
+  if (window[SCRIPT_FLAG]) return; window[SCRIPT_FLAG]=true;
 
-    node = document.createElement(tag);
-    if (sel.startsWith('#'))       node.id = sel.slice(1);
-    else if (sel.startsWith('.'))  node.className = sel.slice(1);
-    Object.entries(attrs).forEach(([k,v])=>node.setAttribute(k,v));
-    node.classList.add('tk-ghost-hook');
-    node.tabIndex = -1;
-    document.body.appendChild(node);
-    onCreate && onCreate(node);
-    return node;
-  }
+  // 🔗 Adjust if your data lives somewhere else:
+  const DATA_URL='https://talkkink.org/data/kinks.json';
+  const STORAGE_KEY='__TK_SELECTED_CATEGORIES';
 
-  // Helper: ensure an element with specific attributes exists (for complex selectors)
-  function ensureWithAttrs(tag, attrs, onCreate){
-    const sel = tag + Object.entries(attrs).map(([k,v])=>`[${k}="${v}"]`).join('');
-    let node = document.querySelector(sel);
-    if (node) return node;
+  const host=document.getElementById('categoryChecklist');
+  const badge=document.getElementById('selectedCountBadge');
+  if(!host){ console.warn('[TK] Missing #categoryChecklist'); return; }
 
-    node = document.createElement(tag);
-    Object.entries(attrs).forEach(([k,v])=>node.setAttribute(k,v));
-    node.classList.add('tk-ghost-hook');
-    node.tabIndex = -1;
-    document.body.appendChild(node);
-    onCreate && onCreate(node);
-    return node;
-  }
+  // Default 2-column grid layout for items
+  Object.assign(host.style,{display:'grid',gap:'12px',gridTemplateColumns:'repeat(2,minmax(0,1fr))'});
 
-  // Open/Close hooks to our panel (works with/without the earlier snippet’s API)
-  function openPanel(ev){
-    if (ev) ev.preventDefault();
-    const api = window.tkPanel && window.tkPanel.open;
-    if (api) return api();
-    const o = document.getElementById('tkOverlay'); if (o) o.hidden = false;
-  }
-  function closePanel(ev){
-    if (ev) ev.preventDefault();
-    const api = window.tkPanel && window.tkPanel.close;
-    if (api) return api();
-    const o = document.getElementById('tkOverlay'); if (o) o.hidden = true;
-  }
+  const $  =(s,r=document)=>r.querySelector(s);
+  const $$ =(s,r=document)=>Array.from(r.querySelectorAll(s));
 
-  /* === Create ghosts for the newly-reported selectors === */
-
-  // 1) doc:#panelToggle  → clicking it should open the category panel
-  ensureSimple('#panelToggle', 'button', {'type':'button', 'aria-controls':'tkCategoryDrawer'}, el=>{
-    el.addEventListener('click', openPanel, {passive:false});
-    el.title = el.title || 'Open categories';
-  });
-
-  // 2) doc:.landing-wrapper  (container some older code expects to exist)
-  ensureSimple('.landing-wrapper', 'div');
-
-  // 3) el:#themeSelector  (harmless placeholder <select>, if you ever wire themes later you can reuse this)
-  ensureSimple('#themeSelector', 'select');
-
-  // 4) el:#warning  (placeholder banner area)
-  ensureSimple('#warning', 'div', {'role':'status','aria-live':'polite'});
-
-  // 5) doc:[aria-controls="categorySurveyPanel"]  → legacy opener that expects a drawer id of “categorySurveyPanel”
-  // We don’t duplicate ids; instead we provide a hidden opener with that aria-controls value and wire it to the real panel.
-  ensureWithAttrs('button', {'aria-controls':'categorySurveyPanel', 'type':'button'}, el=>{
-    el.addEventListener('click', openPanel, {passive:false});
-  });
-
-  // 6) Safeguards already covered, but ensure they exist just once more to quiet any racey probes
-  ensureSimple('#tkStartNow', 'button', {'type':'button'}, el=>{
-    el.addEventListener('click', openPanel, {passive:false});
-  });
-  ensureSimple('.category-list', 'div');                    // (your panel already includes this)
-  ensureWithAttrs('button', {'data-action':'close'}, el=>{  // generic closer probe
-    el.addEventListener('click', closePanel, {passive:false});
-  });
-
-  // 7) If there is a visible “Start Survey” button without wiring, add a defensive listener
-  Array.from(document.querySelectorAll('a,button')).forEach(el=>{
-    const txt = (el.textContent || '').trim();
-    if (/^start\s*survey$/i.test(txt) && !el._tkWired){
-      el._tkWired = true;
-      el.setAttribute('aria-controls','tkCategoryDrawer');
-      el.addEventListener('click', openPanel, {passive:false});
+  // Find the first plausible array of items in any reasonable shape
+  function findItemArray(root,depth=6){
+    if(!root||depth<0) return null;
+    if(Array.isArray(root)){
+      const ok=root.length&&root.every(i=>i&&typeof i==='object'&&('name'in i||'label'in i||'title'in i||'slug'in i));
+      if(ok) return root;
     }
-  });
+    if(typeof root==='object'){
+      for(const k of ['items','categories','data','kinks','results','payload']){
+        if(Array.isArray(root[k])){ const hit=findItemArray(root[k],depth-1); if(hit) return hit; }
+      }
+      for(const v of Object.values(root)){ const hit=findItemArray(v,depth-1); if(hit) return hit; }
+    }
+    return null;
+  }
+
+  function normalize(raw){
+    const arr=findItemArray(raw) || (Array.isArray(raw)?raw:[]);
+    const out=arr.map((it,i)=>{
+      const id=it?.id??it?.value??it?.slug??it?.key??`item-${i}`;
+      const name=it?.name??it?.label??it?.title??it?.slug??String(id);
+      return {id:String(id),name:String(name)};
+    });
+    out.sort((a,b)=>a.name.localeCompare(b.name)); // alphabetical
+    return out;
+  }
+
+  async function loadData(){
+    if(Array.isArray(window.__TK_KINK_DATA)&&window.__TK_KINK_DATA.length) return window.__TK_KINK_DATA;
+    try{
+      const res=await fetch(DATA_URL,{cache:'no-store'});
+      if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const json=await res.json();
+      const items=normalize(json);
+      window.__TK_KINK_DATA=items;
+      return items;
+    }catch(e){ console.error('[TK] Failed to load categories:',e); return []; }
+  }
+
+  function updateBadge(){
+    const total=$$('input[type="checkbox"]',host).length;
+    const selected=$$('input[type="checkbox"]:checked',host).length;
+    if(badge) badge.textContent=`${selected} selected / ${total} total`;
+    localStorage.setItem(STORAGE_KEY,JSON.stringify($$('input[type="checkbox"]:checked',host).map(n=>n.value)));
+  }
+
+  function restore(){
+    let saved=[]; try{ saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch{}
+    saved.forEach(id=>{
+      const v=String(id??''); const esc=(window.CSS&&CSS.escape)?CSS.escape(v):v.replace(/"/g,'\\"');
+      const cb=host.querySelector(`input[type="checkbox"][value="${esc}"]`); if(cb) cb.checked=true;
+    });
+    updateBadge();
+  }
+
+  function render(items){
+    host.innerHTML='';
+    if(!items.length){
+      host.innerHTML=`<div style="opacity:.75;padding:16px;border:1px dashed #2a2a2a;border-radius:10px">
+        No categories found. Check <code>${DATA_URL}</code>.
+      </div>`;
+      if(badge) badge.textContent='0 selected / 0 total';
+      return;
+    }
+    const frag=document.createDocumentFragment();
+    for(const {id,name} of items){
+      const row=document.createElement('label');
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.value=id; cb.addEventListener('change',updateBadge);
+      const span=document.createElement('span'); span.textContent=name;
+      row.append(cb,span); frag.append(row);
+    }
+    host.append(frag);
+    if(badge) badge.textContent=`0 selected / ${items.length} total`;
+    restore();
+  }
+
+  async function boot(){
+    if(host.dataset.tkPopulated==='1') return; host.dataset.tkPopulated='1';
+    const items=await loadData(); render(items);
+    $('#btnSelectAll')?.addEventListener('click',()=>{ $$('input[type="checkbox"]',host).forEach(cb=>cb.checked=true); updateBadge(); });
+    $('#btnDeselectAll')?.addEventListener('click',()=>{ $$('input[type="checkbox"]',host).forEach(cb=>cb.checked=false); updateBadge(); });
+    // (Optional) Hook your Start Survey button
+    $('#tkStartSurvey')?.addEventListener('click',()=>{ /* navigate or dispatch event */ });
+  }
+
+  document.readyState==='loading'?document.addEventListener('DOMContentLoaded',boot,{once:true}):boot();
 })();
 </script>
+<!-- ====================================================================== -->
 </body>
 </html>
