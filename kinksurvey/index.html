@@ -3452,10 +3452,52 @@ NO VISUAL TAKEOVER
 const tkLog = (...a)=>console.log('[TK]', ...a);
 
 function tkNormalizeItems(raw){
-  // Accept arrays or objects with common property names
-  if (Array.isArray(raw)) return raw;
-  if (!raw || typeof raw !== 'object') return [];
-  return raw.items || raw.kinks || raw.categories || raw.data || raw.rows || [];
+  const CHILD_KEYS = ['items','kinks','categories','data','rows'];
+
+  function flatten(value){
+    if (!value) return [];
+
+    if (Array.isArray(value)){
+      const out = [];
+      for (const entry of value){
+        if (entry == null) continue;
+
+        if (Array.isArray(entry)){
+          out.push(...flatten(entry));
+          continue;
+        }
+
+        if (typeof entry === 'object'){
+          let flattened = [];
+          for (const key of CHILD_KEYS){
+            if (key in entry){
+              flattened = flatten(entry[key]);
+              if (flattened.length) break;
+            }
+          }
+          if (flattened.length){
+            out.push(...flattened);
+            continue;
+          }
+        }
+
+        out.push(entry);
+      }
+      return out;
+    }
+
+    if (typeof value === 'object'){
+      for (const key of CHILD_KEYS){
+        if (!(key in value)) continue;
+        const flattened = flatten(value[key]);
+        if (flattened.length) return flattened;
+      }
+    }
+
+    return [];
+  }
+
+  return flatten(raw);
 }
 
 function tkNormalizeOverrides(raw){

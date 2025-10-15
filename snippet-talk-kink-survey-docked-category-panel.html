@@ -192,17 +192,68 @@
       .toLowerCase();
 
   function tkNormalizeItems(raw){
-    // Accept either simple list or objects with id/name
-    return (raw||[])
-      .map((it,i)=>{
-        if (typeof it === 'string') {
-          return { id:String(i+1), name:it.trim() };
+    const CHILD_KEYS = ['items','categories','cats','kinks','data','rows'];
+
+    function flatten(value){
+      if (!value) return [];
+
+      if (Array.isArray(value)){
+        const out = [];
+        for (const entry of value){
+          if (entry == null) continue;
+
+          if (Array.isArray(entry)){
+            out.push(...flatten(entry));
+            continue;
+          }
+
+          if (typeof entry === 'object'){
+            let flattened = [];
+            for (const key of CHILD_KEYS){
+              if (key in entry){
+                flattened = flatten(entry[key]);
+                if (flattened.length) break;
+              }
+            }
+            if (flattened.length){
+              out.push(...flattened);
+              continue;
+            }
+          }
+
+          out.push(entry);
         }
-        const id = it?.id ?? it?.ID ?? it?.value ?? it?.slug ?? it?.code ?? (i + 1);
-        const name = it?.name ?? it?.title ?? it?.label ?? it?.slug ?? it?.code ?? `Item ${i+1}`;
-        return { id:String(id).trim(), name:String(name).trim() };
-      })
-      .filter(it => it.id && it.name);
+        return out;
+      }
+
+      if (typeof value === 'object'){
+        for (const key of CHILD_KEYS){
+          if (!(key in value)) continue;
+          const flattened = flatten(value[key]);
+          if (flattened.length) return flattened;
+        }
+      }
+
+      return [];
+    }
+
+    function toEntry(item, index){
+      if (item == null) return null;
+      if (typeof item === 'string' || typeof item === 'number'){
+        const value = String(item).trim();
+        if (!value) return null;
+        const id = value || String(index + 1);
+        return { id, name: value };
+      }
+      if (typeof item !== 'object') return null;
+
+      const id = String(item.id ?? item.ID ?? item.value ?? item.slug ?? item.code ?? item.key ?? '').trim();
+      const name = String(item.name ?? item.title ?? item.label ?? item.slug ?? item.code ?? item.id ?? `Item ${index + 1}`).trim();
+      if (!id || !name) return null;
+      return { id, name };
+    }
+
+    return flatten(raw).map(toEntry).filter(Boolean);
   }
 
   async function getKinks(){
