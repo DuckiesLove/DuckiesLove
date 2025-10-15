@@ -1,0 +1,278 @@
+<!-- ===== TalkKink: Category Panel + Right Rail (drop-in block) ===== -->
+<style>
+  /* Layout: left panel (75%) + right rail (actions) */
+  .tk-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(260px, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .tk-shell { grid-template-columns: 1fr; }
+  }
+
+  /* Card styles */
+  .tk-card {
+    border: 2px solid var(--tk-cyan, #00e5ff);
+    border-radius: 14px;
+    padding: 18px;
+    background: #000;
+  }
+
+  /* Panel header row */
+  .tk-head {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .tk-title {
+    color: var(--tk-cyan, #00e5ff);
+    font-weight: 800;
+    letter-spacing: .3px;
+    text-align: center;
+  }
+  .tk-badge {
+    text-align: right;
+    opacity: .9;
+  }
+
+  /* Buttons */
+  .tk-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    padding: 12px 18px;
+    border-radius: 12px;
+    background: #0b0b0b;
+    color: #fff;
+    border: 1px solid rgba(0,229,255,.4);
+    box-shadow: 0 0 0 1px rgba(0,229,255,.15) inset;
+    cursor: pointer;
+    transition: transform .03s ease-in-out, box-shadow .15s ease;
+    user-select: none;
+  }
+  .tk-btn:hover { box-shadow: 0 0 0 2px rgba(0,229,255,.25) inset; }
+  .tk-btn:active { transform: translateY(1px); }
+  .tk-btn.primary { background: #051f23; }
+
+  /* Category grid */
+  #categoryChecklist {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (max-width: 720px) {
+    #categoryChecklist { grid-template-columns: 1fr; }
+  }
+
+  /* Category row */
+  .tk-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    background: #0a0a0a;
+    cursor: pointer;
+  }
+  .tk-row input[type="checkbox"] { width: 18px; height: 18px; }
+
+  /* Right rail actions */
+  .tk-rail .tk-btn { width: 100%; margin-bottom: 14px; }
+  .tk-rail .hint { opacity: .75; font-size: .95rem; margin-top: 6px; text-align:center; }
+</style>
+
+<div class="tk-shell">
+  <!-- LEFT: Category Panel -->
+  <section class="tk-card">
+    <div class="tk-head">
+      <div class="tk-title">Select categories</div>
+      <button id="btnSelectAll" class="tk-btn">Select All</button>
+      <button id="btnDeselectAll" class="tk-btn">Deselect All</button>
+    </div>
+
+    <div class="tk-badge" id="selectedCountBadge">0 selected / 0 total</div>
+
+    <div id="categoryChecklist" aria-live="polite"></div>
+
+    <div style="display:flex; gap:12px; justify-content:center; margin-top:18px">
+      <button id="btnClosePanel" class="tk-btn">Close ✕</button>
+      <button id="btnStartSurvey" class="tk-btn primary">Start Survey</button>
+    </div>
+  </section>
+
+  <!-- RIGHT: Actions Rail -->
+  <aside class="tk-card tk-rail" aria-label="Survey actions">
+    <a class="tk-btn" href="/individualkinkanalysis.html">Individual Kink Analysis</a>
+    <a class="tk-btn" href="/compatibility.html">Compatibility Page</a>
+    <!-- Optional: add your PDF/export here -->
+    <!-- <a class="tk-btn" href="/download.html">Download PDF</a> -->
+    <div class="hint">Actions apply to your current selections.</div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  // ---------- Config ----------
+  const DATA_URL = '/data/kinks.json';
+  const STORAGE_KEY = '__TK_SELECTED_CATEGORIES';
+
+  // ---------- Helpers ----------
+  const $  = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  const host  = $('#categoryChecklist');
+  const badge = $('#selectedCountBadge');
+  if (!host) { console.warn('[TK] Missing #categoryChecklist'); return; }
+
+  // Find an array of items in a flexible JSON shape
+  function findItemArray(root, maxDepth = 6) {
+    if (!root || maxDepth < 0) return null;
+    if (Array.isArray(root)) {
+      if (!root.length) return root;
+      const isOk = root.every(it => it && typeof it === 'object');
+      if (isOk) return root;
+    }
+    if (typeof root === 'object') {
+      for (const key of ['items','categories','data','kinks','results','payload']) {
+        if (Array.isArray(root[key])) {
+          const hit = findItemArray(root[key], maxDepth - 1);
+          if (hit) return hit;
+        }
+      }
+      for (const val of Object.values(root)) {
+        const hit = findItemArray(val, maxDepth - 1);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  }
+
+  function normalize(raw) {
+    const arr = findItemArray(raw) || (Array.isArray(raw) ? raw : []);
+    const out = arr.map((item, i) => {
+      const id   = item?.id ?? item?.value ?? item?.slug ?? item?.key ?? `item-${i}`;
+      const name = item?.name ?? item?.label ?? item?.title ?? item?.slug ?? String(id);
+      return { id: String(id), name: String(name) };
+    });
+    out.sort((a,b) => a.name.localeCompare(b.name));
+    return out;
+  }
+
+  async function loadData() {
+    if (Array.isArray(window.__TK_KINK_DATA) && window.__TK_KINK_DATA.length) {
+      return window.__TK_KINK_DATA;
+    }
+    try {
+      const res = await fetch(DATA_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const json  = await res.json();
+      const items = normalize(json);
+      window.__TK_KINK_DATA = items;
+      if (!items.length) console.warn('[TK] kinks.json loaded but no recognizable array found.');
+      return items;
+    } catch (err) {
+      console.error('[TK] Failed to load categories:', err);
+      return [];
+    }
+  }
+
+  function updateBadge() {
+    const total    = $$('input[type="checkbox"]', host).length;
+    const selected = $$('input[type="checkbox"]:checked', host).length;
+    if (badge) badge.textContent = `${selected} selected / ${total} total`;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify($$('input[type="checkbox"]:checked', host).map(n => n.value))
+      );
+    } catch {}
+  }
+
+  function restoreSelections() {
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch {}
+    saved.forEach((raw) => {
+      const value   = String(raw ?? '');
+      const esc     = (CSS && CSS.escape) ? CSS.escape(value) : value.replace(/"/g, '\\"');
+      const cb      = host.querySelector(`input[type="checkbox"][value="${esc}"]`);
+      if (cb) cb.checked = true;
+    });
+    updateBadge();
+  }
+
+  function render(items) {
+    host.innerHTML = '';
+    if (!items.length) {
+      host.innerHTML = `<div style="opacity:.8;padding:14px;border:1px dashed #2a2a2a;border-radius:10px">
+        No categories found. Check <code>${DATA_URL}</code> or <code>window.__TK_KINK_DATA</code>.
+      </div>`;
+      if (badge) badge.textContent = '0 selected / 0 total';
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    for (const { id, name } of items) {
+      const row = document.createElement('label');
+      row.className = 'tk-row';
+
+      const cb = document.createElement('input');
+      cb.type  = 'checkbox';
+      cb.value = id;
+      cb.addEventListener('change', updateBadge);
+
+      const span = document.createElement('span');
+      span.textContent = name;
+
+      row.append(cb, span);
+      frag.append(row);
+    }
+    host.append(frag);
+    if (badge) badge.textContent = `0 selected / ${items.length} total`;
+    restoreSelections();
+  }
+
+  async function boot() {
+    if (host.dataset.tkPopulated === '1') return;
+    host.dataset.tkPopulated = '1';
+
+    render(await loadData());
+
+    $('#btnSelectAll')?.addEventListener('click', () => {
+      $$('input[type="checkbox"]', host).forEach(cb => cb.checked = true);
+      updateBadge();
+    });
+    $('#btnDeselectAll')?.addEventListener('click', () => {
+      $$('input[type="checkbox"]', host).forEach(cb => cb.checked = false);
+      updateBadge();
+    });
+
+    // Close/Start wiring (optional UX hooks you already use)
+    $('#btnClosePanel')?.addEventListener('click', () => {
+      // If you have a drawer/overlay, call your existing close routine here.
+      // Example: document.dispatchEvent(new CustomEvent('tk:closePanel'));
+      console.log('[TK] Close panel clicked');
+    });
+
+    $('#btnStartSurvey')?.addEventListener('click', () => {
+      const ids = $$('input[type="checkbox"]:checked', host).map(n => n.value);
+      document.dispatchEvent(new CustomEvent('tk:start-survey', {
+        detail: { includeCategories: ids }
+      }));
+      console.log('[TK] Start Survey with:', ids);
+      // If you navigate after click, you can do it here:
+      // const u = new URL('/kinksurvey/', location.origin);
+      // u.searchParams.set('run','1');
+      // if (ids.length) u.searchParams.set('cats', ids.join(','));
+      // location.assign(u.toString());
+    });
+  }
+
+  (document.readyState === 'loading')
+    ? document.addEventListener('DOMContentLoaded', boot, { once: true })
+    : boot();
+})();
+</script>
+<!-- ===== End drop-in block ===== -->
