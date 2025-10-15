@@ -3486,16 +3486,67 @@ const normForSort = (value) =>
 
  function tkNormalizeItems(raw){
    if (!raw) return [];
-   // Try to normalize a few likely shapes
-   if (Array.isArray(raw)) {
-     return raw.map(x => ({
-       id: String(x.id ?? x.ID ?? x.value ?? x.slug ?? x.code ?? x.name).trim(),
-       name: String(x.name ?? x.title ?? x.label ?? x.slug ?? x.code ?? x.id).trim()
-     })).filter(x => x.id && x.name);
+
+   const CHILD_KEYS = ['items','categories','cats','kinks','data','rows'];
+
+   function flatten(value){
+     if (!value) return [];
+
+     if (Array.isArray(value)){
+       const out = [];
+       for (const entry of value){
+         if (entry == null) continue;
+
+         if (Array.isArray(entry)){
+           out.push(...flatten(entry));
+           continue;
+         }
+
+         if (typeof entry === 'object'){
+           let flattened = [];
+           for (const key of CHILD_KEYS){
+             if (key in entry){
+               flattened = flatten(entry[key]);
+               if (flattened.length) break;
+             }
+           }
+           if (flattened.length){
+             out.push(...flattened);
+             continue;
+           }
+         }
+
+         out.push(entry);
+       }
+       return out;
+     }
+
+     if (typeof value === 'object'){
+       for (const key of CHILD_KEYS){
+         if (!(key in value)) continue;
+         const flattened = flatten(value[key]);
+         if (flattened.length) return flattened;
+       }
+     }
+
+     return [];
    }
-   if (raw.categories && Array.isArray(raw.categories)) return tkNormalizeItems(raw.categories);
-   if (raw.cats && Array.isArray(raw.cats))             return tkNormalizeItems(raw.cats);
-   return [];
+
+   function toEntry(item){
+     if (item == null) return null;
+     if (typeof item === 'string' || typeof item === 'number'){
+       const value = String(item).trim();
+       return value ? { id: value, name: value } : null;
+     }
+     if (typeof item !== 'object') return null;
+
+     const id = String(item.id ?? item.ID ?? item.value ?? item.slug ?? item.code ?? '').trim();
+     const name = String(item.name ?? item.title ?? item.label ?? item.slug ?? item.code ?? item.id ?? '').trim();
+     if (!id || !name) return null;
+     return { id, name };
+   }
+
+   return flatten(raw).map(toEntry).filter(Boolean);
  }
 
  async function tkGetCategories(){
