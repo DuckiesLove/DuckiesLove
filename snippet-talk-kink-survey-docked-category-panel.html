@@ -183,195 +183,244 @@
   });
 
   /* 2) Build the categories into the left panel */
-  const KEY = '__TK_SELECTED_CATEGORIES';
-  const alphaOpts = { sensitivity: 'base' };
-  const normForSort = (value = '') =>
-    String(value)
-      .replace(/^\(\s*demo\s*\)\s*/i, '')
-      .trim()
-      .toLowerCase();
+  const LOG = (...a)=>console.log('[TK cats]', ...a);
+  const $  = (sel, root=document)=>root.querySelector(sel);
+  const $$ = (sel, root=document)=>Array.from(root.querySelectorAll(sel));
+  const DATA_URL = '/data/kinks.json';
+  const KEY      = '__TK_SELECTED_CATEGORIES';
 
-  function tkNormalizeItems(raw){
-    const CHILD_KEYS = ['items','categories','cats','kinks','data','rows'];
+  function normItems(raw) {
+    const CHILD_KEYS = ['items', 'categories', 'cats', 'kinks', 'data', 'rows'];
 
-    function flatten(value){
+    function flatten(value) {
       if (!value) return [];
-
-      if (Array.isArray(value)){
+      if (Array.isArray(value)) {
         const out = [];
-        for (const entry of value){
+        for (const entry of value) {
           if (entry == null) continue;
-
-          if (Array.isArray(entry)){
+          if (Array.isArray(entry)) {
             out.push(...flatten(entry));
             continue;
           }
-
-          if (typeof entry === 'object'){
-            let flattened = [];
-            for (const key of CHILD_KEYS){
-              if (key in entry){
-                flattened = flatten(entry[key]);
-                if (flattened.length) break;
+          if (typeof entry === 'object') {
+            let nested = [];
+            for (const key of CHILD_KEYS) {
+              if (key in entry) {
+                nested = flatten(entry[key]);
+                if (nested.length) break;
               }
             }
-            if (flattened.length){
-              out.push(...flattened);
+            if (nested.length) {
+              out.push(...nested);
               continue;
             }
           }
-
           out.push(entry);
         }
         return out;
       }
-
-      if (typeof value === 'object'){
-        for (const key of CHILD_KEYS){
+      if (typeof value === 'object') {
+        for (const key of CHILD_KEYS) {
           if (!(key in value)) continue;
-          const flattened = flatten(value[key]);
-          if (flattened.length) return flattened;
+          const nested = flatten(value[key]);
+          if (nested.length) return nested;
         }
+        if ('id' in value || 'name' in value || 'label' in value || 'title' in value || 'value' in value || 'slug' in value) {
+          return [value];
+        }
+        return Object.entries(value).map(([id, val]) => {
+          if (val && typeof val === 'object') {
+            return { id, ...val };
+          }
+          return { id, name: val };
+        });
       }
-
       return [];
     }
 
-    function toEntry(item, index){
+    function toEntry(item, index) {
       if (item == null) return null;
-      if (typeof item === 'string' || typeof item === 'number'){
+      if (typeof item === 'string' || typeof item === 'number') {
         const value = String(item).trim();
         if (!value) return null;
-        const id = value || String(index + 1);
-        return { id, name: value };
+        return { id: value || String(index + 1), name: value };
       }
       if (typeof item !== 'object') return null;
-
       const id = String(item.id ?? item.ID ?? item.value ?? item.slug ?? item.code ?? item.key ?? '').trim();
       const name = String(item.name ?? item.title ?? item.label ?? item.slug ?? item.code ?? item.id ?? `Item ${index + 1}`).trim();
-      if (!id || !name) return null;
-      return { id, name };
+      if (!id && !name) return null;
+      return {
+        id: id || name || String(index + 1),
+        name: name || id || `Item ${index + 1}`
+      };
     }
 
-    return flatten(raw).map(toEntry).filter(Boolean);
+    const alpha = { sensitivity: 'base' };
+    return flatten(raw)
+      .map(toEntry)
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, alpha));
   }
 
-  async function getKinks(){
-    // prefer already-injected data if present
-    if (Array.isArray(window.__TK_KINK_DATA) && window.__TK_KINK_DATA.length) return tkNormalizeItems(window.__TK_KINK_DATA);
-    // try the feed we’ve been using
+  async function loadData() {
+    if (Array.isArray(window.__TK_KINK_DATA) && window.__TK_KINK_DATA.length) {
+      LOG('using preloaded __TK_KINK_DATA');
+      return normItems(window.__TK_KINK_DATA);
+    }
     try {
-      const u = new URL('/data/kinks.json', location.origin);
-      u.searchParams.set('v', Date.now());      // bust cache
-      const r = await fetch(u.toString());
-      if (r.ok) return tkNormalizeItems(await r.json());
-    } catch(e){}
-    // last resort: a short demo set so UI isn’t empty
-    return tkNormalizeItems([
-      {id:'demo-1', name:'(demo) Bondage'},
-      {id:'demo-2', name:'(demo) Roleplay'},
-      {id:'demo-3', name:'(demo) Impact'},
-    ]);
+      LOG('fetching', DATA_URL);
+      const res = await fetch(DATA_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const json = await res.json();
+      const items = normItems(json);
+      window.__TK_KINK_DATA = items;
+      return items;
+    } catch (e) {
+      console.warn('[TK cats] fetch failed:', e);
+      return normItems([
+        { id: 'demo-1', name: '(demo) Bondage' },
+        { id: 'demo-2', name: '(demo) Roleplay' },
+        { id: 'demo-3', name: '(demo) Impact' }
+      ]);
+    }
   }
 
-  function updateBadge(list){
-    const badge = document.getElementById('selectedCountBadge');
-    if (!badge) return;
-    const total = list.querySelectorAll('input[type="checkbox"]').length;
-    const sel   = list.querySelectorAll('input[type="checkbox"]:checked').length;
-    badge.textContent = `${sel} selected / ${total} total`;
+  function getCheckedIds(list) {
+    return list ? $$('input[type="checkbox"]:checked', list).map((n) => n.value) : [];
   }
 
-  function saveSelection(list){
-    const ids = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
+  function updateBadge() {
+    const list = $('#categoryChecklist');
+    const selected = list ? $$('input[type="checkbox"]:checked', list).length : 0;
+    const total = list ? $$('input[type="checkbox"]', list).length : 0;
+    const badge = $('#selectedCountBadge');
+    if (badge) badge.textContent = `${selected} selected / ${total} total`;
+    const ids = getCheckedIds(list);
     try {
       localStorage.setItem(KEY, JSON.stringify(ids));
     } catch {}
     return ids;
   }
 
-  (async () => {
-    const items = await getKinks();
-    const list  = document.getElementById('categoryChecklist');
-    if (!list) return;
-    list.setAttribute('aria-busy', 'true');
-
-    const frag = document.createDocumentFragment();
-
-    const sorted = (Array.isArray(items) ? [...items] : []).sort((a,b) => {
-      const nameA = normForSort(a?.name);
-      const nameB = normForSort(b?.name);
-      const primary = nameA.localeCompare(nameB, undefined, alphaOpts);
-      if (primary !== 0) return primary;
-      return String(a?.name ?? '').localeCompare(String(b?.name ?? ''), undefined, alphaOpts);
-    });
-
-    sorted.forEach(({id,name})=>{
-      const label = document.createElement('label');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.value = id;
-      cb.setAttribute('aria-label', name);
-      const span = document.createElement('span');
-      span.textContent = name;
-      label.append(cb, span);
-      frag.appendChild(label);
-    });
-
-    list.replaceChildren(frag);
-
-    // restore previous selection
+  function restoreSelections() {
+    let ids = [];
     try {
-      const prev = JSON.parse(localStorage.getItem(KEY) || '[]');
-      if (Array.isArray(prev) && prev.length){
-        prev.forEach(id => {
-          const box = list.querySelector(`input[value="${CSS.escape(id)}"]`);
-          if (box) {
-            box.checked = true;
-          }
-        });
-      }
+      ids = JSON.parse(localStorage.getItem(KEY) || '[]');
     } catch {}
+    if (!ids.length) {
+      updateBadge();
+      return;
+    }
+    const list = $('#categoryChecklist');
+    ids.forEach((id) => {
+      try {
+        const cb = list?.querySelector(`input[type="checkbox"][value="${CSS.escape(String(id))}"]`);
+        if (cb) cb.checked = true;
+      } catch {}
+    });
+    updateBadge();
+  }
 
-    const persist = () => {
-      const ids = saveSelection(list);
-      updateBadge(list);
-      return ids;
-    };
+  function wireBulkButtons() {
+    const list = $('#categoryChecklist');
+    const btnAll = $('#btnSelectAll');
+    if (btnAll && !btnAll.dataset.tkBulkWired) {
+      btnAll.dataset.tkBulkWired = '1';
+      btnAll.addEventListener('click', () => {
+        $$('input[type="checkbox"]', list).forEach((cb) => {
+          cb.checked = true;
+        });
+        updateBadge();
+      });
+    }
+    const btnNone = $('#btnDeselectAll');
+    if (btnNone && !btnNone.dataset.tkBulkWired) {
+      btnNone.dataset.tkBulkWired = '1';
+      btnNone.addEventListener('click', () => {
+        $$('input[type="checkbox"]', list).forEach((cb) => {
+          cb.checked = false;
+        });
+        updateBadge();
+      });
+    }
+  }
 
-    // live badge + persistence
-    list.addEventListener('change', persist);
-    list.setAttribute('aria-busy', 'false');
-    persist();
-
-    // select/deselect all
-    document.getElementById('btnSelectAll').onclick   = () => {
-      list.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = true; });
-      persist();
-    };
-    document.getElementById('btnDeselectAll').onclick = () => {
-      list.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
-      persist();
-    };
-
-    // start survey from panel (single source of truth)
-    document.getElementById('beginSurveyFromPanel').onclick = () => {
-      const ids = persist();
-
-      // your event contract (kept from earlier work)
-      document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids }}));
-
-      // Fallback navigation if the runner didn’t start it
+  function wireStartButton() {
+    const btn = $('#beginSurveyFromPanel');
+    if (!btn || btn.dataset.tkStartWired) return;
+    btn.dataset.tkStartWired = '1';
+    btn.addEventListener('click', () => {
+      const ids = updateBadge();
+      document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids } }));
       setTimeout(() => {
         if (!window.__TK_SURVEY_STARTED) {
           const u = new URL(location.origin + '/kinksurvey/');
-          u.searchParams.set('run','1');
+          u.searchParams.set('run', '1');
           if (ids.length) u.searchParams.set('cats', ids.join(','));
           location.assign(u.toString());
         }
       }, 120);
-    };
-  })();
+    });
+  }
+
+  function render(items) {
+    const list = $('#categoryChecklist');
+    if (!list) return;
+
+    list.setAttribute('aria-busy', 'true');
+    list.innerHTML = '';
+
+    if (!items.length) {
+      list.innerHTML = '<div style="opacity:.75;padding:18px 4px;">No categories found yet. The panel will populate once the feed is ready.</div>';
+      $('#selectedCountBadge')?.textContent = '0 selected / 0 total';
+      list.removeAttribute('aria-busy');
+      wireStartButton();
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    items.forEach(({ id, name }) => {
+      const row = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = id;
+      cb.setAttribute('aria-label', name);
+      cb.addEventListener('change', updateBadge);
+      const text = document.createElement('span');
+      text.textContent = name;
+      row.append(cb, text);
+      frag.append(row);
+    });
+    list.append(frag);
+
+    $('#selectedCountBadge')?.textContent = `0 selected / ${items.length} total`;
+    restoreSelections();
+    wireBulkButtons();
+    wireStartButton();
+
+    list.removeAttribute('aria-busy');
+    LOG('rendered', items.length, 'categories');
+  }
+
+  async function boot() {
+    const host = $('#categoryChecklist');
+    if (!host) {
+      console.warn('[TK cats] #categoryChecklist not found; nothing to render into.');
+      return;
+    }
+    host.style.display = 'grid';
+    host.style.gridTemplateColumns = '1fr 1fr';
+    host.style.gap = '12px';
+
+    const items = await loadData();
+    render(items);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 })();
 </script>
 <!-- ================= /TK DOCKED SURVEY LAYOUT ================= -->
