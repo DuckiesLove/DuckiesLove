@@ -43,13 +43,8 @@
 
   // ---------- 2) move existing panel into overlay & ensure a host ----------
   let panel = $('#categorySurveyPanel, .category-panel, #tkDockCard, #tkDockHard') ||
-              $('#categoryChecklist')?.parentElement;
-  if (!panel) {
-    panel = Object.assign(document.createElement('div'), { className: 'category-panel' });
-    overlay.appendChild(panel);
-  } else if (panel !== overlay) {
-    overlay.appendChild(panel);
-  }
+              $('#categoryChecklist')?.parentElement || overlay;
+  overlay.appendChild(panel);
 
   // header + badge if missing
   let header = $('#__tk_hdr', panel);
