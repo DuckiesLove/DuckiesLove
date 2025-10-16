@@ -239,3 +239,56 @@ body[data-page="compat"] .cmp-actions .cta[disabled]{
   body[data-page="compat"] .cmp-actions .cta,
   body[data-page="compat"] .cmp-actions .file-btn{ width: min(94vw, 520px); }
 }
+
+/* Page-scoped: Compatibility only */
+body[data-page="compat"] .cmp-title{
+  text-align:center;
+  font-size: 34px;
+  font-weight: 900;
+  color: var(--accent); /* blue title */
+  text-shadow:
+    0 1px 0 #000,
+    0 0 14px color-mix(in oklab, var(--accent) 80%, transparent);
+}
+
+/* Blue-forward buttons: text + glow in accent */
+body[data-page="compat"] .cmp-actions .cta,
+body[data-page="compat"] .cmp-actions .file-btn{
+  color: var(--accent);                      /* blue font */
+  background: #0b1016;                       /* darker base to pop the blue */
+  border: 1px solid color-mix(in oklab, var(--accent) 45%, #0a0f14);
+  outline: 2px solid var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.45) inset,
+    0 0 26px color-mix(in oklab, var(--accent) 75%, transparent); /* stronger glow */
+  text-shadow: 0 0 8px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+body[data-page="compat"] .cmp-actions .cta:hover,
+body[data-page="compat"] .cmp-actions .file-btn:hover,
+body[data-page="compat"] .cmp-actions .cta:focus-visible,
+body[data-page="compat"] .cmp-actions .file-btn:focus-visible{
+  background:#09111b;
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.45) inset,
+    0 0 34px color-mix(in oklab, var(--accent) 90%, transparent);
+}
+
+/* Disabled export: keep blue text subtle but visible, reduce glow */
+body[data-page="compat"] .cmp-actions .cta[disabled]{
+  color: color-mix(in oklab, var(--accent) 55%, #6a6a6a);
+  opacity:.7;
+  box-shadow:none;
+  text-shadow:none;
+  transform:none;
+}
+
+/* Small back pill stays neutral (readable), but add a hint of blue halo */
+body[data-page="compat"] .cmp-header .cta.back{
+  color: var(--fg);
+  outline: 2px solid color-mix(in oklab, var(--accent) 55%, transparent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 14px color-mix(in oklab, var(--accent) 50%, transparent);
+}
