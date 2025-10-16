@@ -117,6 +117,80 @@ h2,h3,#progressPct,.theme-btn.is-active,
   box-shadow:0 0 10px var(--accent);
 }
 
+#tk-guard{
+  margin:8px 0 12px;
+  padding:12px 14px;
+  border-radius:12px;
+  background:#0b1116;
+  border:1px solid rgba(0,255,255,.22);
+  box-shadow:0 0 0 1px rgba(0,0,0,.45) inset,0 10px 24px rgba(0,0,0,.28);
+  display:grid;
+  gap:10px;
+}
+#tk-guard .tk-guard-title{
+  font-weight:800;
+  font-size:15px;
+  color:#eafcff;
+  text-transform:uppercase;
+  letter-spacing:.6px;
+  text-shadow:0 0 8px rgba(0,255,255,.32);
+}
+#tk-guard .tk-row{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding:8px 10px;
+  border-radius:12px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 0 10px rgba(0,0,0,.18) inset;
+}
+#tk-guard .dot{
+  min-width:30px;
+  height:30px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  font-weight:800;
+  color:#001218;
+  box-shadow:0 0 10px currentColor;
+}
+#tk-guard .dot.blue{background:#52a8ff;color:#001024}
+#tk-guard .dot.red{background:#ff4b6b;color:#24000a}
+#tk-guard .dot.yellow{background:#ffd34a;color:#241a00}
+#tk-guard .dot.green{background:#32d690;color:#001912}
+#tk-guard .tk-row strong{color:#eafcff}
+#tk-guard .tk-row div{color:#cfe6ff;line-height:1.35}
+
+#tk-scale{margin:4px 0 12px;}
+#tk-scale .tk-scale-buttons{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+#tk-scale .tk-scale-btn{
+  width:52px;
+  height:44px;
+  border-radius:10px;
+  border:1px solid #243847;
+  background:#0b1116;
+  color:#eafcff;
+  font-weight:800;
+  letter-spacing:.4px;
+  cursor:pointer;
+  box-shadow:0 6px 14px rgba(0,0,0,.35);
+  transition:border-color .15s ease,transform .12s ease,box-shadow .15s ease,background .15s ease;
+}
+#tk-scale .tk-scale-btn:hover,#tk-scale .tk-scale-btn:focus-visible{
+  border-color:rgba(0,255,255,.35);
+  outline:none;
+}
+#tk-scale .tk-scale-btn.is-active{
+  border-color:rgba(0,255,255,.55);
+  background:#132029;
+  box-shadow:0 0 0 1px rgba(0,255,255,.3),0 10px 26px rgba(0,0,0,.45);
+}
+
 .rating-helper{
   font-size:12px;
   opacity:.75;

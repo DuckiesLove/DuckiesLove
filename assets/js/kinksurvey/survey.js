@@ -6,6 +6,71 @@
   let data=null, role='Giving', idx=0, flat=[];
   const scores = {A:{}};
 
+  const TK_GUARD_SMALL = Object.freeze([
+    { dot:'blue',  label:'0 — Brain did a cartwheel', desc:'skipped for now 😅' },
+    { dot:'red',   label:'1 — Hard Limit',            desc:'full stop / non-negotiable' },
+    { dot:'yellow',label:'2 — Soft Limit',            desc:'willing to try with strong boundaries & safeties' },
+    { dot:'green', label:'3 — Curious / context-dependent', desc:'okay with discussion, mood, and trust' },
+    { dot:'green', label:'4 — Comfortable / enjoy',   desc:'generally a yes; normal precautions' },
+    { dot:'green', label:'5 — Favorite / enthusiastic yes', desc:'happy to dive in; green light' },
+  ]);
+
+  function renderGuardSmall(root){
+    if(!root) return;
+    root.innerHTML = `
+      <div class="tk-guard-title">Question Guard • How to score</div>
+      ${TK_GUARD_SMALL.map(row => `
+        <div class="tk-row">
+          <span class="dot ${row.dot}">${row.label.split('—')[0].trim()}</span>
+          <div>
+            <div style="font-weight:700">${row.label}</div>
+            <div style="opacity:.85">${row.desc}</div>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  function renderScale(root, onPick, selectedValue){
+    if(!root) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'tk-scale-buttons';
+    const buttons = [];
+
+    [0,1,2,3,4,5].forEach(n=>{
+      const btn = document.createElement('button');
+      btn.type='button';
+      btn.textContent=String(n);
+      btn.className='tk-scale-btn';
+      btn.dataset.value = String(n);
+      btn.addEventListener('click', ()=>{
+        api.select(n);
+        if (typeof onPick === 'function') {
+          onPick(n);
+        }
+      });
+      wrap.appendChild(btn);
+      buttons.push(btn);
+    });
+
+    root.innerHTML = '';
+    root.appendChild(wrap);
+
+    const api = {
+      select(value){
+        const numeric = Number(value);
+        const valid = Number.isFinite(numeric);
+        buttons.forEach(btn=>{
+          const btnValue = Number(btn.dataset.value);
+          btn.classList.toggle('is-active', valid && btnValue === numeric);
+        });
+      }
+    };
+
+    api.select(selectedValue);
+    return api;
+  }
+
   // ---- Theme handling ----
   const THEME_KEY  = '__TK_THEME';
 
@@ -149,18 +214,42 @@
     // single score row (A)
     const rowA = $(`.scoreRow[data-partner="A"]`);
     rowA.innerHTML = '';
+    const guardRoot = $('#tk-guard');
+    renderGuardSmall(guardRoot);
+    const scaleRoot = $('#tk-scale');
+    let scaleApi = null;
+    const ratingButtons = [];
+
     for(let i=0;i<=5;i++){
       const btn = document.createElement('button');
       btn.textContent = String(i);
+      btn.dataset.value = String(i);
       btn.setAttribute('aria-pressed', scores.A[q.id]===i ? 'true':'false');
       btn.addEventListener('click', ()=>{
         scores.A[q.id] = i;
         rowA.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
         btn.setAttribute('aria-pressed','true');
         progress();
+        if (scaleApi) scaleApi.select(i);
       });
       rowA.appendChild(btn);
+      ratingButtons.push(btn);
     }
+
+    scaleApi = renderScale(scaleRoot, (value)=>{
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return;
+      const target = ratingButtons.find(b => Number(b.dataset.value) === numeric);
+      if (target) {
+        target.click();
+      } else {
+        scores.A[q.id] = numeric;
+        progress();
+        if (scaleApi) scaleApi.select(numeric);
+      }
+    }, scores.A[q.id]);
+
+    if (scaleApi) scaleApi.select(scores.A[q.id]);
   }
 
   // nav
