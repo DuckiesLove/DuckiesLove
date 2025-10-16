@@ -1,35 +1,47 @@
-:root{--gap:14px;--radius:10px}
+:root{--gap:12px;--radius:10px}
 html.theme-dark{color-scheme:dark}
 body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#111;color:#eee}
-#tkHeader{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #222;position:sticky;top:0;background:#111;z-index:50}
-#themeControls button{margin-right:8px}
+#tkHeader{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #1c1c1c;box-shadow:0 1px 0 #0b0b0b;position:sticky;top:0;background:#111;z-index:50}
+#themeControls{display:flex;gap:8px}
+#themeControls button{margin:0;font-size:12px;padding:4px 12px;border-radius:999px;border:1px solid #2a2a2a;background:#191919;color:#ddd;cursor:pointer;transition:background .2s ease,border-color .2s ease}
+#themeControls button:hover{background:#202020;border-color:#3a7}
 
 #categoryPanel{
-  position:fixed;left:0;top:64px;bottom:0;width:340px;padding:16px 14px;
-  background:#0f0f11;border-right:1px solid #222;overflow:auto;z-index:1000;
+  position:fixed;left:0;top:64px;bottom:0;width:340px;padding:13px 12px;
+  background:#0f0f11;border-right:1px solid #222;overflow-y:auto;overflow-x:hidden;z-index:1000;scroll-behavior:smooth;
 }
-#categoryChecklist .cat{margin-bottom:10px}
-#categoryChecklist .item{display:flex;align-items:center;gap:8px;margin:4px 0}
+#categoryPanel::before,#categoryPanel::after{content:"";position:absolute;left:0;right:0;height:18px;pointer-events:none;opacity:0;transition:opacity .2s ease;z-index:10}
+#categoryPanel::before{top:0;background:linear-gradient(180deg,rgba(0,0,0,.6),rgba(0,0,0,0))}
+#categoryPanel::after{bottom:0;background:linear-gradient(0deg,rgba(0,0,0,.6),rgba(0,0,0,0))}
+#categoryPanel.shadow-top::before{opacity:1}
+#categoryPanel.shadow-bottom::after{opacity:1}
+#categoryChecklist .cat{margin-bottom:8px}
+#categoryChecklist .item{display:flex;align-items:center;gap:8px;margin:3px 0}
 
-#surveyApp{margin-left:340px;padding:20px}
-#controls{display:flex;justify-content:space-between;align-items:center;gap:var(--gap);flex-wrap:wrap}
+#surveyApp{margin-left:340px;padding:16px}
+#controls{display:flex;justify-content:space-between;align-items:center;gap:calc(var(--gap)*.9);flex-wrap:wrap}
 #ndProgress{flex:1;min-width:280px}
-#progressBar{height:14px;border:1px solid #333;border-radius:999px;position:relative}
-#progressBar>#progressPct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px}
-#roleTabs{display:flex;gap:8px;margin:10px 0}
+#progressBar{height:14px;border:1px solid #333;border-radius:999px;position:relative;overflow:hidden;background:#090909}
+#progressBar::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--progress,0%);background:linear-gradient(90deg,#33aa77,#55ccff);transition:width .3s ease}
+#progressBar>#progressPct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;pointer-events:none}
+#roleTabs{display:flex;gap:7px;margin:8px 0}
 #roleTabs [aria-selected="true"]{outline:2px solid #3a7}
 
-#questionCard{border:1px solid #222;border-radius:var(--radius);padding:16px;background:#121214}
+#questionCard{border:1px solid #222;border-radius:var(--radius);padding:12px;background:#121214}
 #questionPath{font-size:12px;opacity:.7}
-#ratingRow{display:grid;grid-template-columns:1fr 240px 1fr;gap:12px;align-items:center;margin:16px 0}
-.scoreRow{display:flex;gap:6px;flex-wrap:wrap}
+#ratingRow{display:grid;grid-template-columns:1fr 240px 1fr;gap:11px;align-items:center;margin:13px 0}
+.scoreRow{display:flex;gap:5px;flex-wrap:wrap}
 .scoreRow button{min-width:34px;padding:6px 8px;border:1px solid #333;background:#181818;border-radius:8px;cursor:pointer}
 .scoreRow button[aria-pressed="true"]{outline:2px solid #3a7}
 .compatWrap{display:flex;flex-direction:column;gap:6px}
-.compatBar{height:24px;border:1px solid #333;border-radius:8px;position:relative;background:#000}
-#compatText{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:600}
+.compatBar{height:24px;border:1px solid #333;border-radius:8px;position:relative;background:#111;overflow:hidden}
+.compatBar::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--compat,0%);background:linear-gradient(90deg,#33aa77,#55ccff);transition:width .3s ease}
+#compatText{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:600;transition:color .2s ease}
+.compatBar.is-na{background:#2a2a2d}
+.compatBar.is-na::before{width:0}
 #flagRow{text-align:center;font-size:18px}
-#navRow{display:flex;justify-content:space-between;margin-top:12px}
+#navRow{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+#navRow .nav-right{display:flex;gap:8px}
 .muted{opacity:.7}
 
 /* Hide ANY straggler overlay DOM that somehow slips in */
