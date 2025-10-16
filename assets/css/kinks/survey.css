@@ -19,7 +19,7 @@ body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;b
 #categoryChecklist .item{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:14px}
 #categoryChecklist input[type="checkbox"]{width:16px;height:16px}
 
-#surveyApp{margin-left:340px;padding:20px 28px 60px;min-height:100vh;box-sizing:border-box}
+#main{margin-left:340px;padding:20px 28px 60px;min-height:100vh;box-sizing:border-box;display:block}
 #controls{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--gap);flex-wrap:wrap}
 .uploader{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .uploader label{display:flex;flex-direction:column;gap:4px;font-size:13px;background:#181818;padding:8px 10px;border-radius:8px;border:1px solid #222}
@@ -75,7 +75,7 @@ html.theme-forest .compatBar::before{background:linear-gradient(90deg,#75d696,#4
 
 @media (max-width:960px){
   #categoryPanel{position:static;width:auto;box-shadow:none;border-right:none;border-bottom:1px solid #222}
-  #surveyApp{margin-left:0}
+  #main{margin-left:0}
 }
 
 @media (max-width:720px){
@@ -88,7 +88,7 @@ html.theme-forest .compatBar::before{background:linear-gradient(90deg,#75d696,#4
 @media print{
   body{background:#fff;color:#000}
   #tkHeader,#categoryPanel{display:none}
-  #surveyApp{margin:0;padding:0}
+  #main{margin:0;padding:0}
   #questionCard{box-shadow:none;border-color:#888;color:#000;background:#fff}
   .uploader{display:none}
   #ndProgress{display:none}
