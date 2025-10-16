@@ -4,32 +4,117 @@
   max-width: 900px;
 }
 .cmp-header{
-  display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px;
+  display:grid;
+  grid-template-columns: auto 1fr auto;
+  align-items:center;
+  gap:12px;
+  margin: 10px 0 6px;
 }
-.cmp-header h1{
-  margin:0; text-align:center; font-size:28px; color:var(--fg);
-  text-shadow:0 1px 0 #000,0 0 10px color-mix(in oklab, var(--accent) 70%, transparent);
+
+.cmp-header .cta.back{
+  height: 36px;
+  padding: 6px 12px;
+  min-width: 0;
+  border-radius: 999px;
+  background:#0e141b;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  outline: 2px solid color-mix(in oklab, var(--accent) 55%, transparent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 12px color-mix(in oklab, var(--accent) 45%, transparent);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1;
 }
+
+.cmp-title{
+  margin:0;
+  text-align:center;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--fg);
+  text-shadow:
+    0 1px 0 #000,
+    0 0 12px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
 .header-spacer{min-width:1px}
 
 .cmp-actions{
-  margin:16px 0 10px; display:flex; gap:12px; flex-wrap:wrap; justify-content:center;
+  margin: 12px auto 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
 }
 
 .cta,.file-btn{
-  display:inline-flex; align-items:center; justify-content:center;
-  padding:10px 14px; min-width:220px; height:40px; border-radius:999px;
-  border:1px solid var(--border); background:#121821; color:var(--fg); text-decoration:none; cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 14px;
+  min-width:220px;
+  height:40px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:#121821;
+  color:var(--fg);
+  text-decoration:none;
+  cursor:pointer;
   outline:2px solid color-mix(in oklab, var(--accent) 65%, transparent);
   box-shadow:0 0 0 1px rgba(0,0,0,.35) inset, 0 0 12px color-mix(in oklab, var(--accent) 45%, transparent);
   transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
 }
 .cta.primary{ font-weight:700; outline-color:var(--accent); }
-.cta:hover,.file-btn:hover,.cta:focus-visible,.file-btn:focus-visible{
-  transform:translateY(-1px); background:#0f1620;
+.cmp-actions .cta,
+.cmp-actions .file-btn{
+  width: min(92vw, 560px);
+  height: 48px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #121821;
+  color: var(--fg);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  text-decoration: none;
+  cursor: pointer;
+  outline: 2px solid var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 22px color-mix(in oklab, var(--accent) 70%, transparent);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+
+.cta:hover,
+.file-btn:hover,
+.cta:focus-visible,
+.file-btn:focus-visible{
+  transform:translateY(-1px);
+  background:#0f1620;
   box-shadow:0 0 0 1px rgba(0,0,0,.35) inset, 0 0 16px color-mix(in oklab, var(--accent) 60%, transparent);
 }
+
+.cmp-actions .cta:hover,
+.cmp-actions .file-btn:hover,
+.cmp-actions .cta:focus-visible,
+.cmp-actions .file-btn:focus-visible{
+  transform: translateY(-1px);
+  background:#0f1620;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 28px color-mix(in oklab, var(--accent) 80%, transparent);
+}
+
 .cta[disabled]{ opacity:.55; cursor:not-allowed; box-shadow:none; transform:none; }
+.cmp-actions .cta[disabled]{
+  opacity:.55;
+  cursor:not-allowed;
+  box-shadow:none;
+  transform:none;
+}
 .cta.ghost{ background:#0e141b; min-width:auto; }
 
 .file-chips{ display:flex; gap:8px; justify-content:center; margin:6px 0 16px; }
@@ -48,56 +133,9 @@
 
 @media (max-width: 860px){ .cmp-wrap{ max-width:100%; } }
 
-/* === Compatibility page ONLY overrides === */
-body[data-page="compat"] .cmp-actions{
-  /* stacked vertical buttons centered under the title */
-  margin: 16px 0 6px;
-  display: flex;
-  flex-direction: column;       /* stack */
-  align-items: center;
-  gap: 14px;
+/* Keep layout clean on small screens */
+@media (max-width: 680px){
+  .cmp-title{ font-size: 26px; }
+  .cmp-actions .cta,
+  .cmp-actions .file-btn{ width: min(94vw, 520px); }
 }
-
-body[data-page="compat"] .cta,
-body[data-page="compat"] .file-btn{
-  width: min(92vw, 560px);      /* wide pills, responsive */
-  height: 48px;
-  padding: 12px 16px;
-  border-radius: 999px;
-  background: #121821;
-  color: var(--fg);
-  border: 1px solid var(--border);
-  outline: 2px solid color-mix(in oklab, var(--accent) 65%, transparent);
-  box-shadow:
-    0 0 0 1px rgba(0,0,0,.35) inset,
-    0 0 18px color-mix(in oklab, var(--accent) 55%, transparent);
-  text-decoration: none;
-  font-size: 16px;
-  letter-spacing: .2px;
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
-}
-
-body[data-page="compat"] .cta.primary,
-body[data-page="compat"] .file-btn.cta.primary{
-  font-weight: 700;
-  outline-color: var(--accent);
-  box-shadow:
-    0 0 0 1px rgba(0,0,0,.35) inset,
-    0 0 22px color-mix(in oklab, var(--accent) 70%, transparent);
-}
-
-body[data-page="compat"] .cta:hover,
-body[data-page="compat"] .file-btn:hover,
-body[data-page="compat"] .cta:focus-visible,
-body[data-page="compat"] .file-btn:focus-visible{
-  transform: translateY(-1px);
-  background:#0f1620;
-  box-shadow:
-    0 0 0 1px rgba(0,0,0,.35) inset,
-    0 0 26px color-mix(in oklab, var(--accent) 75%, transparent);
-}
-
-body[data-page="compat"] .cta[disabled]{ opacity:.55; cursor:not-allowed; box-shadow:none; transform:none; }
-
-/* Hide any leftover dropzone styles if the node still exists by cache */
-body[data-page="compat"] .dropzone{ display:none !important; }
