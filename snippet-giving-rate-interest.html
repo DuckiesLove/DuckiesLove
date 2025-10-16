@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Giving Interest/Comfort Rating</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+<!-- QUESTION CARD WITH GLOW -->
+<div class="tk-question-glow">
+  <div class="tk-q-header">
+    <div class="tk-q-title">Giving: Rate interest/comfort (0–5)</div>
+    <div class="tk-q-progress"><div class="tk-q-bar" style="width:0%"></div></div>
+  </div>
+
+  <div class="tk-q-body">
+    <p class="tk-q-path">Appearance Play • Choosing My Partner</p>
+
+    <div id="glowRatingMount"></div>
+
+    <div class="tk-q-actions">
+      <button class="tk-btn tk-muted">Back</button>
+      <div class="tk-actions-spacer"></div>
+      <button class="tk-btn tk-ghost">Skip</button>
+      <button class="tk-btn tk-primary">Next</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  :root{
+    --bg:#070b0f; --panel:#0b1116; --stroke:#1a2530; --ink:#e6f2f9; --muted:#7f8b98;
+    --teal:#2dd4bf; --amber:#f59e0b; --red:#ef4444; --cyan:#22d3ee; --glow:#0dd0ff;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle at top, rgba(13,208,255,.08), transparent 55%),
+                linear-gradient(180deg, #05070a, #070b0f);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    color: var(--ink);
+  }
+
+  .tk-question-glow{
+    border-radius:18px;
+    background:linear-gradient(180deg, #0b1116, #0c141b);
+    border:1px solid rgba(34,211,238,.35);
+    box-shadow:
+      0 0 0 1px rgba(34,211,238,.18) inset,
+      0 0 22px rgba(34,211,238,.18),
+      0 10px 40px rgba(0,0,0,.45);
+    color:var(--ink);
+    padding:20px;
+    max-width:980px;
+    width: min(90vw, 980px);
+    margin:24px auto;
+  }
+  .tk-q-header{ display:flex; flex-direction:column; gap:10px; margin-bottom:12px; }
+  .tk-q-title{ font:600 22px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing:.2px; }
+  .tk-q-progress{ height:8px; background:#0a1116; border:1px solid var(--stroke); border-radius:999px; overflow:hidden; }
+  .tk-q-bar{ height:100%; background:linear-gradient(90deg, var(--glow), var(--teal)); box-shadow:0 0 14px rgba(34,211,238,.45); }
+  .tk-q-body{ padding-top:6px; }
+  .tk-q-path{ margin:.25rem 0 1rem; color:var(--muted); }
+  .tk-q-actions{ display:flex; align-items:center; gap:.6rem; margin-top:18px; }
+  .tk-actions-spacer{ flex:1; }
+
+  .tk-btn{ border:1px solid var(--stroke); background:#0c141b; color:var(--ink); padding:.6rem .9rem;
+           border-radius:12px; cursor:pointer; transition:transform .04s ease, box-shadow .2s ease; }
+  .tk-btn:hover{ transform:translateY(-1px); }
+  .tk-btn.tk-primary{ border-color:var(--teal); box-shadow:0 0 16px rgba(45,212,191,.18) inset, 0 0 16px rgba(45,212,191,.18); }
+  .tk-btn.tk-ghost{ border-color:var(--stroke); }
+  .tk-btn.tk-muted{ color:var(--muted); }
+
+  .tk-rating { --chip:#121a22; --stroke:#1e2b36;
+               display:flex; flex-direction:column; gap:.75rem;
+               font:16px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+
+  .tk-row { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+
+  .tk-chip { position:relative; display:inline-flex; align-items:center; justify-content:center;
+             min-width:38px; padding:.55rem .7rem; border-radius:.75rem; border:1px solid var(--stroke);
+             background:var(--chip); color:#e5f0f7; cursor:pointer; user-select:none;
+             transition:transform .05s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease; }
+  .tk-chip:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+  .tk-chip[aria-pressed="true"] { box-shadow: 0 0 0 2px rgba(255,255,255,.06), 0 0 18px rgba(34,211,238,.35);
+                                  border-color: var(--cyan); background: linear-gradient(180deg, #0d1318, #141f28); }
+  .tk-chip[data-variant="teal"][aria-pressed="true"]  { box-shadow: 0 0 0 2px rgba(255,255,255,.06), 0 0 18px rgba(45,212,191,.35); border-color: var(--teal); }
+  .tk-chip[data-variant="amber"][aria-pressed="true"] { box-shadow: 0 0 0 2px rgba(255,255,255,.06), 0 0 18px rgba(245,158,11,.45); border-color: var(--amber); }
+  .tk-chip[data-variant="red"][aria-pressed="true"]   { box-shadow: 0 0 0 2px rgba(255,255,255,.06), 0 0 18px rgba(239,68,68,.55); border-color: var(--red); }
+  .tk-chip:hover { transform: translateY(-1px); }
+
+  .tk-chip.small { padding:.45rem .6rem; min-width:auto; font-size:.9rem; }
+  .tk-muted { color: var(--muted); }
+  .tk-sep { flex:1 1 auto; height:1px; background:linear-gradient(90deg, transparent, #1b2630 50%, transparent); margin:.25rem 0; }
+
+  .tk-chip[disabled] { opacity:.4; pointer-events:none; }
+</style>
+
+<script>
+  window.TK = window.TK || {};
+  (function () {
+    const SCALE = [
+      { val: 0,  label: 'Brain buffer overflow', abbr: '0',   title: 'Funny skip (momentary brain reboot)' },
+      { val: 1,  label: 'Not Interested',        abbr: 'NI',  title: 'Not into it' },
+      { val: 2,  label: 'Willing (Partner)',     abbr: 'WTP', title: 'Would do for partner' },
+      { val: 3,  label: 'Curious',               abbr: '?',   title: 'Maybe / curious' },
+      { val: 4,  label: 'Like It',               abbr: '4',   title: 'Like it' },
+      { val: 5,  label: 'Love It',               abbr: '5',   title: 'Love it' }
+    ];
+
+    const FLAGS = [
+      { key: 'soft', label: 'Soft Limit', variant: 'amber', title: 'Caution, needs discussion/boundaries' },
+      { key: 'hard', label: 'Hard Limit', variant: 'red',   title: 'Nope. Not okay' }
+    ];
+
+    function el(tag, attrs = {}, ...kids) {
+      const n = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'class') n.className = v;
+        else if (k === 'style') n.style.cssText = v;
+        else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+        else if (v !== null && v !== undefined) n.setAttribute(k, v);
+      }
+      kids.flat().forEach(k => n.append(k && k.nodeType ? k : document.createTextNode(k ?? '')));
+      return n;
+    }
+
+    function chip({ text, pressed, variant, title, onClick, small, disabled }) {
+      const button = el('button', {
+        class: 'tk-chip' + (small ? ' small' : ''),
+        'aria-pressed': pressed ? 'true' : 'false',
+        'data-variant': variant || '',
+        title: title || '',
+        disabled: disabled ? 'disabled' : null
+      }, text);
+      if (onClick) {
+        button.addEventListener('click', (e) => onClick(e, button));
+      }
+      return button;
+    }
+
+    function mountGlowRating(mount, { name = 'rating', value = null, flags = {}, onChange } = {}) {
+      const state = { value, flags: { soft: !!flags.soft, hard: !!flags.hard } };
+
+      const root = el('div', { class: 'tk-rating', role: 'group', 'aria-label': 'Interest and limits' });
+
+      const interestRow = el('div', { class: 'tk-row', 'aria-label': 'Interest scale' });
+      const interestChips = SCALE.map(item => chip({
+        text: item.abbr,
+        title: item.title,
+        variant: item.val >= 4 ? 'teal' : '',
+        pressed: state.value === item.val,
+        onClick: () => { if (!state.flags.hard) { state.value = item.val; refresh(); } }
+      }));
+      interestRow.append(el('span', { class: 'tk-muted', style:'min-width:9ch' }, 'Interest:'), ...interestChips);
+
+      const sep = el('div', { class: 'tk-sep' });
+
+      const flagRow = el('div', { class: 'tk-row', 'aria-label': 'Limits' });
+      const softBtn = chip({
+        text:'Soft Limit', title: FLAGS[0].title, variant:'amber', small:true,
+        pressed: state.flags.soft, onClick: () => { state.flags.soft = !state.flags.soft; refresh(); }
+      });
+      const hardBtn = chip({
+        text:'Hard Limit', title: FLAGS[1].title, variant:'red', small:true,
+        pressed: state.flags.hard, onClick: () => { state.flags.hard = !state.flags.hard; if (state.flags.hard) state.value = null; refresh(); }
+      });
+      flagRow.append(el('span', { class: 'tk-muted', style:'min-width:9ch' }, 'Limits:'), softBtn, hardBtn);
+
+      const outVal  = el('input', { type:'hidden', name });
+      const outSoft = el('input', { type:'hidden', name: name + '_soft' });
+      const outHard = el('input', { type:'hidden', name: name + '_hard' });
+
+      root.append(interestRow, sep, flagRow, outVal, outSoft, outHard);
+      mount.replaceChildren(root);
+
+      function refresh(){
+        interestChips.forEach((c,i)=> c.setAttribute('aria-pressed', String(SCALE[i].val === state.value)));
+        interestChips.forEach(c => c.disabled = !!state.flags.hard);
+
+        softBtn.setAttribute('aria-pressed', String(state.flags.soft));
+        hardBtn.setAttribute('aria-pressed', String(state.flags.hard));
+
+        outVal.value  = state.value === null ? '' : String(state.value);
+        outSoft.value = state.flags.soft ? '1' : '0';
+        outHard.value = state.flags.hard ? '1' : '0';
+
+        onChange?.(structured());
+      }
+      function structured(){
+        return {
+          value: state.value,
+          meaning: state.value === 0 ? 'Brain buffer overflow' :
+                   state.value === 1 ? 'Not Interested' :
+                   state.value === 2 ? 'Willing (Partner)' :
+                   state.value === 3 ? 'Curious' :
+                   state.value === 4 ? 'Like It' :
+                   state.value === 5 ? 'Love It' : null,
+          softLimit: state.flags.soft,
+          hardLimit: state.flags.hard
+        };
+      }
+
+      refresh();
+      return { get: structured, set(v){ state.value = v?.value ?? state.value; state.flags = { soft: !!v?.softLimit, hard: !!v?.hardLimit }; refresh(); } };
+    }
+
+    window.TK.mountGlowRating = mountGlowRating;
+  })();
+
+  document.addEventListener('DOMContentLoaded', () => {
+    window.TK.mountGlowRating(document.getElementById('glowRatingMount'), {
+      name: 'q1_interest',
+      onChange: (v)=>console.log('[changed]', v)
+    });
+  });
+</script>
+</body>
+</html>
