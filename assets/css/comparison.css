@@ -670,12 +670,18 @@ body[data-page="compat"] .tk-btn.back{
 /* Align button sizing with the landing page pill buttons */
 body[data-page="compat"] .tk-menu .tk-btn,
 body[data-page="compat"] .tk-btn.back {
-  width: min(260px, 80vw);
-  height: auto;
-  padding: 0.75rem 1.5rem;
-  border-width: 2px;
-  border-radius: 10px;
-  font-size: 1rem;
+  /* Bring the upload/download pills down to the compact landing-page size */
+  width: min(240px, 70vw) !important;
+  height: auto !important;
+  padding: 0.6rem 1.35rem !important;
+  border-width: 2px !important;
+  border-radius: 12px !important;
+  font-size: 0.95rem !important;
+  line-height: 1.15;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.45) inset,
+    0 0 12px color-mix(in oklab, var(--accent) 60%, transparent),
+    0 0 20px color-mix(in oklab, var(--accent) 30%, transparent);
 }
 
 body[data-page="compat"] .tk-menu .tk-btn {
