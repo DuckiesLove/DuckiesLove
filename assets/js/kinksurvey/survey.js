@@ -8,17 +8,40 @@
   let progressStats = { total:0, answered:0, answeredA:0, answeredB:0, pct:0 };
   let exportRows = [];
 
+  // ---- Theme / Accent handling ----
+  const THEME_KEY  = '__TK_THEME';
+  const ACCENT_KEY = '__TK_ACCENT';
+
+  function applyTheme(t){
+    if(!t) return;
+    document.documentElement.className = `theme-${t}`;
+    localStorage.setItem(THEME_KEY, t);
+    // visual active state
+    $$('#themeControls .theme-btn').forEach(b=>b.classList.toggle('is-active', b.dataset.theme===t));
+  }
+  function applyAccent(hex){
+    if(!hex) return;
+    document.documentElement.style.setProperty('--accent', hex);
+    localStorage.setItem(ACCENT_KEY, hex);
+  }
+
+  // restore saved settings
+  applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+  applyAccent(localStorage.getItem(ACCENT_KEY) || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim());
+
+  // click handlers
+  $('#themeControls')?.addEventListener('click', (e)=>{
+    const t = e.target?.dataset?.theme;
+    const a = e.target?.dataset?.accent;
+    if(t){ applyTheme(t); }
+    if(a){ applyAccent(a); }
+  });
+
   const progressBar = $('#progressBar');
   const progressPct = $('#progressPct');
   const compatBar = $('#compatBar');
   const compatText = $('#compatText');
   const categoryPanel = $('#categoryPanel');
-
-  // theme switch
-  $('#themeControls')?.addEventListener('click', e=>{
-    const t = e.target?.dataset?.theme; if(!t) return;
-    document.documentElement.className = `theme-${t}`;
-  });
 
   categoryPanel?.addEventListener('scroll', updatePanelShadows);
 
@@ -101,34 +124,33 @@
 
     function paintCompat(){
       const q = flat[idx];
-      const bar = compatBar; const txt = compatText; const flags = $('#flagRow');
+      const bar = compatBar;
+      const txt = compatText;
+      const flags = $('#flagRow');
       if(!bar || !txt || !flags){ progress(); updateSummary(); return; }
-      let compat = null;
-      let a = null; let b = null;
       flags.textContent='';
-      if(q){
-        a = scores.A[q.id];
-        b = scores.B[q.id];
-        compat = compatValue(a,b);
-      }
-      if(compat==null){
-        bar.classList.add('is-na');
-        bar.style.setProperty('--compat','0%');
+      txt.style.color = 'var(--fg)';
+      if(!q){
         txt.textContent='N/A';
-        txt.style.color='#c6c6c6';
+        bar.style.setProperty('--w', '0%');
+        progress();
+        updateSummary();
+        return;
+      }
+      const a = scores.A[q.id];
+      const b = scores.B[q.id];
+      const compat = (Number.isInteger(a) && Number.isInteger(b)) ? 100 - (Math.abs(a-b)*20) : null;
+      if(compat==null){
+        txt.textContent='N/A';
+        bar.style.setProperty('--w', '0%');
       } else {
-        bar.classList.remove('is-na');
-        bar.style.setProperty('--compat',`${compat}%`);
         txt.textContent = `${compat}%`;
-        let color = '#5fe1a7';
-        if(compat>=80){ color = '#5fe1a7'; }
-        else if(compat>=60){ color = '#f5d97c'; }
-        else if(compat<=50){ color = '#f78888'; }
-        else { color = '#f3b55b'; }
-        txt.style.color = color;
-        if(compat>=90) flags.textContent = '⭐';
+        bar.style.setProperty('--w', `${compat}%`);
+        if(compat>=80) txt.style.color = 'var(--fg)';          // readable glow
         if(compat<=50) flags.textContent += ' 🚩';
-        if((a===5 && Number.isInteger(b) && b<5) || (b===5 && Number.isInteger(a) && a<5)) flags.textContent += ' 🟨';
+        if(compat>=90) flags.textContent = '⭐' + flags.textContent;
+        if((a===5 && Number.isInteger(b) && b<5) || (b===5 && Number.isInteger(a) && a<5))
+          flags.textContent += ' 🟨';
       }
       progress();
       updateSummary();
@@ -136,21 +158,17 @@
 
     function progress(){
       const total = flat.length;
-      let answered = 0, answeredA = 0, answeredB = 0;
+      let answeredA = 0, answeredB = 0;
       for(const q of flat){
-        const a = scores.A[q.id];
-        const b = scores.B[q.id];
-        const hasA = Number.isInteger(a);
-        const hasB = Number.isInteger(b);
-        if(hasA) answeredA += 1;
-        if(hasB) answeredB += 1;
-        if(hasA || hasB) answered += 1;
+        if(Number.isInteger(scores.A[q.id])) answeredA += 1;
+        if(Number.isInteger(scores.B[q.id])) answeredB += 1;
       }
-      const pct = total ? Math.round((answered/total)*100) : 0;
+      const answered = answeredA + answeredB;
+      const pct = total ? Math.round((answered/(total*2))*100) : 0;
       progressStats = { total, answered, answeredA, answeredB, pct };
       const current = total ? Math.min(idx+1, total) : 0;
       $('#progressText').textContent = `Question ${current} of ${total}`;
-      progressBar?.style.setProperty('--progress', `${pct}%`);
+      progressBar?.style.setProperty('--w', `${pct}%`);
       if(progressPct) progressPct.textContent = `${pct}%`;
     }
 
