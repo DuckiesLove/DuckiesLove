@@ -42,12 +42,19 @@
   function normalize(json){
     const c = structuredClone(json);
     const collator = new Intl.Collator('en', { sensitivity: 'base' });
+
     for(const cat of c.categories||[]){
-      cat.name = tidy(cat.name);
-      for (const it of cat.items||[]) it.label = tidy(it.label);
+      const name = tidy(cat.name ?? cat.category ?? '');
+      cat.name = name;
+      if(typeof cat.category === 'string') cat.category = tidy(cat.category);
+      for (const it of cat.items||[]){
+        it.label = tidy(it.label);
+      }
     }
+
     c.categories?.sort((a, b) => collator.compare(a.name, b.name));
     return c;
+
     function tidy(s=''){ return String(s).replace(/\bCB\b:?/gi,'').replace(/\s{2,}/g,' ').trim(); }
   }
 
