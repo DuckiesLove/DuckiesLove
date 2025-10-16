@@ -48,6 +48,13 @@ body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;b
 .scoreRow button[aria-pressed="true"]{outline:2px solid #58a;background:#203040}
 .scoreRow button:focus-visible{outline:2px solid #9ad}
 
+.rating-helper{
+  font-size:12px;
+  opacity:.75;
+  min-height:1.2em;
+  letter-spacing:.15px;
+}
+
 .compatWrap{display:flex;flex-direction:column;gap:8px;align-items:center}
 .compatBar{height:28px;border:1px solid #333;border-radius:999px;position:relative;background:#050505;overflow:hidden;width:100%}
 .compatBar::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--fill,0%);background:linear-gradient(90deg,#48d,#3af);transition:width .25s ease;border-radius:inherit}

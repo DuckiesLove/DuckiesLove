@@ -117,6 +117,13 @@ h2,h3,#progressPct,.theme-btn.is-active,
   box-shadow:0 0 10px var(--accent);
 }
 
+.rating-helper{
+  font-size:12px;
+  opacity:.75;
+  min-height:1.2em;
+  letter-spacing:.2px;
+}
+
 .is-hidden{ display:none !important; }
 
 /* --- CTA row: small, glowing, side-by-side --- */
