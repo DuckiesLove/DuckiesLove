@@ -552,3 +552,32 @@ body[data-page="compat"] .tk-btn.back{
   body[data-page="compat"] .tk-btn { height: 68px; border-width: 2px; }
   body[data-page="compat"] .tk-btn.back { height: 68px; }
 }
+body[data-page="compat"] .tk-btn.back{
+  /* landing-size pill */
+  width: min(260px, 60vw);   /* was wide; now compact */
+  height: 48px;              /* was ~82px */
+  border-width: 2px;         /* thinner outline like landing */
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  align-self: center;
+  margin-top: 14px;
+
+  /* keep glow but scale to smaller button */
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.5) inset,
+    0 0 16px color-mix(in oklab, var(--accent) 70%, transparent),
+    0 0 32px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference){
+  body[data-page="compat"] .tk-btn.back:hover,
+  body[data-page="compat"] .tk-btn.back:focus-visible{
+    transform: translateY(-1px);
+    background:#0b1216;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.5) inset,
+      0 0 22px color-mix(in oklab, var(--accent) 85%, transparent),
+      0 0 46px color-mix(in oklab, var(--accent) 45%, transparent);
+  }
+}
