@@ -34,18 +34,28 @@
     <script defer src="/assets/js/kinksurvey/survey.js?v=2025-10-15"></script>
   </head>
   <body>
-    <header id="tkHeader">
-      <h1>TalkKink Survey</h1>
-      <div id="themeControls" class="theme-controls">
-        <div class="theme-group" aria-label="Theme mode">
-          <button class="theme-btn" data-theme="dark">Dark</button>
-          <button class="theme-btn" data-theme="lipstick">Lipstick</button>
-          <button class="theme-btn" data-theme="forest">Forest</button>
-          <button class="theme-btn" data-theme="azure">Blue Glow</button>
-        </div>
+    <header id="tkHeader" class="header-grid">
+      <!-- spacer that matches the fixed left panel width so title never overlaps -->
+      <div class="header-spacer" aria-hidden="true"></div>
 
+      <!-- centered title -->
+      <h1 id="pageTitle" class="glow-title">TalkKink Survey</h1>
+
+      <!-- theme controls (unchanged buttons) -->
+      <div id="themeControls" class="theme-controls">
+        <button class="theme-btn" data-theme="dark">Dark</button>
+        <button class="theme-btn" data-theme="lipstick">Lipstick</button>
+        <button class="theme-btn" data-theme="forest">Forest</button>
+        <button class="theme-btn" data-theme="azure">Blue Glow</button>
       </div>
     </header>
+
+    <!-- CTA stack (links to your other pages) -->
+    <nav id="ctaStack" class="cta-stack" aria-label="Survey navigation">
+      <button id="btnStart" class="cta primary">Start Survey</button>
+      <a class="cta" href="/kinkanalysis/">Individual Kink Analysis</a>
+      <a class="cta" href="/comparison/">Survey Partner Comparison</a>
+    </nav>
 
     <aside id="categoryPanel" aria-label="Categories">
       <div class="panel-header">
@@ -57,14 +67,6 @@
 
     <main id="surveyApp" aria-live="polite">
       <section id="controls">
-        <div class="uploader">
-          <label>Load Partner A <input id="loadA" type="file" accept=".json"></label>
-          <label>Load Partner B <input id="loadB" type="file" accept=".json"></label>
-          <button id="downloadA">Download A</button>
-          <button id="downloadB">Download B</button>
-          <button id="resetAll">Reset</button>
-          <button id="exportPDF">Export PDF</button>
-        </div>
         <div id="ndProgress">
           <div id="progressBar"><span id="progressPct">0%</span></div>
           <div id="progressText">Question 0 of 0</div>
@@ -80,22 +82,18 @@
         <article id="questionCard">
           <div id="questionPath" class="muted"></div>
           <h3 id="questionText"></h3>
-          <div id="ratingRow">
-            <div class="col"><div class="label">Partner A</div><div class="scoreRow" data-partner="A"></div></div>
-            <div class="col center">
-              <div class="compatWrap">
-                <div class="compatBar" id="compatBar"><span id="compatText">N/A</span></div>
-                <div id="flagRow" aria-hidden="true"></div>
-              </div>
+
+          <div id="ratingRow" class="single">
+            <div class="col">
+              <div class="label">Rate interest/comfort (0–5)</div>
+              <div class="scoreRow" data-partner="A"></div>
             </div>
-            <div class="col"><div class="label">Partner B</div><div class="scoreRow" data-partner="B"></div></div>
           </div>
+
           <div id="navRow">
-            <button id="prevBtn" type="button">Back</button>
-            <div class="nav-right">
-              <button id="skipBtn" type="button">Skip</button>
-              <button id="nextBtn" type="button">Next</button>
-            </div>
+            <button id="prevBtn">Back</button>
+            <button id="skipBtn">Skip</button>
+            <button id="nextBtn">Next</button>
           </div>
         </article>
       </section>
