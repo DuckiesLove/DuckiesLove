@@ -58,11 +58,9 @@
     </nav>
 
     <aside id="categoryPanel" aria-label="Categories">
-      <div class="panel-header">
-        <h2>Categories</h2>
-        <div id="selectedCountBadge" aria-live="polite">0 selected</div>
-      </div>
-      <div id="categoryChecklist" class="scroll"></div>
+      <h2 class="tk-side-title">Categories</h2>
+      <div class="tk-cat-count" aria-live="polite"><span id="tkCatSel">0</span> selected</div>
+      <ul id="categoryChecklist" class="tk-catlist" role="list"></ul>
     </aside>
 
     <main id="surveyApp" class="is-hidden" aria-live="polite">
