@@ -1,0 +1,150 @@
+<!-- ───────────────── TALK KINK: Compact 0–5 Legend Scale (one-box) ───────────────── -->
+<div class="tk-legendbox" id="tkLegendScale" data-mode="general"
+     aria-label="Select rating 0 to 5 with meaning labels">
+  <div class="tk-legendbox-title">How do you feel about this? (0–5)</div>
+
+  <!-- Radios injected by JS using the label map -->
+  <div class="tk-legendgrid" role="radiogroup" aria-label="Scale from 0 to 5"></div>
+
+  <div class="tk-legendbox-help">Tip: press keys 0–5 to choose</div>
+</div>
+
+<style>
+/* === Blue Glow 0–5 Legend Scale — self-contained styles === */
+:root { --accent: #00e6e6; }
+
+/* Hide any old horizontal rating controls (adjust if your class names differ) */
+.rate-row, .rating-row, .tk-old-rate, .rate-buttons { display:none !important; }
+
+/* Compact glow card */
+.tk-legendbox{
+  width: min(620px, 94vw);
+  margin-inline:auto;
+  background:#0d131a;
+  border:1px solid color-mix(in oklab, var(--accent, #00e6e6) 38%, #0a0f14);
+  border-radius:16px;
+  padding:16px 16px 12px;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.5) inset,
+    0 0 18px color-mix(in oklab, var(--accent, #00e6e6) 55%, transparent);
+}
+.tk-legendbox-title{
+  font-weight:800; font-size:16px; color:#eaffff; margin:2px 4px 12px;
+  text-shadow:0 0 8px color-mix(in oklab, var(--accent, #00e6e6) 60%, transparent);
+}
+
+/* Grid: 3 cols small, 6 cols wide */
+.tk-legendgrid{ display:grid; gap:12px; grid-template-columns: repeat(3, minmax(0,1fr)); }
+@media (min-width: 640px){ .tk-legendgrid{ grid-template-columns: repeat(6, minmax(0,1fr)); } }
+
+/* Option pill */
+.tk-legend{
+  position:relative; display:flex; align-items:center; gap:10px;
+  background:#0a0f14; border-radius:12px; padding:10px 10px; cursor:pointer;
+  border:2px solid var(--accent, #00e6e6);
+  box-shadow:0 0 0 1px rgba(0,0,0,.55) inset,
+             0 0 14px color-mix(in oklab, var(--accent, #00e6e6) 55%, transparent);
+  user-select:none; transition:transform .12s ease, box-shadow .15s ease, background .15s ease;
+}
+.tk-legend input{ position:absolute; inset:0; opacity:0; pointer-events:none; }
+
+.tk-num{
+  min-width:30px; height:30px; border-radius:999px;
+  display:grid; place-items:center;
+  font-weight:900; font-size:16px; color:#001; background:var(--accent, #00e6e6);
+  box-shadow:0 0 10px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+.tk-label{
+  font-size:14px; color:#e6ffff; letter-spacing:.1px;
+  text-shadow:0 0 6px color-mix(in oklab, var(--accent) 55%, transparent);
+}
+
+/* Selected + focus */
+.tk-legend:has(input:checked){
+  background:#0c1520; transform:translateY(-1px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.55) inset,
+             0 0 20px color-mix(in oklab, var(--accent) 80%, transparent),
+             0 0 38px color-mix(in oklab, var(--accent) 40%, transparent);
+}
+.tk-legend:focus-within{ outline:2px solid var(--accent, #00e6e6); outline-offset:2px; }
+
+.tk-legendbox-help{ margin-top:10px; font-size:12px; color:#9cc; opacity:.9; text-align:center; }
+
+/* If used inside a card, keep centered */
+.survey-card .tk-legendbox, .question-card .tk-legendbox{ margin-inline:auto; }
+</style>
+
+<script>
+/* === Blue Glow 0–5 Legend Scale — self-contained logic === */
+(function(){
+  const root = document.getElementById('tkLegendScale');
+  if(!root) return;
+
+  /* Labels (edit text here if you want different phrasing) */
+  const LABELS = {
+    default: [
+      { n:0, text:'Hard Limit' },
+      { n:1, text:'Soft Limit' },
+      { n:2, text:'Not Interested' },
+      { n:3, text:'Open to Try' },
+      { n:4, text:'Like / Interested' },
+      { n:5, text:'Really Want' }
+    ],
+    giving:   null,   // set arrays to override per mode
+    receiving:null,
+    general:  null
+  };
+
+  const mode  = root.getAttribute('data-mode') || 'default';
+  const scale = LABELS[mode] || LABELS.default;
+
+  const grid = root.querySelector('.tk-legendgrid');
+  grid.innerHTML = '';
+
+  // Build options
+  scale.forEach(({n,text})=>{
+    const id = `tklegend-${n}`;
+    const label = document.createElement('label');
+    label.className = 'tk-legend';
+    label.innerHTML = `
+      <input type="radio" id="${id}" name="tkLegend" value="${n}">
+      <span class="tk-num">${n}</span>
+      <span class="tk-label">${text}</span>
+    `;
+    grid.appendChild(label);
+  });
+
+  const radios = grid.querySelectorAll('input[name="tkLegend"]');
+
+  function applyValue(val){
+    // (A) Preferred: your existing setter
+    if (typeof window.tkSetAnswer === 'function') {
+      window.tkSetAnswer(Number(val));
+      return;
+    }
+    // (B) Fallback: click legacy hidden button if present (expects [data-rate="N"])
+    const old = document.querySelector('[data-rate="'+val+'"]');
+    if (old) { old.click(); return; }
+    // (C) Emit event for any custom listener
+    document.dispatchEvent(new CustomEvent('tk:answer', { detail:{ value:Number(val) }}));
+  }
+
+  radios.forEach(r=> r.addEventListener('change', e=> applyValue(e.target.value)));
+
+  // Keyboard shortcuts 0–5
+  document.addEventListener('keydown', (e)=>{
+    if (!root.isConnected) return;
+    if (!/^[0-5]$/.test(e.key)) return;
+    const r = grid.querySelector('input[value="'+e.key+'"]');
+    if (r) { r.checked = true; r.dispatchEvent(new Event('change', {bubbles:true})); }
+  });
+
+  // Reflect current value if exposed
+  const current = (typeof window.tkGetAnswer === 'function') ? window.tkGetAnswer() : null;
+  if (current != null) {
+    const match = grid.querySelector('input[value="'+current+'"]');
+    if (match) match.checked = true;
+  }
+})();
+</script>
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
