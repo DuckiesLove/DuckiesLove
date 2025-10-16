@@ -36,6 +36,101 @@ const TKProbe = (() => {
     orig: { fetch: null, xhrOpen: null },
   };
 
+  // -------- overlay nuker ----------
+  const OverlayNuker = (() => {
+    const FLAG = "__TK_PROBE_NUKE_OVERLAY__";
+    const CANDIDATE_SELECTORS = [
+      "#tkPortal", "#tkDockPortal", "#tkDockCard", "#tkDevOverlay", "[data-tk-overlay]",
+      ".cdk-overlay-container", ".cdk-global-overlay-wrapper",
+      ".mdc-dialog", ".mdc-drawer",
+      ".MuiModal-root", ".MuiBackdrop-root",
+      ".ReactModalPortal", ".chakra-portal",
+      ".modal-backdrop", ".ant-modal-root", ".ant-drawer",
+      '[aria-modal="true"]', '[role="dialog"]', '[role="alertdialog"]',
+      ".modal", ".drawer", ".sheet", ".overlay", ".backdrop",
+      "#modal-root", "#overlay-root",
+      '[class*="overlay"]', '[class*="Backdrop"]', '[class*="backdrop"]',
+      '[class*="portal"]', '[id*="overlay"]', '[id*="portal"]'
+    ];
+
+    const SELECTOR_TEXT = CANDIDATE_SELECTORS.join(",");
+    let observer = null;
+
+    function looksLikeOverlay(el) {
+      try {
+        const cs = getComputedStyle(el);
+        if (!(cs.position === "fixed" || cs.position === "sticky")) return false;
+        const zi = parseInt(cs.zIndex || "0", 10);
+        if (!Number.isFinite(zi) || zi < 999) return false;
+        const r = el.getBoundingClientRect();
+        return r.width >= globalThis.innerWidth * 0.6 && r.height >= globalThis.innerHeight * 0.6;
+      } catch {
+        return false;
+      }
+    }
+
+    const kill = el => { try { el.remove(); } catch {} };
+
+    function unlockScroll() {
+      for (const n of [document.documentElement, document.body]) {
+        if (!n) continue;
+        n.classList.remove("modal-open", "no-scroll", "overflow-hidden", "lock");
+        n.style.overflow = "";
+        n.style.height = "";
+        if (getComputedStyle(n).position === "fixed") n.style.position = "";
+        n.style.top = n.style.left = n.style.right = n.style.bottom = "";
+      }
+    }
+
+    function sweep() {
+      const seen = new Set();
+      for (const sel of CANDIDATE_SELECTORS) {
+        document.querySelectorAll(sel).forEach(el => {
+          if (!seen.has(el)) { seen.add(el); kill(el); }
+        });
+      }
+      document.querySelectorAll("body *").forEach(el => {
+        if (!seen.has(el) && looksLikeOverlay(el)) { seen.add(el); kill(el); }
+      });
+      unlockScroll();
+    }
+
+    function ensureObserver() {
+      if (observer) return;
+      observer = new MutationObserver(muts => {
+        let changed = false;
+        for (const m of muts) {
+          for (const n of m.addedNodes) {
+            if (!(n instanceof HTMLElement)) continue;
+            if (n.matches?.(SELECTOR_TEXT) || looksLikeOverlay(n)) {
+              kill(n); changed = true; continue;
+            }
+            const victim = n.querySelector?.(SELECTOR_TEXT);
+            if (victim) { kill(victim); changed = true; }
+          }
+        }
+        if (changed) unlockScroll();
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    function start() {
+      const firstRun = !window[FLAG];
+      window[FLAG] = true;
+      sweep();
+      ensureObserver();
+      if (firstRun) console.log("[TK] Overlay nuker active.");
+    }
+
+    function stop() {
+      observer?.disconnect();
+      observer = null;
+      delete window[FLAG];
+    }
+
+    return { start, stop };
+  })();
+
   // -------- dom helpers ----------
   function h(tag, attrs = {}, html = "") {
     const el = document.createElement(tag);
@@ -198,7 +293,8 @@ const TKProbe = (() => {
   function unfreeze() {
     document.querySelector("#start,#startSurvey")?.removeAttribute("disabled");
     document.querySelectorAll(".spinner,[data-loading],[aria-busy='true']").forEach(n => n.remove());
-    console.log("Unfreeze attempted (start enabled, spinners removed)");
+    OverlayNuker.start();
+    console.log("Unfreeze attempted (start enabled, spinners removed, overlays nuked)");
   }
 
   function dump() {
@@ -237,6 +333,7 @@ const TKProbe = (() => {
   }
 
   function stop() {
+    OverlayNuker.stop();
     if (!S.running) { S.els.panel?.remove(); return; }
     S.running = false;
     clearInterval(S.timers.pulse); S.timers.pulse = null;
