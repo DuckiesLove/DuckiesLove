@@ -1,0 +1,41 @@
+:root{--gap:14px;--radius:10px}
+html.theme-dark{color-scheme:dark}
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#111;color:#eee}
+#tkHeader{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #222;position:sticky;top:0;background:#111;z-index:50}
+#themeControls button{margin-right:8px}
+
+#categoryPanel{
+  position:fixed;left:0;top:64px;bottom:0;width:340px;padding:16px 14px;
+  background:#0f0f11;border-right:1px solid #222;overflow:auto;z-index:1000;
+}
+#categoryChecklist .cat{margin-bottom:10px}
+#categoryChecklist .item{display:flex;align-items:center;gap:8px;margin:4px 0}
+
+#surveyApp{margin-left:340px;padding:20px}
+#controls{display:flex;justify-content:space-between;align-items:center;gap:var(--gap);flex-wrap:wrap}
+#ndProgress{flex:1;min-width:280px}
+#progressBar{height:14px;border:1px solid #333;border-radius:999px;position:relative}
+#progressBar>#progressPct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px}
+#roleTabs{display:flex;gap:8px;margin:10px 0}
+#roleTabs [aria-selected="true"]{outline:2px solid #3a7}
+
+#questionCard{border:1px solid #222;border-radius:var(--radius);padding:16px;background:#121214}
+#questionPath{font-size:12px;opacity:.7}
+#ratingRow{display:grid;grid-template-columns:1fr 240px 1fr;gap:12px;align-items:center;margin:16px 0}
+.scoreRow{display:flex;gap:6px;flex-wrap:wrap}
+.scoreRow button{min-width:34px;padding:6px 8px;border:1px solid #333;background:#181818;border-radius:8px;cursor:pointer}
+.scoreRow button[aria-pressed="true"]{outline:2px solid #3a7}
+.compatWrap{display:flex;flex-direction:column;gap:6px}
+.compatBar{height:24px;border:1px solid #333;border-radius:8px;position:relative;background:#000}
+#compatText{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:600}
+#flagRow{text-align:center;font-size:18px}
+#navRow{display:flex;justify-content:space-between;margin-top:12px}
+.muted{opacity:.7}
+
+/* Hide ANY straggler overlay DOM that somehow slips in */
+#tkPortal,.tk-overlay,.tk-drawer,.tk-panel,.portal-overlay{display:none !important}
+
+@media print{
+  #categoryPanel{display:none}
+  #surveyApp{margin:0}
+}
