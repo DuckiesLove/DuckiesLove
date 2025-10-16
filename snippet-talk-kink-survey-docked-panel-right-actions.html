@@ -53,169 +53,193 @@
   }
 </style>
 
+<div id="tkDockHost">
+  <aside id="tkDockCard" role="dialog" aria-label="Category selection">
+    <div class="tk-head">
+      <div class="group">
+        <button id="btnSelectAll" class="themed-button">Select All</button>
+        <button id="btnDeselectAll" class="themed-button">Deselect All</button>
+      </div>
+      <div class="group"><strong id="selectedCountBadge" style="opacity:.8">0 selected / 0 total</strong></div>
+    </div>
+    <div class="tk-actions">
+      <span class="spacer"></span>
+      <button id="beginSurveyFromPanel" class="themed-button">Start Survey</button>
+    </div>
+    <div id="categoryChecklist" aria-live="polite"></div>
+  </aside>
+  <div id="tkRightRail" aria-label="Survey utilities">
+    <a class="tk-cta" href="/compatibility.html">Compatibility Page</a>
+    <a class="tk-cta" href="/analysis.html">Individual Kink Analysis</a>
+  </div>
+</div>
+
+
+
 <script>
-(function(){
-  /* ---- Settings / helpers ---- */
-  let host = document.getElementById('tkDockHost');
+(() => {
+  const FLAG = '__tkBuiltInPanelBooted';
+  if (window[FLAG]) return;
+  window[FLAG] = true;
+
+  // ---- categories (alphabetical)
+  const CATEGORIES = [
+    { id: 'appearance-play',            name: 'Appearance Play' },
+    { id: 'behavioral-play',            name: 'Behavioral Play' },
+    { id: 'body-fluids-functions',      name: 'Body Fluids and Functions' },
+    { id: 'body-modification',          name: 'Body Modification' },
+    { id: 'body-part-fetish',           name: 'Body Part / Fetish Play' },
+    { id: 'body-part-torture',          name: 'Body Part Torture' },
+    { id: 'bondage-suspension',         name: 'Bondage and Suspension' },
+    { id: 'breath-play',                name: 'Breath Play' },
+    { id: 'breeding',                   name: 'Breeding' },
+    { id: 'chastity-devices',           name: 'Chastity Devices' },
+    { id: 'communication',              name: 'Communication' },
+    { id: 'cosplay-identity',           name: 'Cosplay & Identity Play' },
+    { id: 'gender-play-transformation', name: 'Gender Play & Transformation' },
+    { id: 'headspace-regression',       name: 'Headspace & Regression' },
+    { id: 'high-intensity-ssc-aware',   name: 'High-Intensity Kinks (SSC-Aware)' },
+    { id: 'impact-play',                name: 'Impact Play' },
+  ].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+
+  const STORAGE_KEY = '__TK_SELECTED_CATEGORIES';
+  const FALLBACK_RUN_PATH = '/kinksurvey/';
+
+  const host = document.getElementById('categoryChecklist') || document.querySelector('#categoryChecklist');
+  const badge = document.getElementById('selectedCountBadge') || document.querySelector('#selectedCountBadge');
+  const btnSelAll = document.getElementById('btnSelectAll') || document.querySelector('#btnSelectAll');
+  const btnDeselAll = document.getElementById('btnDeselectAll') || document.querySelector('#btnDeselectAll');
+  const btnStart = document.getElementById('beginSurveyFromPanel') || document.querySelector('#beginSurveyFromPanel');
+
   if (!host) {
-    host = document.createElement('div');
-    host.id = 'tkDockHost';
-    document.body.appendChild(host);
-  }
-  const LIST_ID  = 'categoryChecklist';
-  const norm = s => (s||'').replace(/^\(\s*demo\s*\)\s*/i,'').trim().toLowerCase();
-  const KEY = '__TK_SELECTED_CATEGORIES';
-
-  function ensureChrome(){
-    // Create/position the dock card (3/4) and right rail (1/4)
-    let card = document.getElementById('tkDockCard');
-    if(!card){
-      card = document.createElement('aside');
-      card.id = 'tkDockCard';
-      card.setAttribute('role','dialog');
-      card.setAttribute('aria-label','Category selection');
-      host.appendChild(card);
-    }
-    let rail = document.getElementById('tkRightRail');
-    if(!rail){
-      rail = document.createElement('div');
-      rail.id = 'tkRightRail';
-      rail.innerHTML = `
-        <a class="tk-cta" href="/compatibility.html">Compatibility Page</a>
-        <a class="tk-cta" href="/analysis.html">Individual Kink Analysis</a>
-      `;
-      host.appendChild(rail);
-    }
-    return card;
+    console.warn('[TK] Built-in #categoryChecklist not found');
+    return;
   }
 
-  function buildPanelSkeleton(card){
-    if (card.dataset.wired) return;
-    card.dataset.wired = '1';
-    card.innerHTML = `
-      <div class="tk-head">
-        <div class="group">
-          <button id="btnSelectAll" class="themed-button">Select All</button>
-          <button id="btnDeselectAll" class="themed-button">Deselect All</button>
-        </div>
-        <div class="group"><strong id="selectedCountBadge" style="opacity:.8">0 selected / 0 total</strong></div>
-      </div>
-      <div class="tk-actions">
-        <button id="btnClosePanel" class="themed-button">Close ✕</button>
-        <span class="spacer"></span>
-        <button id="beginSurveyFromPanel" class="themed-button">Start Survey</button>
-      </div>
-      <div id="${LIST_ID}" aria-live="polite" aria-busy="true"></div>
-    `;
-    // close behavior keeps the layout but hides the card, if you need it
-    card.querySelector('#btnClosePanel').onclick = ()=>{ card.style.display='none'; };
+  // ---- ensure panel is above everything (no extra overlay)
+  const dock =
+    document.getElementById('tkDockCard') ||
+    host.closest('#tkDockCard') ||
+    host.closest('[id^="tkDock"]') ||
+    host;
+
+  Object.assign(dock.style, {
+    position: 'fixed',
+    left: '0',
+    top: '0',
+    bottom: '0',
+    width: '75vw',
+    maxWidth: '1100px',
+    zIndex: 2147483646,
+    background: '#000',
+    borderRight: '2px solid #00e0e0',
+    overflow: 'hidden'
+  });
+
+  const scroller = host.parentElement || dock;
+  scroller.style.overflow = 'auto';
+  scroller.style.height = '100%';
+
+  // kill any site “portal/overlay” that might sit on top
+  document
+    .querySelectorAll('.tk-portal-overlay, .tkPortalOverlay, [data-tk-overlay]')
+    .forEach(el => (el.style.display = 'none'));
+
+  // ---- host layout
+  Object.assign(host.style, {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: '12px',
+    padding: '16px 20px 24px',
+    boxSizing: 'border-box'
+  });
+
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  function getCheckedIds() {
+    return $$('input[type="checkbox"]:checked', host).map(n => n.value);
   }
 
-  async function getKinks(){
-    // prefer already loaded data if present
-    if (Array.isArray(window.__TK_KINK_DATA) && window.__TK_KINK_DATA.length) return window.__TK_KINK_DATA;
-    try{
-      const url = window.__TK_KINKS_URL || '/data/kinks.json';
-      const r = await fetch(url, {cache:'no-store'});
-      const j = await r.json();
-      return Array.isArray(j)? j : (j.items||[]);
-    }catch(e){ console.warn('[TK] no kink data', e); return []; }
-  }
-
-  function getSelected(list){
-    return Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-  }
-
-  function updateBadge(list){
-    const badge = document.getElementById('selectedCountBadge');
-    if (!badge) return;
-    const total    = list.querySelectorAll('input[type="checkbox"]').length;
-    const selected = list.querySelectorAll('input[type="checkbox"]:checked').length;
-    badge.textContent = `${selected} selected / ${total} total`;
-  }
-
-  function persist(list){
-    const ids = getSelected(list);
-    try { localStorage.setItem(KEY, JSON.stringify(ids)); } catch {}
-    updateBadge(list);
-    return ids;
-  }
-
-  function restore(list){
+  function updateBadge() {
+    const total = $$('input[type="checkbox"]', host).length;
+    const selected = $$('input[type="checkbox"]:checked', host).length;
+    if (badge) badge.textContent = `${selected} selected / ${total} total`;
     try {
-      const saved = JSON.parse(localStorage.getItem(KEY) || '[]');
-      if (Array.isArray(saved)) {
-        const wanted = new Set(saved.map(String));
-        list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-          cb.checked = wanted.has(cb.value);
-        });
-      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(getCheckedIds()));
     } catch {}
   }
 
-  function renderChecklist(items){
-    const list = document.getElementById(LIST_ID);
-    if(!list) return;
-    list.innerHTML = '';
-    const frag = document.createDocumentFragment();
-    items.slice()
-         .sort((a,b)=> norm(a.name||a.label).localeCompare(norm(b.name||b.label), undefined,{sensitivity:'base'}))
-         .forEach(it=>{
-            const id = String(it.id ?? it.value ?? it.slug ?? it.name);
-            const lab = document.createElement('label');
-            const cb = document.createElement('input'); cb.type='checkbox'; cb.value = id;
-            const name = document.createElement('span'); name.className='tk-name'; name.textContent = it.name || it.label || id;
-            lab.append(cb, name);
-            frag.appendChild(lab);
-         });
-    list.appendChild(frag);
-    list.setAttribute('aria-busy','false');
+  function restore() {
+    let saved = [];
+    try {
+      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    } catch {}
 
-    restore(list);
-    wireSelectionCounters(list);
+    saved.forEach(v => {
+      const esc = window.CSS && CSS.escape ? CSS.escape(String(v)) : String(v).replace(/"/g, '\\"');
+      const cb = host.querySelector(`input[type="checkbox"][value="${esc}"]`);
+      if (cb) cb.checked = true;
+    });
+    updateBadge();
   }
 
-  function wireSelectionCounters(list){
-    list.addEventListener('change', () => { persist(list); }, {passive:true});
-    const selectAllBtn = document.getElementById('btnSelectAll');
-    const deselectBtn  = document.getElementById('btnDeselectAll');
-    if (selectAllBtn) selectAllBtn.onclick = ()=>{ list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true);  persist(list); };
-    if (deselectBtn)  deselectBtn.onclick  = ()=>{ list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false); persist(list); };
-    persist(list);
-  }
+  // ---- render built-in list
+  host.innerHTML = '';
+  const frag = document.createDocumentFragment();
 
-  async function init(){
-    const card = ensureChrome();
-    buildPanelSkeleton(card);
-    const data = await getKinks();
-    if (data.length) {
-      renderChecklist(data);
-      const list = document.getElementById(LIST_ID);
-      const start = document.getElementById('beginSurveyFromPanel');
-      if (start && list) {
-        start.onclick = () => {
-          const ids = persist(list);
-          document.dispatchEvent(new CustomEvent('tk:start-survey', { detail: { includeCategories: ids } }));
-          setTimeout(() => {
-            if (!window.__TK_SURVEY_STARTED) {
-              const u = new URL('/kinksurvey/', location.origin);
-              if (ids.length) u.searchParams.set('cats', ids.join(','));
-              u.searchParams.set('run','1');
-              location.assign(u.toString());
-            }
-          }, 120);
-        };
+  CATEGORIES.forEach(({ id, name }) => {
+    const row = document.createElement('label');
+    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid #2a2a2a;border-radius:12px;background:#0a0a0a;cursor:pointer;';
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = id;
+    cb.addEventListener('change', updateBadge);
+
+    const span = document.createElement('span');
+    span.textContent = name;
+
+    row.append(cb, span);
+    frag.append(row);
+  });
+
+  host.append(frag);
+  updateBadge();
+  restore();
+
+  // ---- buttons
+  btnSelAll?.addEventListener('click', () => {
+    $$('input[type="checkbox"]', host).forEach(cb => (cb.checked = true));
+    updateBadge();
+  });
+
+  btnDeselAll?.addEventListener('click', () => {
+    $$('input[type="checkbox"]', host).forEach(cb => (cb.checked = false));
+    updateBadge();
+  });
+
+  btnStart?.addEventListener('click', () => {
+    const ids = getCheckedIds();
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    } catch {}
+
+    document.dispatchEvent(
+      new CustomEvent('tk:start-survey', { detail: { includeCategories: ids } })
+    );
+
+    setTimeout(() => {
+      if (!window.__TK_SURVEY_STARTED) {
+        const url = new URL(FALLBACK_RUN_PATH, location.origin);
+        url.searchParams.set('run', '1');
+        if (ids.length) url.searchParams.set('cats', ids.join(','));
+        location.assign(url.toString());
       }
-    } else {
-      const list = document.getElementById(LIST_ID);
-      if (list) {
-        list.textContent = 'No categories available.';
-        list.setAttribute('aria-busy', 'false');
-      }
-    }
-  }
+    }, 120);
+  });
 
-  document.addEventListener('DOMContentLoaded', init);
+  console.log('[TK] Built-in panel wired with', CATEGORIES.length, 'categories.');
 })();
 </script>
+
 <!-- ==================================================================== -->
