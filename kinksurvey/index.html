@@ -118,6 +118,54 @@
     /* noop */
   }
 </script>
+<script>
+  (function neutralizeOverlays() {
+    const selectors = ['#tkOverlay', '.tk-overlay', '#tkScrim', '.tk-scrim', '.drawer-scrim'];
+
+    function hideOverlay(node) {
+      if (!(node instanceof Element)) return;
+      node.removeAttribute('data-open');
+      node.hidden = true;
+      try {
+        node.style.setProperty('display', 'none', 'important');
+        node.style.setProperty('pointer-events', 'none', 'important');
+        node.style.setProperty('opacity', '0', 'important');
+        node.style.setProperty('visibility', 'hidden', 'important');
+      } catch (err) {
+        /* noop */
+      }
+    }
+
+    function sweep(root = document) {
+      selectors.forEach(sel => {
+        root.querySelectorAll(sel).forEach(hideOverlay);
+      });
+    }
+
+    sweep();
+
+    const Observer = window.MutationObserver || window.WebKitMutationObserver;
+    if (!Observer) return;
+
+    const observer = new Observer(mutations => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach(node => {
+            if (node instanceof Element) {
+              hideOverlay(node);
+              selectors.forEach(sel => node.querySelectorAll(sel).forEach(hideOverlay));
+            }
+          });
+        }
+        if (mutation.target instanceof Element) {
+          selectors.forEach(sel => mutation.target.matches(sel) && hideOverlay(mutation.target));
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  })();
+</script>
 <!-- =============================================================== -->
 
 <!-- ✅ ONE DROP PATCH: stop “addEventListener of null” shim -->
