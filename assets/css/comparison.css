@@ -320,6 +320,7 @@ body[data-page="compat"] .cmp-actions .cta[disabled]{
     0 0 1px color-mix(in oklab, var(--accent) 40%, transparent),
     0 0 6px color-mix(in oklab, var(--accent) 40%, transparent);
 }
+
 body[data-page="compat"] .cmp-actions{
   gap: 36px;                  /* more breathing room between the stacked buttons */
   margin-top: 20px;
@@ -451,4 +452,103 @@ body[data-page="compat"] #btnExport[disabled]{
 @media (max-width: 520px){
   body[data-page="compat"] .tk-btn{ height: 52px; font-size:16px; }
   body[data-page="compat"] .tk-hero{ font-size: clamp(32px, 8vw, 44px); }
+}
+
+:root { --accent: #00e6e6; }
+
+body[data-page="compat"] {
+  background:#000; color:#fff;
+  font-family: var(--font, "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif);
+}
+
+body[data-page="compat"] .tk-landing{
+  display:flex; flex-direction:column; align-items:center;
+  gap: 36px; padding: 56px 20px 100px;
+}
+
+/* Title */
+body[data-page="compat"] .tk-title{
+  margin:0; text-align:center;
+  font-weight: 900;
+  font-size: clamp(36px, 5.8vw, 64px);
+  color:#fff;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 20px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+/* Stacked menu */
+body[data-page="compat"] .tk-menu{
+  width: 100%;
+  display:flex; flex-direction:column; align-items:center;
+  gap: 28px;  /* spacing like screenshot */
+}
+
+/* Core button (glowing teal outline) */
+body[data-page="compat"] .tk-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width: min(880px, 84vw);
+  height: 82px;
+  padding: 14px 18px;
+  border-radius: 22px;
+  font-size: clamp(18px, 2.1vw, 28px);
+  font-weight: 800;
+  letter-spacing:.2px;
+  color:#eaffff;
+  background:#0e1419;
+  text-decoration:none;
+  border: 3px solid var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.55) inset,
+    0 0 34px color-mix(in oklab, var(--accent) 80%, transparent),
+    0 0 68px color-mix(in oklab, var(--accent) 40%, transparent);
+  text-shadow:
+    0 0 2px color-mix(in oklab, var(--accent) 55%, transparent),
+    0 0 12px color-mix(in oklab, var(--accent) 80%, transparent);
+  transition: transform .16s ease, box-shadow .18s ease, background .18s ease, color .18s ease;
+}
+
+@media (prefers-reduced-motion: no-preference){
+  body[data-page="compat"] .tk-btn:hover:not([disabled]),
+  body[data-page="compat"] .tk-btn:focus-visible:not([disabled]){
+    transform: translateY(-2px);
+    background:#0b1216;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.55) inset,
+      0 0 46px color-mix(in oklab, var(--accent) 92%, transparent),
+      0 0 90px color-mix(in oklab, var(--accent) 55%, transparent);
+    animation: tkPulse .9s ease-out 1;
+  }
+  @keyframes tkPulse {
+    0% { box-shadow: 0 0 0 1px rgba(0,0,0,.55) inset, 0 0 0 var(--accent), 0 0 0 var(--accent); }
+    100%{
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,.55) inset,
+        0 0 46px color-mix(in oklab, var(--accent) 92%, transparent),
+        0 0 110px color-mix(in oklab, var(--accent) 55%, transparent);
+    }
+  }
+}
+
+/* Disabled PDF keeps faint glow but muted label */
+body[data-page="compat"] #btnExport[disabled]{
+  opacity:.75; cursor:not-allowed;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.5) inset,
+    0 0 16px color-mix(in oklab, var(--accent) 40%, transparent);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--accent) 40%, transparent),
+    0 0 6px color-mix(in oklab, var(--accent) 40%, transparent);
+}
+
+/* Back button: smaller, centered under stack */
+body[data-page="compat"] .tk-btn.back{
+  width: min(460px, 70vw);
+  height: 84px; /* matches your screenshot’s visual weight */
+}
+
+/* Mobile sizing */
+@media (max-width: 560px){
+  body[data-page="compat"] .tk-btn { height: 68px; border-width: 2px; }
+  body[data-page="compat"] .tk-btn.back { height: 68px; }
 }
