@@ -1,0 +1,194 @@
+<!-- Talk-Kink survey: inline category selector (no overlay) -->
+<script>
+(() => {
+  // ===== INLINE CATEGORY SURVEY (no overlay) =====
+  const FLAG = "__TK_INLINE_SURVEY__";
+  if (window[FLAG]) { console.log("Inline survey already injected."); return; }
+  window[FLAG] = true;
+
+  /* 1) Kill overlays & unlock scroll (just in case any are still around) */
+  const nuke = () => {
+    const picks = [
+      "#tkPortal","#tkDockPortal","#tkDockCard","#tkDevOverlay","[data-tk-overlay]",
+      ".cdk-overlay-container",".ReactModalPortal",".overlay",".backdrop",
+      '[aria-modal="true"]','[role="dialog"]'
+    ];
+    document.querySelectorAll(picks.join(",")).forEach(n=>{ try { n.remove(); } catch{} });
+    for (const n of [document.documentElement, document.body]) {
+      n.style.overflow = ""; n.classList.remove("modal-open","no-scroll","lock","overflow-hidden");
+    }
+  };
+  nuke();
+
+  /* 2) Create an inline container in the main document flow */
+  const wrap = document.createElement("section");
+  wrap.id = "tkInlineSurvey";
+  wrap.innerHTML = `
+    <div class="tk-inline-box">
+      <header class="tk-inline-header">
+        <h2>Select categories</h2>
+        <div class="tk-inline-cta">
+          <button id="tkSelAll" class="tk-btn">Select All</button>
+          <button id="tkDesAll" class="tk-btn">Deselect All</button>
+          <span id="tkBadge" class="tk-badge">0 selected / 0 total</span>
+        </div>
+      </header>
+      <div id="tkGrid" class="tk-grid" aria-live="polite"></div>
+      <footer class="tk-inline-footer">
+        <button id="tkStart" class="tk-btn tk-primary">Start Survey</button>
+      </footer>
+    </div>
+  `;
+  // Insert high on the page (but in normal flow)
+  const anchor = document.querySelector("main, #main, .page, body");
+  (anchor || document.body).prepend(wrap);
+
+  /* 3) Styles for the “highlighted box” (cyan border, no overlay) */
+  const css = `
+    #tkInlineSurvey { display:block; margin: 24px auto; max-width: 1100px; padding: 0 12px; }
+    .tk-inline-box{
+      border:2px solid #11d9e2; border-radius:14px; padding:22px;
+      background: rgba(0,0,0,0.75);
+      box-shadow: 0 0 0 1px rgba(17,217,226,.3), 0 8px 30px rgba(0,0,0,.35);
+    }
+    .tk-inline-header{ display:flex; flex-wrap:wrap; align-items:center; gap:16px; justify-content:space-between; }
+    .tk-inline-header h2{ margin:0; font-size:22px; color:#11d9e2; letter-spacing:.3px; }
+    .tk-inline-cta{ display:flex; align-items:center; gap:12px; }
+    .tk-badge{ opacity:.85; font-size:14px; }
+    .tk-grid{
+      display:grid; grid-template-columns: repeat(2,minmax(0,1fr));
+      gap:12px; margin-top:16px;
+    }
+    @media (max-width: 820px){ .tk-grid{ grid-template-columns: 1fr; } }
+    .tk-row{
+      display:flex; align-items:center; gap:12px; padding:12px 14px;
+      border:1px solid #2a2a2a; border-radius:12px; background:#0a0a0a;
+    }
+    .tk-row input{ width:18px; height:18px; }
+    .tk-row span{ line-height:1.2 }
+    .tk-inline-footer{ display:flex; justify-content:flex-start; margin-top:18px; }
+    .tk-btn{
+      appearance:none; border:1px solid #11d9e2; background:#0b0b0b; color:#fff;
+      padding:10px 16px; border-radius:12px; font-weight:700; cursor:pointer;
+      transition:transform .06s ease, box-shadow .06s ease;
+    }
+    .tk-btn:hover{ transform:translateY(-1px); box-shadow:0 4px 14px rgba(17,217,226,.2); }
+    .tk-primary{ box-shadow: inset 0 0 0 1px rgba(17,217,226,.4); }
+  `;
+  const style = document.createElement("style");
+  style.textContent = css;
+  document.head.append(style);
+
+  /* 4) Data helpers */
+  const STORAGE_KEY = "__TK_SELECTED_CATEGORIES";
+  const DATA_URL = "/data/kinks.json";          // your data file
+  const badge = wrap.querySelector("#tkBadge");
+  const grid  = wrap.querySelector("#tkGrid");
+
+  const $all  = wrap.querySelector("#tkSelAll");
+  const $none = wrap.querySelector("#tkDesAll");
+  const $start= wrap.querySelector("#tkStart");
+
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  function setBadge(){
+    const total = $$('input[type="checkbox"]', grid).length;
+    const chosen = $$('input[type="checkbox"]:checked', grid).length;
+    badge.textContent = `${chosen} selected / ${total} total`;
+    try {
+      const vals = $$('input[type="checkbox"]:checked', grid).map(n=>n.value);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(vals));
+    } catch {}
+  }
+
+  function restore(){
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch {}
+    saved.forEach(v => {
+      const cb = grid.querySelector(`input[type="checkbox"][value="${CSS.escape(String(v))}"]`);
+      if (cb) cb.checked = true;
+    });
+    setBadge();
+  }
+
+  function normalize(json){
+    // Accepts either [{id,name}] or objects containing items/categories/* arrays
+    const findArr = (root) => {
+      if (!root) return null;
+      if (Array.isArray(root)) return root;
+      if (typeof root === "object") {
+        for (const key of ["items","categories","data","kinks","results","payload"]) {
+          if (Array.isArray(root[key])) return root[key];
+        }
+        for (const v of Object.values(root)) {
+          const hit = findArr(v); if (hit) return hit;
+        }
+      }
+      return null;
+    };
+    const arr = findArr(json) || [];
+    const out = arr.map((item, i) => ({
+      id: String(item?.id ?? item?.value ?? item?.slug ?? `cat-${i}`),
+      name: String(item?.name ?? item?.label ?? item?.title ?? item?.slug ?? `Item ${i+1}`)
+    }));
+    out.sort((a,b)=>a.name.localeCompare(b.name));
+    return out;
+  }
+
+  async function loadCats(){
+    if (Array.isArray(window.__TK_KINK_DATA) && window.__TK_KINK_DATA.length) {
+      return window.__TK_KINK_DATA;
+    }
+    const res = await fetch(`${DATA_URL}?v=${Date.now()}`, {cache:"no-store"});
+    const json = await res.json();
+    const items = normalize(json);
+    window.__TK_KINK_DATA = items;
+    return items;
+  }
+
+  function render(items){
+    grid.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    items.forEach(({id,name})=>{
+      const row = document.createElement("label");
+      row.className = "tk-row";
+      const cb = document.createElement("input");
+      cb.type="checkbox"; cb.value=id;
+      cb.addEventListener("change", setBadge);
+      const span = document.createElement("span");
+      span.textContent = name;
+      row.append(cb, span);
+      frag.append(row);
+    });
+    grid.append(frag);
+    setBadge();
+    restore();
+  }
+
+  /* 5) Controls */
+  $all.addEventListener("click", ()=>{
+    $$('input[type="checkbox"]', grid).forEach(n=>n.checked=true);
+    setBadge();
+  });
+  $none.addEventListener("click", ()=>{
+    $$('input[type="checkbox"]', grid).forEach(n=>n.checked=false);
+    setBadge();
+  });
+  $start.addEventListener("click", ()=>{
+    const chosen = $$('input[type="checkbox"]:checked', grid).map(n=>n.value);
+    console.log("Start Survey with categories:", chosen);
+    alert(`Starting survey with ${chosen.length} categories.`);
+    // TODO: navigate or kick off your existing survey flow here
+  });
+
+  /* 6) Go */
+  loadCats()
+    .then(items => render(items))
+    .catch(err => {
+      console.error("Failed to load categories:", err);
+      grid.innerHTML = `<div style="opacity:.8">Could not load categories from <code>${DATA_URL}</code>.</div>`;
+    });
+
+  console.log("Inline category survey injected.");
+})();
+</script>
