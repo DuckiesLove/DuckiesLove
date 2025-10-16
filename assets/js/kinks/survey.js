@@ -22,13 +22,32 @@
     });
   }
 
-  fetch(DATA_URL)
-    .then((response) => {
-      if (!response.ok) throw new Error(`Failed to load data (${response.status})`);
-      return response.json();
-    })
-    .then((json) => {
-      dataset = normalizeData(json);
+  const mainContainer = document.querySelector('#main');
+
+  async function fetchDataset() {
+    const response = await fetch(DATA_URL, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Failed to load data (${response.status})`);
+    }
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType && !/json/i.test(contentType)) {
+      throw new Error(`Unexpected content-type: ${contentType}`);
+    }
+
+    const json = await response.json();
+    const normalized = normalizeData(json);
+    if (!Array.isArray(normalized?.categories) || !normalized.categories.length) {
+      throw new Error('Kink data is empty or invalid');
+    }
+    if (!Array.isArray(normalized?.items) || !normalized.items.length) {
+      throw new Error('Kink data is empty or invalid');
+    }
+    return normalized;
+  }
+
+  async function init() {
+    try {
+      dataset = await fetchDataset();
       if (!selectedItems.size) {
         selectedItems = new Set(dataset.items.map((item) => item.id));
         persistSelection();
@@ -43,14 +62,17 @@
       buildQuestions();
       paint();
       updateProgress();
-    })
-    .catch((error) => {
+    } catch (error) {
       console.error('[TalkKink] Failed to boot survey', error);
       const card = $('#questionCard');
-      if (card) {
-        card.innerHTML = '<p role="alert">We could not load the survey data.</p>';
+      const target = card || mainContainer;
+      if (target) {
+        target.innerHTML = "<p role=\"alert\" style=\"color:white;\">Failed to load kink data. Please try again later.</p>";
       }
-    });
+    }
+  }
+
+  init();
 
   function normalizeData(json) {
     allItemIds = new Set();
