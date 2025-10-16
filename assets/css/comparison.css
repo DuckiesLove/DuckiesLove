@@ -666,3 +666,18 @@ body[data-page="compat"] .tk-btn.back{
   body[data-page="compat"] .tk-btn{ height: 60px; font-size: 16px; }
   body[data-page="compat"] .tk-title{ font-size: clamp(34px, 8vw, 48px); }
 }
+
+/* Align button sizing with the landing page pill buttons */
+body[data-page="compat"] .tk-menu .tk-btn,
+body[data-page="compat"] .tk-btn.back {
+  width: min(260px, 80vw);
+  height: auto;
+  padding: 0.75rem 1.5rem;
+  border-width: 2px;
+  border-radius: 10px;
+  font-size: 1rem;
+}
+
+body[data-page="compat"] .tk-menu .tk-btn {
+  font-weight: 700;
+}
