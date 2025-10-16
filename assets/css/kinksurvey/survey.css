@@ -1,19 +1,33 @@
 :root{
   --gap:14px; --radius:10px;
-  --panel-w: 360px;             /* left panel width */
+  --panel-w: 360px;       /* left panel width */
+  --gutter: 24px;         /* space between panel and content */
   --accent:#4da3ff;
-  --bg:#111; --fg:#eef3f9;      /* slightly brighter text for readability */
-  --panel:#0f0f11; --border:#222;
+  --bg:#111; --fg:#eef3f9; --panel:#0f0f11; --border:#222;
 }
 
 html.theme-dark { color-scheme: dark; }
 html, body { background: var(--bg); color: var(--fg); }
 body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
 
-#tkHeader{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:16px 20px;border-bottom:1px solid var(--border);
-  position:sticky;top:0;background:var(--bg);z-index:50
+.header-grid{
+  display:grid;
+  grid-template-columns: calc(var(--panel-w) + var(--gutter)) 1fr auto;
+  align-items:center;
+  gap:12px;
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:50; background:var(--bg);
+}
+.header-spacer{min-height:1px}
+#pageTitle{
+  margin:0; text-align:center; font-size:28px; letter-spacing:.3px;
+}
+.glow-title{
+  color:var(--fg);
+  text-shadow:
+    0 1px 0 #000,
+    0 0 10px color-mix(in oklab, var(--accent) 70%, transparent);
 }
 
 .theme-controls{display:flex;gap:16px;align-items:center}
@@ -27,7 +41,7 @@ body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
   background:#121820;
 }
 
-h1,h2,h3,#compatText,#progressPct,.theme-btn.is-active,
+h2,h3,#progressPct,.theme-btn.is-active,
 #roleTabs [aria-selected="true"], .scoreRow button[aria-pressed="true"]{
   color: var(--fg);
   text-shadow:
@@ -48,12 +62,8 @@ h1,h2,h3,#compatText,#progressPct,.theme-btn.is-active,
 #categoryChecklist .cat{margin-bottom:8px}
 #categoryChecklist .item{display:flex;align-items:center;gap:8px;margin:3px 0}
 
-#surveyApp{
-  margin-left: calc(var(--panel-w) + 24px);
-  padding:20px;
-  min-width: 620px;
-}
-#controls{display:flex;justify-content:space-between;align-items:center;gap:calc(var(--gap)*.9);flex-wrap:wrap}
+#surveyApp{ margin-left: calc(var(--panel-w) + var(--gutter)); padding:20px; }
+#controls{display:flex;justify-content:flex-start;align-items:center;}
 #ndProgress{flex:1;min-width:280px}
 #progressBar{height:14px;border:1px solid var(--border);border-radius:999px;position:relative}
 #progressBar::before{
@@ -75,47 +85,51 @@ h1,h2,h3,#compatText,#progressPct,.theme-btn.is-active,
 
 #questionCard{border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--panel)}
 #questionPath{font-size:12px;opacity:.7}
-#ratingRow{
-  display:grid;
-  grid-template-columns: 1fr minmax(240px, 320px) 1fr;
-  gap:12px; align-items:center; margin:16px 0;
-}
+#ratingRow.single{ display:flex; align-items:center; justify-content:flex-start; gap:16px; }
+#ratingRow.single .col{ max-width:540px; }
 .col{display:flex;flex-direction:column;gap:6px}
-.col.center{align-items:center;justify-content:center}
 .scoreRow{display:flex;gap:5px;flex-wrap:wrap}
 .scoreRow button{min-width:34px;padding:6px 8px;border:1px solid var(--border);background:#181818;border-radius:8px;cursor:pointer}
-.compatWrap{display:flex;flex-direction:column;gap:6px;align-items:center}
-.compatBar{
-  width:100%; max-width:260px; height:26px;
-  border:1px solid var(--border); border-radius:8px; position:relative;
-  background:#000; box-shadow:0 0 12px rgba(0,0,0,.35);
+.scoreRow button[aria-pressed="true"]{
+  outline:2px solid var(--accent);
+  box-shadow:0 0 10px var(--accent);
 }
-.compatBar::before{
-  content:""; position:absolute; left:0; top:0; bottom:0; width:var(--w,0%);
-  background:linear-gradient(90deg, var(--accent), #cfe9ff);
-  border-radius:8px; transition:width .3s ease;
+
+/* CTA stack */
+.cta-stack{
+  margin:14px calc(20px) 8px calc(var(--panel-w) + var(--gutter) + 20px);
+  display:flex; flex-direction:column; gap:8px; max-width:420px;
 }
-#compatText{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;letter-spacing:.3px;
+.cta{
+  display:block; text-align:center;
+  padding:10px 14px; border-radius:12px; border:1px solid var(--border);
+  background:#141a21; color:var(--fg); text-decoration:none; cursor:pointer;
+  box-shadow:0 0 10px color-mix(in oklab, var(--accent) 25%, transparent);
 }
-#flagRow{text-align:center;font-size:18px}
+.cta.primary{
+  outline:2px solid var(--accent);
+  box-shadow:0 0 14px color-mix(in oklab, var(--accent) 45%, transparent);
+  background:#111923; font-weight:700;
+}
+
+/* Hide any legacy compat/UI bits if still present */
+.compatWrap, #compatBar, #compatText, #flagRow { display:none !important; }
 
 /* Accent-aware themes */
 html.theme-lipstick { --bg:#12010f; --fg:#ffe8f2; --panel:#1a0a16; --border:#2a1522; --accent:#ff4da3; }
 html.theme-forest  { --bg:#0d140f; --fg:#e7ffe7; --panel:#0c120e;  --border:#193d25; --accent:#3ad07c; }
 html.theme-azure   { --bg:#0b1016; --fg:#eaf4ff; --panel:#0a0f14;  --border:#142331; --accent:#4da3ff; }
-#navRow{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
-#navRow .nav-right{display:flex;gap:8px}
+#navRow{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px}
 .muted{opacity:.7}
 
 /* Hide ANY straggler overlay DOM that somehow slips in */
 #tkPortal,.tk-overlay,.tk-drawer,.tk-panel,.portal-overlay{display:none !important}
 
-/* Responsive guard: if screen gets narrow, shrink panel a bit */
-@media (max-width: 1200px){
+/* Responsive guard */
+@media (max-width: 1100px){
   :root{ --panel-w: 320px; }
 }
-@media (max-width: 1000px){
+@media (max-width: 960px){
   :root{ --panel-w: 300px; }
 }
 
