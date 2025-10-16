@@ -47,3 +47,57 @@
 .dropzone.is-drag{ background:#0c1520; box-shadow:0 0 16px color-mix(in oklab, var(--accent) 55%, transparent); }
 
 @media (max-width: 860px){ .cmp-wrap{ max-width:100%; } }
+
+/* === Compatibility page ONLY overrides === */
+body[data-page="compat"] .cmp-actions{
+  /* stacked vertical buttons centered under the title */
+  margin: 16px 0 6px;
+  display: flex;
+  flex-direction: column;       /* stack */
+  align-items: center;
+  gap: 14px;
+}
+
+body[data-page="compat"] .cta,
+body[data-page="compat"] .file-btn{
+  width: min(92vw, 560px);      /* wide pills, responsive */
+  height: 48px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: #121821;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  outline: 2px solid color-mix(in oklab, var(--accent) 65%, transparent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 18px color-mix(in oklab, var(--accent) 55%, transparent);
+  text-decoration: none;
+  font-size: 16px;
+  letter-spacing: .2px;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+
+body[data-page="compat"] .cta.primary,
+body[data-page="compat"] .file-btn.cta.primary{
+  font-weight: 700;
+  outline-color: var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 22px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+body[data-page="compat"] .cta:hover,
+body[data-page="compat"] .file-btn:hover,
+body[data-page="compat"] .cta:focus-visible,
+body[data-page="compat"] .file-btn:focus-visible{
+  transform: translateY(-1px);
+  background:#0f1620;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 26px color-mix(in oklab, var(--accent) 75%, transparent);
+}
+
+body[data-page="compat"] .cta[disabled]{ opacity:.55; cursor:not-allowed; box-shadow:none; transform:none; }
+
+/* Hide any leftover dropzone styles if the node still exists by cache */
+body[data-page="compat"] .dropzone{ display:none !important; }
