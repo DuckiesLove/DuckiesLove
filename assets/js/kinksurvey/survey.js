@@ -8,9 +8,8 @@
   let progressStats = { total:0, answered:0, answeredA:0, answeredB:0, pct:0 };
   let exportRows = [];
 
-  // ---- Theme / Accent handling ----
+  // ---- Theme handling ----
   const THEME_KEY  = '__TK_THEME';
-  const ACCENT_KEY = '__TK_ACCENT';
 
   function applyTheme(t){
     if(!t) return;
@@ -19,22 +18,13 @@
     // visual active state
     $$('#themeControls .theme-btn').forEach(b=>b.classList.toggle('is-active', b.dataset.theme===t));
   }
-  function applyAccent(hex){
-    if(!hex) return;
-    document.documentElement.style.setProperty('--accent', hex);
-    localStorage.setItem(ACCENT_KEY, hex);
-  }
-
   // restore saved settings
   applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
-  applyAccent(localStorage.getItem(ACCENT_KEY) || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim());
 
   // click handlers
   $('#themeControls')?.addEventListener('click', (e)=>{
     const t = e.target?.dataset?.theme;
-    const a = e.target?.dataset?.accent;
     if(t){ applyTheme(t); }
-    if(a){ applyAccent(a); }
   });
 
   const progressBar = $('#progressBar');
