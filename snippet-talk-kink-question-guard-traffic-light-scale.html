@@ -1,15 +1,15 @@
-<!-- TalkKink — Question Glow + Question Guard + Traffic-Light Scale -->
+<!-- TalkKink — Glow Card + Question Guard + Traffic-Light Legend + 0–5 Chips -->
 <script>
 /* ===========================================================
-   TalkKink — Question Glow + Question Guard + Traffic-Light Scale
-   Drop this once into your site JS (Codex). No DevTools required.
+   TalkKink — Glow Card + Question Guard + Traffic-Light Legend + 0–5 Chips
+   Drop once into Codex. Enhances the existing question card only.
    =========================================================== */
 (function () {
   // ---------- 1) CSS (once) ----------
-  if (!document.getElementById('tkGuardCSS')) {
+  if (!document.getElementById('tkQGuardCSS')) {
     const style = document.createElement('style');
-    style.id = 'tkGuardCSS';
-    style.textContent = /*css*/`
+    style.id = 'tkQGuardCSS';
+    style.textContent = `
       /* Glow around the EXISTING question card */
       .tk-question-card {
         position: relative;
@@ -45,12 +45,21 @@
         color: #cfe6ff;
         opacity: .95;
       }
-      .tk-guard .tk-guard-grid {
-        display: grid;
-        grid-template-columns: 1.1fr 1.1fr;
-        gap: 10px 14px;
+
+      .tk-legend-box {
         margin-top: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #0c1420;
+        border: 1px solid rgba(120,200,255,.22);
+        box-shadow: 0 0 0 1px rgba(120,200,255,.16) inset, 0 0 12px rgba(50,170,255,.22);
       }
+      .tk-legend {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 10px 14px;
+      }
+
       .tk-pill {
         display: flex; align-items: center; gap: 8px;
         padding: 8px 12px; border-radius: 999px;
@@ -65,21 +74,7 @@
       .tk-grey .tk-dot   { color:#9aa7b1; background:#9aa7b1; }
       .tk-blue .tk-dot   { color:#53c0ff; background:#53c0ff; }
 
-      .tk-legend-box {
-        margin-top: 12px;
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: #0c1420;
-        border: 1px solid rgba(120,200,255,.22);
-        box-shadow: 0 0 0 1px rgba(120,200,255,.16) inset, 0 0 12px rgba(50,170,255,.22);
-      }
-      .tk-legend {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(220px, 1fr));
-        gap: 10px 14px;
-      }
-
-      /* 0–5 chips */
+      /* Chips */
       .tk-chip-row { display:flex; gap:10px; margin:8px 0 6px; }
       .tk-chip {
         display:inline-flex; align-items:center; justify-content:center;
@@ -98,85 +93,120 @@
         background:#111a24; border-color:rgba(120,200,255,.42);
         box-shadow: 0 0 14px rgba(80,170,255,.28) inset, 0 0 18px rgba(50,170,255,.38);
       }
+
+      /* Tighten the rating label + chips spacing */
+      .tk-chip-anchor { margin-top: 6px; }
     `;
     document.head.appendChild(style);
   }
 
-  // ---------- 2) Find current question + enhance ----------
-  function enhance() {
-    // Find something reliable in your question block
-    const rateLabel = Array.from(document.querySelectorAll('*'))
-      .find(n => /Rate\s*interest\/comfort\s*\(0–?5\)/i.test(n.textContent || ''));
+  // ---------- 2) Utilities ----------
+  const findTextNodeEl = (re) =>
+    Array.from(document.querySelectorAll('*')).find(n => re.test(n.textContent || ''));
 
-    if (!rateLabel) return;
-
-    // The existing card element to glow
-    const card = rateLabel.closest('div');
-    if (!card) return;
-    card.classList.add('tk-question-card');
-
-    // Insert the Question Guard once per card
-    if (!card.querySelector('.tk-guard')) {
-      const guard = document.createElement('div');
-      guard.className = 'tk-guard';
-      guard.innerHTML = `
-        <h4>Question Guard: How to use this scale</h4>
-        <p><strong>Soft Limit</strong> (yellow): You might do it with conditions—more caution, slower pace, explicit check-ins, and an easy out.</p>
-        <p><strong>Willing to Try</strong> (blue): You’re open and curious. You still want boundaries and consent steps, but there’s a gentle green-ish light to experiment.</p>
-        <div class="tk-legend-box">
-          <div class="tk-legend">
-            <div class="tk-pill tk-red"><span class="tk-dot"></span><strong>Hard Limit</strong> — full stop</div>
-            <div class="tk-pill tk-yellow"><span class="tk-dot"></span><strong>Soft Limit</strong> — yellow light, go slow & check-in</div>
-            <div class="tk-pill tk-grey"><span class="tk-dot"></span><strong>Not Interested</strong> — no thanks</div>
-            <div class="tk-pill tk-blue"><span class="tk-dot"></span><strong>Willing to Try</strong> — curious with care</div>
-          </div>
-        </div>
-      `;
-      // Put the guard near the top of the card (just under the section title if present)
-      const firstPara = card.firstElementChild?.nextElementSibling || card.firstElementChild;
-      (firstPara || card).insertAdjacentElement('afterend', guard);
-    }
-
-    // Build glowing chips if not present
-    const wrapper = rateLabel.parentElement;
-    if (wrapper && !wrapper.querySelector('.tk-chip-row')) {
-      // Find existing 0–5 buttons if they exist
-      let btns = Array.from(wrapper.querySelectorAll('button, .btn, [role="button"]'))
-        .filter(b => /^\s*[0-5]\s*$/.test(b.textContent || ''));
-
-      // Create canonical 0–5 if none found
-      if (btns.length === 0) {
-        btns = Array.from({ length: 6 }, (_, i) => {
-          const b = document.createElement('button');
-          b.type = 'button'; b.textContent = String(i); b.dataset.tkValue = String(i);
-          return b;
-        });
+  // Locates the question card wrapper to glow
+  function findQuestionCard(anchor) {
+    if (!anchor) return null;
+    // climb a few levels to the big content container (page markup varies per theme)
+    let el = anchor;
+    for (let i = 0; i < 6 && el; i++) {
+      // choose the first ancestor that looks like the question body area (has buttons etc.)
+      if (el.querySelector && (el.querySelector('button') || el.querySelector('[role="button"]'))) {
+        return el;
       }
-
-      const row = document.createElement('div');
-      row.className = 'tk-chip-row';
-
-      btns.forEach(btn => {
-        const value = (btn.dataset?.tkValue ?? btn.textContent ?? '').trim();
-        const chip = document.createElement('div');
-        chip.className = 'tk-chip';
-        chip.textContent = value;
-        if (value === '0') chip.title = '0 — brain did a cartwheel; skipped this one';
-
-        chip.addEventListener('click', () => {
-          row.querySelectorAll('.tk-chip').forEach(c => c.classList.remove('is-active'));
-          chip.classList.add('is-active');
-          // Sync underlying control if it exists
-          if (btn.click) btn.click();
-        });
-        row.appendChild(chip);
-      });
-
-      rateLabel.insertAdjacentElement('afterend', row);
+      el = el.parentElement;
     }
+    return anchor.parentElement || anchor;
   }
 
-  // Run now and on changes (Next/Back)
+  // Make guard box HTML
+  function buildGuardBox() {
+    const wrap = document.createElement('div');
+    wrap.className = 'tk-guard';
+    wrap.innerHTML = `
+      <h4>Question Guard: How to use this scale</h4>
+      <p><strong>Soft Limit</strong> (yellow): You might do it with conditions — slower pace, explicit check-ins, and an easy out.</p>
+      <p><strong>Willing to Try</strong> (blue): You’re open and curious. Boundaries and consent steps still apply; it’s a gentle “let’s explore”.</p>
+      <div class="tk-legend-box">
+        <div class="tk-legend">
+          <div class="tk-pill tk-red"><span class="tk-dot"></span><strong>Hard Limit</strong> — full stop</div>
+          <div class="tk-pill tk-yellow"><span class="tk-dot"></span><strong>Soft Limit</strong> — yellow light; go slow & check-in</div>
+          <div class="tk-pill tk-grey"><span class="tk-dot"></span><strong>Not Interested</strong> — no thanks</div>
+          <div class="tk-pill tk-blue"><span class="tk-dot"></span><strong>Willing to Try</strong> — curious with care</div>
+        </div>
+        <div style="margin-top:10px;color:#aacdf3;">Tip: <strong>0</strong> = my brain did a cartwheel; I skipped this one 😅</div>
+      </div>
+    `;
+    return wrap;
+  }
+
+  // Build 0–5 chips and sync underlying controls if present
+  function ensureChips(rateLabelEl) {
+    if (!rateLabelEl) return;
+    const container = rateLabelEl.parentElement;
+    if (!container || container.querySelector('.tk-chip-row')) return;
+
+    // Find existing numeric buttons (0–5) if present
+    let nativeBtns = Array.from(container.querySelectorAll('button, .btn, [role="button"]'))
+      .filter(b => /^\s*[0-5]\s*$/.test(b.textContent || ''));
+
+    // If the layout isn’t using native numeric buttons, we still render our chips
+    if (nativeBtns.length === 0) {
+      nativeBtns = Array.from({ length: 6 }, (_, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = String(i);
+        b.dataset.tkValue = String(i);
+        return b;
+      });
+    }
+
+    const row = document.createElement('div');
+    row.className = 'tk-chip-row tk-chip-anchor';
+
+    nativeBtns.forEach(btn => {
+      const value = (btn.dataset?.tkValue ?? btn.textContent ?? '').trim();
+      const chip = document.createElement('div');
+      chip.className = 'tk-chip';
+      chip.textContent = value;
+      if (value === '0') chip.title = '0 — brain did a cartwheel; skipped this one 😅';
+      chip.addEventListener('click', () => {
+        row.querySelectorAll('.tk-chip').forEach(c => c.classList.remove('is-active'));
+        chip.classList.add('is-active');
+        // Reflect into underlying control if it exists
+        if (btn.click) btn.click();
+      });
+      row.appendChild(chip);
+    });
+
+    rateLabelEl.insertAdjacentElement('afterend', row);
+  }
+
+  // ---------- 3) Enhance current screen ----------
+  function enhance() {
+    // Flexible match for the label text (dash, parentheses variants)
+    const rateRe = /Rate\s*interest\s*\/\s*comfort\s*\(\s*0\s*[–-]?\s*5\s*\)/i;
+    const rateLabelEl = findTextNodeEl(rateRe);
+    if (!rateLabelEl) return;
+
+    // Glow the card
+    const card = findQuestionCard(rateLabelEl);
+    if (card && !card.classList.contains('tk-question-card')) {
+      card.classList.add('tk-question-card');
+    }
+
+    // Insert guard once per card
+    if (card && !card.querySelector('.tk-guard')) {
+      // slot the guard just above the rating line (keeps it close to the control)
+      const guard = buildGuardBox();
+      rateLabelEl.insertAdjacentElement('beforebegin', guard);
+    }
+
+    // Build chips
+    ensureChips(rateLabelEl);
+  }
+
+  // Run now and on DOM changes (Next/Back)
   enhance();
   const mo = new MutationObserver(() => {
     clearTimeout(mo._t);
