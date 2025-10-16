@@ -2630,37 +2630,86 @@ setTimeout(() => {
 
   function ensureZeroOption(sel) {
     const hasZero = Array.from(sel.options).some(o => (o.value || o.textContent).trim() === '0');
-    if (!hasZero) {
-      const opt = new Option('0', '0');
-      // Put "0" at top so it's visible as the default
-      sel.insertBefore(opt, sel.firstChild);
-    }
+    if (hasZero) return false;
+    const opt = new Option('0', '0');
+    // Put "0" at top so it's visible as the default
+    sel.insertBefore(opt, sel.firstChild);
+    return true;
   }
 
   function setSelectToZero(sel) {
-    ensureZeroOption(sel);
-    sel.value = '0';
-    // Fire a change so any computed UI updates
-    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    if (!sel || sel.dataset.tkZeroed === '1') return;
+
+    let changed = false;
+    const addedZero = ensureZeroOption(sel);
+    const options = Array.from(sel.options);
+    let desired = '0';
+
+    if (!options.some(o => (o.value || o.textContent).trim() === '0')) {
+      let min = { value: Infinity, raw: null };
+      for (const o of options) {
+        const raw = (o.value ?? o.textContent).trim();
+        const n = Number(raw);
+        if (Number.isFinite(n) && n < min.value) {
+          min = { value: n, raw: String(n) };
+        }
+      }
+      if (min.raw != null) {
+        desired = min.raw;
+      } else {
+        desired = sel.value;
+      }
+    }
+
+    if (sel.value !== desired) {
+      sel.value = desired;
+      changed = true;
+    }
+
+    sel.dataset.tkZeroed = '1';
+
+    if (changed || addedZero) {
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   }
 
   function setNumberInputToZero(inp) {
+    if (!inp || inp.dataset.tkZeroed === '1') return;
+
     // Make sure 0 is allowed
     const min = Number(inp.min);
-    if (Number.isFinite(min) && min > 0) inp.min = '0';
+    if (Number.isFinite(min) && min > 0) {
+      inp.min = '0';
+    }
     if (!inp.step) inp.step = '1';
-    inp.value = '0';
-    inp.dispatchEvent(new Event('input', { bubbles: true }));
-    inp.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const desired = String(Number.isFinite(min) && min > 0 ? min : 0);
+    const previous = inp.value;
+    inp.value = desired;
+    inp.dataset.tkZeroed = '1';
+
+    if (previous !== desired) {
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      inp.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  function queryWithin(root, selector) {
+    const scope = (root && typeof root.querySelectorAll === 'function') ? root : document;
+    const nodes = new Set(scope.querySelectorAll(selector));
+    if (scope !== document && typeof scope.matches === 'function' && scope.matches(selector)) {
+      nodes.add(scope);
+    }
+    return Array.from(nodes);
   }
 
   function forceZeroRatings(root = document) {
     // 1) All likely rating <select>s
-    const selects = Array.from(root.querySelectorAll('select')).filter(isRatingSelect);
+    const selects = queryWithin(root, 'select:not([data-tk-zeroed])').filter(isRatingSelect);
     selects.forEach(setSelectToZero);
 
     // 2) Any numeric inputs used as ratings
-    const nums = root.querySelectorAll('input[type="number"], input[type="range"]');
+    const nums = queryWithin(root, 'input[type="number"]:not([data-tk-zeroed]), input[type="range"]:not([data-tk-zeroed])');
     nums.forEach(setNumberInputToZero);
   }
 
@@ -2681,11 +2730,23 @@ setTimeout(() => {
 
   // Also watch for dynamically added rows (e.g., when switching categories)
   const mo = new MutationObserver(muts => {
-    let touched = false;
+    const scopes = [];
     for (const m of muts) {
-      if (m.addedNodes && m.addedNodes.length) { touched = true; break; }
+      if (!m.addedNodes || !m.addedNodes.length) continue;
+      m.addedNodes.forEach(node => {
+        if (node && (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.DOCUMENT_FRAGMENT_NODE)) {
+          scopes.push(node);
+        }
+      });
     }
-    if (touched) forceZeroRatings(document);
+    if (!scopes.length) return;
+
+    mo.disconnect();
+    try {
+      scopes.forEach(scope => forceZeroRatings(scope));
+    } finally {
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
   });
   mo.observe(document.body, { childList: true, subtree: true });
 })();
