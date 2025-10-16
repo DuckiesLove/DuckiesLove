@@ -315,10 +315,20 @@
   async function safeJson(url) {
     try {
       const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch {
-      return null;
+      if (!res.ok) {
+        return { data: null, error: `HTTP ${res.status} ${res.statusText || ''}`.trim() };
+      }
+      const text = await res.text();
+      if (!text || !text.trim()) {
+        return { data: null, error: 'Empty response body' };
+      }
+      try {
+        return { data: JSON.parse(text), error: null };
+      } catch (err) {
+        return { data: null, error: `Invalid JSON (${err?.message || 'parse error'})` };
+      }
+    } catch (err) {
+      return { data: null, error: err?.message || 'Network error' };
     }
   }
 
@@ -329,11 +339,22 @@
       `/kinksurvey/data/kinks.json?v=${v}`,
       `data/kinks.json?v=${v}`
     ];
+    const errors = [];
     for (const u of urls) {
-      const j = await safeJson(u);
-      if (j) return j;
+      const { data, error } = await safeJson(u);
+      if (data) {
+        const summary = Array.isArray(data)
+          ? `${data.length} top-level entries`
+          : `object with ${Object.keys(data || {}).length} keys`;
+        console.log(`[TK DEBUG] Kinks data loaded from ${u} (${summary})`, data);
+        return { dataset: data, source: u, errors };
+      }
+      if (error) {
+        console.warn(`[TK WARNING] Kinks dataset fetch issue for ${u}: ${error}`);
+        errors.push(`${u}: ${error}`);
+      }
     }
-    return null;
+    return { dataset: null, source: null, errors };
   }
 
   const el = (id)=>document.getElementById(id);
@@ -460,6 +481,25 @@
     saveSelection(ids);
   }
   function showDiag(msg){ $diag.style.display='block'; $diag.textContent=msg; }
+  function showDatasetError(message){
+    const msg = message || 'Failed to load kink data. Check your internet or JSON file structure.';
+    showDiag(msg);
+    if ($status) $status.textContent = 'Dataset unavailable';
+    if ($panel){
+      $panel.innerHTML = '';
+      const notice = document.createElement('div');
+      notice.className = 'notice';
+      notice.style.margin = '0';
+      notice.textContent = msg;
+      $panel.appendChild(notice);
+      $panel.style.display = 'block';
+    }
+    if ($start){
+      $start.disabled = true;
+      $start.classList.add('tk-disabled');
+      $start.classList.remove('tk-pulse');
+    }
+  }
 
   /* ---------- per-category progress ---------- */
   function isAnswered(ctrl){
@@ -605,9 +645,20 @@
 
   /* ---------- boot ---------- */
   try{
-    const dataset = await loadKinksDataset();
-    if (!dataset) throw new Error('Dataset unavailable. Expected /data/kinks.json');
-    state.cats = normalize(dataset);
+    const info = await loadKinksDataset();
+    if (!info.dataset) {
+      const errMsg = info.errors?.length ? info.errors.join(' | ') : 'Dataset unavailable. Expected /data/kinks.json';
+      const error = new Error(errMsg);
+      error.errors = info.errors || [];
+      throw error;
+    }
+    state.cats = normalize(info.dataset);
+    if (!state.cats.length) {
+      console.warn('[TK WARNING] Kink data is empty or malformed.', info.dataset);
+      showDatasetError('Kink data is missing or broken. Please check kinks.json formatting.');
+      return;
+    }
+    console.log(`[TK DEBUG] Normalized kink categories ready: ${state.cats.length}`, info.source);
     state.cats.sort((a,b)=>a.category.localeCompare(b.category,'en',{sensitivity:'base'}));
 
     const saved = loadSaved();
@@ -631,9 +682,11 @@
     persistSelection();
   }catch(e){
     const msg = e?.message || 'Dataset unavailable. Expected /data/kinks.json';
-    console.warn('[talkkink] kinks dataset fetch failed:', msg);
-    showDiag('Dataset unavailable. Expected /data/kinks.json');
-    $status.textContent = 'Dataset unavailable';
+    console.error('[TK ERROR] Failed to fetch or parse kinks.json:', msg);
+    showDatasetError('Failed to load kink data. Check your internet or JSON file structure.');
+    if (Array.isArray(e?.errors) && e.errors.length) {
+      e.errors.forEach(line => console.warn('[TK WARNING]', line));
+    }
   }
 })();
 </script>
