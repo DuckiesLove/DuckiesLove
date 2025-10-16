@@ -427,3 +427,200 @@
     updateProgress();
   }
 })();
+
+(() => {
+  const globalObj = typeof window !== 'undefined' ? window : typeof globalThis !== 'undefined' ? globalThis : null;
+  if (!globalObj) return;
+
+  const DEFAULT_LABELS = Object.freeze({
+    0: 'Brain buffer overflow',
+    1: 'Not Interested',
+    2: 'Willing (Partner)',
+    3: 'Curious',
+    4: 'Like It',
+    5: 'Love It'
+  });
+
+  const CARD_HANDLE = '__tkQuestionCardEnhancer__';
+
+  function isElement(node){
+    return !!node && typeof node === 'object' && node.nodeType === 1;
+  }
+
+  function resolveRow(card, options){
+    if (options && isElement(options.scoreRow)) return options.scoreRow;
+    if (options && typeof options.scoreSelector === 'string'){
+      const viaSelector = card.querySelector(options.scoreSelector);
+      if (viaSelector) return viaSelector;
+    }
+    return card.querySelector('.scoreRow[data-partner="A"]') || card.querySelector('.scoreRow');
+  }
+
+  function ensureHelper(card, row){
+    let helper = card.querySelector('.rating-helper');
+    if (helper) return helper;
+    const parent = row && row.parentElement ? row.parentElement : row || card;
+    helper = document.createElement('div');
+    helper.className = 'rating-helper muted';
+    helper.dataset.tkAutoHelper = '1';
+    helper.setAttribute('aria-live', 'polite');
+    parent.appendChild(helper);
+    return helper;
+  }
+
+  function parseButtonValue(button){
+    if (!button) return NaN;
+    const { dataset } = button;
+    if (dataset && dataset.value != null){
+      const fromDataset = Number(dataset.value);
+      if (Number.isFinite(fromDataset)) return fromDataset;
+    }
+    if (button.value != null && button.value !== ''){
+      const fromValue = Number(button.value);
+      if (Number.isFinite(fromValue)) return fromValue;
+    }
+    const text = button.textContent;
+    if (typeof text === 'string' && text.trim()){
+      const fromText = Number(text.trim());
+      if (Number.isFinite(fromText)) return fromText;
+    }
+    return NaN;
+  }
+
+  function readSelectedValue(buttons){
+    const pressed = buttons.find(btn => btn.getAttribute('aria-pressed') === 'true');
+    const value = parseButtonValue(pressed);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  function applyLabelUpdates(target, updates){
+    if (!updates || typeof updates !== 'object') return;
+    for (const [rawKey, rawValue] of Object.entries(updates)){
+      const numKey = Number(rawKey);
+      if (!Number.isFinite(numKey)) continue;
+      const key = String(numKey);
+      if (rawValue == null){
+        delete target[key];
+      } else {
+        target[key] = String(rawValue);
+      }
+    }
+  }
+
+  function labelFor(value, labels){
+    if (!Number.isFinite(value)) return '';
+    const key = String(value);
+    return Object.prototype.hasOwnProperty.call(labels, key) ? labels[key] : '';
+  }
+
+  function buildDetail(card, button, type, value, event){
+    return {
+      card,
+      button: button || null,
+      event: event || null,
+      type,
+      value
+    };
+  }
+
+  const g = globalObj;
+  g.TK = g.TK || {};
+  if (typeof g.TK.enhanceQuestionCard === 'function') return;
+
+  g.TK.enhanceQuestionCard = function enhanceQuestionCard(card, options = {}){
+    if (!isElement(card)) return null;
+    if (card[CARD_HANDLE]) return card[CARD_HANDLE];
+
+    const labels = {};
+    applyLabelUpdates(labels, DEFAULT_LABELS);
+    applyLabelUpdates(labels, options.labels);
+
+    const row = resolveRow(card, options);
+    const buttons = row ? Array.from(row.querySelectorAll('button')) : [];
+    const helper = ensureHelper(card, row);
+    const cleanup = [];
+
+    const state = {
+      selected: (() => {
+        const value = readSelectedValue(buttons);
+        return value ?? 0;
+      })()
+    };
+
+    const update = (rawValue, type, button, event) => {
+      const value = Number.isFinite(rawValue) ? rawValue : null;
+      const label = value === null ? '' : labelFor(value, labels);
+      const detail = buildDetail(card, button, type, value, event);
+
+      let handledZero = false;
+      if (value === 0 && typeof options.onZeroLabel === 'function'){
+        handledZero = options.onZeroLabel(label, detail) === true;
+      }
+
+      if (helper && !(value === 0 && handledZero)){
+        helper.textContent = label || '';
+      }
+
+      if (typeof options.onLabelChange === 'function'){
+        options.onLabelChange(value, label, detail);
+      }
+    };
+
+    for (const button of buttons){
+      const value = parseButtonValue(button);
+      if (!Number.isFinite(value)) continue;
+
+      const handleEnter = event => update(value, 'hover', button, event);
+      const handleLeave = event => update(state.selected, 'leave', button, event);
+      const handleClick = event => {
+        state.selected = value;
+        update(value, 'select', button, event);
+        if (typeof options.onSelect === 'function'){
+          const label = labelFor(value, labels);
+          const detail = buildDetail(card, button, 'select', value, event);
+          options.onSelect(value, label, detail);
+        }
+      };
+
+      button.addEventListener('mouseenter', handleEnter);
+      button.addEventListener('focus', handleEnter);
+      button.addEventListener('mouseleave', handleLeave);
+      button.addEventListener('blur', handleLeave);
+      button.addEventListener('click', handleClick);
+
+      cleanup.push(() => {
+        button.removeEventListener('mouseenter', handleEnter);
+        button.removeEventListener('focus', handleEnter);
+        button.removeEventListener('mouseleave', handleLeave);
+        button.removeEventListener('blur', handleLeave);
+        button.removeEventListener('click', handleClick);
+      });
+    }
+
+    update(state.selected, 'init', null, null);
+
+    const api = {
+      updateLabels(next){
+        applyLabelUpdates(labels, next);
+        update(state.selected, 'labels', null, null);
+      },
+      destroy(){
+        cleanup.forEach(fn => fn());
+        cleanup.length = 0;
+        if (helper && helper.dataset && helper.dataset.tkAutoHelper === '1'){
+          helper.remove();
+        }
+        delete card[CARD_HANDLE];
+      }
+    };
+
+    card[CARD_HANDLE] = api;
+    return api;
+  };
+
+  Object.defineProperty(g.TK.enhanceQuestionCard, 'DEFAULT_LABELS', {
+    value: DEFAULT_LABELS,
+    enumerable: true,
+    writable: false
+  });
+})();
