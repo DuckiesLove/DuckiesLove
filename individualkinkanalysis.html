@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="/css/font-failopen.css">
 
 </head>
-<body class="theme-dark">
+<body class="theme-dark" data-page="ika">
 
 <!-- Individual Kink Analysis — compact, centered UI -->
 <div class="ika-page">
@@ -18,12 +18,17 @@
     Upload your survey data and generate a personal PDF report.
   </p>
 
-  <!-- Upload (keeps the same input id expected by your JS) -->
-  <label for="ikaFile" class="ika-btn">Upload Survey</label>
-  <input id="ikaFile" type="file" accept="application/json" style="display:none" />
+  <div class="tk-menu">
+    <!-- Upload (keeps the same input id expected by your JS) -->
+    <label for="ikaFile" class="tk-btn">Upload Survey</label>
 
-  <!-- Download (keeps the same button id expected by your JS) -->
-  <button id="downloadPdfBtn" class="ika-btn">Download PDF</button>
+    <!-- Download (keeps the same button id expected by your JS) -->
+    <button id="downloadPdfBtn" class="tk-btn">Download PDF</button>
+  </div>
+
+  <a href="/kinksurvey/" class="tk-btn back">← Back</a>
+
+  <input id="ikaFile" type="file" accept="application/json" style="display:none" />
 
   <!-- Optional: where you render preview/results -->
   <div id="ikaResults"></div>
@@ -63,7 +68,12 @@
 }
 
 /* Buttons: consistent look */
-.ika-btn {
+.tk-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.tk-btn {
   display: block;
   margin: 12px auto;
   padding: 12px 24px;
@@ -71,9 +81,14 @@
   font-size: 1.1em;
   background: #000;
   border: 2px solid cyan;
-  border-radius: 8px;
+  border-radius: 16px;
   color: #fff;
   cursor: pointer;
+}
+
+.tk-btn:hover {
+  background: #00f0ff;
+  color: #000;
 }
 
 /* Rendered results section */
@@ -87,6 +102,34 @@
 }
 
 label[for="ikaFile"]{ user-select: none; }
+
+/* Individual Kink Analysis — normalize button sizes */
+body[data-page="ika"] .tk-menu { gap: 18px; }
+
+/* Same size for Upload + Download (medium, not huge) */
+body[data-page="ika"] .tk-btn {
+  width: min(420px, 80vw);   /* consistent width */
+  height: 52px;              /* medium height */
+  font-size: 16px;           /* readable but not oversized */
+  border-radius: 14px;       /* tighter pill */
+  border-width: 2px;         /* slimmer outline */
+}
+
+/* Keep back button compact */
+body[data-page="ika"] .tk-btn.back{
+  width: min(220px, 60vw);
+  height: 42px;
+  font-size: 15px;
+  border-radius: 12px;
+  border-width: 2px;
+  margin-top: 12px;
+}
+
+/* Optional: smaller on very small screens */
+@media (max-width: 420px){
+  body[data-page="ika"] .tk-btn { height: 48px; font-size: 15px; }
+  body[data-page="ika"] .tk-btn.back { height: 40px; font-size: 14px; }
+}
 </style>
 <script>
 /* =========================
