@@ -8,9 +8,8 @@
   const chipA = $('#chipA');
   const chipB = $('#chipB');
   const btnExport = $('#btnExport');
-  const drop = $('#dropzone');
 
-  function setChip(chip, file){ chip.textContent = file.name; chip.hidden = false; }
+  function setChip(chip, file){ if(!chip) return; chip.textContent = file.name; chip.hidden = false; }
   function enableIfReady(){ if(btnExport) btnExport.disabled = !(aData && bData); }
 
   async function readJSON(file){
@@ -27,21 +26,6 @@
     bData = await readJSON(f); if(bData) setChip(chipB, f); enableIfReady();
   });
 
-  // Drag & drop
-  ['dragenter','dragover'].forEach(ev=>drop?.addEventListener(ev, e=>{
-    e.preventDefault(); drop.classList.add('is-drag');
-  }));
-  ['dragleave','drop'].forEach(ev=>drop?.addEventListener(ev, e=>{
-    e.preventDefault(); drop.classList.remove('is-drag');
-  }));
-  drop?.addEventListener('drop', async e=>{
-    const files = [...(e.dataTransfer?.files || [])].filter(f=>/\.json$/i.test(f.name)).slice(0,2);
-    if(files[0]){ aData = await readJSON(files[0]); if(aData) setChip(chipA, files[0]); }
-    if(files[1]){ bData = await readJSON(files[1]); if(bData) setChip(chipB, files[1]); }
-    enableIfReady();
-  });
-
-  // Export
   btnExport?.addEventListener('click', ()=>{
     if(!(aData && bData)) return;
     if (typeof window.downloadCompatibilityPDF === 'function') {
@@ -51,7 +35,6 @@
     }
   });
 
-  // COMPAT PAGE GUARD: prevent any survey/category boot if shared JS is bundled
-  document.body.dataset.page === 'compat' && console.info('[compat] guard active');
-
+  // page guard note
+  document.body.dataset.page === 'compat' && console.info('[compat] stacked glow CTAs active');
 })();
