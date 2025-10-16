@@ -50,6 +50,60 @@
   });
   </script>
   <script src="js/tk_kinksurvey_enhance.js"></script>
+  <script>
+/* === CODEx drop-in: add “Suggestions?” button under “Join Mischief Manor” ===
+   What it does:
+   - Finds the existing “Join Mischief Manor” button
+   - Clones its look/feel and inserts a new button right below it
+   - New button goes to https://buymeacoffee.com/duckieslove in a new tab
+*/
+(function () {
+  const BUYME_URL = 'https://buymeacoffee.com/duckieslove';
+  const NEW_TEXT  = 'Suggestions?';
+
+  // 1) Find the Mischief button by text (works for <a> or <button>)
+  const allBtns = Array.from(document.querySelectorAll('a,button'));
+  const manorBtn = allBtns.find(el => /join\s+mischief\s+manor/i.test(el.textContent || ''));
+
+  if (!manorBtn) return; // nothing to do if we can't find the anchor
+
+  // 2) Create the new button by cloning styles from the manor button
+  const makeLinkLike = (source, text, href) => {
+    // Prefer cloning to keep exact styling
+    const clone = source.cloneNode(true);
+    clone.textContent = text;
+
+    // Make sure it’s an <a> with a link target
+    let link;
+    if (clone.tagName.toLowerCase() === 'a') {
+      link = clone;
+    } else {
+      link = document.createElement('a');
+      link.className = clone.className;
+      link.style.cssText = clone.style.cssText;
+      // Copy useful ARIA/state classes if any
+      Array.from(clone.attributes).forEach(a => {
+        if (!['style','class'].includes(a.name)) link.setAttribute(a.name, a.value);
+      });
+    }
+
+    link.href = href;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = text;
+
+    // Small spacing tweak so it doesn’t stick to the button above
+    link.style.marginTop = '14px';
+
+    return link;
+  };
+
+  const suggestionsBtn = makeLinkLike(manorBtn, NEW_TEXT, BUYME_URL);
+
+  // 3) Insert right after the Mischief button
+  manorBtn.insertAdjacentElement('afterend', suggestionsBtn);
+})();
+  </script>
 <!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
 <script>
 /* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
