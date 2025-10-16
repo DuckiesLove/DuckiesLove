@@ -456,22 +456,20 @@
   <link rel="stylesheet" href="/assets/css/comparison.css" />
 </head>
 <body data-page="compat">
-  <main id="cmpApp" class="compat-landing">
-    <h1 class="tk-hero">TalkKink Compatibility</h1>
+  <main class="tk-landing">
+    <h1 class="tk-title">TalkKink Compatibility</h1>
 
     <div class="tk-menu">
-      <label class="tk-btn" for="fileA">Upload Your Survey</label>
-      <label class="tk-btn" for="fileB">Upload Partner’s Survey</label>
+      <label for="fileA" class="tk-btn">Upload Your Survey</label>
+      <label for="fileB" class="tk-btn">Upload Partner’s Survey</label>
       <button id="btnExport" class="tk-btn" disabled>Download PDF</button>
       <a href="/kinksurvey/" class="tk-btn ghost">← Back</a>
     </div>
 
-    <!-- hidden file inputs -->
     <input id="fileA" type="file" accept=".json" hidden />
     <input id="fileB" type="file" accept=".json" hidden />
   </main>
 
-  <!-- Your existing scripts (order matters): theme → pdf exporter (global) → page JS -->
   <script defer src="/js/theme-globals.js"></script>
   <script defer src="/js/pdfDownload.js"></script>
   <script defer src="/assets/js/comparison.js"></script>
