@@ -59,31 +59,44 @@
   }
 
   function buildCategoryPanel(){
-    const host = $('#categoryChecklist'); host.innerHTML='';
+    const host = $('#categoryChecklist');
+    if(!host) return;
+    const prev = new Set(selectedIds());
+    host.innerHTML='';
+    const frag = document.createDocumentFragment();
     for(const cat of data.categories){
-      const wrap = document.createElement('div'); wrap.className='cat';
-      const h4 = document.createElement('h4'); h4.textContent = cat.name; wrap.appendChild(h4);
-      for(const it of cat.items){
-        const id = makeId(cat.name, it.label);
-        const row = document.createElement('label'); row.className='item';
-        row.dataset.qid = id;
-        const cb = Object.assign(document.createElement('input'), {type:'checkbox'});
-        cb.addEventListener('change', updateStartEnabled);
-        row.append(cb, document.createTextNode(it.label));
-        wrap.appendChild(row);
-      }
-      host.appendChild(wrap);
+      const catId = makeCategoryId(cat.name);
+      const li = document.createElement('li'); li.className = 'tk-catrow';
+      const label = document.createElement('label'); label.className = 'tk-cat';
+      const input = Object.assign(document.createElement('input'), { type:'checkbox', value:catId, id:`cat-${catId}` });
+      input.checked = prev.has(catId);
+      input.addEventListener('change', () => {
+        updateStartEnabled();
+        emitSelection();
+      });
+      const span = document.createElement('span'); span.className = 'tk-catname'; span.textContent = cat.name;
+      label.append(input, span);
+      li.appendChild(label);
+      frag.appendChild(li);
     }
+    host.appendChild(frag);
     updateSelectedCount();
+    emitSelection();
   }
 
   function selectedIds(){
-    return $$('#categoryChecklist .item input:checked').map(i=>i.parentElement.dataset.qid);
+    return $$('#categoryChecklist input[type="checkbox"]:checked').map(i=>i.value);
   }
 
   function updateSelectedCount(){
     const n = selectedIds().length;
-    const badge = $('#selectedCountBadge'); if (badge) badge.textContent = `${n} selected`;
+    const badge = $('#selectedCountBadge');
+    if (badge) {
+      const total = data?.categories?.length ?? 0;
+      badge.textContent = `${n} selected / ${total} total`;
+    }
+    const count = $('#tkCatSel');
+    if(count) count.textContent = String(n);
   }
 
   function updateStartEnabled(){
@@ -112,13 +125,13 @@
     flat = [];
     const wanted = new Set(selectedIds());
     for(const cat of data.categories){
+      const catId = makeCategoryId(cat.name);
+      if(wanted.size && !wanted.has(catId)) continue;
       for(const it of cat.items){
         const base = makeId(cat.name, it.label);
-        if(!wanted.size || wanted.has(base)){
-          for(const r of ['Giving','Receiving','General']){
-            if((it.roles||[]).includes(r)){
-              flat.push({ cat:cat.name, sub:it.label, role:r, id:`${base}::${r}` });
-            }
+        for(const r of ['Giving','Receiving','General']){
+          if((it.roles||[]).includes(r)){
+            flat.push({ cat:cat.name, sub:it.label, role:r, id:`${base}::${r}` });
           }
         }
       }
@@ -171,6 +184,10 @@
     return `${slug(cat)}::${slug(sub)}`;
   }
 
+  function makeCategoryId(name){
+    return slug(name);
+  }
+
   function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 
   function updatePanelShadows(){
@@ -179,5 +196,10 @@
     const bottom = categoryPanel.scrollHeight - categoryPanel.clientHeight - categoryPanel.scrollTop > 1;
     categoryPanel.classList.toggle('shadow-top', top);
     categoryPanel.classList.toggle('shadow-bottom', bottom);
+  }
+
+  function emitSelection(){
+    const detail = { selected: selectedIds() };
+    document.dispatchEvent(new CustomEvent('tk:categories:changed', { detail }));
   }
 })();
