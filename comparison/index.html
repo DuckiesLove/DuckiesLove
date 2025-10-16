@@ -29,11 +29,17 @@
       <span id="chipB" class="chip" hidden></span>
     </div>
 
+    <p id="cmpStatus" class="cmp-status" role="status" aria-live="polite"></p>
+
     <div id="dropzone" class="dropzone" aria-label="Drop JSON files here">Drop surveys here</div>
 
     <div id="cmpOutput"></div>
   </main>
 
+  <script type="module">
+    import { downloadCompatibilityPDF } from '/js/pdfDownload.js';
+    window.downloadCompatibilityPDF = downloadCompatibilityPDF;
+  </script>
   <script src="/assets/js/comparison.js"></script>
 </body>
 </html>
