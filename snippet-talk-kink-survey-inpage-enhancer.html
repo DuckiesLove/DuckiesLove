@@ -1,0 +1,182 @@
+<!-- TalkKink Survey – in-page enhancer (no overlay) -->
+<script>
+(function () {
+  if (window.__TK_ENH_INPAGE__) return;
+  window.__TK_ENH_INPAGE__ = true;
+
+  // 0) Little badge so you know the script actually ran
+  const badge = document.createElement('div');
+  Object.assign(badge.style, {
+    position: 'fixed', zIndex: 99999, top: '10px', left: '10px',
+    padding: '6px 10px', borderRadius: '10px',
+    font: '600 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+    color: '#0b1220', background: '#8fe1ff', boxShadow: '0 6px 18px rgba(0,0,0,.25)'
+  });
+  badge.textContent = 'TK in-page enhancer loaded';
+  document.documentElement.appendChild(badge);
+  setTimeout(() => badge.remove(), 2000);
+
+  // 1) Styles (once)
+  if (!document.getElementById('tkEnhInpageCSS')) {
+    const css = document.createElement('style');
+    css.id = 'tkEnhInpageCSS';
+    css.textContent = `
+      /* Glow on the real question card */
+      .tk-question-card {
+        position: relative;
+        border-radius: 14px;
+        background: rgba(10,12,16,.75);
+        border: 1px solid rgba(120,200,255,.20);
+        box-shadow:
+          0 0 0 1px rgba(120,200,255,.20) inset,
+          0 10px 28px rgba(0,0,0,.45),
+          0 0 18px rgba(50,170,255,.35);
+      }
+      .tk-guard {
+        margin: 10px 0 14px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: rgba(12,16,22,.9);
+        border: 1px solid rgba(120,200,255,.28);
+        box-shadow: 0 0 0 1px rgba(120,200,255,.16) inset, 0 0 14px rgba(50,170,255,.22);
+      }
+      .tk-guard h4{margin:0 0 8px 0;color:#e9f4ff;text-shadow:0 0 8px rgba(120,200,255,.35);font-size:1.02rem}
+      .tk-guard p{margin:4px 0;color:#cfe6ff;opacity:.95}
+      .tk-legend-box{margin-top:10px;padding:10px 12px;border-radius:12px;background:#0c1420;border:1px solid rgba(120,200,255,.22);box-shadow:0 0 0 1px rgba(120,200,255,.16) inset,0 0 12px rgba(50,170,255,.22)}
+      .tk-legend{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:10px 14px}
+      .tk-pill{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#0e1218;color:#dbefff;border:1px solid rgba(255,255,255,.08);box-shadow:0 0 0 1px rgba(255,255,255,.03) inset}
+      .tk-dot{width:12px;height:12px;border-radius:999px;box-shadow:0 0 10px currentColor}
+      .tk-red .tk-dot{color:#ff5a6a;background:#ff5a6a}
+      .tk-yellow .tk-dot{color:#ffd34a;background:#ffd34a}
+      .tk-grey .tk-dot{color:#9aa7b1;background:#9aa7b1}
+      .tk-blue .tk-dot{color:#53c0ff;background:#53c0ff}
+      .tk-chip-row{display:flex;gap:10px;margin:8px 0 6px}
+      .tk-chip{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;cursor:pointer;user-select:none;background:#0e1218;color:#dbefff;font-weight:700;border:1px solid rgba(120,200,255,.22);box-shadow:0 0 10px rgba(80,170,255,.16) inset,0 0 12px rgba(50,170,255,.22);transition:transform .08s, box-shadow .12s, background .12s}
+      .tk-chip:hover{transform:translateY(-1px);box-shadow:0 0 12px rgba(80,170,255,.22) inset,0 0 16px rgba(50,170,255,.30)}
+      .tk-chip.is-active{background:#111a24;border-color:rgba(120,200,255,.42);box-shadow:0 0 14px rgba(80,170,255,.28) inset,0 0 18px rgba(50,170,255,.38)}
+      .tk-chip-anchor{margin-top:6px}
+    `;
+    document.head.appendChild(css);
+  }
+
+  // 2) Helpers
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const rateRe = /rate\s*interest\s*\/\s*comfort\s*\(\s*0\s*[–-]?\s*5\s*\)/i;
+
+  function findActiveQuestionRoot() {
+    // Try obvious: Next/Skip live within a per-question container
+    const next = $$('button, [role="button"]')
+      .find(b => /next/i.test(b.textContent || ''));
+    if (next) {
+      let el = next.closest('section, article, div');
+      for (let i = 0; i < 6 && el; i++) {
+        if (el.querySelector('button, [role="button"]')) return el;
+        el = el.parentElement;
+      }
+    }
+    // Fallback to surveyApp
+    return document.getElementById('surveyApp') || document.body;
+  }
+
+  function findLabel(scope) {
+    // Prefer the “Rate interest/comfort (0–5)” text
+    const all = $$('*', scope);
+    for (const n of all) if (rateRe.test(n.textContent || '')) return n;
+    // Fallback: container that has several 0–5 buttons
+    const nums = findNumberButtons(scope);
+    return nums.length ? nums[0].closest('*') : null;
+  }
+
+  function findNumberButtons(scope) {
+    return $$('button, .btn, [role="button"]', scope)
+      .filter(el => /^\s*[0-5]\s*$/.test(el.textContent || ''));
+  }
+
+  function buildGuard() {
+    const wrap = document.createElement('div');
+    wrap.className = 'tk-guard';
+    wrap.innerHTML = `
+      <h4>Question Guard: how to use this scale</h4>
+      <p><strong>Soft Limit</strong> (yellow): “maybe” with conditions — slower pace, explicit check-ins, and an easy out.</p>
+      <p><strong>Willing to Try</strong> (blue): “open & curious” — still with clear boundaries and consent steps.</p>
+      <div class="tk-legend-box">
+        <div class="tk-legend">
+          <div class="tk-pill tk-red"><span class="tk-dot"></span><strong>Hard Limit</strong> — full stop</div>
+          <div class="tk-pill tk-yellow"><span class="tk-dot"></span><strong>Soft Limit</strong> — yellow light; go slow & check-in</div>
+          <div class="tk-pill tk-grey"><span class="tk-dot"></span><strong>Not Interested</strong> — no thanks</div>
+          <div class="tk-pill tk-blue"><span class="tk-dot"></span><strong>Willing to Try</strong> — curious with care</div>
+        </div>
+        <div style="margin-top:10px;color:#aacdf3;">
+          Tip: <strong>0</strong> = my brain did a cartwheel; I skipped this one 😅
+        </div>
+      </div>`;
+    return wrap;
+  }
+
+  function addChips(anchor, nativeBtns) {
+    if (!anchor) return;
+    const container = anchor.parentElement;
+    if (container.querySelector('.tk-chip-row')) return;
+
+    const row = document.createElement('div');
+    row.className = 'tk-chip-row tk-chip-anchor';
+
+    const values = ['0','1','2','3','4','5'];
+    values.forEach(v => {
+      const chip = document.createElement('div');
+      chip.className = 'tk-chip';
+      chip.textContent = v;
+      if (v === '0') chip.title = '0 — brain did a cartwheel; skipped 😅';
+      chip.addEventListener('click', () => {
+        row.querySelectorAll('.tk-chip').forEach(c => c.classList.remove('is-active'));
+        chip.classList.add('is-active');
+        const btn = nativeBtns.find(b => (b.textContent || '').trim() === v);
+        btn?.click?.();
+      });
+      row.appendChild(chip);
+    });
+
+    anchor.insertAdjacentElement('afterend', row);
+  }
+
+  function glowCard(card) {
+    if (!card.classList.contains('tk-question-card')) {
+      card.classList.add('tk-question-card');
+    }
+  }
+
+  // 3) Enhance once the question DOM is present
+  function enhance() {
+    const root = findActiveQuestionRoot();
+    if (!root) return;
+
+    const label = findLabel(root);
+    const numberBtns = findNumberButtons(root);
+
+    if (label && !root.querySelector('.tk-guard')) {
+      label.insertAdjacentElement('beforebegin', buildGuard());
+    }
+    if (label) addChips(label, numberBtns);
+
+    glowCard(root);
+  }
+
+  // 4) Run now & watch for question changes
+  const boot = () => {
+    enhance();
+    // MutationObserver for question navigation
+    const obs = new MutationObserver(() => setTimeout(enhance, 25));
+    obs.observe(document.getElementById('surveyApp') || document.body, { childList: true, subtree: true });
+    // Manual rerun: Alt+G
+    window.addEventListener('keydown', e => {
+      if (e.altKey && e.key.toLowerCase() === 'g') enhance();
+    });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
+})();
+</script>
