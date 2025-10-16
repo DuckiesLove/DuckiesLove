@@ -320,3 +320,58 @@ body[data-page="compat"] .cmp-actions .cta[disabled]{
     0 0 1px color-mix(in oklab, var(--accent) 40%, transparent),
     0 0 6px color-mix(in oklab, var(--accent) 40%, transparent);
 }
+body[data-page="compat"] .cmp-actions{
+  gap: 28px;                  /* more space between buttons */
+  margin-top: 18px;
+  margin-bottom: 16px;
+}
+
+/* Stronger blue glow around each pill + glowing label */
+body[data-page="compat"] .cmp-actions .cta,
+body[data-page="compat"] .cmp-actions .file-btn{
+  /* box glow */
+  outline: 2px solid var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.45) inset,
+    0 0 28px color-mix(in oklab, var(--accent) 75%, transparent),
+    0 0 56px color-mix(in oklab, var(--accent) 35%, transparent);
+  /* label glow */
+  color: var(--fg);
+  text-shadow:
+    0 0 2px color-mix(in oklab, var(--accent) 55%, transparent),
+    0 0 10px color-mix(in oklab, var(--accent) 75%, transparent);
+}
+
+body[data-page="compat"] .cmp-actions .cta:hover,
+body[data-page="compat"] .cmp-actions .file-btn:hover,
+body[data-page="compat"] .cmp-actions .cta:focus-visible,
+body[data-page="compat"] .cmp-actions .file-btn:focus-visible{
+  background:#0b111a;
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.45) inset,
+    0 0 36px color-mix(in oklab, var(--accent) 88%, transparent),
+    0 0 72px color-mix(in oklab, var(--accent) 45%, transparent);
+  text-shadow:
+    0 0 3px color-mix(in oklab, var(--accent) 65%, transparent),
+    0 0 14px color-mix(in oklab, var(--accent) 88%, transparent);
+}
+
+/* Keep disabled state readable with a faint halo */
+body[data-page="compat"] .cmp-actions .cta[disabled]{
+  opacity:.75;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.45) inset,
+    0 0 10px color-mix(in oklab, var(--accent) 35%, transparent);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--accent) 40%, transparent),
+    0 0 6px color-mix(in oklab, var(--accent) 40%, transparent);
+}
+
+/* Slightly increase the title glow to match */
+body[data-page="compat"] .cmp-title{
+  text-shadow:
+    0 1px 0 #000,
+    0 0 14px color-mix(in oklab, var(--accent) 80%, transparent),
+    0 0 36px color-mix(in oklab, var(--accent) 40%, transparent);
+}
