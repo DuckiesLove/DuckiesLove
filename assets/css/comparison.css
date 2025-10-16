@@ -581,3 +581,33 @@ body[data-page="compat"] .tk-btn.back{
       0 0 46px color-mix(in oklab, var(--accent) 45%, transparent);
   }
 }
+
+/* Landing-sized back pill override */
+body[data-page="compat"] .tk-btn.back{
+  width: min(240px, 60vw);   /* landing page width */
+  height: 44px;              /* landing page height */
+  border-width: 2px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  align-self: center;
+  margin-top: 14px;
+
+  /* scaled glow for the smaller pill */
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.5) inset,
+    0 0 14px color-mix(in oklab, var(--accent) 70%, transparent),
+    0 0 28px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference){
+  body[data-page="compat"] .tk-btn.back:hover,
+  body[data-page="compat"] .tk-btn.back:focus-visible{
+    transform: translateY(-1px);
+    background:#0b1216;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.5) inset,
+      0 0 20px color-mix(in oklab, var(--accent) 85%, transparent),
+      0 0 40px color-mix(in oklab, var(--accent) 45%, transparent);
+  }
+}
