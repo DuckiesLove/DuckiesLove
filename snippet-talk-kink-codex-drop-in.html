@@ -1,0 +1,170 @@
+<!-- Talk Kink — CODEx drop-in enhancements -->
+<script>
+/* =========================
+   TALK KINK — CODEx DROP-IN
+   One self-contained snippet that:
+   • injects CSS for glow + limits chips + reference table
+   • fixes breadcrumb text to “Choosing My Partner’s Clothes”
+   • wires 0–5 score buttons for pressed state glow
+   • renders the Limits chips and the 0–5 meaning table
+   • auto-runs on first render and whenever the question card re-renders
+   ========================= */
+
+(function () {
+  /* ---------- 0) CONFIG: point this at your question card container ---------- */
+  const CARD_SELECTOR = '.question-card'; // ← change if your card uses another class
+  const PATH_QUERY = '.question-path, .crumbs, .breadcrumbs, .tk-path';
+
+  /* ---------- 1) CSS (injected once) ---------- */
+  const CSS = `
+  .tk-glow-card{border-radius:18px;background:linear-gradient(180deg,#0b1116,#0c141b);
+    border:1px solid rgba(34,211,238,.35);
+    box-shadow:0 0 0 1px rgba(34,211,238,.18) inset,0 0 22px rgba(34,211,238,.18),0 10px 40px rgba(0,0,0,.45);
+    padding:18px 16px 14px}
+  .tk-scale-wrap{margin-top:14px;display:grid;gap:10px}
+  .tk-limits{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  .tk-limits .label{color:#8ba2b5;font:600 13px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .tk-chip{--stroke:#203041;--bg:#0d141b;display:inline-flex;align-items:center;justify-content:center;
+    padding:.45rem .6rem;border-radius:10px;background:var(--bg);border:1px solid var(--stroke);
+    color:#e6f2f9;cursor:pointer;font:600 13px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    transition:transform .05s ease,box-shadow .2s ease,border-color .2s ease}
+  .tk-chip:hover{transform:translateY(-1px)}
+  .tk-chip:focus-visible{outline:2px solid #22d3ee;outline-offset:2px}
+  .tk-chip[data-variant=amber][aria-pressed=true]{border-color:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.45)}
+  .tk-chip[data-variant=red][aria-pressed=true]{border-color:#ef4444;box-shadow:0 0 14px rgba(239,68,68,.55)}
+  .tk-scale-table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:12px;
+    border:1px solid rgba(34,211,238,.22);background:#091117}
+  .tk-scale-table th,.tk-scale-table td{padding:10px 12px;border-top:1px solid rgba(255,255,255,.04)}
+  .tk-scale-table tr:first-child th,.tk-scale-table tr:first-child td{border-top:none}
+  .tk-scale-table th{color:#9fb7c8;font-weight:700;text-align:left;width:120px}
+  .tk-scale-table td{color:#e7f2f9}
+  .tk-dot{display:inline-block;width:.65rem;height:.65rem;border-radius:9999px;margin-right:.5rem;vertical-align:middle}
+  .tk-dot.gray{background:#6b7280}.tk-dot.amber{background:#f59e0b}.tk-dot.red{background:#ef4444}
+  .tk-dot.green{background:#22c55e}.tk-dot.sky{background:#22d3ee}
+  .score-btn[aria-pressed=true]{box-shadow:0 0 0 1px rgba(34,211,238,.25) inset,0 0 12px rgba(34,211,238,.25);
+    border-color:#22d3ee!important}
+  `;
+
+  function injectCSSOnce() {
+    if (document.getElementById('tk-codex-style')) return;
+    const style = document.createElement('style');
+    style.id = 'tk-codex-style';
+    style.textContent = CSS;
+    document.head.appendChild(style);
+  }
+
+  /* ---------- 2) Utilities ---------- */
+  const qs = (s, r = document) => r.querySelector(s);
+  const qsa = (s, r = document) => Array.from(r.querySelectorAll(s));
+  function el(tag, attrs = {}, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') n.className = v;
+      else if (k === 'style') n.style.cssText = v;
+      else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v);
+    }
+    kids.flat().forEach(k => n.append(k && k.nodeType ? k : document.createTextNode(k ?? '')));
+    return n;
+  }
+
+  /* ---------- 3) Reference table & chips ---------- */
+  const LABELS = [
+    { score: 0, label: 'Brain buffer overflow', dot: 'gray' },   // playful skip
+    { score: 1, label: 'Not interested',        dot: 'gray' },
+    { score: 2, label: 'Willing for partner',   dot: 'amber' },  // soft/caution
+    { score: 3, label: 'Curious / Okay',        dot: 'sky' },
+    { score: 4, label: 'Like it',               dot: 'green' },
+    { score: 5, label: 'Love it',               dot: 'green' },
+  ];
+
+  function buildScaleTable() {
+    const tbl = el('table', { class: 'tk-scale-table', role: 'table', 'aria-label': 'Rating scale reference' });
+    LABELS.forEach(({ score, label, dot }) => {
+      tbl.append(el('tr', {},
+        el('th', {}, `Score ${score}`),
+        el('td', {}, el('span', { class: `tk-dot ${dot}` }), label)
+      ));
+    });
+    return tbl;
+  }
+
+  function attachChipsAndTable(card, scoreBtns) {
+    if (qs('.tk-scale-wrap', card)) return; // already present
+    const wrap = el('div', { class: 'tk-scale-wrap' });
+
+    const limits = el('div', { class: 'tk-limits' },
+      el('span', { class: 'label' }, 'Limits:'),
+      el('button', {
+        class: 'tk-chip', 'data-variant': 'amber', 'aria-pressed': 'false',
+        title: 'Soft limit — caution; needs discussion',
+        onclick(e) { toggleChip(e.currentTarget); }
+      }, 'Soft'),
+      el('button', {
+        class: 'tk-chip', 'data-variant': 'red', 'aria-pressed': 'false',
+        title: 'Hard limit — not okay',
+        onclick(e) { toggleChip(e.currentTarget, scoreBtns); }
+      }, 'Hard'),
+    );
+
+    function toggleChip(chip, scores) {
+      chip.setAttribute('aria-pressed', chip.getAttribute('aria-pressed') !== 'true');
+      // If hard limit is on, clear any chosen score (optional rule)
+      if (chip.dataset.variant === 'red' && chip.getAttribute('aria-pressed') === 'true' && scores) {
+        scores.forEach(b => b.setAttribute('aria-pressed', 'false'));
+      }
+    }
+
+    wrap.append(limits, buildScaleTable());
+
+    // Insert after the score buttons container
+    const scoreRow = scoreBtns.length ? scoreBtns[0].parentElement : card;
+    scoreRow.parentElement.insertBefore(wrap, scoreRow.nextSibling);
+  }
+
+  /* ---------- 4) Enhance one question card ---------- */
+  function enhanceCard(card) {
+    if (!card || card.dataset.tkEnhanced) return;
+    card.dataset.tkEnhanced = '1';
+    card.classList.add('tk-glow-card');
+
+    // Fix breadcrumb phrase
+    const path = qs(PATH_QUERY, card) || card;
+    path.innerHTML = path.innerHTML.replace(/Choosing My Partner S\b/i, "Choosing My Partner’s Clothes");
+
+    // Find 0–5 score buttons by their visible text
+    const scoreBtns = qsa('button, .btn, .score', card).filter(b => /^\s*[0-5]\s*$/.test(b.textContent || ''));
+    scoreBtns.forEach(btn => {
+      btn.classList.add('score-btn');
+      btn.setAttribute('role', 'button');
+      btn.setAttribute('aria-pressed', 'false');
+      btn.addEventListener('click', () => {
+        const v = parseInt(btn.textContent.trim(), 10);
+        scoreBtns.forEach(b => b.setAttribute('aria-pressed', String(parseInt(b.textContent.trim(), 10) === v)));
+      });
+    });
+
+    attachChipsAndTable(card, scoreBtns);
+  }
+
+  /* ---------- 5) Bootstrap: run now & watch for re-renders ---------- */
+  function run() {
+    injectCSSOnce();
+    enhanceCard(qs(CARD_SELECTOR));
+
+    // If your app swaps the question content dynamically, observe & re-enhance:
+    const host = document.body;
+    const mo = new MutationObserver(() => {
+      const card = qs(CARD_SELECTOR);
+      if (card && !card.dataset.tkEnhanced) enhanceCard(card);
+    });
+    mo.observe(host, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run, { once: true });
+  } else {
+    run();
+  }
+})();
+</script>
