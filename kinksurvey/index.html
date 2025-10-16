@@ -52,7 +52,7 @@
 
     <!-- CTA stack (links to your other pages) -->
     <nav id="ctaStack" class="cta-stack" aria-label="Survey navigation">
-      <button id="btnStart" class="cta primary">Start Survey</button>
+      <button id="btnStart" class="cta primary" disabled title="Select at least one category to start">Start Survey</button>
       <a class="cta" href="/kinkanalysis/">Individual Kink Analysis</a>
       <a class="cta" href="/comparison/">Survey Partner Comparison</a>
     </nav>
@@ -65,7 +65,7 @@
       <div id="categoryChecklist" class="scroll"></div>
     </aside>
 
-    <main id="surveyApp" aria-live="polite">
+    <main id="surveyApp" class="is-hidden" aria-live="polite">
       <section id="controls">
         <div id="ndProgress">
           <div id="progressBar"><span id="progressPct">0%</span></div>
