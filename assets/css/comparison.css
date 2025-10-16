@@ -139,3 +139,103 @@
   .cmp-actions .cta,
   .cmp-actions .file-btn{ width: min(94vw, 520px); }
 }
+
+/* Page-scoped overrides for compatibility layout polish */
+body[data-page="compat"] .cmp-wrap{
+  margin: 24px auto 40px;
+  padding: 24px 20px 40px;
+  max-width: 720px;
+}
+
+body[data-page="compat"] .cmp-header{
+  display:grid;
+  grid-template-columns: auto 1fr auto;
+  align-items:center;
+  gap:12px;
+  margin: 6px 0 10px;
+}
+
+body[data-page="compat"] .cmp-header .cta.back{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height: 34px;
+  min-width: 90px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background:#0e141b;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  outline: 2px solid color-mix(in oklab, var(--accent) 55%, transparent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 12px color-mix(in oklab, var(--accent) 45%, transparent);
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1;
+}
+
+body[data-page="compat"] .cmp-title{
+  margin:0;
+  text-align:center;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--fg);
+  text-shadow:
+    0 1px 0 #000,
+    0 0 12px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+body[data-page="compat"] .cmp-actions{
+  margin: 12px auto 8px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  width:100%;
+}
+
+body[data-page="compat"] .cmp-actions .cta,
+body[data-page="compat"] .cmp-actions .file-btn{
+  width: min(92vw, 560px);
+  height: 48px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background:#121821;
+  color: var(--fg);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  text-decoration:none;
+  cursor:pointer;
+  outline: 2px solid var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 22px color-mix(in oklab, var(--accent) 70%, transparent);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+
+body[data-page="compat"] .cmp-actions .cta:hover,
+body[data-page="compat"] .cmp-actions .file-btn:hover,
+body[data-page="compat"] .cmp-actions .cta:focus-visible,
+body[data-page="compat"] .cmp-actions .file-btn:focus-visible{
+  transform: translateY(-1px);
+  background:#0f1620;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 0 28px color-mix(in oklab, var(--accent) 80%, transparent);
+}
+
+body[data-page="compat"] .cmp-actions .cta[disabled]{
+  opacity:.55;
+  cursor:not-allowed;
+  box-shadow:none;
+  transform:none;
+}
+
+@media (max-width: 540px){
+  body[data-page="compat"] .cmp-title{ font-size: 26px; }
+  body[data-page="compat"] .cmp-actions .cta,
+  body[data-page="compat"] .cmp-actions .file-btn{ width: min(94vw, 520px); }
+}
