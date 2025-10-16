@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Survey Partner Comparison</title>
+  <link rel="stylesheet" href="/assets/css/kinksurvey/survey.css" />
+  <link rel="stylesheet" href="/assets/css/comparison.css" />
+</head>
+<body>
+  <main id="cmpApp" class="cmp-wrap">
+    <header class="cmp-header">
+      <a href="/kinksurvey/" class="cta ghost" id="cmpBack">← Back</a>
+      <h1 class="glow-title">Survey Partner Comparison</h1>
+      <div class="header-spacer"></div>
+    </header>
+
+    <section class="cmp-actions">
+      <label class="cta primary file-btn" for="fileA">Upload Your Survey</label>
+      <label class="cta primary file-btn" for="fileB">Upload Partner’s Survey</label>
+      <button id="btnExport" class="cta" disabled>Download PDF</button>
+    </section>
+
+    <input id="fileA" type="file" accept=".json" hidden />
+    <input id="fileB" type="file" accept=".json" hidden />
+
+    <div class="file-chips" aria-live="polite">
+      <span id="chipA" class="chip" hidden></span>
+      <span id="chipB" class="chip" hidden></span>
+    </div>
+
+    <div id="dropzone" class="dropzone" aria-label="Drop JSON files here">Drop surveys here</div>
+
+    <div id="cmpOutput"></div>
+  </main>
+
+  <script src="/assets/js/comparison.js"></script>
+</body>
+</html>

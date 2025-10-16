@@ -1,0 +1,60 @@
+.cmp-wrap{
+  margin-left: calc(var(--panel-w) + var(--gutter));
+  padding: 24px 20px 40px;
+  max-width: 900px;
+}
+
+.cmp-header{
+  display:grid;
+  grid-template-columns: auto 1fr auto;
+  align-items:center;
+  gap:12px;
+}
+.cmp-header h1{
+  text-align:center; margin:0; font-size:28px;
+  color:var(--fg);
+  text-shadow:0 1px 0 #000, 0 0 10px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+.header-spacer{min-width:1px}
+
+.cmp-actions{
+  margin:16px 0 10px;
+  display:flex; gap:12px; flex-wrap:wrap; justify-content:center;
+}
+
+.cta, .file-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:10px 14px; min-width:220px; height:40px;
+  border-radius:999px; border:1px solid var(--border);
+  background:#121821; color:var(--fg); text-decoration:none; cursor:pointer;
+  outline:2px solid color-mix(in oklab, var(--accent) 65%, transparent);
+  box-shadow:0 0 0 1px rgba(0,0,0,.35) inset,
+             0 0 12px color-mix(in oklab, var(--accent) 45%, transparent);
+  transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.cta:hover,.cta:focus-visible,.file-btn:hover,.file-btn:focus-visible{
+  transform:translateY(-1px);
+  background:#0f1620;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35) inset,
+             0 0 16px color-mix(in oklab, var(--accent) 60%, transparent);
+}
+.cta.primary{ font-weight:700; outline-color:var(--accent); }
+.cta[disabled]{ opacity:.55; cursor:not-allowed; box-shadow:none; transform:none; }
+.cta.ghost{ background:#0e141b; min-width:auto; }
+
+.file-chips{ display:flex; gap:8px; justify-content:center; margin:6px 0 16px; }
+.chip{
+  padding:6px 10px; border-radius:999px; border:1px solid var(--border);
+  background:#0f1620; box-shadow:0 0 8px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+.dropzone{
+  margin:10px auto 20px; width:min(100%, 560px); height:54px;
+  border:1px dashed color-mix(in oklab, var(--accent) 65%, transparent);
+  border-radius:12px; display:flex; align-items:center; justify-content:center;
+  color:var(--fg); background:#0a0f14; opacity:.9;
+}
+.dropzone.is-drag{ background:#0c1520; box-shadow:0 0 16px color-mix(in oklab, var(--accent) 55%, transparent); }
+
+@media (max-width: 860px){
+  .cmp-wrap{ max-width: 100%; }
+}
