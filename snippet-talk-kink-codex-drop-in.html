@@ -130,7 +130,7 @@
 
     // Fix breadcrumb phrase
     const path = qs(PATH_QUERY, card) || card;
-    path.innerHTML = path.innerHTML.replace(/Choosing My Partner S\b/i, "Choosing My Partner’s Clothes");
+    path.innerHTML = path.innerHTML.replace(/Choosing My Partner(?:['’]s|\s*s)? Clothes/gi, "Choosing My Partner’s Clothes");
 
     // Find 0–5 score buttons by their visible text
     const scoreBtns = qsa('button, .btn, .score', card).filter(b => /^\s*[0-5]\s*$/.test(b.textContent || ''));
