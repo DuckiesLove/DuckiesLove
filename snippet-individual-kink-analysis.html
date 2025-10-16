@@ -38,7 +38,12 @@
   }
 
   /* Buttons */
-  .ika-btn {
+  .tk-menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .tk-btn {
     display: block;
     margin: 0.75rem auto;
     padding: 0.75rem 1.5rem;
@@ -47,18 +52,46 @@
     background: transparent;
     border: 2px solid #00f0ff;
     color: #fff;
-    border-radius: 10px;
+    border-radius: 16px;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
     min-width: 220px;
   }
-  .ika-btn:hover {
+  .tk-btn:hover {
     background: #00f0ff;
     color: #000;
   }
+
+  /* Individual Kink Analysis — normalize button sizes */
+  body[data-page="ika"] .tk-menu { gap: 18px; }
+
+  /* Same size for Upload + Download (medium, not huge) */
+  body[data-page="ika"] .tk-btn {
+    width: min(420px, 80vw);
+    height: 52px;
+    font-size: 16px;
+    border-radius: 14px;
+    border-width: 2px;
+  }
+
+  /* Keep back button compact */
+  body[data-page="ika"] .tk-btn.back{
+    width: min(220px, 60vw);
+    height: 42px;
+    font-size: 15px;
+    border-radius: 12px;
+    border-width: 2px;
+    margin-top: 12px;
+  }
+
+  /* Optional: smaller on very small screens */
+  @media (max-width: 420px){
+    body[data-page="ika"] .tk-btn { height: 48px; font-size: 15px; }
+    body[data-page="ika"] .tk-btn.back { height: 40px; font-size: 14px; }
+  }
   </style>
 </head>
-<body>
+<body data-page="ika">
 <div class="ika-page">
   <div class="ika-container">
     <h1 class="ika-title">Individual Kink Analysis</h1>
@@ -66,12 +99,17 @@
       Upload your survey data and generate a personal PDF report.
     </p>
 
-    <!-- Upload -->
-    <label for="ikaFile" class="ika-btn">Upload Survey</label>
-    <input id="ikaFile" type="file" accept="application/json" style="display:none">
+    <div class="tk-menu">
+      <!-- Upload -->
+      <label for="ikaFile" class="tk-btn">Upload Survey</label>
 
-    <!-- Download -->
-    <button id="downloadPdfBtn" class="ika-btn">Download PDF</button>
+      <!-- Download -->
+      <button id="downloadPdfBtn" class="tk-btn">Download PDF</button>
+    </div>
+
+    <a href="/kinksurvey/" class="tk-btn back">← Back</a>
+
+    <input id="ikaFile" type="file" accept="application/json" style="display:none">
 
     <!-- Results preview if needed -->
     <div id="ikaResults"></div>
