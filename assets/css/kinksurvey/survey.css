@@ -95,21 +95,28 @@ h2,h3,#progressPct,.theme-btn.is-active,
   box-shadow:0 0 10px var(--accent);
 }
 
-/* CTA stack */
+.is-hidden{ display:none !important; }
+
+/* CTA: one-per-line, proportionate width, centered in the content column */
 .cta-stack{
-  margin:14px calc(20px) 8px calc(var(--panel-w) + var(--gutter) + 20px);
-  display:flex; flex-direction:column; gap:8px; max-width:420px;
+  margin: 14px 20px 8px calc(var(--panel-w) + var(--gutter) + 20px);
+  display: flex; flex-direction: column; gap: 10px;
+  width: min(92vw, 620px);
 }
 .cta{
-  display:block; text-align:center;
-  padding:10px 14px; border-radius:12px; border:1px solid var(--border);
-  background:#141a21; color:var(--fg); text-decoration:none; cursor:pointer;
+  display:block; width:100%;
+  text-align:center; padding:12px 16px; border-radius:12px;
+  border:1px solid var(--border); background:#141a21; color:var(--fg);
+  text-decoration:none; font-size:16px; line-height:1.2;
   box-shadow:0 0 10px color-mix(in oklab, var(--accent) 25%, transparent);
 }
 .cta.primary{
   outline:2px solid var(--accent);
-  box-shadow:0 0 14px color-mix(in oklab, var(--accent) 45%, transparent);
+  box-shadow:0 0 16px color-mix(in oklab, var(--accent) 45%, transparent);
   background:#111923; font-weight:700;
+}
+.cta.primary[disabled]{
+  opacity:.55; cursor:not-allowed; outline-color:#555; box-shadow:none;
 }
 
 /* Hide any legacy compat/UI bits if still present */
