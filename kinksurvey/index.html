@@ -86,9 +86,18 @@
             </div>
             <div class="col"><div class="label">Partner B</div><div class="scoreRow" data-partner="B"></div></div>
           </div>
-          <div id="navRow"><button id="prevBtn">Back</button><button id="nextBtn">Next</button></div>
+          <div id="navRow">
+            <button id="prevBtn" type="button">Back</button>
+            <div class="nav-right">
+              <button id="skipBtn" type="button">Skip</button>
+              <button id="nextBtn" type="button">Next</button>
+            </div>
+          </div>
         </article>
       </section>
     </main>
+    <section id="exportPayload" hidden aria-hidden="true">
+      <table id="compatibilityTable"></table>
+    </section>
   </body>
 </html>
