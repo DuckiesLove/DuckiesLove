@@ -36,10 +36,21 @@
   <body>
     <header id="tkHeader">
       <h1>TalkKink Survey</h1>
-      <div id="themeControls">
-        <button data-theme="dark">Dark</button>
-        <button data-theme="lipstick">Lipstick</button>
-        <button data-theme="forest">Forest</button>
+      <div id="themeControls" class="theme-controls">
+        <div class="theme-group" aria-label="Theme mode">
+          <button class="theme-btn" data-theme="dark">Dark</button>
+          <button class="theme-btn" data-theme="lipstick">Lipstick</button>
+          <button class="theme-btn" data-theme="forest">Forest</button>
+          <button class="theme-btn" data-theme="azure">Blue Glow</button>
+        </div>
+
+        <div class="theme-group" aria-label="Accent color">
+          <button class="swatch" title="Blue"   data-accent="#4da3ff"></button>
+          <button class="swatch" title="Pink"   data-accent="#ff4da3"></button>
+          <button class="swatch" title="Green"  data-accent="#3ad07c"></button>
+          <button class="swatch" title="Gold"   data-accent="#e5b30b"></button>
+          <button class="swatch" title="Violet" data-accent="#9b6bff"></button>
+        </div>
       </div>
     </header>
 
