@@ -292,3 +292,31 @@ body[data-page="compat"] .cmp-header .cta.back{
     0 0 0 1px rgba(0,0,0,.35) inset,
     0 0 14px color-mix(in oklab, var(--accent) 50%, transparent);
 }
+/* Compatibility CTA spacing & text glow adjustments */
+body[data-page="compat"] .cmp-actions{
+  gap: 22px;
+  margin-top: 16px;
+  margin-bottom: 14px;
+}
+
+body[data-page="compat"] .cmp-actions .cta,
+body[data-page="compat"] .cmp-actions .file-btn{
+  text-shadow:
+    0 0 2px color-mix(in oklab, var(--accent) 55%, transparent),
+    0 0 10px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+body[data-page="compat"] .cmp-actions .cta:hover,
+body[data-page="compat"] .cmp-actions .file-btn:hover,
+body[data-page="compat"] .cmp-actions .cta:focus-visible,
+body[data-page="compat"] .cmp-actions .file-btn:focus-visible{
+  text-shadow:
+    0 0 3px color-mix(in oklab, var(--accent) 65%, transparent),
+    0 0 14px color-mix(in oklab, var(--accent) 85%, transparent);
+}
+
+body[data-page="compat"] .cmp-actions .cta[disabled]{
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--accent) 40%, transparent),
+    0 0 6px color-mix(in oklab, var(--accent) 40%, transparent);
+}
