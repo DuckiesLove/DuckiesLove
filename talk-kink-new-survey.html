@@ -922,5 +922,115 @@
 })();
 </script>
 
+<!-- TK: Strict category header view until survey starts -->
+<style>
+  /* STRICT HIDE: anything that looks like an item/subcategory row */
+  /* 1) Common class names */
+  #categoryPanel .subcategory,
+  #categoryPanel .subcat,
+  #categoryPanel .kink,
+  #categoryPanel .kink-row,
+  #categoryPanel .item,
+  #categoryPanel .items,
+  #categoryPanel [data-type="item"],
+  #categoryPanel [data-level="1"],
+  #categoryPanel [data-level="2"],
+  #categoryPanel .checkbox-row {
+    display: none !important;
+  }
+
+  /* 2) If the panel nests items under a container list */
+  #categoryPanel .tk-cat-items,
+  #categoryPanel .tk-items,
+  #categoryPanel .children,
+  #categoryPanel .group-body {
+    display: none !important;
+  }
+
+  /* 3) Explicitly allow only obvious category headers */
+  #categoryPanel .category,
+  #categoryPanel .category-header,
+  #categoryPanel [data-type="category"] {
+    display: block !important;
+  }
+
+  /* Optional: make category headers look tappable */
+  #categoryPanel .category,
+  #categoryPanel .category-header,
+  #categoryPanel [data-type="category"] {
+    background: #0c1117;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border: 1px solid color-mix(in oklab, var(--accent, #00e6e6) 35%, #0a0f14);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .45) inset,
+                0 0 12px color-mix(in oklab, var(--accent, #00e6e6) 40%, transparent);
+    color: #eafcff;
+    font-weight: 700;
+  }
+
+  /* When the survey actually runs (see JS), unhide everything again if you
+     reuse the same panel during runtime */
+  html.tk-survey-running #categoryPanel * { display: revert !important; }
+</style>
+
+<script>
+  (function() {
+    // Find your categories panel robustly
+    const panel =
+      document.getElementById('categoryPanel') ||
+      document.querySelector('[data-panel="categories"]') ||
+      document.querySelector('.categories-panel');
+
+    if (!panel) return;
+
+    // Helper: hide any node that contains a checkbox (typical for items),
+    // but leave nodes that look like category headers (no checkbox inside).
+    function hideNonCategoryRows(root) {
+      const rows = root.querySelectorAll(':scope *');
+      rows.forEach(el => {
+        // If element already styled as a category header, keep it
+        if (
+          el.classList?.contains('category') ||
+          el.classList?.contains('category-header') ||
+          el.getAttribute?.('data-type') === 'category'
+        ) return;
+
+        // If it contains a checkbox, assume it's an item/subcategory row -> hide it
+        if (el.querySelector && el.querySelector('input[type="checkbox"]')) {
+          el.style.display = 'none';
+        }
+      });
+    }
+
+    // Initial pass
+    hideNonCategoryRows(panel);
+
+    // Re-apply after any dynamic re-render (e.g., filters, theme switches)
+    const mo = new MutationObserver(() => hideNonCategoryRows(panel));
+    mo.observe(panel, { childList: true, subtree: true });
+
+    // When the survey actually starts, remove the hiding so the survey flow
+    // can render whatever it needs (optional but safe).
+    // Call this from your Start Survey button click.
+    window.tkStartSurveyReveal = function() {
+      document.documentElement.classList.add('tk-survey-running');
+    };
+
+    // If you have a Start Survey button, wire it automatically
+    const startBtn =
+      document.getElementById('startSurvey') ||
+      [...document.querySelectorAll('button, a')].find(b =>
+        /start\s*survey/i.test(b.textContent || '')
+      );
+
+    if (startBtn) {
+      startBtn.addEventListener('click', () => {
+        window.tkStartSurveyReveal();
+      });
+    }
+  })();
+</script>
+
 </body>
 </html>
