@@ -611,3 +611,58 @@ body[data-page="compat"] .tk-btn.back{
       0 0 40px color-mix(in oklab, var(--accent) 45%, transparent);
   }
 }
+body[data-page="compat"] .tk-title{
+  font-size: clamp(40px, 4.2vw, 72px);   /* was very large on desktop */
+  letter-spacing: .5px;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 14px color-mix(in oklab, var(--accent) 65%, transparent),
+    0 0 30px color-mix(in oklab, var(--accent) 32%, transparent);
+}
+
+body[data-page="compat"] .tk-menu{ gap: 22px; }  /* slightly tighter */
+
+body[data-page="compat"] .tk-btn{
+  width: min(880px, 82vw);
+  height: 72px;                               /* was ~82px */
+  border-radius: 18px;
+  font-size: clamp(18px, 1.8vw, 26px);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.55) inset,
+    0 0 26px color-mix(in oklab, var(--accent) 72%, transparent),  /* softer halo */
+    0 0 52px color-mix(in oklab, var(--accent) 36%, transparent);
+  text-shadow:
+    0 0 2px color-mix(in oklab, var(--accent) 55%, transparent),
+    0 0 9px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference){
+  body[data-page="compat"] .tk-btn:hover:not([disabled]),
+  body[data-page="compat"] .tk-btn:focus-visible:not([disabled]){
+    transform: translateY(-1px);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.55) inset,
+      0 0 32px color-mix(in oklab, var(--accent) 86%, transparent),
+      0 0 70px color-mix(in oklab, var(--accent) 45%, transparent);
+  }
+}
+
+/* Back button keeps the compact landing look */
+body[data-page="compat"] .tk-btn.back{
+  width: min(260px, 60vw);
+  height: 48px;
+  border-width: 2px;
+  border-radius: 14px;
+  font-size: 16px;
+  margin-top: 12px;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.5) inset,
+    0 0 14px color-mix(in oklab, var(--accent) 70%, transparent),
+    0 0 28px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+/* Mobile polish */
+@media (max-width: 560px){
+  body[data-page="compat"] .tk-btn{ height: 60px; font-size: 16px; }
+  body[data-page="compat"] .tk-title{ font-size: clamp(34px, 8vw, 48px); }
+}
