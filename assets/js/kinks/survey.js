@@ -719,36 +719,36 @@
   if (window.__TK_KEEP_SMALL_VERTICAL_SCORE_CARD__) return;
   window.__TK_KEEP_SMALL_VERTICAL_SCORE_CARD__ = true;
 
-  const MATCH = /how\s*to\s*score/i;
+  const HEADING_SELECTOR = 'h1,h2,h3,h4,h5,.card-title,.title,[role="heading"]';
 
-  function findScoreCards(root = document) {
-    const containers = Array.from(
-      root.querySelectorAll('section, article, aside, div')
-    );
-    return containers.filter(el => {
-      const h = el.querySelector('h1,h2,h3,h4,h5,.card-title,.title');
-      return h && MATCH.test(h.textContent || '');
-    });
-  }
+  const findSidebar = () =>
+    document.querySelector('[data-sticky="score"]') ||
+    document.querySelector('.score-sidebar');
 
-  function keepRightMostAndCompact() {
-    const cards = findScoreCards();
-    if (!cards.length) {
-      setTimeout(keepRightMostAndCompact, 180);
-      return;
+  const normalizeHeadingText = (text = '') => text.trim().toLowerCase();
+
+  const isScoreCard = (el) => {
+    if (!el) return false;
+    const heading = el.querySelector(HEADING_SELECTOR);
+    if (!heading) return false;
+    const text = normalizeHeadingText(heading.textContent || '');
+    return text.startsWith('how to score');
+  };
+
+  const findScoreCards = () =>
+    Array.from(
+      document.querySelectorAll('.how-to-score, section, article, aside, div')
+    ).filter(isScoreCard);
+
+  const cleanKeptCard = (card) => {
+    if (!card) return;
+
+    const heading = card.querySelector(HEADING_SELECTOR) || card.firstElementChild;
+    if (heading) {
+      heading.textContent = 'How to score';
     }
 
-    const rightMost = cards.reduce((a, b) =>
-      a.getBoundingClientRect().left > b.getBoundingClientRect().left ? a : b
-    );
-    cards.forEach(el => { if (el !== rightMost) el.remove(); });
-
-    const title =
-      rightMost.querySelector('h1,h2,h3,h4,h5,.card-title,.title') ||
-      rightMost.firstElementChild;
-    if (title) title.textContent = 'How to score';
-
-    Object.assign(rightMost.style, {
+    Object.assign(card.style, {
       width: '',
       height: '',
       position: '',
@@ -758,10 +758,27 @@
       bottom: '',
     });
 
-    rightMost.classList.add('tk-score-aside');
-  }
+    card.classList.add('tk-score-aside');
+  };
 
-  const run = () => keepRightMostAndCompact();
+  const removeExtras = () => {
+    const sidebar = findSidebar();
+    const cards = findScoreCards();
+    if (!cards.length) return;
+
+    const keep = sidebar ? cards.find((card) => sidebar.contains(card)) : cards[0];
+    cards.forEach((card) => {
+      if (card !== keep) card.remove();
+    });
+
+    if (keep && sidebar && !sidebar.contains(keep)) {
+      sidebar.appendChild(keep);
+    }
+
+    cleanKeptCard(keep);
+  };
+
+  const run = () => removeExtras();
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run, { once: true });
