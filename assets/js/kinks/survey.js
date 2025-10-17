@@ -428,6 +428,97 @@
   }
 })();
 
+// --- survey interaction telemetry + resilient button handling ---
+(() => {
+  if (window.__tkSurveyDelegationReady__) return;
+  window.__tkSurveyDelegationReady__ = true;
+
+  window.addEventListener('error', (e) => {
+    try {
+      console.error('[Survey Fatal]', e?.message, `${e?.filename || ''}:${e?.lineno || 0}`);
+    } catch (_) {
+      console.error('[Survey Fatal]', e);
+    }
+  });
+
+  const onReady = () => {
+    const surveyRoot =
+      document.querySelector('#survey') ||
+      document.querySelector('.survey-root') ||
+      document.querySelector('main') ||
+      document.body;
+
+    if (!surveyRoot) return;
+
+    surveyRoot.addEventListener(
+      'click',
+      (event) => {
+        const btn = event.target?.closest?.('button, [role="button"]');
+        if (!btn || !surveyRoot.contains(btn)) return;
+        const text = (btn.textContent || '').trim();
+        console.info('[Survey Click]', {
+          text,
+          id: btn.id || null,
+          classes: btn.className || '',
+        });
+      },
+      { capture: true }
+    );
+
+    const state = Object.create(null);
+    surveyRoot.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('button.option, [data-action="select"]');
+      if (!target || !surveyRoot.contains(target)) return;
+
+      if (target.tagName === 'BUTTON') {
+        const type = target.getAttribute('type');
+        if (!type || type.toLowerCase() === 'submit') {
+          target.type = 'button';
+        }
+      }
+
+      event.preventDefault();
+
+      const group = target.closest('[data-group]');
+      const groupKey = group?.dataset?.group || 'default';
+      group?.querySelectorAll('button.option, [data-action="select"]').forEach((btn) => {
+        const active = btn === target;
+        btn.classList.toggle('selected', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+
+      const value =
+        target.dataset?.value ??
+        target.value ??
+        (target.textContent ? target.textContent.trim() : '');
+      state[groupKey] = value;
+
+      console.log('[Survey Selected]', { group: groupKey, value });
+    });
+
+    (async () => {
+      if (typeof fetch !== 'function') return;
+      try {
+        const res = await fetch('/data/kinks.json', { cache: 'no-store' });
+        const text = await res.text();
+        try {
+          JSON.parse(text);
+        } catch (parseErr) {
+          console.error('[kinks.json parse error]', parseErr, text.slice(0, 200));
+        }
+      } catch (fetchErr) {
+        console.error('[kinks.json fetch error]', fetchErr);
+      }
+    })();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', onReady, { once: true });
+  } else {
+    onReady();
+  }
+})();
+
 (() => {
   const globalObj = typeof window !== 'undefined' ? window : typeof globalThis !== 'undefined' ? globalThis : null;
   if (!globalObj) return;
