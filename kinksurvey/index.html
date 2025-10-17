@@ -78,25 +78,30 @@
           <button role="tab" data-role="Receiving">Receiving</button>
           <button role="tab" data-role="General">General</button>
         </div>
-        <article id="questionCard">
-          <div id="questionPath" class="muted"></div>
-          <h3 id="questionText"></h3>
+        <div class="question-layout">
+          <article id="questionCard">
+            <div id="questionPath" class="muted"></div>
+            <h3 id="questionText"></h3>
 
-          <div id="ratingRow" class="single">
-            <div class="col">
-              <div class="label">Rate interest/comfort (0–5)</div>
-              <div id="tk-guard" aria-live="polite"></div>
-              <div id="tk-scale"></div>
-              <div class="scoreRow" data-partner="A"></div>
+            <div id="ratingRow" class="single">
+              <div class="col">
+                <div class="label">Rate interest/comfort (0–5)</div>
+                <div id="tk-scale"></div>
+                <div class="scoreRow" data-partner="A"></div>
+              </div>
             </div>
-          </div>
 
-          <div id="navRow">
-            <button id="prevBtn">Back</button>
-            <button id="skipBtn">Skip</button>
-            <button id="nextBtn">Next</button>
-          </div>
-        </article>
+            <div id="navRow">
+              <button id="prevBtn">Back</button>
+              <button id="skipBtn">Skip</button>
+              <button id="nextBtn">Next</button>
+            </div>
+          </article>
+
+          <aside class="score-sidebar" data-sticky="score">
+            <div id="tk-guard" aria-live="polite"></div>
+          </aside>
+        </div>
       </section>
     </main>
     <section id="exportPayload" hidden aria-hidden="true">
