@@ -18,7 +18,7 @@
   function renderGuardSmall(root){
     if(!root) return;
     root.innerHTML = `
-      <div class="tk-guard-title">Question Guard • How to score</div>
+      <div class="tk-guard-title">How to score</div>
       ${TK_GUARD_SMALL.map(row => `
         <div class="tk-row">
           <span class="dot ${row.dot}">${row.label.split('—')[0].trim()}</span>
@@ -29,6 +29,104 @@
         </div>
       `).join('')}
     `;
+  }
+
+  const SCORE_PANEL_TITLE_REGEX = /rate\s+interest\/?comfort\s*\(0\s*[-–]\s*5\)/i;
+
+  function normalizeText(str){
+    return typeof str === 'string' ? str.replace(/\s+/g, ' ').trim().toLowerCase() : '';
+  }
+
+  function isScorePanel(el){
+    if (!el) return false;
+    const txt = normalizeText(el.textContent);
+    return txt.includes('question guard') && txt.includes('how to score');
+  }
+
+  function findAllScorePanels(){
+    const candidates = Array.from(document.querySelectorAll('#tk-guard, section, div'));
+    return candidates.filter(isScorePanel);
+  }
+
+  function findQuestionCard(){
+    const explicit = document.getElementById('questionCard');
+    if (explicit) return explicit;
+
+    const headings = Array.from(document.querySelectorAll('h1,h2,h3,header,.tk-title,.title'));
+    const hit = headings.find(h => SCORE_PANEL_TITLE_REGEX.test(h.textContent || ''));
+    if (!hit) return null;
+
+    let node = hit.closest('section,article,div');
+    if (node && node.offsetHeight < 80 && node.parentElement) node = node.parentElement;
+    return node;
+  }
+
+  function chooseKeptPanel(panels){
+    if (!panels.length) return { kept: null, removed: [] };
+    let kept = panels[0];
+    for (const panel of panels){
+      if ((panel.offsetWidth || 0) > (kept.offsetWidth || 0)) kept = panel;
+    }
+    const removed = [];
+    for (const panel of panels){
+      if (panel !== kept && panel.parentNode){
+        panel.parentNode.removeChild(panel);
+        removed.push(panel);
+      }
+    }
+    return { kept, removed };
+  }
+
+  function renameScoreTitle(panel){
+    if (!panel) return;
+    const replacer = (s) => s
+      .replace(/question\s*guard\s*(?:[•\-–]\s*)?/i, '')
+      .replace(/how\s*to\s*score/i, 'How to score')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    const titleNode = panel.querySelector('h1,h2,h3,.tk-score-title,.tk-guard-title,.title,strong,header');
+    if (titleNode && titleNode.childNodes.length === 1 && titleNode.firstChild?.nodeType === Node.TEXT_NODE){
+      titleNode.textContent = replacer(titleNode.textContent || '');
+      return;
+    }
+
+    if (!panel.querySelector('.tk-score-title')){
+      const heading = document.createElement('div');
+      heading.className = 'tk-score-title';
+      heading.textContent = 'How to score';
+      panel.insertBefore(heading, panel.firstChild);
+    }
+  }
+
+  function movePanelNearQuestion(panel, questionCard){
+    if (!panel || !questionCard) return;
+
+    const insideCard = questionCard.contains(panel);
+    if (insideCard){
+      if (panel.parentElement !== questionCard){
+        questionCard.appendChild(panel);
+      } else if (panel !== questionCard.lastElementChild){
+        questionCard.appendChild(panel);
+      }
+      return;
+    }
+
+    const parent = questionCard.parentElement || document.querySelector('main') || document.body;
+    const next = questionCard.nextSibling;
+    if (panel.parentElement !== parent || panel.previousElementSibling !== questionCard){
+      parent.insertBefore(panel, next);
+    }
+  }
+
+  function applyScorePanelLayoutFix(){
+    const questionCard = findQuestionCard();
+    const panels = findAllScorePanels();
+    if (!questionCard || !panels.length) return;
+
+    const { kept } = chooseKeptPanel(panels);
+    renameScoreTitle(kept);
+    movePanelNearQuestion(kept, questionCard);
   }
 
   function renderScale(root, onPick, selectedValue){
@@ -216,6 +314,11 @@
     rowA.innerHTML = '';
     const guardRoot = $('#tk-guard');
     renderGuardSmall(guardRoot);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(applyScorePanelLayoutFix);
+    } else {
+      setTimeout(applyScorePanelLayoutFix, 0);
+    }
     const scaleRoot = $('#tk-scale');
     let scaleApi = null;
     const ratingButtons = [];
