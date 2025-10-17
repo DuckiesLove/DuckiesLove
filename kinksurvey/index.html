@@ -58,63 +58,429 @@
       <a class="cta" href="https://talkkink.org/compatibility.html" aria-label="Compatibility Page">Compatibility Page</a>
     </nav>
 
-    <aside id="categoryPanel" aria-label="Categories">
-      <h2 class="tk-side-title">Categories</h2>
-      <div class="tk-cat-count" aria-live="polite"><span id="tkCatSel">0</span> selected</div>
-      <ul id="categoryChecklist" class="tk-catlist" role="list"></ul>
-    </aside>
+    <main id="surveyApp" class="survey-root is-hidden" aria-live="polite">
+      <aside id="categoryPanel" aria-label="Categories">
+        <h2 class="tk-side-title">Categories</h2>
+        <div class="tk-cat-count" aria-live="polite"><span id="tkCatSel">0</span> selected</div>
+        <ul id="categoryChecklist" class="tk-catlist" role="list"></ul>
+      </aside>
 
-    <main id="surveyApp" class="is-hidden" aria-live="polite">
-      <section id="controls">
-        <div id="ndProgress">
-          <div id="progressBar"><span id="progressPct">0%</span></div>
-          <div id="progressText">Question 0 of 0</div>
-        </div>
+      <section class="survey-center">
+        <section id="controls">
+          <div id="ndProgress">
+            <div id="progressBar"><span id="progressPct">0%</span></div>
+            <div id="progressText">Question 0 of 0</div>
+          </div>
+        </section>
+
+        <section id="questionArea">
+          <div id="roleTabs" role="tablist" aria-label="Roles">
+            <button role="tab" data-role="Giving" aria-selected="true">Giving</button>
+            <button role="tab" data-role="Receiving">Receiving</button>
+            <button role="tab" data-role="General">General</button>
+          </div>
+          <section id="question-panel" class="survey-question-panel"></section>
+
+          <div id="navRow">
+            <button id="prevBtn">Back</button>
+            <button id="skipBtn">Skip</button>
+            <button id="nextBtn">Next</button>
+          </div>
+        </section>
       </section>
 
-      <section id="questionArea">
-        <div id="roleTabs" role="tablist" aria-label="Roles">
-          <button role="tab" data-role="Giving" aria-selected="true">Giving</button>
-          <button role="tab" data-role="Receiving">Receiving</button>
-          <button role="tab" data-role="General">General</button>
-        </div>
-        <div class="question-layout">
-          <article id="questionCard">
-            <div id="questionPath" class="muted"></div>
-            <h3 id="questionText"></h3>
-
-<div id="ratingRow" class="single">
-  <div class="col">
-    <div class="label">Rate interest/comfort (0–5)</div>
-
-    <!-- live region for guard / validation messages -->
-    <div id="tk-guard" aria-live="polite"></div>
-
-    <!-- 0–5 buttons are rendered into this -->
-    <div id="tk-scale"></div>
-
-    <!-- selected score bubbles; data-group needed for delegated handler -->
-    <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
-  </div>
-</div>
-
-            </div>
-
-            <div id="navRow">
-              <button id="prevBtn">Back</button>
-              <button id="skipBtn">Skip</button>
-              <button id="nextBtn">Next</button>
-            </div>
-          </article>
-
-          <aside class="score-sidebar" data-sticky="score">
-            <div id="tk-guard" aria-live="polite"></div>
-          </aside>
-        </div>
-      </section>
+      <aside class="score-sidebar" data-sticky="score">
+        <section class="how-to-score how-to-score--sidebar">
+          <h3>How to score</h3>
+          <ul class="legend">
+            <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+            <li><b>1</b> — Hard Limit (no-go)</li>
+            <li><b>2</b> — Soft Limit (willing to try…)</li>
+            <li><b>3</b> — Curious / context-dependent</li>
+            <li><b>4</b> — Comfortable / enjoy</li>
+            <li><b>5</b> — Favorite / enthusiastic yes</li>
+          </ul>
+          <div class="rating-box">
+            <div class="label">Rate interest/comfort (0–5)</div>
+            <div class="rating-grid" id="tk-scale-sidebar" data-group="rating-A"></div>
+          </div>
+        </section>
+      </aside>
     </main>
     <section id="exportPayload" hidden aria-hidden="true">
       <table id="compatibilityTable"></table>
     </section>
+
+    <style>
+      .survey-root {
+        display: grid;
+        grid-template-columns: 320px 1fr 340px;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .survey-center {
+        display: grid;
+        gap: 16px;
+      }
+
+      .survey-question-panel .question-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 16px;
+      }
+
+      .q-head {
+        margin-bottom: 8px;
+      }
+
+      .q-path {
+        opacity: 0.7;
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+      }
+
+      .q-title {
+        margin: 0 0 8px;
+        font-size: 1.25rem;
+      }
+
+      .label {
+        font-weight: 600;
+        margin-top: 6px;
+      }
+
+      #tk-guard {
+        margin-top: 6px;
+        min-height: 1.2em;
+        opacity: 0.8;
+      }
+
+      .score-sidebar .how-to-score,
+      .how-to-score--sidebar {
+        display: block;
+      }
+
+      .survey-question-panel .how-to-score,
+      #question-panel .how-to-score,
+      .how-to-score--inline {
+        display: none !important;
+      }
+
+      .rating-grid,
+      #tk-scale {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(42px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .rating-grid button,
+      #tk-scale button {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 12px;
+        padding: 10px 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      button.option.selected {
+        outline: 2px solid currentColor;
+        transform: translateY(-1px);
+      }
+
+      button.option[aria-pressed="true"] {
+        font-weight: 700;
+      }
+
+      .score-sidebar .how-to-score {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 14px;
+      }
+
+      .how-to-score h3 {
+        margin: 0 0 8px;
+        font-size: 1.05rem;
+      }
+
+      .how-to-score .legend {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .how-to-score .legend li {
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+        padding: 10px;
+      }
+
+      .score-sidebar .rating-box {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .scoreRow {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      .scoreRow button.option {
+        min-width: 44px;
+        padding: 8px 0;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      @media (max-width: 980px) {
+        .survey-root {
+          grid-template-columns: 1fr;
+        }
+
+        .score-sidebar {
+          order: 3;
+          width: 100%;
+        }
+      }
+    </style>
+
+    <script>
+      (function () {
+        const SCORE_META = Object.freeze({
+          0: { label: 'Brain did a cartwheel (skip for now)', tone: 'neutral' },
+          1: { label: 'Hard Limit (no-go)', tone: 'hard' },
+          2: { label: 'Soft Limit (willing to try…)', tone: 'soft' },
+          3: { label: 'Curious / context-dependent', tone: 'curious' },
+          4: { label: 'Comfortable / enjoy', tone: 'enjoy' },
+          5: { label: 'Favorite / enthusiastic yes', tone: 'favorite' },
+        });
+
+        const DEFAULT_GUARD_COPY = 'Select a rating from 0 to 5 to continue.';
+        const ratingState = Object.create(null);
+
+        function makeScaleButtons(container, groupKey = 'rating-A') {
+          if (!container) return;
+          container.dataset.group = groupKey;
+          container.dataset.tkScaleReady = '1';
+          container.innerHTML = '';
+          for (let i = 0; i <= 5; i += 1) {
+            const btn = document.createElement('button');
+            btn.className = 'option';
+            btn.type = 'button';
+            btn.dataset.value = String(i);
+            btn.dataset.action = 'select';
+            btn.textContent = String(i);
+            btn.setAttribute('aria-pressed', 'false');
+            container.appendChild(btn);
+          }
+        }
+
+        function renderRatingScales(root) {
+          const centerScale = root.querySelector('#tk-scale');
+          if (centerScale) makeScaleButtons(centerScale, 'rating-A');
+          const sidebarScale = document.getElementById('tk-scale-sidebar');
+          if (sidebarScale) makeScaleButtons(sidebarScale, 'rating-A');
+        }
+
+        function tagAndHideInlineScoreCards(root) {
+          const sidebar = document.querySelector('.score-sidebar');
+          const sidebarCard = sidebar?.querySelector('.how-to-score');
+          if (sidebarCard) sidebarCard.classList.add('how-to-score--sidebar');
+
+          root
+            .querySelectorAll('.survey-question-panel .how-to-score, #question-panel .how-to-score')
+            .forEach((el) => el.classList.add('how-to-score--inline'));
+        }
+
+        function guardNodes(root) {
+          return Array.from(root.querySelectorAll('#tk-guard'));
+        }
+
+        function scoreLabel(value) {
+          if (value === null || value === undefined || value === '') return '';
+          const meta = SCORE_META[value] || SCORE_META[String(value)] || SCORE_META[Number(value)];
+          return meta?.label || '';
+        }
+
+        function updateGuard(root, value) {
+          const nodes = guardNodes(root);
+          const hasValue = value !== null && value !== undefined && value !== '';
+          nodes.forEach((node) => {
+            if (!node) return;
+            if (!hasValue) {
+              node.textContent = DEFAULT_GUARD_COPY;
+              node.dataset.state = 'empty';
+              delete node.dataset.tone;
+            } else {
+              const label = scoreLabel(value);
+              node.textContent = label ? `${value} — ${label}` : String(value);
+              node.dataset.state = 'value';
+              const meta = SCORE_META[value] || SCORE_META[String(value)] || SCORE_META[Number(value)];
+              if (meta?.tone) node.dataset.tone = meta.tone;
+              else delete node.dataset.tone;
+            }
+          });
+        }
+
+        function syncButtons(root, groupKey, value) {
+          const valueStr = value === null || value === undefined || value === '' ? null : String(value);
+          root.querySelectorAll(`[data-group="${groupKey}"]`).forEach((container) => {
+            if (!container) return;
+            if (valueStr === null) {
+              container.removeAttribute('data-selected');
+              delete container.dataset.selected;
+            } else {
+              container.setAttribute('data-selected', valueStr);
+              container.dataset.selected = valueStr;
+            }
+
+            container.querySelectorAll('button.option').forEach((btn) => {
+              const btnValue = btn.dataset.value ?? btn.value ?? btn.textContent?.trim();
+              const isActive = valueStr !== null && btnValue === valueStr;
+              if (!btn.getAttribute('type')) btn.setAttribute('type', 'button');
+              btn.classList.toggle('selected', isActive);
+              btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+          });
+        }
+
+        function dispatchChange(root, groupKey, value) {
+          const hasValue = value !== null && value !== undefined && value !== '';
+          const numeric = hasValue && !Number.isNaN(Number(value)) ? Number(value) : null;
+          const detail = {
+            group: groupKey,
+            value: numeric,
+            rawValue: hasValue ? String(value) : null,
+            label: hasValue ? scoreLabel(value) : '',
+          };
+          root.dispatchEvent(new CustomEvent('tk:rating-change', { detail, bubbles: true }));
+        }
+
+        function ensureScoreRows(root, groupKey) {
+          root.querySelectorAll(`.scoreRow[data-group="${groupKey}"]`).forEach((row) => {
+            if (row.dataset.tkScaleReady === '1') return;
+            makeScaleButtons(row, groupKey);
+          });
+        }
+
+        function applySelection(root, groupKey, value, options = {}) {
+          ensureScoreRows(root, groupKey);
+          const hasValue = value !== null && value !== undefined && value !== '';
+          const cleanValue = hasValue ? String(value) : null;
+          if (hasValue) ratingState[groupKey] = cleanValue;
+          else delete ratingState[groupKey];
+          syncButtons(root, groupKey, cleanValue);
+          updateGuard(root, cleanValue);
+          if (!options.silent) {
+            dispatchChange(root, groupKey, cleanValue);
+          }
+        }
+
+        function collectGroups(root) {
+          const groups = new Set();
+          root.querySelectorAll('[data-group]').forEach((el) => {
+            const key = el.dataset.group || 'default';
+            groups.add(key);
+          });
+          return groups;
+        }
+
+        function applyInitialState(root) {
+          const groups = collectGroups(root);
+          if (!groups.size) {
+            updateGuard(root, null);
+            return;
+          }
+
+          groups.forEach((groupKey) => {
+            ensureScoreRows(root, groupKey);
+            let initial = null;
+            root.querySelectorAll(`[data-group="${groupKey}"]`).forEach((container) => {
+              if (initial !== null && initial !== undefined && initial !== '') return;
+              const dataSelected = container.getAttribute('data-selected') ?? container.dataset.selected;
+              if (dataSelected !== null && dataSelected !== undefined && dataSelected !== '') {
+                initial = dataSelected;
+                return;
+              }
+              const pressed = container.querySelector(
+                'button.option[aria-pressed="true"], button.option.selected',
+              );
+              if (pressed) {
+                const value = pressed.dataset.value ?? pressed.value ?? pressed.textContent?.trim();
+                if (value !== undefined && value !== null && value !== '') {
+                  initial = value;
+                }
+              }
+            });
+            applySelection(root, groupKey, initial, { silent: true });
+          });
+        }
+
+        function bindRatingHandler(root) {
+          if (!root || root.dataset.tkRatingHandlerBound === '1') return;
+          root.dataset.tkRatingHandlerBound = '1';
+
+          root.addEventListener('click', (event) => {
+            const btn = event.target?.closest?.('button.option');
+            if (!btn || !root.contains(btn)) return;
+            const container = btn.closest('[data-group]');
+            if (!container) return;
+            event.preventDefault();
+            const groupKey = container.dataset.group || 'default';
+            const value = btn.dataset.value ?? btn.value ?? btn.textContent?.trim() ?? '';
+            applySelection(root, groupKey, value);
+          });
+
+          root.addEventListener('keydown', (event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+            const btn = event.target?.closest?.('button.option');
+            if (!btn || !root.contains(btn)) return;
+            const container = btn.closest('[data-group]');
+            if (!container) return;
+            const buttons = Array.from(container.querySelectorAll('button.option'));
+            if (!buttons.length) return;
+            const currentIndex = buttons.indexOf(btn);
+            if (currentIndex === -1) return;
+            event.preventDefault();
+            const delta = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+            let nextIndex = currentIndex + delta;
+            if (nextIndex < 0) nextIndex = buttons.length - 1;
+            if (nextIndex >= buttons.length) nextIndex = 0;
+            buttons[nextIndex].focus();
+            buttons[nextIndex].click();
+          });
+        }
+
+        function initQuestionUIImpl() {
+          const root = document.querySelector('.survey-root') || document.body;
+          if (!root) return;
+          renderRatingScales(root);
+          tagAndHideInlineScoreCards(root);
+          bindRatingHandler(root);
+          applyInitialState(root);
+        }
+
+        window.initQuestionUI = function initQuestionUI() {
+          initQuestionUIImpl();
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => initQuestionUIImpl(), { once: true });
+        } else {
+          initQuestionUIImpl();
+        }
+      })();
+    </script>
   </body>
 </html>
