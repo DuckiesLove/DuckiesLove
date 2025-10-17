@@ -45,7 +45,20 @@
 
   function findAllScorePanels(){
     const candidates = Array.from(document.querySelectorAll('#tk-guard, section, div'));
-    return candidates.filter(isScorePanel);
+    const panels = [];
+
+    for (const el of candidates){
+      if (!isScorePanel(el)) continue;
+
+      if (el.classList && el.classList.contains('how-to-score-bottom')){
+        if (typeof el.remove === 'function') el.remove();
+        continue;
+      }
+
+      panels.push(el);
+    }
+
+    return panels;
   }
 
   function findQuestionCard(){
