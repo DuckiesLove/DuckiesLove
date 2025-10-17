@@ -689,6 +689,7 @@
       root.querySelectorAll('.how-to-score, aside, section, article, div')
     );
     return containers.filter((el) => {
+      if (el.closest('#questionCard')?.querySelector('.scoreRow')) return false;
       if (el.closest('#question-panel')?.querySelector('.scoreRow')) return false;
       if (el.querySelector('.scoreRow')) return false;
       const heading = el.querySelector(HEADING_SELECTOR);
