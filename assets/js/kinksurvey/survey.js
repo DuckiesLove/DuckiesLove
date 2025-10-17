@@ -90,6 +90,39 @@
     return { kept, removed };
   }
 
+  const findScoreSidebar = () =>
+    document.querySelector('[data-sticky="score"]') ||
+    document.querySelector('.score-sidebar');
+
+  const removeDuplicateScoreCards = () => {
+    const sidebar = findScoreSidebar();
+    let keep = sidebar ? sidebar.querySelector('.how-to-score') : null;
+
+    document.querySelectorAll('.how-to-score').forEach((card) => {
+      const inSidebar = sidebar ? sidebar.contains(card) : false;
+
+      if (!sidebar) {
+        if (!keep) {
+          keep = card;
+        } else if (card !== keep) {
+          card.remove();
+        }
+        return;
+      }
+
+      if (!keep && inSidebar) {
+        keep = card;
+        return;
+      }
+
+      if (!inSidebar || card !== keep) {
+        card.remove();
+      }
+    });
+  };
+
+  window.removeDuplicateScoreCards = removeDuplicateScoreCards;
+
   function renameScoreTitle(panel){
     if (!panel) return;
     const replacer = (s) => s
@@ -115,7 +148,7 @@
   function movePanelNearQuestion(panel, questionCard){
     if (!panel || !questionCard) return;
 
-    const sidebar = document.querySelector('.score-sidebar');
+    const sidebar = findScoreSidebar();
     if (sidebar){
       if (!sidebar.contains(panel)){
         sidebar.appendChild(panel);
@@ -148,6 +181,7 @@
     const { kept } = chooseKeptPanel(panels);
     renameScoreTitle(kept);
     movePanelNearQuestion(kept, questionCard);
+    removeDuplicateScoreCards();
   }
 
   function renderScale(root, onPick, selectedValue){
@@ -686,23 +720,14 @@
     console.error('[Survey Fatal]', e?.message, `${e?.filename || ''}:${e?.lineno || 0}`);
   });
 
-  const pruneInlineScoreCards = () => {
-    const sidebar = document.querySelector('.score-sidebar');
-    document.querySelectorAll('.how-to-score').forEach((card) => {
-      if (!sidebar || !sidebar.contains(card)) {
-        card.remove();
-      }
-    });
-  };
-
   const setupScoreCardCleanup = () => {
-    pruneInlineScoreCards();
+    removeDuplicateScoreCards();
 
     if (!window.MutationObserver || !document.body) return;
 
     const observer = new MutationObserver(() => {
       clearTimeout(window.__tkScoreCleanupTimer__);
-      window.__tkScoreCleanupTimer__ = setTimeout(pruneInlineScoreCards, 80);
+      window.__tkScoreCleanupTimer__ = setTimeout(removeDuplicateScoreCards, 80);
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
@@ -779,9 +804,14 @@
     })();
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', onReady, { once: true });
-  } else {
+  const boot = () => {
+    removeDuplicateScoreCards();
     onReady();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
   }
 })();
