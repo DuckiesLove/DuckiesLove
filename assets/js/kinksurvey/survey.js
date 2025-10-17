@@ -68,7 +68,7 @@
   }
 
   function findQuestionCard(){
-    const explicit = document.getElementById('questionCard');
+    const explicit = document.querySelector('#question-panel .question-card, #questionCard');
     if (explicit) return explicit;
 
     const headings = Array.from(document.querySelectorAll('h1,h2,h3,header,.tk-title,.title'));
@@ -364,62 +364,79 @@
   }
 
   function paint(){
-    const q = flat[idx]; const card = $('#questionCard');
-    if(!q){ card.hidden = true; progress(); return; }
-    card.hidden = false;
-    $('#questionPath').textContent = `${q.cat} • ${q.sub}`;
-    $('#questionText').textContent = `${q.role}: Rate interest/comfort (0–5)`;
+    const q = flat[idx];
+    const questionPanel = document.getElementById('question-panel');
+    if (!questionPanel) return;
+
+    const navRow = document.getElementById('navRow');
+
+    if(!q){
+      questionPanel.innerHTML = `
+        <article class="question-card is-empty">
+          <header class="q-head">
+            <div class="q-path">TalkKink Survey</div>
+            <h2 class="q-title">Select at least one category to begin</h2>
+          </header>
+        </article>
+      `;
+      delete questionPanel.dataset.questionId;
+      if (navRow) navRow.hidden = true;
+      if (typeof window.initQuestionUI === 'function') {
+        window.initQuestionUI();
+      }
+      progress();
+      return;
+    }
+
+    const roleLabel = q.role || 'Role';
+    const categoryName = q.cat || '';
+    const prompt = q.sub || '';
+    const existingScore = Number.isInteger(scores.A[q.id]) ? scores.A[q.id] : null;
+
+    questionPanel.dataset.questionId = q.id;
+    questionPanel.innerHTML = `
+      <article class="question-card">
+        <header class="q-head">
+          <div class="q-path">${categoryName} • ${prompt}</div>
+          <h2 class="q-title">${roleLabel}: Rate interest/comfort (0–5)</h2>
+        </header>
+
+        <div id="ratingRow" class="single">
+          <div class="col">
+            <div class="label">Rate interest/comfort (0–5)</div>
+            <div id="tk-guard" aria-live="polite"></div>
+            <div id="tk-scale" data-group="rating-A"></div>
+            <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
+          </div>
+        </div>
+      </article>
+    `;
+
     $$('#roleTabs [role="tab"]').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.role===role)));
 
-    // single score row (A)
-    const rowA = $(`.scoreRow[data-partner="A"]`);
-    rowA.innerHTML = '';
-    if (rowA) {
-      rowA.dataset.group = rowA.dataset.group || 'rating-A';
-    }
-    const guardRoot = $('#tk-guard');
-    renderGuardSmall(guardRoot);
+    questionPanel
+      .querySelectorAll('[data-group="rating-A"]')
+      .forEach((container) => {
+        if (existingScore === null) {
+          container.removeAttribute('data-selected');
+          delete container.dataset.selected;
+        } else {
+          container.setAttribute('data-selected', String(existingScore));
+          container.dataset.selected = String(existingScore);
+        }
+      });
+
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(applyScorePanelLayoutFix);
     } else {
       setTimeout(applyScorePanelLayoutFix, 0);
     }
-    const scaleRoot = $('#tk-scale');
-    let scaleApi = null;
-    const ratingButtons = [];
 
-    for(let i=0;i<=5;i++){
-      const btn = document.createElement('button');
-      btn.textContent = String(i);
-      btn.dataset.value = String(i);
-      btn.dataset.action = 'select';
-      btn.classList.add('option');
-      btn.setAttribute('aria-pressed', scores.A[q.id]===i ? 'true':'false');
-      btn.addEventListener('click', ()=>{
-        scores.A[q.id] = i;
-        rowA.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
-        btn.setAttribute('aria-pressed','true');
-        progress();
-        if (scaleApi) scaleApi.select(i);
-      });
-      rowA.appendChild(btn);
-      ratingButtons.push(btn);
+    if (typeof window.initQuestionUI === 'function') {
+      window.initQuestionUI();
     }
 
-    scaleApi = renderScale(scaleRoot, (value)=>{
-      const numeric = Number(value);
-      if (!Number.isFinite(numeric)) return;
-      const target = ratingButtons.find(b => Number(b.dataset.value) === numeric);
-      if (target) {
-        target.click();
-      } else {
-        scores.A[q.id] = numeric;
-        progress();
-        if (scaleApi) scaleApi.select(numeric);
-      }
-    }, scores.A[q.id]);
-
-    if (scaleApi) scaleApi.select(scores.A[q.id]);
+    if (navRow) navRow.hidden = false;
   }
 
   // nav
@@ -672,7 +689,7 @@
       root.querySelectorAll('.how-to-score, aside, section, article, div')
     );
     return containers.filter((el) => {
-      if (el.closest('#questionCard')?.querySelector('.scoreRow')) return false;
+      if (el.closest('#question-panel')?.querySelector('.scoreRow')) return false;
       if (el.querySelector('.scoreRow')) return false;
       const heading = el.querySelector(HEADING_SELECTOR);
       if (!heading) return false;
@@ -816,6 +833,21 @@
       state[groupKey] = value;
 
       console.log('[Survey Selected]', { group: groupKey, value });
+    });
+
+    surveyRoot.addEventListener('tk:rating-change', (event) => {
+      const detail = event?.detail || {};
+      if (!detail || detail.group !== 'rating-A') return;
+      const activeId = document.getElementById('question-panel')?.dataset?.questionId;
+      if (!activeId) return;
+
+      if (detail.value === null || Number.isNaN(detail.value)) {
+        delete scores.A[activeId];
+      } else {
+        scores.A[activeId] = Number(detail.value);
+      }
+
+      progress();
     });
 
     (async () => {
