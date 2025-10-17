@@ -686,12 +686,36 @@
     console.error('[Survey Fatal]', e?.message, `${e?.filename || ''}:${e?.lineno || 0}`);
   });
 
+  const pruneInlineScoreCards = () => {
+    const sidebar = document.querySelector('.score-sidebar');
+    document.querySelectorAll('.how-to-score').forEach((card) => {
+      if (!sidebar || !sidebar.contains(card)) {
+        card.remove();
+      }
+    });
+  };
+
+  const setupScoreCardCleanup = () => {
+    pruneInlineScoreCards();
+
+    if (!window.MutationObserver || !document.body) return;
+
+    const observer = new MutationObserver(() => {
+      clearTimeout(window.__tkScoreCleanupTimer__);
+      window.__tkScoreCleanupTimer__ = setTimeout(pruneInlineScoreCards, 80);
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  };
+
   const onReady = () => {
     const surveyRoot =
       document.querySelector('#question-panel, .survey-question-panel, .survey-root, main') ||
       document.body;
 
     if (!surveyRoot) return;
+
+    setupScoreCardCleanup();
 
     surveyRoot.addEventListener(
       'click',
