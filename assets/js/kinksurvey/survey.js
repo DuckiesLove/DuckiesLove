@@ -653,41 +653,46 @@
   });
 })();
 (() => {
-  if (window.__TK_KEEP_SMALL_VERTICAL_SCORE_CARD__) return;
-  window.__TK_KEEP_SMALL_VERTICAL_SCORE_CARD__ = true;
+  const FLAG = '__TK_SINGLE_SCORE_CARD__';
+  if (window[FLAG]) return;
+  window[FLAG] = true;
 
-  const MATCH = /how\s*to\s*score/i;
+  const HEADING_SELECTOR = 'h1,h2,h3,h4,h5,.card-title,.title';
+  const TITLE_RX = /(how\s*to\s*score|question\s*guard)/i;
 
-  function findScoreCards(root = document) {
+  const findScoreCards = (root = document) => {
     const containers = Array.from(
-      root.querySelectorAll('section, article, aside, div')
+      root.querySelectorAll('.how-to-score, aside, section, article, div')
     );
-    return containers.filter(el => {
+    return containers.filter((el) => {
       if (el.closest('#questionCard')?.querySelector('.scoreRow')) return false;
       if (el.querySelector('.scoreRow')) return false;
-      const h = el.querySelector('h1,h2,h3,h4,h5,.card-title,.title');
-      return h && MATCH.test(h.textContent || '');
+      const heading = el.querySelector(HEADING_SELECTOR);
+      if (!heading) return false;
+      const text = (heading.textContent || '').trim();
+      return TITLE_RX.test(text);
     });
-  }
+  };
 
-  function keepRightMostAndCompact() {
-    const cards = findScoreCards();
-    if (!cards.length) {
-      setTimeout(keepRightMostAndCompact, 180);
-      return;
+  const pickRightColumnCard = (cards) => {
+    if (!cards.length) return null;
+    const midX = window.innerWidth * 0.55;
+    const rightSide = cards.filter((el) => el.getBoundingClientRect().left > midX);
+    if (rightSide.length) {
+      return rightSide.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
+    }
+    return cards[0];
+  };
+
+  const normalizeKeptCard = (card) => {
+    if (!card) return;
+
+    const heading = card.querySelector(HEADING_SELECTOR) || card.firstElementChild;
+    if (heading) {
+      heading.textContent = 'How to score';
     }
 
-    const rightMost = cards.reduce((a, b) =>
-      a.getBoundingClientRect().left > b.getBoundingClientRect().left ? a : b
-    );
-    cards.forEach(el => { if (el !== rightMost) el.remove(); });
-
-    const title =
-      rightMost.querySelector('h1,h2,h3,h4,h5,.card-title,.title') ||
-      rightMost.firstElementChild;
-    if (title) title.textContent = 'How to score';
-
-    Object.assign(rightMost.style, {
+    Object.assign(card.style, {
       width: '',
       height: '',
       position: '',
@@ -697,10 +702,28 @@
       bottom: '',
     });
 
-    rightMost.classList.add('tk-score-aside');
-  }
+    card.classList.add('tk-score-aside');
+  };
 
-  const run = () => keepRightMostAndCompact();
+  const ensureSingle = () => {
+    const cards = findScoreCards();
+    if (!cards.length) return;
+
+    const keep = pickRightColumnCard(cards);
+    cards.forEach((card) => {
+      if (card !== keep) card.remove();
+    });
+
+    normalizeKeptCard(keep);
+  };
+
+  const run = () => {
+    try {
+      ensureSingle();
+    } catch (err) {
+      console.warn('[TK Score Patch]', err);
+    }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run, { once: true });
@@ -709,8 +732,8 @@
   }
 
   const mo = new MutationObserver(() => {
-    clearTimeout(window.__tkScoreReflowTimer__);
-    window.__tkScoreReflowTimer__ = setTimeout(run, 120);
+    clearTimeout(window.__tkScoreOnce__);
+    window.__tkScoreOnce__ = setTimeout(run, 80);
   });
   mo.observe(document.body, { childList: true, subtree: true });
 })();
