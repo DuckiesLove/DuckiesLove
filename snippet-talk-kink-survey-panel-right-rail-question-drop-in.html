@@ -1,128 +1,79 @@
-<!-- ============== TALK KINK SURVEY — ONE DROP-IN SNIPPET ============== -->
+<!-- ===================== TALK KINK — QUESTION + SCORE GUIDE ===================== -->
 <style>
-  /* ---- Layout ---- */
+  /* Layout */
   .survey-root {
     display: grid;
-    grid-template-columns: 320px 1fr 340px; /* left categories • center • right sidebar */
+    grid-template-columns: 320px 1fr 340px; /* left • center • right */
     gap: 16px;
     align-items: start;
   }
   .categories { min-height: 60vh; }
 
-  /* ---- Center question card ---- */
+  /* Question Card */
   .survey-question-panel .question-card {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 16px;
     padding: 16px;
   }
-  .q-head { margin-bottom: 8px; }
-  .q-path { opacity: .7; font-size: 0.9rem; margin-bottom: 4px; }
-  .q-title { margin: 0 0 8px; font-size: 1.25rem; }
+  .q-head   { margin-bottom: 8px; }
+  .q-path   { opacity:.75; font-size:.9rem; margin-bottom: 4px; }
+  .q-title  { margin:0 0 8px; font-size:1.25rem; }
+  .label    { font-weight:600; margin-top:6px; }
+  #tk-guard { margin-top:6px; min-height:1.2em; opacity:.8; }
 
-  /* ---- Rating sections ---- */
-  .label { font-weight: 600; margin-top: 6px; }
-  #tk-guard { margin-top: 6px; min-height: 1.2em; opacity: .8; }
-
-  /* Keep sidebar "How to score" visible; hide inline duplicate in center */
+  /* Keep ONLY sidebar How-to-score visible */
   .score-sidebar .how-to-score,
-  .how-to-score--sidebar { display: block; }
+  .how-to-score--sidebar { display:block; }
   .survey-question-panel .how-to-score,
   #question-panel .how-to-score,
-  .how-to-score--inline { display: none !important; }
+  .how-to-score--inline { display:none !important; }
 
-  /* ---- Rating grids ---- */
+  /* Rating grids (0–5 buttons) */
   .rating-grid, #tk-scale {
-    display: grid;
+    display:grid;
     grid-template-columns: repeat(6, minmax(42px, 1fr));
-    gap: 10px;
-    margin-top: 10px;
+    gap:10px;
+    margin-top:10px;
   }
-  .rating-grid button,
-  #tk-scale button {
-    border: 1px solid rgba(255,255,255,.14);
-    border-radius: 12px;
-    padding: 10px 0;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    font-size: 16px;
+  .rating-grid button, #tk-scale button {
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:12px;
+    padding:10px 0;
+    background:transparent;
+    color:inherit;
+    cursor:pointer;
+    font-size:16px;
   }
-  button.option.selected { outline: 2px solid currentColor; transform: translateY(-1px); }
-  button.option[aria-pressed="true"] { font-weight: 700; }
+  button.option.selected { outline:2px solid currentColor; transform:translateY(-1px); }
+  button.option[aria-pressed="true"] { font-weight:700; }
 
-  /* ---- Sidebar box ---- */
+  /* Sidebar box */
   .score-sidebar .how-to-score {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 16px;
     padding: 14px;
   }
-  .how-to-score h3 { margin: 0 0 8px; font-size: 1.05rem; }
-  .how-to-score .legend { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-  .how-to-score .legend li { background: rgba(255,255,255,.04); border-radius: 12px; padding: 10px; }
-  .score-sidebar .rating-box { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08); }
-
-  /* Optional chip row styling */
-  .scoreRow {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-  }
-  .scoreRow button.option {
-    min-width: 44px;
-    padding: 8px 0;
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,.14);
-    background: rgba(255,255,255,.04);
-  }
+  .how-to-score h3 { margin:0 0 8px; font-size:1.05rem; }
+  .how-to-score .legend { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
+  .how-to-score .legend li { background: rgba(255,255,255,.04); border-radius:12px; padding:10px; }
+  .score-sidebar .rating-box { margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,.08); }
 </style>
 
-<main class="survey-root">
-  <!-- LEFT: categories (your existing list lives here) -->
-  <aside class="categories">
-    <!-- … your existing categories UI … -->
+<!-- PAGE BODY -->
+<main class="survey-root" id="tk-app" hidden>
+  <!-- LEFT: categories (your existing list goes here or is injected) -->
+  <aside class="categories" id="tk-categories">
+    <!-- … existing categories UI (or leave empty for JS to fill) … -->
   </aside>
 
-  <!-- CENTER: question panel -->
-  <section id="question-panel" class="survey-question-panel">
-    <article class="question-card">
-      <header class="q-head">
-        <div class="q-path">Appearance Play • Choosing My Partner S</div>
-        <h2 class="q-title">Giving: Rate interest/comfort (0–5)</h2>
-      </header>
+  <!-- CENTER: Question Panel (we inject a Question Card every render) -->
+  <section id="question-panel" class="survey-question-panel"></section>
 
-      <!-- rating UI (center grid) -->
-      <div id="ratingRow" class="single">
-        <div class="col">
-          <div class="label">Rate interest/comfort (0–5)</div>
-          <div id="tk-guard" aria-live="polite"></div>
-          <!-- 0–5 buttons injected here -->
-          <div id="tk-scale" data-group="rating-A"></div>
-          <!-- optional selected bubble row (if you render it) -->
-          <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
-        </div>
-      </div>
-
-      <!-- Inline copy of "How to score" (intentionally hidden by CSS above) -->
-      <section class="how-to-score how-to-score--inline">
-        <h3>How to score</h3>
-        <ul class="legend">
-          <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
-          <li><b>1</b> — Hard Limit (no-go)</li>
-          <li><b>2</b> — Soft Limit (willing to try…)</li>
-          <li><b>3</b> — Curious / context-dependent</li>
-          <li><b>4</b> — Comfortable / enjoy</li>
-          <li><b>5</b> — Favorite / enthusiastic yes</li>
-        </ul>
-      </section>
-    </article>
-  </section>
-
-  <!-- RIGHT: sidebar with the ONLY visible "How to score" + compact scale -->
+  <!-- RIGHT: Sidebar Score Guide + compact rating scale -->
   <aside class="score-sidebar" data-sticky="score">
-    <section class="how-to-score how-to-score--sidebar">
+    <section class="how-to-score how-to-score--sidebar" id="tk-score-guide">
       <h3>How to score</h3>
       <ul class="legend">
         <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
@@ -132,217 +83,145 @@
         <li><b>4</b> — Comfortable / enjoy</li>
         <li><b>5</b> — Favorite / enthusiastic yes</li>
       </ul>
-
       <div class="rating-box">
         <div class="label">Rate interest/comfort (0–5)</div>
-        <!-- compact 0–5 injected here (shares same group as center) -->
         <div class="rating-grid" id="tk-scale-sidebar" data-group="rating-A"></div>
       </div>
     </section>
   </aside>
 </main>
 
-<script>
-  const SCORE_META = Object.freeze({
-    0: { label: 'Brain did a cartwheel (skip for now)', tone: 'neutral' },
-    1: { label: 'Hard Limit (no-go)', tone: 'hard' },
-    2: { label: 'Soft Limit (willing to try…)', tone: 'soft' },
-    3: { label: 'Curious / context-dependent', tone: 'curious' },
-    4: { label: 'Comfortable / enjoy', tone: 'enjoy' },
-    5: { label: 'Favorite / enthusiastic yes', tone: 'favorite' }
-  });
-  const DEFAULT_GUARD_COPY = 'Select a rating from 0 to 5 to continue.';
+<!-- START PAGE (your existing landing with buttons) -->
+<section id="tk-landing">
+  <!-- your buttons already exist; we just hook Start Survey below -->
+  <!-- Example:
+  <button id="btnStart">Start Survey</button>
+  -->
+</section>
 
-  // ===== RENDER 0–5 BUTTONS =====
-  function makeScaleButtons(container, groupKey = 'rating-A') {
+<script>
+/* ====================== CORE RENDER + HANDLERS ======================= */
+(function(){
+  // ---- util: make a 0–5 scale into a container ----
+  function makeScaleButtons(container, groupKey='rating-A') {
     if (!container) return;
     container.dataset.group = groupKey;
-    container.dataset.tkScaleReady = '1';
     container.innerHTML = '';
-    for (let i = 0; i <= 5; i++) {
-      const btn = document.createElement('button');
-      btn.className = 'option';
-      btn.type = 'button';
-      btn.dataset.value = String(i);
-      btn.dataset.action = 'select';
-      btn.textContent = String(i);
-      btn.setAttribute('aria-pressed', 'false');
-      container.appendChild(btn);
+    for (let i=0; i<=5; i++) {
+      const b = document.createElement('button');
+      b.className = 'option';
+      b.type = 'button';
+      b.dataset.value = String(i);
+      b.textContent = String(i);
+      b.setAttribute('aria-pressed','false');
+      container.appendChild(b);
     }
   }
 
-  function renderRatingScales() {
-    makeScaleButtons(document.getElementById('tk-scale'), 'rating-A');          // center
-    makeScaleButtons(document.getElementById('tk-scale-sidebar'), 'rating-A');  // right
+  // ---- render the center Question Card ----
+  function renderQuestionCard({category='Appearance Play', prompt='Choosing My Partner S', role='Giving'}={}) {
+    const panel = document.getElementById('question-panel');
+    panel.innerHTML = `
+      <article class="question-card">
+        <header class="q-head">
+          <div class="q-path">${category} • ${prompt}</div>
+          <h2 class="q-title">${role}: Rate interest/comfort (0–5)</h2>
+        </header>
+
+        <div id="ratingRow" class="single">
+          <div class="col">
+            <div class="label">Rate interest/comfort (0–5)</div>
+            <div id="tk-guard" aria-live="polite"></div>
+            <div id="tk-scale" data-group="rating-A"></div>
+            <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
+          </div>
+        </div>
+
+        <!-- Inline score guide is present but auto-hidden by CSS -->
+        <section class="how-to-score how-to-score--inline">
+          <h3>How to score</h3>
+          <ul class="legend">
+            <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+            <li><b>1</b> — Hard Limit (no-go)</li>
+            <li><b>2</b> — Soft Limit (willing to try…)</li>
+            <li><b>3</b> — Curious / context-dependent</li>
+            <li><b>4</b> — Comfortable / enjoy</li>
+            <li><b>5</b> — Favorite / enthusiastic yes</li>
+          </ul>
+        </section>
+      </article>
+    `;
+
+    // Build 0–5 scales (center + right)
+    makeScaleButtons(document.getElementById('tk-scale'), 'rating-A');
+    makeScaleButtons(document.getElementById('tk-scale-sidebar'), 'rating-A');
   }
 
-  // ===== KEEP ONLY SIDEBAR "HOW TO SCORE" =====
-  function tagAndHideInlineScoreCards() {
-    const sidebar = document.querySelector('.score-sidebar');
-    const sidebarCard = sidebar?.querySelector('.how-to-score');
-    if (sidebarCard) sidebarCard.classList.add('how-to-score--sidebar');
-
-    document
-      .querySelectorAll('.survey-question-panel .how-to-score, #question-panel .how-to-score')
-      .forEach((el) => el.classList.add('how-to-score--inline'));
-  }
-
-  // ===== CLICK HANDLER (delegated, works for both grids) =====
+  // ---- click handling (delegated) & sync both grids ----
   function bindRatingHandler() {
     const root = document.querySelector('.survey-root') || document.body;
-    const state = Object.create(null);
+    const state = {};
+    root.addEventListener('click', (e) => {
+      const btn = e.target.closest('button.option');
+      if (!btn) return;
 
-    function ensureScoreRows(groupKey) {
-      const rows = root.querySelectorAll(`.scoreRow[data-group="${groupKey}"]`);
-      rows.forEach((row) => {
-        if (row.dataset.tkScaleReady === '1') return;
-        makeScaleButtons(row, groupKey);
+      // prevent submit behavior if any
+      if (!btn.type || btn.type.toLowerCase() === 'submit') btn.type = 'button';
+
+      const group = btn.closest('[data-group]');
+      if (!group) return;
+      const groupKey = group.dataset.group || 'default';
+      const value = btn.dataset.value ?? btn.value ?? btn.textContent.trim();
+
+      // toggle selection across ALL grids with same group
+      document.querySelectorAll(`[data-group="${groupKey}"] button.option`).forEach(b => {
+        const on = (b.dataset.value === value);
+        b.classList.toggle('selected', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
-    }
 
-    function scoreLabel(value) {
-      if (value === null || value === undefined || value === '') return '';
-      const meta = SCORE_META[value] || SCORE_META[String(value)] || SCORE_META[Number(value)];
-      return meta?.label || '';
-    }
-
-    function updateGuard(value) {
-      const guardNodes = root.querySelectorAll('#tk-guard');
-      const hasValue = value !== null && value !== undefined && value !== '';
-      guardNodes.forEach((node) => {
-        if (!node) return;
-        if (!hasValue) {
-          node.textContent = DEFAULT_GUARD_COPY;
-          node.dataset.state = 'empty';
-          delete node.dataset.tone;
-        } else {
-          const label = scoreLabel(value);
-          node.textContent = label ? `${value} — ${label}` : String(value);
-          node.dataset.state = 'value';
-          const meta = SCORE_META[value] || SCORE_META[String(value)] || SCORE_META[Number(value)];
-          if (meta?.tone) node.dataset.tone = meta.tone;
-          else delete node.dataset.tone;
-        }
-      });
-    }
-
-    function syncButtons(groupKey, value) {
-      const valueStr = value === null || value === undefined || value === '' ? null : String(value);
-      const containers = root.querySelectorAll(`[data-group="${groupKey}"]`);
-      containers.forEach((container) => {
-        if (!container) return;
-        if (valueStr === null) {
-          delete container.dataset.selected;
-        } else {
-          container.dataset.selected = valueStr;
-        }
-        const buttons = container.querySelectorAll('button.option');
-        buttons.forEach((btn) => {
-          const btnValue = btn.dataset.value ?? btn.value ?? btn.textContent?.trim();
-          const isActive = valueStr !== null && btnValue === valueStr;
-          if (!btn.getAttribute('type')) btn.setAttribute('type', 'button');
-          btn.classList.toggle('selected', isActive);
-          btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-        });
-      });
-    }
-
-    function dispatchChange(groupKey, value) {
-      const hasValue = value !== null && value !== undefined && value !== '';
-      const numeric = hasValue && !Number.isNaN(Number(value)) ? Number(value) : null;
-      const detail = {
-        group: groupKey,
-        value: numeric,
-        rawValue: hasValue ? String(value) : null,
-        label: hasValue ? scoreLabel(value) : ''
-      };
-      root.dispatchEvent(new CustomEvent('tk:rating-change', { detail, bubbles: true }));
-    }
-
-    function applySelection(groupKey, value, options = {}) {
-      ensureScoreRows(groupKey);
-      const hasValue = value !== null && value !== undefined && value !== '';
-      const cleanValue = hasValue ? String(value) : null;
-      if (hasValue) state[groupKey] = cleanValue;
-      else delete state[groupKey];
-      syncButtons(groupKey, cleanValue);
-      updateGuard(cleanValue);
-      if (!options.silent) {
-        dispatchChange(groupKey, cleanValue);
-      }
-    }
-
-    root.addEventListener('click', (event) => {
-      const btn = event.target?.closest?.('button.option');
-      if (!btn || !root.contains(btn)) return;
-      const container = btn.closest('[data-group]');
-      if (!container) return;
-      event.preventDefault();
-      const groupKey = container.dataset.group || 'default';
-      const value = btn.dataset.value ?? btn.value ?? btn.textContent?.trim() ?? '';
-      applySelection(groupKey, value);
-    });
-
-    root.addEventListener('keydown', (event) => {
-      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
-      const btn = event.target?.closest?.('button.option');
-      if (!btn || !root.contains(btn)) return;
-      const container = btn.closest('[data-group]');
-      if (!container) return;
-      const buttons = Array.from(container.querySelectorAll('button.option'));
-      if (!buttons.length) return;
-      const currentIndex = buttons.indexOf(btn);
-      if (currentIndex === -1) return;
-      event.preventDefault();
-      const delta = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
-      let nextIndex = currentIndex + delta;
-      if (nextIndex < 0) nextIndex = buttons.length - 1;
-      if (nextIndex >= buttons.length) nextIndex = 0;
-      buttons[nextIndex].focus();
-      buttons[nextIndex].click();
-    });
-
-    const groups = new Set();
-    root.querySelectorAll('[data-group]').forEach((el) => {
-      const key = el.dataset.group || 'default';
-      groups.add(key);
-    });
-
-    groups.forEach((groupKey) => {
-      ensureScoreRows(groupKey);
-      let initial = null;
-      root.querySelectorAll(`[data-group="${groupKey}"]`).forEach((container) => {
-        if (initial !== null && initial !== undefined && initial !== '') return;
-        const dataSelected = container.getAttribute('data-selected') ?? container.dataset.selected;
-        if (dataSelected !== null && dataSelected !== undefined && dataSelected !== '') {
-          initial = dataSelected;
-          return;
-        }
-        const pressed = container.querySelector('button.option[aria-pressed="true"], button.option.selected');
-        if (pressed) {
-          const value = pressed.dataset.value ?? pressed.value ?? pressed.textContent?.trim();
-          if (value !== undefined && value !== null && value !== '') {
-            initial = value;
-          }
-        }
-      });
-      applySelection(groupKey, initial, { silent: true });
-    });
-
-    if (!groups.size) {
-      updateGuard(null);
-    }
+      state[groupKey] = value;
+      const guard = document.getElementById('tk-guard');
+      if (guard) guard.textContent = `Selected ${value} of 5`;
+      console.log('[Survey Selected]', { group: groupKey, value });
+    }, false);
   }
 
-  function initTalkKinkSnippet() {
-    renderRatingScales();
-    tagAndHideInlineScoreCards();
+  // ---- Initialize the survey screen (called after Start Survey) ----
+  function showSurveyScreen() {
+    // hide landing, show app shell
+    document.getElementById('tk-landing')?.setAttribute('hidden', 'hidden');
+    document.getElementById('tk-app')?.removeAttribute('hidden');
+
+    // Render first question card + ensure sidebar is present
+    renderQuestionCard({
+      category: window.tkCurrentCategory || 'Appearance Play',
+      prompt:   window.tkCurrentPrompt   || 'Choosing My Partner S',
+      role:     window.tkCurrentRole     || 'Giving'
+    });
+  }
+
+  // ---- Hook Start Survey button ----
+  function wireStartButton() {
+    const btn = document.querySelector('#btnStart, button[data-action="start"], a[data-action="start"]');
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      showSurveyScreen();
+    });
+  }
+
+  // ---- Boot ----
+  document.addEventListener('DOMContentLoaded', () => {
     bindRatingHandler();
-  }
+    wireStartButton();
+    // If you want the survey to show immediately (skip landing), uncomment:
+    // showSurveyScreen();
+  });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initTalkKinkSnippet, { once: true });
-  } else {
-    initTalkKinkSnippet();
-  }
+  // Expose for your existing code (if you render next question elsewhere)
+  window.tkRenderQuestionCard = renderQuestionCard;
+  window.tkShowSurveyScreen  = showSurveyScreen;
+})();
 </script>
+<!-- =================== END — QUESTION + SCORE GUIDE RESTORE ==================== -->
