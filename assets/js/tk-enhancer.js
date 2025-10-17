@@ -99,6 +99,15 @@
       // insert just under the question title block
       anchor.parentElement.insertBefore(legend, anchor);
     }
+
+    const legacyGuard = card?.querySelector('#tk-guard');
+    if (legacyGuard) {
+      legacyGuard.textContent = '';
+      legacyGuard.setAttribute('hidden', '');
+      legacyGuard.setAttribute('aria-hidden', 'true');
+      legacyGuard.classList.add('tk-hidden');
+      legacyGuard.style.display = 'none';
+    }
   }
 
   function boot(){
