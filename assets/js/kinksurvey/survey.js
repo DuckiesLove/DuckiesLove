@@ -39,12 +39,18 @@
 
   function isScorePanel(el){
     if (!el) return false;
+
+    if (el.classList?.contains('tk-legend') || el.classList?.contains('how-to-score')) {
+      return true;
+    }
+
     const txt = normalizeText(el.textContent);
-    return txt.includes('question guard') && txt.includes('how to score');
+    if (!txt.includes('how to score')) return false;
+    return txt.includes('question guard') || txt.includes('brain did a cartwheel') || txt.includes('hard limit');
   }
 
   function findAllScorePanels(){
-    const candidates = Array.from(document.querySelectorAll('#tk-guard, section, div'));
+    const candidates = Array.from(document.querySelectorAll('#tk-guard, .tk-legend, .how-to-score, section, div'));
     const panels = [];
 
     for (const el of candidates){
@@ -96,9 +102,10 @@
 
   const removeDuplicateScoreCards = () => {
     const sidebar = findScoreSidebar();
-    let keep = sidebar ? sidebar.querySelector('.how-to-score') : null;
+    const selector = '.how-to-score, .tk-legend';
+    let keep = sidebar ? sidebar.querySelector(selector) : null;
 
-    document.querySelectorAll('.how-to-score').forEach((card) => {
+    document.querySelectorAll(selector).forEach((card) => {
       const inSidebar = sidebar ? sidebar.contains(card) : false;
 
       if (!sidebar) {
