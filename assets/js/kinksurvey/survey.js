@@ -815,3 +815,48 @@
     boot();
   }
 })();
+
+// Remove duplicate "How to score" cards by heading text, keep the rightmost (sidebar) one.
+(function keepOnlySidebarScoreCard() {
+  const SCORE_TEXT = /(^|\s)how to score/i;
+
+  const getCards = () =>
+    Array.from(document.querySelectorAll('section,div,article,aside')).filter((el) => {
+      // must contain a heading-like element whose text starts with "How to score"
+      const h = el.querySelector('h1,h2,h3,h4,[role="heading"]');
+      return h && SCORE_TEXT.test((h.textContent || '').trim());
+    });
+
+  const prune = () => {
+    const cards = getCards();
+    if (!cards.length) return;
+
+    // keep the rightmost card on screen (the sidebar one is on the right)
+    const keep = cards.reduce((acc, el) => {
+      const r = el.getBoundingClientRect();
+      return !acc || r.left > acc._rect.left ? Object.assign(el, { _rect: r }) : acc;
+    }, null);
+
+    cards.forEach((el) => {
+      if (el !== keep) el.remove();
+    });
+  };
+
+  // run now
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', prune, { once: true });
+  } else {
+    prune();
+  }
+
+  // run again after any dynamic changes (category/tab/question render)
+  const mo = new MutationObserver(() => {
+    // micro-throttle
+    clearTimeout(prune._t);
+    prune._t = setTimeout(prune, 50);
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  // expose for manual calls if you re-render explicitly
+  window.__tkPruneScoreCards = prune;
+})();
