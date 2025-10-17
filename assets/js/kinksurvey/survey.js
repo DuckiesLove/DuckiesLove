@@ -115,6 +115,14 @@
   function movePanelNearQuestion(panel, questionCard){
     if (!panel || !questionCard) return;
 
+    const sidebar = document.querySelector('.score-sidebar');
+    if (sidebar){
+      if (!sidebar.contains(panel)){
+        sidebar.appendChild(panel);
+      }
+      return;
+    }
+
     const insideCard = questionCard.contains(panel);
     if (insideCard){
       if (panel.parentElement !== questionCard){

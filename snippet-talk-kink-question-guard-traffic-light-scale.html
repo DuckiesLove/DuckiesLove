@@ -9,6 +9,9 @@
   if (window.__tkQuestionGuardWide) return;
   window.__tkQuestionGuardWide = true;
 
+  const SURVEY_UI = window.SURVEY_UI ?? (window.SURVEY_UI = {});
+  const SHOW_INLINE_SCORE_CARD = SURVEY_UI.showInlineScoreCard ?? true;
+
   // --- CSS (once) ---
   if (!document.getElementById('tkQGuardCSSv3')) {
     const style = document.createElement('style');
@@ -286,8 +289,9 @@
     if (rail && typeof rail.remove === 'function') rail.remove();
   }
 
-  function ensureLayout(card, rateLabel) {
+  function ensureLayout(card, rateLabel, options = {}) {
     if (!card) return {};
+    const { includeScoreCard = true } = options;
 
     let header = card.querySelector('.tk-question-header');
     if (!header) {
@@ -341,14 +345,20 @@
       ratingWrap.appendChild(ratingRow);
     }
 
-    let scoreCard = card.querySelector('#tk-score-card');
-    if (!scoreCard) {
-      scoreCard = document.createElement('div');
-      scoreCard.id = 'tk-score-card';
-      scoreCard.className = 'tk-score-card tk-score-card--inline';
-    }
-    if (scoreCard.parentNode !== ratingWrap) {
-      ratingWrap.appendChild(scoreCard);
+    let scoreCard = null;
+    if (includeScoreCard) {
+      scoreCard = card.querySelector('#tk-score-card');
+      if (!scoreCard) {
+        scoreCard = document.createElement('div');
+        scoreCard.id = 'tk-score-card';
+        scoreCard.className = 'tk-score-card tk-score-card--inline';
+      }
+      if (scoreCard.parentNode !== ratingWrap) {
+        ratingWrap.appendChild(scoreCard);
+      }
+    } else {
+      const existing = card.querySelector('#tk-score-card');
+      if (existing && typeof existing.remove === 'function') existing.remove();
     }
 
     return { header, meta, title, prompt, ratingWrap, ratingTitle, ratingRow, scoreCard };
@@ -547,7 +557,7 @@
     card.classList.add('tk-question-card');
     removeVerticalGuard();
 
-    const layout = ensureLayout(card, rateLabel);
+    const layout = ensureLayout(card, rateLabel, { includeScoreCard: SHOW_INLINE_SCORE_CARD });
     const info = gatherMeta(card, rateLabel);
     applyMeta(layout, info);
     hideIfMatch(info.heading, info.titleText);
@@ -558,7 +568,9 @@
     hideLegacy(nativeButtons, rateLabel);
 
     setupScale(layout.ratingRow, nativeButtons);
-    tkRenderScoreCard(layout.scoreCard);
+    if (SHOW_INLINE_SCORE_CARD) {
+      tkRenderScoreCard(layout.scoreCard);
+    }
 
     log('Question guard layout applied.');
   }
