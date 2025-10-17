@@ -158,6 +158,25 @@ h2,h3,#progressPct,.theme-btn.is-active,
 #tk-guard .dot.blue{background:#52a8ff;color:#001024}
 #tk-guard .dot.red{background:#ff4b6b;color:#24000a}
 #tk-guard .dot.yellow{background:#ffd34a;color:#241a00}
+
+/* Sidebar copy stays */
+.score-sidebar .how-to-score { display: block; }
+
+/* Kill the duplicate inside the main question panel (adjust parent selector if needed) */
+.survey-question-panel .how-to-score,
+#question-panel .how-to-score {
+  display: none !important;
+}
+
+/* Visual feedback for selected rating buttons (optional) */
+button.option.selected {
+  outline: 2px solid currentColor;
+  transform: translateY(-1px);
+}
+
+button.option[aria-pressed="true"] {
+  font-weight: 600;
+}
 #tk-guard .dot.green{background:#32d690;color:#001912}
 #tk-guard .tk-row strong{color:#eafcff}
 #tk-guard .tk-row div{color:#cfe6ff;line-height:1.35}
