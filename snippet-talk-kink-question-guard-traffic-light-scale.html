@@ -1,78 +1,197 @@
-<!-- TalkKink – Question Glow + Guard + 0–5 Chips (robust v2) -->
+<!-- TalkKink – Question Glow + Guard + 0–5 Scale (wide layout) -->
 <script>
 /* ===========================================================
-   TalkKink – Question Glow + Guard + 0–5 Chips (robust v2)
+   TalkKink – Question Glow + Guard + 0–5 Scale (wide layout)
    Paste into Codex once. Works across themes, cards, Next/Back.
    Hotkey: Alt+G to re-run.
    =========================================================== */
 (function () {
+  if (window.__tkQuestionGuardWide) return;
+  window.__tkQuestionGuardWide = true;
+
   // --- CSS (once) ---
-  if (!document.getElementById('tkQGuardCSSv2')) {
+  if (!document.getElementById('tkQGuardCSSv3')) {
     const style = document.createElement('style');
-    style.id = 'tkQGuardCSSv2';
+    style.id = 'tkQGuardCSSv3';
     style.textContent = `
       .tk-question-card {
         position: relative;
-        border-radius: 14px;
-        background: rgba(10,12,16,.75);
-        border: 1px solid rgba(120,200,255,.18);
+        border-radius: 16px;
+        background: rgba(10,12,16,.88);
+        border: 1px solid rgba(120,200,255,.22);
         box-shadow:
           0 0 0 1px rgba(120,200,255,.18) inset,
-          0 10px 28px rgba(0,0,0,.45),
-          0 0 18px rgba(50,170,255,.35);
+          0 12px 30px rgba(0,0,0,.45),
+          0 0 20px rgba(60,170,255,.28);
+        padding: clamp(18px, 2.6vw, 28px);
+        color: #e9f4ff;
       }
-      .tk-guard {
-        margin: 10px 0 14px;
-        padding: 12px 14px;
-        border-radius: 12px;
-        background: rgba(12,16,22,.9);
+      .tk-question-layout,
+      .tk-question-card > .tk-question-header {
+        display: flex;
+        flex-direction: column;
+        gap: clamp(14px, 2vw, 22px);
+      }
+      .tk-question-header {
+        gap: 6px;
+      }
+      .tk-question-meta {
+        text-transform: uppercase;
+        letter-spacing: .18em;
+        font-size: .75rem;
+        color: rgba(180,220,255,.72);
+      }
+      .tk-question-title {
+        margin: 0;
+        font-size: clamp(1.2rem, 2.6vw, 1.7rem);
+        font-weight: 700;
+        letter-spacing: .02em;
+        color: #f0f8ff;
+        text-shadow: 0 0 12px rgba(90,190,255,.25);
+      }
+      .tk-question-prompt {
+        margin: 0;
+        color: rgba(215,232,255,.86);
+        font-size: clamp(.98rem, 2vw, 1.05rem);
+        line-height: 1.45;
+      }
+      .tk-rating-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      .tk-rating-row button {
         border: 1px solid rgba(120,200,255,.28);
-        box-shadow: 0 0 0 1px rgba(120,200,255,.18) inset, 0 0 16px rgba(50,170,255,.25);
+        background: rgba(12,18,26,.78);
+        color: #e3f3ff;
+        font-weight: 700;
+        min-width: 48px;
+        padding: .55rem .85rem;
+        border-radius: 12px;
+        cursor: pointer;
+        user-select: none;
+        transition: transform .1s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
       }
-      .tk-guard h4 {
-        margin: 0 0 8px 0; font-size: 1.02rem; letter-spacing: .2px;
-        color: #e9f4ff; text-shadow: 0 0 8px rgba(120,200,255,.35);
+      .tk-rating-row button:hover {
+        transform: translateY(-1px);
       }
-      .tk-guard p { margin: 4px 0; color: #cfe6ff; opacity: .95; }
-      .tk-legend-box {
-        margin-top: 10px; padding: 10px 12px; border-radius: 12px;
-        background: #0c1420; border: 1px solid rgba(120,200,255,.22);
-        box-shadow: 0 0 0 1px rgba(120,200,255,.16) inset, 0 0 12px rgba(50,170,255,.22);
+      .tk-rating-row button:focus-visible {
+        outline: 2px solid rgba(100,200,255,.85);
+        outline-offset: 2px;
       }
-      .tk-legend { display:grid; grid-template-columns: repeat(2, minmax(220px,1fr)); gap:10px 14px; }
-      .tk-pill {
-        display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
-        background:#0e1218; color:#dbefff; border:1px solid rgba(255,255,255,.08);
-        box-shadow: 0 0 0 1px rgba(255,255,255,.03) inset; font-size:.95rem;
+      .tk-rating-row button.is-active {
+        background: rgba(16,24,36,.95);
+        border-color: rgba(120,220,255,.55);
+        box-shadow:
+          0 0 0 1px rgba(120,220,255,.35) inset,
+          0 0 20px rgba(70,180,255,.35);
       }
-      .tk-dot { width:12px; height:12px; border-radius:999px; box-shadow:0 0 10px currentColor; }
-      .tk-red .tk-dot{color:#ff5a6a;background:#ff5a6a;}
-      .tk-yellow .tk-dot{color:#ffd34a;background:#ffd34a;}
-      .tk-grey .tk-dot{color:#9aa7b1;background:#9aa7b1;}
-      .tk-blue .tk-dot{color:#53c0ff;background:#53c0ff;}
-      .tk-chip-row{ display:flex; gap:10px; margin:8px 0 6px; }
-      .tk-chip{
-        display:inline-flex; align-items:center; justify-content:center;
-        width:44px; height:44px; border-radius:10px; cursor:pointer; user-select:none;
-        background:#0e1218; color:#dbefff; font-weight:700;
-        border:1px solid rgba(120,200,255,.22);
-        box-shadow: 0 0 10px rgba(80,170,255,.16) inset, 0 0 12px rgba(50,170,255,.22);
-        transition: transform .08s ease, box-shadow .12s ease, background .12s ease;
+      #tk-score-card,
+      .tk-score-card {
+        border-radius: 14px;
+        background: rgba(12,16,22,.92);
+        border: 1px solid rgba(120,200,255,.22);
+        box-shadow:
+          0 0 0 1px rgba(120,200,255,.15) inset,
+          0 0 18px rgba(60,170,255,.22);
+        padding: clamp(16px, 2.2vw, 22px);
+        display: grid;
+        gap: 14px;
+        color: #d9eaff;
       }
-      .tk-chip:hover{ transform:translateY(-1px); box-shadow:0 0 12px rgba(80,170,255,.22) inset, 0 0 16px rgba(50,170,255,.30); }
-      .tk-chip.is-active{
-        background:#111a24; border-color:rgba(120,200,255,.42);
-        box-shadow:0 0 14px rgba(80,170,255,.28) inset, 0 0 18px rgba(50,170,255,.38);
+      .tk-score-title {
+        text-transform: uppercase;
+        font-size: .85rem;
+        letter-spacing: .22em;
+        color: rgba(140,220,255,.85);
+        font-weight: 700;
       }
-      .tk-chip-anchor{ margin-top:6px; }
+      .tk-score-card .tk-row {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .tk-score-card .dot {
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        color: #00121a;
+        text-shadow: 0 1px 2px rgba(0,0,0,.35);
+        box-shadow: 0 0 12px currentColor;
+      }
+      .tk-score-card .dot.blue { background: #53c0ff; }
+      .tk-score-card .dot.red { background: #ff6b81; }
+      .tk-score-card .dot.yellow {
+        background: #ffd65a;
+        color: #3f2c00;
+      }
+      .tk-score-card .dot.green {
+        background: #58e0a6;
+        color: #003926;
+      }
+      .tk-score-card strong { display: block; margin-bottom: 2px; }
+      .tk-hidden { display: none !important; }
     `;
     document.head.appendChild(style);
   }
 
-  // --- helpers ---
-  const log = (...a) => console.log('%c[TK]', 'color:#76d1ff', ...a);
+  // --- helpers you may already have ---
+  function tkRenderScale(root, onPick) {
+    if (!root) return;
+    const frag = document.createDocumentFragment();
+    [0, 1, 2, 3, 4, 5].forEach((n) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = String(n);
+      if (typeof onPick === 'function') {
+        b.onclick = () => onPick(n);
+      }
+      frag.appendChild(b);
+    });
+    root.innerHTML = '';
+    root.appendChild(frag);
+  }
 
+  const TK_GUARD_WIDE = [
+    { dot: 'blue',   label: '0 — Brain did a cartwheel',          desc: 'skipped for now 😅' },
+    { dot: 'red',    label: '1 — Hard Limit',                      desc: 'full stop / non-negotiable' },
+    { dot: 'yellow', label: '2 — Soft Limit — willing to try',     desc: 'with strong boundaries, safety checks, and aftercare planned' },
+    { dot: 'green',  label: '3 — Curious / context-dependent',     desc: 'okay with discussion, mood, and trust; needs clear negotiation' },
+    { dot: 'green',  label: '4 — Comfortable / enjoy',             desc: 'generally a yes; normal precautions and check-ins' },
+    { dot: 'green',  label: '5 — Favorite / enthusiastic yes',     desc: 'happily into it; green light' }
+  ];
+
+  function tkRenderScoreCard(root) {
+    if (!root) return;
+    root.classList.add('tk-score-card');
+    root.innerHTML = `
+      <div class="tk-score-title">How to score</div>
+      ${TK_GUARD_WIDE.map((r) => `
+        <div class="tk-row">
+          <span class="dot ${r.dot}">${r.label.split('—')[0].trim()}</span>
+          <div>
+            <strong>${r.label}</strong>
+            <div style="opacity:.88">${r.desc}</div>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  // --- utilities ---
+  const log = (...a) => console.log('%c[TK]', 'color:#76d1ff', ...a);
   const rateRegex = /rate\s*interest\s*\/\s*comfort\s*\(\s*0\s*[–-]?\s*5\s*\)/i;
+
+  const cleanText = (value) => {
+    if (value == null) return '';
+    return String(value).replace(/\s+/g, ' ').trim();
+  };
+  const textFrom = (node) => cleanText(node?.textContent);
 
   function findByText(re) {
     const all = document.querySelectorAll('*');
@@ -83,12 +202,16 @@
     return null;
   }
 
-  // Find numeric buttons 0–5 nearest to rating area
   function findNumberButtons(context) {
     const container = context || document;
-    const candidates = Array.from(container.querySelectorAll('button, .btn, [role="button"]'))
-      .filter(el => /^\s*[0-5]\s*$/.test(el.textContent || ''));
-    return candidates;
+    const selectors = ['button', '.btn', '[role="button"]', 'input[type="button"]', 'input[type="submit"]'];
+    const nodes = Array.from(container.querySelectorAll(selectors.join(',')));
+    return nodes.filter((el) => {
+      if (!el) return false;
+      if (el.closest('#tk-rating-row')) return false;
+      const txt = cleanText(el.textContent || el.value || '');
+      return /^[0-5]$/.test(txt);
+    });
   }
 
   function nearestQuestionCard(fromEl) {
@@ -96,108 +219,284 @@
     let el = fromEl;
     for (let i = 0; i < 8 && el; i++) {
       const hasControls = el.querySelector && (
-        el.querySelector('button') || el.querySelector('[role="button"]') || el.querySelector('input')
+        el.querySelector('button') ||
+        el.querySelector('[role="button"]') ||
+        el.querySelector('input')
       );
-      const hasHeading = el.querySelector && el.querySelector('h1,h2,h3,h4');
+      const hasHeading = el.querySelector && el.querySelector('h1,h2,h3,h4,h5');
       if (hasControls && hasHeading) return el;
       el = el.parentElement;
     }
     return fromEl.parentElement || fromEl;
   }
 
-  function buildGuard() {
-    const wrap = document.createElement('div');
-    wrap.className = 'tk-guard';
-    wrap.innerHTML = `
-      <h4>Question Guard: How to use this scale</h4>
-      <p><strong>Soft Limit</strong> (yellow): You might do it with conditions — slower pace, explicit check-ins, and an easy out.</p>
-      <p><strong>Willing to Try</strong> (blue): You’re open and curious. Boundaries and consent steps still apply; it’s a gentle “let’s explore”.</p>
-      <div class="tk-legend-box">
-        <div class="tk-legend">
-          <div class="tk-pill tk-red"><span class="tk-dot"></span><strong>Hard Limit</strong> — full stop</div>
-          <div class="tk-pill tk-yellow"><span class="tk-dot"></span><strong>Soft Limit</strong> — yellow light; go slow & check-in</div>
-          <div class="tk-pill tk-grey"><span class="tk-dot"></span><strong>Not Interested</strong> — no thanks</div>
-          <div class="tk-pill tk-blue"><span class="tk-dot"></span><strong>Willing to Try</strong> — curious with care</div>
-        </div>
-        <div style="margin-top:10px;color:#aacdf3;">
-          Tip: <strong>0</strong> = my brain did a cartwheel; I skipped this one 😅
-        </div>
-      </div>
-    `;
-    return wrap;
+  function removeVerticalGuard() {
+    const rail = document.querySelector('#tk-guard-rail, .tk-guard-rail, .side-guard');
+    if (rail && typeof rail.remove === 'function') rail.remove();
   }
 
-  function addChips(anchor, nativeBtns) {
-    if (!anchor || anchor.parentElement.querySelector('.tk-chip-row')) return;
-    const row = document.createElement('div');
-    row.className = 'tk-chip-row tk-chip-anchor';
+  function ensureLayout(card, rateLabel) {
+    if (!card) return {};
 
-    // If we can’t see native buttons, synthesize 0–5
-    const buttons = nativeBtns && nativeBtns.length ? nativeBtns : Array.from({ length: 6 }, (_, i) => {
-      const b = document.createElement('button');
-      b.type = 'button'; b.textContent = String(i); b.dataset.tkValue = String(i);
-      return b;
-    });
-
-    buttons.forEach(btn => {
-      const v = (btn.dataset?.tkValue ?? btn.textContent ?? '').trim();
-      const chip = document.createElement('div');
-      chip.className = 'tk-chip';
-      chip.textContent = v;
-      if (v === '0') chip.title = '0 — brain did a cartwheel; skipped this one 😅';
-      chip.addEventListener('click', () => {
-        row.querySelectorAll('.tk-chip').forEach(c => c.classList.remove('is-active'));
-        chip.classList.add('is-active');
-        if (btn.click) btn.click();
-      });
-      row.appendChild(chip);
-    });
-
-    anchor.insertAdjacentElement('afterend', row);
-  }
-
-  function enhance() {
-    // 1) Primary anchor: the “Rate interest/comfort (0–5)” label
-    let rateLabel = findByText(rateRegex);
-
-    // 2) Fallback: if not found, locate any row with 0–5 buttons and use the heading above it
-    let numberBtns = findNumberButtons(document);
-    if (!rateLabel && numberBtns.length) {
-      // choose a common ancestor that contains most of the buttons
-      let ancestor = numberBtns[0].parentElement;
-      for (let i = 1; i < numberBtns.length; i++) {
-        ancestor = numberBtns[i].closest('*') || ancestor;
+    let header = card.querySelector('.tk-question-header');
+    if (!header) {
+      header = document.createElement('header');
+      header.className = 'tk-question-header';
+      header.innerHTML = `
+        <div id="tk-question-meta" class="tk-question-meta"></div>
+        <h2 id="tk-question-title" class="tk-question-title"></h2>
+        <p id="tk-question-prompt" class="tk-question-prompt tk-hidden"></p>
+      `;
+      if (rateLabel && rateLabel.parentNode) {
+        rateLabel.insertAdjacentElement('beforebegin', header);
+      } else {
+        card.prepend(header);
       }
-      rateLabel = ancestor || numberBtns[0];
-      log('Fallback: using numeric buttons ancestor as label anchor.');
     }
 
-    if (!rateLabel) {
-      log('Enhancer: no label or numeric buttons found yet. Will retry on mutations.');
+    const meta = header.querySelector('#tk-question-meta');
+    const title = header.querySelector('#tk-question-title');
+    const prompt = header.querySelector('#tk-question-prompt');
+
+    let ratingRow = card.querySelector('#tk-rating-row');
+    if (!ratingRow) {
+      ratingRow = document.createElement('div');
+      ratingRow.id = 'tk-rating-row';
+      ratingRow.className = 'tk-rating-row';
+      if (header.nextSibling) {
+        header.parentNode.insertBefore(ratingRow, header.nextSibling);
+      } else {
+        header.parentNode.appendChild(ratingRow);
+      }
+    }
+
+    let scoreCard = card.querySelector('#tk-score-card');
+    if (!scoreCard) {
+      scoreCard = document.createElement('div');
+      scoreCard.id = 'tk-score-card';
+      scoreCard.className = 'tk-score-card';
+      const actions = card.querySelector('.question-actions, .tk-actions, footer, .actions, [data-role="actions"], nav[aria-label*="actions"], .question-footer');
+      if (actions && actions.parentNode) {
+        actions.parentNode.insertBefore(scoreCard, actions);
+      } else if (ratingRow.nextSibling) {
+        ratingRow.parentNode.insertBefore(scoreCard, ratingRow.nextSibling);
+      } else {
+        card.appendChild(scoreCard);
+      }
+    }
+
+    return { header, meta, title, prompt, ratingRow, scoreCard };
+  }
+
+  function gatherMeta(card, rateLabel) {
+    const crumbCandidates = [
+      card.querySelector('[data-role="question-path"]'),
+      card.querySelector('.question-path'),
+      card.querySelector('.question-crumbs'),
+      card.querySelector('.breadcrumbs'),
+      card.querySelector('.tk-crumbs'),
+      card.querySelector('nav[aria-label*="crumb"]'),
+      rateLabel?.closest('.question')?.querySelector('.question-path')
+    ].filter(Boolean);
+    const crumbNode = crumbCandidates.find((node) => textFrom(node));
+    const crumbText = cleanText(window.TK_CURRENT_CRUMBS) || textFrom(crumbNode);
+
+    const heading = card.querySelector('h1,h2,h3,h4,h5');
+    const headingText = textFrom(heading);
+    let titleText = cleanText(window.TK_CURRENT_TITLE) || headingText || textFrom(rateLabel);
+    if (!titleText) titleText = 'Giving: Rate interest/comfort (0–5)';
+
+    const promptCandidates = [
+      card.querySelector('.question-prompt'),
+      card.querySelector('.prompt'),
+      heading?.nextElementSibling,
+      rateLabel?.closest('.question')?.querySelector('p'),
+      rateLabel?.parentElement?.querySelector('p')
+    ].filter(Boolean);
+    const promptNode = promptCandidates.find((node) => {
+      const txt = textFrom(node);
+      return txt && txt !== headingText;
+    });
+    let promptText = cleanText(window.TK_CURRENT_PROMPT) || textFrom(promptNode);
+    if (promptText === titleText) promptText = '';
+    if (promptText === crumbText) promptText = '';
+
+    return { crumbText, titleText, promptText, heading, crumbNode, promptNode };
+  }
+
+  function applyMeta(layout, info) {
+    if (!layout) return;
+    const { meta, title, prompt } = layout;
+    if (meta) {
+      meta.textContent = info.crumbText || '';
+      meta.classList.toggle('tk-hidden', !info.crumbText);
+    }
+    if (title) {
+      title.textContent = info.titleText || '';
+    }
+    if (prompt) {
+      if (info.promptText) {
+        prompt.textContent = info.promptText;
+        prompt.classList.remove('tk-hidden');
+      } else {
+        prompt.textContent = '';
+        prompt.classList.add('tk-hidden');
+      }
+    }
+  }
+
+  function hideIfMatch(node, expected) {
+    if (!node || !expected) return;
+    if (textFrom(node) === expected) {
+      node.classList.add('tk-hidden');
+    }
+  }
+
+  function hideLegacy(nativeButtons, rateLabel) {
+    if (rateLabel) rateLabel.classList.add('tk-hidden');
+    const wrappers = new Set();
+    nativeButtons.forEach((btn) => {
+      const wrap = btn.closest('.question-row, .rating-row, .rate-row, .tk-rate-row, .row, .button-row, .tk-legacy-row');
+      if (wrap) wrappers.add(wrap);
+    });
+    wrappers.forEach((node) => node.classList.add('tk-hidden'));
+  }
+
+  function setupScale(row, nativeButtons) {
+    if (!row) return;
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', 'Interest rating (0 to 5)');
+
+    const filteredNative = (nativeButtons || []).filter(Boolean);
+
+    if (row.dataset.tkScaleBound === '1') {
+      if (typeof row.__tkSync === 'function') row.__tkSync();
       return;
     }
 
-    // 3) Find and glow the question card
-    const card = nearestQuestionCard(rateLabel);
-    if (card && !card.classList.contains('tk-question-card')) {
-      card.classList.add('tk-question-card');
-      log('Card glow applied.');
+    let handlePick = () => {};
+    tkRenderScale(row, (val) => handlePick(String(val)));
+
+    const buttons = Array.from(row.querySelectorAll('button'));
+    if (!buttons.length) return;
+
+    const highlight = (val) => {
+      buttons.forEach((btn) => {
+        const text = cleanText(btn.textContent);
+        const active = val != null && text === String(val);
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', String(active));
+      });
+    };
+
+    if (!filteredNative.length) {
+      handlePick = (val) => {
+        row.dataset.tkSelected = val;
+        highlight(val);
+      };
+      row.__tkSync = () => highlight(row.dataset.tkSelected || null);
+      buttons.forEach((btn) => {
+        const val = cleanText(btn.textContent);
+        btn.addEventListener('click', () => {
+          row.dataset.tkSelected = val;
+          highlight(val);
+        });
+      });
+      row.dataset.tkScaleBound = '1';
+      row.__tkSync();
+      return;
     }
 
-    // 4) Insert guard (once per card)
-    if (card && !card.querySelector('.tk-guard')) {
-      const guard = buildGuard();
-      rateLabel.insertAdjacentElement('beforebegin', guard);
-      log('Question Guard inserted.');
-    }
+    const map = new Map();
+    filteredNative.forEach((btn) => {
+      const text = cleanText(btn.textContent || btn.value || '');
+      if (/^[0-5]$/.test(text) && !map.has(text)) {
+        map.set(text, btn);
+      }
+    });
 
-    // 5) Chips: use existing 0–5 if present
-    numberBtns = findNumberButtons(card || document);
-    addChips(rateLabel, numberBtns);
-    log(`Chips ready. Native buttons found: ${numberBtns.length}`);
+    const detectNative = () => {
+      for (const [text, btn] of map.entries()) {
+        if (btn.matches('[aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], .selected, .is-active, .active, .btn-primary, .btn-success')) {
+          return text;
+        }
+        if (btn.dataset) {
+          if (btn.dataset.selected === 'true' || btn.dataset.state === 'selected' || btn.dataset.tkSelected === 'true') {
+            return text;
+          }
+        }
+      }
+      return null;
+    };
+
+    handlePick = (val) => {
+      const target = map.get(val);
+      if (target && typeof target.click === 'function') {
+        target.click();
+      }
+      row.dataset.tkSelected = val;
+      highlight(val);
+    };
+
+    buttons.forEach((btn) => {
+      const val = cleanText(btn.textContent);
+      btn.addEventListener('click', () => handlePick(val));
+    });
+
+    filteredNative.forEach((btn) => {
+      if (btn.dataset.tkMirrorBound === '1') return;
+      btn.addEventListener('click', () => {
+        const val = cleanText(btn.textContent || btn.value || '');
+        if (val) {
+          row.dataset.tkSelected = val;
+          highlight(val);
+        }
+      }, { capture: true });
+      btn.dataset.tkMirrorBound = '1';
+    });
+
+    row.__tkSync = () => {
+      const nativeVal = detectNative();
+      const stored = row.dataset.tkSelected || null;
+      highlight(nativeVal || stored);
+    };
+
+    row.dataset.tkScaleBound = '1';
+    row.__tkSync();
   }
 
-  // Run now and on changes
+  function enhance() {
+    const rateLabel = findByText(rateRegex);
+    if (!rateLabel) {
+      log('Enhancer: no label found yet.');
+      return;
+    }
+
+    const card = nearestQuestionCard(rateLabel);
+    if (!card) {
+      log('Enhancer: question card not detected.');
+      return;
+    }
+
+    card.classList.add('tk-question-card');
+    removeVerticalGuard();
+
+    const layout = ensureLayout(card, rateLabel);
+    const info = gatherMeta(card, rateLabel);
+    applyMeta(layout, info);
+    hideIfMatch(info.heading, info.titleText);
+    hideIfMatch(info.crumbNode, info.crumbText);
+    hideIfMatch(info.promptNode, info.promptText);
+
+    const nativeButtons = findNumberButtons(card);
+    hideLegacy(nativeButtons, rateLabel);
+
+    setupScale(layout.ratingRow, nativeButtons);
+    tkRenderScoreCard(layout.scoreCard);
+
+    log('Question guard layout applied.');
+  }
+
   let rerunTimer;
   const mo = new MutationObserver(() => {
     clearTimeout(rerunTimer);
@@ -205,7 +504,6 @@
   });
   mo.observe(document.body, { childList: true, subtree: true });
 
-  // Hotkey to force rerun (Alt+G)
   window.addEventListener('keydown', (e) => {
     if (e.altKey && e.key.toLowerCase() === 'g') {
       log('Alt+G: manual re-scan');
@@ -213,7 +511,6 @@
     }
   });
 
-  // initial
   enhance();
 })();
 </script>
