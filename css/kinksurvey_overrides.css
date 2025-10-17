@@ -198,9 +198,8 @@ body.tk-drawer-open #tkCategoryDrawer{transform:translateX(0)}
 .tk-fullscreen #tkToolbar{display:none !important}
 .tk-body-lock{overflow:hidden}
 
-/* Keep the sidebar version of the how-to-score card visible and hide
-   duplicates that appear inside the main/question panel. */
-.score-sidebar .how-to-score { display: block; }
+/* Keep sidebar copy visible if it carries .how-to-score */
+[data-sticky="score"] .how-to-score { display: block; }
 
 .main-panel .how-to-score,
 .survey-panel .how-to-score,

@@ -183,8 +183,8 @@ h2,h3,#progressPct,.theme-btn.is-active,
 #tk-guard .dot.red{background:#ff4b6b;color:#24000a}
 #tk-guard .dot.yellow{background:#ffd34a;color:#241a00}
 
-/* Sidebar copy stays */
-.score-sidebar .how-to-score { display: block; }
+/* Keep sidebar copy visible if it carries .how-to-score */
+[data-sticky="score"] .how-to-score { display: block; }
 
 /* Kill the duplicate inside the main question panel (adjust parent selector if needed) */
 .survey-question-panel .how-to-score,
