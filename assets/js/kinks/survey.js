@@ -741,31 +741,36 @@
   });
 })();
 (() => {
-  if (window.__TK_KEEP_SMALL_VERTICAL_SCORE_CARD__) return;
-  window.__TK_KEEP_SMALL_VERTICAL_SCORE_CARD__ = true;
+  const FLAG = '__TK_SINGLE_SCORE_CARD__';
+  if (window[FLAG]) return;
+  window[FLAG] = true;
 
   const HEADING_SELECTOR = 'h1,h2,h3,h4,h5,.card-title,.title,[role="heading"]';
+  const TITLE_RX = /(how\s*to\s*score|question\s*guard)/i;
 
-  const findSidebar = () =>
-    document.querySelector('[data-sticky="score"]') ||
-    document.querySelector('.score-sidebar');
-
-  const normalizeHeadingText = (text = '') => text.trim().toLowerCase();
-
-  const isScoreCard = (el) => {
-    if (!el) return false;
-    const heading = el.querySelector(HEADING_SELECTOR);
-    if (!heading) return false;
-    const text = normalizeHeadingText(heading.textContent || '');
-    return text.startsWith('how to score');
+  const pickRightColumnCard = (cards) => {
+    if (!cards.length) return null;
+    const midX = window.innerWidth * 0.55;
+    const rightSide = cards.filter((el) => el.getBoundingClientRect().left > midX);
+    if (rightSide.length) {
+      return rightSide.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
+    }
+    return cards[0];
   };
 
-  const findScoreCards = () =>
-    Array.from(
-      document.querySelectorAll('.how-to-score, section, article, aside, div')
-    ).filter(isScoreCard);
+  const findScoreCards = (root = document) => {
+    const containers = Array.from(
+      root.querySelectorAll('.how-to-score, aside, section, article, div')
+    );
+    return containers.filter((el) => {
+      const heading = el.querySelector(HEADING_SELECTOR);
+      if (!heading) return false;
+      const text = (heading.textContent || '').trim();
+      return TITLE_RX.test(text);
+    });
+  };
 
-  const cleanKeptCard = (card) => {
+  const normalizeKeptCard = (card) => {
     if (!card) return;
 
     const heading = card.querySelector(HEADING_SELECTOR) || card.firstElementChild;
@@ -786,24 +791,25 @@
     card.classList.add('tk-score-aside');
   };
 
-  const removeExtras = () => {
-    const sidebar = findSidebar();
+  const ensureSingle = () => {
     const cards = findScoreCards();
     if (!cards.length) return;
 
-    const keep = sidebar ? cards.find((card) => sidebar.contains(card)) : cards[0];
+    const keep = pickRightColumnCard(cards);
     cards.forEach((card) => {
       if (card !== keep) card.remove();
     });
 
-    if (keep && sidebar && !sidebar.contains(keep)) {
-      sidebar.appendChild(keep);
-    }
-
-    cleanKeptCard(keep);
+    normalizeKeptCard(keep);
   };
 
-  const run = () => removeExtras();
+  const run = () => {
+    try {
+      ensureSingle();
+    } catch (err) {
+      console.warn('[TK Score Patch]', err);
+    }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run, { once: true });
@@ -812,8 +818,8 @@
   }
 
   const mo = new MutationObserver(() => {
-    clearTimeout(window.__tkScoreReflowTimer__);
-    window.__tkScoreReflowTimer__ = setTimeout(run, 120);
+    clearTimeout(window.__tkScoreOnce__);
+    window.__tkScoreOnce__ = setTimeout(run, 80);
   });
   mo.observe(document.body, { childList: true, subtree: true });
 })();
