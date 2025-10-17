@@ -47,7 +47,7 @@
     const box=document.createElement('div');
     box.className='tk-legend';
     box.innerHTML=`
-      <h4>Question Guard • How to score</h4>
+      <h4>How to score</h4>
 
       <div class="tk-row">
         <span class="tk-badge tk-blue">0</span>
