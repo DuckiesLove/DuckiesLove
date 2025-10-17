@@ -24,6 +24,29 @@
 
   const mainContainer = document.querySelector('#main');
 
+  function removeDuplicateScoreCards() {
+    const cards = Array.from(
+      document.querySelectorAll('.how-to-score')
+    ).filter((card) => card && card.offsetParent !== null);
+
+    if (cards.length <= 1) return;
+
+    const [, ...duplicates] = cards;
+    duplicates.forEach((card) => card.remove());
+
+    console.log(`[TalkKink] Removed ${duplicates.length} duplicate "How to score" cards`);
+  }
+
+  window.removeDuplicateScoreCards = removeDuplicateScoreCards;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', removeDuplicateScoreCards, {
+      once: true,
+    });
+  } else {
+    removeDuplicateScoreCards();
+  }
+
   async function fetchDataset() {
     const response = await fetch(DATA_URL, { cache: 'no-store' });
     if (!response.ok) {
@@ -228,6 +251,7 @@
       $('#compatBar').style.setProperty('--fill', '0%');
       $('#flagRow').textContent = '';
       updateNavButtons();
+      removeDuplicateScoreCards();
       return;
     }
 
@@ -260,6 +284,7 @@
 
     renderCompatibility();
     updateNavButtons();
+    removeDuplicateScoreCards();
   }
 
   function renderCompatibility() {
