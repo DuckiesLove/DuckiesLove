@@ -482,5 +482,141 @@
         }
       })();
     </script>
+
+    <!-- TK ONE-CARD SCORE GUIDE PATCH -->
+    <style>
+      /* Hide the inline duplicate that sits inside the question card */
+      .tk-inline-hts {
+        display: none !important;
+      }
+
+      /* Compact right-rail score card (keep layout intact) */
+      .tk-score-aside {
+        position: sticky;
+        top: 84px;
+        /* adjust if your header is taller/shorter */
+        align-self: start;
+        max-height: calc(100vh - 110px);
+        overflow: auto;
+        width: 320px;
+        /* compact width so it doesn’t force scroll */
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(8, 12, 16, 0.82);
+        box-shadow: 0 0 0 1px rgba(0, 220, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(3px);
+        font-size: 14px;
+        line-height: 1.28;
+      }
+
+      .tk-score-aside h1,
+      .tk-score-aside h2,
+      .tk-score-aside h3,
+      .tk-score-aside .title,
+      .tk-score-aside .card-title {
+        margin: 4px 4px 10px;
+        font-weight: 700;
+        font-size: 15px;
+      }
+
+      /* tighten rows so the card fits */
+      .tk-score-aside .row,
+      .tk-score-aside li,
+      .tk-score-aside .item {
+        margin: 6px 0 !important;
+        padding: 10px 12px !important;
+        border-radius: 10px !important;
+      }
+
+      /* On narrow screens, let it flow under the question */
+      @media (max-width: 1100px) {
+        .tk-score-aside {
+          position: static;
+          width: auto;
+          max-height: none;
+          margin-top: 12px;
+        }
+      }
+    </style>
+
+    <script>
+      /* --- TK: keep ONE small right-rail score card; hide the inline duplicate --- */
+      (() => {
+        const FLAG = '__tk_score_fix_v3';
+        if (window[FLAG]) return;
+        window[FLAG] = true;
+
+        // Only run on /kinksurvey
+        if (!/\/kinksurvey\/?$/i.test(location.pathname)) return;
+
+        const q = (sel, root = document) => root.querySelector(sel);
+        const qa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+        function findQuestionHost() {
+          const root = q('#surveyApp') || q('main') || document.body;
+          if (!root) return null;
+
+          // Find a row of 0–5 buttons and climb to a “card-like” ancestor
+          const buttons = qa('button,[role="button"]', root).filter((b) =>
+            /^\s*[0-5]\s*$/.test(b.textContent || ''),
+          );
+          if (!buttons.length) return null;
+
+          let node = buttons[0];
+          for (let i = 0; i < 6 && node; i += 1) {
+            if (node.matches('section,article,.card,.panel,.question,.question-card')) return node;
+            node = node.parentElement;
+          }
+          return null;
+        }
+
+        function findScoreCards() {
+          // Any block with a title matching "How to score" or legacy "Question Guard"
+          const blocks = qa('section,article,aside,div');
+          return blocks.filter((el) => {
+            const h = q('h1,h2,h3,h4,h5,.title,.card-title', el);
+            return h && /(how\s*to\s*score|question\s*guard)/i.test((h.textContent || '').trim());
+          });
+        }
+
+        function apply() {
+          const question = findQuestionHost();
+          const cards = findScoreCards();
+          if (!question || !cards.length) return;
+
+          // 1) Hide any score card INSIDE the question host (inline duplicate)
+          cards.forEach((el) => {
+            if (question.contains(el)) el.classList.add('tk-inline-hts');
+          });
+
+          // 2) Of the remaining visible cards (outside question), keep exactly one (the right-most)
+          const outside = cards.filter((el) => !question.contains(el));
+          if (outside.length > 1) {
+            outside.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+            const keep = outside[outside.length - 1];
+            outside.forEach((el) => {
+              if (el !== keep) el.remove();
+            });
+            keep.classList.add('tk-score-aside');
+          } else if (outside.length === 1) {
+            outside[0].classList.add('tk-score-aside');
+          }
+        }
+
+        const kick = () => setTimeout(apply, 40);
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', kick, { once: true });
+        } else {
+          kick();
+        }
+        new MutationObserver(kick).observe(document.body, { childList: true, subtree: true });
+
+        // optional: quick console check
+        window.__TK_SCORE_DEBUG__ = () => ({
+          questionFound: !!findQuestionHost(),
+          cards: findScoreCards().length,
+        });
+      })();
+    </script>
   </body>
 </html>
