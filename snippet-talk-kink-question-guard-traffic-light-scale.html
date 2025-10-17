@@ -100,12 +100,29 @@
         gap: 14px;
         color: #d9eaff;
       }
+      .tk-score-card--inline {
+        margin-top: 16px;
+        border-radius: 12px;
+        box-shadow:
+          0 0 0 1px rgba(0, 200, 255, 0.25),
+          0 10px 24px rgba(0, 0, 0, 0.35);
+        background: rgba(8, 12, 16, 0.75);
+        backdrop-filter: blur(6px);
+      }
       .tk-score-title {
         text-transform: uppercase;
         font-size: .85rem;
         letter-spacing: .22em;
         color: rgba(140,220,255,.85);
         font-weight: 700;
+      }
+      .tk-score-card--inline .tk-score-title,
+      .tk-score-title {
+        margin: 0 0 8px 0 !important;
+        font-weight: 700;
+        letter-spacing: 0.25px;
+        color: var(--accent, #bfefff);
+        text-shadow: 0 0 18px rgba(0, 230, 255, 0.35);
       }
       .tk-score-card .tk-row {
         display: grid;
@@ -136,6 +153,12 @@
       }
       .tk-score-card strong { display: block; margin-bottom: 2px; }
       .tk-hidden { display: none !important; }
+      #scoreGuideAside,
+      .score-aside,
+      aside[aria-label*="Question Guard"],
+      aside:has(h2:matches-css(text, "Question Guard")) {
+        display: none !important;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -168,7 +191,7 @@
 
   function tkRenderScoreCard(root) {
     if (!root) return;
-    root.classList.add('tk-score-card');
+    root.classList.add('tk-score-card', 'tk-score-card--inline');
     root.innerHTML = `
       <div class="tk-score-title">How to score</div>
       ${TK_GUARD_WIDE.map((r) => `
@@ -274,7 +297,7 @@
     if (!scoreCard) {
       scoreCard = document.createElement('div');
       scoreCard.id = 'tk-score-card';
-      scoreCard.className = 'tk-score-card';
+      scoreCard.className = 'tk-score-card tk-score-card--inline';
       const actions = card.querySelector('.question-actions, .tk-actions, footer, .actions, [data-role="actions"], nav[aria-label*="actions"], .question-footer');
       if (actions && actions.parentNode) {
         actions.parentNode.insertBefore(scoreCard, actions);
