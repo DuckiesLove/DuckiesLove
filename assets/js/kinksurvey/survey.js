@@ -603,6 +603,8 @@
       root.querySelectorAll('section, article, aside, div')
     );
     return containers.filter(el => {
+      if (el.closest('#questionCard')?.querySelector('.scoreRow')) return false;
+      if (el.querySelector('.scoreRow')) return false;
       const h = el.querySelector('h1,h2,h3,h4,h5,.card-title,.title');
       return h && MATCH.test(h.textContent || '');
     });
