@@ -333,6 +333,9 @@
     // single score row (A)
     const rowA = $(`.scoreRow[data-partner="A"]`);
     rowA.innerHTML = '';
+    if (rowA) {
+      rowA.dataset.group = rowA.dataset.group || 'rating-A';
+    }
     const guardRoot = $('#tk-guard');
     renderGuardSmall(guardRoot);
     if (typeof requestAnimationFrame === 'function') {
@@ -348,6 +351,8 @@
       const btn = document.createElement('button');
       btn.textContent = String(i);
       btn.dataset.value = String(i);
+      btn.dataset.action = 'select';
+      btn.classList.add('option');
       btn.setAttribute('aria-pressed', scores.A[q.id]===i ? 'true':'false');
       btn.addEventListener('click', ()=>{
         scores.A[q.id] = i;
@@ -674,4 +679,85 @@
     window.__tkScoreReflowTimer__ = setTimeout(run, 120);
   });
   mo.observe(document.body, { childList: true, subtree: true });
+})();
+
+(() => {
+  window.addEventListener('error', (e) => {
+    console.error('[Survey Fatal]', e?.message, `${e?.filename || ''}:${e?.lineno || 0}`);
+  });
+
+  const onReady = () => {
+    const surveyRoot =
+      document.querySelector('#question-panel, .survey-question-panel, .survey-root, main') ||
+      document.body;
+
+    if (!surveyRoot) return;
+
+    surveyRoot.addEventListener(
+      'click',
+      (event) => {
+        const btn = event.target?.closest?.('button, [role="button"]');
+        if (!btn || !surveyRoot.contains(btn)) return;
+        const text = (btn.textContent || '').trim();
+        console.info('[Survey Click]', {
+          text,
+          id: btn.id || null,
+          classes: btn.className || '',
+        });
+      },
+      { capture: true }
+    );
+
+    const state = Object.create(null);
+    surveyRoot.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('button.option, [data-action="select"]');
+      if (!target || !surveyRoot.contains(target)) return;
+
+      if (target.tagName === 'BUTTON') {
+        const type = target.getAttribute('type');
+        if (!type || type.toLowerCase() === 'submit') {
+          target.type = 'button';
+        }
+      }
+
+      event.preventDefault();
+
+      const group = target.closest('[data-group]');
+      const groupKey = group?.dataset?.group || 'default';
+      group?.querySelectorAll('button.option, [data-action="select"]').forEach((btn) => {
+        const active = btn === target;
+        btn.classList.toggle('selected', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+
+      const value =
+        target.dataset?.value ??
+        target.value ??
+        (target.textContent ? target.textContent.trim() : '');
+      state[groupKey] = value;
+
+      console.log('[Survey Selected]', { group: groupKey, value });
+    });
+
+    (async () => {
+      if (typeof fetch !== 'function') return;
+      try {
+        const res = await fetch('/data/kinks.json', { cache: 'no-store' });
+        const text = await res.text();
+        try {
+          JSON.parse(text);
+        } catch (parseErr) {
+          console.error('[kinks.json parse error]', parseErr, text.slice(0, 200));
+        }
+      } catch (fetchErr) {
+        console.error('[kinks.json fetch error]', fetchErr);
+      }
+    })();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', onReady, { once: true });
+  } else {
+    onReady();
+  }
 })();
