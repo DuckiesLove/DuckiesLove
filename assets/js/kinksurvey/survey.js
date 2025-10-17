@@ -372,9 +372,9 @@
 
     if(!q){
       questionPanel.innerHTML = `
-        <article class="question-card is-empty">
+        <article class="question-card is-empty" id="questionCard">
           <header class="q-head">
-            <div class="q-path">TalkKink Survey</div>
+            <div class="q-path" id="questionPath">TalkKink Survey</div>
             <h2 class="q-title">Select at least one category to begin</h2>
           </header>
         </article>
@@ -395,9 +395,9 @@
 
     questionPanel.dataset.questionId = q.id;
     questionPanel.innerHTML = `
-      <article class="question-card">
+      <article class="question-card" id="questionCard">
         <header class="q-head">
-          <div class="q-path">${categoryName} • ${prompt}</div>
+          <div class="q-path" id="questionPath">${categoryName} • ${prompt}</div>
           <h2 class="q-title">${roleLabel}: Rate interest/comfort (0–5)</h2>
         </header>
 
