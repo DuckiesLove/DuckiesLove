@@ -1,0 +1,153 @@
+<!-- ========= TalkKink Layout Patch: keep bottom score card, remove vertical, rename title ========= -->
+<script>
+/* ========= TK layout patch: keep bottom score card, remove vertical, rename title ========= */
+(function TK_FIX_LAYOUT(){
+  const LOGP = '[TK Patch]';
+  let applied = false;
+  let tries = 0;
+  const MAX_TRIES = 60;         // ~30s total if interval is 500ms
+  const TICK = 500;
+
+  // Small CSS nudge (only run once)
+  (function injectCSS(){
+    if (document.getElementById('tk-patch-css')) return;
+    const css = `
+      /* Soft highlight for the main question card when we move things */
+      .tk-patch-question-card {
+        box-shadow: 0 0 0 1px rgba(0,255,255,.14), 0 10px 24px rgba(0,0,0,.35);
+      }
+    `;
+    const style = document.createElement('style');
+    style.id = 'tk-patch-css';
+    style.textContent = css;
+    document.head.appendChild(style);
+  })();
+
+  function normalize(str){
+    return (str || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  function isScorePanel(el){
+    if (!el) return false;
+    const txt = normalize(el.textContent);
+    // must contain both phrases in any casing
+    return txt.includes('question guard') && txt.includes('how to score');
+  }
+
+  function findAllScorePanels(){
+    // be generous — score panels are usually sections or divs
+    const candidates = Array.from(document.querySelectorAll('section,div'))
+      .filter(isScorePanel);
+    return candidates;
+  }
+
+  // Try to find the question title like "Giving: Rate interest/comfort (0–5)"
+  function findQuestionCard(){
+    // Look for a heading near the rating row
+    const headings = Array.from(document.querySelectorAll('h1,h2,h3,header,.tk-title,.title'));
+    const hit = headings.find(h => /rate\s+interest\/?comfort\s*\(0\s*[-–]\s*5\)/i.test(h.textContent || ''));
+    if (!hit) return null;
+
+    // Take a reasonable ancestor that behaves like a card
+    let node = hit.closest('section,article,div');
+    // Climb up a little if too small
+    if (node && node.offsetHeight < 80 && node.parentElement) node = node.parentElement;
+    return node;
+  }
+
+  function removeVerticalPanels(panels){
+    // Keep the widest one (likely the bottom, full-width card), remove narrow right-side ones.
+    if (!panels.length) return { kept: null, removed: [] };
+
+    let kept = panels[0];
+    panels.forEach(p => { if (p.offsetWidth > kept.offsetWidth) kept = p; });
+
+    const removed = [];
+    panels.forEach(p => {
+      if (p !== kept && p.parentNode) {
+        p.parentNode.removeChild(p);
+        removed.push(p);
+      }
+    });
+    return { kept, removed };
+  }
+
+  function renameScoreTitle(panel){
+    if (!panel) return;
+    // Replace any "Question Guard • How to score" with "How to score"
+    // We’ll try to find a discrete heading node, else replace the first occurrence in panel text nodes.
+    const titleNode = panel.querySelector('h1,h2,h3,.tk-score-title,.title,strong,header');
+    const replacer = (s) => s.replace(/question\s*guard\s*(?:[•\-–]\s*)?/i, '').replace(/\s*how to score/i, 'How to score').trim();
+
+    if (titleNode && titleNode.childNodes.length === 1 && titleNode.firstChild.nodeType === Node.TEXT_NODE) {
+      titleNode.textContent = replacer(titleNode.textContent);
+      return;
+    }
+
+    // fallback: inject our own heading if we can’t safely edit existing text
+    if (!panel.querySelector('.tk-score-title')) {
+      const h = document.createElement('div');
+      h.className = 'tk-score-title';
+      h.textContent = 'How to score';
+      panel.insertBefore(h, panel.firstChild);
+    }
+  }
+
+  function movePanelBelowQuestion(keptPanel, questionCard){
+    if (!keptPanel || !questionCard) return;
+    // If it’s already positioned right below, skip
+    if (keptPanel.previousElementSibling === questionCard) return;
+
+    // Move it right after the question card (inside same parent if possible)
+    try {
+      const targetParent = questionCard.parentElement || document.querySelector('main') || document.body;
+      targetParent.insertBefore(keptPanel, questionCard.nextSibling);
+    } catch (e) {
+      console.warn(LOGP, 'Could not move score panel:', e);
+    }
+  }
+
+  function run(){
+    if (applied) return;
+    tries++;
+
+    const questionCard = findQuestionCard();
+    const scorePanels = findAllScorePanels();
+
+    if (!questionCard || !scorePanels.length) {
+      if (tries < MAX_TRIES) {
+        setTimeout(run, TICK);
+      } else {
+        console.warn(LOGP, 'Gave up waiting for question/score panels.');
+      }
+      return;
+    }
+
+    // 1) remove vertical versions, keep the full-width one
+    const { kept, removed } = removeVerticalPanels(scorePanels);
+    if (removed.length) console.log(LOGP, 'Removed vertical guard panels:', removed.length);
+
+    // 2) rename kept panel title
+    renameScoreTitle(kept);
+
+    // 3) place kept panel immediately after question card
+    movePanelBelowQuestion(kept, questionCard);
+
+    // 4) optional: highlight question card once so you can see it happened
+    questionCard.classList.add('tk-patch-question-card');
+    setTimeout(()=>questionCard.classList.remove('tk-patch-question-card'), 900);
+
+    applied = true;
+    console.log(LOGP, 'Applied: kept bottom score card, removed vertical, renamed title, placed after question.');
+  }
+
+  // Try immediately and also observe for late rendering
+  run();
+
+  // In case your app rerenders the DOM after navigation
+  const mo = new MutationObserver(() => {
+    if (!applied) run();
+  });
+  mo.observe(document.documentElement, { subtree: true, childList: true });
+})();
+</script>
