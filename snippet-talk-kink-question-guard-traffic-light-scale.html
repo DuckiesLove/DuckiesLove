@@ -61,6 +61,22 @@
         gap: 12px;
         align-items: center;
       }
+      .tk-rating-wrap {
+        display: grid;
+        gap: clamp(14px, 2vw, 22px);
+        margin-top: 6px;
+      }
+      .tk-rating-wrap > * {
+        min-width: 0;
+      }
+      .tk-rating-title {
+        font-size: .82rem;
+        letter-spacing: .22em;
+        text-transform: uppercase;
+        color: rgba(160,220,255,.82);
+        font-weight: 700;
+        text-shadow: 0 0 12px rgba(90,190,255,.3);
+      }
       .tk-rating-row button {
         border: 1px solid rgba(120,200,255,.28);
         background: rgba(12,18,26,.78);
@@ -152,6 +168,18 @@
         color: #003926;
       }
       .tk-score-card strong { display: block; margin-bottom: 2px; }
+      @media (min-width: 768px) {
+        .tk-rating-wrap {
+          grid-template-columns: minmax(0, 1.15fr) minmax(0, .95fr);
+          grid-template-areas:
+            "title score"
+            "row score";
+          align-items: start;
+        }
+        .tk-rating-title { grid-area: title; }
+        #tk-rating-row { grid-area: row; }
+        #tk-score-card { grid-area: score; }
+      }
       .tk-hidden { display: none !important; }
       #scoreGuideAside,
       .score-aside,
@@ -281,16 +309,36 @@
     const title = header.querySelector('#tk-question-title');
     const prompt = header.querySelector('#tk-question-prompt');
 
-    let ratingRow = card.querySelector('#tk-rating-row');
+    const container = header.parentNode || card;
+
+    let ratingWrap = card.querySelector('.tk-rating-wrap');
+    if (!ratingWrap) {
+      ratingWrap = document.createElement('div');
+      ratingWrap.className = 'tk-rating-wrap';
+      if (header.nextSibling) {
+        container.insertBefore(ratingWrap, header.nextSibling);
+      } else {
+        container.appendChild(ratingWrap);
+      }
+    }
+
+    let ratingTitle = ratingWrap.querySelector('.tk-rating-title');
+    if (!ratingTitle) {
+      ratingTitle = document.createElement('div');
+      ratingTitle.className = 'tk-rating-title';
+      ratingWrap.prepend(ratingTitle);
+    }
+    const labelText = cleanText(rateLabel?.textContent) || 'Rate interest/comfort (0–5)';
+    ratingTitle.textContent = labelText;
+
+    let ratingRow = ratingWrap.querySelector('#tk-rating-row') || card.querySelector('#tk-rating-row');
     if (!ratingRow) {
       ratingRow = document.createElement('div');
       ratingRow.id = 'tk-rating-row';
       ratingRow.className = 'tk-rating-row';
-      if (header.nextSibling) {
-        header.parentNode.insertBefore(ratingRow, header.nextSibling);
-      } else {
-        header.parentNode.appendChild(ratingRow);
-      }
+    }
+    if (ratingRow.parentNode !== ratingWrap) {
+      ratingWrap.appendChild(ratingRow);
     }
 
     let scoreCard = card.querySelector('#tk-score-card');
@@ -298,17 +346,12 @@
       scoreCard = document.createElement('div');
       scoreCard.id = 'tk-score-card';
       scoreCard.className = 'tk-score-card tk-score-card--inline';
-      const actions = card.querySelector('.question-actions, .tk-actions, footer, .actions, [data-role="actions"], nav[aria-label*="actions"], .question-footer');
-      if (actions && actions.parentNode) {
-        actions.parentNode.insertBefore(scoreCard, actions);
-      } else if (ratingRow.nextSibling) {
-        ratingRow.parentNode.insertBefore(scoreCard, ratingRow.nextSibling);
-      } else {
-        card.appendChild(scoreCard);
-      }
+    }
+    if (scoreCard.parentNode !== ratingWrap) {
+      ratingWrap.appendChild(scoreCard);
     }
 
-    return { header, meta, title, prompt, ratingRow, scoreCard };
+    return { header, meta, title, prompt, ratingWrap, ratingTitle, ratingRow, scoreCard };
   }
 
   function gatherMeta(card, rateLabel) {
