@@ -624,3 +624,63 @@
     writable: false
   });
 })();
+(() => {
+  if (window.__TK_KEEP_SMALL_VERTICAL_SCORE_CARD__) return;
+  window.__TK_KEEP_SMALL_VERTICAL_SCORE_CARD__ = true;
+
+  const MATCH = /how\s*to\s*score/i;
+
+  function findScoreCards(root = document) {
+    const containers = Array.from(
+      root.querySelectorAll('section, article, aside, div')
+    );
+    return containers.filter(el => {
+      const h = el.querySelector('h1,h2,h3,h4,h5,.card-title,.title');
+      return h && MATCH.test(h.textContent || '');
+    });
+  }
+
+  function keepRightMostAndCompact() {
+    const cards = findScoreCards();
+    if (!cards.length) {
+      setTimeout(keepRightMostAndCompact, 180);
+      return;
+    }
+
+    const rightMost = cards.reduce((a, b) =>
+      a.getBoundingClientRect().left > b.getBoundingClientRect().left ? a : b
+    );
+    cards.forEach(el => { if (el !== rightMost) el.remove(); });
+
+    const title =
+      rightMost.querySelector('h1,h2,h3,h4,h5,.card-title,.title') ||
+      rightMost.firstElementChild;
+    if (title) title.textContent = 'How to score';
+
+    Object.assign(rightMost.style, {
+      width: '',
+      height: '',
+      position: '',
+      left: '',
+      right: '',
+      top: '',
+      bottom: '',
+    });
+
+    rightMost.classList.add('tk-score-aside');
+  }
+
+  const run = () => keepRightMostAndCompact();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run, { once: true });
+  } else {
+    run();
+  }
+
+  const mo = new MutationObserver(() => {
+    clearTimeout(window.__tkScoreReflowTimer__);
+    window.__tkScoreReflowTimer__ = setTimeout(run, 120);
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+})();
