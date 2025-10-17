@@ -188,8 +188,14 @@ h2,h3,#progressPct,.theme-btn.is-active,
 
 /* Kill the duplicate inside the main question panel (adjust parent selector if needed) */
 .survey-question-panel .how-to-score,
-#question-panel .how-to-score {
+#question-panel .how-to-score,
+.main-panel .how-to-score {
   display: none !important;
+}
+
+/* Keep spacing tight where the duplicate used to sit */
+.survey-question-panel .how-to-score + .label {
+  margin-top: 0.75rem;
 }
 
 /* Visual feedback for selected rating buttons (optional) */
