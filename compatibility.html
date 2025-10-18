@@ -471,6 +471,95 @@
     <input id="fileB" type="file" accept=".json" hidden />
   </main>
 
+  <script>
+    function ksvParseSurveyJsonText(jsonText, partner = 'A') {
+      const fail = (reason) => ({ ok: false, reason, cells: [], survey: null });
+      if (typeof jsonText !== 'string') return fail('No JSON payload provided');
+
+      let payload;
+      try {
+        payload = JSON.parse(jsonText);
+      } catch (err) {
+        return fail('Invalid JSON');
+      }
+
+      const answers = {};
+      const answersByKey = {};
+      let maxIndex = 0;
+
+      const clamp = (value) => {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return 0;
+        if (n < 0) return 0;
+        if (n > 5) return 5;
+        return Math.round(n);
+      };
+
+      const toRating = (value) => {
+        if (value == null || value === '') return 0;
+        if (typeof value === 'number' && Number.isFinite(value)) return clamp(value);
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (!trimmed) return 0;
+          const match = trimmed.match(/-?\d+(?:\.\d+)?/);
+          if (match) return clamp(Number(match[0]));
+        }
+        return 0;
+      };
+
+      const applyRating = (index, value) => {
+        const idx = Number(index);
+        if (!Number.isFinite(idx) || idx <= 0) return;
+        const normalized = toRating(value);
+        const key = String(idx);
+        answersByKey[key] = normalized;
+        if (idx > maxIndex) maxIndex = idx;
+      };
+
+      const absorbArray = (arr) => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach((value, i) => applyRating(i + 1, value));
+      };
+
+      const absorbObject = (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        Object.keys(obj)
+          .sort((a, b) => Number(a) - Number(b))
+          .forEach((key) => applyRating(key, obj[key]));
+      };
+
+      if (Array.isArray(payload)) {
+        absorbArray(payload);
+      } else if (payload && typeof payload === 'object') {
+        absorbArray(payload.cells);
+        absorbArray(payload.answers);
+        absorbObject(payload.answersByKey);
+        absorbObject(payload.answersById);
+        absorbObject(payload.ratings);
+      } else {
+        return fail('Unsupported survey payload');
+      }
+
+      if (!maxIndex) {
+        return fail('No survey answers found');
+      }
+
+      for (let i = 1; i <= maxIndex; i += 1) {
+        const key = String(i);
+        const rating = Object.prototype.hasOwnProperty.call(answersByKey, key)
+          ? answersByKey[key]
+          : 0;
+        answers[key] = rating;
+        answersByKey[key] = rating;
+      }
+
+      const cells = Array.from({ length: maxIndex }, (_, i) => answersByKey[String(i + 1)] ?? 0);
+      return { ok:true, cells, survey: { answers, answersByKey } };
+}
+
+    window.ksvParseSurveyJsonText = ksvParseSurveyJsonText;
+  </script>
+
   <script defer src="/js/theme-globals.js"></script>
   <script defer src="/js/pdfDownload.js"></script>
   <script defer src="/assets/js/comparison.js"></script>
