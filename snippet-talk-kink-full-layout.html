@@ -6,10 +6,10 @@
     --chip: rgba(255,255,255,.05);
   }
 
-  /* 3-column app shell */
+  /* App shell: Left (categories) • Center (landing/question) • Right (guide) */
   .tk-app {
     display: grid;
-    grid-template-columns: 300px 1fr 340px;  /* Left • Center • Right */
+    grid-template-columns: 300px 1fr 340px;
     gap: 16px;
     align-items: start;
     max-width: 1400px;
@@ -17,7 +17,6 @@
     padding: 8px 16px 48px;
   }
 
-  /* Panels / cards */
   .tk-card {
     background: var(--panel);
     border: 1px solid var(--panel-border);
@@ -28,18 +27,14 @@
   /* LEFT: Categories */
   #tk-categories h3 { margin: 0 0 8px; font-size: 1.05rem; }
   #tk-cat-list { display: grid; gap: 8px; }
-  .tk-cat {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border-radius: 12px; background: var(--chip);
-  }
+  .tk-cat { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--chip); }
   .tk-cat input { accent-color: #5cc8ff; }
 
   /* CENTER: Landing + Question */
   #tk-landing .tk-actions { display: grid; gap: 16px; max-width: 760px; margin: 0 auto; }
-  #tk-landing .tk-actions a, #tk-landing .tk-actions button{
+  #tk-landing .tk-actions a, #tk-landing .tk-actions button {
     padding: 18px 22px; border-radius: 999px; border: 1px solid var(--panel-border);
-    background: rgba(255,255,255,.02); color: inherit; font-size: 1.05rem; cursor: pointer;
-    text-align: center;
+    background: rgba(255,255,255,.02); color: inherit; font-size: 1.05rem; cursor: pointer; text-align: center;
   }
 
   .tk-qcard .tk-path { opacity: .75; font-size: .9rem; margin-bottom: 6px; }
@@ -62,11 +57,11 @@
   button.tk-opt.selected { outline: 2px solid currentColor; transform: translateY(-1px); }
   button.tk-opt[aria-pressed="true"] { font-weight: 700; }
 
-  /* Only keep sidebar "How to score"; hide any inline duplicates in the center panel */
+  /* Keep ONLY sidebar "How to score"; hide any inline duplicates in the center */
   .tk-center .how-to-score { display: none !important; }
   .tk-right  .how-to-score { display: block; }
 
-  /* Responsive: stack on narrow screens */
+  /* Responsive */
   @media (max-width: 1024px){
     .tk-app { grid-template-columns: 1fr; }
     .tk-right { order: 3; }
@@ -119,125 +114,125 @@
 </main>
 
 <script>
-/* ======================= DATA: Load categories on page load ======================= */
-async function tkLoadCategories() {
-  const list = document.getElementById('tk-cat-list');
-  if (!list) return;
-  list.textContent = 'Loading…';
-  try {
-    const res = await fetch('/data/kinks.json', { cache: 'no-store' });
-    const data = await res.json();
+(function TK_INIT(){
+  const VERSION = "TK init v2025-10-17-1";
+  console.log(VERSION);
 
-    // Normalize to an array of names
-    let cats = [];
-    if (Array.isArray(data)) {
-      cats = data.map(x => x?.name || x?.title || x?.category || String(x));
-    } else if (Array.isArray(data?.categories)) {
-      cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
-    } else if (typeof data === 'object' && data) {
-      cats = Object.keys(data);
+  /* ---------- Load categories on page load ---------- */
+  async function tkLoadCategories() {
+    const list = document.getElementById('tk-cat-list');
+    if (!list) return;
+    list.textContent = 'Loading…';
+    try {
+      const res = await fetch('/data/kinks.json', { cache: 'no-store' });
+      const data = await res.json();
+
+      let cats = [];
+      if (Array.isArray(data)) {
+        cats = data.map(x => x?.name || x?.title || x?.category || String(x));
+      } else if (Array.isArray(data?.categories)) {
+        cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
+      } else if (typeof data === 'object' && data) {
+        cats = Object.keys(data);
+      }
+      cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
+
+      list.innerHTML = '';
+      cats.forEach((name, i) => {
+        const row = document.createElement('label');
+        row.className = 'tk-cat';
+        row.innerHTML = `
+          <input type="checkbox" id="cat_${i}" data-cat="${name}">
+          <span>${name}</span>
+        `;
+        list.appendChild(row);
+      });
+      console.log('✅ Categories loaded:', cats.length);
+    } catch (e) {
+      console.error('[Categories] load error', e);
+      list.textContent = 'Failed to load categories.';
     }
-    cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
-
-    list.innerHTML = '';
-    cats.forEach((name, i) => {
-      const row = document.createElement('label');
-      row.className = 'tk-cat';
-      row.innerHTML = `
-        <input type="checkbox" id="cat_${i}" data-cat="${name}">
-        <span>${name}</span>
-      `;
-      list.appendChild(row);
-    });
-    console.log('✅ Categories loaded:', cats.length);
-  } catch (e) {
-    console.error('[Categories] load error', e);
-    list.textContent = 'Failed to load categories.';
   }
-}
 
-/* ======================= UI: Build 0–5 scale buttons ======================= */
-function tkMakeScale(container, group='rating-A') {
-  if (!container) return;
-  container.dataset.group = group;
-  container.innerHTML = '';
-  for (let i=0;i<=5;i++) {
-    const b = document.createElement('button');
-    b.className = 'tk-opt';
-    b.type = 'button';
-    b.dataset.value = String(i);
-    b.textContent = String(i);
-    b.setAttribute('aria-pressed','false');
-    container.appendChild(b);
+  /* ---------- Build 0–5 scale ---------- */
+  function tkMakeScale(container, group='rating-A') {
+    if (!container) return;
+    container.dataset.group = group;
+    container.innerHTML = '';
+    for (let i=0;i<=5;i++) {
+      const b = document.createElement('button');
+      b.className = 'tk-opt';
+      b.type = 'button';
+      b.dataset.value = String(i);
+      b.textContent = String(i);
+      b.setAttribute('aria-pressed','false');
+      container.appendChild(b);
+    }
   }
-}
 
-/* ======================= CENTER: Render Question Card ======================= */
-function tkRenderQuestionCard({category='Appearance Play', prompt='Choosing My Partner S', role='Giving'}={}) {
-  const panel = document.getElementById('question-panel');
-  if (!panel) return;
+  /* ---------- Render Question Card ---------- */
+  function tkRenderQuestionCard({category='Appearance Play', prompt='Choosing My Partner S', role='Giving'}={}) {
+    const panel = document.getElementById('question-panel');
+    if (!panel) return;
 
-  panel.hidden = false;
-  panel.innerHTML = `
-    <div class="tk-path">${category} • ${prompt}</div>
-    <h2 class="tk-title">${role}: Rate interest/comfort (0–5)</h2>
+    panel.hidden = false;
+    panel.innerHTML = `
+      <div class="tk-path">${category} • ${prompt}</div>
+      <h2 class="tk-title">${role}: Rate interest/comfort (0–5)</h2>
 
-    <div id="ratingRow" class="single">
-      <div class="col">
-        <div class="tk-label">Rate interest/comfort (0–5)</div>
-        <div id="tk-guard" aria-live="polite"></div>
-        <div id="tk-scale" data-group="rating-A"></div>
-        <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
+      <div id="ratingRow" class="single">
+        <div class="col">
+          <div class="tk-label">Rate interest/comfort (0–5)</div>
+          <div id="tk-guard" aria-live="polite"></div>
+          <div id="tk-scale" data-group="rating-A"></div>
+          <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
+        </div>
       </div>
-    </div>
 
-    <!-- Inline guide kept for accessibility but hidden via CSS .tk-center .how-to-score -->
-    <section class="how-to-score" aria-hidden="true"></section>
-  `;
+      <!-- Inline guide (hidden by CSS so only the sidebar shows) -->
+      <section class="how-to-score" aria-hidden="true"></section>
+    `;
 
-  tkMakeScale(document.getElementById('tk-scale'), 'rating-A');          // center
-  tkMakeScale(document.getElementById('tk-scale-sidebar'), 'rating-A');  // right
-  document.getElementById('tk-right').hidden = false;                    // show sidebar
-}
+    tkMakeScale(document.getElementById('tk-scale'), 'rating-A');          // center
+    tkMakeScale(document.getElementById('tk-scale-sidebar'), 'rating-A');  // right
+    document.getElementById('tk-right').hidden = false;                    // show sidebar
+  }
 
-/* ======================= INTERACTION: Rating buttons sync ======================= */
-(function bindRatingClicks(){
-  if (window.__tkBound) return; window.__tkBound = true;
-  (document.querySelector('.tk-app') || document.body).addEventListener('click', (e)=>{
-    const btn = e.target.closest('button.tk-opt'); if (!btn) return;
-    if (!btn.type || btn.type.toLowerCase()==='submit') btn.type='button';
+  /* ---------- Rating button sync (bind once) ---------- */
+  if (!window.__tkBound) {
+    window.__tkBound = true;
+    (document.querySelector('.tk-app') || document.body).addEventListener('click', (e)=>{
+      const btn = e.target.closest('button.tk-opt'); if (!btn) return;
+      if (!btn.type || btn.type.toLowerCase()==='submit') btn.type='button';
 
-    const group = btn.closest('[data-group]')?.dataset.group || 'rating-A';
-    const value = btn.dataset.value ?? btn.textContent.trim();
+      const group = btn.closest('[data-group]')?.dataset.group || 'rating-A';
+      const value = btn.dataset.value ?? btn.textContent.trim();
 
-    document.querySelectorAll(`[data-group="${group}"] button.tk-opt`).forEach(b=>{
-      const on = (b.dataset.value === value);
-      b.classList.toggle('selected', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      document.querySelectorAll(`[data-group="${group}"] button.tk-opt`).forEach(b=>{
+        const on = (b.dataset.value === value);
+        b.classList.toggle('selected', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+
+      const guard = document.getElementById('tk-guard');
+      guard && (guard.textContent = `Selected ${value} of 5`);
+      console.log('[Survey Selected]', { group, value });
     });
+  }
 
-    const guard = document.getElementById('tk-guard');
-    guard && (guard.textContent = `Selected ${value} of 5`);
-    console.log('[Survey Selected]', { group, value });
+  /* ---------- Flow: startSurvey (global) ---------- */
+  window.startSurvey = function startSurvey(){
+    console.log('✅ startSurvey triggered');
+    document.getElementById('tk-landing')?.setAttribute('hidden','hidden');
+    tkRenderQuestionCard(); // first question
+  };
+
+  /* ---------- Wire Start button + autostart ---------- */
+  document.addEventListener('DOMContentLoaded', () => {
+    tkLoadCategories(); // left panel visible immediately
+    document.getElementById('btnStart')?.addEventListener('click', (e)=>{ e.preventDefault(); startSurvey(); });
+    if (new URLSearchParams(location.search).has('autostart')) startSurvey();
   });
 })();
-
-/* ======================= FLOW: Start survey ======================= */
-function startSurvey(){
-  document.getElementById('tk-landing')?.setAttribute('hidden','hidden'); // keep left panel visible
-  tkRenderQuestionCard(); // render first question
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  tkLoadCategories();  // LEFT panel visible immediately
-
-  // Wire Start button
-  document.getElementById('btnStart')?.addEventListener('click', (e)=>{
-    e.preventDefault(); startSurvey();
-  });
-
-  // Optional quick test: autostart via ?autostart
-  if (new URLSearchParams(location.search).has('autostart')) startSurvey();
-});
 </script>
 <!-- ======================= END — TALK KINK FULL LAYOUT ======================= -->
