@@ -1,0 +1,177 @@
+<!-- ===== TK: stop Start-triggered navigation + render sticky question UI ===== -->
+<script>
+(() => {
+  /* ----------------- helpers ----------------- */
+  const $ = (s, r=document)=>r.querySelector(s);
+  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const isStart = el => el && /start\s*survey/i.test((el.textContent||"").trim());
+  const anyCategory = () => {
+    const boxes = $$('input[type="checkbox"], [role="checkbox"][aria-checked]');
+    return boxes.some(b => b.checked || b.getAttribute?.('aria-checked')==='true');
+  };
+
+  /* ----------------- styles ----------------- */
+  (function css(){
+    if($('#tk-guard-css')) return;
+    const s=document.createElement('style'); s.id='tk-guard-css';
+    s.textContent = `
+      #tk-stage{display:grid;grid-template-columns:1fr 340px;gap:16px;margin:14px 16px 24px}
+      #tk-center,#tk-right{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.14);
+        border-radius:14px;padding:14px;min-height:320px}
+      .tk-grid{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
+      .tk-opt{border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 0;background:transparent;color:inherit;cursor:pointer}
+      .tk-opt.selected{outline:2px solid currentColor}
+      @media(max-width:1024px){#tk-stage{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(s);
+  })();
+
+  /* ----------------- rating scale + sync ----------------- */
+  function makeScale(el, group="rating-A"){
+    if(!el) return;
+    el.innerHTML="";
+    for(let i=0;i<=5;i++){
+      const b=document.createElement('button');
+      b.type='button'; b.className='tk-opt'; b.dataset.group=group; b.dataset.value=i;
+      b.setAttribute('aria-pressed','false'); b.textContent=i;
+      el.appendChild(b);
+    }
+  }
+  if(!window.__tkScaleSync){
+    window.__tkScaleSync=true;
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button.tk-opt'); if(!btn) return;
+      const g=btn.dataset.group, v=btn.dataset.value;
+      $$(`.tk-opt[data-group="${g}"]`).forEach(b=>{
+        const on=b.dataset.value===v;
+        b.classList.toggle('selected', on);
+        b.setAttribute('aria-pressed', on?'true':'false');
+      });
+      const guard=$('#tk-guard'); if(guard) guard.textContent=`Selected ${v} of 5`;
+    });
+  }
+
+  /* ----------------- render question card ----------------- */
+  function anchorArea(){
+    return $('#tk-stage') || $('#progress, .progress') || $('main') || $('h1') || document.body;
+  }
+  function renderCard(){
+    let stage = $('#tk-stage');
+    if(!stage){
+      stage=document.createElement('section'); stage.id='tk-stage';
+      const a = anchorArea();
+      (a===document.body?document.body:a.parentNode).insertBefore(stage, a===document.body?null:a.nextSibling);
+    }
+    let center = $('#tk-center');
+    if(!center){ center=document.createElement('div'); center.id='tk-center'; stage.appendChild(center); }
+    center.innerHTML = `
+      <div style="opacity:.8">Appearance Play • Choosing My Partner</div>
+      <h2 style="margin:6px 0 10px">Giving: Rate interest/comfort (0–5)</h2>
+      <div id="tk-guard" aria-live="polite"></div>
+      <div id="tk-scale" class="tk-grid" data-group="rating-A"></div>
+    `;
+    let right = $('#tk-right');
+    if(!right){ right=document.createElement('aside'); right.id='tk-right'; stage.appendChild(right); }
+    right.innerHTML = `
+      <h3>How to score</h3>
+      <ul style="list-style:none;margin:0;padding:0;display:grid;gap:8px">
+        <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+        <li><b>1</b> — Hard Limit (no-go)</li>
+        <li><b>2</b> — Soft Limit (willing to try…)</li>
+        <li><b>3</b> — Curious / context-dependent</li>
+        <li><b>4</b> — Comfortable / enjoy</li>
+        <li><b>5</b> — Favorite / enthusiastic yes</li>
+      </ul>
+      <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.14);padding-top:10px">
+        <div>Rate interest/comfort (0–5)</div>
+        <div id="tk-scale-sidebar" class="tk-grid" data-group="rating-A"></div>
+      </div>
+    `;
+    makeScale($('#tk-scale'), 'rating-A');
+    makeScale($('#tk-scale-sidebar'), 'rating-A');
+  }
+
+  /* ----------------- NAV BLOCK (prevents the flash) ----------------- */
+  let navBlockUntil = 0;
+  const isBlocked = () => Date.now() < navBlockUntil;
+  const startNavBlock = (ms=5000) => { navBlockUntil = Date.now()+ms; };
+
+  // Guard history methods
+  if(!window.__tkHistoryGuard){
+    const _push = history.pushState.bind(history);
+    const _rep  = history.replaceState.bind(history);
+    history.pushState   = function(){ if(isBlocked()) return console.warn('[TK] pushState blocked'); return _push(...arguments); };
+    history.replaceState= function(){ if(isBlocked()) return console.warn('[TK] replaceState blocked'); return _rep(...arguments); };
+    window.__tkHistoryGuard = true;
+  }
+  // Guard location assign/replace
+  if(!window.__tkLocationGuard){
+    const _assign = location.assign.bind(location);
+    const _replace= location.replace.bind(location);
+    location.assign = function(u){ if(isBlocked()) return console.warn('[TK] location.assign blocked',u); return _assign(u); };
+    location.replace= function(u){ if(isBlocked()) return console.warn('[TK] location.replace blocked',u); return _replace(u); };
+    window.__tkLocationGuard = true;
+  }
+  // Guard link clicks (capture)
+  const linkBlocker = (e)=>{
+    if(!isBlocked()) return;
+    const a = e.target.closest && e.target.closest('a[href]');
+    if(a){ e.preventDefault(); e.stopImmediatePropagation(); }
+  };
+  ['click','mousedown','touchstart'].forEach(evt=>{
+    document.addEventListener(evt, linkBlocker, true);
+    window.addEventListener(evt, linkBlocker, true);
+  });
+  // Guard programmatic anchor .click()
+  if(!window.__tkAnchorClickGuard){
+    const _aclick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function(){
+      if(isBlocked()) return console.warn('[TK] anchor.click blocked', this.href);
+      return _aclick.apply(this, arguments);
+    };
+    window.__tkAnchorClickGuard = true;
+  }
+  // Suppress beforeunload while blocked (prevents actual nav)
+  if(!window.__tkBeforeUnloadGuard){
+    window.addEventListener('beforeunload', (e)=>{
+      if(isBlocked()){ e.preventDefault(); e.returnValue=''; return ''; }
+    });
+    window.__tkBeforeUnloadGuard = true;
+  }
+
+  /* ----------------- defang Start buttons (strip site handlers) ----------------- */
+  function patchStart(el){
+    if(!el || el.dataset.tkPatched==='1') return;
+    const clone = el.cloneNode(true);
+    clone.dataset.tkPatched = '1';
+    clone.addEventListener('click', (e)=>{
+      e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+      if(!anyCategory()){
+        const n=document.createElement('div');
+        n.textContent="Pick at least one category to begin.";
+        n.style.cssText="position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:999999";
+        document.body.appendChild(n); setTimeout(()=>n.remove(),1600);
+        return;
+      }
+      // Block all nav for a bit, then draw
+      startNavBlock(6000);
+      renderCard();
+      // Re-assert after potential app wipes
+      setTimeout(renderCard, 150);
+      setTimeout(renderCard, 500);
+      setTimeout(renderCard, 1200);
+    }, {capture:true});
+    el.replaceWith(clone);
+  }
+  function defangStarts(){ $$('button, a, [role="button"]').forEach(b=>{ if(isStart(b)) patchStart(b); }); }
+  defangStarts();
+
+  // If the app re-renders Start later, defang again
+  if(!window.__tkMo){
+    const mo = new MutationObserver(()=> defangStarts());
+    mo.observe(document.body, {childList:true, subtree:true});
+    window.__tkMo = mo;
+  }
+
+})();
+</script>
