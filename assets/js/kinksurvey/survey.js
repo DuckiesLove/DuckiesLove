@@ -1,3 +1,11 @@
+if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
+  console.info('[TK] Overlay bootstrap skipped');
+  window.TK_PANEL_OPTS = Object.assign(
+    { overlay: false, drawer: false, locked: false },
+    window.TK_PANEL_OPTS || {}
+  );
+}
+
 (() => {
   const DATA_URL = '/data/kinks.json';
   const $ = (s, r=document)=>r.querySelector(s);
