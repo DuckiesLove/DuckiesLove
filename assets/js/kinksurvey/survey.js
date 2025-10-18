@@ -14,29 +14,101 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
   let data=null, role='Giving', idx=0, flat=[];
   const scores = {A:{}};
 
-  const TK_GUARD_SMALL = Object.freeze([
-    { dot:'blue',  label:'0 — Brain did a cartwheel', desc:'skipped for now 😅' },
-    { dot:'red',   label:'1 — Hard Limit',            desc:'full stop / non-negotiable' },
-    { dot:'yellow',label:'2 — Soft Limit',            desc:'willing to try with strong boundaries & safeties' },
-    { dot:'green', label:'3 — Curious / context-dependent', desc:'okay with discussion, mood, and trust' },
-    { dot:'green', label:'4 — Comfortable / enjoy',   desc:'generally a yes; normal precautions' },
-    { dot:'green', label:'5 — Favorite / enthusiastic yes', desc:'happy to dive in; green light' },
+  const SCORE_GUIDE = Object.freeze([
+    {
+      value: 0,
+      dot: 'blue',
+      title: 'Brain did a cartwheel',
+      detail: 'skipped for now 🥲',
+    },
+    {
+      value: 1,
+      dot: 'red',
+      title: 'Hard Limit',
+      detail: 'full stop / no-go (non-negotiable)',
+    },
+    {
+      value: 2,
+      dot: 'yellow',
+      title: 'Soft Limit — willing to try',
+      detail: 'strong boundaries, safety checks, aftercare planned',
+    },
+    {
+      value: 3,
+      dot: 'green',
+      title: 'Curious / context-dependent',
+      detail: 'okay with discussion, mood & trust; needs clear negotiation',
+    },
+    {
+      value: 4,
+      dot: 'green',
+      title: 'Comfortable / enjoy',
+      detail: 'generally a yes; normal precautions & check-ins',
+    },
+    {
+      value: 5,
+      dot: 'green',
+      title: 'Favorite / enthusiastic yes',
+      detail: 'happily into it; green light',
+    },
   ]);
 
   function renderGuardSmall(root){
     if(!root) return;
     root.innerHTML = `
       <div class="tk-guard-title">How to score</div>
-      ${TK_GUARD_SMALL.map(row => `
+      ${SCORE_GUIDE.map((row) => `
         <div class="tk-row">
-          <span class="dot ${row.dot}">${row.label.split('—')[0].trim()}</span>
+          <span class="dot ${row.dot}">${row.value}</span>
           <div>
-            <div style="font-weight:700">${row.label}</div>
-            <div style="opacity:.85">${row.desc}</div>
+            <div style="font-weight:700">${row.value} — ${row.title}</div>
+            <div style="opacity:.85">${row.detail}</div>
           </div>
         </div>
       `).join('')}
     `;
+  }
+
+  function buildScoreDock(){
+    const dock = document.createElement('aside');
+    dock.id = 'tkScoreDock';
+    dock.setAttribute('role', 'note');
+    dock.innerHTML = `
+      <h3 class="tk-h3">How to score</h3>
+      <ul class="tk-row">
+        ${SCORE_GUIDE.map(
+          (row) => `
+            <li class="tk-pill" data-n="${row.value}">
+              <span class="dot">${row.value}</span>
+              <div class="txt">
+                <div class="t1">${row.title}</div>
+                <div class="t2">${row.detail}</div>
+              </div>
+            </li>
+          `
+        ).join('')}
+      </ul>
+    `;
+    return dock;
+  }
+
+  function hideLegacyScoreBlocks(context){
+    if (!context) return;
+    const legacy = context.querySelector('#tk-guard');
+    if (legacy){
+      legacy.classList.add('tk-hide-legacy-score');
+      legacy.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function ensureScoreDock(questionCard){
+    if (!questionCard) return;
+    let dock = questionCard.querySelector('#tkScoreDock');
+    if (!dock){
+      dock = buildScoreDock();
+      questionCard.appendChild(dock);
+    }
+    hideLegacyScoreBlocks(questionCard);
   }
 
   const SCORE_PANEL_TITLE_REGEX = /rate\s+interest\/?comfort\s*\(0\s*[-–]\s*5\)/i;
@@ -451,6 +523,7 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
       `;
       delete questionPanel.dataset.questionId;
       renderGuardSmall(questionPanel.querySelector('#tk-guard'));
+      ensureScoreDock(questionPanel.querySelector('.question-card'));
       if (sidebarScaleHost) renderScale(sidebarScaleHost, null, null);
       if (navRow) navRow.hidden = true;
       if (typeof window.initQuestionUI === 'function') {
@@ -499,6 +572,7 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
     renderScale(sidebarScaleHost, handlePick, selectedScore);
 
     renderGuardSmall(questionPanel.querySelector('#tk-guard'));
+    ensureScoreDock(questionPanel.querySelector('.question-card'));
 
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(applyScorePanelLayoutFix);
