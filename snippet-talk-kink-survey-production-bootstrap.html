@@ -64,8 +64,9 @@
     C.innerHTML = `
       <section id="tk-landing" class="tk-card" style="background:transparent;border:none;padding:0">
         <h2 style="margin:0 0 10px">TalkKink Survey</h2>
+        <p style="margin:0 0 10px;color:rgba(255,255,255,.75)">Select at least one category to begin.</p>
         <div class="tk-actions">
-          <button id="btnStart" class="tk-btn" type="button">Start Survey</button>
+          <button id="btnStart" class="tk-btn" type="button" disabled aria-disabled="true">Start Survey</button>
           <a class="tk-a" href="#">Individual Kink Analysis</a>
           <a class="tk-a" href="#">Compatibility Page</a>
         </div>
@@ -98,10 +99,19 @@
 })();
 
 // ---- (4) Data: load /data/kinks.json into the left list -------------------
+const tkState = window.__tkState || (window.__tkState = { selectedCats: new Set(), updateGate: null });
+const tkShouldAutostart = new URLSearchParams(location.search).has("autostart");
+
 async function tkLoadCategories() {
   const list = document.getElementById("tk-cat-list");
   if (!list) return;
   list.textContent = "Loading…";
+  tkState.selectedCats.clear();
+  const btnStart = document.getElementById("btnStart");
+  if (btnStart) {
+    btnStart.disabled = true;
+    btnStart.setAttribute("aria-disabled", "true");
+  }
   try {
     const res = await fetch("/data/kinks.json", { cache: "no-store" });
     const data = await res.json();
@@ -110,12 +120,47 @@ async function tkLoadCategories() {
     else if (Array.isArray(data?.categories)) cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
     else if (data && typeof data === "object") cats = Object.keys(data);
     cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
-    list.innerHTML = cats.map((c,i)=>`<label class="tk-cat"><input type="checkbox" id="cat_${i}" /><span>${c}</span></label>`).join("") || "No categories parsed";
+    list.innerHTML = cats.map((c,i)=>{
+      const value = String(c).replace(/"/g, "&quot;");
+      return `<label class="tk-cat"><input type="checkbox" id="cat_${i}" value="${value}"><span>${c}</span></label>`;
+    }).join("") || "No categories parsed";
+    tkWireCategoryGate(list);
+    if (tkShouldAutostart && cats.length) {
+      const first = list.querySelector('input[type="checkbox"]');
+      if (first) {
+        first.checked = true;
+        tkState.selectedCats.add(first.value || first.id);
+        tkState.updateGate?.();
+        startSurvey();
+      }
+    }
     console.log("✅ Categories:", cats.length);
   } catch (err) {
     console.error("❌ Failed to load categories", err);
     list.textContent = "Error loading categories.";
   }
+}
+
+function tkWireCategoryGate(list) {
+  if (!list || list.dataset.gated) return;
+  const btnStart = document.getElementById("btnStart");
+  if (!btnStart) return;
+  const updateGate = () => {
+    const any = tkState.selectedCats.size > 0;
+    btnStart.disabled = !any;
+    btnStart.setAttribute("aria-disabled", String(!any));
+  };
+  tkState.updateGate = updateGate;
+  list.addEventListener("change", (event) => {
+    const cb = event.target.closest('input[type="checkbox"]');
+    if (!cb) return;
+    const val = cb.value || cb.id;
+    if (cb.checked) tkState.selectedCats.add(val);
+    else tkState.selectedCats.delete(val);
+    updateGate();
+  });
+  updateGate();
+  list.dataset.gated = "true";
 }
 
 // ---- (5) Scale builder + synchronized click behavior ----------------------
@@ -168,9 +213,24 @@ window.startSurvey = function () {
 };
 document.addEventListener("DOMContentLoaded", () => {
   tkLoadCategories();
-  document.getElementById("btnStart")?.addEventListener("click", (e) => {
-    e.preventDefault(); startSurvey();
-  });
-  if (new URLSearchParams(location.search).has("autostart")) startSurvey();
+  const btn = document.getElementById("btnStart");
+  if (btn) {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (btn.disabled) {
+        btn.animate(
+          [
+            { transform: "translateX(0)" },
+            { transform: "translateX(-5px)" },
+            { transform: "translateX(5px)" },
+            { transform: "translateX(0)" },
+          ],
+          { duration: 250, iterations: 1 }
+        );
+        return;
+      }
+      startSurvey();
+    });
+  }
 });
 </script>
