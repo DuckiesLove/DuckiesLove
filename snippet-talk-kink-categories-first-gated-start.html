@@ -15,6 +15,7 @@
       .tk-btn{display:inline-block;text-align:center;padding:16px 20px;border:1px solid var(--border);border-radius:999px;background:transparent;color:inherit}
       .tk-btn[disabled]{opacity:.45;cursor:not-allowed}
       .tk-grid,#tk-scale{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
+      #question-panel{min-height:320px}
       .tk-opt{border:1px solid var(--border);border-radius:12px;padding:10px 0;background:transparent;color:inherit;cursor:pointer}
       .tk-opt.selected{outline:2px solid currentColor}
       @media (max-width:1024px){#tk-app{grid-template-columns:1fr}}
@@ -103,16 +104,16 @@
   function gateStartOnce() {
     if (window.__tkGateBound) return; window.__tkGateBound = true;
     const list   = document.getElementById("tk-cat-list");
-    const start  = document.getElementById("btnStart");
-    const right  = document.getElementById("tk-right");
     const qpanel = document.getElementById("question-panel");
-    if (!list || !start || !qpanel) { document.addEventListener("DOMContentLoaded", gateStartOnce, { once:true }); return; }
+    if (!list || !qpanel) { document.addEventListener("DOMContentLoaded", gateStartOnce, { once:true }); return; }
 
     const selected = new Set();
     const updateGate = () => {
+      const btn = document.getElementById("btnStart");
+      if (!btn) return;
       const any = selected.size > 0;
-      start.disabled = !any;
-      start.setAttribute("aria-disabled", String(!any));
+      btn.disabled = !any;
+      btn.setAttribute("aria-disabled", String(!any));
     };
     updateGate();
 
@@ -143,28 +144,81 @@
     }
 
     function renderQuestion(){
-      qpanel.hidden=false;
-      qpanel.innerHTML = `
+      const panel = document.getElementById("question-panel");
+      if (!panel) return;
+      panel.classList.add("tk-card");
+      panel.hidden=false;
+      panel.innerHTML = `
         <div>Appearance Play • Choosing My Partner</div>
         <h2>Giving: Rate interest/comfort (0–5)</h2>
         <div id="tk-guard" aria-live="polite"></div>
         <div id="tk-scale" data-group="rating-A"></div>`;
       makeScale(document.getElementById("tk-scale"), "rating-A");
       makeScale(document.getElementById("tk-scale-sidebar"), "rating-A");
-      right.hidden=false;
+      document.getElementById("tk-right")?.removeAttribute("hidden");
     }
 
-    start.addEventListener("click",(e)=>{
-      if (start.disabled) { e.preventDefault(); return; }
-      document.getElementById("tk-landing")?.setAttribute("hidden","hidden");
+    function stabilizeQuestionCard(){
       renderQuestion();
-    });
+
+      const center = document.getElementById("tk-center");
+      if (!center || window.__tkQObserver) return;
+
+      const mo = new MutationObserver(() => {
+        let qp = document.getElementById("question-panel");
+        if (qp && qp.childElementCount > 0) return;
+
+        if (!qp) {
+          qp = document.createElement("section");
+          qp.id = "question-panel";
+          qp.className = "tk-card";
+          const anchor = document.getElementById("tk-landing");
+          if (anchor && anchor.parentElement) {
+            anchor.insertAdjacentElement("afterend", qp);
+          } else {
+            center.appendChild(qp);
+          }
+        }
+
+        renderQuestion();
+      });
+
+      mo.observe(center, { childList: true, subtree: true });
+      window.__tkQObserver = mo;
+    }
+
+    function wireStart(){
+      const btn = document.getElementById("btnStart");
+      if (!btn || btn.__tkStabWired) return;
+      btn.__tkStabWired = true;
+
+      updateGate();
+
+      btn.addEventListener("click",(e)=>{
+        if (btn.disabled) { e.preventDefault(); return; }
+        requestAnimationFrame(() => {
+          document.getElementById("tk-landing")?.setAttribute("hidden","hidden");
+          stabilizeQuestionCard();
+        });
+      });
+    }
+
+    wireStart();
+    document.addEventListener("DOMContentLoaded", wireStart);
+
+    if (!window.__tkStartObserver) {
+      const target = document.getElementById("tk-center") || document.body;
+      const observer = new MutationObserver(() => wireStart());
+      observer.observe(target, { childList: true, subtree: true });
+      window.__tkStartObserver = observer;
+    }
 
     // Dev shortcut: ?autostart
     if (new URLSearchParams(location.search).has("autostart")) {
-      start.disabled=false; start.setAttribute("aria-disabled","false");
+      selected.add("__auto__");
+      updateGate();
       document.getElementById("tk-landing")?.setAttribute("hidden","hidden");
-      renderQuestion();
+      stabilizeQuestionCard();
     }
   }
   gateStartOnce();
