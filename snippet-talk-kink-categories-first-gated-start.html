@@ -1,0 +1,167 @@
+<!-- ================= TALK KINK: Categories-first + Gated Start (run-once) ================= -->
+<script>
+(() => {
+  /* ---------- Base CSS (minimal, non-invasive) ---------- */
+  if (!document.getElementById("tk-base-css")) {
+    const s = document.createElement("style");
+    s.id = "tk-base-css";
+    s.textContent = `
+      :root{--panel:rgba(255,255,255,.03);--border:rgba(255,255,255,.14)}
+      #tk-app{display:grid;grid-template-columns:300px 1fr 340px;gap:16px;max-width:1400px;margin:24px auto;padding:0 16px}
+      .tk-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px}
+      #tk-cat-list{display:grid;gap:8px;max-height:70vh;overflow:auto;padding-right:4px}
+      .tk-cat{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.05)}
+      .tk-actions{display:grid;gap:14px;max-width:780px}
+      .tk-btn{display:inline-block;text-align:center;padding:16px 20px;border:1px solid var(--border);border-radius:999px;background:transparent;color:inherit}
+      .tk-btn[disabled]{opacity:.45;cursor:not-allowed}
+      .tk-grid,#tk-scale{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
+      .tk-opt{border:1px solid var(--border);border-radius:12px;padding:10px 0;background:transparent;color:inherit;cursor:pointer}
+      .tk-opt.selected{outline:2px solid currentColor}
+      @media (max-width:1024px){#tk-app{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  /* ---------- Ensure layout exists ---------- */
+  const app = document.getElementById("tk-app") || (() => {
+    const m = document.createElement("main"); m.id = "tk-app"; document.body.prepend(m); return m;
+  })();
+
+  if (!document.getElementById("tk-categories")) {
+    const L = document.createElement("aside");
+    L.id = "tk-categories"; L.className = "tk-card";
+    L.innerHTML = `<h3>Categories</h3><div id="tk-cat-list" role="listbox" aria-multiselectable="true">Loading…</div>`;
+    app.appendChild(L);
+  }
+  if (!document.getElementById("tk-center")) {
+    const C = document.createElement("section");
+    C.id = "tk-center"; C.className = "tk-card";
+    C.innerHTML = `
+      <section id="tk-landing" class="tk-card" style="background:transparent;border:none;padding:0">
+        <h2 style="margin:0 0 10px">TalkKink Survey</h2>
+        <p style="margin:0 0 10px;color:rgba(255,255,255,.7)">Select at least one category to begin.</p>
+        <div class="tk-actions"><button id="btnStart" class="tk-btn" type="button" disabled aria-disabled="true">Start Survey</button></div>
+      </section>
+      <section id="question-panel" class="tk-card" hidden></section>`;
+    app.appendChild(C);
+  }
+  if (!document.getElementById("tk-right")) {
+    const R = document.createElement("aside");
+    R.id = "tk-right"; R.className = "tk-card"; R.hidden = true;
+    R.innerHTML = `
+      <h3>How to score</h3>
+      <ul style="list-style:none;margin:0;padding:0;display:grid;gap:8px">
+        <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+        <li><b>1</b> — Hard Limit (no-go)</li>
+        <li><b>2</b> — Soft Limit (willing to try…)</li>
+        <li><b>3</b> — Curious / context-dependent</li>
+        <li><b>4</b> — Comfortable / enjoy</li>
+        <li><b>5</b> — Favorite / enthusiastic yes</li>
+      </ul>
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        <div>Rate interest/comfort (0–5)</div>
+        <div class="tk-grid" id="tk-scale-sidebar" data-group="rating-A"></div>
+      </div>`;
+    app.appendChild(R);
+  }
+
+  /* ---------- ONE fetch for categories (coalesced) ---------- */
+  if (!window.__tkCatsPromise) {
+    window.__tkCatsPromise = (async () => {
+      const list = document.getElementById("tk-cat-list");
+      if (!list) return [];
+      try {
+        const res = await fetch("/data/kinks.json", { cache: "no-store" });
+        const data = await res.json();
+        let cats = [];
+        if (Array.isArray(data)) cats = data.map(x => x?.name || x?.title || x?.category || String(x));
+        else if (Array.isArray(data?.categories)) cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
+        else if (data && typeof data === "object") cats = Object.keys(data);
+        cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
+        list.innerHTML = cats.map((c,i)=>`
+          <label class="tk-cat"><input type="checkbox" id="cat_${i}" value="${c}"><span>${c}</span></label>`
+        ).join("") || "No categories parsed";
+        console.log(`✅ Categories loaded (${cats.length})`);
+        return cats;
+      } catch (e) {
+        console.error("❌ Failed to load categories", e);
+        document.getElementById("tk-cat-list").textContent = "Error loading categories.";
+        return [];
+      }
+    })();
+  }
+
+  /* ---------- Gate Start until a category is checked ---------- */
+  function gateStartOnce() {
+    if (window.__tkGateBound) return; window.__tkGateBound = true;
+    const list   = document.getElementById("tk-cat-list");
+    const start  = document.getElementById("btnStart");
+    const right  = document.getElementById("tk-right");
+    const qpanel = document.getElementById("question-panel");
+    if (!list || !start || !qpanel) { document.addEventListener("DOMContentLoaded", gateStartOnce, { once:true }); return; }
+
+    const selected = new Set();
+    const updateGate = () => {
+      const any = selected.size > 0;
+      start.disabled = !any;
+      start.setAttribute("aria-disabled", String(!any));
+    };
+    updateGate();
+
+    list.addEventListener("change", (e) => {
+      const cb = e.target.closest('input[type="checkbox"]'); if (!cb) return;
+      if (cb.checked) selected.add(cb.value || cb.id); else selected.delete(cb.value || cb.id);
+      updateGate();
+    });
+
+    function makeScale(el, group="rating-A"){
+      if(!el) return; el.innerHTML="";
+      for(let i=0;i<=5;i++){
+        const b=document.createElement("button");
+        b.className="tk-opt"; b.type="button"; b.dataset.group=group; b.dataset.value=i;
+        b.textContent=i; b.setAttribute("aria-pressed","false"); el.appendChild(b);
+      }
+    }
+    if (!window.__tkScaleSync) {
+      window.__tkScaleSync = true;
+      document.addEventListener("click",(e)=>{
+        const btn = e.target.closest("button.tk-opt"); if(!btn) return;
+        const group = btn.dataset.group, val = btn.dataset.value;
+        document.querySelectorAll(`button.tk-opt[data-group="${group}"]`).forEach(b=>{
+          const on=b.dataset.value===val; b.classList.toggle("selected",on); b.setAttribute("aria-pressed",on?"true":"false");
+        });
+        document.getElementById("tk-guard")?.replaceChildren(document.createTextNode(`Selected ${val} of 5`));
+      });
+    }
+
+    function renderQuestion(){
+      qpanel.hidden=false;
+      qpanel.innerHTML = `
+        <div>Appearance Play • Choosing My Partner</div>
+        <h2>Giving: Rate interest/comfort (0–5)</h2>
+        <div id="tk-guard" aria-live="polite"></div>
+        <div id="tk-scale" data-group="rating-A"></div>`;
+      makeScale(document.getElementById("tk-scale"), "rating-A");
+      makeScale(document.getElementById("tk-scale-sidebar"), "rating-A");
+      right.hidden=false;
+    }
+
+    start.addEventListener("click",(e)=>{
+      if (start.disabled) { e.preventDefault(); return; }
+      document.getElementById("tk-landing")?.setAttribute("hidden","hidden");
+      renderQuestion();
+    });
+
+    // For dev: ?autostart to jump right in
+    if (new URLSearchParams(location.search).has("autostart")) {
+      start.disabled=false; start.setAttribute("aria-disabled","false");
+      document.getElementById("tk-landing")?.setAttribute("hidden","hidden");
+      renderQuestion();
+    }
+  }
+  gateStartOnce();
+
+  // Kick categories load (coalesced if already running)
+  window.__tkCatsPromise.then(()=>{}); // noop
+})();
+</script>
