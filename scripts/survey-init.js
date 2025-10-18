@@ -1,4 +1,6 @@
-console.log("TK init v2025-10-17-2");
+console.log("TK init v2025-10-17-3");
+
+const TK_KINKS_URL = "/data/kinks.json";
 
 const CATEGORY_LIST_SELECTORS = ["#tk-cat-list", "#categoryChecklist"];
 
@@ -25,10 +27,79 @@ function findCategoryList() {
 
 function normalizeCategories(data) {
   if (!data) return [];
-  if (Array.isArray(data)) return data.map((x) => x?.name || x?.title || x).filter(Boolean);
-  if (Array.isArray(data?.categories)) return data.categories.map((x) => x?.name || x?.title || x).filter(Boolean);
-  if (typeof data === "object") return Object.keys(data);
-  return [];
+
+  const toName = (entry) => entry?.name || entry?.title || entry?.category || entry;
+
+  let categories = [];
+  if (Array.isArray(data)) categories = data.map(toName);
+  else if (Array.isArray(data?.categories)) categories = data.categories.map(toName);
+  else if (typeof data === "object") categories = Object.keys(data);
+
+  return categories
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+if (!window.__tkFetchPatched) {
+  window.__tkFetchPatched = true;
+  const realFetch = window.fetch.bind(window);
+  window.fetch = async (...args) => {
+    const [url] = args;
+    if (typeof url === "string" && url.includes(TK_KINKS_URL)) {
+      if (window.__tkKinksResponseBody) {
+        console.log("⏩ Skipped duplicate kinks.json fetch");
+        const init = window.__tkKinksResponseInit || { status: 200 };
+        const headers = init.headers || { "Content-Type": "application/json" };
+        return new Response(window.__tkKinksResponseBody, { ...init, headers });
+      }
+
+      const response = await realFetch(...args);
+      if (response.ok) {
+        try {
+          const cloned = response.clone();
+          const text = await cloned.text();
+          window.__tkKinksResponseBody = text;
+          window.__tkKinksResponseInit = {
+            status: response.status,
+            statusText: response.statusText,
+            headers: {
+              "Content-Type": response.headers.get("content-type") || "application/json",
+            },
+          };
+          const parsed = JSON.parse(text);
+          const categories = normalizeCategories(parsed);
+          window.__tkCatsData = categories;
+          window.__tkCatsPromise = Promise.resolve(categories);
+        } catch (error) {
+          console.warn("Failed to cache kinks.json response", error);
+        }
+      }
+      return response;
+    }
+    return realFetch(...args);
+  };
+}
+
+async function fetchCategoriesOnce() {
+  if (window.__tkCatsPromise) return window.__tkCatsPromise;
+
+  window.__tkCatsPromise = (async () => {
+    try {
+      const res = await fetch(TK_KINKS_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const categories = normalizeCategories(data);
+      window.__tkCatsData = categories;
+      return categories;
+    } catch (error) {
+      // Allow retries if the request fails.
+      window.__tkCatsPromise = null;
+      throw error;
+    }
+  })();
+
+  return window.__tkCatsPromise;
 }
 
 function renderCategoryMarkup(list, categories) {
@@ -91,9 +162,7 @@ async function tkLoadCategories() {
 
   list.textContent = "Loading…";
   try {
-    const res = await fetch("/data/kinks.json", { cache: "no-store" });
-    const data = await res.json();
-    const categories = normalizeCategories(data);
+    const categories = window.__tkCatsData || (await fetchCategoriesOnce());
     renderCategoryMarkup(list, categories);
     list.dataset.tkHydrated = "1";
     console.log(`✅ Categories loaded (${categories.length})`);
