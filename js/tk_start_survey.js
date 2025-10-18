@@ -1,12 +1,16 @@
-// --- One-time scaffold if containers are missing ---
-(function tkScaffold(){
-  const app = document.getElementById('tk-app') || (()=>{
-    const m = document.createElement('main');
-    m.id = 'tk-app'; m.className = 'tk-app';
-    document.body.prepend(m); return m;
+// === TalkKink Survey Final Init ===
+console.log('TK init v2025-10-17-3');
+
+// --- Ensure containers exist ---
+(function ensureLayout() {
+  const app = document.getElementById('tk-app') || (() => {
+    const main = document.createElement('main');
+    main.id = 'tk-app';
+    main.className = 'tk-app';
+    document.body.prepend(main);
+    return main;
   })();
 
-  // Left categories
   if (!document.getElementById('tk-categories')) {
     const left = document.createElement('aside');
     left.id = 'tk-categories';
@@ -18,8 +22,7 @@
     app.appendChild(left);
   }
 
-  // Center landing + question
-  if (!document.getElementById('tk-landing') || !document.getElementById('question-panel')) {
+  if (!document.getElementById('tk-landing')) {
     const center = document.createElement('section');
     center.className = 'tk-center';
     center.innerHTML = `
@@ -36,7 +39,6 @@
     app.appendChild(center);
   }
 
-  // Right score guide
   if (!document.getElementById('tk-right')) {
     const right = document.createElement('aside');
     right.id = 'tk-right';
@@ -63,43 +65,50 @@
   }
 })();
 
-// --- Load categories (uses your /data/kinks.json) ---
-async function tkLoadCategories(){
+// --- Load categories from JSON ---
+async function tkLoadCategories() {
   const list = document.getElementById('tk-cat-list');
   if (!list) return;
   list.textContent = 'Loading…';
-  try{
+  try {
     const res = await fetch('/data/kinks.json', { cache: 'no-store' });
     const data = await res.json();
     let cats = [];
-    if (Array.isArray(data)) cats = data.map(x => x?.name || x?.title || x?.category || String(x));
-    else if (Array.isArray(data?.categories)) cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
-    else if (data && typeof data === 'object') cats = Object.keys(data);
-    cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
-    list.innerHTML = cats.map((c,i)=>`<label class="tk-cat"><input type="checkbox" id="cat_${i}"><span>${c}</span></label>`).join('');
+    if (Array.isArray(data)) cats = data.map(x => x.name || x.title || x.category || String(x));
+    else if (Array.isArray(data?.categories)) cats = data.categories.map(x => x.name || x.title || x.category || String(x));
+    else if (typeof data === 'object') cats = Object.keys(data);
+    cats = cats.filter(Boolean).sort((a, b) => a.localeCompare(b));
+    list.innerHTML = cats.map((c, i) => `<label class="tk-cat"><input type="checkbox" id="cat_${i}"><span>${c}</span></label>`).join('');
     console.log(`✅ Categories loaded (${cats.length})`);
-  }catch(e){
-    console.error('[Categories] load error', e);
-    list.textContent = 'Failed to load categories.';
+  } catch (err) {
+    console.error('❌ Failed to load categories', err);
+    list.textContent = 'Error loading categories';
   }
 }
 
-// --- Rating scale + question render ---
-function tkMakeScale(el, group='rating-A'){
-  if(!el) return;
-  el.dataset.group = group; el.innerHTML = '';
-  for(let i=0;i<=5;i++){
+// --- Build rating scale ---
+function tkMakeScale(container, group = 'rating-A') {
+  if (!container) return;
+  container.innerHTML = '';
+  for (let i = 0; i <= 5; i++) {
     const b = document.createElement('button');
-    b.className = 'tk-opt'; b.type='button'; b.dataset.value=String(i);
-    b.textContent = String(i); b.setAttribute('aria-pressed','false');
-    el.appendChild(b);
+    b.className = 'tk-opt';
+    b.type = 'button';
+    b.dataset.group = group;
+    b.dataset.value = i;
+    b.textContent = i;
+    b.setAttribute('aria-pressed', 'false');
+    container.appendChild(b);
   }
 }
-function tkRenderQuestionCard(){
+
+// --- Question card renderer ---
+function tkRenderQuestionCard() {
   const panel = document.getElementById('question-panel');
+  if (!panel) return;
   panel.hidden = false;
   panel.innerHTML = `
-    <div class="tk-path">Appearance Play • Choosing My Partner S</div>
+    <div class="tk-path">Appearance Play • Choosing My Partner</div>
     <h2 class="tk-title">Giving: Rate interest/comfort (0–5)</h2>
     <div class="tk-label">Rate interest/comfort (0–5)</div>
     <div id="tk-guard" aria-live="polite"></div>
@@ -110,14 +119,15 @@ function tkRenderQuestionCard(){
   document.getElementById('tk-right').hidden = false;
 }
 
-// --- Click sync once ---
-if (!window.__tkClicksBound){
-  window.__tkClicksBound = true;
-  (document.getElementById('tk-app') || document.body).addEventListener('click', (e)=>{
-    const btn = e.target.closest('button.tk-opt'); if(!btn) return;
-    const group = btn.closest('[data-group]')?.dataset.group || 'rating-A';
-    const value = btn.dataset.value ?? btn.textContent.trim();
-    document.querySelectorAll(`[data-group="${group}"] button.tk-opt`).forEach(b=>{
+// --- Rating sync ---
+if (!window.__tkBound) {
+  window.__tkBound = true;
+  document.body.addEventListener('click', e => {
+    const btn = e.target.closest('button.tk-opt');
+    if (!btn) return;
+    const group = btn.dataset.group;
+    const value = btn.dataset.value;
+    document.querySelectorAll(`[data-group="${group}"] button.tk-opt`).forEach(b => {
       const on = b.dataset.value === value;
       b.classList.toggle('selected', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -128,22 +138,19 @@ if (!window.__tkClicksBound){
 }
 
 // --- Start survey + wiring ---
-window.startSurvey = function(){
-  document.getElementById('tk-landing')?.setAttribute('hidden','hidden');
+window.startSurvey = function() {
+  console.log('✅ startSurvey triggered');
+  document.getElementById('tk-landing')?.setAttribute('hidden', 'hidden');
   tkRenderQuestionCard();
 };
-function tkBindStartButton(){
-  const btn = document.getElementById('btnStart');
-  if (!btn || btn.__tkBound) return;
-  btn.__tkBound = true;
-  btn.addEventListener('click', (e)=>{ e.preventDefault(); window.startSurvey(); });
-}
-tkBindStartButton();
 
-// Run on load
-document.addEventListener('DOMContentLoaded', ()=>{
+// --- DOM ready: load categories + autostart ---
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM ready — init TalkKink');
   tkLoadCategories();
-  tkBindStartButton();
-  // quick test: autostart with ?autostart
-  if (new URLSearchParams(location.search).has('autostart')) window.startSurvey();
+  document.getElementById('btnStart')?.addEventListener('click', e => {
+    e.preventDefault();
+    startSurvey();
+  });
+  if (new URLSearchParams(location.search).has('autostart')) startSurvey();
 });
