@@ -1,0 +1,160 @@
+<!-- ===== TALK KINK DIAGNOSE + FORCE SHOW (drop in console) ===== -->
+<script>
+/* ===== TK: DIAGNOSE + FORCE SHOW (drop in console) ===== */
+(() => {
+  // 0) Trap errors so we can see the 2 blocking ones with stacks after reload.
+  if (!window.__tkTrap) {
+    window.__tkTrap = true;
+    window.addEventListener("error", e => {
+      console.group("❌ window.error");
+      console.error(e.message, "\nsource:", e.filename, "line:", e.lineno, "col:", e.colno);
+      if (e.error?.stack) console.error("stack:", e.error.stack);
+      console.groupEnd();
+    });
+    window.addEventListener("unhandledrejection", e => {
+      console.group("❌ unhandledrejection");
+      console.error(e.reason);
+      if (e.reason?.stack) console.error("stack:", e.reason.stack);
+      console.groupEnd();
+    });
+  }
+
+  // 1) Inject loud CSS so panels are visible above everything.
+  if (!document.getElementById("tk-diag-css")) {
+    const st = document.createElement("style");
+    st.id = "tk-diag-css";
+    st.textContent = `
+      :root{--p:rgba(255,255,255,.03);--b:rgba(255,255,255,.15)}
+      #tk-app{display:grid;grid-template-columns:300px 1fr 340px;gap:16px;max-width:1400px;
+        margin:20px auto;padding:8px 16px 48px;position:relative;z-index:99999}
+      .tk-card{background:var(--p);border:1px solid var(--b);border-radius:16px;padding:14px;color:inherit}
+      #tk-categories{outline:2px dashed #2ecc71} #question-panel{outline:2px dashed #f1c40f}
+      #tk-right{outline:2px dashed #3498db}
+      #tk-cat-list{display:grid;gap:8px}
+      .tk-grid,#tk-scale{display:grid;grid-template-columns:repeat(6,minmax(42px,1fr));gap:10px;margin-top:10px}
+      .tk-opt{border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:10px 0;background:transparent;color:inherit;cursor:pointer}
+      .tk-opt.selected{outline:2px solid currentColor}
+      @media(max-width:1024px){#tk-app{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(st);
+  }
+
+  // 2) Ensure DOM shell exists.
+  const app = document.getElementById("tk-app") || (() => {
+    const m = document.createElement("main"); m.id = "tk-app"; document.body.prepend(m); return m;
+  })();
+
+  if (!document.getElementById("tk-categories")) {
+    const L = document.createElement("aside");
+    L.id = "tk-categories"; L.className = "tk-card";
+    L.innerHTML = `<h3>Categories</h3><div id="tk-cat-list">Loading…</div>`;
+    app.appendChild(L);
+  }
+  if (!document.getElementById("tk-landing") || !document.getElementById("question-panel")) {
+    const C = document.createElement("section");
+    C.className = "tk-card"; C.id = "tk-center";
+    C.innerHTML = `
+      <section id="tk-landing">
+        <h2>TalkKink Survey</h2>
+        <div class="tk-actions"><button id="btnStart" type="button">Start Survey</button></div>
+      </section>
+      <section id="question-panel" hidden></section>`;
+    app.appendChild(C);
+  }
+  if (!document.getElementById("tk-right")) {
+    const R = document.createElement("aside");
+    R.id = "tk-right"; R.className = "tk-card"; R.hidden = true;
+    R.innerHTML = `
+      <h3>How to score</h3>
+      <ul style="list-style:none;margin:0;padding:0;display:grid;gap:8px">
+        <li><b>0</b> — Brain did a cartwheel</li>
+        <li><b>1</b> — Hard Limit</li>
+        <li><b>2</b> — Soft Limit</li>
+        <li><b>3</b> — Curious</li>
+        <li><b>4</b> — Comfortable</li>
+        <li><b>5</b> — Favorite</li>
+      </ul>
+      <div style="margin-top:10px">
+        <div>Rate (0–5)</div>
+        <div class="tk-grid" id="tk-scale-sidebar" data-group="rating-A"></div>
+      </div>`;
+    app.appendChild(R);
+  }
+
+  // 3) Load categories (from /data/kinks.json).
+  (async () => {
+    const list = document.getElementById("tk-cat-list");
+    if (!list) return;
+    try {
+      const res = await fetch("/data/kinks.json", { cache: "no-store" });
+      const data = await res.json();
+      let cats = [];
+      if (Array.isArray(data)) cats = data.map(x => x?.name || x?.title || x?.category || String(x));
+      else if (Array.isArray(data?.categories)) cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
+      else if (data && typeof data === "object") cats = Object.keys(data);
+      list.innerHTML = (cats||[]).map((c,i)=>`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cat_${i}"><span>${c}</span></label>`).join("") || "No categories parsed";
+      console.log("✅ Categories:", (cats||[]).length);
+    } catch (e) {
+      console.error("❌ kinks.json load", e);
+      list.textContent = "Error loading categories.";
+    }
+  })();
+
+  // 4) Rating scale + sync.
+  function makeScale(el, group="rating-A"){
+    if(!el) return; el.innerHTML = "";
+    for (let i=0;i<=5;i++){
+      const b = document.createElement("button");
+      b.className = "tk-opt"; b.type="button"; b.dataset.group = group; b.dataset.value = i; b.textContent = i;
+      b.setAttribute("aria-pressed","false"); el.appendChild(b);
+    }
+  }
+  if (!window.__tkSync) {
+    window.__tkSync = true;
+    document.body.addEventListener("click", (e)=>{
+      const btn = e.target.closest("button.tk-opt"); if(!btn) return;
+      const group = btn.dataset.group, val = btn.dataset.value;
+      document.querySelectorAll(`button.tk-opt[data-group="${group}"]`).forEach(b=>{
+        const on = b.dataset.value === val;
+        b.classList.toggle("selected", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      const g = document.getElementById("tk-guard"); if (g) g.textContent = `Selected ${val} of 5`;
+    });
+  }
+
+  // 5) Start → question card + right guide.
+  function renderQ(){
+    const qp = document.getElementById("question-panel");
+    qp.hidden = false;
+    qp.style.display = "block";
+    qp.innerHTML = `
+      <div>Appearance Play • Choosing My Partner</div>
+      <h2>Giving: Rate interest/comfort (0–5)</h2>
+      <div id="tk-guard" aria-live="polite"></div>
+      <div id="tk-scale" data-group="rating-A"></div>`;
+    makeScale(document.getElementById("tk-scale"), "rating-A");
+    makeScale(document.getElementById("tk-scale-sidebar"), "rating-A");
+    const right = document.getElementById("tk-right");
+    right.hidden = false; right.style.display = "block";
+  }
+  document.getElementById("btnStart")?.addEventListener("click", e=>{
+    e.preventDefault();
+    document.getElementById("tk-landing")?.setAttribute("hidden","hidden");
+    renderQ();
+  });
+
+  // 6) Status table.
+  console.table({
+    app: !!document.getElementById("tk-app"),
+    categories: !!document.getElementById("tk-categories"),
+    catList: !!document.getElementById("tk-cat-list"),
+    landing: !!document.getElementById("tk-landing"),
+    qpanel: !!document.getElementById("question-panel"),
+    right: !!document.getElementById("tk-right")
+  });
+
+  console.log("👉 If panels show but you still see “2 errors”, expand them and copy the first line here so I can patch the exact cause.");
+})();
+</script>
+<!-- ===== END TALK KINK DIAGNOSE + FORCE SHOW (drop in console) ===== -->
