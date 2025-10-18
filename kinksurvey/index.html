@@ -119,6 +119,238 @@
       <table id="compatibilityTable"></table>
     </section>
 
+    <!-- ============================================================
+    TALK KINK — STABLE “QUESTION + 0–5” DOCK (no flashing)
+    Paste this once on /kinksurvey/ (before </body>). It does NOT move
+    your app’s DOM, so nothing flashes. It renders a fixed dock on the
+    right that mirrors the current question and a 0–5 keypad. Clicking
+    a number in the dock forwards the click to the original hidden
+    buttons in the page.
+    ============================================================= -->
+
+    <style>
+      .tkDock {
+        position: fixed;
+        right: 16px;
+        top: 96px;                    /* adjust if your header is taller */
+        width: 320px;
+        max-width: calc(100vw - 32px);
+        z-index: 2147483000;
+        border-radius: 14px;
+        padding: 14px 14px 12px;
+        background: rgba(8,12,16,.86);
+        color: #dffaff;
+        box-shadow:
+          0 0 0 1px rgba(0, 220, 255, .18),
+          0 14px 30px rgba(0,0,0,.55),
+          inset 0 0 28px rgba(0, 140, 200, .08);
+        backdrop-filter: blur(4px);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      }
+      .tkDock.hidden { display: none; }
+
+      .tkDock h3 {
+        margin: 0 0 6px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: .18px;
+        opacity: .9;
+      }
+      .tkDock .tkQ {
+        margin: 0 0 10px;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.25;
+        text-shadow: 0 0 8px rgba(0,220,255,.25);
+      }
+      .tkDock .tkPath {
+        margin: 0 0 8px;
+        font-size: 12px;
+        opacity: .75;
+      }
+
+      .tkDock .row {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 8px;
+      }
+      .tkDock .n {
+        border: 1px solid rgba(0, 220, 255, .22);
+        background: #0b1116;
+        border-radius: 10px;
+        padding: 10px 0;
+        text-align: center;
+        font-weight: 800;
+        font-size: 14px;
+        cursor: pointer;
+        user-select: none;
+        transition: transform .06s ease, box-shadow .12s ease, background .12s ease;
+      }
+      .tkDock .n:hover { box-shadow: 0 0 0 2px rgba(0,220,255,.3) inset; }
+      .tkDock .n:active { transform: translateY(1px) scale(.98); }
+      .tkDock .n[disabled] {
+        opacity: .4; pointer-events: none;
+      }
+
+      .tkDock .legend {
+        margin-top: 10px;
+        display: grid;
+        gap: 6px;
+        font-size: 11px;
+        line-height: 1.25;
+      }
+      .tkDock .lg { display: flex; align-items: center; gap: 8px; }
+      .tkDot {
+        width: 18px; height: 18px; border-radius: 999px;
+        display: inline-block; flex: none;
+        box-shadow: 0 0 0 2px rgba(255,255,255,.06) inset, 0 0 8px currentColor;
+      }
+      .c0 { color: #8abfff; }  /* 0 */
+      .c1 { color: #ff6b6b; }  /* red   */
+      .c2 { color: #ffd166; }  /* yellow*/
+      .c3 { color: #34d399; }  /* green */
+    </style>
+
+    <script>
+    (() => {
+      const FLAG = '__tkDock_v2__';
+      if (window[FLAG]) return; window[FLAG] = true;
+      if (!/\/kinksurvey\/?$/i.test(location.pathname)) return;
+
+      const NUMS = ['0','1','2','3','4','5'];
+
+      // --- build dock once -------------------------------------------------------
+      const dock = document.createElement('aside');
+      dock.className = 'tkDock hidden';
+      dock.innerHTML = `
+        <h3>Question</h3>
+        <div class="tkPath"></div>
+        <div class="tkQ"></div>
+        <h3>Rate (0–5)</h3>
+        <div class="row"></div>
+        <div class="legend" aria-hidden="true">
+          <div class="lg"><span class="tkDot c0"></span> 0 — “Brain did a cartwheel” (skip for now)</div>
+          <div class="lg"><span class="tkDot c1"></span> 1 — Hard limit (full stop / non-negotiable)</div>
+          <div class="lg"><span class="tkDot c2"></span> 2 — Soft limit (willing to try with safety checks)</div>
+          <div class="lg"><span class="tkDot c3"></span> 3–5 — Comfortable to enthusiastic (green means go)</div>
+        </div>
+      `;
+      document.body.appendChild(dock);
+
+      const $ = (s, r = document) => r.querySelector(s);
+      const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+      const elPath = $('.tkPath', dock);
+      const elQ    = $('.tkQ', dock);
+      const elRow  = $('.row', dock);
+
+      // Create the 0–5 proxy buttons in the dock
+      const proxyBtns = NUMS.map(n => {
+        const b = document.createElement('button');
+        b.className = 'n'; b.type = 'button'; b.textContent = n;
+        elRow.appendChild(b);
+        return b;
+      });
+
+      // Refs to the *real* buttons in the app for forwarding clicks
+      let realButtons = {};
+
+      function visible(el) {
+        const s = el && getComputedStyle(el);
+        return !!(el && el.offsetParent !== null && s && s.visibility !== 'hidden' && s.display !== 'none');
+      }
+
+      function findQuestionCard() {
+        // Heuristic: the container that holds both a heading and 0–5 buttons
+        const candidates = $$('section,article,.card,.panel,.question,.question-card');
+        for (const c of candidates) {
+          const nums = NUMS.filter(n => $$('button,[role="button"]', c).some(b => (b.textContent||'').trim() === n));
+          if (nums.length >= 4 && visible(c)) return c;
+        }
+        // fallback: climb from a numeric button
+        const anyBtn = $$('button,[role="button"]').find(b => NUMS.includes((b.textContent||'').trim()) && visible(b));
+        let n = anyBtn;
+        for (let i=0; i<8 && n; i++) {
+          if (n.matches('section,article,.card,.panel,.question,.question-card')) return n;
+          n = n.parentElement;
+        }
+        return null;
+      }
+
+      function extractPathAndQuestion(card) {
+        let path = '', q = '';
+        // try breadcrumb / small text above
+        const small = $$('small, .breadcrumb, .path, .subtle, .eyebrow', card).find(visible);
+        if (small) path = (small.textContent || '').replace(/\s+/g,' ').trim();
+
+        // main question text (prefer h2/h3)
+        const h = $$('h1,h2,h3', card).find(visible);
+        q = h ? (h.textContent || '') : '';
+        if (!q) {
+          // fallback: look for a line containing “Rate … (0–5)”
+          const div = $$('div,p', card).find(el => /rate.+\(0[\-–]5\)/i.test(el.textContent||''));
+          if (div) q = (div.textContent || '');
+        }
+        return {
+          path: path.replace(/\s+/g,' ').trim(),
+          q:    q.replace(/\s+/g,' ').trim()
+        };
+      }
+
+      function mapRealButtons(card) {
+        const map = {};
+        for (const n of NUMS) {
+          const btn = $$('button,[role="button"]', card).find(b => (b.textContent||'').trim() === n && visible(b));
+          if (btn) map[n] = btn;
+        }
+        return map;
+      }
+
+      function syncDock() {
+        const card = findQuestionCard();
+        if (!card) { dock.classList.add('hidden'); return; }
+
+        // Update header text
+        const {path, q} = extractPathAndQuestion(card);
+        elPath.textContent = path || '';
+        elQ.textContent    = q   || 'Current question';
+
+        // Map real buttons
+        realButtons = mapRealButtons(card);
+        const haveAll = Object.keys(realButtons).length >= 4; // at least 4 present/visible
+        dock.classList.toggle('hidden', !haveAll);
+
+        // Enable/disable proxies
+        for (const b of proxyBtns) {
+          b.disabled = !realButtons[b.textContent.trim()];
+        }
+      }
+
+      // Forward clicks from proxy to real
+      proxyBtns.forEach(pb => {
+        pb.addEventListener('click', () => {
+          const key = pb.textContent.trim();
+          const real = realButtons[key];
+          if (real) {
+            real.click();   // triggers the app’s genuine handler
+            // Give a tiny visual feedback
+            pb.animate([{transform:'scale(1)'},{transform:'scale(.96)'}], {duration:90, easing:'ease'});
+          }
+        });
+      });
+
+      // Initial + reactive sync
+      const doSync = () => requestAnimationFrame(syncDock);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', doSync, {once:true});
+      } else {
+        doSync();
+      }
+
+      // Observe app mutations to keep dock in sync without moving DOM (no flashing)
+      new MutationObserver(doSync).observe(document.body, {subtree:true, childList:true, attributes:true});
+    })();
+    </script>
+
     <style>
       .prestart-notice {
         background: rgba(255, 255, 255, 0.06);
