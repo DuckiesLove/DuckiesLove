@@ -1,0 +1,179 @@
+<!-- ========== TalkKink — Start-Hijack + Stable Question UI (single drop-in) ========== -->
+<script>
+(() => {
+  /* ---------- tiny UI helpers ---------- */
+  function cssOnce(id, text){
+    if(document.getElementById(id)) return;
+    const s=document.createElement("style"); s.id=id; s.textContent=text; document.head.appendChild(s);
+  }
+  cssOnce("tk-styles", `
+    :root{--panel:rgba(255,255,255,.03);--border:rgba(255,255,255,.14)}
+    #tk-stage{display:grid;grid-template-columns:1fr 340px;gap:16px;max-width:1400px;margin:16px auto 24px;padding:0 16px}
+    #tk-center,#tk-right{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px}
+    #tk-center{min-height:340px}
+    #tk-right{min-height:340px}
+    .tk-grid{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
+    .tk-opt{border:1px solid var(--border);border-radius:12px;padding:10px 0;background:transparent;color:inherit;cursor:pointer}
+    .tk-opt.selected{outline:2px solid currentColor}
+    @media (max-width:1024px){#tk-stage{grid-template-columns:1fr}}
+  `);
+
+  /* ---------- find the Start button by its text, clone to drop existing listeners ---------- */
+  function findStartButton(){
+    const candidates=[...document.querySelectorAll('button, a, [role="button"]')];
+    return candidates.find(el => /start\s*survey/i.test((el.textContent||"").trim()));
+  }
+
+  function hijackStart(){
+    const btn=findStartButton();
+    if(!btn) return false;
+    if(btn.__tkOwned) return true;
+
+    const clone=btn.cloneNode(true);
+    // carry over id/class/attrs but no listeners
+    clone.__tkOwned=true;
+    clone.addEventListener("click", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      startFlow();
+    }, {capture:true});
+    btn.replaceWith(clone);
+    return true;
+  }
+
+  /* ---------- read at least one checked category (to mimic “gate” behavior) ---------- */
+  function hasAnyCategorySelected(){
+    const checks=[...document.querySelectorAll('input[type="checkbox"], [role="checkbox"][aria-checked]')];
+    // prefer real checkboxes, fallback to ARIA pattern
+    return checks.some(cb => cb.checked || cb.getAttribute?.("aria-checked")==="true");
+  }
+
+  /* ---------- render center question card + right scoring guide ---------- */
+  function makeScale(el, group="rating-A"){
+    if(!el) return; el.innerHTML="";
+    for(let i=0;i<=5;i++){
+      const b=document.createElement("button");
+      b.className="tk-opt"; b.type="button"; b.dataset.group=group; b.dataset.value=i;
+      b.textContent=i; b.setAttribute("aria-pressed","false"); el.appendChild(b);
+    }
+  }
+
+  function renderUI(){
+    // create stage once (center + right)
+    let stage=document.getElementById("tk-stage");
+    if(!stage){
+      stage=document.createElement("section");
+      stage.id="tk-stage";
+      // place after whatever main wrapper exists or fallback to body end
+      (document.querySelector("#tk-center, main, #main, .main, body") || document.body).appendChild(stage);
+      // small spacer
+      stage.insertAdjacentHTML("beforebegin", `<div style="height:8px"></div>`);
+    }
+
+    // center
+    let center=document.getElementById("tk-center");
+    if(!center){
+      center=document.createElement("div");
+      center.id="tk-center";
+      stage.appendChild(center);
+    }
+    center.innerHTML=`
+      <div style="opacity:.8">Appearance Play • Choosing My Partner</div>
+      <h2 style="margin:6px 0 10px">Giving: Rate interest/comfort (0–5)</h2>
+      <div id="tk-guard" aria-live="polite"></div>
+      <div id="tk-scale" data-group="rating-A" class="tk-grid"></div>
+    `;
+
+    // right guide
+    let right=document.getElementById("tk-right");
+    if(!right){
+      right=document.createElement("aside");
+      right.id="tk-right";
+      stage.appendChild(right);
+    }
+    right.innerHTML=`
+      <h3>How to score</h3>
+      <ul style="list-style:none;margin:0;padding:0;display:grid;gap:8px">
+        <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+        <li><b>1</b> — Hard Limit (no-go)</li>
+        <li><b>2</b> — Soft Limit (willing to try…)</li>
+        <li><b>3</b> — Curious / context-dependent</li>
+        <li><b>4</b> — Comfortable / enjoy</li>
+        <li><b>5</b> — Favorite / enthusiastic yes</li>
+      </ul>
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        <div>Rate interest/comfort (0–5)</div>
+        <div id="tk-scale-sidebar" data-group="rating-A" class="tk-grid"></div>
+      </div>
+    `;
+
+    // build scales + sync
+    makeScale(document.getElementById("tk-scale"), "rating-A");
+    makeScale(document.getElementById("tk-scale-sidebar"), "rating-A");
+
+    if(!window.__tkScaleSync){
+      window.__tkScaleSync=true;
+      document.addEventListener("click",(e)=>{
+        const btn=e.target.closest("button.tk-opt"); if(!btn) return;
+        const group=btn.dataset.group, val=btn.dataset.value;
+        document.querySelectorAll(`button.tk-opt[data-group="${group}"]`).forEach(b=>{
+          const on=b.dataset.value===val;
+          b.classList.toggle("selected", on);
+          b.setAttribute("aria-pressed", on?"true":"false");
+        });
+        document.getElementById("tk-guard")?.replaceChildren(document.createTextNode(`Selected ${val} of 5`));
+      });
+    }
+  }
+
+  /* ---------- flow on Start ---------- */
+  function startFlow(){
+    if(!hasAnyCategorySelected()){
+      // subtle nudge, don’t block hard
+      const n=document.createElement("div");
+      n.textContent="Pick at least one category to begin.";
+      n.style.cssText="position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:9999";
+      document.body.appendChild(n);
+      setTimeout(()=>n.remove(),1800);
+      return;
+    }
+
+    // Hide any built-in landing panes the site might show
+    document.querySelectorAll('#tk-landing,[id*="landing"],[class*="landing"]').forEach(el=>el.setAttribute("hidden","hidden"));
+
+    // Render our stable UI and keep it
+    renderUI();
+
+    // Stop any immediate site "start" handlers that might still bubble
+    // (cloning already removes most, this is extra safety)
+    setTimeout(()=> {
+      // If site clears center area later, re-render quickly
+      if(!window.__tkQObserver){
+        const mo=new MutationObserver(()=>{
+          const center=document.getElementById("tk-center");
+          const ok=center && center.childElementCount>0;
+          if(!ok) renderUI();
+        });
+        mo.observe(document.body,{childList:true,subtree:true});
+        window.__tkQObserver=mo;
+      }
+    }, 0);
+  }
+
+  /* ---------- init: hijack button now and after any re-render ---------- */
+  function initHijack(){
+    if(hijackStart()) return;
+    // try again a few times in case the site builds it late
+    let tries=0;
+    const t=setInterval(()=>{
+      tries++;
+      if(hijackStart() || tries>20) clearInterval(t);
+    }, 150);
+  }
+
+  // run
+  initHijack();
+  document.addEventListener("DOMContentLoaded", initHijack);
+})();
+</script>
+<!-- =================== /TalkKink — Start-Hijack + Stable Question UI =================== -->
