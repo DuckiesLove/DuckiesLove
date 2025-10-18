@@ -23,47 +23,67 @@
 
   // 2) Rating scale data (stable, single source)
   const SCORE_ITEMS = [
-    { n: 0, cls: 'pill-0', text: 'Brain did a cartwheel — skipped for now 😅' },
-    { n: 1, cls: 'pill-1', text: 'Hard Limit — full stop / no-go (non-negotiable)' },
+    {
+      n: 0,
+      cls: 'pill-0',
+      short: 'Skipped',
+      full: 'Brain did a cartwheel — skipped for now 😅',
+    },
+    {
+      n: 1,
+      cls: 'pill-1',
+      short: 'Hard',
+      full: 'Hard Limit — full stop / no-go (non-negotiable)',
+    },
     {
       n: 2,
       cls: 'pill-2',
-      text: 'Soft Limit — willing to try; strong boundaries, safety checks, aftercare planned',
+      short: 'Soft',
+      full: 'Soft Limit — willing to try; strong boundaries, safety checks, aftercare planned',
     },
     {
       n: 3,
       cls: 'pill-3',
-      text: 'Curious / context-dependent — okay with discussion, mood, trust; needs clear negotiation',
+      short: 'Context',
+      full: 'Curious / context-dependent — okay with discussion, mood, and trust; needs clear negotiation',
     },
     {
       n: 4,
       cls: 'pill-4',
-      text: 'Comfortable / enjoy — generally a yes; normal precautions and check-ins',
+      short: 'Comfy',
+      full: 'Comfortable / enjoy — generally a yes; normal precautions and check-ins',
     },
-    { n: 5, cls: 'pill-5', text: 'Favorite / enthusiastic yes — happily into it; green light' },
+    {
+      n: 5,
+      cls: 'pill-5',
+      short: 'Enthusiastic',
+      full: 'Favorite / enthusiastic yes — happily into it; green light',
+    },
   ];
 
-  // 3) Build SINGLE right-rail "How to score" card
-  function renderScoreSidebar() {
-    const host = document.getElementById('scoreSidebar');
+  // 3) Build HORIZONTAL "How to score" bar (center, above question)
+  function renderScoreBarHorizontal() {
+    const host = document.getElementById('scoreBar');
     if (!host) return;
     host.innerHTML = '';
 
-    const card = document.createElement('div');
-    card.className = 'score-card';
-    card.innerHTML = '<h3>How to score</h3>';
+    const bar = document.createElement('div');
+    bar.className = 'score-bar';
 
-    SCORE_ITEMS.forEach(({ n, cls, text }) => {
-      const row = document.createElement('div');
-      row.className = 'score-item';
-      row.innerHTML = `
-        <div class="score-pill ${cls}">${n}</div>
-        <div class="score-text">${text}</div>
+    SCORE_ITEMS.forEach(({ n, cls, short, full }) => {
+      const tile = document.createElement('div');
+      tile.className = 'score-tile';
+      tile.setAttribute('role', 'group');
+      tile.setAttribute('aria-label', `${n} — ${full}`);
+      tile.title = `${n} — ${full}`;
+      tile.innerHTML = `
+        <div class="pill ${cls}">${n}</div>
+        <div class="tile-label">${short}</div>
       `;
-      card.appendChild(row);
+      bar.appendChild(tile);
     });
 
-    host.appendChild(card);
+    host.appendChild(bar);
   }
 
   // 4) Render the question card in the center column (no sidebar duplicate)
@@ -73,7 +93,7 @@
       subtitle = 'Appearance Play • Choosing My Partner\'s Clothes',
     } = options;
 
-    const app = document.getElementById('surveyApp');
+    const app = document.getElementById('questionMount') || document.getElementById('surveyApp');
     if (!app) return;
 
     app.innerHTML = '';
@@ -115,7 +135,7 @@
   // 6) Init once DOM is ready
   const boot = once(() => {
     removeBottomCardIfAny();
-    renderScoreSidebar();
+    renderScoreBarHorizontal();
     renderQuestionCard();
   });
 
