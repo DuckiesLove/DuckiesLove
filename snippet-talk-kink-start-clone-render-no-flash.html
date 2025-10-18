@@ -4,23 +4,28 @@
   /* ---------- tiny helpers ---------- */
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const anchor = () => $('#progress, .progress') || $('main') || $('h1') || document.body;
 
-  // Label matcher
-  const isStart = (el) => el && /start\s*survey/i.test((el.textContent || "").trim());
+  const isStart = (el) => el && /start\s*survey/i.test((el.textContent || '').trim());
+  const hasAnyCategory = () => $$('input[type="checkbox"], [role="checkbox"][aria-checked]').some(
+    (b) => b.checked || b.getAttribute?.('aria-checked') === 'true'
+  );
 
-  // Must choose at least one category
-  const hasAnyCategory = () => {
-    const boxes = $$('input[type="checkbox"], [role="checkbox"][aria-checked]');
-    return boxes.some((b) => b.checked || b.getAttribute?.('aria-checked') === 'true');
-  };
+  function toast(msg) {
+    const node = document.createElement('div');
+    node.textContent = msg;
+    node.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.25);padding:10px 14px;border-radius:10px;z-index:2147483647;color:#fff;font:600 15px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.35)';
+    document.body.appendChild(node);
+    setTimeout(() => node.remove(), 1800);
+    return node;
+  }
 
-  /* ---------- Styles for our card ---------- */
-  (function css() {
-    if (document.getElementById('tk-noflash-css')) return;
-    const s = document.createElement('style');
-    s.id = 'tk-noflash-css';
-    s.textContent = `
-      #tk-stage{display:grid;grid-template-columns:1fr 340px;gap:16px;margin:14px 16px 24px}
+  /* ---------- minimal styles ---------- */
+  if (!document.getElementById('tk-hotfix-css')) {
+    const st = document.createElement('style');
+    st.id = 'tk-hotfix-css';
+    st.textContent = `
+      #tk-stage{display:grid;grid-template-columns:1fr 360px;gap:16px;margin:14px 16px 24px}
       #tk-center,#tk-right{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.14);
         border-radius:14px;padding:14px;min-height:320px}
       .tk-grid{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
@@ -28,10 +33,10 @@
       .tk-opt.selected{outline:2px solid currentColor}
       @media(max-width:1024px){#tk-stage{grid-template-columns:1fr}}
     `;
-    document.head.appendChild(s);
-  })();
+    document.head.appendChild(st);
+  }
 
-  /* ---------- Build rating scale + sync ---------- */
+  /* ---------- rating scale ---------- */
   function makeScale(el, group = 'rating-A') {
     if (!el) return;
     el.innerHTML = '';
@@ -47,8 +52,8 @@
     }
   }
 
-  if (!window.__tkScaleSync) {
-    window.__tkScaleSync = true;
+  if (!window.__tkScaleSync2) {
+    window.__tkScaleSync2 = true;
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('button.tk-opt');
       if (!btn) return;
@@ -64,30 +69,24 @@
     });
   }
 
-  /* ---------- Render our question UI in the main area ---------- */
-  function anchorArea() {
-    // Prefer the container that shows "Question 1 of ..." progress bar; else the main content
-    return document.getElementById('tk-stage')
-      || $('#progress, .progress')
-      || $('main') || $('h1') || document.body;
-  }
-
+  /* ---------- render question card ---------- */
   function renderCard() {
     let stage = document.getElementById('tk-stage');
     if (!stage) {
       stage = document.createElement('section');
       stage.id = 'tk-stage';
-      const anchor = anchorArea();
-      if (anchor === document.body) document.body.appendChild(stage);
-      else anchor.insertAdjacentElement('afterend', stage);
+      const anch = anchor();
+      (anch === document.body ? document.body : anch.parentNode).insertBefore(
+        stage,
+        anch === document.body ? null : anch.nextSibling
+      );
     }
 
-    // center
     let center = document.getElementById('tk-center');
     if (!center) {
       center = document.createElement('div');
       center.id = 'tk-center';
-      stage.appendChild(center);
+      document.getElementById('tk-stage').appendChild(center);
     }
     center.innerHTML = `
       <div style="opacity:.8">Appearance Play • Choosing My Partner</div>
@@ -96,12 +95,11 @@
       <div id="tk-scale" class="tk-grid" data-group="rating-A"></div>
     `;
 
-    // right
     let right = document.getElementById('tk-right');
     if (!right) {
       right = document.createElement('aside');
       right.id = 'tk-right';
-      stage.appendChild(right);
+      document.getElementById('tk-stage').appendChild(right);
     }
     right.innerHTML = `
       <h3>How to score</h3>
@@ -121,44 +119,166 @@
 
     makeScale(document.getElementById('tk-scale'), 'rating-A');
     makeScale(document.getElementById('tk-scale-sidebar'), 'rating-A');
+
+    document.getElementById('tk-landing')?.setAttribute('hidden', 'hidden');
   }
 
-  /* ---------- Replace (“defang”) Start button(s) by cloning ---------- */
+  /* ---------- block navigation that causes the flash ---------- */
+  let guardUntil = 0;
+  const blockFor = (ms = 8000) => (guardUntil = Date.now() + ms);
+  const blocked = () => Date.now() < guardUntil;
+
+  if (!window.__tkHist2) {
+    const ps = history.pushState.bind(history);
+    const rs = history.replaceState.bind(history);
+    history.pushState = function () {
+      if (blocked()) return;
+      return ps(...arguments);
+    };
+    history.replaceState = function () {
+      if (blocked()) return;
+      return rs(...arguments);
+    };
+    window.__tkHist2 = true;
+  }
+
+  if (!window.__tkLoc2) {
+    const asn = location.assign.bind(location);
+    const rep = location.replace.bind(location);
+    Object.defineProperty(location, 'href', {
+      set(v) {
+        if (blocked()) return;
+        asn(v);
+      },
+      get() {
+        return document.location.toString();
+      }
+    });
+    location.assign = function (u) {
+      if (blocked()) return;
+      return asn(u);
+    };
+    location.replace = function (u) {
+      if (blocked()) return;
+      return rep(u);
+    };
+    window.__tkLoc2 = true;
+  }
+
+  const stopEv = (e) => {
+    if (!blocked()) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  };
+  ['click', 'mousedown', 'touchstart'].forEach((evt) =>
+    document.addEventListener(
+      evt,
+      (e) => {
+        if (!blocked()) return;
+        if (e.target.closest && e.target.closest('a[href]')) stopEv(e);
+      },
+      true
+    )
+  );
+  document.addEventListener('submit', stopEv, true);
+  window.addEventListener(
+    'hashchange',
+    () => {
+      if (blocked()) renderCard();
+    },
+    true
+  );
+  window.addEventListener(
+    'popstate',
+    () => {
+      if (blocked()) renderCard();
+    },
+    true
+  );
+
+  /* ---------- keep the card alive ---------- */
+  const ensureCard = () => {
+    if (!document.getElementById('tk-center') || !document.getElementById('tk-center').innerHTML.trim()) {
+      renderCard();
+    }
+  };
+
+  if (!window.__tkMo2) {
+    const mo = new MutationObserver(() => {
+      if (blocked()) ensureCard();
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    window.__tkMo2 = mo;
+  }
+  setInterval(() => {
+    if (blocked()) ensureCard();
+  }, 500);
+
+  /* ---------- auto-start when a category is picked ---------- */
+  function picked() {
+    return hasAnyCategory();
+  }
+
+  function wireCats() {
+    $$('input[type="checkbox"], [role="checkbox"]').forEach((el) => {
+      if (el.dataset.tkAuto2 === '1') return;
+      el.dataset.tkAuto2 = '1';
+      const h = () => {
+        if (picked()) {
+          blockFor(8000);
+          renderCard();
+          setTimeout(renderCard, 200);
+        }
+      };
+      el.addEventListener('change', h, true);
+      el.addEventListener('click', h, true);
+    });
+  }
+  wireCats();
+
+  if (picked()) {
+    blockFor(8000);
+    renderCard();
+    setTimeout(renderCard, 200);
+  }
+
+  /* ---------- defang start buttons so we control navigation ---------- */
   function defangStartButtons() {
     $$('button, a, [role="button"]').forEach((el) => {
       if (!isStart(el) || el.dataset.tkPatched === '1') return;
 
-      // Clone to strip every listener the site attached
       const clone = el.cloneNode(true);
       clone.dataset.tkPatched = '1';
+      clone.addEventListener(
+        'click',
+        (e) => {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          e.stopPropagation();
 
-      clone.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        e.stopPropagation();
+          if (!hasAnyCategory()) {
+            toast('Pick at least one category to begin.');
+            return;
+          }
 
-        if (!hasAnyCategory()) {
-          const n = document.createElement('div');
-          n.textContent = 'Pick at least one category to begin.';
-          n.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:999999';
-          document.body.appendChild(n);
-          setTimeout(() => n.remove(), 1600);
-          return;
-        }
+          blockFor(8000);
+          renderCard();
+          setTimeout(renderCard, 200);
+        },
+        { capture: true }
+      );
 
-        // Render immediately and keep it there
-        renderCard();
-      }, { capture: true });
-
-      // Keep layout/styles the same
       el.replaceWith(clone);
     });
   }
-
-  // Run once now, and again on future UI changes
   defangStartButtons();
-  const mo = new MutationObserver(() => defangStartButtons());
-  mo.observe(document.body, { childList: true, subtree: true });
+
+  const globalMo = new MutationObserver(() => {
+    defangStartButtons();
+    wireCats();
+    if (blocked()) ensureCard();
+  });
+  globalMo.observe(document.body, { childList: true, subtree: true });
 })();
 </script>
 <!-- ===================== /TalkKink: strip Start handlers via clone + render question/guide (no flash) ===================== -->
