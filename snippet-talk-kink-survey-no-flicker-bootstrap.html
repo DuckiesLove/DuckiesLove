@@ -1,0 +1,208 @@
+<!-- TK Survey: no-flicker bootstrap + sidebar-first flow (drop-in) -->
+<style>
+  /* tiny helpers (safe to keep even if you already style these) */
+  #question-panel{min-height:420px}
+  .hidden{display:none!important}
+</style>
+<script>
+(() => {
+  // ===== config — update only if your IDs differ =====
+  const IDS = {
+    sidebar:       'tk-categories',   // left column wrapper
+    startBtn:      'btnStart',        // "Start Survey" button
+    selectedCount: 'selectedCount',   // small counter near "selected" (optional)
+    qPanel:        'question-panel',  // left question card container
+    rightWrap:     'tk-right',        // right column wrapper
+    scale:         'tk-scale'         // right rating-scale container
+  };
+
+  // ===== short helpers =====
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+  const byId = id => document.getElementById(id);
+  const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  // ===== once-only guard =====
+  if (window.__TK_SURVEY_BOOTED__) return; 
+  window.__TK_SURVEY_BOOTED__ = true;
+
+  // ===== app state =====
+  const app = {
+    phase: 'landing',     // 'landing'|'survey'
+    cats: [],             // from kinks.json (already loaded by your code)
+    selected: new Set(),  // chosen category keys
+    q: [],                // flattened questions
+    idx: 0                // current question index
+  };
+
+  // ===== wire everything after DOM + your kinks.json is loaded =====
+  document.addEventListener('DOMContentLoaded', () => {
+    // 1) Try to read categories from any global you already fill (your code pulls /data/kinks.json)
+    //    We look for a familiar shape on window to avoid re-fetching.
+    const guess = (window.kinksData && (window.kinksData.categories || window.kinksData.cats))
+               || (window.TK && TK.cats)
+               || null;
+
+    if (guess) {
+      app.cats = guess;
+      initUI();
+    } else {
+      // If your page hasn’t exposed cats, we’ll fetch once here (cheap).
+      fetch('/data/kinks.json')
+        .then(r => r.json())
+        .then(data => {
+          app.cats = data.categories || [];
+          initUI();
+        })
+        .catch(err => console.warn('[TK] could not load categories', err));
+    }
+  }, { once:true });
+
+  function initUI(){
+    buildSidebar();
+    wireStart();
+    keepRightCardVisible();
+    // Never route / change hash here — routing caused the flash before.
+    window.addEventListener('hashchange',  () => {/* ignore */});
+    window.addEventListener('popstate',     () => {/* ignore */});
+  }
+
+  // ===== sidebar + selection =====
+  function buildSidebar(){
+    const wrap = byId(IDS.sidebar);
+    if (!wrap) return console.warn('[TK] missing #' + IDS.sidebar);
+
+    // If your HTML already rendered the list, we only need to listen for changes.
+    // If it’s empty, draw a minimal list from app.cats (title/key).
+    if (!wrap.querySelector('input[type=checkbox]')) {
+      const ul = document.createElement('ul');
+      ul.className = 'tk-cat-list';
+      ul.innerHTML = app.cats.map(c => `
+        <li class="tk-cat">
+          <label class="tk-cat-row">
+            <input type="checkbox" class="tk-cat-box" value="${c.key}">
+            <span class="tk-cat-name">${c.title || c.key}</span>
+          </label>
+        </li>
+      `).join('');
+      wrap.appendChild(ul);
+    }
+
+    // Count + enable/disable Start based on selection
+    wrap.addEventListener('change', (e) => {
+      const box = e.target.closest('.tk-cat-box');
+      if (!box) return;
+      if (box.checked) app.selected.add(box.value);
+      else app.selected.delete(box.value);
+      updateStartEnabled();
+    });
+
+    // Ensure the sidebar is visible from the start
+    wrap.classList.remove('hidden');
+    updateStartEnabled();
+  }
+
+  function updateStartEnabled(){
+    const start = byId(IDS.startBtn);
+    if (start) start.disabled = (app.selected.size === 0);
+    const badge = byId(IDS.selectedCount);
+    if (badge) badge.textContent = String(app.selected.size);
+  }
+
+  // ===== start survey (no hash changes, no nav, no clear) =====
+  function wireStart(){
+    const start = byId(IDS.startBtn);
+    if (!start) return;
+    start.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (app.selected.size === 0) return;
+
+      // Flatten questions for selected categories
+      app.q = [];
+      app.selected.forEach(key => {
+        const cat = app.cats.find(c => c.key === key);
+        if (cat?.questions) app.q.push(...cat.questions);
+      });
+      app.idx = 0;
+      app.phase = 'survey';
+
+      // Make sure question panel + right column are visible
+      const qp = byId(IDS.qPanel);
+      const right = byId(IDS.rightWrap);
+      qp && qp.classList.remove('hidden');
+      right && right.classList.remove('hidden');
+
+      // Let layout settle to avoid the “flash then blank”
+      await nextFrame();
+      renderQuestion();
+    }, { once:false });
+  }
+
+  // ===== render one question + the right-side rating scale =====
+  function renderQuestion(){
+    const qp = byId(IDS.qPanel);
+    const scale = byId(IDS.scale);
+    if (!qp || !scale) return;
+
+    const q = app.q[app.idx];
+    if (!q){
+      qp.innerHTML = `<div class="tk-done">All done — thanks!</div>`;
+      scale.innerHTML = '';
+      return;
+    }
+
+    qp.innerHTML = `
+      <div class="tk-qcard">
+        <div class="tk-qheader">
+          <div class="tk-qnum">Question ${app.idx+1} of ${app.q.length}</div>
+          <div class="tk-qtitle">${q.title ?? 'Rate interest/comfort (0–5)'}</div>
+        </div>
+        <div class="tk-qbody">${q.body ?? ''}</div>
+      </div>
+    `;
+
+    // Right side scale — always the same, idempotent content
+    scale.setAttribute('data-group', 'rating-A');
+    scale.innerHTML = `
+      <div class="tk-scale-row">
+        ${[0,1,2,3,4,5].map(v => `<button class="tk-score" data-val="${v}" aria-label="${v}">${v}</button>`).join('')}
+      </div>
+      <div class="tk-scale-legend">
+        <div><b>0</b> — “Brain did a cartwheel” (skip for now)</div>
+        <div><b>1</b> — Hard limit (full stop / non-negotiable)</div>
+        <div><b>2</b> — Soft limit (willing to try with safety checks)</div>
+        <div><b>3–5</b> — Comfortable to enthusiastic (green means go)</div>
+      </div>
+    `;
+
+    // Delegate clicks (wire once)
+    if (!scale._wired){
+      scale.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tk-score');
+        if (!btn) return;
+        recordScore(Number(btn.dataset.val));
+        nextQuestion();
+      }, { passive:true });
+      scale._wired = true;
+    }
+  }
+
+  function recordScore(val){
+    // Store on the question; adapt to your model if needed.
+    const q = app.q[app.idx];
+    q._answer = val;
+  }
+
+  function nextQuestion(){
+    app.idx++;
+    renderQuestion();
+  }
+
+  // Keep the right side card visible from the beginning (no more blank panel)
+  function keepRightCardVisible(){
+    byId(IDS.rightWrap)?.classList.remove('hidden');
+    byId(IDS.scale)?.classList.remove('hidden');
+  }
+})();
+</script>
+<!-- /TK Survey: no-flicker bootstrap -->
