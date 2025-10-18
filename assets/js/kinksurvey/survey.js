@@ -203,6 +203,7 @@
       btn.textContent=String(n);
       btn.className='tk-scale-btn';
       btn.dataset.value = String(n);
+      btn.setAttribute('aria-pressed', 'false');
       btn.addEventListener('click', ()=>{
         api.select(n);
         if (typeof onPick === 'function') {
@@ -222,7 +223,9 @@
         const valid = Number.isFinite(numeric);
         buttons.forEach(btn=>{
           const btnValue = Number(btn.dataset.value);
-          btn.classList.toggle('is-active', valid && btnValue === numeric);
+          const isActive = valid && btnValue === numeric;
+          btn.classList.toggle('is-active', isActive);
+          btn.setAttribute('aria-pressed', String(isActive));
         });
       }
     };
@@ -254,7 +257,59 @@
   const progressPct = $('#progressPct');
   const categoryPanel = $('#categoryPanel');
 
+  function ensureQuestionPanel(){
+    const area = document.getElementById('questionArea') || document.querySelector('.survey-center');
+    let panel = document.getElementById('question-panel');
+    if (!panel){
+      panel = document.createElement('section');
+      panel.id = 'question-panel';
+      panel.className = 'survey-question-panel';
+      const navRow = document.getElementById('navRow');
+      if (area){
+        area.insertBefore(panel, navRow || null);
+      }
+    }
+    return panel;
+  }
+
+  function ensureQuestionRoot(){
+    const area = document.getElementById('questionArea') || document.querySelector('.survey-center') || document.getElementById('surveyApp') || document.body;
+    if (!area) return null;
+    let root = document.getElementById('tkQuestionRoot');
+    if (!root){
+      root = document.createElement('section');
+      root.id = 'tkQuestionRoot';
+      root.className = 'survey-question-panel';
+      const navRow = document.getElementById('navRow');
+      if (navRow && navRow.parentElement === area){
+        area.insertBefore(root, navRow);
+      } else if (navRow && area.contains(navRow)){ 
+        area.insertBefore(root, navRow);
+      } else {
+        area.appendChild(root);
+      }
+    }
+    const legacyPanel = ensureQuestionPanel();
+    if (legacyPanel){
+      legacyPanel.setAttribute('hidden', 'hidden');
+    }
+    return root;
+  }
+
   categoryPanel?.addEventListener('scroll', updatePanelShadows);
+
+  (() => {
+    const area = document.getElementById('questionArea');
+    if (!area) return;
+    ensureQuestionRoot();
+    const mo = new MutationObserver(() => {
+      const root = ensureQuestionRoot();
+      if (root && flat.length && !root.querySelector('.question-card')){
+        paint();
+      }
+    });
+    mo.observe(area, { childList: true });
+  })();
 
   fetch(DATA_URL).then(r=>r.json()).then(json=>{
     data = normalize(json);
@@ -262,6 +317,7 @@
     updateStartEnabled();
     progress();
     updatePanelShadows();
+    paint();
   });
 
   function normalize(json){
@@ -369,10 +425,11 @@
 
   function paint(){
     const q = flat[idx];
-    const questionPanel = document.getElementById('question-panel');
+    const questionPanel = ensureQuestionRoot();
     if (!questionPanel) return;
 
     const navRow = document.getElementById('navRow');
+    const sidebarScaleHost = document.getElementById('tk-scale-sidebar');
 
     if(!q){
       questionPanel.innerHTML = `
@@ -381,9 +438,12 @@
             <div class="q-path" id="questionPath">TalkKink Survey</div>
             <h2 class="q-title">Select at least one category to begin</h2>
           </header>
+          <div id="tk-guard" aria-live="polite"></div>
         </article>
       `;
       delete questionPanel.dataset.questionId;
+      renderGuardSmall(questionPanel.querySelector('#tk-guard'));
+      if (sidebarScaleHost) renderScale(sidebarScaleHost, null, null);
       if (navRow) navRow.hidden = true;
       if (typeof window.initQuestionUI === 'function') {
         window.initQuestionUI();
@@ -395,40 +455,42 @@
     const roleLabel = q.role || 'Role';
     const categoryName = q.cat || '';
     const prompt = q.sub || '';
-    const existingScore = Number.isInteger(scores.A[q.id]) ? scores.A[q.id] : null;
+    const selectedScore = Number.isInteger(scores.A[q.id]) ? scores.A[q.id] : null;
 
     questionPanel.dataset.questionId = q.id;
     questionPanel.innerHTML = `
-      <article class="question-card" id="questionCard">
+      <article class="question-card" id="questionCard" data-role="${roleLabel}">
         <header class="q-head">
           <div class="q-path" id="questionPath">${categoryName} • ${prompt}</div>
           <h2 class="q-title">${roleLabel}: Rate interest/comfort (0–5)</h2>
         </header>
-
-        <div id="ratingRow" class="single">
-          <div class="col">
-            <div class="label">Rate interest/comfort (0–5)</div>
-            <div id="tk-guard" aria-live="polite"></div>
-            <div id="tk-scale" data-group="rating-A"></div>
-            <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
-          </div>
+        <div class="tk-rating">
+          <div class="tk-rating__label">Rate interest/comfort (0–5)</div>
+          <div class="tk-rating__choices" data-partner="A" data-group="rating-A"></div>
         </div>
+        <div id="tk-guard" aria-live="polite"></div>
       </article>
     `;
 
-    $$('#roleTabs [role="tab"]').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.role===role)));
+    const activeRole = role || q.role || 'Giving';
+    $$('#roleTabs [role="tab"]').forEach(btn=>{
+      const isActive = btn.dataset.role === activeRole;
+      btn.setAttribute('aria-selected', String(isActive));
+    });
 
-    questionPanel
-      .querySelectorAll('[data-group="rating-A"]')
-      .forEach((container) => {
-        if (existingScore === null) {
-          container.removeAttribute('data-selected');
-          delete container.dataset.selected;
-        } else {
-          container.setAttribute('data-selected', String(existingScore));
-          container.dataset.selected = String(existingScore);
-        }
-      });
+    const mainScaleHost = questionPanel.querySelector('.tk-rating__choices');
+    const handlePick = (value) => {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return;
+      scores.A[q.id] = numeric;
+      progress();
+      paint();
+    };
+
+    renderScale(mainScaleHost, handlePick, selectedScore);
+    renderScale(sidebarScaleHost, handlePick, selectedScore);
+
+    renderGuardSmall(questionPanel.querySelector('#tk-guard'));
 
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(applyScorePanelLayoutFix);
@@ -436,11 +498,11 @@
       setTimeout(applyScorePanelLayoutFix, 0);
     }
 
+    if (navRow) navRow.hidden = false;
     if (typeof window.initQuestionUI === 'function') {
       window.initQuestionUI();
     }
-
-    if (navRow) navRow.hidden = false;
+    progress();
   }
 
   // nav
@@ -843,7 +905,8 @@
     surveyRoot.addEventListener('tk:rating-change', (event) => {
       const detail = event?.detail || {};
       if (!detail || detail.group !== 'rating-A') return;
-      const activeId = document.getElementById('question-panel')?.dataset?.questionId;
+      const activeRoot = document.getElementById('tkQuestionRoot') || ensureQuestionPanel();
+      const activeId = activeRoot?.dataset?.questionId;
       if (!activeId) return;
 
       if (detail.value === null || Number.isNaN(detail.value)) {
