@@ -1,0 +1,121 @@
+<!-- =========================
+     TALK KINK — CATEGORY PANEL ON LOAD (DROP-IN SNIPPET)
+     Creates a left rail of category checkboxes from /data/kinks.json
+     ========================= -->
+<script>
+(() => {
+  const FLAG = '__TK_CATEGORY_PANEL_LOADED__';
+  if (window[FLAG]) return;
+  window[FLAG] = true;
+
+  async function boot() {
+    const app = document.querySelector('#tk-app') || document.body;
+    if (!app) return;
+
+    // --- 1. Create the left category panel ---
+    let aside = document.querySelector('#tk-categories');
+    if (!aside) {
+      aside = document.createElement('aside');
+      aside.id = 'tk-categories';
+      aside.className = 'categories-panel';
+      aside.innerHTML = `
+        <h3 class="title">Categories</h3>
+        <div id="tk-cat-list" class="cat-list">Loading...</div>
+      `;
+      app.prepend(aside);
+    }
+
+    // --- 2. Load categories from your kinks.json ---
+    let categories = Array.isArray(window.__TK_CATEGORY_CACHE)
+      ? window.__TK_CATEGORY_CACHE.slice()
+      : null;
+
+    if (!categories) {
+      try {
+        const res = await fetch('/data/kinks.json', { cache: 'no-store' });
+        const data = await res.json();
+
+        if (Array.isArray(data)) {
+          categories = data.map((c) => c?.name || c?.title || c?.category || String(c));
+        } else if (Array.isArray(data?.categories)) {
+          categories = data.categories.map((c) => c?.name || c?.title || c?.category || String(c));
+        } else if (data && typeof data === 'object') {
+          categories = Object.keys(data);
+        } else {
+          categories = [];
+        }
+
+        categories = categories.filter(Boolean).map(String);
+        window.__TK_CATEGORY_CACHE = categories.slice();
+      } catch (error) {
+        console.error('Error loading kinks.json', error);
+        const list = document.getElementById('tk-cat-list');
+        if (list) list.textContent = 'Error loading categories.';
+        return;
+      }
+    }
+
+    categories.sort((a, b) => a.localeCompare(b));
+    window.__TK_CATEGORY_CACHE = categories.slice();
+
+    // --- 3. Render checkboxes ---
+    const list = document.getElementById('tk-cat-list') || (() => {
+      const div = document.createElement('div');
+      div.id = 'tk-cat-list';
+      div.className = 'cat-list';
+      aside.appendChild(div);
+      return div;
+    })();
+
+    list.innerHTML = '';
+    categories.forEach((cat, i) => {
+      const row = document.createElement('label');
+      row.className = 'cat-item';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.dataset.cat = cat;
+      checkbox.id = `cat_${i}`;
+
+      const label = document.createElement('span');
+      label.textContent = cat;
+
+      row.append(checkbox, label);
+      list.appendChild(row);
+    });
+
+    // --- 4. Add basic styles if missing ---
+    if (!document.getElementById('tk-category-panel-style')) {
+      const css = document.createElement('style');
+      css.id = 'tk-category-panel-style';
+      css.textContent = `
+        #tk-categories {
+          position: fixed;
+          top: 80px;
+          left: 0;
+          width: 280px;
+          height: calc(100vh - 100px);
+          overflow-y: auto;
+          padding: 1rem;
+          background: rgba(255, 255, 255, 0.03);
+          border-right: 1px solid rgba(255, 255, 255, 0.1);
+          z-index: 10;
+        }
+        #tk-categories h3 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+        #tk-cat-list { display: grid; gap: 0.5rem; }
+        .cat-item { display: flex; align-items: center; gap: 8px; }
+        .cat-item input { accent-color: #00bfff; }
+      `;
+      document.head.appendChild(css);
+    }
+
+    console.log('✅ Categories panel loaded');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
+})();
+</script>
