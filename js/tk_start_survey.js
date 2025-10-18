@@ -1,16 +1,17 @@
-// === TalkKink Survey Final Init ===
-console.log('TK init v2025-10-17-3');
+// === TalkKink Survey UI Bootstrap (Final Stable Version) ===
+console.log('TK init v2025-10-17-4');
 
-// --- Ensure containers exist ---
-(function ensureLayout() {
+// 🔹 1. Auto-create structure if missing
+(function setupLayout() {
   const app = document.getElementById('tk-app') || (() => {
-    const main = document.createElement('main');
-    main.id = 'tk-app';
-    main.className = 'tk-app';
-    document.body.prepend(main);
-    return main;
+    const m = document.createElement('main');
+    m.id = 'tk-app';
+    m.className = 'tk-app grid-layout';
+    document.body.prepend(m);
+    return m;
   })();
 
+  // Left categories
   if (!document.getElementById('tk-categories')) {
     const left = document.createElement('aside');
     left.id = 'tk-categories';
@@ -22,16 +23,17 @@ console.log('TK init v2025-10-17-3');
     app.appendChild(left);
   }
 
+  // Center content
   if (!document.getElementById('tk-landing')) {
     const center = document.createElement('section');
     center.className = 'tk-center';
     center.innerHTML = `
       <section id="tk-landing" class="tk-card">
-        <h2 style="margin-top:0;">TalkKink Survey</h2>
+        <h2>TalkKink Survey</h2>
         <div class="tk-actions">
-          <button id="btnStart" type="button">Start Survey</button>
-          <a href="#" id="btnAnalysis">Individual Kink Analysis</a>
-          <a href="#" id="btnCompat">Compatibility Page</a>
+          <button id="btnStart" type="button" class="tk-button">Start Survey</button>
+          <a href="#" id="btnAnalysis" class="tk-button secondary">Individual Kink Analysis</a>
+          <a href="#" id="btnCompat" class="tk-button secondary">Compatibility Page</a>
         </div>
       </section>
       <section id="question-panel" class="tk-qcard tk-card" hidden></section>
@@ -39,33 +41,32 @@ console.log('TK init v2025-10-17-3');
     app.appendChild(center);
   }
 
+  // Right scoring guide
   if (!document.getElementById('tk-right')) {
     const right = document.createElement('aside');
     right.id = 'tk-right';
-    right.className = 'tk-right';
+    right.className = 'tk-right tk-card';
     right.hidden = true;
     right.innerHTML = `
-      <section class="tk-guide tk-card how-to-score" id="tk-guide">
-        <h3>How to score</h3>
-        <ul class="legend">
-          <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
-          <li><b>1</b> — Hard Limit (no-go)</li>
-          <li><b>2</b> — Soft Limit (willing to try…)</li>
-          <li><b>3</b> — Curious / context-dependent</li>
-          <li><b>4</b> — Comfortable / enjoy</li>
-          <li><b>5</b> — Favorite / enthusiastic yes</li>
-        </ul>
-        <div class="tk-ratingbox">
-          <div class="tk-label">Rate interest/comfort (0–5)</div>
-          <div class="tk-grid" id="tk-scale-sidebar" data-group="rating-A"></div>
-        </div>
-      </section>
+      <h3>How to score</h3>
+      <ul class="legend">
+        <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+        <li><b>1</b> — Hard Limit (no-go)</li>
+        <li><b>2</b> — Soft Limit (willing to try…)</li>
+        <li><b>3</b> — Curious / context-dependent</li>
+        <li><b>4</b> — Comfortable / enjoy</li>
+        <li><b>5</b> — Favorite / enthusiastic yes</li>
+      </ul>
+      <div class="tk-ratingbox">
+        <div class="tk-label">Rate interest/comfort (0–5)</div>
+        <div class="tk-grid" id="tk-scale-sidebar" data-group="rating-A"></div>
+      </div>
     `;
     app.appendChild(right);
   }
 })();
 
-// --- Load categories from JSON ---
+// 🔹 2. Load category data
 async function tkLoadCategories() {
   const list = document.getElementById('tk-cat-list');
   if (!list) return;
@@ -78,15 +79,17 @@ async function tkLoadCategories() {
     else if (Array.isArray(data?.categories)) cats = data.categories.map(x => x.name || x.title || x.category || String(x));
     else if (typeof data === 'object') cats = Object.keys(data);
     cats = cats.filter(Boolean).sort((a, b) => a.localeCompare(b));
-    list.innerHTML = cats.map((c, i) => `<label class="tk-cat"><input type="checkbox" id="cat_${i}"><span>${c}</span></label>`).join('');
+    list.innerHTML = cats
+      .map((c, i) => `<label class="tk-cat"><input type="checkbox" id="cat_${i}"><span>${c}</span></label>`)
+      .join('');
     console.log(`✅ Categories loaded (${cats.length})`);
   } catch (err) {
     console.error('❌ Failed to load categories', err);
-    list.textContent = 'Error loading categories';
+    list.textContent = 'Error loading categories.';
   }
 }
 
-// --- Build rating scale ---
+// 🔹 3. Rating scale generator
 function tkMakeScale(container, group = 'rating-A') {
   if (!container) return;
   container.innerHTML = '';
@@ -102,7 +105,7 @@ function tkMakeScale(container, group = 'rating-A') {
   }
 }
 
-// --- Question card renderer ---
+// 🔹 4. Question card renderer
 function tkRenderQuestionCard() {
   const panel = document.getElementById('question-panel');
   if (!panel) return;
@@ -119,7 +122,7 @@ function tkRenderQuestionCard() {
   document.getElementById('tk-right').hidden = false;
 }
 
-// --- Rating sync ---
+// 🔹 5. Rating button behavior
 if (!window.__tkBound) {
   window.__tkBound = true;
   document.body.addEventListener('click', e => {
@@ -137,14 +140,12 @@ if (!window.__tkBound) {
   });
 }
 
-// --- Start survey + wiring ---
+// 🔹 6. Start button + autostart logic
 window.startSurvey = function() {
-  console.log('✅ startSurvey triggered');
   document.getElementById('tk-landing')?.setAttribute('hidden', 'hidden');
   tkRenderQuestionCard();
 };
 
-// --- DOM ready: load categories + autostart ---
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM ready — init TalkKink');
   tkLoadCategories();
