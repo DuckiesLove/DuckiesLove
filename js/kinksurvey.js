@@ -371,6 +371,27 @@
     themeAnchor:  '#themeSelector, .theme-selector, [data-tk-theme]', // optional
   };
 
+  const PANEL_OPTS = Object.freeze({
+    overlay: false,
+    drawer: false,
+    locked: false
+  });
+
+  const OVERLAY_DISABLED = (() => {
+    if (WIN.__TK_DISABLE_OVERLAY === true) return true;
+    try {
+      return localStorage.getItem('__TK_DISABLE_OVERLAY') === '1';
+    } catch (_) {
+      return false;
+    }
+  })();
+
+  const USE_OVERLAY = !OVERLAY_DISABLED && PANEL_OPTS.overlay !== false;
+
+  if (!USE_OVERLAY) {
+    console.info('[TK] Overlay bootstrap skipped (__TK_DISABLE_OVERLAY or overlay flag false).');
+  }
+
   // ---------- z-index hard-fix (keeps your panel above any scrim) ----------
   (function injectZFix(){
     if (DOC.getElementById('tkZFix')) return;
@@ -402,19 +423,27 @@
 
   // ---------- Panel control ----------
   function getPanel(){ return bySel(SEL.panel); }
-  function getOverlay(){ return bySel(SEL.overlay); }
+  function getOverlay(){
+    if (!USE_OVERLAY) return null;
+    return bySel(SEL.overlay);
+  }
 
   function tkOpenPanel(){
     const panel = getPanel();
     if (!panel){ console.warn('[TK] No panel found at', SEL.panel); return; }
-    // Ensure panel is attached to top portal so it’s not clipped
-    let root = bySel(SEL.portalRoot);
-    if (!root){
-      root = DOC.createElement('div');
-      root.id = 'tkPortalRoot';
-      DOC.body.appendChild(root);
+    if (USE_OVERLAY){
+      // Ensure panel is attached to top portal so it’s not clipped
+      let root = bySel(SEL.portalRoot);
+      if (!root){
+        root = DOC.createElement('div');
+        root.id = 'tkPortalRoot';
+        DOC.body.appendChild(root);
+      }
+      if (!root.contains(panel)) root.appendChild(panel);
+    } else {
+      panel.style.position = panel.style.position || 'relative';
+      panel.style.zIndex = panel.style.zIndex || 'auto';
     }
-    if (!root.contains(panel)) root.appendChild(panel);
 
     // Make sure panel is interactable (your CSS does the rest)
     panel.style.display     = 'flex';
@@ -429,7 +458,9 @@
       ov.style.opacity = '1';
     }
 
-    DOC.documentElement.classList.add('tk-panel-open');
+    if (USE_OVERLAY) {
+      DOC.documentElement.classList.add('tk-panel-open');
+    }
   }
 
   function tkClosePanel(){
@@ -446,7 +477,9 @@
       ov.style.visibility = 'hidden';
       ov.style.display = 'none';
     }
-    DOC.documentElement.classList.remove('tk-panel-open');
+    if (USE_OVERLAY) {
+      DOC.documentElement.classList.remove('tk-panel-open');
+    }
   }
 
   // Expose for console/other code
@@ -769,6 +802,27 @@
     ]
   };
 
+  const PANEL_OPTS = Object.freeze({
+    overlay: false,
+    drawer: false,
+    locked: false
+  });
+
+  const OVERLAY_DISABLED = (() => {
+    if (WIN.__TK_DISABLE_OVERLAY === true) return true;
+    try {
+      return localStorage.getItem('__TK_DISABLE_OVERLAY') === '1';
+    } catch (_) {
+      return false;
+    }
+  })();
+
+  const USE_OVERLAY = !OVERLAY_DISABLED && PANEL_OPTS.overlay !== false;
+
+  if (!USE_OVERLAY) {
+    console.info('[TK] Overlay bootstrap skipped in TK_FORCE_OPEN (__TK_DISABLE_OVERLAY or overlay flag false).');
+  }
+
   // ---- Helpers ----
   const q1 = sel => DOC.querySelector(sel);
   const qA = sel => Array.from(DOC.querySelectorAll(sel));
@@ -799,6 +853,7 @@
   }
 
   function findOverlay(){
+    if (!USE_OVERLAY) return null;
     return firstMatch(CAND.overlay);
   }
 
@@ -826,8 +881,8 @@
     panel.setAttribute('aria-expanded', 'true');
 
     // Bring to the very top
-    panel.style.position = panel.style.position || 'fixed';
-    panel.style.zIndex = '2147483646';
+    panel.style.position = USE_OVERLAY ? (panel.style.position || 'fixed') : (panel.style.position || 'relative');
+    panel.style.zIndex = USE_OVERLAY ? '2147483646' : panel.style.zIndex || 'auto';
     const overlay = findOverlay();
     if (overlay){
       overlay.style.display = 'block';
@@ -836,7 +891,9 @@
       overlay.style.zIndex = '2147483645';
       overlay.style.pointerEvents = 'auto';
     }
-    DOC.documentElement.classList.add('tk-panel-open');
+    if (USE_OVERLAY) {
+      DOC.documentElement.classList.add('tk-panel-open');
+    }
     console.log('[TK] Panel opened.');
   }
 
@@ -857,7 +914,9 @@
       overlay.style.display = 'none';
       overlay.style.pointerEvents = 'none';
     }
-    DOC.documentElement.classList.remove('tk-panel-open');
+    if (USE_OVERLAY) {
+      DOC.documentElement.classList.remove('tk-panel-open');
+    }
     console.log('[TK] Panel closed.');
   }
 
