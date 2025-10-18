@@ -5,6 +5,83 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Talk Kink — Kink Survey</title>
 
+    <!-- =====================  TalkKink • CODEx PASTE BLOCK  =====================
+    Goal: Kill the overlay/portal that causes the page to flash, and keep the
+    question/rating cards in normal page flow. Paste this ENTIRE block into
+    /kinksurvey/ HTML <head>, ABOVE your normal survey script(s).
+    ============================================================================= -->
+
+    <!-- 1) Inline runtime: disables & hides any overlay/portal and prevents re-parenting -->
+    <script>
+    (() => {
+      /* Persist flag so your app can skip overlay bootstrap entirely */
+      try { localStorage.setItem('__TK_DISABLE_OVERLAY', '1'); } catch {}
+
+      /* CSS: hide any overlay shells, disable animations to prevent flicker */
+      const css = document.createElement('style');
+      css.id = 'tk-no-overlay-css';
+      css.textContent = `
+        #tkPortal, #tkOverlay, .tkPortal, .tkOverlay, .tkDockShell,
+        #tkDevOverlay, .tkDevOverlay, [data-tk-overlay], [data-portal] {
+          display: none !important; opacity: 0 !important; visibility: hidden !important;
+          pointer-events: none !important;
+        }
+        /* reduce the chance of a visible flash while layout settles */
+        * { transition: none !important; animation: none !important; }
+      `;
+      document.head.appendChild(css);
+
+      /* Remove any overlay nodes already in the DOM */
+      const SEL = [
+        '#tkPortal', '#tkOverlay', '.tkPortal', '.tkOverlay', '.tkDockShell',
+        '#tkDevOverlay', '.tkDevOverlay', '[data-tk-overlay]', '[data-portal]'
+      ].join(',');
+      document.querySelectorAll(SEL).forEach(n => { try { n.remove(); } catch {} });
+
+      /* Ensure the main app stays on top of any leftover artifacts */
+      const app = document.querySelector('#surveyApp') || document.querySelector('main');
+      if (app) { app.style.position = 'relative'; app.style.zIndex = '2147483640'; }
+
+      /* Soft-block aggressive MutationObservers that try to portal content */
+      (function guardMOs(root = window) {
+        const MO = root.MutationObserver || root.WebKitMutationObserver;
+        if (!MO || !MO.prototype) return;
+        const _observe = MO.prototype.observe;
+        MO.prototype.observe = function (target, config) {
+          try {
+            if ((target === document || target === document.body) &&
+                config && (config.childList || config.subtree)) {
+              return; // refuse whole-document childList observers that often portal
+            }
+          } catch {}
+          return _observe.apply(this, arguments);
+        };
+      })();
+
+      console.info('[TK] no-overlay inline runtime active (overlay disabled)');
+    })();
+    </script>
+
+    <!-- 2) OPTIONAL: Let your own survey code read the flag and skip overlay bootstrap.
+         Add the following guard at the VERY TOP of your main survey JS (survey.js):
+
+         if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
+           console.info('[TK] Overlay bootstrap skipped');
+           // Ensure panel wiring never uses overlay/drawer
+           window.TK_PANEL_OPTS = { overlay: false, drawer: false, locked: false };
+           // If your file has an explicit overlay init, return early before it runs:
+           // return;
+         }
+
+         Also force your panel options where you build the UI:
+         const PANEL_OPTS = Object.assign({ overlay:false, drawer:false, locked:false }, window.TK_PANEL_OPTS || {});
+    -->
+
+    <!-- 3) Load your normal survey script(s) AFTER the block above -->
+    <!-- <script src="/assets/survey.js?v=..."></script> -->
+
+    <!-- ====================  End • TalkKink CODEx Paste Block  ==================== -->
+
     <script src="/js/no-overlay.js" type="module"></script>
 
     <script>
