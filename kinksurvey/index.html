@@ -58,7 +58,7 @@
       <a class="cta" href="https://talkkink.org/compatibility.html" aria-label="Compatibility Page">Compatibility Page</a>
     </nav>
 
-    <main id="surveyApp" class="survey-root is-hidden" aria-live="polite">
+    <main id="surveyApp" class="survey-root is-prestart" aria-live="polite">
       <aside id="categoryPanel" aria-label="Categories">
         <h2 class="tk-side-title">Categories</h2>
         <div class="tk-cat-count" aria-live="polite"><span id="tkCatSel">0</span> selected</div>
@@ -67,6 +67,14 @@
 
       <section class="survey-center">
         <section id="controls">
+          <div id="prestartNotice" class="prestart-notice" role="status" aria-live="polite">
+            <h2>Select categories to begin</h2>
+            <p>
+              <span id="prestartCount">0</span>
+              selected so far. Pick at least one category on the left, then press
+              <strong>Start Survey</strong>.
+            </p>
+          </div>
           <div id="ndProgress">
             <div id="progressBar"><span id="progressPct">0%</span></div>
             <div id="progressText">Question 0 of 0</div>
@@ -112,6 +120,53 @@
     </section>
 
     <style>
+      .prestart-notice {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .prestart-notice h2 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+
+      .prestart-notice p {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      .prestart-notice strong {
+        font-weight: 600;
+      }
+
+      .prestart-notice.is-ready {
+        border-color: rgba(0, 200, 140, 0.6);
+        box-shadow: 0 0 0 1px rgba(0, 200, 140, 0.3);
+      }
+
+      .prestart-notice.is-ready h2,
+      .prestart-notice.is-ready strong {
+        color: rgb(110, 245, 210);
+      }
+
+      .survey-root.is-prestart #ndProgress {
+        display: none;
+      }
+
+      .survey-root.is-prestart #questionArea,
+      .survey-root.is-prestart .score-sidebar {
+        display: none;
+      }
+
+      .survey-root:not(.is-prestart) #prestartNotice {
+        display: none;
+      }
+
       .survey-root {
         display: grid;
         grid-template-columns: 320px 1fr 340px;
@@ -762,7 +817,5 @@
         });
       })();
     </script>
-    <script src="/scripts/survey.js?v=2025-10-15"></script>
-    <script src="/scripts/survey-init.js?v=2025-10-17-4"></script>
   </body>
 </html>

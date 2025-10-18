@@ -322,6 +322,10 @@
     }
     const count = $('#tkCatSel');
     if(count) count.textContent = String(n);
+    const prestartCount = $('#prestartCount');
+    if (prestartCount) prestartCount.textContent = String(n);
+    const notice = $('#prestartNotice');
+    if (notice) notice.classList.toggle('is-ready', n >= 1);
   }
 
   function updateStartEnabled(){
@@ -342,7 +346,7 @@
     paint();
     progress();
     const cta = $('#ctaStack'); if (cta) cta.style.display = 'none';
-    $('#surveyApp')?.classList.remove('is-hidden');
+    $('#surveyApp')?.classList.remove('is-prestart');
     $('#questionArea')?.scrollIntoView({behavior:'smooth', block:'start'});
   });
 
