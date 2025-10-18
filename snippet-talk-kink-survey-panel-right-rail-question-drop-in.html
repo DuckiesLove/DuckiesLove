@@ -47,8 +47,8 @@
     border-radius:12px; padding:10px 0;
     background:transparent; color:inherit; cursor:pointer; font-size:16px;
   }
-  button.option.selected { outline:2px solid currentColor; transform: translateY(-1px); }
-  button.option[aria-pressed="true"] { font-weight:700; }
+  button.tk-opt.selected { outline:2px solid currentColor; transform: translateY(-1px); }
+  button.tk-opt[aria-pressed="true"] { font-weight:700; }
 
   /* Landing buttons container (center) */
   #tk-landing .actions { display:grid; gap:16px; max-width: 720px; margin: 0 auto; }
@@ -72,7 +72,7 @@
     <section id="tk-landing" class="card">
       <h2 style="margin-top:0;">TalkKink Survey</h2>
       <div class="actions">
-        <button id="btnStart" type="button">Start Survey</button>
+        <button id="btnStart" type="button" disabled aria-disabled="true">Start Survey</button>
         <a href="#" id="btnAnalysis">Individual Kink Analysis</a>
         <a href="#" id="btnCompat">Compatibility Page</a>
       </div>
@@ -129,7 +129,7 @@ async function tkRenderCategories() {
       row.className = 'cat-item';
       row.setAttribute('role','option');
       row.innerHTML = `
-        <input type="checkbox" id="${id}" data-cat="${name}">
+        <input type="checkbox" id="${id}" data-cat="${name}" value="${name}">
         <span>${name}</span>
       `;
       wrap.appendChild(row);
@@ -141,22 +141,23 @@ async function tkRenderCategories() {
 }
 
 /* =================== QUESTION + SCORE GUIDE AFTER START =================== */
-function tkMakeScale(el, group='rating-A') {
-  if (!el) return;
-  el.dataset.group = group;
-  el.innerHTML = '';
-  for (let i=0;i<=5;i++) {
-    const b = document.createElement('button');
-    b.className = 'option';
-    b.type = 'button';
-    b.dataset.value = String(i);
-    b.textContent = String(i);
-    b.setAttribute('aria-pressed','false');
-    el.appendChild(b);
+function tkBuildScale(container, group = 'rating-A') {
+  if (!container) return;
+  container.dataset.group = group;
+  container.innerHTML = '';
+  for (let i = 0; i <= 5; i++) {
+    const button = document.createElement('button');
+    button.className = 'tk-opt';
+    button.type = 'button';
+    button.dataset.group = group;
+    button.dataset.value = String(i);
+    button.textContent = String(i);
+    button.setAttribute('aria-pressed', 'false');
+    container.appendChild(button);
   }
 }
 
-function tkRenderQuestionCard({category='Appearance Play', prompt='Choosing My Partner S', role='Giving'}={}) {
+function tkRenderQuestionCard({ category = 'Appearance Play', prompt = 'Choosing My Partner', role = 'Giving' } = {}) {
   const panel = document.getElementById('question-panel');
   if (!panel) return;
   panel.hidden = false;
@@ -178,49 +179,102 @@ function tkRenderQuestionCard({category='Appearance Play', prompt='Choosing My P
       <section class="how-to-score how-to-score--inline"></section>
     </article>
   `;
-  tkMakeScale(document.getElementById('tk-scale'), 'rating-A');
-  tkMakeScale(document.getElementById('tk-scale-sidebar'), 'rating-A');
-  document.getElementById('tk-score').hidden = false; // show right sidebar
+  tkBuildScale(document.getElementById('tk-scale'), 'rating-A');
+  tkBuildScale(document.getElementById('tk-scale-sidebar'), 'rating-A');
+  const sidebar = document.getElementById('tk-score');
+  if (sidebar) sidebar.hidden = false;
 }
 
 /* =================== RATING CLICK SYNC (both grids) =================== */
-(function tkBindRatingClicks(){
-  if (window.__tkClicksBound) return; window.__tkClicksBound = true;
-  (document.querySelector('.survey-root') || document.body).addEventListener('click', (e)=>{
-    const btn = e.target.closest('button.option');
-    if (!btn) return;
-    if (!btn.type || btn.type.toLowerCase()==='submit') btn.type='button';
-    const group = btn.closest('[data-group]')?.dataset.group || 'rating-A';
-    const value = btn.dataset.value ?? btn.textContent.trim();
-    document.querySelectorAll(`[data-group="${group}"] button.option`).forEach(b=>{
-      const on = b.dataset.value === value;
-      b.classList.toggle('selected', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+(function tkBindRatingClicks() {
+  if (window.__tkRatingSyncBound) return;
+  window.__tkRatingSyncBound = true;
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('button.tk-opt');
+    if (!button) return;
+    const group = button.dataset.group || button.closest('[data-group]')?.dataset.group || 'rating-A';
+    const value = button.dataset.value ?? button.textContent.trim();
+    document.querySelectorAll(`button.tk-opt[data-group="${group}"]`).forEach((peer) => {
+      const on = peer.dataset.value === value;
+      peer.classList.toggle('selected', on);
+      peer.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     const guard = document.getElementById('tk-guard');
-    guard && (guard.textContent = `Selected ${value} of 5`);
-    console.log('[Survey Selected]', { group, value });
+    if (guard) {
+      const message = `Selected ${value} of 5`;
+      if (typeof guard.replaceChildren === 'function') guard.replaceChildren(document.createTextNode(message));
+      else guard.textContent = message;
+    }
   });
 })();
 
-/* =================== START SURVEY WIRING =================== */
-function startSurvey() {
-  // keep left categories visible; swap center to question view; show right guide
-  document.getElementById('tk-landing')?.setAttribute('hidden','hidden');
+function tkShowSurveyScreen() {
+  document.getElementById('tk-landing')?.setAttribute('hidden', 'hidden');
   tkRenderQuestionCard();
+}
+
+function tkSetupStartGate() {
+  if (window.__tkStartGateReady) return;
+  const list = document.getElementById('tk-cat-list');
+  const start = document.getElementById('btnStart');
+  const qpanel = document.getElementById('question-panel');
+  if (!list || !start || !qpanel) {
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(tkSetupStartGate);
+    else setTimeout(tkSetupStartGate, 0);
+    return;
+  }
+  window.__tkStartGateReady = true;
+  const selected = new Set();
+  const updateGate = () => {
+    const any = selected.size > 0;
+    start.disabled = !any;
+    start.setAttribute('aria-disabled', String(!any));
+  };
+  updateGate();
+  list.addEventListener('change', (event) => {
+    const cb = event.target.closest('input[type="checkbox"]');
+    if (!cb) return;
+    const key = cb.value || cb.id;
+    if (cb.checked) selected.add(key);
+    else selected.delete(key);
+    updateGate();
+  });
+  start.addEventListener('click', (event) => {
+    if (start.disabled) {
+      if (start.animate) {
+        start.animate(
+          [
+            { transform: 'translateX(0)' },
+            { transform: 'translateX(-5px)' },
+            { transform: 'translateX(5px)' },
+            { transform: 'translateX(0)' }
+          ],
+          { duration: 250 }
+        );
+      }
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    tkShowSurveyScreen();
+  });
+
+  const params = new URLSearchParams(location.search);
+  if (params.has('autostart')) {
+    start.disabled = false;
+    start.setAttribute('aria-disabled', 'false');
+    tkShowSurveyScreen();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   tkRenderCategories(); // ← Categories visible on load
-  // wire Start button
-  document.getElementById('btnStart')?.addEventListener('click', (e)=>{ e.preventDefault(); startSurvey(); });
-  // optional: autostart with ?autostart
-  if (new URLSearchParams(location.search).get('autostart')) startSurvey();
+  tkSetupStartGate();
 });
 
 // expose helpers for integration hooks
 window.tkRenderQuestionCard = tkRenderQuestionCard;
-window.tkShowSurveyScreen = startSurvey;
-window.startSurvey = startSurvey;
+window.tkShowSurveyScreen = tkShowSurveyScreen;
+window.startSurvey = tkShowSurveyScreen;
 </script>
 <!-- ================= END — CATEGORIES ON LOAD + SURVEY FLOW ================= -->
