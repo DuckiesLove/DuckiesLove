@@ -1,30 +1,76 @@
-<!-- ==== TalkKink: Start Intercept + Independent Overlay Question UI (one drop-in) ==== -->
+<!-- ========= TalkKink: Hard-stop navigation + overlay survey UI (final) ========= -->
 <script>
 (() => {
-  /* ---------- Styles for the overlay ---------- */
-  const css = `
-  #tk-overlay{position:fixed;inset:0;z-index:999999;display:none}
-  #tk-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:saturate(1.2) blur(2px)}
-  #tk-shell{position:relative;display:grid;grid-template-columns:1fr 340px;gap:16px;max-width:1200px;
-            margin:40px auto;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.18);
-            border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);padding:18px}
-  #tk-center,#tk-right{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.14);
-                       border-radius:14px;padding:14px;min-height:320px}
-  .tk-grid{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
-  .tk-opt{border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 0;background:transparent;
-          color:inherit;cursor:pointer}
-  .tk-opt.selected{outline:2px solid currentColor}
-  #tk-close{position:absolute;top:8px;right:10px;border:1px solid rgba(255,255,255,.2);background:transparent;
-            color:inherit;border-radius:10px;padding:6px 10px;cursor:pointer}
-  @media (max-width:1024px){#tk-shell{grid-template-columns:1fr}}
-  `;
-  if(!document.getElementById("tk-overlay-css")){
-    const s=document.createElement("style"); s.id="tk-overlay-css"; s.textContent=css; document.head.appendChild(s);
+  const TK = { active:false };
+
+  /* ---------- Hard navigation locks while our UI is active ---------- */
+  const _pushState = history.pushState.bind(history);
+  const _replaceState = history.replaceState.bind(history);
+
+  function lockNavigation() {
+    if (TK.navLocked) return;
+    TK.navLocked = true;
+
+    history.pushState = function(...a) {
+      if (TK.active) { console.debug("[TK] blocked pushState"); return; }
+      return _pushState(...a);
+    };
+    history.replaceState = function(...a) {
+      if (TK.active) { console.debug("[TK] blocked replaceState"); return; }
+      return _replaceState(...a);
+    };
+
+    // Block hash changes while active
+    window.addEventListener("hashchange", (e) => {
+      if (TK.active) { console.debug("[TK] blocked hashchange"); e.stopImmediatePropagation(); e.preventDefault(); history.replaceState(history.state, "", location.href); }
+    }, true);
+
+    // Block programmatic navigations
+    const assign = Object.getOwnPropertyDescriptor(window.Location.prototype, "assign");
+    const href   = Object.getOwnPropertyDescriptor(window.Location.prototype, "href");
+    Object.defineProperty(window.location.__proto__, "assign", {
+      configurable:true,
+      value: function(url){ if (TK.active) { console.debug("[TK] blocked location.assign", url); return; } return assign.value.call(this, url); }
+    });
+    Object.defineProperty(window.location.__proto__, "href", {
+      configurable:true,
+      get: href.get,
+      set: function(url){ if (TK.active) { console.debug("[TK] blocked location.href", url); return; } return href.set.call(this, url); }
+    });
+
+    // Block unload prompts while active
+    window.addEventListener("beforeunload", (e) => { if (TK.active) { e.preventDefault(); e.returnValue=""; }}, true);
   }
 
-  /* ---------- Build overlay once ---------- */
+  function unlockNavigation() {
+    if (!TK.navLocked) return;
+    history.pushState = _pushState;
+    history.replaceState = _replaceState;
+    TK.navLocked = false;
+  }
+
+  /* ---------- CSS + overlay ---------- */
+  const CSS = `
+  #tk-overlay{position:fixed;inset:0;z-index:2147483647;display:none}
+  #tk-overlay.tk-show{display:block}
+  #tk-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:saturate(1.1) blur(2px)}
+  #tk-shell{position:relative;display:grid;grid-template-columns:1fr 340px;gap:16px;max-width:1200px;
+    margin:40px auto;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.18);
+    border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);padding:18px}
+  #tk-center,#tk-right{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.14);
+    border-radius:14px;padding:14px;min-height:320px}
+  .tk-grid{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
+  .tk-opt{border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 0;background:transparent;color:inherit;cursor:pointer}
+  .tk-opt.selected{outline:2px solid currentColor}
+  #tk-close{position:absolute;top:8px;right:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:inherit;border-radius:10px;padding:6px 10px;cursor:pointer}
+  @media(max-width:1024px){#tk-shell{grid-template-columns:1fr}}
+  `;
+  if (!document.getElementById("tk-overlay-css")) {
+    const s=document.createElement("style"); s.id="tk-overlay-css"; s.textContent=CSS; document.head.appendChild(s);
+  }
+
   function ensureOverlay(){
-    if(document.getElementById("tk-overlay")) return;
+    if (document.getElementById("tk-overlay")) return;
     const wrap=document.createElement("div");
     wrap.id="tk-overlay";
     wrap.innerHTML = `
@@ -56,13 +102,21 @@
     `;
     document.body.appendChild(wrap);
 
-    // close handlers
-    const close = ()=>{ wrap.style.display="none"; };
+    // Close handlers
+    const close = ()=>{ TK.active=false; unlockNavigation(); wrap.classList.remove("tk-show"); document.documentElement.style.overflow=""; };
     wrap.querySelector("#tk-close").addEventListener("click", close);
     wrap.querySelector("#tk-backdrop").addEventListener("click", close);
+
+    // Reassert overlay if DOM tries to remove/empty it
+    const mo = new MutationObserver(() => {
+      const ov = document.getElementById("tk-overlay");
+      if (TK.active && (!ov || !ov.classList.contains("tk-show"))) {
+        ensureOverlay(); showOverlay(); // re-create fast
+      }
+    });
+    mo.observe(document.body, { childList:true, subtree:true });
   }
 
-  /* ---------- Rating scale builder + sync ---------- */
   function makeScale(el, group="rating-A"){
     if(!el) return; el.innerHTML="";
     for(let i=0;i<=5;i++){
@@ -74,8 +128,8 @@
   function buildScales(){
     makeScale(document.getElementById("tk-scale"), "rating-A");
     makeScale(document.getElementById("tk-scale-sidebar"), "rating-A");
-    if(!window.__tkOverlayScaleSync){
-      window.__tkOverlayScaleSync=true;
+    if(!window.__tkScaleSync){
+      window.__tkScaleSync=true;
       document.addEventListener("click",(e)=>{
         const btn=e.target.closest("button.tk-opt"); if(!btn) return;
         const group=btn.dataset.group, val=btn.dataset.value;
@@ -89,46 +143,47 @@
     }
   }
 
-  /* ---------- Helper: any category selected? ---------- */
   function hasAnyCategorySelected(){
     const checks=[...document.querySelectorAll('input[type="checkbox"], [role="checkbox"][aria-checked]')];
     return checks.some(cb => cb.checked || cb.getAttribute?.("aria-checked")==="true");
   }
 
-  /* ---------- Intercept Start (capture phase) and show overlay ---------- */
-  function isStartButton(el){
-    return el && /start\s*survey/i.test((el.textContent||"").trim());
-  }
   function showOverlay(){
     ensureOverlay();
     buildScales();
     const ov=document.getElementById("tk-overlay");
-    ov.style.display="block";
+    TK.active=true;
+    lockNavigation();
+    ov.classList.add("tk-show");
+    document.documentElement.style.overflow="hidden";
   }
 
-  // Global capture listeners to beat the app’s handler no matter what
-  function startCaptureHandler(e){
+  /* ---------- Capture Start clicks & block app handlers/navigation ---------- */
+  function isStart(el){ return el && /start\s*survey/i.test((el.textContent||"").trim()); }
+
+  function startCapture(e){
     const t = e.target.closest('button, a, [role="button"]');
-    if(!t || !isStartButton(t)) return;
-    // user must pick at least one category
+    if(!t || !isStart(t)) return;
+    // Require a category first
     if(!hasAnyCategorySelected()){
       e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
       const n=document.createElement("div");
       n.textContent="Pick at least one category to begin.";
-      n.style.cssText="position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:1000000";
+      n.style.cssText="position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:2147483647";
       document.body.appendChild(n); setTimeout(()=>n.remove(),1600);
       return;
     }
-    // block site navigation + handlers, then open our overlay
+    // Hard stop *all* site handlers and any navigation
     e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
     showOverlay();
   }
 
-  ["click","mousedown","touchstart"].forEach(ev=>{
-    document.addEventListener(ev, startCaptureHandler, true /* capture */);
+  ["click","mousedown","mouseup","touchstart","touchend"].forEach(ev=>{
+    window.addEventListener(ev, startCapture, true);   // capture on window
+    document.addEventListener(ev, startCapture, true); // and on document
+    document.body.addEventListener(ev, startCapture, true);
   });
 
-  // If their app changes the Start element later, our capture still wins.
 })();
 </script>
-<!-- ==== /TalkKink overlay ==== -->
+<!-- ====================== /final ====================== -->
