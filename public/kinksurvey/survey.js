@@ -26,7 +26,7 @@
     {
       value: 0,
       title: 'Brain did a cartwheel',
-      detail: 'skipped for now 🥲',
+      detail: 'skipped for now 😅',
     },
     {
       value: 1,
@@ -41,17 +41,17 @@
     {
       value: 3,
       title: 'Curious / context-dependent',
-      detail: 'okay with discussion, mood & trust; needs clear negotiation',
+      detail: 'okay with discussion, mood, and trust; needs clear negotiation',
     },
     {
       value: 4,
       title: 'Comfortable / enjoy',
-      detail: 'generally a yes; normal precautions & check-ins',
+      detail: 'generally a yes; normal precautions and check-ins',
     },
     {
       value: 5,
       title: 'Favorite / enthusiastic yes',
-      detail: 'happily into it; green light',
+      detail: 'green light; hype and joy',
     },
   ]);
 
@@ -60,91 +60,70 @@
     const style = document.createElement('style');
     style.id = 'tk-score-styles';
     style.textContent = `
-  :root{
-    --tk-surface: rgba(12,16,20,.65);
-    --tk-border: rgba(0,255,255,.22);
-    --tk-pill-bg: rgba(255,255,255,.04);
-    --tk-glow: 0 0 .9rem rgba(0,255,255,.25);
-    --tk-fg: #e8f7ff;
+  .tk-qwrap {
+    display: grid;
+    grid-template-columns: 1fr minmax(600px, 42vw);
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .tk-qwrap { grid-template-columns: 1fr; }
   }
 
-  #surveyApp .question-card,
-  #surveyApp section[aria-label*="Question"],
-  #surveyApp .panel,
-  #surveyApp .card{
-    position: relative;
+  #tkScoreDock {
+    border: 1px solid #153c4a;
+    border-radius: 16px;
+    background: rgba(0, 20, 30, 0.6);
+    box-shadow: 0 0 0 1px rgba(0,255,255,.08), 0 6px 24px rgba(0,0,0,.35) inset;
+    padding: 16px 16px 12px;
   }
+  #tkScoreDock .tk-howto-title {
+    margin: 0 0 10px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    color: #a9faff;
+    text-shadow: 0 0 10px rgba(0,255,255,.25);
+  }
+  #tkScoreDock .tk-howto-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  #tkScoreDock .tk-pill {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #0b1116;
+    border: 1px solid rgba(255,255,255,.06);
+  }
+  #tkScoreDock .tk-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font: 700 14px/1 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto;
+    color: #031016;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.2);
+  }
+  #tkScoreDock .tk-text {
+    color: #d9edf2;
+    font-size: 14px;
+  }
+  #tkScoreDock .tk-text b {
+    color: #ffffff;
+  }
+  #tkScoreDock .tk-b0 { background: #9ed0ff; }
+  #tkScoreDock .tk-b1 { background: #ff8b8b; }
+  #tkScoreDock .tk-b2 { background: #ffd05c; }
+  #tkScoreDock .tk-b3 { background: #9cff8f; }
+  #tkScoreDock .tk-b4 { background: #70d7ff; }
+  #tkScoreDock .tk-b5 { background: #c7a6ff; }
 
-  #tkScoreDock{
-    position:absolute;
-    top:64px;
-    right:16px;
-    width:min(560px,36vw);
-    z-index:4;
-    background:var(--tk-surface);
-    border:1px solid var(--tk-border);
-    border-radius:14px;
-    padding:12px 14px;
-    box-shadow: var(--tk-glow);
-    backdrop-filter: blur(6px);
-    color:var(--tk-fg);
-  }
-  #tkScoreDock .tk-h3{
-    margin:0 0 8px 0;
-    font-weight:800;
-    font-size:14px;
-    letter-spacing:.25px;
-    text-transform:uppercase;
-    opacity:.9;
-  }
-  #tkScoreDock .tk-row{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px 10px;
-    margin:0;
-    padding:0;
-    list-style:none;
-  }
-  #tkScoreDock .tk-pill{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    border:1px solid rgba(255,255,255,.08);
-    border-radius:12px;
-    padding:8px 10px;
-    background: var(--tk-pill-bg);
-    max-width: calc(50% - 10px);
-  }
-  #tkScoreDock .dot{
-    flex:0 0 auto;
-    width:28px;height:28px;
-    display:grid;place-items:center;
-    border-radius:999px;
-    font-weight:800;
-    color:#071018;
-    background: var(--c, #93c5fd);
-    box-shadow: inset 0 0 0 2px rgba(0,0,0,.25);
-  }
-  #tkScoreDock .tk-pill[data-n="0"] .dot{ --c:#60a5fa; }
-  #tkScoreDock .tk-pill[data-n="1"] .dot{ --c:#ef4444; }
-  #tkScoreDock .tk-pill[data-n="2"] .dot{ --c:#f59e0b; }
-  #tkScoreDock .tk-pill[data-n="3"] .dot{ --c:#10b981; }
-  #tkScoreDock .tk-pill[data-n="4"] .dot{ --c:#22c55e; }
-  #tkScoreDock .tk-pill[data-n="5"] .dot{ --c:#84cc16; }
-
-  #tkScoreDock .t1{font-size:13px;font-weight:700;line-height:1.15;}
-  #tkScoreDock .t2{font-size:12px;opacity:.85;line-height:1.15;}
-
-  @media (max-width: 1100px){
-    #tkScoreDock{
-      position:relative;
-      right:auto; top:auto;
-      width:auto; margin:12px 0 0 0;
-    }
-    #tkScoreDock .tk-pill{ max-width:100%; }
-  }
-
-  .tk-hide-legacy-score{ display:none !important; }
+  .tk-hide-legacy-score { display: none !important; }
     `;
     document.head.appendChild(style);
   }
@@ -152,22 +131,34 @@
   function buildScoreDock() {
     const dock = document.createElement('aside');
     dock.id = 'tkScoreDock';
-    dock.setAttribute('role', 'note');
-    dock.innerHTML = `
-      <h3 class="tk-h3">How to score</h3>
-      <ul class="tk-row">
-        ${SCORE_ITEMS.map(
-          (item) => `
-            <li class="tk-pill" data-n="${item.value}">
-              <span class="dot">${item.value}</span>
-              <div class="txt">
-                <div class="t1">${item.title}</div>
-                <div class="t2">${item.detail}</div>
-              </div>
-            </li>
-          `
-        ).join('')}
-      </ul>`;
+    dock.className = 'tk-howto-card';
+    dock.setAttribute('role', 'complementary');
+    dock.setAttribute('aria-label', 'How to score');
+
+    const title = document.createElement('h3');
+    title.className = 'tk-howto-title';
+    title.textContent = 'How to score';
+
+    const grid = document.createElement('div');
+    grid.className = 'tk-howto-grid';
+
+    SCORE_ITEMS.forEach((item) => {
+      const pill = document.createElement('div');
+      pill.className = 'tk-pill';
+
+      const badge = document.createElement('div');
+      badge.className = `tk-badge tk-b${item.value}`;
+      badge.textContent = item.value;
+
+      const txt = document.createElement('div');
+      txt.className = 'tk-text';
+      txt.innerHTML = `<b>${item.title}</b> — ${item.detail}`;
+
+      pill.append(badge, txt);
+      grid.appendChild(pill);
+    });
+
+    dock.append(title, grid);
     return dock;
   }
 
@@ -184,12 +175,21 @@
   function ensureScoreDock(questionCard) {
     if (!questionCard) return;
     ensureScoreStyles();
-    let dock = questionCard.querySelector('#tkScoreDock');
+    let wrap = questionCard.closest('.tk-qwrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'tk-qwrap';
+      questionCard.parentElement.insertBefore(wrap, questionCard);
+      wrap.appendChild(questionCard);
+    }
+
+    let dock = wrap.querySelector('#tkScoreDock');
     if (!dock) {
       dock = buildScoreDock();
-      questionCard.appendChild(dock);
+      wrap.appendChild(dock);
     }
-    hideLegacyScoreBlocks(questionCard);
+
+    hideLegacyScoreBlocks(wrap);
     hideLegacyScoreBlocks(document.body || document);
   }
 
