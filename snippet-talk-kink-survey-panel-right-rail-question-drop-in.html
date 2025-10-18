@@ -1,81 +1,90 @@
-<!-- ===================== TALK KINK — QUESTION + SCORE GUIDE ===================== -->
+<!-- ================= TALK KINK — CATEGORIES ON LOAD + SURVEY FLOW ================= -->
 <style>
-  /* Layout */
+  /* 3-column app shell */
   .survey-root {
     display: grid;
-    grid-template-columns: 320px 1fr 340px; /* left • center • right */
+    grid-template-columns: 320px 1fr 340px; /* left categories • center • right */
     gap: 16px;
     align-items: start;
   }
-  .categories { min-height: 60vh; }
-
-  /* Question Card */
-  .survey-question-panel .question-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+  /* Cards & basics */
+  .card {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
     border-radius: 16px;
-    padding: 16px;
+    padding: 14px;
   }
-  .q-head   { margin-bottom: 8px; }
-  .q-path   { opacity:.75; font-size:.9rem; margin-bottom: 4px; }
-  .q-title  { margin:0 0 8px; font-size:1.25rem; }
-  .label    { font-weight:600; margin-top:6px; }
-  #tk-guard { margin-top:6px; min-height:1.2em; opacity:.8; }
+  .list { display: grid; gap: 8px; }
+  .cat-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 12px;
+    background: rgba(255,255,255,.04);
+  }
 
-  /* Keep ONLY sidebar How-to-score visible */
+  /* Question card */
+  .question-card { composes: card; }
+  .q-head { margin-bottom: 8px; }
+  .q-path { opacity:.75; font-size:.9rem; margin-bottom: 4px; }
+  .q-title { margin:0 0 8px; font-size:1.25rem; }
+  .label { font-weight: 600; }
+  #tk-guard { margin-top:6px; min-height: 1.2em; opacity:.85; }
+
+  /* Keep ONLY sidebar How-to-score visible; hide any inline copy */
   .score-sidebar .how-to-score,
   .how-to-score--sidebar { display:block; }
   .survey-question-panel .how-to-score,
   #question-panel .how-to-score,
   .how-to-score--inline { display:none !important; }
 
-  /* Rating grids (0–5 buttons) */
+  /* Rating grids */
   .rating-grid, #tk-scale {
     display:grid;
     grid-template-columns: repeat(6, minmax(42px, 1fr));
-    gap:10px;
-    margin-top:10px;
+    gap:10px; margin-top:10px;
   }
   .rating-grid button, #tk-scale button {
     border:1px solid rgba(255,255,255,.14);
-    border-radius:12px;
-    padding:10px 0;
-    background:transparent;
-    color:inherit;
-    cursor:pointer;
-    font-size:16px;
+    border-radius:12px; padding:10px 0;
+    background:transparent; color:inherit; cursor:pointer; font-size:16px;
   }
-  button.option.selected { outline:2px solid currentColor; transform:translateY(-1px); }
+  button.option.selected { outline:2px solid currentColor; transform: translateY(-1px); }
   button.option[aria-pressed="true"] { font-weight:700; }
 
-  /* Sidebar box */
-  .score-sidebar .how-to-score {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 14px;
+  /* Landing buttons container (center) */
+  #tk-landing .actions { display:grid; gap:16px; max-width: 720px; margin: 0 auto; }
+  #tk-landing .actions a, #tk-landing .actions button {
+    padding:18px 20px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.02); color: inherit; font-size:1.05rem; cursor:pointer;
   }
-  .how-to-score h3 { margin:0 0 8px; font-size:1.05rem; }
-  .how-to-score .legend { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
-  .how-to-score .legend li { background: rgba(255,255,255,.04); border-radius:12px; padding:10px; }
-  .score-sidebar .rating-box { margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,.08); }
 </style>
 
-<!-- PAGE BODY -->
-<main class="survey-root" id="tk-app" hidden>
-  <!-- LEFT: categories (your existing list goes here or is injected) -->
-  <aside class="categories" id="tk-categories">
-    <!-- … existing categories UI (or leave empty for JS to fill) … -->
+<main class="survey-root" id="tk-app">
+  <!-- LEFT: CATEGORIES (visible on load) -->
+  <aside id="tk-categories" class="card" aria-label="Categories">
+    <h3 style="margin:0 0 8px;">Categories</h3>
+    <div id="tk-cat-list" class="list" role="listbox" aria-multiselectable="true">
+      <!-- Filled by JS from /data/kinks.json -->
+    </div>
   </aside>
 
-  <!-- CENTER: Question Panel (we inject a Question Card every render) -->
-  <section id="question-panel" class="survey-question-panel"></section>
+  <!-- CENTER: landing first; question card replaces this when started -->
+  <section id="tk-center">
+    <section id="tk-landing" class="card">
+      <h2 style="margin-top:0;">TalkKink Survey</h2>
+      <div class="actions">
+        <button id="btnStart" type="button">Start Survey</button>
+        <a href="#" id="btnAnalysis">Individual Kink Analysis</a>
+        <a href="#" id="btnCompat">Compatibility Page</a>
+      </div>
+    </section>
+    <section id="question-panel" class="survey-question-panel" hidden></section>
+  </section>
 
-  <!-- RIGHT: Sidebar Score Guide + compact rating scale -->
-  <aside class="score-sidebar" data-sticky="score">
-    <section class="how-to-score how-to-score--sidebar" id="tk-score-guide">
-      <h3>How to score</h3>
-      <ul class="legend">
+  <!-- RIGHT: score guide (hidden until Start) -->
+  <aside class="score-sidebar" id="tk-score" hidden>
+    <section class="how-to-score how-to-score--sidebar card">
+      <h3 style="margin:0 0 8px;">How to score</h3>
+      <ul class="legend" style="list-style:none;padding:0;margin:0;display:grid;gap:8px;">
         <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
         <li><b>1</b> — Hard Limit (no-go)</li>
         <li><b>2</b> — Soft Limit (willing to try…)</li>
@@ -83,7 +92,7 @@
         <li><b>4</b> — Comfortable / enjoy</li>
         <li><b>5</b> — Favorite / enthusiastic yes</li>
       </ul>
-      <div class="rating-box">
+      <div class="rating-box" style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);">
         <div class="label">Rate interest/comfort (0–5)</div>
         <div class="rating-grid" id="tk-scale-sidebar" data-group="rating-A"></div>
       </div>
@@ -91,148 +100,127 @@
   </aside>
 </main>
 
-<!-- START PAGE (your existing landing with buttons) -->
-<section id="tk-landing">
-  <!-- your buttons already exist; we just hook Start Survey below -->
-  <!-- Example:
-  <button id="btnStart">Start Survey</button>
-  -->
-</section>
-
 <script>
-/* ====================== CORE RENDER + HANDLERS ======================= */
-(function(){
-  // ---- util: make a 0–5 scale into a container ----
-  function makeScaleButtons(container, groupKey='rating-A') {
-    if (!container) return;
-    container.dataset.group = groupKey;
-    container.innerHTML = '';
-    for (let i=0; i<=5; i++) {
-      const b = document.createElement('button');
-      b.className = 'option';
-      b.type = 'button';
-      b.dataset.value = String(i);
-      b.textContent = String(i);
-      b.setAttribute('aria-pressed','false');
-      container.appendChild(b);
-    }
-  }
+/* =================== CATEGORY PANEL (visible on load) =================== */
+async function tkRenderCategories() {
+  const wrap = document.getElementById('tk-cat-list');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="opacity:.7">Loading…</div>';
+  try {
+    const res = await fetch('/data/kinks.json', { cache: 'no-store' });
+    const data = await res.json();
 
-  // ---- render the center Question Card ----
-  function renderQuestionCard({category='Appearance Play', prompt='Choosing My Partner S', role='Giving'}={}) {
-    const panel = document.getElementById('question-panel');
-    panel.innerHTML = `
-      <article class="question-card">
-        <header class="q-head">
-          <div class="q-path">${category} • ${prompt}</div>
-          <h2 class="q-title">${role}: Rate interest/comfort (0–5)</h2>
-        </header>
-
-        <div id="ratingRow" class="single">
-          <div class="col">
-            <div class="label">Rate interest/comfort (0–5)</div>
-            <div id="tk-guard" aria-live="polite"></div>
-            <div id="tk-scale" data-group="rating-A"></div>
-            <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
-          </div>
-        </div>
-
-        <!-- Inline score guide is present but auto-hidden by CSS -->
-        <section class="how-to-score how-to-score--inline">
-          <h3>How to score</h3>
-          <ul class="legend">
-            <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
-            <li><b>1</b> — Hard Limit (no-go)</li>
-            <li><b>2</b> — Soft Limit (willing to try…)</li>
-            <li><b>3</b> — Curious / context-dependent</li>
-            <li><b>4</b> — Comfortable / enjoy</li>
-            <li><b>5</b> — Favorite / enthusiastic yes</li>
-          </ul>
-        </section>
-      </article>
-    `;
-
-    // Build 0–5 scales (center + right)
-    makeScaleButtons(document.getElementById('tk-scale'), 'rating-A');
-    makeScaleButtons(document.getElementById('tk-scale-sidebar'), 'rating-A');
-  }
-
-  // ---- click handling (delegated) & sync both grids ----
-  function bindRatingHandler() {
-    const root = document.querySelector('.survey-root') || document.body;
-    const state = {};
-    root.addEventListener('click', (e) => {
-      const btn = e.target.closest('button.option');
-      if (!btn) return;
-
-      // prevent submit behavior if any
-      if (!btn.type || btn.type.toLowerCase() === 'submit') btn.type = 'button';
-
-      const group = btn.closest('[data-group]');
-      if (!group) return;
-      const groupKey = group.dataset.group || 'default';
-      const value = btn.dataset.value ?? btn.value ?? btn.textContent.trim();
-
-      // toggle selection across ALL grids with same group
-      document.querySelectorAll(`[data-group="${groupKey}"] button.option`).forEach(b => {
-        const on = (b.dataset.value === value);
-        b.classList.toggle('selected', on);
-        b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      });
-
-      state[groupKey] = value;
-      const guard = document.getElementById('tk-guard');
-      if (guard) guard.textContent = `Selected ${value} of 5`;
-      console.log('[Survey Selected]', { group: groupKey, value });
-    }, false);
-  }
-
-  // ---- Initialize the survey screen (called after Start Survey) ----
-  function startSurvey() {
-    console.log('Starting TalkKink Survey...');
-
-    // hide landing screen
-    const landing = document.getElementById('tk-landing');
-    if (landing) landing.style.display = 'none';
-
-    // show the main survey layout
-    const app = document.getElementById('tk-app');
-    if (app) app.removeAttribute('hidden');
-
-    // render your first question card and sidebar
-    if (typeof tkRenderQuestionCard === 'function') {
-      tkRenderQuestionCard({
-        category: 'Appearance Play',
-        prompt: 'Choosing My Partner S',
-        role: 'Giving'
-      });
+    // Be flexible about shape: array of objects, or object of arrays, etc.
+    let cats = [];
+    if (Array.isArray(data)) {
+      cats = data.map(x => x?.name || x?.title || x?.category || String(x));
+    } else if (data?.categories && Array.isArray(data.categories)) {
+      cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
     } else {
-      console.warn('tkRenderQuestionCard not found – check if the restore block was added below survey.js');
+      cats = Object.keys(data || {});
     }
-  }
+    cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
 
-  // ---- Hook Start Survey button ----
-  function wireStartButton() {
-    const btn = document.querySelector('#btnStart, button[data-action="start"], a[data-action="start"]');
-    if (!btn) return;
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      startSurvey();
+    // render
+    wrap.innerHTML = '';
+    cats.forEach((name, idx) => {
+      const id = 'cat_' + idx;
+      const row = document.createElement('label');
+      row.className = 'cat-item';
+      row.setAttribute('role','option');
+      row.innerHTML = `
+        <input type="checkbox" id="${id}" data-cat="${name}">
+        <span>${name}</span>
+      `;
+      wrap.appendChild(row);
     });
+  } catch (e) {
+    console.error('[Categories] load error', e);
+    wrap.innerHTML = '<div style="color:#f66">Failed to load categories.</div>';
   }
+}
 
-  // ---- Boot ----
-  document.addEventListener('DOMContentLoaded', () => {
-    bindRatingHandler();
-    wireStartButton();
-    // If you want the survey to show immediately (skip landing), uncomment:
-    // startSurvey();
+/* =================== QUESTION + SCORE GUIDE AFTER START =================== */
+function tkMakeScale(el, group='rating-A') {
+  if (!el) return;
+  el.dataset.group = group;
+  el.innerHTML = '';
+  for (let i=0;i<=5;i++) {
+    const b = document.createElement('button');
+    b.className = 'option';
+    b.type = 'button';
+    b.dataset.value = String(i);
+    b.textContent = String(i);
+    b.setAttribute('aria-pressed','false');
+    el.appendChild(b);
+  }
+}
+
+function tkRenderQuestionCard({category='Appearance Play', prompt='Choosing My Partner S', role='Giving'}={}) {
+  const panel = document.getElementById('question-panel');
+  if (!panel) return;
+  panel.hidden = false;
+  panel.innerHTML = `
+    <article class="question-card card">
+      <header class="q-head">
+        <div class="q-path">${category} • ${prompt}</div>
+        <h2 class="q-title">${role}: Rate interest/comfort (0–5)</h2>
+      </header>
+      <div id="ratingRow" class="single">
+        <div class="col">
+          <div class="label">Rate interest/comfort (0–5)</div>
+          <div id="tk-guard" aria-live="polite"></div>
+          <div id="tk-scale" data-group="rating-A"></div>
+          <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
+        </div>
+      </div>
+      <!-- inline guide (hidden via CSS to keep only the sidebar copy) -->
+      <section class="how-to-score how-to-score--inline"></section>
+    </article>
+  `;
+  tkMakeScale(document.getElementById('tk-scale'), 'rating-A');
+  tkMakeScale(document.getElementById('tk-scale-sidebar'), 'rating-A');
+  document.getElementById('tk-score').hidden = false; // show right sidebar
+}
+
+/* =================== RATING CLICK SYNC (both grids) =================== */
+(function tkBindRatingClicks(){
+  if (window.__tkClicksBound) return; window.__tkClicksBound = true;
+  (document.querySelector('.survey-root') || document.body).addEventListener('click', (e)=>{
+    const btn = e.target.closest('button.option');
+    if (!btn) return;
+    if (!btn.type || btn.type.toLowerCase()==='submit') btn.type='button';
+    const group = btn.closest('[data-group]')?.dataset.group || 'rating-A';
+    const value = btn.dataset.value ?? btn.textContent.trim();
+    document.querySelectorAll(`[data-group="${group}"] button.option`).forEach(b=>{
+      const on = b.dataset.value === value;
+      b.classList.toggle('selected', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    const guard = document.getElementById('tk-guard');
+    guard && (guard.textContent = `Selected ${value} of 5`);
+    console.log('[Survey Selected]', { group, value });
   });
-
-  // Expose for your existing code (if you render next question elsewhere)
-  window.tkRenderQuestionCard = renderQuestionCard;
-  window.tkShowSurveyScreen  = startSurvey;
-  window.startSurvey = startSurvey;
 })();
+
+/* =================== START SURVEY WIRING =================== */
+function startSurvey() {
+  // keep left categories visible; swap center to question view; show right guide
+  document.getElementById('tk-landing')?.setAttribute('hidden','hidden');
+  tkRenderQuestionCard();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  tkRenderCategories(); // ← Categories visible on load
+  // wire Start button
+  document.getElementById('btnStart')?.addEventListener('click', (e)=>{ e.preventDefault(); startSurvey(); });
+  // optional: autostart with ?autostart
+  if (new URLSearchParams(location.search).get('autostart')) startSurvey();
+});
+
+// expose helpers for integration hooks
+window.tkRenderQuestionCard = tkRenderQuestionCard;
+window.tkShowSurveyScreen = startSurvey;
+window.startSurvey = startSurvey;
 </script>
-<!-- =================== END — QUESTION + SCORE GUIDE RESTORE ==================== -->
+<!-- ================= END — CATEGORIES ON LOAD + SURVEY FLOW ================= -->
