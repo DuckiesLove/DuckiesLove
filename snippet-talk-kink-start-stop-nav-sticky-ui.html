@@ -1,21 +1,21 @@
 <!-- ===== TK: stop Start-triggered navigation + render sticky question UI ===== -->
 <script>
 (() => {
-  /* ----------------- helpers ----------------- */
-  const $ = (s, r=document)=>r.querySelector(s);
-  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  /* ================== small helpers ================== */
+  const $  = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
   const isStart = el => el && /start\s*survey/i.test((el.textContent||"").trim());
-  const anyCategory = () => {
+  const pickedSomething = () => {
     const boxes = $$('input[type="checkbox"], [role="checkbox"][aria-checked]');
     return boxes.some(b => b.checked || b.getAttribute?.('aria-checked')==='true');
   };
 
-  /* ----------------- styles ----------------- */
+  /* ================== minimal styles ================== */
   (function css(){
     if($('#tk-guard-css')) return;
     const s=document.createElement('style'); s.id='tk-guard-css';
     s.textContent = `
-      #tk-stage{display:grid;grid-template-columns:1fr 340px;gap:16px;margin:14px 16px 24px}
+      #tk-stage{display:grid;grid-template-columns:1fr 360px;gap:16px;margin:12px 16px 24px}
       #tk-center,#tk-right{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.14);
         border-radius:14px;padding:14px;min-height:320px}
       .tk-grid{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
@@ -26,7 +26,7 @@
     document.head.appendChild(s);
   })();
 
-  /* ----------------- rating scale + sync ----------------- */
+  /* ================== scale & sync ================== */
   function makeScale(el, group="rating-A"){
     if(!el) return;
     el.innerHTML="";
@@ -51,7 +51,7 @@
     });
   }
 
-  /* ----------------- render question card ----------------- */
+  /* ================== render question UI ================== */
   function anchorArea(){
     return $('#tk-stage') || $('#progress, .progress') || $('main') || $('h1') || document.body;
   }
@@ -87,32 +87,39 @@
         <div id="tk-scale-sidebar" class="tk-grid" data-group="rating-A"></div>
       </div>
     `;
-    makeScale($('#tk-scale'), 'rating-A');
-    makeScale($('#tk-scale-sidebar'), 'rating-A');
+    makeScale($('#tk-scale'),'rating-A');
+    makeScale($('#tk-scale-sidebar'),'rating-A');
+
+    // if they have a landing container, keep it hidden once we render
+    $('#tk-landing')?.setAttribute('hidden','hidden');
   }
 
-  /* ----------------- NAV BLOCK (prevents the flash) ----------------- */
+  /* ================== NAV GUARD (stops the flash) ================== */
   let navBlockUntil = 0;
   const isBlocked = () => Date.now() < navBlockUntil;
-  const startNavBlock = (ms=5000) => { navBlockUntil = Date.now()+ms; };
+  const startNavBlock = (ms=8000) => { navBlockUntil = Date.now()+ms; };
 
-  // Guard history methods
+  // history
   if(!window.__tkHistoryGuard){
-    const _push = history.pushState.bind(history);
-    const _rep  = history.replaceState.bind(history);
-    history.pushState   = function(){ if(isBlocked()) return console.warn('[TK] pushState blocked'); return _push(...arguments); };
-    history.replaceState= function(){ if(isBlocked()) return console.warn('[TK] replaceState blocked'); return _rep(...arguments); };
+    const _ps = history.pushState.bind(history);
+    const _rs = history.replaceState.bind(history);
+    history.pushState    = function(){ if(isBlocked()) return console.warn('[TK] pushState blocked'); return _ps(...arguments); };
+    history.replaceState = function(){ if(isBlocked()) return console.warn('[TK] replaceState blocked'); return _rs(...arguments); };
     window.__tkHistoryGuard = true;
   }
-  // Guard location assign/replace
+  // location (assign/replace/href)
   if(!window.__tkLocationGuard){
     const _assign = location.assign.bind(location);
     const _replace= location.replace.bind(location);
+    Object.defineProperty(location, 'href', {
+      set(v){ if(isBlocked()) { console.warn('[TK] location.href blocked', v); return; } _assign(v); },
+      get(){ return window.document.location.toString(); }
+    });
     location.assign = function(u){ if(isBlocked()) return console.warn('[TK] location.assign blocked',u); return _assign(u); };
     location.replace= function(u){ if(isBlocked()) return console.warn('[TK] location.replace blocked',u); return _replace(u); };
     window.__tkLocationGuard = true;
   }
-  // Guard link clicks (capture)
+  // anchor clicks (capture)
   const linkBlocker = (e)=>{
     if(!isBlocked()) return;
     const a = e.target.closest && e.target.closest('a[href]');
@@ -122,56 +129,80 @@
     document.addEventListener(evt, linkBlocker, true);
     window.addEventListener(evt, linkBlocker, true);
   });
-  // Guard programmatic anchor .click()
+  // programmatic anchor .click()
   if(!window.__tkAnchorClickGuard){
-    const _aclick = HTMLAnchorElement.prototype.click;
+    const _ac = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function(){
       if(isBlocked()) return console.warn('[TK] anchor.click blocked', this.href);
-      return _aclick.apply(this, arguments);
+      return _ac.apply(this, arguments);
     };
     window.__tkAnchorClickGuard = true;
   }
-  // Suppress beforeunload while blocked (prevents actual nav)
+  // form submits
+  const formBlocker = (e)=>{ if(isBlocked()){ e.preventDefault(); e.stopImmediatePropagation(); } };
+  document.addEventListener('submit', formBlocker, true);
+  // beforeunload
   if(!window.__tkBeforeUnloadGuard){
-    window.addEventListener('beforeunload', (e)=>{
-      if(isBlocked()){ e.preventDefault(); e.returnValue=''; return ''; }
-    });
+    window.addEventListener('beforeunload', (e)=>{ if(isBlocked()){ e.preventDefault(); e.returnValue=''; return ''; }});
     window.__tkBeforeUnloadGuard = true;
   }
+  // hash/popstate: re-render if app tries to route anyway
+  ['hashchange','popstate'].forEach(evt=> window.addEventListener(evt, ()=>{ if(isBlocked()) renderCard(); }, true));
 
-  /* ----------------- defang Start buttons (strip site handlers) ----------------- */
+  /* ================== Start button defang + auto-start ================== */
   function patchStart(el){
     if(!el || el.dataset.tkPatched==='1') return;
     const clone = el.cloneNode(true);
     clone.dataset.tkPatched = '1';
     clone.addEventListener('click', (e)=>{
       e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
-      if(!anyCategory()){
+      if(!pickedSomething()){
         const n=document.createElement('div');
         n.textContent="Pick at least one category to begin.";
         n.style.cssText="position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:999999";
         document.body.appendChild(n); setTimeout(()=>n.remove(),1600);
         return;
       }
-      // Block all nav for a bit, then draw
-      startNavBlock(6000);
+      startNavBlock(8000);
       renderCard();
-      // Re-assert after potential app wipes
-      setTimeout(renderCard, 150);
-      setTimeout(renderCard, 500);
-      setTimeout(renderCard, 1200);
+      // watchdog after app tries to re-render
+      [120, 400, 1200, 2200].forEach(t=> setTimeout(renderCard, t));
     }, {capture:true});
     el.replaceWith(clone);
   }
   function defangStarts(){ $$('button, a, [role="button"]').forEach(b=>{ if(isStart(b)) patchStart(b); }); }
   defangStarts();
 
-  // If the app re-renders Start later, defang again
+  // auto-render the card as soon as a category is selected (no Start needed)
+  function wireCategoryAutoStart(){
+    $$('input[type="checkbox"], [role="checkbox"]').forEach(el=>{
+      if(el.dataset.tkAuto==='1') return;
+      el.dataset.tkAuto='1';
+      const handler = ()=>{ if(pickedSomething()){ startNavBlock(8000); renderCard(); [120, 400].forEach(t=> setTimeout(renderCard,t)); } };
+      el.addEventListener('change', handler, true);
+      el.addEventListener('click', handler, true);
+    });
+  }
+  wireCategoryAutoStart();
+
+  // mutation observer: defang Start + keep categories wired + rebuild card if DOM is wiped
   if(!window.__tkMo){
-    const mo = new MutationObserver(()=> defangStarts());
+    const mo = new MutationObserver(()=>{
+      defangStarts();
+      wireCategoryAutoStart();
+      if(isBlocked()) renderCard();
+    });
     mo.observe(document.body, {childList:true, subtree:true});
     window.__tkMo = mo;
   }
+
+  // tiny watchdog: if blocked and card missing, put it back
+  setInterval(()=>{ if(isBlocked() && !$('#tk-center')) renderCard(); }, 500);
+
+  // ensure left panel visible ASAP (you already get this, but belt & suspenders)
+  document.addEventListener('DOMContentLoaded', ()=> {
+    $('#categories, #categoryList, [data-panel="categories"]')?.removeAttribute?.('hidden');
+  });
 
 })();
 </script>
