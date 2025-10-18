@@ -102,42 +102,44 @@
 
 <script>
 /* =================== CATEGORY PANEL (visible on load) =================== */
-async function tkRenderCategories() {
-  const wrap = document.getElementById('tk-cat-list');
-  if (!wrap) return;
-  wrap.innerHTML = '<div style="opacity:.7">Loading…</div>';
-  try {
-    const res = await fetch('/data/kinks.json', { cache: 'no-store' });
-    const data = await res.json();
+async function tkLoadCategoriesOnce() {
+  if (!window.__tkCatsPromise) {
+    window.__tkCatsPromise = (async () => {
+      const list = document.getElementById('tk-cat-list');
+      if (!list) return [];
+      list.textContent = 'Loading…';
+      try {
+        const res = await fetch('/data/kinks.json', { cache: 'no-store' });
+        const data = await res.json();
 
-    // Be flexible about shape: array of objects, or object of arrays, etc.
-    let cats = [];
-    if (Array.isArray(data)) {
-      cats = data.map(x => x?.name || x?.title || x?.category || String(x));
-    } else if (data?.categories && Array.isArray(data.categories)) {
-      cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
-    } else {
-      cats = Object.keys(data || {});
-    }
-    cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
+        let cats = [];
+        if (Array.isArray(data)) {
+          cats = data.map(x => x?.name || x?.title || x?.category || String(x));
+        } else if (Array.isArray(data?.categories)) {
+          cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
+        } else if (data && typeof data === 'object') {
+          cats = Object.keys(data);
+        }
+        cats = cats.filter(Boolean).sort((a, b) => a.localeCompare(b));
 
-    // render
-    wrap.innerHTML = '';
-    cats.forEach((name, idx) => {
-      const id = 'cat_' + idx;
-      const row = document.createElement('label');
-      row.className = 'cat-item';
-      row.setAttribute('role','option');
-      row.innerHTML = `
-        <input type="checkbox" id="${id}" data-cat="${name}" value="${name}">
-        <span>${name}</span>
-      `;
-      wrap.appendChild(row);
-    });
-  } catch (e) {
-    console.error('[Categories] load error', e);
-    wrap.innerHTML = '<div style="color:#f66">Failed to load categories.</div>';
+        list.innerHTML = cats
+          .map((name, idx) => `
+            <label class="cat-item" role="option">
+              <input type="checkbox" id="cat_${idx}" data-cat="${name}" value="${name}">
+              <span>${name}</span>
+            </label>
+          `)
+          .join('') || '<div style="opacity:.7">No categories parsed.</div>';
+        console.log(`✅ Categories loaded (${cats.length})`);
+        return cats;
+      } catch (error) {
+        console.error('❌ Failed to load categories', error);
+        list.textContent = 'Error loading categories.';
+        return [];
+      }
+    })();
   }
+  return window.__tkCatsPromise;
 }
 
 /* =================== QUESTION + SCORE GUIDE AFTER START =================== */
@@ -213,17 +215,24 @@ function tkShowSurveyScreen() {
   tkRenderQuestionCard();
 }
 
-function tkSetupStartGate() {
-  if (window.__tkStartGateReady) return;
+(function tkGateStartOnce() {
+  if (window.__tkGateBound) return;
   const list = document.getElementById('tk-cat-list');
   const start = document.getElementById('btnStart');
   const qpanel = document.getElementById('question-panel');
   if (!list || !start || !qpanel) {
-    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(tkSetupStartGate);
-    else setTimeout(tkSetupStartGate, 0);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', tkGateStartOnce, { once: true });
+    } else if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(tkGateStartOnce);
+    } else {
+      setTimeout(tkGateStartOnce, 0);
+    }
     return;
   }
-  window.__tkStartGateReady = true;
+
+  window.__tkGateBound = true;
+
   const selected = new Set();
   const updateGate = () => {
     const any = selected.size > 0;
@@ -231,6 +240,7 @@ function tkSetupStartGate() {
     start.setAttribute('aria-disabled', String(!any));
   };
   updateGate();
+
   list.addEventListener('change', (event) => {
     const cb = event.target.closest('input[type="checkbox"]');
     if (!cb) return;
@@ -239,19 +249,9 @@ function tkSetupStartGate() {
     else selected.delete(key);
     updateGate();
   });
+
   start.addEventListener('click', (event) => {
     if (start.disabled) {
-      if (start.animate) {
-        start.animate(
-          [
-            { transform: 'translateX(0)' },
-            { transform: 'translateX(-5px)' },
-            { transform: 'translateX(5px)' },
-            { transform: 'translateX(0)' }
-          ],
-          { duration: 250 }
-        );
-      }
       event.preventDefault();
       return;
     }
@@ -259,18 +259,22 @@ function tkSetupStartGate() {
     tkShowSurveyScreen();
   });
 
-  const params = new URLSearchParams(location.search);
-  if (params.has('autostart')) {
+  tkLoadCategoriesOnce();
+
+  if (new URLSearchParams(location.search).has('autostart')) {
     start.disabled = false;
     start.setAttribute('aria-disabled', 'false');
     tkShowSurveyScreen();
   }
-}
+})();
 
-document.addEventListener('DOMContentLoaded', () => {
-  tkRenderCategories(); // ← Categories visible on load
-  tkSetupStartGate();
-});
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    tkLoadCategoriesOnce();
+  }, { once: true });
+} else {
+  tkLoadCategoriesOnce();
+}
 
 // expose helpers for integration hooks
 window.tkRenderQuestionCard = tkRenderQuestionCard;
