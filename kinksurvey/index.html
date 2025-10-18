@@ -198,230 +198,935 @@
       <table id="compatibilityTable"></table>
     </section>
 
-    <!-- ============== TalkKink • CODEx PASTE BLOCK (no overlay + fixed right panel) ==============
-    WHAT THIS DOES
-    1) Kills the overlay/portal (removes the flash).
-    2) Builds a 2-column layout INSIDE the page: left = question card, right = compact sticky panel.
-    3) Ensures there is ONLY ONE “How to score” card, moves it into the right panel, and
-       (optionally) mirrors the 0-5 rating row on the right for quick taps.
-    Paste this whole block near the end of <body> on /kinksurvey/ (after your survey HTML),
-    or in a site footer that loads on this page.
-    =============================================================================================== -->
-    <style id="tk-fixed-panel-css">
-      /* Turn the survey content into a two-column grid */
-      #tkQuestionLayout{
-        display:grid;
-        grid-template-columns:minmax(520px,1fr) 340px;
-        gap:24px;
-        align-items:start;
-        margin-top:12px;
+    <!-- ============================================================
+    TALK KINK — STABLE “QUESTION + 0–5” DOCK (no flashing)
+    Paste this once on /kinksurvey/ (before </body>). It does NOT move
+    your app’s DOM, so nothing flashes. It renders a fixed dock on the
+    right that mirrors the current question and a 0–5 keypad. Clicking
+    a number in the dock forwards the click to the original hidden
+    buttons in the page.
+    ============================================================= -->
+
+    <style>
+      .tkDock {
+        position: fixed;
+        right: 16px;
+        top: 96px;                    /* adjust if your header is taller */
+        width: 320px;
+        max-width: calc(100vw - 32px);
+        z-index: 2147483000;
+        border-radius: 14px;
+        padding: 14px 14px 12px;
+        background: rgba(8,12,16,.86);
+        color: #dffaff;
+        box-shadow:
+          0 0 0 1px rgba(0, 220, 255, .18),
+          0 14px 30px rgba(0,0,0,.55),
+          inset 0 0 28px rgba(0, 140, 200, .08);
+        backdrop-filter: blur(4px);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       }
-      /* Left question card host */
-      #tkQuestionHost > .card {
-        /* your cards already look good; this is just a safety if needed */
+      .tkDock.hidden { display: none; }
+
+      .tkDock h3 {
+        margin: 0 0 6px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: .18px;
+        opacity: .9;
       }
-      /* Right sticky panel */
-      #tkRightPanel{
-        position:relative;
+      .tkDock .tkQ {
+        margin: 0 0 10px;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.25;
+        text-shadow: 0 0 8px rgba(0,220,255,.25);
       }
-      #tkRightPanelInner{
-        position:sticky;
-        top:88px;                 /* adjust if your header gets taller */
-        display:flex;
-        flex-direction:column;
-        gap:16px;
+      .tkDock .tkPath {
+        margin: 0 0 8px;
+        font-size: 12px;
+        opacity: .75;
       }
-      /* Compact “How to score” look */
-      .tk-compact .score-item{
-        display:flex; align-items:center; gap:12px;
-        padding:10px 12px; border-radius:12px; background:#0f1216; border:1px solid #1d2a30;
+
+      .tkDock .row {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 8px;
       }
-      .tk-compact .score-badge{
-        width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-        font-weight:700; font-size:14px; color:#fff;
+      .tkDock .n {
+        border: 1px solid rgba(0, 220, 255, .22);
+        background: #0b1116;
+        border-radius: 10px;
+        padding: 10px 0;
+        text-align: center;
+        font-weight: 800;
+        font-size: 14px;
+        cursor: pointer;
+        user-select: none;
+        transition: transform .06s ease, box-shadow .12s ease, background .12s ease;
       }
-      .tk-b0{ background:#59a5ff;}
-      .tk-b1{ background:#ff4d5a;}
-      .tk-b2{ background:#ffd44d; color:#1b1b1b;}
-      .tk-b3{ background:#4cd378;}
-      .tk-b4{ background:#36c36e;}
-      .tk-b5{ background:#2fbf63;}
-      /* Mini rating row on the right */
-      .tk-quick-rate{
-        padding:12px; border:1px solid #1d2a30; background:#0b0e12; border-radius:14px;
+      .tkDock .n:hover { box-shadow: 0 0 0 2px rgba(0,220,255,.3) inset; }
+      .tkDock .n:active { transform: translateY(1px) scale(.98); }
+      .tkDock .n[disabled] {
+        opacity: .4; pointer-events: none;
       }
-      .tk-quick-rate h5{ margin:0 0 8px 0; font-weight:700; font-size:14px; opacity:.85;}
-      .tk-quick-row{ display:flex; gap:8px; flex-wrap:wrap;}
-      .tk-chip{
-        min-width:36px; height:36px; border-radius:10px; border:1px solid #1f2f35;
-        display:flex; align-items:center; justify-content:center; cursor:pointer; font-weight:700;
-        background:#0f1318;
+
+      .tkDock .legend {
+        margin-top: 10px;
+        display: grid;
+        gap: 6px;
+        font-size: 11px;
+        line-height: 1.25;
       }
-      .tk-chip:hover{ outline:2px solid #2ed0ff22; }
-      .tk-chip.active{ outline:2px solid #2ed0ff; }
-      /* Hide duplicate big “How to score” cards that might remain in-flow */
-      .tk-hidden{ display:none !important; }
-      /* Safety: disable overlay remnants if any slip in */
-      #tkPortal, #tkOverlay, .tkPortal, .tkOverlay, .tkDockShell, [data-tk-overlay], [data-portal]{
-        display:none !important; opacity:0 !important; visibility:hidden !important; pointer-events:none !important;
+      .tkDock .lg { display: flex; align-items: center; gap: 8px; }
+      .tkDot {
+        width: 18px; height: 18px; border-radius: 999px;
+        display: inline-block; flex: none;
+        box-shadow: 0 0 0 2px rgba(255,255,255,.06) inset, 0 0 8px currentColor;
+      }
+      .c0 { color: #8abfff; }  /* 0 */
+      .c1 { color: #ff6b6b; }  /* red   */
+      .c2 { color: #ffd166; }  /* yellow*/
+      .c3 { color: #34d399; }  /* green */
+    </style>
+
+    <script>
+    (() => {
+      const FLAG = '__tkDock_v2__';
+      if (window[FLAG]) return; window[FLAG] = true;
+      if (!/\/kinksurvey\/?$/i.test(location.pathname)) return;
+
+      const NUMS = ['0','1','2','3','4','5'];
+
+      // --- build dock once -------------------------------------------------------
+      const dock = document.createElement('aside');
+      dock.className = 'tkDock hidden';
+      dock.innerHTML = `
+        <h3>Question</h3>
+        <div class="tkPath"></div>
+        <div class="tkQ"></div>
+        <h3>Rate (0–5)</h3>
+        <div class="row"></div>
+        <div class="legend" aria-hidden="true">
+          <div class="lg"><span class="tkDot c0"></span> 0 — “Brain did a cartwheel” (skip for now)</div>
+          <div class="lg"><span class="tkDot c1"></span> 1 — Hard limit (full stop / non-negotiable)</div>
+          <div class="lg"><span class="tkDot c2"></span> 2 — Soft limit (willing to try with safety checks)</div>
+          <div class="lg"><span class="tkDot c3"></span> 3–5 — Comfortable to enthusiastic (green means go)</div>
+        </div>
+      `;
+      document.body.appendChild(dock);
+
+      const $ = (s, r = document) => r.querySelector(s);
+      const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+      const elPath = $('.tkPath', dock);
+      const elQ    = $('.tkQ', dock);
+      const elRow  = $('.row', dock);
+
+      // Create the 0–5 proxy buttons in the dock
+      const proxyBtns = NUMS.map(n => {
+        const b = document.createElement('button');
+        b.className = 'n'; b.type = 'button'; b.textContent = n;
+        elRow.appendChild(b);
+        return b;
+      });
+
+      // Refs to the *real* buttons in the app for forwarding clicks
+      let realButtons = {};
+
+      function visible(el) {
+        const s = el && getComputedStyle(el);
+        return !!(el && el.offsetParent !== null && s && s.visibility !== 'hidden' && s.display !== 'none');
+      }
+
+      function findQuestionCard() {
+        // Heuristic: the container that holds both a heading and 0–5 buttons
+        const candidates = $$('section,article,.card,.panel,.question,.question-card');
+        for (const c of candidates) {
+          const nums = NUMS.filter(n => $$('button,[role="button"]', c).some(b => (b.textContent||'').trim() === n));
+          if (nums.length >= 4 && visible(c)) return c;
+        }
+        // fallback: climb from a numeric button
+        const anyBtn = $$('button,[role="button"]').find(b => NUMS.includes((b.textContent||'').trim()) && visible(b));
+        let n = anyBtn;
+        for (let i=0; i<8 && n; i++) {
+          if (n.matches('section,article,.card,.panel,.question,.question-card')) return n;
+          n = n.parentElement;
+        }
+        return null;
+      }
+
+      function extractPathAndQuestion(card) {
+        let path = '', q = '';
+        // try breadcrumb / small text above
+        const small = $$('small, .breadcrumb, .path, .subtle, .eyebrow', card).find(visible);
+        if (small) path = (small.textContent || '').replace(/\s+/g,' ').trim();
+
+        // main question text (prefer h2/h3)
+        const h = $$('h1,h2,h3', card).find(visible);
+        q = h ? (h.textContent || '') : '';
+        if (!q) {
+          // fallback: look for a line containing “Rate … (0–5)”
+          const div = $$('div,p', card).find(el => /rate.+\(0[\-–]5\)/i.test(el.textContent||''));
+          if (div) q = (div.textContent || '');
+        }
+        return {
+          path: path.replace(/\s+/g,' ').trim(),
+          q:    q.replace(/\s+/g,' ').trim()
+        };
+      }
+
+      function mapRealButtons(card) {
+        const map = {};
+        for (const n of NUMS) {
+          const btn = $$('button,[role="button"]', card).find(b => (b.textContent||'').trim() === n && visible(b));
+          if (btn) map[n] = btn;
+        }
+        return map;
+      }
+
+      function syncDock() {
+        const card = findQuestionCard();
+        if (!card) { dock.classList.add('hidden'); return; }
+
+        // Update header text
+        const {path, q} = extractPathAndQuestion(card);
+        elPath.textContent = path || '';
+        elQ.textContent    = q   || 'Current question';
+
+        // Map real buttons
+        realButtons = mapRealButtons(card);
+        const haveAll = Object.keys(realButtons).length >= 4; // at least 4 present/visible
+        dock.classList.toggle('hidden', !haveAll);
+
+        // Enable/disable proxies
+        for (const b of proxyBtns) {
+          b.disabled = !realButtons[b.textContent.trim()];
+        }
+      }
+
+      // Forward clicks from proxy to real
+      proxyBtns.forEach(pb => {
+        pb.addEventListener('click', () => {
+          const key = pb.textContent.trim();
+          const real = realButtons[key];
+          if (real) {
+            real.click();   // triggers the app’s genuine handler
+            // Give a tiny visual feedback
+            pb.animate([{transform:'scale(1)'},{transform:'scale(.96)'}], {duration:90, easing:'ease'});
+          }
+        });
+      });
+
+      // Initial + reactive sync
+      const doSync = () => requestAnimationFrame(syncDock);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', doSync, {once:true});
+      } else {
+        doSync();
+      }
+
+      // Observe app mutations to keep dock in sync without moving DOM (no flashing)
+      new MutationObserver(doSync).observe(document.body, {subtree:true, childList:true, attributes:true});
+    })();
+    </script>
+
+    <style>
+      .prestart-notice {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .prestart-notice h2 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+
+      .prestart-notice p {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      .prestart-notice strong {
+        font-weight: 600;
+      }
+
+      .prestart-notice.is-ready {
+        border-color: rgba(0, 200, 140, 0.6);
+        box-shadow: 0 0 0 1px rgba(0, 200, 140, 0.3);
+      }
+
+      .prestart-notice.is-ready h2,
+      .prestart-notice.is-ready strong {
+        color: rgb(110, 245, 210);
+      }
+
+      .survey-root.is-prestart #ndProgress {
+        display: none;
+      }
+
+      .survey-root.is-prestart #questionArea,
+      .survey-root.is-prestart .score-sidebar {
+        display: none;
+      }
+
+      .survey-root:not(.is-prestart) #prestartNotice {
+        display: none;
+      }
+
+      .survey-root {
+        display: grid;
+        grid-template-columns: 320px 1fr 340px;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .survey-center {
+        display: grid;
+        gap: 16px;
+      }
+
+      .survey-question-panel .question-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 16px;
+      }
+
+      .q-head {
+        margin-bottom: 8px;
+      }
+
+      .q-path {
+        opacity: 0.7;
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+      }
+
+      .q-title {
+        margin: 0 0 8px;
+        font-size: 1.25rem;
+      }
+
+      .label {
+        font-weight: 600;
+        margin-top: 6px;
+      }
+
+      #tk-guard {
+        margin-top: 6px;
+        min-height: 1.2em;
+        opacity: 0.8;
+      }
+
+      .score-sidebar .how-to-score,
+      .how-to-score--sidebar {
+        display: block;
+      }
+
+      .survey-question-panel .how-to-score,
+      #question-panel .how-to-score,
+      .how-to-score--inline {
+        display: none !important;
+      }
+
+      .rating-grid,
+      #tk-scale {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(42px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .rating-grid button,
+      #tk-scale button {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 12px;
+        padding: 10px 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      button.option.selected {
+        outline: 2px solid currentColor;
+        transform: translateY(-1px);
+      }
+
+      button.option[aria-pressed="true"] {
+        font-weight: 700;
+      }
+
+      .score-sidebar .how-to-score {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 14px;
+      }
+
+      .how-to-score h3 {
+        margin: 0 0 8px;
+        font-size: 1.05rem;
+      }
+
+      .how-to-score .legend {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .how-to-score .legend li {
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+        padding: 10px;
+      }
+
+      .score-sidebar .rating-box {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .scoreRow {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      .scoreRow button.option {
+        min-width: 44px;
+        padding: 8px 0;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      @media (max-width: 980px) {
+        .survey-root {
+          grid-template-columns: 1fr;
+        }
+
+        .score-sidebar {
+          order: 3;
+          width: 100%;
+        }
       }
     </style>
 
-    <script id="tk-fixed-panel-js">
-    (() => {
-      /* 1) Disable overlay/portal at runtime (prevents flicker) */
-      try { localStorage.setItem('__TK_DISABLE_OVERLAY','1'); } catch {}
+    <script>
+      (function () {
+        const SCORE_META = Object.freeze({
+          0: { label: 'Brain did a cartwheel (skip for now)', tone: 'neutral' },
+          1: { label: 'Hard Limit (no-go)', tone: 'hard' },
+          2: { label: 'Soft Limit (willing to try…)', tone: 'soft' },
+          3: { label: 'Curious / context-dependent', tone: 'curious' },
+          4: { label: 'Comfortable / enjoy', tone: 'enjoy' },
+          5: { label: 'Favorite / enthusiastic yes', tone: 'favorite' },
+        });
 
-      /* 2) Helpers */
-      const $  = (s, r=document) => r.querySelector(s);
-      const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
-      const byText = (root, txt) =>
-        $$('*', root).find(n => (n.textContent||'').trim().toLowerCase().includes(txt.toLowerCase()));
+        const DEFAULT_GUARD_COPY = 'Select a rating from 0 to 5 to continue.';
+        const ratingState = Object.create(null);
 
-      /* 3) Build the two-column layout once, then re-hydrate each time the question changes */
-      function ensureLayout(){
-        const app = $('#surveyApp') || $('main');
-        if (!app) return null;
-
-        // Create wrapper grid once
-        let shell = $('#tkQuestionLayout');
-        if (!shell) {
-          shell = document.createElement('div');
-          shell.id = 'tkQuestionLayout';
-          // Find your current question container/card
-          const firstCard = byText(app, 'Rate interest/comfort')?.closest('.card') ||
-                            byText(app, 'Giving: Rate interest/comfort')?.closest('.card') ||
-                            $('.card', app);
-          if (!firstCard) return null;
-
-          // Create left/right columns
-          const left  = document.createElement('div'); left.id = 'tkQuestionHost';
-          const right = document.createElement('aside'); right.id = 'tkRightPanel';
-          right.innerHTML = `<div id="tkRightPanelInner"></div>`;
-
-          // Place the first visible question card into left column
-          left.appendChild(firstCard);
-
-          // Insert grid before firstCard’s old parent flow
-          firstCard.parentElement.insertBefore(shell, firstCard);
-          shell.appendChild(left);
-          shell.appendChild(right);
-        }
-        return shell;
-      }
-
-      function moveHowToScore(){
-        const shell = ensureLayout();
-        if (!shell) return;
-
-        const left   = $('#tkQuestionHost');
-        const rightI = $('#tkRightPanelInner');
-
-        // Find any existing card that looks like "How to score"
-        // Prefer the compact custom one if you've rendered it; otherwise wrap the original.
-        let scoreCard = byText(document, 'How to score');
-        if (!scoreCard) return;
-
-        // If scoreCard is already inside our right panel, keep it; otherwise move it.
-        if (!rightI.contains(scoreCard)){
-          // Hide any duplicates (older copies lingering in DOM)
-          $$('.tk-score-dupe').forEach(n => n.remove());
-
-          // If the card is a full-size .card, make a compact copy and hide the original
-          const isBigCard = scoreCard.classList.contains('card') || scoreCard.closest('.card');
-          let compact;
-          if (isBigCard) {
-            // Clone the essential lines into a compact presentation
-            compact = document.createElement('section');
-            compact.className = 'tk-compact';
-            compact.innerHTML = `<h4 style="margin:0 0 8px 0;">How to score</h4>`;
-            // Pull rows 0..5 from the big card by scanning for badges/text
-            const lines = $$('.score-item, .tk-score-row, .list-item, .badge-row', scoreCard.closest('.card') || scoreCard);
-            if (lines.length){
-              lines.forEach(row => {
-                // simple heuristic: keep text & a small number badge if present
-                const text = row.textContent.trim();
-                const num  = (text.match(/^[0-5]/) || [null])[0];
-                if (!num) return;
-                const el = document.createElement('div');
-                el.className = 'score-item';
-                el.innerHTML = `
-                  <span class="score-badge tk-b${num}">${num}</span>
-                  <span>${text.replace(/^[0-5]\s*[-–—]?\s*/,'')}</span>
-                `;
-                compact.appendChild(el);
-              });
-            } else {
-              // fallback: just move the original if no row structure detected
-              compact = scoreCard;
-            }
-            // Hide original if we made a compact version
-            if (compact !== scoreCard) (scoreCard.closest('.card')||scoreCard).classList.add('tk-hidden');
-          } else {
-            compact = scoreCard;
+        function makeScaleButtons(container, groupKey = 'rating-A') {
+          if (!container) return;
+          container.dataset.group = groupKey;
+          container.dataset.tkScaleReady = '1';
+          container.innerHTML = '';
+          for (let i = 0; i <= 5; i += 1) {
+            const btn = document.createElement('button');
+            btn.className = 'option';
+            btn.type = 'button';
+            btn.dataset.value = String(i);
+            btn.dataset.action = 'select';
+            btn.textContent = String(i);
+            btn.setAttribute('aria-pressed', 'false');
+            container.appendChild(btn);
           }
-
-          // Mount compact into right panel
-          compact.classList.add('tk-score-mounted');
-          rightI.prepend(compact);
         }
 
-        // Build/refresh the quick-rate block (mirrors 0–5 row) if the row exists on the left
-        const rateRow = byText(left, 'Rate interest/comfort')?.parentElement ||
-                        byText(left, 'interest/comfort (0–5)')?.parentElement;
-        let quick = $('#tkQuickRate');
-        if (!quick) {
-          quick = document.createElement('section');
-          quick.id = 'tkQuickRate';
-          quick.className = 'tk-quick-rate';
-          quick.innerHTML = `
-            <h5>Quick rate</h5>
-            <div class="tk-quick-row">
-              <button class="tk-chip" data-v="0">0</button>
-              <button class="tk-chip" data-v="1">1</button>
-              <button class="tk-chip" data-v="2">2</button>
-              <button class="tk-chip" data-v="3">3</button>
-              <button class="tk-chip" data-v="4">4</button>
-              <button class="tk-chip" data-v="5">5</button>
-            </div>`;
-          rightI.appendChild(quick);
+        function renderRatingScales(root) {
+          const centerScale = root.querySelector('#tk-scale');
+          if (centerScale) makeScaleButtons(centerScale, 'rating-A');
+          const sidebarScale = document.getElementById('tk-scale-sidebar');
+          if (sidebarScale) makeScaleButtons(sidebarScale, 'rating-A');
+        }
 
-          // Wire: when a chip is clicked, click the matching left-side button if present
-          quick.addEventListener('click', (e) => {
-            const btn = e.target.closest('.tk-chip');
-            if (!btn) return;
-            $$('.tk-chip', quick).forEach(c => c.classList.toggle('active', c===btn));
-            const v = btn.getAttribute('data-v');
-            // try to click the original 0–5 button
-            const leftBtn = $$('button, .btn, .chip', left)
-              .find(b => (b.textContent||'').trim() === v);
-            if (leftBtn) leftBtn.click();
+        function tagAndHideInlineScoreCards(root) {
+          const sidebar = document.querySelector('.score-sidebar');
+          const sidebarCard = sidebar?.querySelector('.how-to-score');
+          if (sidebarCard) sidebarCard.classList.add('how-to-score--sidebar');
+
+          root
+            .querySelectorAll('.survey-question-panel .how-to-score, #question-panel .how-to-score')
+            .forEach((el) => el.classList.add('how-to-score--inline'));
+        }
+
+        function guardNodes(root) {
+          return Array.from(root.querySelectorAll('#tk-guard'));
+        }
+
+        function scoreLabel(value) {
+          if (value === null || value === undefined || value === '') return '';
+          const meta = SCORE_META[value] || SCORE_META[String(value)] || SCORE_META[Number(value)];
+          return meta?.label || '';
+        }
+
+        function updateGuard(root, value) {
+          const nodes = guardNodes(root);
+          const hasValue = value !== null && value !== undefined && value !== '';
+          nodes.forEach((node) => {
+            if (!node) return;
+            if (!hasValue) {
+              node.textContent = DEFAULT_GUARD_COPY;
+              node.dataset.state = 'empty';
+              delete node.dataset.tone;
+            } else {
+              const label = scoreLabel(value);
+              node.textContent = label ? `${value} — ${label}` : String(value);
+              node.dataset.state = 'value';
+              const meta = SCORE_META[value] || SCORE_META[String(value)] || SCORE_META[Number(value)];
+              if (meta?.tone) node.dataset.tone = meta.tone;
+              else delete node.dataset.tone;
+            }
           });
         }
+
+        function syncButtons(root, groupKey, value) {
+          const valueStr = value === null || value === undefined || value === '' ? null : String(value);
+          root.querySelectorAll(`[data-group="${groupKey}"]`).forEach((container) => {
+            if (!container) return;
+            if (valueStr === null) {
+              container.removeAttribute('data-selected');
+              delete container.dataset.selected;
+            } else {
+              container.setAttribute('data-selected', valueStr);
+              container.dataset.selected = valueStr;
+            }
+
+            container.querySelectorAll('button.option').forEach((btn) => {
+              const btnValue = btn.dataset.value ?? btn.value ?? btn.textContent?.trim();
+              const isActive = valueStr !== null && btnValue === valueStr;
+              if (!btn.getAttribute('type')) btn.setAttribute('type', 'button');
+              btn.classList.toggle('selected', isActive);
+              btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+          });
+        }
+
+        function dispatchChange(root, groupKey, value) {
+          const hasValue = value !== null && value !== undefined && value !== '';
+          const numeric = hasValue && !Number.isNaN(Number(value)) ? Number(value) : null;
+          const detail = {
+            group: groupKey,
+            value: numeric,
+            rawValue: hasValue ? String(value) : null,
+            label: hasValue ? scoreLabel(value) : '',
+          };
+          root.dispatchEvent(new CustomEvent('tk:rating-change', { detail, bubbles: true }));
+        }
+
+        function ensureScoreRows(root, groupKey) {
+          root.querySelectorAll(`.scoreRow[data-group="${groupKey}"]`).forEach((row) => {
+            if (row.dataset.tkScaleReady === '1') return;
+            makeScaleButtons(row, groupKey);
+          });
+        }
+
+        function applySelection(root, groupKey, value, options = {}) {
+          ensureScoreRows(root, groupKey);
+          const hasValue = value !== null && value !== undefined && value !== '';
+          const cleanValue = hasValue ? String(value) : null;
+          if (hasValue) ratingState[groupKey] = cleanValue;
+          else delete ratingState[groupKey];
+          syncButtons(root, groupKey, cleanValue);
+          updateGuard(root, cleanValue);
+          if (!options.silent) {
+            dispatchChange(root, groupKey, cleanValue);
+          }
+        }
+
+        function collectGroups(root) {
+          const groups = new Set();
+          root.querySelectorAll('[data-group]').forEach((el) => {
+            const key = el.dataset.group || 'default';
+            groups.add(key);
+          });
+          return groups;
+        }
+
+        function applyInitialState(root) {
+          const groups = collectGroups(root);
+          if (!groups.size) {
+            updateGuard(root, null);
+            return;
+          }
+
+          groups.forEach((groupKey) => {
+            ensureScoreRows(root, groupKey);
+            let initial = null;
+            root.querySelectorAll(`[data-group="${groupKey}"]`).forEach((container) => {
+              if (initial !== null && initial !== undefined && initial !== '') return;
+              const dataSelected = container.getAttribute('data-selected') ?? container.dataset.selected;
+              if (dataSelected !== null && dataSelected !== undefined && dataSelected !== '') {
+                initial = dataSelected;
+                return;
+              }
+              const pressed = container.querySelector(
+                'button.option[aria-pressed="true"], button.option.selected',
+              );
+              if (pressed) {
+                const value = pressed.dataset.value ?? pressed.value ?? pressed.textContent?.trim();
+                if (value !== undefined && value !== null && value !== '') {
+                  initial = value;
+                }
+              }
+            });
+            applySelection(root, groupKey, initial, { silent: true });
+          });
+        }
+
+        function bindRatingHandler(root) {
+          if (!root || root.dataset.tkRatingHandlerBound === '1') return;
+          root.dataset.tkRatingHandlerBound = '1';
+
+          root.addEventListener('click', (event) => {
+            const btn = event.target?.closest?.('button.option');
+            if (!btn || !root.contains(btn)) return;
+            const container = btn.closest('[data-group]');
+            if (!container) return;
+            event.preventDefault();
+            const groupKey = container.dataset.group || 'default';
+            const value = btn.dataset.value ?? btn.value ?? btn.textContent?.trim() ?? '';
+            applySelection(root, groupKey, value);
+          });
+
+          root.addEventListener('keydown', (event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+            const btn = event.target?.closest?.('button.option');
+            if (!btn || !root.contains(btn)) return;
+            const container = btn.closest('[data-group]');
+            if (!container) return;
+            const buttons = Array.from(container.querySelectorAll('button.option'));
+            if (!buttons.length) return;
+            const currentIndex = buttons.indexOf(btn);
+            if (currentIndex === -1) return;
+            event.preventDefault();
+            const delta = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+            let nextIndex = currentIndex + delta;
+            if (nextIndex < 0) nextIndex = buttons.length - 1;
+            if (nextIndex >= buttons.length) nextIndex = 0;
+            buttons[nextIndex].focus();
+            buttons[nextIndex].click();
+          });
+        }
+
+        function initQuestionUIImpl() {
+          const root = document.querySelector('.survey-root') || document.body;
+          if (!root) return;
+          renderRatingScales(root);
+          tagAndHideInlineScoreCards(root);
+          bindRatingHandler(root);
+          applyInitialState(root);
+        }
+
+        window.initQuestionUI = function initQuestionUI() {
+          initQuestionUIImpl();
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => initQuestionUIImpl(), { once: true });
+        } else {
+          initQuestionUIImpl();
+        }
+      })();
+    </script>
+
+    <!-- TK ONE-CARD SCORE GUIDE PATCH -->
+    <style>
+      /* Hide the inline duplicate that sits inside the question card */
+      .tk-inline-hts {
+        display: none !important;
       }
 
-      /* 4) First run */
-      function boot(){
-        const shell = ensureLayout();
-        if (!shell) return;
-        moveHowToScore();
-      }
-      if (document.readyState === 'loading'){
-        document.addEventListener('DOMContentLoaded', boot, { once:true });
-      } else {
-        boot();
+      /* Compact right-rail score card (keep layout intact) */
+      .tk-score-aside {
+        position: sticky;
+        top: 84px;
+        /* adjust if your header is taller/shorter */
+        align-self: start;
+        max-height: calc(100vh - 110px);
+        overflow: auto;
+        width: 320px;
+        /* compact width so it doesn’t force scroll */
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(8, 12, 16, 0.82);
+        box-shadow: 0 0 0 1px rgba(0, 220, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(3px);
+        font-size: 14px;
+        line-height: 1.28;
       }
 
-      /* 5) Re-run when question changes (survey navigation) */
-      let raf = 0;
-      const mo = new MutationObserver(() => {
-        cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(moveHowToScore);
-      });
-      mo.observe(document.body, {childList:true, subtree:true});
+      .tk-score-aside h1,
+      .tk-score-aside h2,
+      .tk-score-aside h3,
+      .tk-score-aside .title,
+      .tk-score-aside .card-title {
+        margin: 4px 4px 10px;
+        font-weight: 700;
+        font-size: 15px;
+      }
 
-      console.info('[TK] Fixed right panel active (overlay disabled + single score card)');
-    })();
+      /* tighten rows so the card fits */
+      .tk-score-aside .row,
+      .tk-score-aside li,
+      .tk-score-aside .item {
+        margin: 6px 0 !important;
+        padding: 10px 12px !important;
+        border-radius: 10px !important;
+      }
+
+      /* On narrow screens, let it flow under the question */
+      @media (max-width: 1100px) {
+        .tk-score-aside {
+          position: static;
+          width: auto;
+          max-height: none;
+          margin-top: 12px;
+        }
+      }
+    </style>
+
+    <script>
+      /* --- TK: keep ONE small right-rail score card; hide the inline duplicate --- */
+      (() => {
+        const FLAG = '__tk_score_fix_v3';
+        if (window[FLAG]) return;
+        window[FLAG] = true;
+
+        // Only run on /kinksurvey
+        if (!/\/kinksurvey\/?$/i.test(location.pathname)) return;
+
+        const q = (sel, root = document) => root.querySelector(sel);
+        const qa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+        function findQuestionHost() {
+          const root = q('#surveyApp') || q('main') || document.body;
+          if (!root) return null;
+
+          // Find a row of 0–5 buttons and climb to a “card-like” ancestor
+          const buttons = qa('button,[role="button"]', root).filter((b) =>
+            /^\s*[0-5]\s*$/.test(b.textContent || ''),
+          );
+          if (!buttons.length) return null;
+
+          let node = buttons[0];
+          for (let i = 0; i < 6 && node; i += 1) {
+            if (node.matches('section,article,.card,.panel,.question,.question-card')) return node;
+            node = node.parentElement;
+          }
+          return null;
+        }
+
+        function findScoreCards() {
+          // Any block with a title matching "How to score" or legacy "Question Guard"
+          const blocks = qa('section,article,aside,div');
+          return blocks.filter((el) => {
+            const h = q('h1,h2,h3,h4,h5,.title,.card-title', el);
+            return h && /(how\s*to\s*score|question\s*guard)/i.test((h.textContent || '').trim());
+          });
+        }
+
+        function apply() {
+          const question = findQuestionHost();
+          const cards = findScoreCards();
+          if (!question || !cards.length) return;
+
+          // 1) Hide any score card INSIDE the question host (inline duplicate)
+          cards.forEach((el) => {
+            if (question.contains(el)) el.classList.add('tk-inline-hts');
+          });
+
+          // 2) Of the remaining visible cards (outside question), keep exactly one (the right-most)
+          const outside = cards.filter((el) => !question.contains(el));
+          if (outside.length > 1) {
+            outside.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+            const keep = outside[outside.length - 1];
+            outside.forEach((el) => {
+              if (el !== keep) el.remove();
+            });
+            keep.classList.add('tk-score-aside');
+          } else if (outside.length === 1) {
+            outside[0].classList.add('tk-score-aside');
+          }
+        }
+
+        const kick = () => setTimeout(apply, 40);
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', kick, { once: true });
+        } else {
+          kick();
+        }
+        new MutationObserver(kick).observe(document.body, { childList: true, subtree: true });
+
+        // optional: quick console check
+        window.__TK_SCORE_DEBUG__ = () => ({
+          questionFound: !!findQuestionHost(),
+          cards: findScoreCards().length,
+        });
+      })();
+    </script>
+
+    <!-- ============================================================
+         TALK KINK — “0–5 RATING ON THE RIGHT” LAYOUT PATCH
+         Moves the 0–5 buttons into a compact sticky right panel and
+         keeps the main question card layout unchanged.
+         ============================================================ -->
+    <style>
+      /* Grid wrapper for the current question + the right rating panel */
+      .tk-qgrid {
+        display: grid;
+        grid-template-columns: minmax(560px, 1fr) 300px;
+        gap: 16px;
+        align-items: start;
+      }
+
+      /* Right panel styling (glow + sticky) */
+      .tk-rate-aside {
+        position: sticky;
+        top: 90px; /* adjust if your header height differs */
+        align-self: start;
+        border-radius: 12px;
+        padding: 14px 14px 12px;
+        background: rgba(8, 12, 16, 0.82);
+        box-shadow: 0 0 0 1px rgba(0, 220, 255, 0.16), 0 10px 24px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(3px);
+      }
+      .tk-rate-aside h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+      }
+
+      /* When we lift the rating row out, hide the empty caption area in the card */
+      .tk-hide-original-rate {
+        display: none !important;
+      }
+
+      /* Keep compact on narrower screens by stacking */
+      @media (max-width: 1100px) {
+        .tk-qgrid {
+          grid-template-columns: 1fr;
+        }
+        .tk-rate-aside {
+          position: static;
+          width: auto;
+          margin-top: 8px;
+        }
+      }
+    </style>
+
+    <script>
+      (() => {
+        const FLAG = '__tk_right_rate_v1';
+        if (window[FLAG]) return;
+        window[FLAG] = true;
+
+        if (!/\/kinksurvey\/?$/i.test(location.pathname)) return;
+
+        const $ = (s, r = document) => r.querySelector(s);
+        const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+        /** Finds the element that contains the current question UI. */
+        function findQuestionCard() {
+          const btn = $$('button,[role="button"]').find((b) => /^\s*[0-5]\s*$/.test(b.textContent || ''));
+          if (!btn) return null;
+          let n = btn;
+          for (let i = 0; i < 8 && n; i += 1) {
+            if (n.matches('section, article, .card, .panel, .question, .question-card')) return n;
+            n = n.parentElement;
+          }
+          n = btn;
+          for (let i = 0; i < 8 && n; i += 1) {
+            const style = getComputedStyle(n);
+            if (style.borderStyle !== 'none' || style.boxShadow !== 'none') return n;
+            n = n.parentElement;
+          }
+          return null;
+        }
+
+        /** Returns the container that visually holds “Rate interest/comfort (0–5)” + buttons. */
+        function findRateBlock(card) {
+          if (!card) return null;
+
+          const blocks = $$('div,section,article', card);
+          const exact = blocks.find((el) => /rate\s+interest\/?comfort\s*\(0[\-–]5\)/i.test(el.textContent || ''));
+          if (exact) return exact;
+
+          const btn = $$('button,[role="button"]', card).find((b) => /^\s*[0-5]\s*$/.test(b.textContent || ''));
+          return btn ? btn.parentElement : null;
+        }
+
+        /** Wraps the card + creates right aside; moves the rate block there. */
+        function placeRightRate() {
+          const card = findQuestionCard();
+          if (!card) return;
+
+          if (card.parentElement && card.parentElement.classList.contains('tk-qgrid')) return;
+
+          const host = card.parentElement;
+          if (!host) return;
+
+          const rateBlock = findRateBlock(card);
+          if (!rateBlock) return;
+
+          const wrap = document.createElement('div');
+          wrap.className = 'tk-qgrid';
+
+          const aside = document.createElement('aside');
+          aside.className = 'tk-rate-aside';
+          const h3 = document.createElement('h3');
+          const captionTextMatch = (rateBlock.textContent || '').match(/rate\s+interest\/?comfort\s*\(0[\-–]5\)/i);
+          h3.textContent = captionTextMatch ? captionTextMatch[0].replace(/\s+/g, ' ').trim() : 'Rate (0–5)';
+          aside.appendChild(h3);
+
+          host.insertBefore(wrap, card);
+          wrap.appendChild(card);
+          wrap.appendChild(aside);
+
+          aside.appendChild(rateBlock);
+
+          $$('*', card).forEach((el) => {
+            if (el !== rateBlock && /rate\s+interest\/?comfort/i.test((el.textContent || '')) && el.childElementCount === 0) {
+              el.classList.add('tk-hide-original-rate');
+            }
+          });
+        }
+
+        const applySoon = () => setTimeout(placeRightRate, 20);
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', applySoon, { once: true });
+        } else {
+          applySoon();
+        }
+
+        new MutationObserver(applySoon).observe(document.body, { childList: true, subtree: true });
+
+        window.__TK_RATE_DEBUG__ = () => ({
+          wrapped: !!document.querySelector('.tk-qgrid'),
+          rightAside: !!document.querySelector('.tk-rate-aside'),
+        });
+      })();
     </script>
   </body>
 </html>
