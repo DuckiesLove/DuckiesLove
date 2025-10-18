@@ -1,0 +1,164 @@
+<!-- ====== TalkKink: strip Start handlers via clone + render question/guide (no flash) ====== -->
+<script>
+(() => {
+  /* ---------- tiny helpers ---------- */
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+  // Label matcher
+  const isStart = (el) => el && /start\s*survey/i.test((el.textContent || "").trim());
+
+  // Must choose at least one category
+  const hasAnyCategory = () => {
+    const boxes = $$('input[type="checkbox"], [role="checkbox"][aria-checked]');
+    return boxes.some((b) => b.checked || b.getAttribute?.('aria-checked') === 'true');
+  };
+
+  /* ---------- Styles for our card ---------- */
+  (function css() {
+    if (document.getElementById('tk-noflash-css')) return;
+    const s = document.createElement('style');
+    s.id = 'tk-noflash-css';
+    s.textContent = `
+      #tk-stage{display:grid;grid-template-columns:1fr 340px;gap:16px;margin:14px 16px 24px}
+      #tk-center,#tk-right{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.14);
+        border-radius:14px;padding:14px;min-height:320px}
+      .tk-grid{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
+      .tk-opt{border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 0;background:transparent;color:inherit;cursor:pointer}
+      .tk-opt.selected{outline:2px solid currentColor}
+      @media(max-width:1024px){#tk-stage{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(s);
+  })();
+
+  /* ---------- Build rating scale + sync ---------- */
+  function makeScale(el, group = 'rating-A') {
+    if (!el) return;
+    el.innerHTML = '';
+    for (let i = 0; i <= 5; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tk-opt';
+      b.dataset.group = group;
+      b.dataset.value = i;
+      b.setAttribute('aria-pressed', 'false');
+      b.textContent = i;
+      el.appendChild(b);
+    }
+  }
+
+  if (!window.__tkScaleSync) {
+    window.__tkScaleSync = true;
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button.tk-opt');
+      if (!btn) return;
+      const g = btn.dataset.group;
+      const v = btn.dataset.value;
+      $$(`.tk-opt[data-group="${g}"]`).forEach((b) => {
+        const on = b.dataset.value === v;
+        b.classList.toggle('selected', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      const guard = document.getElementById('tk-guard');
+      if (guard) guard.textContent = `Selected ${v} of 5`;
+    });
+  }
+
+  /* ---------- Render our question UI in the main area ---------- */
+  function anchorArea() {
+    // Prefer the container that shows "Question 1 of ..." progress bar; else the main content
+    return document.getElementById('tk-stage')
+      || $('#progress, .progress')
+      || $('main') || $('h1') || document.body;
+  }
+
+  function renderCard() {
+    let stage = document.getElementById('tk-stage');
+    if (!stage) {
+      stage = document.createElement('section');
+      stage.id = 'tk-stage';
+      const anchor = anchorArea();
+      if (anchor === document.body) document.body.appendChild(stage);
+      else anchor.insertAdjacentElement('afterend', stage);
+    }
+
+    // center
+    let center = document.getElementById('tk-center');
+    if (!center) {
+      center = document.createElement('div');
+      center.id = 'tk-center';
+      stage.appendChild(center);
+    }
+    center.innerHTML = `
+      <div style="opacity:.8">Appearance Play • Choosing My Partner</div>
+      <h2 style="margin:6px 0 10px">Giving: Rate interest/comfort (0–5)</h2>
+      <div id="tk-guard" aria-live="polite"></div>
+      <div id="tk-scale" class="tk-grid" data-group="rating-A"></div>
+    `;
+
+    // right
+    let right = document.getElementById('tk-right');
+    if (!right) {
+      right = document.createElement('aside');
+      right.id = 'tk-right';
+      stage.appendChild(right);
+    }
+    right.innerHTML = `
+      <h3>How to score</h3>
+      <ul style="list-style:none;margin:0;padding:0;display:grid;gap:8px">
+        <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+        <li><b>1</b> — Hard Limit (no-go)</li>
+        <li><b>2</b> — Soft Limit (willing to try…)</li>
+        <li><b>3</b> — Curious / context-dependent</li>
+        <li><b>4</b> — Comfortable / enjoy</li>
+        <li><b>5</b> — Favorite / enthusiastic yes</li>
+      </ul>
+      <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.14);padding-top:10px">
+        <div>Rate interest/comfort (0–5)</div>
+        <div id="tk-scale-sidebar" class="tk-grid" data-group="rating-A"></div>
+      </div>
+    `;
+
+    makeScale(document.getElementById('tk-scale'), 'rating-A');
+    makeScale(document.getElementById('tk-scale-sidebar'), 'rating-A');
+  }
+
+  /* ---------- Replace (“defang”) Start button(s) by cloning ---------- */
+  function defangStartButtons() {
+    $$('button, a, [role="button"]').forEach((el) => {
+      if (!isStart(el) || el.dataset.tkPatched === '1') return;
+
+      // Clone to strip every listener the site attached
+      const clone = el.cloneNode(true);
+      clone.dataset.tkPatched = '1';
+
+      clone.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+
+        if (!hasAnyCategory()) {
+          const n = document.createElement('div');
+          n.textContent = 'Pick at least one category to begin.';
+          n.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:999999';
+          document.body.appendChild(n);
+          setTimeout(() => n.remove(), 1600);
+          return;
+        }
+
+        // Render immediately and keep it there
+        renderCard();
+      }, { capture: true });
+
+      // Keep layout/styles the same
+      el.replaceWith(clone);
+    });
+  }
+
+  // Run once now, and again on future UI changes
+  defangStartButtons();
+  const mo = new MutationObserver(() => defangStartButtons());
+  mo.observe(document.body, { childList: true, subtree: true });
+})();
+</script>
+<!-- ===================== /TalkKink: strip Start handlers via clone + render question/guide (no flash) ===================== -->
