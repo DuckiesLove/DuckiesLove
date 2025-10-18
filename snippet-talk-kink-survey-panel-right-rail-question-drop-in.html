@@ -188,17 +188,27 @@
   }
 
   // ---- Initialize the survey screen (called after Start Survey) ----
-  function showSurveyScreen() {
-    // hide landing, show app shell
-    document.getElementById('tk-landing')?.setAttribute('hidden', 'hidden');
-    document.getElementById('tk-app')?.removeAttribute('hidden');
+  function startSurvey() {
+    console.log('Starting TalkKink Survey...');
 
-    // Render first question card + ensure sidebar is present
-    renderQuestionCard({
-      category: window.tkCurrentCategory || 'Appearance Play',
-      prompt:   window.tkCurrentPrompt   || 'Choosing My Partner S',
-      role:     window.tkCurrentRole     || 'Giving'
-    });
+    // hide landing screen
+    const landing = document.getElementById('tk-landing');
+    if (landing) landing.style.display = 'none';
+
+    // show the main survey layout
+    const app = document.getElementById('tk-app');
+    if (app) app.removeAttribute('hidden');
+
+    // render your first question card and sidebar
+    if (typeof tkRenderQuestionCard === 'function') {
+      tkRenderQuestionCard({
+        category: 'Appearance Play',
+        prompt: 'Choosing My Partner S',
+        role: 'Giving'
+      });
+    } else {
+      console.warn('tkRenderQuestionCard not found – check if the restore block was added below survey.js');
+    }
   }
 
   // ---- Hook Start Survey button ----
@@ -207,7 +217,7 @@
     if (!btn) return;
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      showSurveyScreen();
+      startSurvey();
     });
   }
 
@@ -216,12 +226,13 @@
     bindRatingHandler();
     wireStartButton();
     // If you want the survey to show immediately (skip landing), uncomment:
-    // showSurveyScreen();
+    // startSurvey();
   });
 
   // Expose for your existing code (if you render next question elsewhere)
   window.tkRenderQuestionCard = renderQuestionCard;
-  window.tkShowSurveyScreen  = showSurveyScreen;
+  window.tkShowSurveyScreen  = startSurvey;
+  window.startSurvey = startSurvey;
 })();
 </script>
 <!-- =================== END — QUESTION + SCORE GUIDE RESTORE ==================== -->
