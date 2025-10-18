@@ -140,7 +140,25 @@ if (!window.__tkBound) {
   });
 }
 
-// 🔹 6. Start button + autostart logic
+// 🔹 6. Guard the question panel from being cleared or hidden
+if (!window.__tkQuestionPanelGuard) {
+  window.__tkQuestionPanelGuard = true;
+  const observer = new MutationObserver(() => {
+    const qp = document.getElementById('question-panel');
+    if (!qp) return;
+    if (qp.hidden) {
+      console.warn('[TK] question panel hidden — restoring…');
+      qp.hidden = false;
+    }
+    if (!qp.innerHTML.trim()) {
+      console.warn('[TK] question panel cleared — restoring…');
+      qp.innerHTML = '<div>Loading question...</div>';
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+}
+
+// 🔹 7. Start button + autostart logic
 window.startSurvey = function() {
   document.getElementById('tk-landing')?.setAttribute('hidden', 'hidden');
   tkRenderQuestionCard();
