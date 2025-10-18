@@ -618,5 +618,149 @@
         });
       })();
     </script>
+
+    <!-- ============================================================
+         TALK KINK — “0–5 RATING ON THE RIGHT” LAYOUT PATCH
+         Moves the 0–5 buttons into a compact sticky right panel and
+         keeps the main question card layout unchanged.
+         ============================================================ -->
+    <style>
+      /* Grid wrapper for the current question + the right rating panel */
+      .tk-qgrid {
+        display: grid;
+        grid-template-columns: minmax(560px, 1fr) 300px;
+        gap: 16px;
+        align-items: start;
+      }
+
+      /* Right panel styling (glow + sticky) */
+      .tk-rate-aside {
+        position: sticky;
+        top: 90px; /* adjust if your header height differs */
+        align-self: start;
+        border-radius: 12px;
+        padding: 14px 14px 12px;
+        background: rgba(8, 12, 16, 0.82);
+        box-shadow: 0 0 0 1px rgba(0, 220, 255, 0.16), 0 10px 24px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(3px);
+      }
+      .tk-rate-aside h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+      }
+
+      /* When we lift the rating row out, hide the empty caption area in the card */
+      .tk-hide-original-rate {
+        display: none !important;
+      }
+
+      /* Keep compact on narrower screens by stacking */
+      @media (max-width: 1100px) {
+        .tk-qgrid {
+          grid-template-columns: 1fr;
+        }
+        .tk-rate-aside {
+          position: static;
+          width: auto;
+          margin-top: 8px;
+        }
+      }
+    </style>
+
+    <script>
+      (() => {
+        const FLAG = '__tk_right_rate_v1';
+        if (window[FLAG]) return;
+        window[FLAG] = true;
+
+        if (!/\/kinksurvey\/?$/i.test(location.pathname)) return;
+
+        const $ = (s, r = document) => r.querySelector(s);
+        const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+        /** Finds the element that contains the current question UI. */
+        function findQuestionCard() {
+          const btn = $$('button,[role="button"]').find((b) => /^\s*[0-5]\s*$/.test(b.textContent || ''));
+          if (!btn) return null;
+          let n = btn;
+          for (let i = 0; i < 8 && n; i += 1) {
+            if (n.matches('section, article, .card, .panel, .question, .question-card')) return n;
+            n = n.parentElement;
+          }
+          n = btn;
+          for (let i = 0; i < 8 && n; i += 1) {
+            const style = getComputedStyle(n);
+            if (style.borderStyle !== 'none' || style.boxShadow !== 'none') return n;
+            n = n.parentElement;
+          }
+          return null;
+        }
+
+        /** Returns the container that visually holds “Rate interest/comfort (0–5)” + buttons. */
+        function findRateBlock(card) {
+          if (!card) return null;
+
+          const blocks = $$('div,section,article', card);
+          const exact = blocks.find((el) => /rate\s+interest\/?comfort\s*\(0[\-–]5\)/i.test(el.textContent || ''));
+          if (exact) return exact;
+
+          const btn = $$('button,[role="button"]', card).find((b) => /^\s*[0-5]\s*$/.test(b.textContent || ''));
+          return btn ? btn.parentElement : null;
+        }
+
+        /** Wraps the card + creates right aside; moves the rate block there. */
+        function placeRightRate() {
+          const card = findQuestionCard();
+          if (!card) return;
+
+          if (card.parentElement && card.parentElement.classList.contains('tk-qgrid')) return;
+
+          const host = card.parentElement;
+          if (!host) return;
+
+          const rateBlock = findRateBlock(card);
+          if (!rateBlock) return;
+
+          const wrap = document.createElement('div');
+          wrap.className = 'tk-qgrid';
+
+          const aside = document.createElement('aside');
+          aside.className = 'tk-rate-aside';
+          const h3 = document.createElement('h3');
+          const captionTextMatch = (rateBlock.textContent || '').match(/rate\s+interest\/?comfort\s*\(0[\-–]5\)/i);
+          h3.textContent = captionTextMatch ? captionTextMatch[0].replace(/\s+/g, ' ').trim() : 'Rate (0–5)';
+          aside.appendChild(h3);
+
+          host.insertBefore(wrap, card);
+          wrap.appendChild(card);
+          wrap.appendChild(aside);
+
+          aside.appendChild(rateBlock);
+
+          $$('*', card).forEach((el) => {
+            if (el !== rateBlock && /rate\s+interest\/?comfort/i.test((el.textContent || '')) && el.childElementCount === 0) {
+              el.classList.add('tk-hide-original-rate');
+            }
+          });
+        }
+
+        const applySoon = () => setTimeout(placeRightRate, 20);
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', applySoon, { once: true });
+        } else {
+          applySoon();
+        }
+
+        new MutationObserver(applySoon).observe(document.body, { childList: true, subtree: true });
+
+        window.__TK_RATE_DEBUG__ = () => ({
+          wrapped: !!document.querySelector('.tk-qgrid'),
+          rightAside: !!document.querySelector('.tk-rate-aside'),
+        });
+      })();
+    </script>
   </body>
 </html>
