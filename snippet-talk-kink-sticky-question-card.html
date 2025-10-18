@@ -1,0 +1,220 @@
+<!-- ===== TalkKink sticky question card: defang Start + heartbeat + observer ===== -->
+<script>
+(() => {
+  /* ---------- helpers ---------- */
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const isStart = (el) => el && /start\s*survey/i.test((el.textContent || '').trim());
+
+  function anyCategory() {
+    const boxes = $$('input[type="checkbox"], [role="checkbox"][aria-checked]');
+    return boxes.some((box) => box.checked || box.getAttribute?.('aria-checked') === 'true');
+  }
+
+  /* ---------- styles ---------- */
+  (function injectCSS() {
+    if (document.getElementById('tk-stick-css')) return;
+    const style = document.createElement('style');
+    style.id = 'tk-stick-css';
+    style.textContent = `
+      #tk-stage{display:grid;grid-template-columns:1fr 340px;gap:16px;margin:14px 16px 24px}
+      #tk-center,#tk-right{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.14);
+        border-radius:14px;padding:14px;min-height:320px}
+      .tk-grid{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
+      .tk-opt{border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 0;background:transparent;color:inherit;cursor:pointer}
+      .tk-opt.selected{outline:2px solid currentColor}
+      @media(max-width:1024px){#tk-stage{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(style);
+  })();
+
+  /* ---------- rating scale + sync ---------- */
+  function makeScale(container, group = 'rating-A') {
+    if (!container) return;
+    container.innerHTML = '';
+    for (let i = 0; i <= 5; i++) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'tk-opt';
+      button.dataset.group = group;
+      button.dataset.value = String(i);
+      button.setAttribute('aria-pressed', 'false');
+      button.textContent = String(i);
+      container.appendChild(button);
+    }
+  }
+
+  if (!window.__tkScaleSync) {
+    window.__tkScaleSync = true;
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('button.tk-opt');
+      if (!button) return;
+      const group = button.dataset.group;
+      const value = button.dataset.value;
+      $$(`.tk-opt[data-group="${group}"]`).forEach((peer) => {
+        const on = peer.dataset.value === value;
+        peer.classList.toggle('selected', on);
+        peer.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      const guard = document.getElementById('tk-guard');
+      if (guard) guard.textContent = `Selected ${value} of 5`;
+    });
+  }
+
+  /* ---------- render UI ---------- */
+  function anchorArea() {
+    return document.getElementById('tk-stage')
+      || $('#progress, .progress')
+      || $('main')
+      || $('h1, h2')
+      || document.body;
+  }
+
+  function renderCard() {
+    let stage = document.getElementById('tk-stage');
+    if (!stage) {
+      stage = document.createElement('section');
+      stage.id = 'tk-stage';
+      const anchor = anchorArea();
+      (anchor === document.body ? anchor : anchor.parentNode).insertBefore(stage, anchor === document.body ? null : anchor.nextSibling);
+    }
+
+    let center = document.getElementById('tk-center');
+    if (!center) {
+      center = document.createElement('div');
+      center.id = 'tk-center';
+      stage.appendChild(center);
+    }
+    center.innerHTML = `
+      <div style="opacity:.8">Appearance Play • Choosing My Partner</div>
+      <h2 style="margin:6px 0 10px">Giving: Rate interest/comfort (0–5)</h2>
+      <div id="tk-guard" aria-live="polite"></div>
+      <div id="tk-scale" class="tk-grid" data-group="rating-A"></div>
+    `;
+
+    let right = document.getElementById('tk-right');
+    if (!right) {
+      right = document.createElement('aside');
+      right.id = 'tk-right';
+      stage.appendChild(right);
+    }
+    right.innerHTML = `
+      <h3>How to score</h3>
+      <ul style="list-style:none;margin:0;padding:0;display:grid;gap:8px">
+        <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+        <li><b>1</b> — Hard Limit (no-go)</li>
+        <li><b>2</b> — Soft Limit (willing to try…)</li>
+        <li><b>3</b> — Curious / context-dependent</li>
+        <li><b>4</b> — Comfortable / enjoy</li>
+        <li><b>5</b> — Favorite / enthusiastic yes</li>
+      </ul>
+      <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.14);padding-top:10px">
+        <div>Rate interest/comfort (0–5)</div>
+        <div id="tk-scale-sidebar" class="tk-grid" data-group="rating-A"></div>
+      </div>
+    `;
+
+    makeScale(document.getElementById('tk-scale'), 'rating-A');
+    makeScale(document.getElementById('tk-scale-sidebar'), 'rating-A');
+  }
+
+  /* ---------- keep it stuck (heartbeat + observer) ---------- */
+  let hbUntil = 0;
+  function heartbeat() {
+    if (Date.now() > hbUntil) return;
+    if (!document.getElementById('tk-center') || !document.getElementById('tk-right')) renderCard();
+    requestAnimationFrame(heartbeat);
+  }
+
+  if (!window.__tkStickObserver) {
+    const observer = new MutationObserver(() => {
+      if (!document.getElementById('tk-center') || !document.getElementById('tk-right')) renderCard();
+      defangStarts();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.__tkStickObserver = observer;
+  }
+
+  /* ---------- remove site Start handlers by cloning; also capture fall-through ---------- */
+  function patchOneStart(el) {
+    if (!el || el.dataset.tkPatched === '1') return;
+    const clone = el.cloneNode(true);
+    clone.dataset.tkPatched = '1';
+
+    clone.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.stopPropagation();
+      if (!anyCategory()) {
+        const note = document.createElement('div');
+        note.textContent = 'Pick at least one category to begin.';
+        note.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:999999';
+        document.body.appendChild(note);
+        setTimeout(() => note.remove(), 1600);
+        return;
+      }
+      renderCard();
+      hbUntil = Date.now() + 4000;
+      requestAnimationFrame(heartbeat);
+      setTimeout(renderCard, 200);
+      setTimeout(renderCard, 600);
+      setTimeout(renderCard, 1200);
+    }, { capture: true });
+
+    el.replaceWith(clone);
+  }
+
+  function defangStarts() {
+    $$('button, a, [role="button"]').forEach((el) => {
+      if (isStart(el)) patchOneStart(el);
+    });
+  }
+
+  defangStarts();
+
+  const captureHandler = (event) => {
+    const target = event.target?.closest?.('button,a,[role="button"]');
+    if (target && isStart(target)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.stopPropagation();
+      if (!anyCategory()) {
+        const note = document.createElement('div');
+        note.textContent = 'Pick at least one category to begin.';
+        note.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:999999';
+        document.body.appendChild(note);
+        setTimeout(() => note.remove(), 1600);
+        return;
+      }
+      renderCard();
+      hbUntil = Date.now() + 4000;
+      requestAnimationFrame(heartbeat);
+      setTimeout(renderCard, 200);
+      setTimeout(renderCard, 600);
+      setTimeout(renderCard, 1200);
+    }
+  };
+  ['click', 'mousedown', 'touchstart', 'keydown'].forEach((type) => {
+    document.addEventListener(type, captureHandler, true);
+    window.addEventListener(type, captureHandler, true);
+  });
+
+  if (!window.__tkClickHook) {
+    const nativeClick = Element.prototype.click;
+    Element.prototype.click = function patchedClick() {
+      try {
+        if (isStart(this)) {
+          setTimeout(() => {
+            renderCard();
+          }, 0);
+        }
+      } catch (error) {
+        console.error('TalkKink sticky card click patch error', error);
+      }
+      return nativeClick.apply(this, arguments);
+    };
+    window.__tkClickHook = true;
+  }
+})();
+</script>
+<!-- ===== /TalkKink sticky question card ===== -->
