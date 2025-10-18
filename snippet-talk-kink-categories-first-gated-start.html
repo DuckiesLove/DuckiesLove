@@ -66,29 +66,37 @@
   }
 
   /* ---------- ONE fetch for categories (coalesced) ---------- */
-  if (!window.__tkCatsPromise) {
-    window.__tkCatsPromise = (async () => {
-      const list = document.getElementById("tk-cat-list");
-      if (!list) return [];
-      try {
-        const res = await fetch("/data/kinks.json", { cache: "no-store" });
-        const data = await res.json();
-        let cats = [];
-        if (Array.isArray(data)) cats = data.map(x => x?.name || x?.title || x?.category || String(x));
-        else if (Array.isArray(data?.categories)) cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
-        else if (data && typeof data === "object") cats = Object.keys(data);
-        cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
-        list.innerHTML = cats.map((c,i)=>`
-          <label class="tk-cat"><input type="checkbox" id="cat_${i}" value="${c}"><span>${c}</span></label>`
-        ).join("") || "No categories parsed";
-        console.log(`✅ Categories loaded (${cats.length})`);
-        return cats;
-      } catch (e) {
-        console.error("❌ Failed to load categories", e);
-        document.getElementById("tk-cat-list").textContent = "Error loading categories.";
-        return [];
-      }
-    })();
+  async function tkLoadCategoriesOnce() {
+    if (!window.__tkCatsPromise) {
+      window.__tkCatsPromise = (async () => {
+        const list = document.getElementById("tk-cat-list");
+        if (!list) return [];
+        try {
+          const res = await fetch("/data/kinks.json", { cache: "no-store" });
+          const data = await res.json();
+          let cats = [];
+          if (Array.isArray(data)) cats = data.map(x => x?.name || x?.title || x?.category || String(x));
+          else if (Array.isArray(data?.categories)) cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
+          else if (data && typeof data === "object") cats = Object.keys(data);
+          cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
+          list.innerHTML = cats.map((c,i)=>`
+            <label class="tk-cat"><input type="checkbox" id="cat_${i}" value="${c}"><span>${c}</span></label>`
+          ).join("") || "No categories parsed";
+          console.log(`✅ Categories loaded (${cats.length})`);
+          return cats;
+        } catch (e) {
+          console.error("❌ Failed to load categories", e);
+          document.getElementById("tk-cat-list").textContent = "Error loading categories.";
+          return [];
+        }
+      })();
+    }
+    return window.__tkCatsPromise;
+  }
+
+  // If survey.js exposes its own loader, make it delegate to ours (prevents duplicate fetches)
+  if (typeof window.tkLoadCategories === "function") {
+    window.tkLoadCategories = tkLoadCategoriesOnce;
   }
 
   /* ---------- Gate Start until a category is checked ---------- */
@@ -152,7 +160,7 @@
       renderQuestion();
     });
 
-    // For dev: ?autostart to jump right in
+    // Dev shortcut: ?autostart
     if (new URLSearchParams(location.search).has("autostart")) {
       start.disabled=false; start.setAttribute("aria-disabled","false");
       document.getElementById("tk-landing")?.setAttribute("hidden","hidden");
@@ -161,7 +169,7 @@
   }
   gateStartOnce();
 
-  // Kick categories load (coalesced if already running)
-  window.__tkCatsPromise.then(()=>{}); // noop
+  // Kick everything
+  tkLoadCategoriesOnce();
 })();
 </script>
