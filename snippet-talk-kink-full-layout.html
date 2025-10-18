@@ -1,0 +1,243 @@
+<!-- ======================= TALK KINK — FULL LAYOUT (ONE DROP-IN) ======================= -->
+<style>
+  :root{
+    --panel: rgba(255,255,255,.03);
+    --panel-border: rgba(255,255,255,.10);
+    --chip: rgba(255,255,255,.05);
+  }
+
+  /* 3-column app shell */
+  .tk-app {
+    display: grid;
+    grid-template-columns: 300px 1fr 340px;  /* Left • Center • Right */
+    gap: 16px;
+    align-items: start;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 8px 16px 48px;
+  }
+
+  /* Panels / cards */
+  .tk-card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  /* LEFT: Categories */
+  #tk-categories h3 { margin: 0 0 8px; font-size: 1.05rem; }
+  #tk-cat-list { display: grid; gap: 8px; }
+  .tk-cat {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 12px; background: var(--chip);
+  }
+  .tk-cat input { accent-color: #5cc8ff; }
+
+  /* CENTER: Landing + Question */
+  #tk-landing .tk-actions { display: grid; gap: 16px; max-width: 760px; margin: 0 auto; }
+  #tk-landing .tk-actions a, #tk-landing .tk-actions button{
+    padding: 18px 22px; border-radius: 999px; border: 1px solid var(--panel-border);
+    background: rgba(255,255,255,.02); color: inherit; font-size: 1.05rem; cursor: pointer;
+    text-align: center;
+  }
+
+  .tk-qcard .tk-path { opacity: .75; font-size: .9rem; margin-bottom: 6px; }
+  .tk-qcard .tk-title { margin: 0 0 10px; font-size: 1.25rem; }
+  .tk-label { font-weight: 600; }
+  #tk-guard { margin-top: 6px; min-height: 1.2em; opacity: .85; }
+
+  /* RIGHT: Score guide */
+  .tk-guide h3 { margin: 0 0 8px; font-size: 1.05rem; }
+  .tk-guide ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+  .tk-guide li { background: var(--chip); border-radius: 12px; padding: 10px; }
+  .tk-guide .tk-ratingbox { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--panel-border); }
+
+  /* Rating grids */
+  .tk-grid, #tk-scale { display: grid; grid-template-columns: repeat(6, minmax(42px, 1fr)); gap: 10px; margin-top: 10px; }
+  .tk-grid button, #tk-scale button {
+    border: 1px solid rgba(255,255,255,.14); border-radius: 12px; padding: 10px 0;
+    background: transparent; color: inherit; cursor: pointer; font-size: 16px;
+  }
+  button.tk-opt.selected { outline: 2px solid currentColor; transform: translateY(-1px); }
+  button.tk-opt[aria-pressed="true"] { font-weight: 700; }
+
+  /* Only keep sidebar "How to score"; hide any inline duplicates in the center panel */
+  .tk-center .how-to-score { display: none !important; }
+  .tk-right  .how-to-score { display: block; }
+
+  /* Responsive: stack on narrow screens */
+  @media (max-width: 1024px){
+    .tk-app { grid-template-columns: 1fr; }
+    .tk-right { order: 3; }
+    .tk-left  { order: 1; }
+    .tk-center{ order: 2; }
+  }
+</style>
+
+<main class="tk-app" id="tk-app">
+  <!-- LEFT: Categories (visible on load) -->
+  <aside id="tk-categories" class="tk-left tk-card" aria-label="Categories">
+    <h3>Categories</h3>
+    <div id="tk-cat-list" role="listbox" aria-multiselectable="true">Loading…</div>
+  </aside>
+
+  <!-- CENTER: Landing → Question Card -->
+  <section class="tk-center">
+    <!-- Landing (visible at start) -->
+    <section id="tk-landing" class="tk-card">
+      <h2 style="margin-top:0;">TalkKink Survey</h2>
+      <div class="tk-actions">
+        <button id="btnStart" type="button">Start Survey</button>
+        <a href="#" id="btnAnalysis">Individual Kink Analysis</a>
+        <a href="#" id="btnCompat">Compatibility Page</a>
+      </div>
+    </section>
+
+    <!-- Question panel (hidden until Start) -->
+    <section id="question-panel" class="tk-qcard tk-card" hidden></section>
+  </section>
+
+  <!-- RIGHT: Score Guide + compact scale (hidden until Start) -->
+  <aside class="tk-right" id="tk-right" hidden>
+    <section class="tk-guide tk-card how-to-score" id="tk-guide">
+      <h3>How to score</h3>
+      <ul class="legend">
+        <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+        <li><b>1</b> — Hard Limit (no-go)</li>
+        <li><b>2</b> — Soft Limit (willing to try…)</li>
+        <li><b>3</b> — Curious / context-dependent</li>
+        <li><b>4</b> — Comfortable / enjoy</li>
+        <li><b>5</b> — Favorite / enthusiastic yes</li>
+      </ul>
+      <div class="tk-ratingbox">
+        <div class="tk-label">Rate interest/comfort (0–5)</div>
+        <div class="tk-grid" id="tk-scale-sidebar" data-group="rating-A"></div>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<script>
+/* ======================= DATA: Load categories on page load ======================= */
+async function tkLoadCategories() {
+  const list = document.getElementById('tk-cat-list');
+  if (!list) return;
+  list.textContent = 'Loading…';
+  try {
+    const res = await fetch('/data/kinks.json', { cache: 'no-store' });
+    const data = await res.json();
+
+    // Normalize to an array of names
+    let cats = [];
+    if (Array.isArray(data)) {
+      cats = data.map(x => x?.name || x?.title || x?.category || String(x));
+    } else if (Array.isArray(data?.categories)) {
+      cats = data.categories.map(x => x?.name || x?.title || x?.category || String(x));
+    } else if (typeof data === 'object' && data) {
+      cats = Object.keys(data);
+    }
+    cats = cats.filter(Boolean).sort((a,b)=>a.localeCompare(b));
+
+    list.innerHTML = '';
+    cats.forEach((name, i) => {
+      const row = document.createElement('label');
+      row.className = 'tk-cat';
+      row.innerHTML = `
+        <input type="checkbox" id="cat_${i}" data-cat="${name}">
+        <span>${name}</span>
+      `;
+      list.appendChild(row);
+    });
+    console.log('✅ Categories loaded:', cats.length);
+  } catch (e) {
+    console.error('[Categories] load error', e);
+    list.textContent = 'Failed to load categories.';
+  }
+}
+
+/* ======================= UI: Build 0–5 scale buttons ======================= */
+function tkMakeScale(container, group='rating-A') {
+  if (!container) return;
+  container.dataset.group = group;
+  container.innerHTML = '';
+  for (let i=0;i<=5;i++) {
+    const b = document.createElement('button');
+    b.className = 'tk-opt';
+    b.type = 'button';
+    b.dataset.value = String(i);
+    b.textContent = String(i);
+    b.setAttribute('aria-pressed','false');
+    container.appendChild(b);
+  }
+}
+
+/* ======================= CENTER: Render Question Card ======================= */
+function tkRenderQuestionCard({category='Appearance Play', prompt='Choosing My Partner S', role='Giving'}={}) {
+  const panel = document.getElementById('question-panel');
+  if (!panel) return;
+
+  panel.hidden = false;
+  panel.innerHTML = `
+    <div class="tk-path">${category} • ${prompt}</div>
+    <h2 class="tk-title">${role}: Rate interest/comfort (0–5)</h2>
+
+    <div id="ratingRow" class="single">
+      <div class="col">
+        <div class="tk-label">Rate interest/comfort (0–5)</div>
+        <div id="tk-guard" aria-live="polite"></div>
+        <div id="tk-scale" data-group="rating-A"></div>
+        <div class="scoreRow" data-partner="A" data-group="rating-A"></div>
+      </div>
+    </div>
+
+    <!-- Inline guide kept for accessibility but hidden via CSS .tk-center .how-to-score -->
+    <section class="how-to-score" aria-hidden="true"></section>
+  `;
+
+  tkMakeScale(document.getElementById('tk-scale'), 'rating-A');          // center
+  tkMakeScale(document.getElementById('tk-scale-sidebar'), 'rating-A');  // right
+  document.getElementById('tk-right').hidden = false;                    // show sidebar
+}
+
+/* ======================= INTERACTION: Rating buttons sync ======================= */
+(function bindRatingClicks(){
+  if (window.__tkBound) return; window.__tkBound = true;
+  (document.querySelector('.tk-app') || document.body).addEventListener('click', (e)=>{
+    const btn = e.target.closest('button.tk-opt'); if (!btn) return;
+    if (!btn.type || btn.type.toLowerCase()==='submit') btn.type='button';
+
+    const group = btn.closest('[data-group]')?.dataset.group || 'rating-A';
+    const value = btn.dataset.value ?? btn.textContent.trim();
+
+    document.querySelectorAll(`[data-group="${group}"] button.tk-opt`).forEach(b=>{
+      const on = (b.dataset.value === value);
+      b.classList.toggle('selected', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+
+    const guard = document.getElementById('tk-guard');
+    guard && (guard.textContent = `Selected ${value} of 5`);
+    console.log('[Survey Selected]', { group, value });
+  });
+})();
+
+/* ======================= FLOW: Start survey ======================= */
+function startSurvey(){
+  document.getElementById('tk-landing')?.setAttribute('hidden','hidden'); // keep left panel visible
+  tkRenderQuestionCard(); // render first question
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  tkLoadCategories();  // LEFT panel visible immediately
+
+  // Wire Start button
+  document.getElementById('btnStart')?.addEventListener('click', (e)=>{
+    e.preventDefault(); startSurvey();
+  });
+
+  // Optional quick test: autostart via ?autostart
+  if (new URLSearchParams(location.search).has('autostart')) startSurvey();
+});
+</script>
+<!-- ======================= END — TALK KINK FULL LAYOUT ======================= -->
