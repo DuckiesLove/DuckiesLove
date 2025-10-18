@@ -21,69 +21,176 @@
     }
   })();
 
-  // 2) Rating scale data (stable, single source)
-  const SCORE_ITEMS = [
+  // 2) Score copy — shared single source of truth
+  const SCORE_ITEMS = Object.freeze([
     {
-      n: 0,
-      cls: 'pill-0',
-      short: 'Skipped',
-      full: 'Brain did a cartwheel — skipped for now 😅',
+      value: 0,
+      title: 'Brain did a cartwheel',
+      detail: 'skipped for now 🥲',
     },
     {
-      n: 1,
-      cls: 'pill-1',
-      short: 'Hard',
-      full: 'Hard Limit — full stop / no-go (non-negotiable)',
+      value: 1,
+      title: 'Hard Limit',
+      detail: 'full stop / no-go (non-negotiable)',
     },
     {
-      n: 2,
-      cls: 'pill-2',
-      short: 'Soft',
-      full: 'Soft Limit — willing to try; strong boundaries, safety checks, aftercare planned',
+      value: 2,
+      title: 'Soft Limit — willing to try',
+      detail: 'strong boundaries, safety checks, aftercare planned',
     },
     {
-      n: 3,
-      cls: 'pill-3',
-      short: 'Context',
-      full: 'Curious / context-dependent — okay with discussion, mood, and trust; needs clear negotiation',
+      value: 3,
+      title: 'Curious / context-dependent',
+      detail: 'okay with discussion, mood & trust; needs clear negotiation',
     },
     {
-      n: 4,
-      cls: 'pill-4',
-      short: 'Comfy',
-      full: 'Comfortable / enjoy — generally a yes; normal precautions and check-ins',
+      value: 4,
+      title: 'Comfortable / enjoy',
+      detail: 'generally a yes; normal precautions & check-ins',
     },
     {
-      n: 5,
-      cls: 'pill-5',
-      short: 'Enthusiastic',
-      full: 'Favorite / enthusiastic yes — happily into it; green light',
+      value: 5,
+      title: 'Favorite / enthusiastic yes',
+      detail: 'happily into it; green light',
     },
-  ];
+  ]);
 
-  // 3) Build HORIZONTAL "How to score" bar (center, above question)
-  function renderScoreBarHorizontal() {
-    const host = document.getElementById('scoreBar');
-    if (!host) return;
-    host.innerHTML = '';
+  function ensureScoreStyles() {
+    if (document.getElementById('tk-score-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'tk-score-styles';
+    style.textContent = `
+  :root{
+    --tk-surface: rgba(12,16,20,.65);
+    --tk-border: rgba(0,255,255,.22);
+    --tk-pill-bg: rgba(255,255,255,.04);
+    --tk-glow: 0 0 .9rem rgba(0,255,255,.25);
+    --tk-fg: #e8f7ff;
+  }
 
-    const bar = document.createElement('div');
-    bar.className = 'score-bar';
+  #surveyApp .question-card,
+  #surveyApp section[aria-label*="Question"],
+  #surveyApp .panel,
+  #surveyApp .card{
+    position: relative;
+  }
 
-    SCORE_ITEMS.forEach(({ n, cls, short, full }) => {
-      const tile = document.createElement('div');
-      tile.className = 'score-tile';
-      tile.setAttribute('role', 'group');
-      tile.setAttribute('aria-label', `${n} — ${full}`);
-      tile.title = `${n} — ${full}`;
-      tile.innerHTML = `
-        <div class="pill ${cls}">${n}</div>
-        <div class="tile-label">${short}</div>
-      `;
-      bar.appendChild(tile);
+  #tkScoreDock{
+    position:absolute;
+    top:64px;
+    right:16px;
+    width:min(560px,36vw);
+    z-index:4;
+    background:var(--tk-surface);
+    border:1px solid var(--tk-border);
+    border-radius:14px;
+    padding:12px 14px;
+    box-shadow: var(--tk-glow);
+    backdrop-filter: blur(6px);
+    color:var(--tk-fg);
+  }
+  #tkScoreDock .tk-h3{
+    margin:0 0 8px 0;
+    font-weight:800;
+    font-size:14px;
+    letter-spacing:.25px;
+    text-transform:uppercase;
+    opacity:.9;
+  }
+  #tkScoreDock .tk-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 10px;
+    margin:0;
+    padding:0;
+    list-style:none;
+  }
+  #tkScoreDock .tk-pill{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;
+    padding:8px 10px;
+    background: var(--tk-pill-bg);
+    max-width: calc(50% - 10px);
+  }
+  #tkScoreDock .dot{
+    flex:0 0 auto;
+    width:28px;height:28px;
+    display:grid;place-items:center;
+    border-radius:999px;
+    font-weight:800;
+    color:#071018;
+    background: var(--c, #93c5fd);
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,.25);
+  }
+  #tkScoreDock .tk-pill[data-n="0"] .dot{ --c:#60a5fa; }
+  #tkScoreDock .tk-pill[data-n="1"] .dot{ --c:#ef4444; }
+  #tkScoreDock .tk-pill[data-n="2"] .dot{ --c:#f59e0b; }
+  #tkScoreDock .tk-pill[data-n="3"] .dot{ --c:#10b981; }
+  #tkScoreDock .tk-pill[data-n="4"] .dot{ --c:#22c55e; }
+  #tkScoreDock .tk-pill[data-n="5"] .dot{ --c:#84cc16; }
+
+  #tkScoreDock .t1{font-size:13px;font-weight:700;line-height:1.15;}
+  #tkScoreDock .t2{font-size:12px;opacity:.85;line-height:1.15;}
+
+  @media (max-width: 1100px){
+    #tkScoreDock{
+      position:relative;
+      right:auto; top:auto;
+      width:auto; margin:12px 0 0 0;
+    }
+    #tkScoreDock .tk-pill{ max-width:100%; }
+  }
+
+  .tk-hide-legacy-score{ display:none !important; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function buildScoreDock() {
+    const dock = document.createElement('aside');
+    dock.id = 'tkScoreDock';
+    dock.setAttribute('role', 'note');
+    dock.innerHTML = `
+      <h3 class="tk-h3">How to score</h3>
+      <ul class="tk-row">
+        ${SCORE_ITEMS.map(
+          (item) => `
+            <li class="tk-pill" data-n="${item.value}">
+              <span class="dot">${item.value}</span>
+              <div class="txt">
+                <div class="t1">${item.title}</div>
+                <div class="t2">${item.detail}</div>
+              </div>
+            </li>
+          `
+        ).join('')}
+      </ul>`;
+    return dock;
+  }
+
+  function hideLegacyScoreBlocks(context) {
+    if (!context) return;
+    const matches = context.querySelectorAll('#tk-guard, .tk-legend, .how-to-score');
+    matches.forEach((node) => {
+      if (node.closest('#tkScoreDock')) return;
+      node.classList.add('tk-hide-legacy-score');
+      node.setAttribute('aria-hidden', 'true');
     });
+  }
 
-    host.appendChild(bar);
+  function ensureScoreDock(questionCard) {
+    if (!questionCard) return;
+    ensureScoreStyles();
+    let dock = questionCard.querySelector('#tkScoreDock');
+    if (!dock) {
+      dock = buildScoreDock();
+      questionCard.appendChild(dock);
+    }
+    hideLegacyScoreBlocks(questionCard);
+    hideLegacyScoreBlocks(document.body || document);
   }
 
   // 4) Render the question card in the center column (no sidebar duplicate)
@@ -116,6 +223,7 @@
     `;
 
     app.appendChild(card);
+    ensureScoreDock(card);
 
     app.querySelectorAll('.scale-btn[data-score]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -135,7 +243,6 @@
   // 6) Init once DOM is ready
   const boot = once(() => {
     removeBottomCardIfAny();
-    renderScoreBarHorizontal();
     renderQuestionCard();
   });
 
