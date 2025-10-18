@@ -1,0 +1,134 @@
+<!-- ==== TalkKink: Start Intercept + Independent Overlay Question UI (one drop-in) ==== -->
+<script>
+(() => {
+  /* ---------- Styles for the overlay ---------- */
+  const css = `
+  #tk-overlay{position:fixed;inset:0;z-index:999999;display:none}
+  #tk-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:saturate(1.2) blur(2px)}
+  #tk-shell{position:relative;display:grid;grid-template-columns:1fr 340px;gap:16px;max-width:1200px;
+            margin:40px auto;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.18);
+            border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);padding:18px}
+  #tk-center,#tk-right{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.14);
+                       border-radius:14px;padding:14px;min-height:320px}
+  .tk-grid{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin-top:10px}
+  .tk-opt{border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 0;background:transparent;
+          color:inherit;cursor:pointer}
+  .tk-opt.selected{outline:2px solid currentColor}
+  #tk-close{position:absolute;top:8px;right:10px;border:1px solid rgba(255,255,255,.2);background:transparent;
+            color:inherit;border-radius:10px;padding:6px 10px;cursor:pointer}
+  @media (max-width:1024px){#tk-shell{grid-template-columns:1fr}}
+  `;
+  if(!document.getElementById("tk-overlay-css")){
+    const s=document.createElement("style"); s.id="tk-overlay-css"; s.textContent=css; document.head.appendChild(s);
+  }
+
+  /* ---------- Build overlay once ---------- */
+  function ensureOverlay(){
+    if(document.getElementById("tk-overlay")) return;
+    const wrap=document.createElement("div");
+    wrap.id="tk-overlay";
+    wrap.innerHTML = `
+      <div id="tk-backdrop"></div>
+      <div id="tk-shell">
+        <button id="tk-close" type="button" aria-label="Close">Close</button>
+        <section id="tk-center">
+          <div style="opacity:.8">Appearance Play • Choosing My Partner</div>
+          <h2 style="margin:6px 0 10px">Giving: Rate interest/comfort (0–5)</h2>
+          <div id="tk-guard" aria-live="polite"></div>
+          <div id="tk-scale" class="tk-grid" data-group="rating-A"></div>
+        </section>
+        <aside id="tk-right">
+          <h3>How to score</h3>
+          <ul style="list-style:none;margin:0;padding:0;display:grid;gap:8px">
+            <li><b>0</b> — Brain did a cartwheel (skip for now)</li>
+            <li><b>1</b> — Hard Limit (no-go)</li>
+            <li><b>2</b> — Soft Limit (willing to try…)</li>
+            <li><b>3</b> — Curious / context-dependent</li>
+            <li><b>4</b> — Comfortable / enjoy</li>
+            <li><b>5</b> — Favorite / enthusiastic yes</li>
+          </ul>
+          <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.14);padding-top:10px">
+            <div>Rate interest/comfort (0–5)</div>
+            <div id="tk-scale-sidebar" class="tk-grid" data-group="rating-A"></div>
+          </div>
+        </aside>
+      </div>
+    `;
+    document.body.appendChild(wrap);
+
+    // close handlers
+    const close = ()=>{ wrap.style.display="none"; };
+    wrap.querySelector("#tk-close").addEventListener("click", close);
+    wrap.querySelector("#tk-backdrop").addEventListener("click", close);
+  }
+
+  /* ---------- Rating scale builder + sync ---------- */
+  function makeScale(el, group="rating-A"){
+    if(!el) return; el.innerHTML="";
+    for(let i=0;i<=5;i++){
+      const b=document.createElement("button");
+      b.className="tk-opt"; b.type="button"; b.dataset.group=group; b.dataset.value=i;
+      b.textContent=i; b.setAttribute("aria-pressed","false"); el.appendChild(b);
+    }
+  }
+  function buildScales(){
+    makeScale(document.getElementById("tk-scale"), "rating-A");
+    makeScale(document.getElementById("tk-scale-sidebar"), "rating-A");
+    if(!window.__tkOverlayScaleSync){
+      window.__tkOverlayScaleSync=true;
+      document.addEventListener("click",(e)=>{
+        const btn=e.target.closest("button.tk-opt"); if(!btn) return;
+        const group=btn.dataset.group, val=btn.dataset.value;
+        document.querySelectorAll(`button.tk-opt[data-group="${group}"]`).forEach(b=>{
+          const on=b.dataset.value===val;
+          b.classList.toggle("selected",on);
+          b.setAttribute("aria-pressed", on?"true":"false");
+        });
+        document.getElementById("tk-guard")?.replaceChildren(document.createTextNode(`Selected ${val} of 5`));
+      });
+    }
+  }
+
+  /* ---------- Helper: any category selected? ---------- */
+  function hasAnyCategorySelected(){
+    const checks=[...document.querySelectorAll('input[type="checkbox"], [role="checkbox"][aria-checked]')];
+    return checks.some(cb => cb.checked || cb.getAttribute?.("aria-checked")==="true");
+  }
+
+  /* ---------- Intercept Start (capture phase) and show overlay ---------- */
+  function isStartButton(el){
+    return el && /start\s*survey/i.test((el.textContent||"").trim());
+  }
+  function showOverlay(){
+    ensureOverlay();
+    buildScales();
+    const ov=document.getElementById("tk-overlay");
+    ov.style.display="block";
+  }
+
+  // Global capture listeners to beat the app’s handler no matter what
+  function startCaptureHandler(e){
+    const t = e.target.closest('button, a, [role="button"]');
+    if(!t || !isStartButton(t)) return;
+    // user must pick at least one category
+    if(!hasAnyCategorySelected()){
+      e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+      const n=document.createElement("div");
+      n.textContent="Pick at least one category to begin.";
+      n.style.cssText="position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#222;border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:10px;z-index:1000000";
+      document.body.appendChild(n); setTimeout(()=>n.remove(),1600);
+      return;
+    }
+    // block site navigation + handlers, then open our overlay
+    e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+    showOverlay();
+  }
+
+  ["click","mousedown","touchstart"].forEach(ev=>{
+    document.addEventListener(ev, startCaptureHandler, true /* capture */);
+  });
+
+  // If their app changes the Start element later, our capture still wins.
+})();
+</script>
+<!-- ==== /TalkKink overlay ==== -->
