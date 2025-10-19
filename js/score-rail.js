@@ -9,8 +9,8 @@
   }
 
   window.__TK_SCORE_RAIL__ = { destroy: null, pending: true };
-  // mark the rail as ready so the boot loader sees it
-  window.__TK_SCORE_RAIL_READY__ = true;
+// mark the rail as ready so the boot loader sees it
+window.__TK_SCORE_RAIL_READY__ = true;
 
 
   const boot = () => {
@@ -75,54 +75,24 @@
     document.body.appendChild(rail);
 
     const raf = window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : (cb) => setTimeout(cb, 16);
+    const caf = window.cancelAnimationFrame ? window.cancelAnimationFrame.bind(window) : clearTimeout;
 
-    const runBatched = (measureFn, mutateFn) => {
-      if (typeof DOMBatch !== 'undefined' && DOMBatch &&
-          typeof DOMBatch.measure === 'function' && typeof DOMBatch.mutate === 'function') {
-        DOMBatch.measure(() => {
-          let metrics = null;
-          try {
-            metrics = measureFn();
-          } catch (err) {
-            console.warn(TAG, 'measure failed', err);
-          }
-          DOMBatch.mutate(() => mutateFn(metrics));
-        });
-        return;
-      }
-
-      raf(() => {
-        let metrics = null;
-        try {
-          metrics = measureFn();
-        } catch (err) {
-          console.warn(TAG, 'measure failed', err);
-        }
-        raf(() => mutateFn(metrics));
-      });
+    let pendingFrame = null;
+    const fitNow = () => {
+      const cat = getCategoryPanel();
+      const leftEdge = cat ? cat.getBoundingClientRect().right : 0;
+      const available = window.innerWidth - leftEdge - 32; // 16px margins
+      const desired = 420; // target width
+      const width = Math.max(280, Math.min(desired, available));
+      rail.style.setProperty('--tk-rail-w', width + 'px');
+      rail.style.setProperty('--tk-rail-left', Math.max(0, leftEdge) + 'px');
     };
 
-    let fitPending = false;
-    let destroyed = false;
     const scheduleFit = () => {
-      if (fitPending || destroyed) { return; }
-      fitPending = true;
-      runBatched(() => {
-        const cat = getCategoryPanel();
-        const rect = cat ? cat.getBoundingClientRect() : null;
-        const leftEdge = rect ? rect.right : 0;
-        const available = window.innerWidth - leftEdge - 32; // 16px margins
-        const desired = 420; // target width
-        const width = Math.max(280, Math.min(desired, available));
-        return {
-          width,
-          leftEdge: Math.max(0, leftEdge)
-        };
-      }, (metrics) => {
-        fitPending = false;
-        if (destroyed || !metrics) { return; }
-        rail.style.setProperty('--tk-rail-w', metrics.width + 'px');
-        rail.style.setProperty('--tk-rail-left', metrics.leftEdge + 'px');
+      if (pendingFrame !== null) { return; }
+      pendingFrame = raf(() => {
+        pendingFrame = null;
+        fitNow();
       });
     };
 
@@ -133,14 +103,16 @@
 
     const observe = setupObservers({ scheduleFit });
 
-    scheduleFit();
+    fitNow();
     console.debug(TAG, 'rendered & observing');
 
     const destroy = () => {
       removeEventListener('resize', onResize);
       removeEventListener('orientationchange', onOrientation);
-      destroyed = true;
-      fitPending = false;
+      if (pendingFrame !== null) {
+        caf(pendingFrame);
+        pendingFrame = null;
+      }
       observe.disconnect();
       rail.remove();
       css.remove();
