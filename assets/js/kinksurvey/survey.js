@@ -335,7 +335,47 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
 
   const progressBar = $('#progressBar');
   const progressPct = $('#progressPct');
-  const categoryPanel = $('#categoryPanel');
+
+  function ensureCategoryPanel(){
+    let panel = document.getElementById('categoryPanel');
+    const surveyApp = document.getElementById('surveyApp') || document.querySelector('main');
+
+    if (!panel && surveyApp){
+      panel = document.createElement('aside');
+      panel.id = 'categoryPanel';
+      panel.className = 'category-panel';
+      panel.setAttribute('role', 'complementary');
+      panel.setAttribute('aria-label', 'Categories');
+      panel.innerHTML = `
+        <h2 class="tk-side-title">Categories</h2>
+        <div class="tk-cat-count" aria-live="polite"><span id="tkCatSel">0</span> selected</div>
+        <ul id="categoryChecklist" class="tk-catlist" role="list"></ul>
+      `;
+      surveyApp.insertBefore(panel, surveyApp.firstChild);
+    }
+
+    if (panel){
+      panel.classList.add('category-panel');
+      if (!panel.querySelector('#categoryChecklist')){
+        const list = document.createElement('ul');
+        list.id = 'categoryChecklist';
+        list.className = 'tk-catlist';
+        list.setAttribute('role', 'list');
+        panel.appendChild(list);
+      }
+      if (!panel.querySelector('#tkCatSel')){
+        const countRow = document.createElement('div');
+        countRow.className = 'tk-cat-count';
+        countRow.setAttribute('aria-live', 'polite');
+        countRow.innerHTML = '<span id="tkCatSel">0</span> selected';
+        panel.insertBefore(countRow, panel.querySelector('.tk-catlist'));
+      }
+    }
+
+    return panel || null;
+  }
+
+  const categoryPanel = ensureCategoryPanel();
 
   function ensureQuestionPanel(){
     const area = document.getElementById('questionArea') || document.querySelector('.survey-center');
