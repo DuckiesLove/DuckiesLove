@@ -9,6 +9,7 @@
   }
 
   window.__TK_SCORE_RAIL__ = { destroy: null, pending: true };
+  window.__TK_SCORE_RAIL_READY__ = false;
 
   const boot = () => {
     // ---------- Styles ----------
@@ -114,9 +115,11 @@
       rail.remove();
       css.remove();
       window.__TK_SCORE_RAIL__ = null;
+      window.__TK_SCORE_RAIL_READY__ = false;
     };
 
     window.__TK_SCORE_RAIL__ = { destroy };
+    window.__TK_SCORE_RAIL_READY__ = true;
   };
 
   const setupWhenReady = () => {
