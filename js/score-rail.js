@@ -9,8 +9,8 @@
   }
 
   window.__TK_SCORE_RAIL__ = { destroy: null, pending: true };
-// mark the rail as ready so the boot loader sees it
-window.__TK_SCORE_RAIL_READY__ = true;
+  // mark the rail as ready so the boot loader sees it
+  window.__TK_SCORE_RAIL_READY__ = true;
 
 
   const boot = () => {
@@ -75,24 +75,54 @@ window.__TK_SCORE_RAIL_READY__ = true;
     document.body.appendChild(rail);
 
     const raf = window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : (cb) => setTimeout(cb, 16);
-    const caf = window.cancelAnimationFrame ? window.cancelAnimationFrame.bind(window) : clearTimeout;
 
-    let pendingFrame = null;
-    const fitNow = () => {
-      const cat = getCategoryPanel();
-      const leftEdge = cat ? cat.getBoundingClientRect().right : 0;
-      const available = window.innerWidth - leftEdge - 32; // 16px margins
-      const desired = 420; // target width
-      const width = Math.max(280, Math.min(desired, available));
-      rail.style.setProperty('--tk-rail-w', width + 'px');
-      rail.style.setProperty('--tk-rail-left', Math.max(0, leftEdge) + 'px');
+    const runBatched = (measureFn, mutateFn) => {
+      if (typeof DOMBatch !== 'undefined' && DOMBatch &&
+          typeof DOMBatch.measure === 'function' && typeof DOMBatch.mutate === 'function') {
+        DOMBatch.measure(() => {
+          let metrics = null;
+          try {
+            metrics = measureFn();
+          } catch (err) {
+            console.warn(TAG, 'measure failed', err);
+          }
+          DOMBatch.mutate(() => mutateFn(metrics));
+        });
+        return;
+      }
+
+      raf(() => {
+        let metrics = null;
+        try {
+          metrics = measureFn();
+        } catch (err) {
+          console.warn(TAG, 'measure failed', err);
+        }
+        raf(() => mutateFn(metrics));
+      });
     };
 
+    let fitPending = false;
+    let destroyed = false;
     const scheduleFit = () => {
-      if (pendingFrame !== null) { return; }
-      pendingFrame = raf(() => {
-        pendingFrame = null;
-        fitNow();
+      if (fitPending || destroyed) { return; }
+      fitPending = true;
+      runBatched(() => {
+        const cat = getCategoryPanel();
+        const rect = cat ? cat.getBoundingClientRect() : null;
+        const leftEdge = rect ? rect.right : 0;
+        const available = window.innerWidth - leftEdge - 32; // 16px margins
+        const desired = 420; // target width
+        const width = Math.max(280, Math.min(desired, available));
+        return {
+          width,
+          leftEdge: Math.max(0, leftEdge)
+        };
+      }, (metrics) => {
+        fitPending = false;
+        if (destroyed || !metrics) { return; }
+        rail.style.setProperty('--tk-rail-w', metrics.width + 'px');
+        rail.style.setProperty('--tk-rail-left', metrics.leftEdge + 'px');
       });
     };
 
@@ -103,16 +133,14 @@ window.__TK_SCORE_RAIL_READY__ = true;
 
     const observe = setupObservers({ scheduleFit });
 
-    fitNow();
+    scheduleFit();
     console.debug(TAG, 'rendered & observing');
 
     const destroy = () => {
       removeEventListener('resize', onResize);
       removeEventListener('orientationchange', onOrientation);
-      if (pendingFrame !== null) {
-        caf(pendingFrame);
-        pendingFrame = null;
-      }
+      destroyed = true;
+      fitPending = false;
       observe.disconnect();
       rail.remove();
       css.remove();
