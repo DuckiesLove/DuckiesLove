@@ -1,114 +1,124 @@
-<!-- TK layout fix: restore left rail + main content dock -->
-<style id="tk-layout-fix">
-  :root{
-    --tk-dock-gap:24px;
-    --tk-left-width:380px;
-    --tk-header-offset:96px; /* adjust if your header is taller/shorter */
-    --tk-page-pad:24px;
-    --tk-maxw:1400px;
-  }
-  html, body { height:100%; overflow-x:hidden; }
-
-  /* Dock container that holds the left rail and the main app */
-  .tkDock{
-    box-sizing:border-box;
-    display:grid;
-    grid-template-columns: var(--tk-left-width) 1fr;
-    gap: var(--tk-dock-gap);
-    align-items:start;
-    max-width: var(--tk-maxw);
-    margin: 0 auto;
-    padding: 0 var(--tk-page-pad) 64px;
-    width:100%;
-  }
-
-  /* Left rail: full height, its own scrolling area */
-  #categoryPanel{
-    grid-column:1;
-    width:auto;
-    max-width:none!important;
-    min-width:320px;
-    position:sticky;
-    top: var(--tk-header-offset);
-    height: calc(100vh - var(--tk-header-offset) - var(--tk-dock-gap));
-    overflow:auto;
-    /* isolate to avoid cascading reflows */
-    contain: layout paint style;
-  }
-
-  /* Right side: main app */
-  #surveyApp{
-    grid-column:2;
-    align-self:start;
-    min-height:50vh;
-    contain: layout paint style;
-  }
-
-  /* Hard overrides to kill “drawer/overlay” sizing/position that caused the center mini panel */
-  #categoryPanel.drawer,
-  #categoryPanel.panel,
-  #categoryPanel.tk-overlay,
-  #categoryPanel.portal{
-    position:sticky !important;
-    left:auto !important;
-    right:auto !important;
-    top: var(--tk-header-offset) !important;
-    transform:none !important;
-    width:auto !important;
-    max-width:none !important;
-    box-shadow:none !important;
-  }
-
-  /* Responsive: stack on small screens */
-  @media (max-width: 1100px){
-    .tkDock{ grid-template-columns: 1fr; }
-    #categoryPanel{ position:static; height:auto; }
-    #surveyApp{ grid-column:1; }
-  }
-</style>
-
+<!-- Talk-Kink survey: dock panel, move buttons, wire Start inside panel -->
 <script>
-(() => {
-  // Build/repair the dock and move the nodes into place
-  function ensureDock() {
-    const aside = document.getElementById('categoryPanel');
-    const main  = document.getElementById('surveyApp') || document.querySelector('main');
-    if (!aside || !main) return;
+(function () {
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
-    // Remove classes that make it act like an overlay/drawer
-    aside.classList.remove('drawer','panel','shadow-bottom','tk-overlay','portal');
+  // 1) Ensure we can find the panel and kill the overlay
+  const panel = $('#categorySurveyPanel') || $('aside.category-panel');
+  const overlay = $('#tkOverlay');
+  if (overlay) { overlay.remove(); }  // no full-screen scrim anymore
 
-    // Create the dock if it doesn't exist
-    let dock = document.querySelector('.tkDock');
-    if (!dock) {
-      dock = document.createElement('section');
-      dock.className = 'tkDock';
-      // Place dock after header for predictable sticky offset
-      const header = document.getElementById('tkHeader') || document.querySelector('header');
-      if (header && header.parentNode) {
-        header.parentNode.insertBefore(dock, header.nextSibling);
-      } else {
-        document.body.prepend(dock);
-      }
+  // If there’s any old centered “landing” stack, hide it
+  (function zapLanding(){
+    const all = $$('a, button, [role="button"]');
+    const byText = (t) => all.find(b => (b.textContent||'').trim().toLowerCase() === t);
+    const start = byText('start survey') || all.find(b => /start\s*survey/i.test((b.textContent||'')));
+    const compat = byText('compatibility page') || all.find(b => /compatibility/i.test((b.textContent||'')));
+    const analysis = byText('individual kink analysis') || all.find(b => /individual.*analysis/i.test((b.textContent||'')));
+    const wrappers = new Set([start, compat, analysis]
+      .filter(Boolean)
+      .map(b => b.closest('section, main, .landing-wrapper, .stack, .hero, .container, .row, .col, div'))
+      .filter(Boolean));
+    wrappers.forEach(w => w.setAttribute('data-tk-landing','removed'));
+  })();
+
+  // 2) Build the dock layout (title + dock)
+  const body = document.body;
+  if (!$('#tkTitleWrap')) {
+    const h1 = document.querySelector('h1, .page-title, [data-title]');
+    const titleWrap = document.createElement('div');
+    titleWrap.id = 'tkTitleWrap';
+    if (h1) {
+      h1.parentNode.insertBefore(titleWrap, h1);
+      titleWrap.appendChild(h1);
+    } else {
+      titleWrap.innerHTML = '<h1>Talk Kink Survey</h1>';
+      body.prepend(titleWrap);
     }
-
-    // Move left rail and main app into the dock (order matters)
-    if (aside.parentElement !== dock) dock.appendChild(aside);
-    if (main.parentElement  !== dock) dock.appendChild(main);
   }
+  if (!$('#tkDock')) {
+    const dock = document.createElement('section');
+    dock.id = 'tkDock';
+    dock.innerHTML = `
+      <div class="tk-left"></div>
+      <div class="tk-right"></div>
+    `;
+    $('#tkTitleWrap').after(dock);
+  }
+  const left  = $('#tkDock .tk-left');
+  const right = $('#tkDock .tk-right');
 
-  // Run now and also once dynamic content settles
-  const start = () => { try{ ensureDock(); }catch(e){ console.error('[TK layout fix]', e); } };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start, {once:true});
+  // 3) Mount the panel on the left and make sure it’s visible
+  if (panel) {
+    left.appendChild(panel);
+    // force visible/usable in-flow
+    Object.assign(panel.style, {
+      position:'static', display:'block', visibility:'visible',
+      opacity:'1', pointerEvents:'auto', zIndex:'1'
+    });
   } else {
-    start();
+    console.warn('[TK] category panel not found.');
   }
-  // In case your app lazy-mounts the nodes later, retry a few times
-  let tries = 0, t = setInterval(() => {
-    if (++tries > 20) return clearInterval(t);
-    const ok = document.querySelector('.tkDock #categoryPanel') && document.querySelector('.tkDock #surveyApp');
-    if (!ok) start(); else clearInterval(t);
-  }, 150);
+
+  // 4) Build the right-column buttons (you can remove either if not needed)
+  const makeBtn = (text, href, cls='') => {
+    const a = document.createElement('a');
+    a.className = `tk-btn ${cls}`.trim();
+    a.textContent = text;
+    a.href = href;
+    return a;
+  };
+  right.innerHTML = '';
+  right.append(
+    makeBtn('Compatibility Page', '/compatibility.html'),
+    makeBtn('Individual Kink Analysis', '/analysis.html')
+  );
+
+  // 5) Put Start inside the panel footer, and only enable when ALL boxes are selected
+  if (panel) {
+    let footer = panel.querySelector('.tk-panel-actions, .panel-actions, footer') ||
+                 document.createElement('div');
+    footer.classList.add('tk-panel-actions');
+    if (!footer.parentNode) panel.appendChild(footer);
+
+    const startBtn = document.createElement('button');
+    startBtn.className = 'tk-btn primary';
+    startBtn.id = 'tkStartInPanel';
+    startBtn.textContent = 'Start Survey';
+    startBtn.disabled = true;
+    footer.appendChild(startBtn);
+
+    // RULE: enable only when ALL category checkboxes are selected.
+    // If you want "at least one", set "requireAll = false".
+    const requireAll = true;
+
+    // These are category checkboxes inside the panel
+    const checks = $$('input[type="checkbox"]', panel);
+    function recomputeState(){
+      const total = checks.length;
+      const checked = checks.filter(c => c.checked).length;
+      const ok = requireAll ? (checked === total && total > 0) : (checked > 0);
+      startBtn.disabled = !ok;
+    }
+    checks.forEach(c => c.addEventListener('change', recomputeState));
+    recomputeState();
+
+    // Start behavior: call your existing “start” trigger, if present
+    startBtn.addEventListener('click', () => {
+      // Try several likely hooks; fall back to a known function if you have one
+      const hook =
+        document.querySelector('[data-action="start-survey"]') ||
+        document.querySelector('#startSurveyBtn, [id^="startSurvey"], .start-survey');
+      if (hook) {
+        hook.click();
+      } else if (typeof window.tkBeginSurvey === 'function') {
+        window.tkBeginSurvey();
+      } else {
+        // Fallback: navigate or log
+        console.log('[TK] Start pressed — plug this into your real start flow.');
+      }
+    });
+  }
 })();
 </script>
