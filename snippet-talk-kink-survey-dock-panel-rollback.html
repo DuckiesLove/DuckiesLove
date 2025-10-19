@@ -1,0 +1,54 @@
+<!-- TK rollback: remove dock layout and restore original structure -->
+<script>
+(() => {
+  try {
+    // 1) Remove any layout-fix CSS we injected earlier
+    const styleFix = document.getElementById('tk-layout-fix');
+    if (styleFix) styleFix.remove();
+
+    // 2) If a dock wrapper exists, unwrap it and put nodes back as siblings
+    const dock = document.querySelector('.tkDock');
+    if (dock) {
+      const parent = dock.parentNode;
+      const frag = document.createDocumentFragment();
+
+      // These are the original nodes we want back as top-level siblings
+      const aside = dock.querySelector('#categoryPanel');
+      const main  = dock.querySelector('#surveyApp') || dock.querySelector('main');
+
+      // Put them back in their original order if present
+      if (aside) frag.appendChild(aside);
+      if (main)  frag.appendChild(main);
+
+      // Replace the dock with the original nodes
+      parent.insertBefore(frag, dock);
+      dock.remove();
+    }
+
+    // 3) Clean up any inline styles or attributes we might have added
+    const aside = document.getElementById('categoryPanel');
+    const main  = document.getElementById('surveyApp') || document.querySelector('main');
+
+    [aside, main].forEach(el => {
+      if (!el) return;
+      // Remove any inline styles we may have introduced
+      el.removeAttribute('style');
+
+      // If you previously removed overlay/drawer classes and want the
+      // original behavior back, uncomment the next line and add back
+      // whichever original classes your theme used (leave commented if unsure):
+      // el.classList.add('drawer','panel','shadow-bottom'); 
+    });
+
+    // 4) (Optional) If something injected a runtime flag, reset it
+    if ('__TK_SCORE_RAIL_READY__' in window) {
+      // Set to whatever your original code expects; removing is safest:
+      delete window.__TK_SCORE_RAIL_READY__;
+    }
+
+    console.log('[TK rollback] layout restored: dock removed, overrides cleared.');
+  } catch (e) {
+    console.error('[TK rollback] error restoring layout:', e);
+  }
+})();
+</script>
