@@ -9,7 +9,9 @@
   }
 
   window.__TK_SCORE_RAIL__ = { destroy: null, pending: true };
-  window.__TK_SCORE_RAIL_READY__ = true;
+// mark the rail as ready so the boot loader sees it
+window.__TK_SCORE_RAIL_READY__ = true;
+
 
   const boot = () => {
     // ---------- Styles ----------
@@ -119,6 +121,7 @@
     };
 
     window.__TK_SCORE_RAIL__ = { destroy };
+    window.__TK_SCORE_RAIL_READY__ = true;
   };
 
   const setupWhenReady = () => {
