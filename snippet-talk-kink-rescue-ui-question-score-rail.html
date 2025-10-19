@@ -1,126 +1,116 @@
 <!-- ===== TalkKink – rescue UI for question + score rail (no overlay required) ===== -->
 <script>
 (() => {
-  // ============================
-  // 1) UTILITIES
-  // ============================
-  const log = (...a) => console.log("[TK no-overlay]", ...a);
+  // ========= util =========
+  const log = (...a) => console.log("[TK rail]", ...a);
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const debounce = (fn, ms=120) => { let id; return (...x)=>{clearTimeout(id); id=setTimeout(()=>fn(...x),ms);} };
 
-  // Wait for an element in the live DOM
-  function waitFor(sel, {root=document, timeout=10000, interval=100} = {}) {
-    return new Promise((resolve, reject) => {
-      const t0 = performance.now();
-      const tick = () => {
-        const el = root.querySelector(sel);
-        if (el) return resolve(el);
-        if (performance.now() - t0 > timeout) return reject(new Error("Timeout waiting for " + sel));
-        setTimeout(tick, interval);
-      };
-      tick();
-    });
+  async function waitFor(sel, {root=document, timeout=8000, step=80}={}) {
+    const t0 = performance.now();
+    while (performance.now()-t0 < timeout) {
+      const el = root.querySelector(sel);
+      if (el) return el;
+      await sleep(step);
+    }
+    return null;
   }
 
-  // Debounce helper
-  const debounce = (fn, ms=150) => {
-    let id; 
-    return (...args) => { clearTimeout(id); id = setTimeout(() => fn(...args), ms); };
-  };
-
-  // ============================
-  // 2) CSS (overlay-free)
-  // ============================
+  // ========= CSS =========
   const CSS = `
-  /* Right-side scoring column (sticky) */
-  #tkScoreRail {
-    position: sticky;
-    top: 96px;            /* below the header/title */
-    width: 360px;         /* target width; shrinks on smaller viewports */
-    max-width: 34vw;
-    margin-left: auto;    /* push to right edge of content column */
-    z-index: 1;
-  }
-
-  /* Keep the rail visible near the question area only */
-  #tkScoreRail .tk-card {
-    border: 1px solid rgba(0,255,255,.2);
-    border-radius: 14px;
-    background: rgba(12,20,28,.6);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 0 0 1px rgba(0,255,255,.08), 0 18px 40px rgba(0,0,0,.35);
-    padding: 14px 16px;
-  }
-
-  #tkScoreRail h3 {
-    margin: 0 0 10px 0;
-    font-size: 15px;
-    letter-spacing: .02em;
-    color: #bdefff;
-    text-shadow: 0 0 8px rgba(0,180,255,.35);
-  }
-
-  /* Horizontal chip row (no scrolling) */
-  .tk-chip-row {
-    display: flex;
-    flex-wrap: wrap;      /* wraps to second line if needed */
-    gap: 8px;
-  }
-
-  .tk-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid rgba(255,255,255,.12);
-    border-radius: 12px;
-    background: rgba(20,28,36,.8);
-    padding: 8px 10px;
-    font-size: 13px;
-    color: #e9f7ff;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
-    white-space: nowrap;
-  }
-
-  .tk-pip {
-    flex: 0 0 auto;
-    width: 24px; height: 24px;
-    border-radius: 999px;
-    display: grid; place-items: center;
-    font-weight: 700;
-    color: #00131a;
-    box-shadow: 0 0 0 2px rgba(0,0,0,.35) inset;
-  }
-  .pip-0 { background: #8ed6ff; }
-  .pip-1 { background: #ff4d5f; }
-  .pip-2 { background: #ffca2b; }
-  .pip-3 { background: #71e27c; }
-  .pip-4 { background: #35d06a; }
-  .pip-5 { background: #09c15a; }
-
-  /* On very narrow screens, allow the rail to drop under the question */
-  @media (max-width: 1200px) {
-    #tkScoreRail { position: static; width: 100%; max-width: 100%; margin: 16px 0 0 0; }
-  }
+    #tkScoreRail { position: sticky; top: 96px; width: 360px; max-width: 34vw; margin-left: auto; z-index: 1; }
+    #tkScoreRail .tk-card { border:1px solid rgba(0,255,255,.18); border-radius:14px; background:rgba(12,20,28,.6);
+      backdrop-filter: blur(6px); box-shadow:0 0 0 1px rgba(0,255,255,.08), 0 18px 40px rgba(0,0,0,.35); padding:14px; }
+    #tkScoreRail h3 { margin:0 0 10px 0; font-size:15px; letter-spacing:.02em; color:#bdefff; text-shadow:0 0 8px rgba(0,180,255,.35); }
+    .tk-chip-row { display:flex; flex-wrap:wrap; gap:8px; }
+    .tk-chip { display:inline-flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,.12); border-radius:12px;
+      background:rgba(20,28,36,.82); padding:8px 10px; font-size:13px; color:#e9f7ff; white-space:nowrap; }
+    .tk-pip { width:24px; height:24px; border-radius:999px; display:grid; place-items:center; font-weight:700; color:#00131a;
+      box-shadow:0 0 0 2px rgba(0,0,0,.35) inset; }
+    .pip-0{background:#8ed6ff}.pip-1{background:#ff4d5f}.pip-2{background:#ffca2b}
+    .pip-3{background:#71e27c}.pip-4{background:#35d06a}.pip-5{background:#09c15a}
+    @media (max-width:1200px){ #tkScoreRail{position:static;width:100%;max-width:100%;margin:16px 0 0 0} }
   `;
-  const style = document.createElement("style");
-  style.id = "tk-no-overlay-css";
-  style.textContent = CSS;
-  document.head.appendChild(style);
-
-  // ============================
-  // 3) RENDER / UPDATE SCORE RAIL
-  // ============================
-  function buildChip(num, text, extra='') {
-    const chip = document.createElement('div');
-    chip.className = 'tk-chip';
-    chip.innerHTML = `
-      <span class="tk-pip pip-${num}">${num}</span>
-      <span>${text}${extra ? " — " + extra : ""}</span>
-    `;
-    return chip;
+  if (!document.getElementById("tk-rail-css")) {
+    const s=document.createElement("style"); s.id="tk-rail-css"; s.textContent=CSS; document.head.appendChild(s);
   }
 
-  function ensureScoreRail(container) {
-    // container = the main question card container (center content area)
-    // We attach the rail RIGHT of this container, inside the same flow.
+  // ========= real Start click (robust) =========
+  function findStartButton() {
+    const candidates = [...document.querySelectorAll('button, [role="button"], a, [onclick]')];
+    const good = candidates.find(el => {
+      const t = (el.innerText || el.textContent || "").trim().toLowerCase();
+      const a = (el.getAttribute("aria-label") || "").toLowerCase();
+      const id= (el.id || "").toLowerCase();
+      const cls= (el.className || "").toLowerCase();
+      return /(start|begin|launch).*(survey|quiz)|^start$/.test(t) ||
+             /(start|begin).*(survey|quiz)/.test(a) ||
+             /start/.test(id) || /start/.test(cls);
+    });
+    return good || null;
+  }
+
+  async function ensureSurveyStarted() {
+    // If a category is checked, try to click Start
+    const hasSel = !!document.querySelector('#categoryPanel input[type="checkbox"]:checked');
+    if (!hasSel) return false;
+
+    // If question area already visible, do nothing
+    if (getQuestionContainer(true)) return true;
+
+    const btn = findStartButton();
+    if (btn) { btn.click(); log("Clicked Start"); await sleep(150); return true; }
+
+    // also try Enter on body (some UIs bind keyboard start)
+    document.body.dispatchEvent(new KeyboardEvent('keydown',{key:"Enter"}));
+    await sleep(150);
+    return !!getQuestionContainer(true);
+  }
+
+  // ========= find/unhide the real question card =========
+  function getQuestionContainer(visibleOnly=false) {
+    const app = document.querySelector('#surveyApp') || document.querySelector('main') || document.body;
+    // common patterns that contain the question content
+    const picks = [
+      '[class*="question"]',
+      '[class*="prompt"]',
+      '[class*="card"]',
+      '[aria-live="polite"]',
+      'section'
+    ];
+    let hit = null;
+    for (const sel of picks) {
+      const el = app.querySelector(sel);
+      if (!el) continue;
+      const box = el.getBoundingClientRect();
+      const vis = box.width>300 && box.height>80; // rough filter
+      if (!visibleOnly || vis) { hit = el.closest('section,div') || el; break; }
+    }
+    return hit;
+  }
+
+  function unhide(el) {
+    if (!el) return;
+    // Only touch the chosen container; do not global-unhide.
+    if (el.hasAttribute("hidden")) el.removeAttribute("hidden");
+    el.style && (el.style.display = "");
+    el.setAttribute("aria-hidden","false");
+  }
+
+  // ========= scoring rail =========
+  function chip(n, label, extra='') {
+    const d=document.createElement('div'); d.className='tk-chip';
+    d.innerHTML=`<span class="tk-pip pip-${n}">${n}</span><span>${label}${extra?` — ${extra}`:''}</span>`;
+    return d;
+  }
+
+  function ensureRailBeside(container) {
+    if (!container || !container.parentElement) return null;
+
+    // Remove duplicates (keep one)
+    const olds = [...document.querySelectorAll('#tkScoreRail')];
+    olds.slice(1).forEach(n=>n.remove());
+
     let rail = document.getElementById('tkScoreRail');
     if (!rail) {
       rail = document.createElement('aside');
@@ -129,87 +119,45 @@
         <div class="tk-card">
           <h3>How to score</h3>
           <div class="tk-chip-row" id="tkChipRow"></div>
-        </div>
-      `;
-      // Insert after the question card container to sit on the right side in the same row
+        </div>`;
+    }
+    // place immediately after the container so it sits on the right
+    if (rail.previousElementSibling !== container) {
       container.parentElement.insertBefore(rail, container.nextSibling);
-    } else {
-      // if it exists but is not beside the current container, move it
-      if (rail.previousElementSibling !== container) {
-        container.parentElement.insertBefore(rail, container.nextSibling);
-      }
     }
 
-    // Populate chips (single concise row; NO duplicates)
     const row = rail.querySelector('#tkChipRow');
     row.replaceChildren(
-      buildChip(0, 'Brain did a cartwheel', 'skipped for now 😅'),
-      buildChip(1, 'Hard Limit', 'full stop / non-negotiable'),
-      buildChip(2, 'Soft Limit', 'willing to try w/ safety & aftercare'),
-      buildChip(3, 'Curious / context-dependent', 'needs discussion/negotiation'),
-      buildChip(4, 'Comfortable / enjoy', ''),
-      buildChip(5, 'Favorite / enthusiastic yes', '')
+      chip(0,'Brain did a cartwheel','skipped for now 😅'),
+      chip(1,'Hard Limit','full stop / non-negotiable'),
+      chip(2,'Soft Limit','willing to try w/ safety & aftercare'),
+      chip(3,'Curious / context-dependent','needs discussion'),
+      chip(4,'Comfortable / enjoy'),
+      chip(5,'Favorite / enthusiastic yes')
     );
     return rail;
   }
 
-  // ============================
-  // 4) FORCE SURVEY TO START (if user selected categories)
-  // ============================
-  function findQuestionCardRoot() {
-    // Heuristic: the central question card sits under #surveyApp; it has the
-    // "Giving / Receiving / General" tabs or the question title
-    const app = document.querySelector('#surveyApp') || document.querySelector('main');
-    if (!app) return null;
+  // ========= main placement loop =========
+  const place = debounce(async () => {
+    // 1) if categories exist and survey not started, start it
+    await ensureSurveyStarted();
 
-    // Card-like containers of current step (look for the question title or the rating row)
-    // This stays generic so it survives internal refactors.
-    const card = app.querySelector('[class*="question"], [class*="prompt"], [class*="card"]');
-    // If the first match is something generic, fall back to a wide container inside app
-    return (card && card.closest('section,div')) || app.querySelector('section,div');
-  }
-
-  async function clickStartIfPresent() {
-    // click "Start Survey" if it exists and we have a selected category
-    const hasSelected = !!document.querySelector('#categoryPanel input[type=checkbox]:checked');
-    if (!hasSelected) return false;
-
-    const btn = [...document.querySelectorAll('button, a')]
-      .find(b => /start\s*survey/i.test(b.textContent.trim()));
-    if (btn) {
-      btn.click();
-      log('Clicked "Start Survey"');
-      return true;
-    }
-    return false;
-  }
-
-  // ============================
-  // 5) BOOTSTRAP: observe and (re)place the score rail
-  // ============================
-  const placeRail = debounce(() => {
-    const container = findQuestionCardRoot();
+    // 2) find the real question container; unhide if the site hid it
+    const container = getQuestionContainer(false);
     if (!container) return;
+    unhide(container);
 
-    // Ensure the question “card” is visible when categories are selected.
-    clickStartIfPresent();
-
-    // Remove any *old* injected rails so we never duplicate
-    document.querySelectorAll('#tkScoreRail').forEach((el, i) => { if (i>0) el.remove(); });
-
-    ensureScoreRail(container);
+    // 3) mount the right rail once, beside the true container
+    ensureRailBeside(container);
   }, 120);
 
-  // Run once after load
-  window.addEventListener('load', placeRail);
+  // kick off
+  window.addEventListener('load', place);
+  const mo = new MutationObserver(place);
+  mo.observe(document.body, {childList:true, subtree:true});
+  window.addEventListener('resize', place);
 
-  // Re-try when DOM changes (question changes / theme switch / tab switch)
-  const mo = new MutationObserver(placeRail);
-  mo.observe(document.body, { childList: true, subtree: true });
-
-  // Also respond to resize to keep a single row if space permits
-  window.addEventListener('resize', placeRail);
-
-  log('no-overlay scoring rail active (overlay disabled), watching for question card...');
+  log("rail ready (no overlay)");
 })();
 </script>
