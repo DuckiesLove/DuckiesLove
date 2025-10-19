@@ -13,7 +13,7 @@
       --tk-chip-bg:#0e1418; --tk-chip-fg:#e8f6ff; --tk-chip-br:12px;
     }
     .tk-rail{
-      position: fixed; top: 132px; right: 16px; z-index: 6000;
+      position: fixed; top: 128px; right: 16px; z-index: 6000;
       width: min(var(--tk-rail-w,420px), calc(100vw - var(--tk-rail-left,0px) - 32px));
       background:var(--tk-rail-bg); border-radius:var(--tk-rail-br);
       border:var(--tk-rail-b); box-shadow:var(--tk-rail-glow);
