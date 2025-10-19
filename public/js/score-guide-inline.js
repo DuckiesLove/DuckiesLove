@@ -72,6 +72,93 @@
   style.textContent = css;
   document.head.appendChild(style);
 
+  // If your Start button copy differs, tweak this matcher to your exact label.
+  const START_LABEL = /start\s*survey/i;
+  const clickedStarts = new WeakSet();
+
+  function clickStartIfPresent(root = document) {
+    const candidates = Array.from(
+      root.querySelectorAll('button, a, [role="button"], input[type="button"], input[type="submit"]')
+    );
+
+    const match = candidates.find((node) => {
+      const label = (node.textContent || node.value || '').trim();
+      return START_LABEL.test(label);
+    });
+
+    if (!match || clickedStarts.has(match)) return false;
+
+    clickedStarts.add(match);
+    try {
+      match.click();
+      return true;
+    } catch (err) {
+      console.warn('[TK] Failed to click inferred Start button', err);
+      return false;
+    }
+  }
+
+  // Adjust this finder if your question card lives in a very different container.
+  function findQuestionCardRoot() {
+    const doc = document;
+
+    const explicit = doc.querySelector(
+      '#tkQuestionCard, #questionCard, [data-question-card], [data-testid="question-card"]'
+    );
+    if (explicit) return explicit;
+
+    const panel = doc.getElementById('question-panel');
+    if (panel) {
+      const insidePanel =
+        panel.querySelector('.question-card, article, section, div');
+      if (insidePanel) return insidePanel;
+    }
+
+    const host =
+      doc.getElementById('surveyApp') ||
+      doc.querySelector('main#surveyApp') ||
+      doc.body;
+    if (!host) return null;
+
+    const directSelectors = [
+      '.question-card',
+      '[data-role="question-card"]',
+      '.card.question-card',
+      '.card',
+      'article.question-card',
+      'section.question-card',
+    ];
+
+    for (const sel of directSelectors) {
+      const node = host.querySelector(sel);
+      if (node && !node.classList?.contains('tkq-wrap')) return node;
+    }
+
+    const containers = Array.from(host.querySelectorAll('section, article, div'));
+    for (const node of containers) {
+      if (node.classList?.contains('tkq-wrap')) continue;
+      const hasInputs = node.querySelector(
+        'button, [role="radiogroup"], [data-group], [data-value], input[type="radio"]'
+      );
+      if (!hasInputs) continue;
+      const text = (node.textContent || '').toLowerCase();
+      if (
+        text.includes('rate interest') ||
+        text.includes('rate comfort') ||
+        text.includes('rate 0-5') ||
+        text.includes('rate 0 – 5') ||
+        text.includes('0–5') ||
+        text.includes('how to score')
+      ) {
+        return node;
+      }
+    }
+
+    return containers.find((node) =>
+      node.querySelector('button, [role="radiogroup"], [data-group], [data-value], input[type="radio"]')
+    ) || null;
+  }
+
   // 2) Guide content model (short & compact)
   const ITEMS = [
     { n: 0, cls: 'zero', text: 'Brain did a cartwheel — skipped for now 😅' },
@@ -104,25 +191,35 @@
     kill();
     document.getElementById('tk-inline-score-guide')?.remove();
 
-    // Heuristic: the current question “card” (container with the prompt + 0–5 buttons)
-    // It’s the first big content card inside #surveyApp after the header controls.
-    const app = document.getElementById('surveyApp') || document.querySelector('main#surveyApp') || document.body;
-    // Try to grab the visible question block (contains the “Rate interest/comfort (0–5)” text)
-    const questionCard =
-      app.querySelector('.question-card') ||
-      app.querySelector('.card:has(button, [role="radiogroup"]), section .card') ||
-      app.querySelector('section:has(button)') ||
-      app.querySelector('section');
+    let questionCard = findQuestionCardRoot();
 
-    if (!questionCard) return; // nothing to do yet
+    if (!questionCard) {
+      const clicked = clickStartIfPresent();
+      if (clicked) {
+        setTimeout(mount, 120);
+      }
+      return; // nothing to do yet
+    }
+
+    if (questionCard.classList?.contains('tkq-wrap')) {
+      questionCard = questionCard.querySelector(
+        '.question-card, [data-question-card], article, section, div'
+      ) || questionCard;
+    }
 
     // Wrap questionCard in a grid that has a right column for the guide
-    if (!questionCard.parentElement.classList.contains('tkq-wrap')) {
-      const wrap = document.createElement('div');
+    const parent = questionCard.parentElement;
+    if (!parent) return;
+
+    let wrap = questionCard.closest('.tkq-wrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
       wrap.className = 'tkq-wrap';
-      questionCard.parentElement.insertBefore(wrap, questionCard);
+      parent.insertBefore(wrap, questionCard);
       wrap.appendChild(questionCard);
-      // guide on the right
+    }
+
+    if (!wrap.querySelector('#tk-inline-score-guide')) {
       const guide = buildScoreGuide();
       guide.id = 'tk-inline-score-guide';
       wrap.appendChild(guide);
