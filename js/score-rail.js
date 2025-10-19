@@ -1,5 +1,12 @@
 (() => {
-  const log = (...a) => console.log("[TK rail]", ...a);
+  const TAG = "[TK rail]";
+  if (window.__TK_SCORE_RAIL__) {
+    console.debug(TAG, "already booted; skipping duplicate script load");
+    return;
+  }
+  window.__TK_SCORE_RAIL__ = true;
+
+  const log = (...a) => console.log(TAG, ...a);
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const debounce = (fn, ms = 120) => {
     let id;
@@ -132,6 +139,8 @@
     if (!rail) {
       rail = document.createElement("aside");
       rail.id = "tkScoreRail";
+      rail.setAttribute("role", "complementary");
+      rail.setAttribute("aria-label", "How to score");
       rail.innerHTML = `
         <div class="tk-card">
           <h3>How to score</h3>
