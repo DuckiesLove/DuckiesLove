@@ -9,7 +9,7 @@
     const st = document.createElement("style");
     st.id = "tk-rail-css";
     st.textContent = `
-      #tkScoreRail { position: sticky; top: 88px; margin-left: auto; width: min(520px, 42vw); z-index: 3; }
+      #tkScoreRail { position: sticky; top: 128px; margin-left: auto; width: min(520px, 42vw); z-index: 3; }
       #tkScoreRail .tk-card { border:1px solid rgba(0,255,255,.2); border-radius:14px; background:rgba(12,20,28,.65);
         backdrop-filter: blur(6px); box-shadow:0 0 0 1px rgba(0,255,255,.08), 0 18px 40px rgba(0,0,0,.35); padding:12px 14px; }
       #tkScoreRail h3 { margin:0 0 8px 0; font:600 14px/1.2 system-ui,Segoe UI,Roboto,Helvetica,Arial; letter-spacing:.02em;
