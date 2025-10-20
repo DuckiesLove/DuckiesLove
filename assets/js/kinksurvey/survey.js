@@ -528,6 +528,8 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
       const li = document.createElement('li'); li.className = 'tk-catrow';
       const label = document.createElement('label'); label.className = 'tk-cat';
       const input = Object.assign(document.createElement('input'), { type:'checkbox', value:catId, id:`cat-${catId}` });
+      input.classList.add('tk-cat-input');
+      input.dataset.cat = cat.name;
       input.checked = prev.has(catId);
       input.addEventListener('change', handleCategoryChange);
       const span = document.createElement('span'); span.className = 'tk-catname'; span.textContent = cat.name;

@@ -164,6 +164,139 @@
           <aside id="tk-score-rail" class="score-rail"></aside>
         </section>
 
+        <script>
+          // ===== TK: hard guarantee that a question renders =====
+          (() => {
+            const q = (sel, root = document) => root.querySelector(sel);
+
+            document.addEventListener('DOMContentLoaded', () => {
+              tkForceRender();
+              document.addEventListener('change', (event) => {
+                const target = event.target;
+                if (!target) return;
+                if (target.matches('.tk-cat-input, .tk-cat-input *')) tkForceRender();
+              });
+            });
+
+            async function tkForceRender() {
+              try {
+                const res = await fetch(`/data/kinks.json?v=${Date.now()}`);
+                if (!res.ok) return;
+                const raw = await res.json();
+
+                const catalog = normalizeCatalog(raw);
+                if (!catalog.length) return;
+
+                const selectedCats = Array.from(document.querySelectorAll('.tk-cat-input:checked'))
+                  .map((node) => node.dataset.cat || node.value || '')
+                  .filter(Boolean);
+
+                const selectedName = selectedCats[0] || catalog[0].name;
+                const activeCat = catalog.find((entry) => entry.name === selectedName) || catalog[0];
+                const categoryTitle = activeCat?.name || selectedName || 'Category';
+                const items = Array.isArray(activeCat?.items) ? activeCat.items : [];
+
+                const first = items[0] ?? 'First item';
+                const label = typeof first === 'string'
+                  ? first
+                  : first?.label || first?.name || first?.title || first?.prompt || JSON.stringify(first);
+
+                const host = q('#tk-question-host');
+                if (!host) return;
+
+                let card = q('#tk-question-card');
+                if (!card) {
+                  card = document.createElement('div');
+                  card.id = 'tk-question-card';
+                  card.className = 'question-card';
+                  host.appendChild(card);
+                }
+
+                let rail = q('#tk-score-rail');
+                if (!rail) {
+                  rail = document.createElement('aside');
+                  rail.id = 'tk-score-rail';
+                  rail.className = 'score-rail';
+                  host.appendChild(rail);
+                }
+
+                card.classList.remove('sr-only', 'is-hidden');
+                rail.classList.remove('sr-only', 'is-hidden');
+
+                const total = items.length || 1;
+                const progress = q('#tk-progress');
+                if (progress) {
+                  progress.textContent = '0%';
+                  progress.setAttribute('aria-valuenow', '0');
+                }
+
+                card.innerHTML = `
+        <div class="tk-question-title"><strong>${categoryTitle}</strong> — ${label}</div>
+        <div class="tk-scale" id="tk-scale">
+          ${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" data-val="${n}">${n}</button>`).join('')}
+        </div>
+        <div style="margin-top:8px;font-size:.9rem;">Question 1 of ${total}</div>
+      `.trim();
+
+                const scale = q('#tk-scale');
+                if (scale && !scale.dataset.wired) {
+                  scale.dataset.wired = '1';
+                  scale.addEventListener('click', (event) => {
+                    const button = event.target?.closest('button');
+                    if (!button) return;
+                    scale.querySelectorAll('button').forEach((el) => {
+                      el.classList.toggle('is-active', el === button);
+                    });
+                  });
+                }
+              } catch (err) {
+                console.error('[TK] force render failed:', err);
+              }
+            }
+
+            function normalizeCatalog(raw) {
+              const entries = [];
+
+              if (Array.isArray(raw?.categories)) {
+                raw.categories.forEach((cat) => {
+                  const name = tidyName(cat?.name || cat?.title || cat?.category);
+                  if (!name) return;
+                  entries.push({ name, items: Array.isArray(cat.items) ? cat.items : [] });
+                });
+              } else if (Array.isArray(raw)) {
+                raw.forEach((cat) => {
+                  if (typeof cat === 'string') {
+                    const name = tidyName(cat);
+                    if (!name) return;
+                    entries.push({ name, items: [] });
+                  } else if (cat && typeof cat === 'object') {
+                    const name = tidyName(cat.name || cat.title || cat.category);
+                    if (!name) return;
+                    entries.push({ name, items: Array.isArray(cat.items) ? cat.items : [] });
+                  }
+                });
+              } else if (raw && typeof raw === 'object') {
+                Object.entries(raw).forEach(([key, value]) => {
+                  if (key === 'labels') return;
+                  if (Array.isArray(value)) {
+                    const name = tidyName(key);
+                    if (!name) return;
+                    entries.push({ name, items: value });
+                  }
+                });
+              }
+
+              return entries;
+
+              function tidyName(name) {
+                return typeof name === 'string' ? name.trim() : '';
+              }
+            }
+
+            window.TK_FORCE = tkForceRender;
+          })();
+        </script>
+
         <section id="questionArea">
           <div id="roleTabs" role="tablist" aria-label="Roles">
             <button role="tab" data-role="Giving" aria-selected="true">Giving</button>
