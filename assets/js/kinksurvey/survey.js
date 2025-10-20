@@ -8,10 +8,14 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
 
 (() => {
   const DATA_URL = '/data/kinks.json';
+  const STORAGE_KEY = '__TK_SELECTED_CATEGORIES';
   const $ = (s, r=document)=>r.querySelector(s);
   const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
 
+  window.__TK_SCORE_RAIL_READY__ = false;
+
   let data=null, role='Giving', idx=0, flat=[];
+  let storedSelection = new Set();
   const scores = {A:{}};
 
   const SCORE_GUIDE = Object.freeze([
@@ -391,14 +395,106 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
     mo.observe(area, { childList: true });
   })();
 
-  fetch(DATA_URL).then(r=>r.json()).then(json=>{
+  async function loadData(){
+    const url = `${DATA_URL}?v=${Date.now()}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(`Failed to load ${url}: ${res.status}`);
+    }
+    const json = await res.json();
     data = normalize(json);
-    buildCategoryPanel();
+  }
+
+  function restoreSelection(){
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      if (Array.isArray(raw)) {
+        storedSelection = new Set(
+          raw
+            .map((value) => (typeof value === 'string' ? value : ''))
+            .filter(Boolean)
+        );
+      } else {
+        storedSelection = new Set();
+      }
+    } catch {
+      storedSelection = new Set();
+    }
+  }
+
+  function persistSelection(){
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...storedSelection]));
+    } catch (err) {
+      console.warn('[TK] Failed to persist category selection', err);
+    }
+  }
+
+  function ensureAtLeastOneCategory(){
+    const checkboxes = $$('#categoryChecklist input[type="checkbox"]');
+    if (!checkboxes.length) return;
+    const hasChecked = checkboxes.some((cb) => cb.checked);
+    if (!hasChecked) {
+      checkboxes[0].checked = true;
+    }
+    storedSelection = new Set(selectedIds());
+    persistSelection();
+  }
+
+  function pruneStoredSelection(validIds){
+    if (!(validIds instanceof Set)) return;
+    storedSelection = new Set([...storedSelection].filter((id) => validIds.has(id)));
+  }
+
+  function pruneScores(){
+    const valid = new Set(flat.map((item) => item.id));
+    Object.keys(scores.A).forEach((key) => {
+      if (!valid.has(key)) {
+        delete scores.A[key];
+      }
+    });
+  }
+
+  function handleCategoryChange(){
+    if (!data) return;
+    storedSelection = new Set(selectedIds());
+    persistSelection();
     updateStartEnabled();
+    rebuildQuestionList();
+    pruneScores();
+    idx = 0;
+    paint();
     progress();
     updatePanelShadows();
-    paint();
-  });
+    emitSelection();
+  }
+
+  function unhideSurveyChrome(){
+    document
+      .querySelectorAll('.question-card.is-hidden, .score-rail.is-hidden')
+      .forEach((el) => el.classList.remove('is-hidden'));
+  }
+
+  async function initSurvey(){
+    try {
+      await loadData();
+      restoreSelection();
+      buildCategoryPanel();
+      ensureAtLeastOneCategory();
+      handleCategoryChange();
+    } catch (err) {
+      console.error('[TK] Failed to initialize survey', err);
+    } finally {
+      window.__TK_SCORE_RAIL_READY__ = true;
+      unhideSurveyChrome();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSurvey, { once: true });
+  } else {
+    initSurvey();
+  }
 
   function normalize(json){
     const c = structuredClone(json);
@@ -421,26 +517,28 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
 
   function buildCategoryPanel(){
     const host = $('#categoryChecklist');
-    if(!host) return;
-    const prev = new Set(selectedIds());
+    if(!host || !data?.categories) return;
+    const prev = storedSelection.size ? new Set(storedSelection) : new Set(selectedIds());
+    const validIds = new Set();
     host.innerHTML='';
     const frag = document.createDocumentFragment();
     for(const cat of data.categories){
       const catId = makeCategoryId(cat.name);
+      validIds.add(catId);
       const li = document.createElement('li'); li.className = 'tk-catrow';
       const label = document.createElement('label'); label.className = 'tk-cat';
       const input = Object.assign(document.createElement('input'), { type:'checkbox', value:catId, id:`cat-${catId}` });
       input.checked = prev.has(catId);
-      input.addEventListener('change', () => {
-        updateStartEnabled();
-        emitSelection();
-      });
+      input.addEventListener('change', handleCategoryChange);
       const span = document.createElement('span'); span.className = 'tk-catname'; span.textContent = cat.name;
       label.append(input, span);
       li.appendChild(label);
       frag.appendChild(li);
     }
     host.appendChild(frag);
+    pruneStoredSelection(validIds);
+    storedSelection = new Set(selectedIds());
+    persistSelection();
     updateSelectedCount();
     emitSelection();
   }
@@ -488,6 +586,7 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
 
   function rebuildQuestionList(){
     flat = [];
+    if (!data?.categories) return;
     const wanted = new Set(selectedIds());
     for(const cat of data.categories){
       const catId = makeCategoryId(cat.name);
