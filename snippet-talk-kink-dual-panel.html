@@ -1,27 +1,23 @@
 <!-- ================== TALK KINK — DUAL PANEL QUESTION CARD + COLORFUL SCALE ================== -->
 <script>
-/* ======================= JS — create right panel + sync ======================= */
+/* ======================= TK DUAL PANEL (fixed host + grid + sync) ======================= */
 (function TKDualPanel(){
-  const $ = (s, r=document) => r.querySelector(s);
-
-/* ======================= TK DUAL PANEL (question left + colorful rating right) ======================= */
-(function TKDualPanel(){
-  const $ = (s, r=document) => r.querySelector(s);
 
   // ---------- 1) inject minimal CSS (once) ----------
   const CSS = `
   /* ======================= CSS — layout + skins ======================= */
 
-  /* Host: two-column layout (question left, colorful rating right) */
-  #tk-question-host{ contain: layout style; }
-  #tk-question-host.tk-dual{
+  /* Host: two-column layout (question left, colorful rating right).
+     Works on ANY element with .tk-dual (body, #surveyApp, custom wrapper, etc.) */
+  .tk-dual{
     display:grid;
     grid-template-columns:minmax(520px,1fr) 360px;
     gap:24px;
     align-items:start;
+    overflow-x:visible; /* kill stray inner scrollbars */
   }
   @media (max-width:1100px){
-    #tk-question-host.tk-dual{ grid-template-columns:1fr; }
+    .tk-dual{ grid-template-columns:1fr; }
   }
 
   /* Shared panel look (matches your sidebar “blue glow”) */
@@ -40,7 +36,7 @@
   #tk-question-card{
     display:block !important;
     padding:18px 20px 16px;
-    overflow:visible;
+    overflow:visible;              /* no inner scrollbars */
     max-width: 820px;
   }
   #tk-question-card *{
@@ -108,18 +104,38 @@
     document.head.appendChild(style);
   }
 
-  // ---------- 2) ensure containers exist ----------
+  // ---------- 2) find a sensible host and ensure both panels exist ----------
+  function findHost(){
+    return (
+      document.querySelector('#tk-question-host') ||
+      document.querySelector('#surveyApp') ||
+      document.querySelector('#questionArea')?.parentElement ||
+      document.body
+    );
+  }
+
   function ensureHostAndPanels(){
-    const host = $('#tk-question-host') || document.body;
+    let host = findHost();
+    // if host is BODY and question card lives somewhere else, wrap it so grid works
+    const existingCard = document.querySelector('#tk-question-card') ||
+                         document.querySelector('.survey-question-panel .question-card');
+    if (host === document.body && existingCard && existingCard.parentElement !== document.body){
+      const wrapper = document.createElement('div');
+      wrapper.id = 'tk-question-host';
+      existingCard.parentElement.insertBefore(wrapper, existingCard);
+      wrapper.appendChild(existingCard);
+      host = wrapper;
+    }
+
     host.classList.add('tk-dual');
 
-    if (!$('#tk-question-card')){
+    if (!document.querySelector('#tk-question-card')){
       const left = document.createElement('div');
       left.id = 'tk-question-card';
       left.className = 'tk-pane';
       host.prepend(left);
     }
-    if (!$('#tk-rating-card')){
+    if (!document.querySelector('#tk-rating-card')){
       const right = document.createElement('aside');
       right.id = 'tk-rating-card';
       right.className = 'tk-pane';
@@ -130,7 +146,7 @@
 
   // ---------- 3) render colorful rating panel ----------
   function renderRightPanel(){
-    const card = $('#tk-rating-card');
+    const card = document.querySelector('#tk-rating-card');
     if (!card) return;
     card.innerHTML = `
       <div class="tk-h">Rate this</div>
@@ -150,7 +166,7 @@
         `).join('')}
       </div>
     `;
-    const grid = $('#tk-color-scale');
+    const grid = document.querySelector('#tk-color-scale');
     grid.addEventListener('click', (e) => {
       const btn = e.target.closest('.tk-chip'); if (!btn) return;
       setRightActive(btn.dataset.val);
@@ -160,7 +176,7 @@
 
   // ---------- 4) ensure left card has a visible question & mono scale ----------
   function skinLeftCard(){
-    const left = $('#tk-question-card');
+    const left = document.querySelector('#tk-question-card');
     if (!left) return;
 
     // If your renderer didn’t build a row yet, add a simple 0–5 row
@@ -190,14 +206,14 @@
 
   // ---------- 5) sync helpers ----------
   function setLeftActive(val){
-    const row = $('#tk-question-card .tk-scale');
+    const row = document.querySelector('#tk-question-card .tk-scale');
     if (!row) return;
     row.querySelectorAll('button').forEach(b=>{
       b.classList.toggle('is-active', b.dataset.val === String(val));
     });
   }
   function setRightActive(val){
-    const grid = $('#tk-color-scale');
+    const grid = document.querySelector('#tk-color-scale');
     if (!grid) return;
     grid.querySelectorAll('.tk-chip').forEach(b=>{
       const on = b.dataset.val === String(val);
@@ -207,114 +223,6 @@
   }
 
   // ---------- 6) public hook: call after YOUR question renders ----------
-  window.TK_DUAL_REFRESH = function(){
-    ensureHostAndPanels();
-    skinLeftCard();
-    renderRightPanel();
-  };
-
-  // run once on load
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', window.TK_DUAL_REFRESH, { once:true });
-  } else {
-    window.TK_DUAL_REFRESH();
-  }
-})();
-
-    const host = $('#tk-question-host') || document.body;
-    host.classList.add('tk-dual');
-
-    if (!$('#tk-question-card')){
-      const left = document.createElement('div');
-      left.id = 'tk-question-card';
-      left.className = 'tk-pane';
-      host.prepend(left);
-    }
-    if (!$('#tk-rating-card')){
-      const right = document.createElement('aside');
-      right.id = 'tk-rating-card';
-      right.className = 'tk-pane';
-      right.setAttribute('aria-label','Rating panel');
-      host.appendChild(right);
-    }
-  }
-
-  function renderRightPanel(){
-    const card = $('#tk-rating-card');
-    if (!card) return;
-    card.innerHTML = `
-      <div class="tk-h">Rate this</div>
-      <div class="tk-scale-grid" id="tk-color-scale">
-        ${[
-          {n:0,t1:'No',t2:'Not for me', cls:'g0'},
-          {n:1,t1:'Hard Limit',t2:'Full stop', cls:'g1'},
-          {n:2,t1:'Maybe',t2:'Context matters', cls:'g2'},
-          {n:3,t1:'Curious',t2:'Would try', cls:'g3'},
-          {n:4,t1:'Enjoy',t2:'Like it', cls:'g4'},
-          {n:5,t1:'Love',t2:'Big yes', cls:'g5'},
-        ].map(x => `
-          <button type="button" class="tk-chip ${x.cls}" data-val="${x.n}" aria-pressed="false">
-            <span class="dot">${x.n}</span>
-            <div><div class="t1">${x.t1}</div><div class="t2">${x.t2}</div></div>
-          </button>
-        `).join('')}
-      </div>
-    `;
-    const grid = $('#tk-color-scale');
-    grid.addEventListener('click', (e) => {
-      const btn = e.target.closest('.tk-chip'); if (!btn) return;
-      setRightActive(btn.dataset.val);
-      setLeftActive(btn.dataset.val);
-    });
-  }
-
-  function skinLeftCard(){
-    const left = $('#tk-question-card');
-    if (!left) return;
-
-    // if your renderer didn't build a row, add a simple 0–5 row
-    if (!left.querySelector('.tk-scale')) {
-      const title = left.querySelector('.tk-question-title')?.textContent || 'Question';
-      const sub   = left.querySelector('.tk-sub')?.textContent || '';
-      left.innerHTML = `
-        <div class="tk-question-title">${title}</div>
-        ${sub ? `<div class="tk-sub">${sub}</div>` : ''}
-        <div class="tk-scale" id="tk-mono-scale">
-          ${[0,1,2,3,4,5].map(n=>`<button type="button" data-val="${n}">${n}</button>`).join('')}
-        </div>
-        <div class="tk-meta" id="tk-qmeta"></div>
-      `;
-    }
-
-    const row = left.querySelector('#tk-mono-scale') || left.querySelector('.tk-scale');
-    if (row && !row.dataset.wired){
-      row.dataset.wired = '1';
-      row.addEventListener('click', (e) => {
-        const b = e.target.closest('button'); if (!b) return;
-        setLeftActive(b.dataset.val);
-        setRightActive(b.dataset.val);
-      });
-    }
-  }
-
-  function setLeftActive(val){
-    const row = $('#tk-question-card .tk-scale');
-    if (!row) return;
-    row.querySelectorAll('button').forEach(b=>{
-      b.classList.toggle('is-active', b.dataset.val === String(val));
-    });
-  }
-  function setRightActive(val){
-    const grid = $('#tk-color-scale');
-    if (!grid) return;
-    grid.querySelectorAll('.tk-chip').forEach(b=>{
-      const on = b.dataset.val === String(val);
-      b.classList.toggle('is-active', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    });
-  }
-
-  // Public hook: call after YOUR app renders each question
   window.TK_DUAL_REFRESH = function(){
     ensureHostAndPanels();
     skinLeftCard();
