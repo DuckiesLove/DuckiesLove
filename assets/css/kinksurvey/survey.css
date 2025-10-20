@@ -135,6 +135,11 @@ h2,h3,#progressPct,.theme-btn.is-active,
   opacity:.35;
 }
 .score-sidebar>*{position:relative;z-index:1}
+
+/* ===== Right card = sidebar style ===== */
+#tk-question-card .tk-progress,
+#tk-question-card #tk-progress{display:none !important;}
+
 .tk-pane,
 #tk-question-card,
 #questionCard,
@@ -160,9 +165,9 @@ h2,h3,#progressPct,.theme-btn.is-active,
 }
 
 #tk-question-card .tk-question-title{
-  font-weight: 600;
-  font-size: 1.05rem;
-  margin: 6px 0 10px;
+  font-weight: 700;
+  font-size: 1.12rem;
+  margin: 6px 0 4px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -172,6 +177,12 @@ h2,h3,#progressPct,.theme-btn.is-active,
 #tk-question-card .tk-question-title small{
   color: var(--tk-text-subtle);
   font-weight: 500;
+}
+
+#tk-question-card .tk-sub{
+  color: var(--tk-text-subtle);
+  font-weight: 500;
+  margin-bottom: 10px;
 }
 
 .survey-question-panel .question-card .q-head,
@@ -242,18 +253,20 @@ h2,h3,#progressPct,.theme-btn.is-active,
 }
 
 #tk-question-card .tk-scale{
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(44px, 1fr));
   gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
-  margin: 8px 0 6px;
+  justify-items: center;
+  margin: 8px 0 10px;
 }
 
 #tk-question-card .tk-scale button{
   appearance: none;
   background: transparent;
-  color: var(--fg);
+  color: #fff;
   padding: 8px 14px;
+  min-width: 44px;
   border-radius: 12px;
   border: 1px solid rgba(var(--tk-glow-rgb), .25);
   box-shadow:
