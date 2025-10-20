@@ -7,25 +7,68 @@
   const CSS = `
   /* ======================= CSS — layout + skins ======================= */
 
-  /* =================== FIX: no middle scrollbar + proper side scroll =================== */
-  /* Nuke ANY horizontal overflow from the question area, regardless of which wrapper renders it */
-  .survey-question-panel,
-  .survey-question-panel .question-card,
-  .survey-question-panel .question-card > *,
-  #questionArea,
-  #tk-question-card,
-  #tk-question-card * {
+  /* ===================== FINAL PATCH: no middle scrollbar + right-panel scroll ===================== */
+
+  /* 1) Absolutely prevent horizontal overflow anywhere in the question area tree */
+  :where(#tk-question-host,
+         #surveyApp,
+         #questionArea,
+         .question-layout,
+         .survey-question-panel,
+         .survey-question-panel > *,
+         .question-panel,
+         .question-card,
+         #tk-question-card){
+    box-sizing: border-box !important;
     max-width: 100% !important;
-    width: 100% !important;             /* stay within the column */
-    overflow-x: hidden !important;       /* no horizontal bars anywhere */
-    white-space: normal !important;      /* prevent one-word-per-line */
+    width: 100% !important;
+    overflow-x: clip !important;     /* newer, more reliable than hidden for killing the bar */
+  }
+
+  /* Some engines still render a horizontal bar if any child overflows: clamp their width too */
+  :where(#tk-question-card, #tk-question-card *){
+    max-width: 100% !important;
+    white-space: normal !important;
     word-break: normal !important;
     overflow-wrap: anywhere;
   }
 
-  /* If any legacy card adds a scroll container, neutralize it */
+  /* Make the left question card behave like a normal block (no inner scrollbars) */
+  #tk-question-card{
+    display: block !important;
+    padding: 18px 20px 16px;
+    overflow-y: visible !important;  /* no vertical scroll inside */
+    max-height: none !important;
+    border-radius: 18px;             /* keep your nice rounded card */
+  }
+
+  /* If any legacy wrapper added scrolling, neutralize its horizontal track */
   .survey-question-panel .question-card::-webkit-scrollbar { height: 0 !important; }
   .survey-question-panel .question-card { scrollbar-width: none !important; }
+
+  /* Allow the 0–5 row to wrap instead of forcing horizontal overflow */
+  #tk-question-card .tk-scale{
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  /* 2) Right rating panel: its own vertical scrollbar only */
+  #tk-rating-card{
+    position: sticky;
+    top: 96px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain;
+  }
+
+  /* Optional: nicer scrollbar for the right panel */
+  #tk-rating-card::-webkit-scrollbar{ width: 10px; }
+  #tk-rating-card::-webkit-scrollbar-thumb{
+    background: rgba(255,255,255,.22);
+    border-radius: 8px;
+  }
+  #tk-rating-card{ scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent; }
 
   /* Host: two-column layout (question left, colorful rating right).
      Works on ANY element with .tk-dual (body, #surveyApp, custom wrapper, etc.) */
@@ -54,12 +97,8 @@
 
   /* ---------------- Question card (LEFT) ---------------- */
   #tk-question-card{
-    display:block !important;
-    padding:18px 20px 16px;
     box-sizing:border-box;
     overflow-x:hidden !important;
-    overflow-y:visible !important; /* no inner vertical scrollbars */
-    max-height:none !important;
   }
   #tk-question-card .tk-question-title{ font-weight:700; font-size:1.12rem; margin:6px 0 4px; }
   #tk-question-card .tk-sub{ color: var(--tk-text-subtle, rgba(255,255,255,.72)); margin-bottom:10px; }
@@ -90,19 +129,6 @@
   /* ---------------- Colorful rating panel (RIGHT) ---------------- */
   #tk-rating-card{
     padding:16px;
-    position:sticky;
-    top:96px;
-    max-height:calc(100vh - 120px);
-    overflow-y:auto !important;
-    overflow-x:hidden !important;
-    overscroll-behavior:contain;
-    scrollbar-width:thin;
-    scrollbar-color:rgba(255,255,255,.22) transparent;
-  }
-  #tk-rating-card::-webkit-scrollbar{ width:10px; }
-  #tk-rating-card::-webkit-scrollbar-thumb{
-    background: rgba(255,255,255,.22);
-    border-radius: 8px;
   }
   #tk-rating-card .tk-h{ font-weight:800; text-transform:uppercase; letter-spacing:.35px; font-size:.78rem; opacity:.85; margin:2px 0 8px; }
   #tk-rating-card .tk-scale-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
