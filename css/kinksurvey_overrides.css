@@ -198,15 +198,22 @@ body.tk-drawer-open #tkCategoryDrawer{transform:translateX(0)}
 .tk-fullscreen #tkToolbar{display:none !important}
 .tk-body-lock{overflow:hidden}
 
-/* Keep sidebar copy visible if it carries .how-to-score */
-[data-sticky="score"] .how-to-score { display: block; }
-
+/* Hide stray "How to score" blocks outside the score dock */
+.how-to-score{display:none !important;}
+[data-sticky="score"] .how-to-score,
+.score-sidebar .how-to-score,
+.tk-score-aside .how-to-score,
+#scoreSidebar .how-to-score,
+#tkScoreDock .how-to-score{display:block !important;}
 .main-panel .how-to-score,
 .survey-panel .how-to-score,
 #question-panel .how-to-score,
-.how-to-score.how-to-score--inline {
-  display: none !important;
-}
+#tk-question-card .how-to-score,
+.survey-question-panel .question-card .how-to-score,
+#questionArea .how-to-score,
+.how-to-score.how-to-score--inline{display:none !important;}
+.survey-question-panel .how-to-score + .label,
+#tk-question-card .how-to-score + .label{margin-top:.75rem;}
 
 .tk-original-panel-hidden{display:none !important}
 
