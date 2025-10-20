@@ -7,9 +7,9 @@
   const CSS = `
   /* ======================= CSS — layout + skins ======================= */
 
-  /* ===================== FINAL PATCH: no middle scrollbar + right-panel scroll ===================== */
+  /* ===================== FINAL: no middle X-scroll + left normal + right Y-scroll ===================== */
 
-  /* 1) Absolutely prevent horizontal overflow anywhere in the question area tree */
+  /* 1) Kill horizontal overflow anywhere in/around the question card */
   :where(#tk-question-host,
          #surveyApp,
          #questionArea,
@@ -22,10 +22,11 @@
     box-sizing: border-box !important;
     max-width: 100% !important;
     width: 100% !important;
-    overflow-x: clip !important;     /* newer, more reliable than hidden for killing the bar */
+    min-width: 0 !important;         /* prevent flex/grid children from forcing overflow */
+    overflow-x: clip !important;      /* stronger than hidden for killing the bar */
   }
 
-  /* Some engines still render a horizontal bar if any child overflows: clamp their width too */
+  /* Prevent child content from creating X-overflow */
   :where(#tk-question-card, #tk-question-card *){
     max-width: 100% !important;
     white-space: normal !important;
@@ -33,26 +34,28 @@
     overflow-wrap: anywhere;
   }
 
-  /* Make the left question card behave like a normal block (no inner scrollbars) */
+  /* Normalize images/tables just in case */
+  #tk-question-card img,
+  #tk-question-card svg,
+  #tk-question-card table { max-width: 100%; height: auto; }
+
+  /* 2) Left (question) card: never scroll inside */
   #tk-question-card{
     display: block !important;
     padding: 18px 20px 16px;
-    overflow-y: visible !important;  /* no vertical scroll inside */
+    overflow-y: visible !important;
     max-height: none !important;
-    border-radius: 18px;             /* keep your nice rounded card */
+    border-radius: 18px;
   }
 
-  /* If any legacy wrapper added scrolling, neutralize its horizontal track */
+  /* Legacy wrappers that add a horizontal track — hide it completely */
   .survey-question-panel .question-card::-webkit-scrollbar { height: 0 !important; }
   .survey-question-panel .question-card { scrollbar-width: none !important; }
 
-  /* Allow the 0–5 row to wrap instead of forcing horizontal overflow */
-  #tk-question-card .tk-scale{
-    min-width: 0;
-    flex-wrap: wrap;
-  }
+  /* Let the 0–5 row wrap instead of causing overflow */
+  #tk-question-card .tk-scale{ flex-wrap: wrap; min-width: 0; }
 
-  /* 2) Right rating panel: its own vertical scrollbar only */
+  /* 3) Right (rating) panel: only vertical scroll */
   #tk-rating-card{
     position: sticky;
     top: 96px;
@@ -64,10 +67,7 @@
 
   /* Optional: nicer scrollbar for the right panel */
   #tk-rating-card::-webkit-scrollbar{ width: 10px; }
-  #tk-rating-card::-webkit-scrollbar-thumb{
-    background: rgba(255,255,255,.22);
-    border-radius: 8px;
-  }
+  #tk-rating-card::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.22); border-radius: 8px; }
   #tk-rating-card{ scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent; }
 
   /* Host: two-column layout (question left, colorful rating right).
