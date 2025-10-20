@@ -240,8 +240,85 @@
     if (bottom) bottom.remove();
   }
 
+  async function initSurvey() {
+    await ensureKinksLoaded();
+
+    const builder =
+      typeof window !== 'undefined' && typeof window.buildCategoryList === 'function'
+        ? window.buildCategoryList
+        : typeof buildCategoryList === 'function'
+        ? buildCategoryList
+        : null;
+    if (typeof builder === 'function') {
+      const data =
+        (typeof globalThis !== 'undefined' && globalThis.KINKS) ||
+        (typeof window !== 'undefined' && window.KINKS) ||
+        {};
+      builder(data);
+    }
+
+    unhideQuestionChrome();
+    autoSelectFirstCategory();
+
+    if (typeof renderFirstQuestion === 'function') {
+      renderFirstQuestion();
+    }
+    if (typeof startSurvey === 'function') {
+      startSurvey();
+    }
+  }
+
+  async function ensureKinksLoaded() {
+    const existing =
+      (typeof globalThis !== 'undefined' && globalThis.KINKS) ||
+      (typeof window !== 'undefined' && window.KINKS);
+    if (existing && Object.keys(existing).length) return;
+
+    try {
+      const res = await fetch(`/data/kinks.json?v=${Date.now()}`);
+      if (!res.ok) throw new Error(`Failed to fetch kinks.json: ${res.status}`);
+      const data = await res.json();
+      if (typeof globalThis !== 'undefined') {
+        globalThis.KINKS = data;
+      } else if (typeof window !== 'undefined') {
+        window.KINKS = data;
+      }
+    } catch (err) {
+      console.error('[survey.js] Failed to load kinks.json', err);
+    }
+  }
+
+  function unhideQuestionChrome() {
+    const targets = [
+      document.querySelector('#tk-question-card'),
+      document.querySelector('#tk-score-rail'),
+    ];
+    targets.forEach((el) => {
+      if (!el) return;
+      el.classList.remove('sr-only', 'is-hidden');
+      el.style.visibility = 'visible';
+      el.style.opacity = '1';
+    });
+  }
+
+  function autoSelectFirstCategory() {
+    const checks = Array.from(document.querySelectorAll('.tk-cat-input'));
+    if (!checks.length) return;
+    const alreadyChecked = checks.some((input) => input.checked);
+    if (alreadyChecked) return;
+
+    const first = checks[0];
+    first.checked = true;
+    first.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   // 6) Init once DOM is ready
-  const boot = once(() => {
+  const boot = once(async () => {
+    try {
+      await initSurvey();
+    } catch (err) {
+      console.error('[survey.js] initSurvey failed', err);
+    }
     removeBottomCardIfAny();
     renderQuestionCard();
   });
