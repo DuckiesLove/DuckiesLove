@@ -1,0 +1,112 @@
+<!-- TalkKink Survey Bootstrap for custom hooks -->
+<script>
+/* ===== TK Bootstrap for custom hooks =====
+   Hooks expected:
+   - buildCategoryList(kinks)
+   - startSurvey()
+   - renderFirstQuestion()
+*/
+(() => {
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initTK();
+  });
+
+  async function initTK() {
+    // 1) Load data
+    const kinks = await getKinks();
+    // 2) Give you the data to build the pool/categories
+    if (typeof window.buildCategoryList === 'function') {
+      try { window.buildCategoryList(kinks); } catch(e){ console.error('[TK] buildCategoryList error', e); }
+    }
+    // 3) Ensure containers exist and are visible
+    ensureQuestionContainers();
+    unhideQuestionChrome();
+
+    // 4) Wire Start button (id or data attr)
+    const startBtn = $('#startSurvey') || $('[data-tk-start]');
+    startBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      runStart();
+    });
+
+    // If you want to auto-start when at least one category is pre-checked, uncomment:
+    // if ($('.tk-cat-input:checked')) runStart();
+  }
+
+  async function runStart() {
+    // Your start flow first if present
+    if (typeof window.startSurvey === 'function') {
+      try { window.startSurvey(); } catch(e){ console.error('[TK] startSurvey error', e); }
+    }
+    // Then your first-question renderer if present
+    if (typeof window.renderFirstQuestion === 'function') {
+      try { window.renderFirstQuestion(); return; } catch(e){ console.error('[TK] renderFirstQuestion error', e); }
+    }
+    // Fallback visible card so the UI never looks blank
+    fallbackRender();
+  }
+
+  async function getKinks() {
+    if (window.KINKS && Object.keys(window.KINKS).length) return window.KINKS;
+    const res = await fetch(`/data/kinks.json?v=${Date.now()}`);
+    const data = await res.json();
+    window.KINKS = data;
+    return data;
+  }
+
+  function ensureQuestionContainers() {
+    const host = $('#tk-question-host') || document.body;
+    if (!$('#tk-question-card')) {
+      const div = document.createElement('div');
+      div.id = 'tk-question-card';
+      div.className = 'question-card';
+      host.appendChild(div);
+    }
+    if (!$('#tk-score-rail')) {
+      const aside = document.createElement('aside');
+      aside.id = 'tk-score-rail';
+      aside.className = 'score-rail';
+      host.appendChild(aside);
+    }
+  }
+
+  function unhideQuestionChrome() {
+    ['#tk-question-card', '#tk-score-rail'].forEach(sel => {
+      const el = $(sel);
+      if (!el) return;
+      el.classList.remove('sr-only','is-hidden');
+      el.style.visibility = 'visible';
+      el.style.opacity = '1';
+    });
+  }
+
+  // --- Minimal fallback renderer (only if your hooks aren’t present) ---
+  function fallbackRender() {
+    const kinks = window.KINKS || {};
+    const selected = $$('.tk-cat-input:checked').map(x => x.dataset.cat);
+    const cats = selected.length ? selected : Object.keys(kinks);
+    const cat = cats[0];
+    const items = Array.isArray(kinks[cat]) ? kinks[cat] : [];
+    const first = items[0] ?? 'First item';
+    const label = typeof first === 'string' ? first : (first?.label || first?.name || JSON.stringify(first));
+    const card = $('#tk-question-card');
+    const total = Math.max(items.length, 1);
+    $('#tk-progress')?.replaceChildren(document.createTextNode('0%'));
+    card.innerHTML = `
+      <div class="tk-question-title"><strong>${cat ?? 'Category'}</strong> — ${label}</div>
+      <div class="tk-scale" id="tk-scale">
+        ${[0,1,2,3,4,5].map(n => `<button type="button" data-val="${n}">${n}</button>`).join('')}
+      </div>
+      <div style="margin-top:8px;font-size:.9rem;">Question 1 of ${total}</div>
+    `;
+    const scale = $('#tk-scale');
+    scale?.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      scale.querySelectorAll('button').forEach(x => x.classList.toggle('is-active', x===b));
+    });
+  }
+})();
+</script>
