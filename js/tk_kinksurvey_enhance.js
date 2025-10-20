@@ -1,59 +1,85 @@
-/* tk_kinksurvey_enhance.js — dock-layout bootstrap */
+/* ---------------------------------------------------------------------------
+   Dock layout bootstrap for /kinksurvey
+   - Runs setupDockedSurveyLayout() after DOM is ready (and BFCache restore)
+   - Ensures ensureDockLayoutNodes(), mountDockPanel(), mountDockActions() run
+   - Skips dock on compatibility view and calls teardownDockLayout({compatibility:true})
+   - Re-applies expected button rail classes from css/style.css if missing
+--------------------------------------------------------------------------- */
 
 (function () {
-  // --- guards --------------------------------------------------------------
-  const isCompatView = () =>
-    document.documentElement.hasAttribute('data-compatibility') ||
-    /[?&]compat(=1|=true)?\b/i.test(location.search) ||
-    document.body.classList.contains('is-compatibility') ||
-    !!document.querySelector('[data-page="compatibility"]');
+  const D = (...a) => (window.TK_DEBUG ? console.debug('[dock]', ...a) : void 0);
 
   const isKinkSurvey = () =>
     /\/kinksurvey\/?$/i.test(location.pathname) ||
     document.body.id === 'kinksurvey' ||
     document.documentElement.getAttribute('data-page') === 'kinksurvey';
 
-  // Use a single re-entrancy flag so we don’t double-dock after BFCache, PJAX, etc.
+  const isCompatView = () =>
+    document.documentElement.hasAttribute('data-compatibility') ||
+    document.body.classList.contains('is-compatibility') ||
+    !!document.querySelector('[data-page="compatibility"]') ||
+    /[?&](compat|compare|compatibility)(=1|=true)?\b/i.test(location.search);
+
   let DID_DOCK = false;
 
-  // --- util: strip inline styles that fight the layout ---------------------
-  function stripInlineStyles(root, selectors) {
-    if (!root) return;
-    selectors.forEach(sel => {
-      root.querySelectorAll(sel).forEach(node => node.removeAttribute('style'));
+  function stripInlineStyles(selList) {
+    selList.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => el.removeAttribute('style'));
     });
   }
 
-  // --- CSS class sanity: make sure the rail/actions still use expected hooks
   function ensureButtonRailClasses() {
-    // These classes are referenced in css/style.css and must exist
-    const rail = document.querySelector('.button-grid, .compatibility-button-container, [data-role="button-rail"]');
+    // These hooks are what css/style.css expects
+    const rail =
+      document.querySelector('.button-grid') ||
+      document.querySelector('.compatibility-button-container') ||
+      document.querySelector('[data-role="button-rail"]');
+
     if (!rail) return;
-    // If the markup lost our hooks, re-apply the primary one the CSS expects.
+
     if (!rail.classList.contains('button-grid') &&
         !rail.classList.contains('compatibility-button-container')) {
-      rail.classList.add('button-grid');
+      rail.classList.add('button-grid'); // default hook
+      D('added .button-grid to rail');
     }
-    // Individual buttons
-    rail.querySelectorAll('button,a').forEach(btn => {
+
+    rail.querySelectorAll('button, a').forEach(btn => {
       if (!btn.classList.contains('compatibility-button')) {
         btn.classList.add('compatibility-button');
       }
     });
   }
 
-  // --- main bootstrap for the docked survey layout -------------------------
-  function runDockBootstrap() {
+  // Wait until required nodes exist, then resolve
+  function waitForNodes(selectors, { timeout = 4000 } = {}) {
+    const need = () => selectors.every(s => document.querySelector(s));
+    if (need()) return Promise.resolve();
+
+    return new Promise(resolve => {
+      const obs = new MutationObserver(() => {
+        if (need()) { obs.disconnect(); resolve(); }
+      });
+      obs.observe(document.documentElement, { childList: true, subtree: true });
+      setTimeout(() => { obs.disconnect(); resolve(); }, timeout);
+    });
+  }
+
+  async function runDockBootstrap() {
     if (DID_DOCK) return;
 
-    // Ensure the dock containers exist (left/right scaffolding)
-    // NOTE: these are provided by your helpers; they also make containers if missing.
+    // Ensure key DOM exists (category rail, actions, question area)
+    await waitForNodes([
+      '#categoryPanel, [data-role="category-panel"]',
+      '#surveyActions, [data-role="survey-actions"]',
+      '#questionArea, .survey-question-panel'
+    ]);
+
+    // 1) create scaffolding containers if needed
     if (typeof ensureDockLayoutNodes === 'function') {
       ensureDockLayoutNodes();
     }
 
-    // Physically move the category rail into the left dock,
-    // and the action buttons into the right dock.
+    // 2) move left/right payloads into the dock
     if (typeof mountDockPanel === 'function') {
       mountDockPanel();
     }
@@ -61,39 +87,38 @@
       mountDockActions();
     }
 
-    // Strip any inline styles added by legacy renderers that break the dock.
-    stripInlineStyles(document, [
+    // 3) strip inline styles that fight the dock layout (legacy renderers)
+    stripInlineStyles([
       '#categoryPanel, [data-role="category-panel"]',
       '#surveyActions, [data-role="survey-actions"]',
       '#questionArea, .survey-question-panel, .question-card'
     ]);
 
-    // The full dock setup (your existing function) — leaves the layout “owned”
-    // by the dock containers and finalizes class names, listeners, etc.
+    // 4) finish configuring the dock (classes, listeners, etc.)
     if (typeof setupDockedSurveyLayout === 'function') {
       setupDockedSurveyLayout();
     }
 
-    // Make sure the button rail still maps to css/style.css rules.
+    // 5) make sure the rail/buttons match css/style.css expectations
     ensureButtonRailClasses();
 
     DID_DOCK = true;
     document.documentElement.setAttribute('data-docked', 'true');
+    D('docked layout initialized');
   }
 
-  // --- compatibility page: never dock; rely on compatibility.html styles ---
   function runCompatTeardown() {
-    // This intentionally removes dock scaffolding and centers via compat sheet.
     if (typeof teardownDockLayout === 'function') {
       teardownDockLayout({ compatibility: true });
+      D('compat teardown applied');
     }
     DID_DOCK = false;
     document.documentElement.removeAttribute('data-docked');
   }
 
-  // --- page router: decide what to run on ready/BFCache --------------------
   function router() {
     if (isCompatView()) {
+      // Do NOT reintroduce the dock here; rely on compatibility.html centering CSS
       runCompatTeardown();
       return;
     }
@@ -101,31 +126,27 @@
       runDockBootstrap();
       return;
     }
-    // Other pages: ensure we’re not leaving dock detritus around
-    if (typeof teardownDockLayout === 'function') {
-      teardownDockLayout();
-    }
+    // Other pages: remove dock if it was left around
+    if (typeof teardownDockLayout === 'function') teardownDockLayout();
     DID_DOCK = false;
+    document.documentElement.removeAttribute('data-docked');
   }
 
-  // --- ready hooks: DOMContentLoaded + BFCache restore ---------------------
-  function onReady() { router(); }
+  // Run on ready + BFCache restore
+  const onReady = () => router();
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', onReady, { once: true });
   } else {
     onReady();
   }
-  // BFCache / back-forward cache: pageshow with persisted = true
-  window.addEventListener('pageshow', (e) => {
-    if (e.persisted) router();
-  });
 
-  // Optional: micro observer to catch late-inserted markup that needs moving
+  // Back/forward cache restore
+  window.addEventListener('pageshow', (e) => { if (e.persisted) router(); });
+
+  // Safety net: if content is injected late, attempt once more
   const mo = new MutationObserver(() => {
-    // If we’re on survey and dock not complete (or containers re-appeared), retry the moves
-    if (isKinkSurvey() && !document.documentElement.hasAttribute('data-docked')) {
-      runDockBootstrap();
-    }
+    if (!DID_DOCK && isKinkSurvey()) runDockBootstrap();
   });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 })();
