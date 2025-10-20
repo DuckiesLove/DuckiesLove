@@ -134,7 +134,7 @@
       <a class="cta" href="https://talkkink.org/compatibility.html" aria-label="Compatibility Page">Compatibility Page</a>
     </nav>
 
-    <main id="surveyApp" class="survey-root is-prestart" aria-live="polite">
+    <main id="surveyApp" class="survey-root is-prestart" aria-live="polite" data-tk-ready="false">
       <aside id="categoryPanel" aria-label="Categories">
         <h2 class="tk-side-title">Categories</h2>
         <div class="tk-cat-count" aria-live="polite"><span id="tkCatSel">0</span> selected</div>
@@ -191,6 +191,15 @@
         </section>
       </aside>
     </main>
+    <script>
+      // reveal the chrome once survey.js marks readiness
+      const readyTick = setInterval(() => {
+        if (window.__TK_SCORE_RAIL_READY__ === true) {
+          document.getElementById('surveyApp')?.setAttribute('data-tk-ready', 'true');
+          clearInterval(readyTick);
+        }
+      }, 50);
+    </script>
     <section id="exportPayload" hidden aria-hidden="true">
       <table id="compatibilityTable"></table>
     </section>
