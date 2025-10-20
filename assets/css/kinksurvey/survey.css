@@ -6,7 +6,7 @@
   --bg:#111; --fg:#eef3f9; --panel:#0f0f11; --border:#222;
   --tk-surface: rgba(13,17,23,.82);
   --tk-edge: rgba(255,255,255,.10);
-  --tk-glow-rgb: 0 170 255; /* Blue Glow default; theme switcher can override */
+  --tk-glow-rgb: 0 170 255;        /* Blue Glow default */
   --tk-glow-soft: rgba(0,170,255,.10);
   --tk-text-subtle: rgba(255,255,255,.72);
 }
@@ -136,78 +136,144 @@ h2,h3,#progressPct,.theme-btn.is-active,
 }
 .score-sidebar>*{position:relative;z-index:1}
 
-/* ===== Right card = sidebar style ===== */
+/* --- Right card = sidebar look --- */
 #tk-question-card .tk-progress,
-#tk-question-card #tk-progress{display:none !important;}
-
-.tk-pane,
-#tk-question-card,
-#questionCard,
-.tk-question-card,
-.survey-question-panel .question-card{
-  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)) var(--tk-surface);
-  border-radius: 18px;
-  border: 1px solid var(--tk-edge);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--tk-glow-rgb), .15),
-    0 8px 22px rgba(0,0,0,.35),
-    0 0 28px var(--tk-glow-soft);
-}
+#tk-question-card #tk-progress { display: none !important; }
 
 #tk-question-card,
-#questionCard,
-.tk-question-card,
-.survey-question-panel .question-card{
-  max-width: 680px;
-  margin: 12px auto 0;
-  padding: 18px 20px 16px;
+.tk-question-card{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   color: var(--fg);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 260px);
+  gap: 18px;
+  align-items: flex-start;
 }
 
-#tk-question-card .tk-question-title{
-  font-weight: 700;
-  font-size: 1.12rem;
-  margin: 6px 0 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-#tk-question-card .tk-question-title strong{ font-size: 1.12rem; }
-#tk-question-card .tk-question-title small{
-  color: var(--tk-text-subtle);
-  font-weight: 500;
-}
-
-#tk-question-card .tk-sub{
-  color: var(--tk-text-subtle);
-  font-weight: 500;
-  margin-bottom: 10px;
-}
-
-.survey-question-panel .question-card .q-head,
-#questionCard .q-head{
+#tk-question-card .q-head,
+.tk-question-card .q-head{
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: 6px 0 10px;
+  margin: 0;
+  grid-column: 1;
 }
 
-.survey-question-panel .question-card .q-title,
-#questionCard .q-title{
+#tk-question-card .q-title,
+.tk-question-card .q-title{
   font-weight: 600;
   font-size: 1.05rem;
   margin: 0;
 }
 
 #tk-question-card .tk-meta,
-#questionCard .tk-meta,
 .tk-question-card .tk-meta,
-#questionCard .q-path,
+.tk-question-card .q-path{
+  color: var(--tk-text-subtle);
+  font-size: .92rem;
+  font-weight: 500;
+}
+
 .survey-question-panel .question-card .q-path{
   color: var(--tk-text-subtle);
   font-size: .92rem;
   font-weight: 500;
+}
+
+.tk-question-card #tk-guard,
+#tk-question-card #tk-guard{
+  grid-column: 1;
+}
+
+#tk-question-card .tk-rating,
+.tk-question-card .tk-rating{
+  grid-column: 2;
+  align-self: stretch;
+  background: #0c1117;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, #0a0f14);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.45) inset, 0 0 12px color-mix(in oklab, var(--accent) 30%, transparent);
+  margin: 0;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#tk-question-card .tk-rating__label,
+.tk-question-card .tk-rating__label{
+  font-weight: 700;
+  font-size: 1.02rem;
+}
+
+#tk-question-card .tk-rating__choices,
+.tk-question-card .tk-rating__choices{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#tk-question-card .tk-rating__choices .tk-scale-buttons,
+.tk-question-card .tk-rating__choices .tk-scale-buttons{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+#tk-question-card .tk-rating__choices .tk-scale-btn,
+.tk-question-card .tk-rating__choices .tk-scale-btn{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, #0a0f14);
+  background: #0b1219;
+  color: var(--fg);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: .2px;
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,.45),
+    0 0 12px color-mix(in oklab, var(--accent) 25%, transparent);
+  transition: transform .12s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease;
+}
+
+#tk-question-card .tk-rating__choices .tk-scale-btn:hover,
+#tk-question-card .tk-rating__choices .tk-scale-btn:focus-visible,
+.tk-question-card .tk-rating__choices .tk-scale-btn:hover,
+.tk-question-card .tk-rating__choices .tk-scale-btn:focus-visible{
+  background: rgba(var(--tk-glow-rgb), .14);
+  border-color: rgba(var(--tk-glow-rgb), .45);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--tk-glow-rgb), .25),
+    0 0 18px rgba(var(--tk-glow-rgb), .25);
+  transform: translateY(-1px);
+}
+
+#tk-question-card .tk-rating__choices .tk-scale-btn.is-active,
+#tk-question-card .tk-rating__choices .tk-scale-btn[aria-pressed="true"],
+.tk-question-card .tk-rating__choices .tk-scale-btn.is-active,
+.tk-question-card .tk-rating__choices .tk-scale-btn[aria-pressed="true"]{
+  background: rgba(var(--tk-glow-rgb), .18);
+  border-color: rgba(var(--tk-glow-rgb), .55);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--tk-glow-rgb), .35),
+    0 0 20px rgba(var(--tk-glow-rgb), .3);
+}
+
+@media (max-width: 960px){
+  #tk-question-card,
+  .tk-question-card{
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #tk-question-card .tk-rating,
+  .tk-question-card .tk-rating{
+    grid-column: 1;
+  }
 }
 
 .tk-pill{
@@ -253,11 +319,11 @@ h2,h3,#progressPct,.theme-btn.is-active,
 }
 
 #tk-question-card .tk-scale{
-  display: grid;
-  grid-template-columns: repeat(6, minmax(44px, 1fr));
+  display: flex;
   gap: 12px;
   align-items: center;
-  justify-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
   margin: 8px 0 10px;
 }
 
@@ -291,8 +357,6 @@ h2,h3,#progressPct,.theme-btn.is-active,
     0 0 20px rgba(var(--tk-glow-rgb), .28);
   transform: translateY(-1px);
 }
-
-#tk-question-card .tk-meta{ margin-top: 4px; }
 
 #tk-score-rail{ position: sticky; top: 16px; }
 #ratingRow.single{ display:flex; align-items:center; justify-content:flex-start; gap:16px; }
