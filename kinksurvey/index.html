@@ -211,6 +211,7 @@
                   card.className = 'question-card';
                   host.appendChild(card);
                 }
+                card.classList.add('tk-question-card');
 
                 let rail = q('#tk-score-rail');
                 if (!rail) {
@@ -231,11 +232,14 @@
                 }
 
                 card.innerHTML = `
-        <div class="tk-question-title"><strong>${categoryTitle}</strong> — ${label}</div>
+        <div class="tk-question-title">
+          <strong>${categoryTitle}</strong>
+          <small>${label}</small>
+        </div>
         <div class="tk-scale" id="tk-scale">
           ${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" data-val="${n}">${n}</button>`).join('')}
         </div>
-        <div style="margin-top:8px;font-size:.9rem;">Question 1 of ${total}</div>
+        <div class="tk-meta">Question 1 of ${total}</div>
       `.trim();
 
                 const scale = q('#tk-scale');

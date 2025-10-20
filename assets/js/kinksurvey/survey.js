@@ -614,9 +614,9 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
 
     if(!q){
       questionPanel.innerHTML = `
-        <article class="question-card is-empty" id="questionCard">
+        <article class="question-card tk-question-card is-empty" id="questionCard">
           <header class="q-head">
-            <div class="q-path" id="questionPath">TalkKink Survey</div>
+            <div class="q-path tk-meta" id="questionPath">TalkKink Survey</div>
             <h2 class="q-title">Select at least one category to begin</h2>
           </header>
           <div id="tk-guard" aria-live="polite"></div>
@@ -641,9 +641,9 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
 
     questionPanel.dataset.questionId = q.id;
     questionPanel.innerHTML = `
-      <article class="question-card" id="questionCard" data-role="${roleLabel}">
+      <article class="question-card tk-question-card" id="questionCard" data-role="${roleLabel}">
         <header class="q-head">
-          <div class="q-path" id="questionPath">${categoryName} • ${prompt}</div>
+          <div class="q-path tk-meta" id="questionPath">${categoryName} • ${prompt}</div>
           <h2 class="q-title">${roleLabel}: Rate interest/comfort (0–5)</h2>
         </header>
         <div class="tk-rating">
