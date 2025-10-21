@@ -1,177 +1,164 @@
 (() => {
-  // --- route guard: only run on /kinksurvey ---
   const onKinkSurvey = location.pathname.replace(/\/+$/,'') === '/kinksurvey';
   if (!onKinkSurvey) return;
 
-  // --- tiny utils ---
-  const onReady = fn => (document.readyState === 'loading')
-    ? document.addEventListener('DOMContentLoaded', fn, { once: true })
-    : fn();
+  // ---- CSS: hide score areas pre-start; helper + CTA styles ----
+  const css = `
+    /* Hide ANY score rail/dock until Start Survey */
+    body.tk-prestart #tkScoreDock,
+    body.tk-prestart .tk-score-aside,
+    body.tk-prestart .score-sidebar,
+    body.tk-prestart [data-sticky="score"]{
+      display:none !important;
+    }
+    /* Helper panel look */
+    #tk-select-helper.tk-pane{
+      margin:16px auto; max-width:880px; padding:18px 20px;
+      border-radius:18px; border:1px solid rgba(255,255,255,.10);
+      background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01)) rgba(13,17,23,.82);
+      box-shadow:inset 0 0 0 1px rgba(0,170,255,.15),0 8px 22px rgba(0,0,0,.35),0 0 28px rgba(0,170,255,.10);
+    }
+    #tk-select-helper h3{margin:0 0 8px 0}
+    /* Start button */
+    #tkStartBtn{
+      display:inline-flex; align-items:center; justify-content:center;
+      height:38px; padding:8px 14px; border-radius:999px; cursor:pointer;
+      border:1px solid rgba(255,255,255,.10); background:#121821; color:#eaf3ff;
+      font-weight:700; letter-spacing:.2px; outline:2px solid color-mix(in oklab, var(--accent, #4da3ff) 65%, transparent);
+      box-shadow:0 0 0 1px rgba(0,0,0,.35) inset, 0 0 12px color-mix(in oklab, var(--accent, #4da3ff) 45%, transparent);
+      transition:transform .12s ease, box-shadow .12s ease, background .12s ease, opacity .12s ease;
+      margin-top:12px;
+    }
+    #tkStartBtn:hover:enabled{ transform:translateY(-1px); }
+    #tkStartBtn:disabled{ opacity:.55; cursor:not-allowed; box-shadow:none; outline-color:transparent; }
+  `;
+  const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
 
-  const $ = sel => document.querySelector(sel);
-  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  // ---- small DOM helpers ----
+  const $  = (s,sc=document)=>sc.querySelector(s);
+  const $$ = (s,sc=document)=>Array.from(sc.querySelectorAll(s));
 
-  // --- state we coordinate with survey.js (non-breaking) ---
-  const TK = (window.TK ||= {});
-  TK.state ||= {};
-  TK.state.started = false;
-  TK.state.selectedGroups = [];
+  const TK = (window.TK ||= {}); TK.state ||= { started:false, selectedGroups:[] };
 
-  // ============= LAYOUT (keep your left categories panel) =============
-  function ensureLeftPanel() {
-    // Use your existing left panel if it’s already present:
+  // Keep body in "prestart" until user clicks Start Survey
+  document.documentElement.classList.add('theme-dark'); // keep colors consistent
+  document.body.classList.add('tk-prestart');
+
+  // ---------- LEFT PANEL ----------
+  function ensureLeftPanel(){
     let panel = $('#categoryPanel');
     if (!panel) {
-      // If the app rendered it elsewhere, adopt it; otherwise create it.
       panel = document.createElement('section');
-      panel.id = 'categoryPanel';
-      panel.className = 'tk-pane';
+      panel.id='categoryPanel';
+      panel.className='tk-pane';
       panel.innerHTML = `
         <h2 class="tk-side-title">Categories</h2>
         <div class="tk-cat-count">0 selected</div>
         <ul class="tk-catlist"></ul>`;
-      // Try to place it in your left rail if it exists, else prepend to body.
-      const leftRail = $('#tkDockLeft') || $('#leftCol') || $('body');
-      leftRail.prepend(panel);
+      ( $('#tkDockLeft') || $('body') ).prepend(panel);
     }
-    // Strip any inline CSS that caused fixed positioning/scroll bars
-    panel.removeAttribute('style');
+    panel.removeAttribute('style'); // strip inline styles that cause scrollbars
     return panel;
   }
 
-  // ============= CATEGORIES (don’t pre-check; only start after select) =============
-  // Called by survey bootstrap after kinks.json loads. The core app
-  // looks for a global buildCategoryList hook – we provide it here.
-  window.buildCategoryList = function buildCategoryList(kinks) {
+  // ---------- SELECT HELPER + CTA ----------
+  function mountSelectHelper(){
+    if ($('#tk-select-helper')) return;
+    const box = document.createElement('div');
+    box.id='tk-select-helper'; box.className='tk-pane';
+    box.innerHTML = `
+      <h3>Select at least one category to begin</h3>
+      <div class="how-to-score" style="opacity:.9;margin-bottom:8px">How to score</div>
+      <ul style="margin:.25rem 0 0 1rem; line-height:1.35; opacity:.9">
+        <li><strong>0</strong> — skip for now</li>
+        <li><strong>1</strong> — hard limit (no-go)</li>
+        <li><strong>2</strong> — soft limit / willing to try</li>
+        <li><strong>3</strong> — context-dependent</li>
+        <li><strong>4</strong> — enthusiastic yes</li>
+        <li><strong>5</strong> — favorite / please do</li>
+      </ul>
+      <button id="tkStartBtn" disabled>Start Survey</button>
+    `;
+    ( $('#tkDockMid') || $('main') || document.body ).prepend(box);
+    $('#tkStartBtn').addEventListener('click', () => window.startSurvey());
+  }
+  const removeSelectHelper = () => $('#tk-select-helper')?.remove();
+
+  // ---------- CATEGORY LIST HOOK ----------
+  window.buildCategoryList = function buildCategoryList(kinks){
     const panel = ensureLeftPanel();
-    const list = panel.querySelector('.tk-catlist');
-    const counter = panel.querySelector('.tk-cat-count');
+    const list = $('.tk-catlist', panel); list.textContent='';
+    const counter = $('.tk-cat-count', panel);
 
-    list.textContent = '';
-
-    // Build unique group list (adjust if your JSON differs)
     const groups = [...new Set(kinks.map(k => k.group))].sort();
-
-    // Build checkboxes – DO NOT pre-check anything
-    groups.forEach(g => {
+    groups.forEach(g=>{
       const li = document.createElement('li');
-      li.className = 'tk-catrow';
+      li.className='tk-catrow';
       li.innerHTML = `
         <label class="tk-cat">
-          <input type="checkbox" data-group="${g}" />
-          <span class="tk-catname">${g}</span>
+          <input type="checkbox" data-group="${g}"><span class="tk-catname">${g}</span>
         </label>`;
       list.appendChild(li);
     });
 
-    // Make sure nothing is checked (guards browser/restore/autofill)
-    $$('.tk-catlist input[type="checkbox"]').forEach(cb => cb.checked = false);
+    // absolutely no pre-check
+    $$('input[type="checkbox"]', list).forEach(cb => cb.checked=false);
 
-    // “Select to begin” helper UI (center panel placeholder)
+    // show helper + CTA
     mountSelectHelper();
 
-    // Wire changes
-    list.addEventListener('change', onCategoryChange);
-    updateSelectedCounter();
+    // update state / enable CTA when there is at least one selection
+    list.addEventListener('change', () => {
+      TK.state.selectedGroups = $$('input:checked', list).map(cb => cb.dataset.group);
+      const any = TK.state.selectedGroups.length > 0;
+      counter.textContent = `${TK.state.selectedGroups.length} selected`;
 
-    // No auto-start here; user must choose.
+      const helperBtn = $('#tkStartBtn');
+      if (helperBtn) helperBtn.disabled = !any;
+
+      const navBtn = $('#btnStart');
+      if (navBtn) {
+        navBtn.disabled = !any;
+        navBtn.title = any ? '' : 'Select at least one category to start';
+        navBtn.classList.toggle('tk-disabled', !any);
+        navBtn.setAttribute('aria-disabled', String(!any));
+        if (!navBtn.dataset.tkStartGateBound) {
+          navBtn.addEventListener('click', () => window.startSurvey());
+          navBtn.dataset.tkStartGateBound = '1';
+        }
+      }
+
+      // If your boot exposes pool rebuild, call it (optional)
+      if (typeof TK.rebuildPool === 'function') TK.rebuildPool(TK.state.selectedGroups);
+    });
   };
 
-  function onCategoryChange() {
-    const selected = $$('.tk-catlist input:checked').map(cb => cb.dataset.group);
-    TK.state.selectedGroups = selected;
-    updateSelectedCounter();
-
-    // Rebuild your pool if the core app exposes a rebuild method.
-    if (typeof TK.rebuildPool === 'function') TK.rebuildPool(selected);
-
-    // Start survey the *moment* a user picks the first category
-    if (!TK.state.started && selected.length > 0) {
-      safeStartSurvey();
-      removeSelectHelper();
-    }
-
-    // If the user unchecks everything after start, you may decide
-    // to pause or keep going; we keep going to avoid data loss.
-  }
-
-  function updateSelectedCounter() {
-    const n = TK.state.selectedGroups.length;
-    const counter = $('.tk-cat-count');
-    if (counter) counter.textContent = `${n} selected`;
-  }
-
-  // ============= START SURVEY (only after selection) =============
-  // Your initializer calls startSurvey() – we expose a safe starter
-  // that only fires once and only if a category is selected.
-  window.startSurvey = function startSurvey() {
+  // ---------- START SURVEY GATE ----------
+  window.startSurvey = function startSurvey(){
     if (TK.state.started) return;
-    if (TK.state.selectedGroups.length === 0) {
-      // No selection yet; show the helper and bail.
-      mountSelectHelper();
-      return;
-    }
-    safeStartSurvey();
-  };
-
-  function safeStartSurvey() {
-    if (TK.state.started) return;
+    if (TK.state.selectedGroups.length === 0) { mountSelectHelper(); return; } // keep gated
     TK.state.started = true;
 
-    // If your core app has its own start, prefer it.
-    if (typeof TK.start === 'function') {
-      TK.start();
-    } else if (typeof TK.begin === 'function') {
-      TK.begin();
-    } else {
-      // Fallback: nothing to call – your survey.js may auto-advance
-      // after buildCategoryList+renderFirstQuestion hooks.
-      // We still hide the helper.
-    }
-  }
+    // reveal score UI from now on
+    document.body.classList.remove('tk-prestart');
 
-  // ============= FIRST QUESTION RENDER HOOK (keep your card) =============
-  // If your bootstrap uses renderFirstQuestion(), make sure it puts the card
-  // in the center and doesn’t create inner scrollbars.
-  window.renderFirstQuestion = function renderFirstQuestion() {
-    const host = document.querySelector('#tk-question-host') || $('#tkDockMid') || $('main') || document.body;
-    const card = $('#tk-question-card') || $('.question-card') || $('#questionCard');
-    if (host && card && card.parentNode !== host) host.prepend(card);
-    if (card) card.style.overflow = 'visible';
+    // hand off to your existing starter if present
+    if (typeof TK.start === 'function') TK.start();
+    else if (typeof TK.begin === 'function') TK.begin();
+
+    removeSelectHelper();
   };
 
-  // ============= “Select categories to begin” helper =============
-  function mountSelectHelper() {
-    if ($('#tk-select-helper')) return;
-    const helper = document.createElement('div');
-    helper.id = 'tk-select-helper';
-    helper.className = 'tk-pane';
-    helper.style.margin = '16px auto';
-    helper.style.maxWidth = '880px';
-    helper.style.padding = '18px 20px';
-    helper.innerHTML = `
-      <h3 style="margin:0 0 8px 0">Select at least one category to begin</h3>
-      <div class="how-to-score">
-        <div style="opacity:.85">How to score</div>
-        <ul style="margin:.5rem 0 0 1rem; line-height:1.35">
-          <li><strong>0</strong> — skip for now</li>
-          <li><strong>1</strong> — hard limit (no-go)</li>
-          <li><strong>2</strong> — soft limit / willing to try</li>
-          <li><strong>3</strong> — context-dependent</li>
-          <li><strong>4</strong> — enthusiastic yes</li>
-          <li><strong>5</strong> — favorite / please do</li>
-        </ul>
-      </div>`;
-    // drop it in the middle column
-    const mid = $('#tkDockMid') || $('main') || document.body;
-    mid.prepend(helper);
-  }
-  function removeSelectHelper() { $('#tk-select-helper')?.remove(); }
+  // ---------- RENDER FIRST QUESTION HOOK ----------
+  window.renderFirstQuestion = function renderFirstQuestion(){
+    const host = $('#tk-question-host') || $('#tkDockMid') || $('main') || document.body;
+    const card = $('#tk-question-card') || $('.question-card') || $('#questionCard');
+    if (host && card && card.parentNode !== host) host.prepend(card);
+    if (card) card.style.overflow='visible'; // avoid inner scrollbars
+  };
 
-  // ============= Bootstrap after DOM is ready =============
-  onReady(() => {
-    // keep your existing left panel visible & in place
-    ensureLeftPanel();
-    // do NOT start the survey here; the hooks above will do it after selection
-  });
+  // boot
+  (document.readyState === 'loading')
+    ? document.addEventListener('DOMContentLoaded', () => { ensureLeftPanel(); mountSelectHelper(); }, {once:true})
+    : (ensureLeftPanel(), mountSelectHelper());
 })();
