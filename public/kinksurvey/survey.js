@@ -258,7 +258,6 @@
     }
 
     unhideQuestionChrome();
-    autoSelectFirstCategory();
 
     if (typeof renderFirstQuestion === 'function') {
       renderFirstQuestion();
@@ -299,17 +298,6 @@
       el.style.visibility = 'visible';
       el.style.opacity = '1';
     });
-  }
-
-  function autoSelectFirstCategory() {
-    const checks = Array.from(document.querySelectorAll('.tk-cat-input'));
-    if (!checks.length) return;
-    const alreadyChecked = checks.some((input) => input.checked);
-    if (alreadyChecked) return;
-
-    const first = checks[0];
-    first.checked = true;
-    first.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   // 6) Init once DOM is ready
