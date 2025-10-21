@@ -1,294 +1,76 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" class="theme-azure">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Talk Kink</title>
-  <link rel="stylesheet" href="css/style.css" />
-  <link rel="stylesheet" href="css/theme.css" />
-  <link rel="stylesheet" href="css/kinksurvey_overrides.css" />
-<link rel="stylesheet" href="/css/font-failopen.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<!-- TK: home-start-router CSS -->
-<style>
-  /* Ensure Start button is clickable if some styles disabled it */
-  #startSurvey, #startSurveyBtn, #start {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-  }
-</style>
-<!-- /TK: home-start-router CSS -->
+  <!-- Cache-buster -->
+  <script>window.TK_VER = 'ks-20241020b';</script>
 
+  <!-- Base styles + neon survey styles -->
+  <link rel="stylesheet" href="/css/style.css?v=ks-20241020b">
+  <link rel="stylesheet" href="/css/tk_survey_neon.css?v=ks-20241020b">
+
+  <!-- Inline SVG favicon (no binary needed) -->
+  <link rel="icon" type="image/svg+xml"
+        href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%2300aaff"/><text x="50%25" y="56%25" font-size="34" text-anchor="middle" fill="white" font-family="Segoe UI, Roboto, Arial">TK</text></svg>'>
+
+  <title>Talk Kink Survey</title>
 </head>
-<body class="theme-dark">
-  <div class="landing-wrapper">
-    <h1 class="themed-header">Talk Kink Survey</h1>
-    <div class="landing-buttons">
-      <a id="startSurvey" data-tk-start href="/kinksurvey/" class="themed-button highlighted-box">Start Survey</a>
-      <a href="compatibility.html" class="themed-button highlighted-box">Compatibility Page</a>
-      <a href="individualkinkanalysis.html" class="themed-button highlighted-box">Individual Kink Analysis</a>
-      <a href="https://discord.gg/Ub8ebnQP9a" class="themed-button highlighted-box">Join Mischief Manor</a>
-    </div>
-    <select id="themeSelector" class="theme-selector highlighted-box" onchange="changeTheme(this.value)">
-      <option value="dark">Dark Theme</option>
-      <option value="forest">Forest Theme</option>
-      <option value="lipstick">Lipstick Theme</option>
-    </select>
+<body>
+
+  <!-- NEW SHELL (from talk-kink-new-survey.html) -->
+  <div id="tkPortal">
+    <aside id="categoryPanel" aria-label="Categories"></aside>
+
+    <main id="surveyApp">
+      <header class="header-grid">
+        <h1 id="pageTitle" class="glow-title">Talk Kink Survey</h1>
+        <div class="theme-controls">
+          <button class="theme-btn is-active" data-theme="azure">Blue Glow</button>
+          <button class="theme-btn" data-theme="dark">Dark</button>
+          <button class="theme-btn" data-theme="lipstick">Lipstick</button>
+          <button class="theme-btn" data-theme="forest">Forest</button>
+        </div>
+      </header>
+
+      <!-- Host grid for left question + right rating rail -->
+      <section id="tk-question-host" class="tk-dual">
+        <article id="tk-question-card" class="tk-pane" aria-live="polite"></article>
+        <aside id="tk-rating-card" class="tk-pane" aria-label="Rating"></aside>
+      </section>
+
+      <!-- Button rail -->
+      <div class="button-grid compatibility-button-container" id="tk-actions"></div>
+    </main>
   </div>
 
+  <!-- App logic + enhancer (make sure versions are bumped) -->
+  <script defer src="/js/survey.js?v=ks-20241020b"></script>
+  <script defer src="/js/tk_kinksurvey_enhance.js?v=ks-20241020b"></script>
+
+  <!-- Bootstrap: wire hooks and dock layout after DOM + data -->
   <script>
-  function changeTheme(theme) {
-    document.body.className = 'theme-' + theme;
-    localStorage.setItem('theme', theme);
-  }
+    (function boot(){
+      const onReady = (fn) => (document.readyState === 'loading')
+        ? document.addEventListener('DOMContentLoaded', fn, {once:true}) : fn();
 
-  window.addEventListener('DOMContentLoaded', () => {
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    changeTheme(savedTheme);
-    document.getElementById('themeSelector').value = savedTheme;
-
-  });
-  </script>
-  <script src="js/tk_kinksurvey_enhance.js"></script>
-  <script>
-/* === CODEx drop-in: add “Suggestions?” button under “Join Mischief Manor” ===
-   What it does:
-   - Finds the existing “Join Mischief Manor” button
-   - Clones its look/feel and inserts a new button right below it
-   - New button goes to https://buymeacoffee.com/duckieslove in a new tab
-*/
-(function () {
-  const BUYME_URL = 'https://buymeacoffee.com/duckieslove';
-  const NEW_TEXT  = 'Suggestions?';
-
-  // 1) Find the Mischief button by text (works for <a> or <button>)
-  const allBtns = Array.from(document.querySelectorAll('a,button'));
-  const manorBtn = allBtns.find(el => /join\s+mischief\s+manor/i.test(el.textContent || ''));
-
-  if (!manorBtn) return; // nothing to do if we can't find the anchor
-
-  // 2) Create the new button by cloning styles from the manor button
-  const makeLinkLike = (source, text, href) => {
-    // Prefer cloning to keep exact styling
-    const clone = source.cloneNode(true);
-    clone.textContent = text;
-
-    // Make sure it’s an <a> with a link target
-    let link;
-    if (clone.tagName.toLowerCase() === 'a') {
-      link = clone;
-    } else {
-      link = document.createElement('a');
-      link.className = clone.className;
-      link.style.cssText = clone.style.cssText;
-      // Copy useful ARIA/state classes if any
-      Array.from(clone.attributes).forEach(a => {
-        if (!['style','class'].includes(a.name)) link.setAttribute(a.name, a.value);
+      // Required hooks for custom rendering (if your app exports these)
+      window.buildCategoryList && onReady(() => {
+        // survey.js should fetch data then call buildCategoryList(data)
       });
-    }
 
-    link.href = href;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.textContent = text;
-
-    // Small spacing tweak so it doesn’t stick to the button above
-    link.style.marginTop = '14px';
-
-    return link;
-  };
-
-  const suggestionsBtn = makeLinkLike(manorBtn, NEW_TEXT, BUYME_URL);
-
-  // 3) Insert right after the Mischief button
-  manorBtn.insertAdjacentElement('afterend', suggestionsBtn);
-})();
-  </script>
-<!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
-<script>
-/* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
-(function () {
-  const LOG = (...a) => console.log("[TK-SAFE]", ...a);
-
-  /* A. QUICK SANITY CHECKS — find & warn about merge markers (these often lock pages) */
-  try {
-    const html = document.documentElement.innerHTML;
-    const HEAD = '<'.repeat(7);
-    const SEP = '='.repeat(7);
-    const TAIL = '>'.repeat(7);
-    if (html.includes(HEAD) && html.includes(SEP) && html.includes(TAIL)) {
-      const conflictPattern = new RegExp(`${HEAD}[\s\S]*?${SEP}[\s\S]*?${TAIL}`);
-      if (conflictPattern.test(html)) {
-        console.warn("[TK-SAFE] Merge conflict markers detected in DOM. Remove them to avoid broken JS/CSS.");
-      }
-    }
-  } catch (_) {}
-
-  /* B. ONE-TIME INIT GUARD (prevents duplicate event bind/render loops) */
-  if (window.__TK_INITED__) {
-    LOG("Init skipped: already initialized.");
-    return;
-  }
-  window.__TK_INITED__ = true;
-
-  /* C. SAFE-MODE FLAGS (use ?safe=1 or ?nopdf=1 or ?noscore=1 to bypass heavy work) */
-  const params = new URLSearchParams(location.search);
-  const SAFE_MODE  = params.has("safe");
-  const NO_PDF     = SAFE_MODE || params.has("nopdf");
-  const NO_SCORE   = SAFE_MODE || params.has("noscore");
-
-  if (SAFE_MODE) LOG("SAFE MODE ON: skipping scoring/render and lazy-loading libraries.");
-
-  /* D. SMALL UTILITIES */
-  const byId = (id) => document.getElementById(id);
-  function once(el, type, handler, opts) {
-    // prevent stacked duplicate listeners after HMR/partials
-    el && el.addEventListener(type, function f(e) {
-      el.removeEventListener(type, f, opts);
-      handler(e);
-    }, opts);
-  }
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) return resolve();
-      const s = document.createElement("script");
-      s.src = src; s.async = true; s.defer = true;
-      s.onload = resolve;
-      s.onerror = () => reject(new Error("Failed to load " + src));
-      document.head.appendChild(s);
-    });
-  }
-  function idle(fn) {
-    // yield back to the browser to keep UI responsive
-    return (window.requestIdleCallback || ((cb)=>setTimeout(cb,0)))(fn);
-  }
-
-  /* E. LAZY LOADERS FOR HEAVY LIBS (loaded only on click) */
-  async function ensureJsPDF() {
-    if (!(window.jspdf && window.jspdf.jsPDF)) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-    }
-  }
-  async function ensureAutoTable() {
-    // Only after jsPDF UMD maps window.jspdf.jsPDF
-    await ensureJsPDF();
-    const hasAT = (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)
-               || (window.jspdf && window.jspdf.autoTable);
-    if (!hasAT) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
-    }
-  }
-
-  /* F. DEFENSIVE BINDINGS (buttons used across pages) */
-  idle(() => {
-    // PDF buttons (compatibility, IKA, etc.)
-    const dl1 = byId("downloadBtn");
-    const dl2 = byId("downloadPdfBtn");
-    const anyDownload = dl1 || dl2;
-
-    if (anyDownload) {
-      const handler = async (e) => {
-        e.preventDefault();
-        if (NO_PDF) { alert("PDF disabled (safe mode). Add ?safe=0 or remove ?nopdf."); return; }
-        try {
-          // Lazy load heavy libs only now
-          await ensureAutoTable();
-          // Yield once more before heavy export:
-          await new Promise(r => setTimeout(r, 0));
-          // Call your existing exporter (must be defined elsewhere)
-          if (typeof window.TKPDF_export === "function") {
-            await window.TKPDF_export();
-          } else if (typeof window.TKPDF_forceDark === "function") {
-            await window.TKPDF_forceDark();
-          } else if (typeof window.exportIKAPdf === "function") {
-            await window.exportIKAPdf();
-          } else {
-            alert("Export function not found. Expected TKPDF_export/TKPDF_forceDark/exportIKAPdf.");
-          }
-        } catch (err) {
-          console.error("[TK-SAFE] PDF export failed:", err);
-          alert("PDF export failed: " + (err?.message || err));
+      onReady(() => {
+        // Docked layout: move category panel + actions into the neon shell
+        if (window.setupDockedSurveyLayout) {
+          setupDockedSurveyLayout(); // calls ensureDockLayoutNodes(), mountDockPanel(), mountDockActions()
         }
-      };
-
-      // Bind once to whichever exists
-      if (dl1) once(dl1, "click", handler);
-      if (dl2) once(dl2, "click", handler);
-      LOG("Bound PDF button(s).");
-    }
-
-    // File upload styled label (IKA)
-    const fileInput = byId("ikaFile");
-    const fileLabel = document.querySelector('label[for="ikaFile"]');
-    if (fileInput && fileLabel) {
-      once(fileLabel, "click", () => fileInput.click());
-      LOG("Bound Upload Survey label→input.");
-    }
-  });
-
-  /* G. STOP RUNNING EXPENSIVE WORK ON LOAD (scoring/rendering) */
-  // Wrap your page’s auto-render or scoring in this gate:
-  window.TK_canRunHeavy = function () {
-    if (SAFE_MODE) return false;
-    // Avoid running more than once
-    if (window.__TK_HEAVY_RAN__) return false;
-    window.__TK_HEAVY_RAN__ = true;
-    return true;
-  };
-
-  // Example usage for your pages (leave here; your code can call it):
-  // if (window.TK_canRunHeavy()) {
-  //   // run scoring/render here or schedule with idle(...)
-  //   idle(() => window.renderResults && window.renderResults());
-  // }
-
-  /* H. GLOBAL CATCH FOR ACCIDENTAL LONG TASKS */
-  // If something still locks the UI, advise safe mode.
-  window.addEventListener("error", (e) => {
-    console.warn("[TK-SAFE] Window error:", e.message);
-  });
-})();
-</script>
-<!-- ---------- End Safe Bootstrap ---------- -->
-<!-- TK: home-start-router JS -->
-<script>
-(function(){
-  var TARGET = '/kinksurvey/'; // ⇐ destination: https://talkkink.org/kinksurvey/
-  function go(e){
-    try { e && e.preventDefault && e.preventDefault(); } catch(_) {}
-    try { location.assign(TARGET); } catch(_) { location.href = TARGET; }
-  }
-  function looksLikeStart(el){
-    if (!el) return false;
-    var id = (el.id || '').toLowerCase();
-    if (id === 'startsurvey' || id === 'startsurveybtn' || id === 'start') return true;
-    var txt = (el.textContent || '').toLowerCase();
-    return txt === 'start survey' || (txt.includes('start') && txt.includes('survey'));
-  }
-  function wire(el){
-    if (!el || el.dataset.tkStartWired === '1') return false;
-    el.dataset.tkStartWired = '1';
-    try { el.removeAttribute('disabled'); } catch(_) {}
-    if (el.style) el.style.pointerEvents = 'auto';
-    if (el.tagName === 'A') {
-      el.setAttribute('href', TARGET);
-    } else {
-      el.addEventListener('click', go, { passive: false });
-    }
-    return true;
-  }
-  function sweep(){
-    var nodes = Array.from(document.querySelectorAll('#startSurvey, #startSurveyBtn, #start, a, button'));
-    nodes.forEach(function(n){ if (looksLikeStart(n)) wire(n); });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', sweep, { once: true });
-  } else {
-    sweep();
-  }
-  new MutationObserver(sweep).observe(document.documentElement, { childList: true, subtree: true });
-})();
-</script>
-<!-- /TK: home-start-router JS -->
+        // Render first question with our card if available
+        window.renderFirstQuestion && renderFirstQuestion();
+        // Start flow hook remains the same
+        window.startSurvey && startSurvey;
+      });
+    })();
+  </script>
 </body>
 </html>
