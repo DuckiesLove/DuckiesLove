@@ -1,6 +1,101 @@
 (() => {
+  const w = typeof window !== 'undefined' ? window : null;
+  if (!w) return;
+
   const FLAG = '__tkEnhancer_v2';
-  if (window[FLAG]) return; window[FLAG] = true;
+  if (w[FLAG]) return;
+  w[FLAG] = true;
+
+  if (document.currentScript) {
+    document.currentScript.dataset.tkLoadedOnce = '1';
+  }
+
+  const DOCK_FLAG = '__tkDockEnhancer__';
+  if (!w[DOCK_FLAG]) {
+    w[DOCK_FLAG] = true;
+
+    const ensureDockLayoutNodes = () => {
+      const portal = document.getElementById('tkPortal');
+      if (!portal) return false;
+
+      portal.dataset.tkDock = '1';
+
+      const left = portal.querySelector('.tk-left');
+      if (left) {
+        left.dataset.role = left.dataset.role || 'category-panel';
+      }
+
+      const right = portal.querySelector('.tk-right');
+      if (right) {
+        right.dataset.role = right.dataset.role || 'survey-shell';
+      }
+
+      const app = document.getElementById('surveyApp');
+      if (app) {
+        app.dataset.tkDock = '1';
+      }
+
+      return true;
+    };
+
+    const normalizeButton = (button) => {
+      if (!button) return;
+      button.classList.add('btn');
+      if (!button.hasAttribute('type')) {
+        button.setAttribute('type', 'button');
+      }
+    };
+
+    const mountDockPanel = () => {
+      const panel = document.getElementById('categoryPanel');
+      if (!panel) return false;
+
+      panel.dataset.tkDockPanel = '1';
+      panel.removeAttribute('hidden');
+      panel.classList.add('panel');
+
+      const checklist = panel.querySelector('#categoryChecklist');
+      if (checklist) {
+        checklist.setAttribute('role', checklist.getAttribute('role') || 'list');
+      }
+
+      return true;
+    };
+
+    const mountDockActions = () => {
+      const stack = document.getElementById('ctaStack');
+      if (stack) {
+        stack.classList.add('tk-stack');
+        stack.querySelectorAll('a,button').forEach(normalizeButton);
+      }
+
+      const navRow = document.getElementById('navRow');
+      if (navRow) {
+        navRow.dataset.tkDockActions = '1';
+        navRow.querySelectorAll('button').forEach(normalizeButton);
+      }
+
+      return Boolean(stack || navRow);
+    };
+
+    const setupDockedSurveyLayout = () => {
+      ensureDockLayoutNodes();
+      mountDockPanel();
+      mountDockActions();
+
+      const root = document.getElementById('surveyApp');
+      if (root && root.dataset.tkReady !== 'true') {
+        root.dataset.tkReady = root.dataset.tkReady || 'false';
+      }
+
+      document.documentElement.setAttribute('data-tk-docked', 'true');
+    };
+
+    w.ensureDockLayoutNodes = ensureDockLayoutNodes;
+    w.mountDockPanel = mountDockPanel;
+    w.mountDockActions = mountDockActions;
+    w.setupDockedSurveyLayout = setupDockedSurveyLayout;
+  }
 
   const CSS = `
   .tk-qcard-glow{
