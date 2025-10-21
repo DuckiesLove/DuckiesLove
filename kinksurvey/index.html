@@ -370,31 +370,129 @@
     </div>
 
     <script>
+      /* ------------------------------------------------------------------
+         TK /kinksurvey bootstrap — robust wait + optional enhancer inject
+         This runs ONLY on /kinksurvey/ and leaves the landing page alone.
+      ------------------------------------------------------------------- */
       (function () {
-        // Only run on /kinksurvey/ — leaves the landing page alone
         if (!location.pathname.startsWith('/kinksurvey/')) return;
 
-        // Wait until enhancer is present (handles async/defer)
-        function ready(fn) {
+        // 1) Version token for cache busting (keep this in sync for /kinksurvey)
+        const VER = 'ks-20241020d';
+
+        // 2) Where the enhancer lives (adjust if your path differs)
+        const ENHANCER_SRC = '/assets/js/tk-enhancer.js?v=' + encodeURIComponent(VER);
+
+        // 3) Small utilities
+        function onReady(fn) {
           document.readyState !== 'loading'
             ? fn()
             : document.addEventListener('DOMContentLoaded', fn);
         }
 
-        ready(function () {
-          // If your enhancer attached to a TK namespace, the shim in A exposes the global name.
-          if (typeof window.setupDockedSurveyLayout === 'function') {
-            window.setupDockedSurveyLayout();
-          } else {
-            // As a last resort, try again once after a tick (defer/async race)
-            setTimeout(function () {
-              if (typeof window.setupDockedSurveyLayout === 'function') {
-                window.setupDockedSurveyLayout();
-              } else {
-                console.warn('[TK] Enhancer not ready – cannot mount docked layout.');
-              }
-            }, 0);
+        function sleep(ms) {
+          return new Promise((r) => setTimeout(r, ms));
+        }
+
+        function exists(fnName) {
+          return typeof window[fnName] === 'function';
+        }
+
+        function findEnhancerScript() {
+          return Array.from(document.scripts).find((s) => (s.src || '').includes('/assets/js/tk-enhancer.js'));
+        }
+
+        async function ensureEnhancerLoaded() {
+          // Already present and loaded?
+          if (exists('setupDockedSurveyLayout')) return true;
+
+          // If script tag exists but may not have executed yet, wait briefly
+          const tag = findEnhancerScript();
+          if (tag && !tag.dataset.tkLoadedOnce) {
+            for (let i = 0; i < 40; i++) {
+              // ~2s max
+              if (exists('setupDockedSurveyLayout')) return true;
+              await sleep(50);
+            }
           }
+
+          // If still not present, inject it now and wait for load
+          if (!findEnhancerScript()) {
+            await new Promise((resolve, reject) => {
+              const s = document.createElement('script');
+              s.src = ENHANCER_SRC;
+              s.async = true;
+              s.onload = () => resolve();
+              s.onerror = () => reject(new Error('Failed to load enhancer: ' + ENHANCER_SRC));
+              document.head.appendChild(s);
+            }).catch((err) => {
+              console.warn('[TK] Could not inject enhancer:', err);
+            });
+          }
+
+          // Final wait loop after injection (or if it existed but was slow)
+          for (let i = 0; i < 100; i++) {
+            // ~5s max
+            if (exists('setupDockedSurveyLayout')) return true;
+            await sleep(50);
+          }
+          return false;
+        }
+
+        // 4) Attempt to mount using whatever API is available
+        function mountDockNow() {
+          // Preferred single entry-point (exported by tk-enhancer.js per prior instructions)
+          if (exists('setupDockedSurveyLayout')) {
+            try {
+              window.setupDockedSurveyLayout();
+              return true;
+            } catch (e) {
+              console.error('[TK] setupDockedSurveyLayout threw:', e);
+              return false;
+            }
+          }
+
+          // Fallback: some builds expose the pieces separately on window or TK
+          const NS = window.TK || window;
+          const a = NS.ensureDockLayoutNodes;
+          const b = NS.mountDockPanel;
+          const c = NS.mountDockActions;
+          if ([a, b, c].every((fn) => typeof fn === 'function')) {
+            try {
+              a();
+              b();
+              c();
+              return true;
+            } catch (e) {
+              console.error('[TK] Dock pieces threw:', e);
+              return false;
+            }
+          }
+          return false;
+        }
+
+        // 5) Full boot sequence: after DOM, ensure enhancer, then mount
+        onReady(async function () {
+          // Give survey.js a tiny head-start to build initial DOM
+          await sleep(0);
+
+          const ok = await ensureEnhancerLoaded();
+          if (!ok) {
+            console.warn('[TK] Enhancer not ready – cannot mount docked layout.');
+            return;
+          }
+
+          // Try mounting immediately
+          if (mountDockNow()) return;
+
+          // If mount fails because survey content hasn’t painted yet, retry shortly
+          for (let i = 0; i < 40; i++) {
+            // ~2s
+            await sleep(50);
+            if (mountDockNow()) return;
+          }
+
+          console.warn('[TK] Dock mount gave up after retries.');
         });
       })();
     </script>
