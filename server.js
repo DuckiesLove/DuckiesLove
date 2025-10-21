@@ -532,6 +532,7 @@ app.use((req, res, next) => {
     '/js/',
     '/src/',
     '/kinks/',
+    '/kinksurvey/',
     '/data/',
     '/kinks.json',
   ];
