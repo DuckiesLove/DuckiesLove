@@ -6,6 +6,39 @@
    - Re-applies expected button rail classes from css/style.css if missing
 --------------------------------------------------------------------------- */
 
+/* ---- TK /kinksurvey global shims ----
+   Ensure the page can call the dock bootstrap by a stable global name.
+   These aliases DO NOT affect other routes (landing page etc.) */
+(function (w) {
+  // Prefer your internally-defined functions if they exist
+  const api = w.TK || w;
+
+  // If your file defines these under any names, map/alias them here:
+  // (Replace the right-hand sides with your real function names if different)
+  api.ensureDockLayoutNodes =
+    api.ensureDockLayoutNodes ||
+    (typeof ensureDockLayoutNodes === 'function' ? ensureDockLayoutNodes : undefined);
+  api.mountDockPanel =
+    api.mountDockPanel ||
+    (typeof mountDockPanel === 'function' ? mountDockPanel : undefined);
+  api.mountDockActions =
+    api.mountDockActions ||
+    (typeof mountDockActions === 'function' ? mountDockActions : undefined);
+  api.setupDockedSurveyLayout =
+    api.setupDockedSurveyLayout ||
+    (typeof setupDockedSurveyLayout === 'function' ? setupDockedSurveyLayout : undefined);
+
+  // Export a single stable name the page will call:
+  w.setupDockedSurveyLayout = api.setupDockedSurveyLayout;
+
+  // Optional: safe no-op fallback so the page never hard-crashes
+  if (typeof w.setupDockedSurveyLayout !== 'function') {
+    w.setupDockedSurveyLayout = function () {
+      console.warn('[TK] setupDockedSurveyLayout not found in enhancer – nothing to do.');
+    };
+  }
+})(window);
+
 (function () {
   const D = (...a) => (window.TK_DEBUG ? console.debug('[dock]', ...a) : void 0);
 
