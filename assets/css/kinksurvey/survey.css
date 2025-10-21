@@ -547,3 +547,101 @@ html.theme-azure   {
   .tk-score-aside{ position: relative; top: 0; width: 100%; max-height: 60vh; }
 }
 
+/* ================================
+FIT THE 0–5 SCALE WITHOUT SCROLLING
+Paste this at the END of your CSS.
+It forces the six buttons (0..5) to always be visible.
+On narrow screens it wraps to 2 rows instead of making a scrollbar.
+================================ */
+
+/* 1) Make sure the question card never creates a horizontal scroller */
+.survey-question-panel,
+.survey-question-panel .question-card,
+#tk-question-card,
+#questionCard {
+  overflow-x: clip;                 /* use `hidden` if needed */
+  max-width: 100%;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+/* Allow the card to actually shrink inside grids/flex */
+#tk-question-card, #questionCard,
+.survey-question-panel, .question-layout { min-width: 0; }
+
+/* 2) Normalize the scale container */
+#tk-question-card .tk-scale,
+.survey-question-panel .tk-scale,
+#tk-scale,
+.scoreRow {                         /* catch older markup */
+  width: 100%;
+  margin: 8px 0 10px;
+}
+
+/* 3) Grid the 0–5 buttons so they FIT the available width.
+      - Desktop: one row, 6 columns
+      - Small screens: two rows (3×2) instead of scrolling  */
+#tk-question-card .tk-scale-buttons,
+.survey-question-panel .tk-scale-buttons,
+#tk-scale .tk-scale-buttons,
+.scoreRow {                         /* legacy 0..5 row */
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(48px, 1fr)); /* 6 across */
+  gap: 10px;
+}
+
+@media (max-width: 560px){
+  #tk-question-card .tk-scale-buttons,
+  .survey-question-panel .tk-scale-buttons,
+  #tk-scale .tk-scale-buttons,
+  .scoreRow {
+    grid-template-columns: repeat(3, minmax(48px, 1fr)); /* wraps to 2 rows */
+  }
+}
+
+/* 4) Buttons flex nicely and never force overflow */
+#tk-question-card .tk-scale-btn,
+.survey-question-panel .tk-scale-btn,
+#tk-scale .tk-scale-btn,
+.scoreRow button {
+  min-width: 0;                     /* let grid shrink them */
+  height: 44px;
+  padding: 8px 0;
+  font-weight: 700;
+  font-size: clamp(13px, 1.9vw, 16px);
+  border-radius: 12px;
+  border: 1px solid rgba(var(--tk-glow-rgb,0 170 255), .25);
+  background: rgba(15,20,28,.35);
+  color: var(--fg, #eef3f9);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--tk-glow-rgb,0 170 255), .12),
+    0 0 12px rgba(var(--tk-glow-rgb,0 170 255), .10);
+  transition: transform .12s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+}
+
+/* Hover/active states (kept from your theme) */
+#tk-question-card .tk-scale-btn:hover,
+.survey-question-panel .tk-scale-btn:hover,
+#tk-scale .tk-scale-btn:hover,
+.scoreRow button:hover{
+  background: rgba(var(--tk-glow-rgb,0 170 255), .08);
+  border-color: rgba(var(--tk-glow-rgb,0 170 255), .45);
+  transform: translateY(-1px);
+}
+#tk-question-card .tk-scale-btn.is-active,
+.survey-question-panel .tk-scale-btn.is-active,
+#tk-scale .tk-scale-btn.is-active,
+.scoreRow button[aria-pressed="true"]{
+  background: rgba(var(--tk-glow-rgb,0 170 255), .14);
+  border-color: rgba(var(--tk-glow-rgb,0 170 255), .45);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--tk-glow-rgb,0 170 255), .35),
+    0 0 20px rgba(var(--tk-glow-rgb,0 170 255), .28);
+}
+
+/* 5) Extra safety: any icons/labels inside buttons should not expand them */
+#tk-question-card .tk-scale-btn > *,
+.survey-question-panel .tk-scale-btn > *,
+#tk-scale .tk-scale-btn > *,
+.scoreRow button > * { pointer-events: none; }
+
