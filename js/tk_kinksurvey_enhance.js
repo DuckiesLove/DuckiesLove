@@ -20,16 +20,15 @@
     !!document.querySelector('[data-page="compatibility"]') ||
     /[?&](compat|compare|compatibility)(=1|=true)?\b/i.test(location.search);
 
+  const DOCK_SELECTORS = [
+    '#categoryPanel,[data-role="category-panel"]',
+    '#surveyActions,[data-role="survey-actions"]',
+    '#questionArea,.survey-question-panel,.question-card'
+  ];
+
   let DID_DOCK = false;
 
-  function stripInlineStyles(selList) {
-    selList.forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => el.removeAttribute('style'));
-    });
-  }
-
   function ensureButtonRailClasses() {
-    // These hooks are what css/style.css expects
     const rail =
       document.querySelector('.button-grid') ||
       document.querySelector('.compatibility-button-container') ||
@@ -39,7 +38,7 @@
 
     if (!rail.classList.contains('button-grid') &&
         !rail.classList.contains('compatibility-button-container')) {
-      rail.classList.add('button-grid'); // default hook
+      rail.classList.add('button-grid');
       D('added .button-grid to rail');
     }
 
@@ -50,36 +49,39 @@
     });
   }
 
-  // Wait until required nodes exist, then resolve
+  function stripInlineStyles() {
+    DOCK_SELECTORS.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => el.removeAttribute('style'));
+    });
+  }
+
   function waitForNodes(selectors, { timeout = 4000 } = {}) {
     const need = () => selectors.every(s => document.querySelector(s));
     if (need()) return Promise.resolve();
 
     return new Promise(resolve => {
       const obs = new MutationObserver(() => {
-        if (need()) { obs.disconnect(); resolve(); }
+        if (need()) {
+          obs.disconnect();
+          resolve();
+        }
       });
       obs.observe(document.documentElement, { childList: true, subtree: true });
-      setTimeout(() => { obs.disconnect(); resolve(); }, timeout);
+      setTimeout(() => {
+        obs.disconnect();
+        resolve();
+      }, timeout);
     });
   }
 
-  async function runDockBootstrap() {
+  async function runDock() {
     if (DID_DOCK) return;
 
-    // Ensure key DOM exists (category rail, actions, question area)
-    await waitForNodes([
-      '#categoryPanel, [data-role="category-panel"]',
-      '#surveyActions, [data-role="survey-actions"]',
-      '#questionArea, .survey-question-panel'
-    ]);
+    await waitForNodes(DOCK_SELECTORS);
 
-    // 1) create scaffolding containers if needed
     if (typeof ensureDockLayoutNodes === 'function') {
       ensureDockLayoutNodes();
     }
-
-    // 2) move left/right payloads into the dock
     if (typeof mountDockPanel === 'function') {
       mountDockPanel();
     }
@@ -87,19 +89,12 @@
       mountDockActions();
     }
 
-    // 3) strip inline styles that fight the dock layout (legacy renderers)
-    stripInlineStyles([
-      '#categoryPanel, [data-role="category-panel"]',
-      '#surveyActions, [data-role="survey-actions"]',
-      '#questionArea, .survey-question-panel, .question-card'
-    ]);
+    stripInlineStyles();
 
-    // 4) finish configuring the dock (classes, listeners, etc.)
     if (typeof setupDockedSurveyLayout === 'function') {
       setupDockedSurveyLayout();
     }
 
-    // 5) make sure the rail/buttons match css/style.css expectations
     ensureButtonRailClasses();
 
     DID_DOCK = true;
@@ -107,7 +102,7 @@
     D('docked layout initialized');
   }
 
-  function runCompatTeardown() {
+  function teardownCompat() {
     if (typeof teardownDockLayout === 'function') {
       teardownDockLayout({ compatibility: true });
       D('compat teardown applied');
@@ -116,23 +111,27 @@
     document.documentElement.removeAttribute('data-docked');
   }
 
-  function router() {
-    if (isCompatView()) {
-      // Do NOT reintroduce the dock here; rely on compatibility.html centering CSS
-      runCompatTeardown();
-      return;
+  function teardownAll() {
+    if (typeof teardownDockLayout === 'function') {
+      teardownDockLayout();
+      D('dock teardown applied');
     }
-    if (isKinkSurvey()) {
-      runDockBootstrap();
-      return;
-    }
-    // Other pages: remove dock if it was left around
-    if (typeof teardownDockLayout === 'function') teardownDockLayout();
     DID_DOCK = false;
     document.documentElement.removeAttribute('data-docked');
   }
 
-  // Run on ready + BFCache restore
+  function router() {
+    if (isCompatView()) {
+      teardownCompat();
+      return;
+    }
+    if (isKinkSurvey()) {
+      runDock().catch(err => console.warn('[dock] bootstrap failed', err));
+      return;
+    }
+    teardownAll();
+  }
+
   const onReady = () => router();
 
   if (document.readyState === 'loading') {
@@ -141,12 +140,14 @@
     onReady();
   }
 
-  // Back/forward cache restore
-  window.addEventListener('pageshow', (e) => { if (e.persisted) router(); });
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) router();
+  });
 
-  // Safety net: if content is injected late, attempt once more
   const mo = new MutationObserver(() => {
-    if (!DID_DOCK && isKinkSurvey()) runDockBootstrap();
+    if (!DID_DOCK && isKinkSurvey()) {
+      runDock().catch(err => console.warn('[dock] bootstrap retry failed', err));
+    }
   });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 })();
