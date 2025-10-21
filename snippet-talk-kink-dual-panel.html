@@ -74,7 +74,7 @@
      Works on ANY element with .tk-dual (body, #surveyApp, custom wrapper, etc.) */
   .tk-dual{
     display:grid;
-    grid-template-columns:minmax(520px,1fr) 360px;
+    grid-template-columns:minmax(560px,1fr) 360px;
     gap:24px;
     align-items:start;
     overflow-x:hidden; /* kill stray inner scrollbars */
@@ -130,33 +130,25 @@
   #tk-rating-card{
     padding:16px;
   }
-  #tk-rating-card .tk-h{ font-weight:800; text-transform:uppercase; letter-spacing:.35px; font-size:.78rem; opacity:.85; margin:2px 0 8px; }
-  #tk-rating-card .tk-scale-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
-  #tk-rating-card .tk-chip{
-    display:flex; align-items:center; gap:10px; border-radius:12px; padding:10px 12px; cursor:pointer;
-    border:1px solid rgba(255,255,255,.10); background:rgba(255,255,255,.04);
+  #tk-rating-card .tk-h{ font-weight:800; text-transform:uppercase; letter-spacing:.35px; font-size:.8rem; opacity:.9; margin:0 0 8px; }
+  #tk-rating-card .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  #tk-rating-card .chip{
+    display:flex; gap:10px; align-items:center; cursor:pointer; border-radius:12px; padding:10px 12px;
+    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.10);
     box-shadow: inset 0 0 0 1px rgba(0,0,0,.35);
-    transition: transform .12s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+    transition:transform .12s, box-shadow .15s, background .15s, border-color .15s;
   }
-  #tk-rating-card .tk-chip:hover{ transform:translateY(-1px); box-shadow: 0 8px 18px rgba(0,0,0,.35); }
-  #tk-rating-card .dot{
-    width:28px; height:28px; border-radius:999px; display:grid; place-items:center; font-weight:800; color:#071018;
-    box-shadow: inset 0 0 0 2px rgba(0,0,0,.25);
-  }
-  #tk-rating-card .t1{ font-weight:700; line-height:1.15; }
-  #tk-rating-card .t2{ font-size:.86rem; opacity:.85; line-height:1.15; }
-  /* per-score colors */
-  .g0 .dot{ background:#60a5fa; }  .g0 .t1{color:#bfe0ff;}
-  .g1 .dot{ background:#ef4444; }  .g1 .t1{color:#ffc6c6;}
-  .g2 .dot{ background:#f59e0b; }  .g2 .t1{color:#ffe2b3;}
-  .g3 .dot{ background:#10b981; }  .g3 .t1{color:#bdf5e4;}
-  .g4 .dot{ background:#22c55e; }  .g4 .t1{color:#c7ffd8;}
-  .g5 .dot{ background:#84cc16; }  .g5 .t1{color:#e8ffc2;}
-  #tk-rating-card .tk-chip.is-active{
-    outline:2px solid currentColor;
-    background:rgba(255,255,255,.06);
-    box-shadow: 0 0 0 1px rgba(255,255,255,.06) inset, 0 8px 22px rgba(0,0,0,.35);
-  }
+  #tk-rating-card .chip:hover{ transform:translateY(-1px); box-shadow:0 8px 18px rgba(0,0,0,.35); }
+  #tk-rating-card .chip.is-active{ outline:2px solid currentColor; background:rgba(255,255,255,.06); }
+  #tk-rating-card .dot{ width:28px;height:28px;border-radius:999px;display:grid;place-items:center;font-weight:800;color:#071018;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25); }
+  #tk-rating-card .t1{ font-weight:700;line-height:1.15; }
+  #tk-rating-card .t2{ font-size:.86rem;opacity:.85;line-height:1.15; }
+  .g0 .dot{background:#60a5fa;}  .g0 .t1{color:#bfe0ff;}
+  .g1 .dot{background:#ef4444;}  .g1 .t1{color:#ffc6c6;}
+  .g2 .dot{background:#f59e0b;}  .g2 .t1{color:#ffe2b3;}
+  .g3 .dot{background:#10b981;}  .g3 .t1{color:#bdf5e4;}
+  .g4 .dot{background:#22c55e;}  .g4 .t1{color:#c7ffd8;}
+  .g5 .dot{background:#84cc16;}  .g5 .t1{color:#e8ffc2;}
   `;
   if (!document.getElementById('tk-dual-css')) {
     const style = document.createElement('style');
@@ -211,27 +203,36 @@
     if (!card) return;
     card.innerHTML = `
       <div class="tk-h">Rate this</div>
-      <div class="tk-scale-grid" id="tk-color-scale">
+      <div class="grid" role="group" aria-label="Rating 0 to 5">
         ${[
-          {n:0,t1:'No',t2:'Not for me', cls:'g0'},
-          {n:1,t1:'Hard Limit',t2:'Full stop', cls:'g1'},
-          {n:2,t1:'Maybe',t2:'Context matters', cls:'g2'},
-          {n:3,t1:'Curious',t2:'Would try', cls:'g3'},
-          {n:4,t1:'Enjoy',t2:'Like it', cls:'g4'},
-          {n:5,t1:'Love',t2:'Big yes', cls:'g5'},
+          {n:0,t1:'No/Hard No',t2:'Select 0', cls:'g0'},
+          {n:1,t1:'Hard Limit',t2:'Select 1', cls:'g1'},
+          {n:2,t1:'Maybe',t2:'Select 2', cls:'g2'},
+          {n:3,t1:'Like',t2:'Select 3', cls:'g3'},
+          {n:4,t1:'Love',t2:'Select 4', cls:'g4'},
+          {n:5,t1:'Hell Yes',t2:'Select 5', cls:'g5'},
         ].map(x => `
-          <button type="button" class="tk-chip ${x.cls}" data-val="${x.n}" aria-pressed="false">
+          <button type="button" class="chip ${x.cls}" data-score="${x.n}" aria-pressed="false">
             <span class="dot">${x.n}</span>
-            <div><div class="t1">${x.t1}</div><div class="t2">${x.t2}</div></div>
+            <span>
+              <div class="t1">${x.t1}</div>
+              <div class="t2">${x.t2}</div>
+            </span>
           </button>
         `).join('')}
       </div>
     `;
-    const grid = document.querySelector('#tk-color-scale');
+    const grid = card.querySelector('.grid');
     grid.addEventListener('click', (e) => {
-      const btn = e.target.closest('.tk-chip'); if (!btn) return;
-      setRightActive(btn.dataset.val);
-      setLeftActive(btn.dataset.val);
+      const btn = e.target.closest('.chip'); if (!btn) return;
+      const score = btn.dataset.score;
+      setRightActive(score);
+      setLeftActive(score);
+      const ev = new CustomEvent('tk:score', { bubbles:true, detail:{ score: Number(score) } });
+      card.dispatchEvent(ev);
+      if (typeof window.setCurrentScore === 'function'){
+        window.setCurrentScore(Number(score));
+      }
     });
   }
 
@@ -248,7 +249,7 @@
         <div class="tk-question-title">${title}</div>
         ${sub ? `<div class="tk-sub">${sub}</div>` : ''}
         <div class="tk-scale" id="tk-mono-scale">
-          ${[0,1,2,3,4,5].map(n=>`<button type="button" data-val="${n}">${n}</button>`).join('')}
+          ${[0,1,2,3,4,5].map(n=>`<button type="button" data-val="${n}" aria-pressed="false">${n}</button>`).join('')}
         </div>
         <div class="tk-meta" id="tk-qmeta"></div>
       `;
@@ -261,6 +262,15 @@
         const b = e.target.closest('button'); if (!b) return;
         setLeftActive(b.dataset.val);
         setRightActive(b.dataset.val);
+        const card = document.querySelector('#tk-rating-card');
+        const score = Number(b.dataset.val);
+        if (card){
+          const ev = new CustomEvent('tk:score', { bubbles:true, detail:{ score } });
+          card.dispatchEvent(ev);
+        }
+        if (typeof window.setCurrentScore === 'function'){
+          window.setCurrentScore(score);
+        }
       });
     }
   }
@@ -271,13 +281,14 @@
     if (!row) return;
     row.querySelectorAll('button').forEach(b=>{
       b.classList.toggle('is-active', b.dataset.val === String(val));
+      b.setAttribute('aria-pressed', b.dataset.val === String(val) ? 'true' : 'false');
     });
   }
   function setRightActive(val){
-    const grid = document.querySelector('#tk-color-scale');
+    const grid = document.querySelector('#tk-rating-card .grid');
     if (!grid) return;
-    grid.querySelectorAll('.tk-chip').forEach(b=>{
-      const on = b.dataset.val === String(val);
+    grid.querySelectorAll('.chip').forEach(b=>{
+      const on = b.dataset.score === String(val);
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
