@@ -368,5 +368,35 @@
         <table id="compatibilityTable"></table>
       </section>
     </div>
+
+    <script>
+      (function () {
+        // Only run on /kinksurvey/ — leaves the landing page alone
+        if (!location.pathname.startsWith('/kinksurvey/')) return;
+
+        // Wait until enhancer is present (handles async/defer)
+        function ready(fn) {
+          document.readyState !== 'loading'
+            ? fn()
+            : document.addEventListener('DOMContentLoaded', fn);
+        }
+
+        ready(function () {
+          // If your enhancer attached to a TK namespace, the shim in A exposes the global name.
+          if (typeof window.setupDockedSurveyLayout === 'function') {
+            window.setupDockedSurveyLayout();
+          } else {
+            // As a last resort, try again once after a tick (defer/async race)
+            setTimeout(function () {
+              if (typeof window.setupDockedSurveyLayout === 'function') {
+                window.setupDockedSurveyLayout();
+              } else {
+                console.warn('[TK] Enhancer not ready – cannot mount docked layout.');
+              }
+            }, 0);
+          }
+        });
+      })();
+    </script>
   </body>
 </html>
