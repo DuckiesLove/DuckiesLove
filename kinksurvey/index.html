@@ -107,6 +107,41 @@
     </script>
 
     <link rel="stylesheet" href="/assets/css/kinksurvey/survey.css?v=2025-10-15">
+    <style>
+      /* Keep the big title on one line on desktop widths */
+      #pageTitle, .tk-page-title, .glow-title {
+        white-space: nowrap;
+      }
+
+      /* Don’t collapse the dual layout until it’s really narrow */
+      #tk-question-host.tk-dual {
+        display: grid;
+        grid-template-columns: minmax(640px, 1fr) 380px; /* wider left, solid right rail */
+        gap: 24px;
+        align-items: start;
+      }
+
+      @media (max-width: 1100px) {
+        #tk-question-host.tk-dual { grid-template-columns: 1fr; }
+      }
+
+      /* Kill any horizontal scrollbar in the question card */
+      #tk-question-card, #tk-question-card * {
+        white-space: normal !important;
+        word-break: normal !important;
+        overflow-wrap: break-word !important;
+      }
+
+      #tk-question-card { overflow-x: hidden !important; }
+
+      /* Right rail stays sticky and scrolls vertically */
+      #tk-rating-card {
+        position: sticky;
+        top: 96px;
+        max-height: calc(100vh - 120px);
+        overflow: auto;
+      }
+    </style>
     <script defer src="/assets/js/kinksurvey/survey.js?v=2025-10-15"></script>
     <script defer src="/assets/js/tk-enhancer.js?v=2"></script>
   </head>
