@@ -1,0 +1,52 @@
+<!-- TalkKink hard cache reset helper -->
+<script>
+(async () => {
+  console.info('[TK] Performing hard cache reset…');
+  try {
+    sessionStorage.setItem('tkreset', '1');
+  } catch (err) {
+    console.warn('[TK] sessionStorage.setItem failed', err);
+  }
+
+  if ('serviceWorker' in navigator) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) {
+        try {
+          await reg.unregister();
+        } catch (err) {
+          console.warn('[TK] Failed to unregister service worker', err);
+        }
+      }
+    } catch (err) {
+      console.warn('[TK] Failed to enumerate service workers', err);
+    }
+  }
+
+  if (window.caches) {
+    try {
+      const keys = await caches.keys();
+      for (const key of keys) {
+        try {
+          await caches.delete(key);
+        } catch (err) {
+          console.warn('[TK] Failed to delete cache', key, err);
+        }
+      }
+    } catch (err) {
+      console.warn('[TK] Failed to enumerate caches', err);
+    }
+  }
+
+  try { localStorage.removeItem('tk.ver'); } catch (err) {
+    console.warn('[TK] Failed to remove localStorage tk.ver', err);
+  }
+  try { localStorage.removeItem('tk.ver.seen'); } catch (err) {
+    console.warn('[TK] Failed to remove localStorage tk.ver.seen', err);
+  }
+
+  const target = `${location.pathname}?tkreset=1`;
+  console.info('[TK] Reloading', target);
+  location.replace(target);
+})();
+</script>
