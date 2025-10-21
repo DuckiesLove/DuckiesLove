@@ -32,14 +32,32 @@
   }
 
   // Find the “Rate interest/comfort (0–5)” anchor inside the current question card
+  const TEXT_RX = /rate\s+interest\s*\/?\s*comfort/i;
+
+  function isVisible(node){
+    if(!node) return false;
+    if(!(node instanceof Element)) return false;
+    if(node.hidden) return false;
+    const style = window.getComputedStyle(node);
+    if(style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+    if(node.offsetParent === null && style.position !== 'fixed') return false;
+    return true;
+  }
+
   function findScaleAnchor(root){
+    const candidates=[];
     const all=root.querySelectorAll('*');
     for(const n of all){
-      if(n.childElementCount===0 && /rate\s+interest\/comfort/i.test(n.textContent||'')) {
-        return n.parentElement||n;
+      if(n.childElementCount===0 && TEXT_RX.test(n.textContent||'')) {
+        candidates.push(n.parentElement||n);
       }
     }
-    return null;
+    if(!candidates.length) return null;
+
+    const visible = candidates.filter(el => isVisible(findCard(el)) && isVisible(el));
+    if(visible.length) return visible[visible.length-1];
+
+    return candidates[candidates.length-1];
   }
   function findCard(anchor){ return anchor?.closest('section, article, div'); }
 
@@ -89,15 +107,32 @@
     if(!anchor) return;
 
     const card=findCard(anchor);
+    const cards=document.querySelectorAll('.tk-qcard-glow');
+    cards.forEach(c=>{ if(c!==card) c.classList.remove('tk-qcard-glow'); });
     if(card && !card.classList.contains('tk-qcard-glow')) card.classList.add('tk-qcard-glow');
 
     // Remove duplicates: keep only the first legend in this card
-    const existing=[...card.querySelectorAll('.tk-legend')];
+    const existing=card?[...card.querySelectorAll('.tk-legend')]:[];
     if(existing.length>1) existing.slice(1).forEach(n=>n.remove());
+    if(card){
+      document.querySelectorAll('.tk-legend').forEach(node=>{
+        if(node.closest('section, article, div')!==card) node.remove();
+      });
+    }
     if(existing.length===0){
       const legend=buildLegend();
-      // insert just under the question title block
-      anchor.parentElement.insertBefore(legend, anchor);
+      if(anchor.parentElement){
+        anchor.parentElement.insertBefore(legend, anchor);
+      } else if(card){
+        card.insertBefore(legend, card.firstChild);
+      } else {
+        const fallback=document.body||document.documentElement;
+        if(fallback){
+          fallback.insertBefore(legend, fallback.firstChild||null);
+        } else {
+          document.appendChild(legend);
+        }
+      }
     }
 
     const legacyGuard = card?.querySelector('#tk-guard');
