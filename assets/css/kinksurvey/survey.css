@@ -154,6 +154,40 @@ h2,h3,#progressPct,.theme-btn.is-active,
   align-items: flex-start;
 }
 
+html,
+body {
+  overflow-x: hidden;
+}
+
+#tk-question-card,
+.survey-question-panel,
+.survey-question-panel .question-card,
+#questionCard {
+  overflow-x: clip;
+  -webkit-overflow-scrolling: touch;
+}
+
+#tk-question-card,
+.survey-question-panel .question-card,
+#questionCard {
+  white-space: normal !important;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+#tk-question-card [style*="overflow-x"],
+.survey-question-panel [style*="overflow-x"] {
+  overflow-x: clip !important;
+}
+
+#surveyApp,
+#questionArea,
+#tk-question-card,
+.question-card {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 #tk-question-card .q-head,
 .tk-question-card .q-head{
   display: flex; flex-direction: column; gap: 6px; margin: 0; grid-column: 1;
