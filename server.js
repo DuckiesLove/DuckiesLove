@@ -519,38 +519,16 @@ function validateSession(req, res, next) {
   next();
 }
 
-app.use((req, res, next) => {
-  const exemptPaths = [
-    '/submit-token',
-    '/token.html',
-    '/admin',
-    '/debug',
-    '/check-session',
-    '/favicon.ico',
-    '/compatibility.html',
-    '/css/',
-    '/js/',
-    '/src/',
-    '/kinks/',
-    '/kinksurvey/',
-    '/data/',
-    '/kinks.json',
-  ];
-  if (req.url === '/' || req.url === '/index.html') {
-    return next();
-  }
-  if (exemptPaths.some(path => req.url.startsWith(path))) {
-    return next();
-  }
-  return validateSession(req, res, next);
-});
-
-// Protected routes
+// Protected routes (require a valid session)
 app.use((req, res, next) => {
   if (req.method === 'GET' && req.url === '/protected') {
-    json(res, 200, { message: 'You have access 🎉' });
+    validateSession(req, res, () => {
+      json(res, 200, { message: 'You have access 🎉' });
+    });
   } else if (req.method === 'GET' && req.url === '/dashboard') {
-    sendFile(res, path.join(__dirname, 'protected', 'dashboard.html'));
+    validateSession(req, res, () => {
+      sendFile(res, path.join(__dirname, 'protected', 'dashboard.html'));
+    });
   } else {
     next();
   }
