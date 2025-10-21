@@ -31,7 +31,7 @@
 <!-- Reuse site styles for familiar look; local CSS below makes panel behave like /kinks/ -->
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/theme.css">
-<link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20240927b">
+<link rel="stylesheet" href="/css/kinksurvey_overrides.css?v=ks-20241020a">
 <link rel="stylesheet" href="/css/tk-panel-safe.css">
 
 <!-- ✅ ONE DROP PATCH: stop “addEventListener of null” shim -->
@@ -1718,33 +1718,41 @@ if (window.kinks && !Array.isArray(window.kinks.items)) {
 </script>
 <!-- One-time SW/cache buster (also triggers when ?tkreset=1) -->
 <script>
-(function(){
-  const VER = 'ks-20240927b';
-  try {
-    const k = 'tk_ks_ver';
-    const sp = new URL(location.href).searchParams;
-    const mustReset = sp.has('tkreset') || localStorage.getItem(k) !== VER;
-    if (mustReset) {
-      if ('caches' in window) {
-        caches.keys().then(ks => Promise.all(ks.map(n => caches.delete(n))));
+  (function(){
+    const VER = 'ks-20241020a';
+    const LS_KEY = 'tk-ks-ver';
+    const FORCE = /[?&]tkreset=1\b/.test(location.search);
+    const stored = localStorage.getItem(LS_KEY);
+    const changed = stored !== VER;
+
+    async function purge() {
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
       }
-      if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
-        navigator.serviceWorker.getRegistration().then(r => r && r.unregister());
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
       }
-      localStorage.setItem(k, VER);
+      localStorage.setItem(LS_KEY, VER);
     }
-  } catch (_) {}
-})();
+
+    if (FORCE || changed) {
+      purge().finally(() => {
+        if (!FORCE) location.reload();
+      });
+    }
+  })();
 </script>
 <!-- load enhancer last so it can find the existing DOM (versioned URL to beat stale caches) -->
-<script type="module" src="/js/tk_kinksurvey_enhance.js?v=ks-20240927b"></script>
+<script type="module" src="/js/tk_kinksurvey_enhance.js?v=ks-20241020a"></script>
 <!-- Self-heal: if hero didn't appear quickly (stale inline/partial), retry loading once -->
 <script>
 setTimeout(() => {
   if (!document.getElementById('ksvHeroStack')) {
     const s = document.createElement('script');
     s.type = 'module';
-    s.src = '/js/tk_kinksurvey_enhance.js?v=ks-20240927b&retry=1';
+    s.src = '/js/tk_kinksurvey_enhance.js?v=ks-20241020a&retry=1';
     document.head.appendChild(s);
   }
 }, 800);
