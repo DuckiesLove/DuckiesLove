@@ -7,7 +7,7 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
 }
 
 (() => {
-  const DATA_URL = '/data/kinks.json';
+  const DATA_URL = new URL('data/kinks.json', document.baseURI).toString();
   const STORAGE_KEY = '__TK_SELECTED_CATEGORIES';
   const $ = (s, r=document)=>r.querySelector(s);
   const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
