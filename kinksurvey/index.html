@@ -348,6 +348,252 @@
       <table id="compatibilityTable"></table>
     </section>
 
+    <!-- ===== /kinksurvey-only: dual layout + right rating rail ===== -->
+    <style>
+      /* Scope everything to /kinksurvey containers so the landing page is untouched */
+      #tk-question-host.tk-dual {
+        display: grid;
+        grid-template-columns: minmax(560px, 1fr) 360px;
+        gap: 24px;
+        align-items: start;
+      }
+
+      @media (max-width: 1100px) {
+        #tk-question-host.tk-dual {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Question card: sane wrapping + no horizontal scrollbar */
+      #tk-question-card,
+      #tk-question-card * {
+        white-space: normal !important;
+        word-break: normal !important;
+        overflow-wrap: break-word !important;
+      }
+
+      #tk-question-card {
+        overflow-x: hidden !important;
+      }
+
+      /* Right rating rail, scoped */
+      #tk-rating-card {
+        position: sticky;
+        top: 96px;
+        max-height: calc(100vh - 120px);
+        overflow: auto;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01))
+          var(--tk-surface, rgba(13, 17, 23, 0.82));
+        border: 1px solid var(--tk-edge, rgba(255, 255, 255, 0.1));
+        box-shadow: inset 0 0 0 1px rgba(var(--tk-glow-rgb, 0 170 255), 0.15), 0 8px 22px rgba(0, 0, 0, 0.35),
+          0 0 28px var(--tk-glow-soft, rgba(0, 170, 255, 0.1));
+        color: var(--fg, #eef3f9);
+      }
+
+      #tk-rating-card .tk-h {
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.35px;
+        font-size: 0.8rem;
+        opacity: 0.9;
+        margin: 0 0 8px;
+      }
+
+      #tk-rating-card .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      #tk-rating-card .chip {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        cursor: pointer;
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+        transition: transform 0.12s, box-shadow 0.15s, background 0.15s, border-color 0.15s;
+      }
+
+      #tk-rating-card .chip:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+      }
+
+      #tk-rating-card .chip.is-active {
+        outline: 2px solid currentColor;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      #tk-rating-card .dot {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        color: #071018;
+        box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.25);
+      }
+
+      #tk-rating-card .t1 {
+        font-weight: 700;
+        line-height: 1.15;
+      }
+
+      #tk-rating-card .t2 {
+        font-size: 0.86rem;
+        opacity: 0.85;
+        line-height: 1.15;
+      }
+
+      #tk-rating-card .g0 .dot {
+        background: #60a5fa;
+      }
+
+      #tk-rating-card .g0 .t1 {
+        color: #bfe0ff;
+      }
+
+      #tk-rating-card .g1 .dot {
+        background: #ef4444;
+      }
+
+      #tk-rating-card .g1 .t1 {
+        color: #ffc6c6;
+      }
+
+      #tk-rating-card .g2 .dot {
+        background: #f59e0b;
+      }
+
+      #tk-rating-card .g2 .t1 {
+        color: #ffe2b3;
+      }
+
+      #tk-rating-card .g3 .dot {
+        background: #10b981;
+      }
+
+      #tk-rating-card .g3 .t1 {
+        color: #bdf5e4;
+      }
+
+      #tk-rating-card .g4 .dot {
+        background: #22c55e;
+      }
+
+      #tk-rating-card .g4 .t1 {
+        color: #c7ffd8;
+      }
+
+      #tk-rating-card .g5 .dot {
+        background: #84cc16;
+      }
+
+      #tk-rating-card .g5 .t1 {
+        color: #e8ffc2;
+      }
+    </style>
+
+    <script>
+      (function () {
+        // /kinksurvey only: ensure host and two-column layout exist
+        const host =
+          document.getElementById('tk-question-host') || (function () {
+            const section = document.createElement('section');
+            section.id = 'tk-question-host';
+            const card = document.getElementById('tk-question-card');
+            card?.parentNode?.insertBefore(section, card);
+            if (card) section.appendChild(card);
+            return section;
+          })();
+
+        host.classList.add('tk-dual');
+
+        // Right rating rail (create if missing)
+        let rail = document.getElementById('tk-rating-card');
+        if (!rail) {
+          rail = document.createElement('aside');
+          rail.id = 'tk-rating-card';
+          host.appendChild(rail);
+        }
+
+        // Render 0–5 chips
+        rail.innerHTML = `
+    <div class="tk-h">Rate this</div>
+    <div class="grid" role="group" aria-label="Rating 0 to 5">
+      ${[0, 1, 2, 3, 4, 5]
+        .map(
+          (n) => `
+        <button class="chip g${n}" type="button" data-score="${n}" aria-pressed="false">
+          <span class="dot">${n}</span>
+          <span>
+            <div class="t1">${
+              n === 0
+                ? 'No/Hard No'
+                : n === 1
+                ? 'Hard Limit'
+                : n === 2
+                ? 'Maybe'
+                : n === 3
+                ? 'Like'
+                : n === 4
+                ? 'Love'
+                : 'Hell Yes'
+            }</div>
+            <div class="t2">Select ${n}</div>
+          </span>
+        </button>`
+        )
+        .join('')}
+    </div>
+  `;
+
+        // Visual state + event for the survey logic
+        rail.addEventListener('click', (event) => {
+          const button = event.target.closest('.chip[data-score]');
+          if (!button) return;
+          const score = Number(button.dataset.score);
+
+          rail
+            .querySelectorAll('.chip[aria-pressed]')
+            .forEach((chip) => chip.setAttribute('aria-pressed', chip === button ? 'true' : 'false'));
+
+          rail.querySelectorAll('.chip').forEach((chip) => {
+            chip.classList.toggle('is-active', chip === button);
+          });
+
+          // Inform the app
+          rail.dispatchEvent(new CustomEvent('tk:score', { bubbles: true, detail: { score } }));
+          if (typeof window.setCurrentScore === 'function') window.setCurrentScore(score);
+        });
+
+        // Kill any inner horizontal scrollbars in the card
+        const killHScroll = () => {
+          const card = document.getElementById('tk-question-card');
+          if (!card) return;
+          card.style.overflowX = 'hidden';
+          card.querySelectorAll('*').forEach((el) => {
+            el.style.whiteSpace = 'normal';
+            el.style.wordBreak = 'normal';
+            el.style.overflowWrap = 'break-word';
+          });
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', killHScroll, { once: true });
+        } else {
+          killHScroll();
+        }
+      })();
+    </script>
+
     <!-- ============================================================
     TALK KINK — STABLE “QUESTION + 0–5” DOCK (no flashing)
     Paste this once on /kinksurvey/ (before </body>). It does NOT move
