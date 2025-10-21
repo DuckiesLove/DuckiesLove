@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Talk Kink — Survey</title>
+<script>
+  const VER = 'ks-20241021a';
+</script>
 <style>
   :root{
     --bg:#000; --fg:#e6ffff; --accent:#00e6ff;
@@ -333,7 +336,7 @@
   }
 
   async function loadKinksDataset() {
-    const v = Date.now();
+    const v = typeof VER !== 'undefined' ? VER : Date.now();
     const urls = [
       `/data/kinks.json?v=${v}`,
       `/kinksurvey/data/kinks.json?v=${v}`,
@@ -1032,7 +1035,7 @@
   })();
 </script>
 
-<script defer src="/js/score-rail.js?v=4"></script>
+<script defer src="/js/score-rail.js?v=ks-20241021a"></script>
 <style>
   /* nudge the rail vertically if your header height differs */
   @media (min-width:1px){ .tk-rail{ top:128px } }
