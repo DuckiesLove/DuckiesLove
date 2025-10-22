@@ -1,196 +1,299 @@
 (() => {
-  const onKinkSurvey = location.pathname.replace(/\/+$/,'') === '/kinksurvey';
-  if (!onKinkSurvey) return;
+  const onSurveyPage = location.pathname.replace(/\/+$/, '') === '/kinksurvey';
+  if (!onSurveyPage) return;
 
-  // ---- CSS: hide score areas pre-start; helper + CTA styles ----
-  const css = `
-    /* GRID: middle card + right guard (keeps your existing left categories rail) */
-    #tk-question-host, .question-layout, #questionArea {
-      display: grid !important;
-      grid-template-columns: minmax(620px, 1fr) 380px !important;
-      gap: 24px !important;
-      align-items: start !important;
-    }
-    @media (max-width: 1100px){
-      #tk-question-host, .question-layout, #questionArea { grid-template-columns: 1fr !important; }
-    }
+  const doc = document;
+  const state = { started: false };
+  const els = { host: null, left: null, main: null, right: null, start: null, score: null };
 
-    /* CENTER CARD: kill the inner scrollbars & allow normal wrapping */
-    #questionCard, .survey-question-panel .question-card, .question-card {
-      overflow: visible !important;
-      max-height: none !important;
-      height: auto !important;
-      white-space: normal !important;
-      word-break: normal !important;
-      overflow-wrap: anywhere !important;
-    }
-    /* If a nested scroller exists, force it open */
-    #questionCard [style*="overflow"], .question-card [style*="overflow"] { overflow: visible !important; }
-
-    /* RIGHT RAIL: sticky, independent scroll */
-    .score-sidebar, [data-sticky="score"], #tkScoreDock, .tk-score-aside {
-      position: sticky !important;
-      top: 96px !important;
-      max-height: calc(100vh - 112px) !important;
-      overflow: auto !important;
-    }
-
-    /* Hide ANY score rail/dock until Start Survey */
-    body.tk-prestart #tkScoreDock,
-    body.tk-prestart .tk-score-aside,
-    body.tk-prestart .score-sidebar,
-    body.tk-prestart [data-sticky="score"]{
-      display:none !important;
-    }
-    /* Helper panel look */
-    #tk-select-helper.tk-pane{
-      margin:16px auto; max-width:880px; padding:18px 20px;
-      border-radius:18px; border:1px solid rgba(255,255,255,.10);
-      background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01)) rgba(13,17,23,.82);
-      box-shadow:inset 0 0 0 1px rgba(0,170,255,.15),0 8px 22px rgba(0,0,0,.35),0 0 28px rgba(0,170,255,.10);
-    }
-    #tk-select-helper h3{margin:0 0 8px 0}
-    /* Start button */
-    #tkStartBtn{
-      display:inline-flex; align-items:center; justify-content:center;
-      height:38px; padding:8px 14px; border-radius:999px; cursor:pointer;
-      border:1px solid rgba(255,255,255,.10); background:#121821; color:#eaf3ff;
-      font-weight:700; letter-spacing:.2px; outline:2px solid color-mix(in oklab, var(--accent, #4da3ff) 65%, transparent);
-      box-shadow:0 0 0 1px rgba(0,0,0,.35) inset, 0 0 12px color-mix(in oklab, var(--accent, #4da3ff) 45%, transparent);
-      transition:transform .12s ease, box-shadow .12s ease, background .12s ease, opacity .12s ease;
-      margin-top:12px;
-    }
-    #tkStartBtn:hover:enabled{ transform:translateY(-1px); }
-    #tkStartBtn:disabled{ opacity:.55; cursor:not-allowed; box-shadow:none; outline-color:transparent; }
+  const CSS = `
+  :root{ --dock-gap:24px; --dock-w:360px; --dock-edge:#142331; --dock-bg:#0b1016; }
+  #tkDockHost{display:grid;grid-template-columns:minmax(320px,var(--dock-w)) 1fr minmax(280px,0.85fr);gap:var(--dock-gap);align-items:start;margin:0 20px 40px;}
+  @media (max-width:1200px){#tkDockHost{grid-template-columns:minmax(320px,var(--dock-w)) 1fr}}
+  @media (max-width:960px){#tkDockHost{grid-template-columns:1fr}}
+  #tkDockLeft,#tkDockMain,#tkDockRight{min-height:1px}
+  #tkDockLeft{position:sticky;top:96px;align-self:start}
+  #tkDockLeft .tk-panel{background:var(--dock-bg);border:1px solid var(--dock-edge);border-radius:14px;box-shadow:0 8px 22px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.06);padding:8px}
+  #tkDockRight{display:none}
+  .tk-hide-score .how-to-score, .tk-hide-score [data-sticky="score"] { display:none !important; }
+  #tkIntro{display:none;margin:0 auto 16px;max-width:980px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.12);border-radius:18px;box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,170,255,.15);padding:18px 20px}
+  #tkIntro .cta{display:inline-flex;gap:10px;align-items:center;padding:10px 14px;border-radius:999px;background:#121821;border:1px solid #1b2b3a;cursor:not-allowed;opacity:.55;transition:opacity .15s ease, box-shadow .15s ease}
+  #tkIntro .cta.is-ready{cursor:pointer;opacity:1;box-shadow:0 0 0 1px rgba(0,0,0,.35) inset, 0 0 14px rgba(77,163,255,.35)}
+  body.tk-prestart [data-sticky="score"], body.tk-prestart #tkDockRight{display:none !important;}
   `;
-  const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
 
-  // ---- small DOM helpers ----
-  const $  = (s,sc=document)=>sc.querySelector(s);
-  const $$ = (s,sc=document)=>Array.from(sc.querySelectorAll(s));
-
-  const TK = (window.TK ||= {}); TK.state ||= { started:false, selectedGroups:[] };
-
-  // Keep body in "prestart" until user clicks Start Survey
-  document.documentElement.classList.add('theme-dark'); // keep colors consistent
-  document.body.classList.add('tk-prestart');
-
-  // ---------- LEFT PANEL ----------
-  function ensureLeftPanel(){
-    let panel = $('#categoryPanel');
-    if (!panel) {
-      panel = document.createElement('section');
-      panel.id='categoryPanel';
-      panel.className='tk-pane';
-      panel.innerHTML = `
-        <h2 class="tk-side-title">Categories</h2>
-        <div class="tk-cat-count">0 selected</div>
-        <ul class="tk-catlist"></ul>`;
-      ( $('#tkDockLeft') || $('body') ).prepend(panel);
-    }
-    panel.removeAttribute('style'); // strip inline styles that cause scrollbars
-    return panel;
+  function injectCss() {
+    if (doc.getElementById('tkDockGateCss')) return;
+    const style = doc.createElement('style');
+    style.id = 'tkDockGateCss';
+    style.textContent = CSS;
+    doc.head.appendChild(style);
   }
 
-  // ---------- SELECT HELPER + CTA ----------
-  function mountSelectHelper(){
-    if ($('#tk-select-helper')) return;
-    const box = document.createElement('div');
-    box.id='tk-select-helper'; box.className='tk-pane';
-    box.innerHTML = `
-      <h3>Select at least one category to begin</h3>
-      <div class="how-to-score" style="opacity:.9;margin-bottom:8px">How to score</div>
-      <ul style="margin:.25rem 0 0 1rem; line-height:1.35; opacity:.9">
-        <li><strong>0</strong> — skip for now</li>
-        <li><strong>1</strong> — hard limit (no-go)</li>
-        <li><strong>2</strong> — soft limit / willing to try</li>
-        <li><strong>3</strong> — context-dependent</li>
-        <li><strong>4</strong> — enthusiastic yes</li>
-        <li><strong>5</strong> — favorite / please do</li>
-      </ul>
-      <button id="tkStartBtn" disabled>Start Survey</button>
-    `;
-    ( $('#tkDockMid') || $('main') || document.body ).prepend(box);
-    $('#tkStartBtn').addEventListener('click', () => window.startSurvey());
-  }
-  const removeSelectHelper = () => $('#tk-select-helper')?.remove();
-
-  // ---------- CATEGORY LIST HOOK ----------
-  window.buildCategoryList = function buildCategoryList(kinks){
-    const panel = ensureLeftPanel();
-    const list = $('.tk-catlist', panel); list.textContent='';
-    const counter = $('.tk-cat-count', panel);
-
-    const groups = [...new Set(kinks.map(k => k.group))].sort();
-    groups.forEach(g=>{
-      const li = document.createElement('li');
-      li.className='tk-catrow';
-      li.innerHTML = `
-        <label class="tk-cat">
-          <input type="checkbox" data-group="${g}"><span class="tk-catname">${g}</span>
-        </label>`;
-      list.appendChild(li);
-    });
-
-    // absolutely no pre-check
-    $$('input[type="checkbox"]', list).forEach(cb => cb.checked=false);
-
-    // show helper + CTA
-    mountSelectHelper();
-
-    // update state / enable CTA when there is at least one selection
-    list.addEventListener('change', () => {
-      TK.state.selectedGroups = $$('input:checked', list).map(cb => cb.dataset.group);
-      const any = TK.state.selectedGroups.length > 0;
-      counter.textContent = `${TK.state.selectedGroups.length} selected`;
-
-      const helperBtn = $('#tkStartBtn');
-      if (helperBtn) helperBtn.disabled = !any;
-
-      const navBtn = $('#btnStart');
-      if (navBtn) {
-        navBtn.disabled = !any;
-        navBtn.title = any ? '' : 'Select at least one category to start';
-        navBtn.classList.toggle('tk-disabled', !any);
-        navBtn.setAttribute('aria-disabled', String(!any));
-        if (!navBtn.dataset.tkStartGateBound) {
-          navBtn.addEventListener('click', () => window.startSurvey());
-          navBtn.dataset.tkStartGateBound = '1';
+  function ensureDockLayoutNodes() {
+    if (!els.host) {
+      let host = doc.getElementById('tkDockHost');
+      if (!host) {
+        host = doc.createElement('div');
+        host.id = 'tkDockHost';
+        const anchor = doc.querySelector('#surveyApp .tk-wrap') || doc.getElementById('surveyApp') || doc.body;
+        if (anchor.firstChild) {
+          anchor.insertBefore(host, anchor.firstChild);
+        } else {
+          anchor.appendChild(host);
         }
       }
+      els.host = host;
+    }
 
-      // If your boot exposes pool rebuild, call it (optional)
-      if (typeof TK.rebuildPool === 'function') TK.rebuildPool(TK.state.selectedGroups);
+    if (!els.left) {
+      let left = doc.getElementById('tkDockLeft');
+      if (!left) {
+        left = doc.createElement('aside');
+        left.id = 'tkDockLeft';
+      }
+      if (left.parentNode !== els.host) {
+        els.host.insertBefore(left, els.host.firstChild);
+      }
+      els.left = left;
+    }
+
+    if (!els.main) {
+      let main = doc.getElementById('tkDockMain');
+      if (!main) {
+        main = doc.createElement('section');
+        main.id = 'tkDockMain';
+      }
+      if (main.parentNode !== els.host) {
+        if (els.host.children.length > 1) {
+          els.host.insertBefore(main, els.host.children[1]);
+        } else {
+          els.host.appendChild(main);
+        }
+      }
+      els.main = main;
+    }
+
+    if (!els.right) {
+      let right = doc.getElementById('tkDockRight');
+      if (!right) {
+        right = doc.createElement('aside');
+        right.id = 'tkDockRight';
+      }
+      if (right.parentNode !== els.host) {
+        els.host.appendChild(right);
+      }
+      els.right = right;
+    }
+  }
+
+  function mountDockPanel() {
+    const panel = doc.querySelector('#categoryPanel, .category-panel, [data-role="category-panel"]');
+    if (!panel) return false;
+
+    panel.removeAttribute('style');
+    let shell = panel.parentElement;
+    if (!shell || !shell.classList.contains('tk-panel')) {
+      shell = doc.createElement('div');
+      shell.className = 'tk-panel';
+      shell.appendChild(panel);
+    }
+    if (shell.parentNode !== els.left) {
+      els.left.innerHTML = '';
+      els.left.appendChild(shell);
+    }
+    return true;
+  }
+
+  function mountQuestionArea() {
+    const targets = [
+      '#ctaStack',
+      '.tk-meta',
+      '.tk-survey-shell',
+      '#questionArea',
+      '#questionCard',
+      '.survey-question-panel',
+    ];
+    let mounted = false;
+
+    for (const sel of targets) {
+      const node = doc.querySelector(sel);
+      if (!node) continue;
+      if (node.parentNode !== els.main) {
+        els.main.appendChild(node);
+      }
+      mounted = true;
+    }
+
+    els.main.classList.add('tk-hide-score');
+    return mounted;
+  }
+
+  function findScoreDock() {
+    if (els.score && doc.contains(els.score)) return;
+    const dock = doc.querySelector('#tkScoreDock, .score-sidebar, [data-sticky="score"]');
+    if (!dock) return;
+    els.score = dock;
+    dock.style.display = 'none';
+  }
+
+  function ensureGate() {
+    if (els.start && doc.contains(els.start)) return;
+    const intro = doc.createElement('div');
+    intro.id = 'tkIntro';
+    intro.innerHTML = `
+      <h3 style="margin:0 0 6px 0;font-weight:800">Select at least one category to begin</h3>
+      <ul style="margin:8px 0 14px 18px;line-height:1.45">
+        <li>0 — skip for now</li>
+        <li>1 — hard limit (no-go)</li>
+        <li>2 — soft limit / willing to try</li>
+        <li>3 — context-dependent</li>
+        <li>4 — enthusiastic yes</li>
+        <li>5 — favorite / please do</li>
+      </ul>
+      <button id="tkStart" class="cta" disabled>Start Survey</button>
+    `;
+    els.main.prepend(intro);
+    intro.style.display = 'block';
+    els.start = intro.querySelector('#tkStart');
+    els.start?.addEventListener('click', handleIntroStart);
+  }
+
+  function selectedCount() {
+    const scope = els.left || doc;
+    return scope ? scope.querySelectorAll('input[type="checkbox"]:checked,[role="checkbox"][aria-checked="true"]').length : 0;
+  }
+
+  function updateStartButtons() {
+    const any = selectedCount() > 0;
+    if (els.start) {
+      els.start.toggleAttribute('disabled', !any);
+      els.start.classList.toggle('is-ready', any);
+    }
+
+    const navBtn = doc.getElementById('btnStart');
+    if (navBtn) {
+      if (!navBtn.dataset.tkGateBound) {
+        navBtn.addEventListener('click', () => {
+          if (selectedCount() > 0) {
+            requestStart();
+          }
+        });
+        navBtn.dataset.tkGateBound = '1';
+      }
+      navBtn.disabled = !any;
+      navBtn.title = any ? '' : 'Select at least one category to start';
+      navBtn.classList.toggle('tk-disabled', !any);
+      navBtn.setAttribute('aria-disabled', String(!any));
+    }
+  }
+
+  function bindCategoryWatcher() {
+    const panel = doc.getElementById('categoryPanel');
+    if (!panel) return;
+
+    const register = () => {
+      const boxes = panel.querySelectorAll('input[type="checkbox"], [role="checkbox"]');
+      boxes.forEach((box) => {
+        if (box.dataset.tkGateBound) return;
+        box.addEventListener('change', updateStartButtons);
+        box.dataset.tkGateBound = '1';
+      });
+      updateStartButtons();
+    };
+
+    register();
+
+    const mo = new MutationObserver(register);
+    mo.observe(panel, { childList: true, subtree: true });
+  }
+
+  function handleIntroStart() {
+    if (selectedCount() < 1) return;
+    const navBtn = doc.getElementById('btnStart');
+    if (navBtn) {
+      navBtn.click();
+    } else {
+      requestStart();
+    }
+  }
+
+  function requestStart() {
+    if (state.started) return;
+    const app = doc.getElementById('surveyApp');
+    if (app && !app.classList.contains('is-prestart')) {
+      activateStart();
+      return;
+    }
+    setTimeout(() => {
+      const host = doc.getElementById('surveyApp');
+      if (host && !host.classList.contains('is-prestart')) {
+        activateStart();
+      }
+    }, 120);
+  }
+
+  function activateStart() {
+    if (state.started) return;
+    if (selectedCount() < 1) return;
+    state.started = true;
+
+    doc.body.classList.remove('tk-prestart');
+    els.main.classList.remove('tk-hide-score');
+
+    if (els.score) {
+      els.score.style.display = '';
+      if (els.right && els.score.parentNode !== els.right) {
+        els.right.appendChild(els.score);
+      }
+      if (els.right) {
+        els.right.style.display = '';
+      }
+    }
+
+    const intro = doc.getElementById('tkIntro');
+    intro?.remove();
+  }
+
+  function observeSurveyStart() {
+    const app = doc.getElementById('surveyApp');
+    if (!app) return;
+    const observer = new MutationObserver(() => {
+      if (!app.classList.contains('is-prestart')) {
+        activateStart();
+      }
     });
-  };
+    observer.observe(app, { attributes: true, attributeFilter: ['class'] });
+  }
 
-  // ---------- START SURVEY GATE ----------
-  window.startSurvey = function startSurvey(){
-    if (TK.state.started) return;
-    if (TK.state.selectedGroups.length === 0) { mountSelectHelper(); return; } // keep gated
-    TK.state.started = true;
+  function remount() {
+    ensureDockLayoutNodes();
+    const hasPanel = mountDockPanel();
+    const hasMain = mountQuestionArea();
+    if (hasPanel) bindCategoryWatcher();
+    if (hasMain) ensureGate();
+    findScoreDock();
+    updateStartButtons();
+  }
 
-    // reveal score UI from now on
-    document.body.classList.remove('tk-prestart');
+  function boot() {
+    injectCss();
+    doc.body.classList.add('tk-prestart');
+    window.TK_GATE = true;
+    remount();
 
-    // hand off to your existing starter if present
-    if (typeof TK.start === 'function') TK.start();
-    else if (typeof TK.begin === 'function') TK.begin();
-    else if (typeof window.startSurveyOriginal === 'function') window.startSurveyOriginal();
+    const app = doc.getElementById('surveyApp') || doc.body;
+    const observer = new MutationObserver(() => {
+      remount();
+    });
+    observer.observe(app, { childList: true, subtree: true });
 
-    removeSelectHelper();
-  };
+    observeSurveyStart();
+  }
 
-  // ---------- RENDER FIRST QUESTION HOOK ----------
-  window.renderFirstQuestion = function renderFirstQuestion(){
-    const host = $('#tk-question-host') || $('#tkDockMid') || $('main') || document.body;
-    const card = $('#tk-question-card') || $('.question-card') || $('#questionCard');
-    if (host && card && card.parentNode !== host) host.prepend(card);
-    if (card) card.style.overflow='visible'; // avoid inner scrollbars
-  };
-
-  // boot
-  (document.readyState === 'loading')
-    ? document.addEventListener('DOMContentLoaded', () => { ensureLeftPanel(); mountSelectHelper(); }, {once:true})
-    : (ensureLeftPanel(), mountSelectHelper());
+  if (doc.readyState === 'loading') {
+    doc.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 })();
