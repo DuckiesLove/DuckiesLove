@@ -1,0 +1,164 @@
+<!-- TK Kink Survey: robust category-panel bootstrap (single-file for Codex) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Talk Kink Survey</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Your existing styles (safe to keep) -->
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/kinksurvey_overrides.css" />
+
+  <style>
+    /* Minimal layout to ensure left column exists */
+    #tkPortal.tk-portal.grid-2col { display:grid; grid-template-columns:320px 1fr; gap:20px; align-items:start; }
+    .category-panel{ position:sticky; top:16px; align-self:start; max-height:calc(100vh - 32px); overflow:auto; padding:16px; border-radius:12px; }
+    .panel-header{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px; }
+    .category-checklist{ list-style:none; margin:12px 0 16px; padding:0; }
+    .category-checklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; cursor:pointer; }
+    .start-button:disabled{ opacity:.5; cursor:not-allowed; }
+    #surveyApp[hidden], #surveyScoreCard[hidden]{ display:none !important; }
+    @media (max-width:980px){ #tkPortal.tk-portal.grid-2col{ grid-template-columns:1fr; } .category-panel{ position:relative; top:0; max-height:none; } }
+  </style>
+</head>
+<body class="theme-dark">
+  <div id="tkPortal" class="tk-portal grid-2col">
+    <!-- LEFT: Category Panel lives directly in #tkPortal -->
+    <section id="categoryPanel" class="panel category-panel">
+      <header class="panel-header">
+        <h2>Categories</h2>
+        <div class="category-counter">
+          <span id="categorySelectedCount">0</span><span>/</span><span id="categoryTotalCount">0</span><span> selected</span>
+        </div>
+      </header>
+      <ul id="categoryChecklist" class="category-checklist"><!-- populated at runtime --></ul>
+      <button id="startSurveyBtn" class="themed-button start-button" disabled>Start Survey</button>
+    </section>
+
+    <!-- RIGHT: Main area -->
+    <main id="surveyMain" class="portal-main">
+      <section id="surveyIntro" class="intro">
+        <h1 class="themed-header">Talk Kink Survey</h1>
+        <p>Select one or more categories on the left, then press <em>Start Survey</em>.</p>
+      </section>
+      <section id="surveyApp" class="survey-app" hidden></section>
+      <aside id="surveyScoreCard" class="scorecard" hidden></aside>
+    </main>
+  </div>
+
+  <script>
+    /* ---------- Robust helpers (waits for elements & DOM) ---------- */
+    const TK = window.TK || (window.TK = {});
+    TK.log = (...a)=>console.info("[TK]", ...a);
+
+    function onDomReady(cb){
+      if (document.readyState === "interactive" || document.readyState === "complete") cb();
+      else document.addEventListener("DOMContentLoaded", cb, {once:true});
+    }
+
+    function waitForEl(selector, {timeout=6000, root=document} = {}){
+      return new Promise((resolve, reject)=>{
+        const found = root.querySelector(selector);
+        if (found) return resolve(found);
+        const obs = new MutationObserver(()=>{
+          const el = root.querySelector(selector);
+          if (el){ obs.disconnect(); resolve(el); }
+        });
+        obs.observe(root, {childList:true, subtree:true});
+        if (timeout){
+          setTimeout(()=>{ obs.disconnect(); reject(new Error(`Timeout waiting for ${selector}`)); }, timeout);
+        }
+      });
+    }
+
+    /* ---------- Optional: seed categories if app hasn't provided them yet ---------- */
+    window.TK_CATEGORIES = window.TK_CATEGORIES || [
+      { id:"appearance", name:"Appearance Play" },
+      { id:"sensation",  name:"Sensation / Impact" },
+      { id:"service",    name:"Service & Protocol" },
+      { id:"psych",      name:"Psychological / Primal" },
+      { id:"bondage",    name:"Bondage / Restraint" },
+      { id:"aftercare",  name:"Care & Aftercare" },
+    ];
+
+    /* ---------- Safe bootstrap that will NOT run before the panel exists ---------- */
+    onDomReady(async ()=>{
+      if (window.__TK_CATEGORY_WIRED__) { TK.log("Category panel already wired; skipping duplicate init."); return; }
+
+      try{
+        const panel       = await waitForEl("#categoryPanel");
+        const checklist   = await waitForEl("#categoryChecklist");
+        const startBtn    = await waitForEl("#startSurveyBtn");
+        const countSel    = await waitForEl("#categorySelectedCount");
+        const countTot    = await waitForEl("#categoryTotalCount");
+        const surveyIntro = document.getElementById("surveyIntro");
+        const surveyApp   = document.getElementById("surveyApp");
+        const scoreCard   = document.getElementById("surveyScoreCard");
+
+        window.__TK_CATEGORY_WIRED__ = true; // prevent double-binding
+        TK.log("Category panel found; wiring events.");
+
+        // Populate checklist
+        const CATS = window.TK_CATEGORIES || [];
+        checklist.innerHTML = CATS.map(cat => `
+          <li data-cat="${cat.id}">
+            <input type="checkbox" id="cat_${cat.id}" value="${cat.id}" />
+            <label for="cat_${cat.id}">${cat.name}</label>
+          </li>`).join("");
+
+        // Counts & gating
+        countTot.textContent = String(CATS.length);
+        const getSelected = () => Array.from(checklist.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
+
+        function updateState(){
+          const selected = getSelected();
+          countSel.textContent = String(selected.length);
+          startBtn.disabled = selected.length === 0;
+          panel.dispatchEvent(new CustomEvent("tk:categories:change", {
+            bubbles:true,
+            detail:{ selected, total:CATS.length, countSelected:selected.length, timestamp:Date.now() }
+          }));
+        }
+
+        checklist.addEventListener("change", e=>{
+          if (e.target && e.target.matches('input[type="checkbox"]')) updateState();
+        });
+
+        // Force hidden until Start (prevents early scorecard flashes)
+        if (surveyApp) surveyApp.hidden = true;
+        if (scoreCard) scoreCard.hidden = true;
+
+        startBtn.addEventListener("click", e=>{
+          e.preventDefault();
+          const selected = getSelected();
+          if (!selected.length) return;
+
+          panel.dispatchEvent(new CustomEvent("tk:survey:start", { bubbles:true, detail:{ selected, timestamp:Date.now() } }));
+          if (surveyIntro) surveyIntro.remove();
+          if (surveyApp) surveyApp.hidden = false;
+
+          // Hand off to real engine (optional reveal of scorecard is up to it)
+          if (window.TKSurvey && typeof window.TKSurvey.start === "function"){
+            window.TKSurvey.start({ categories: selected });
+          } else {
+            TK.log("TKSurvey.start not found — stub rendering only.");
+            if (surveyApp){
+              surveyApp.innerHTML = `<div class="panel"><h2>Survey</h2><p>Initialized with:</p><ul>${
+                selected.map(s=>`<li>${s}</li>`).join("")
+              }</ul></div>`;
+            }
+          }
+        });
+
+        // Initial compute
+        updateState();
+
+      } catch (err){
+        console.warn("[TK] Bootstrap failed:", err.message);
+      }
+    });
+  </script>
+</body>
+</html>
