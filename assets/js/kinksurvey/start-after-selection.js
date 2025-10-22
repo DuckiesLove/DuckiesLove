@@ -1,31 +1,35 @@
 (() => {
-  const onSurveyPage = location.pathname.replace(/\/+$/, '') === '/kinksurvey';
-  if (!onSurveyPage) return;
+  const onSurvey = location.pathname.replace(/\/+$/, '') === '/kinksurvey';
+  if (!onSurvey) return;
 
   const doc = document;
   const state = { started: false };
   const els = { host: null, left: null, main: null, right: null, start: null, score: null };
 
   const CSS = `
-  :root{ --dock-gap:24px; --dock-w:360px; --dock-edge:#142331; --dock-bg:#0b1016; }
   html.tk-gated #tkDockRight,
-  html.tk-gated [data-sticky="score"],
+  html.tk-gated #tkScoreDock,
   html.tk-gated .how-to-score,
-  html.tk-gated #tkScoreDock{display:none !important;}
+  html.tk-gated [data-sticky="score"],
   html.tk-gated #questionArea,
   html.tk-gated #questionCard,
   html.tk-gated .survey-question-panel,
   html.tk-gated .question-layout,
-  html.tk-gated [data-role="question-panel"]{display:none !important;}
-  #tkDockHost{display:grid;grid-template-columns:minmax(320px,var(--dock-w)) 1fr minmax(280px,0.85fr);gap:var(--dock-gap);align-items:start;margin:0 20px 40px;}
-  @media (max-width:1200px){#tkDockHost{grid-template-columns:minmax(320px,var(--dock-w)) 1fr}}
-  @media (max-width:960px){#tkDockHost{grid-template-columns:1fr}}
-  #tkDockLeft,#tkDockMain,#tkDockRight{min-height:1px}
+  html.tk-gated [data-role="question-panel"]{display:none!important}
+
+  #tkDockHost{display:grid;grid-template-columns:minmax(320px,360px) 1fr minmax(300px,0.9fr);gap:24px;align-items:start;margin:0 20px 40px}
+  @media(max-width:1200px){#tkDockHost{grid-template-columns:minmax(320px,360px) 1fr}}
+  @media(max-width:960px){#tkDockHost{grid-template-columns:1fr}}
   #tkDockLeft{position:sticky;top:96px;align-self:start}
-  #tkDockLeft .tk-panel{background:var(--dock-bg);border:1px solid var(--dock-edge);border-radius:14px;box-shadow:0 8px 22px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.06);padding:8px}
-  #tkIntro{display:none;margin:0 auto 16px;max-width:980px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.12);border-radius:18px;box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,170,255,.15);padding:18px 20px}
-  #tkIntro .cta{display:inline-flex;gap:10px;align-items:center;padding:10px 14px;border-radius:999px;background:#121821;border:1px solid #1b2b3a;cursor:not-allowed;opacity:.55;transition:opacity .15s ease, box-shadow .15s ease}
-  #tkIntro .cta.is-ready{cursor:pointer;opacity:1;box-shadow:0 0 0 1px rgba(0,0,0,.35) inset, 0 0 14px rgba(77,163,255,.35)}
+  #tkDockLeft .tk-shell{background:#0b1016;border:1px solid #142331;border-radius:14px;box-shadow:0 8px 22px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.06);padding:10px}
+
+  #tkStartBar{display:flex;justify-content:center;margin-top:10px}
+  #tkStartBtn{
+    appearance:none;cursor:not-allowed;opacity:.55;
+    border-radius:999px;border:1px solid #1b2b3a;background:#121821;color:#eaf4ff;
+    padding:10px 14px;font-weight:700;letter-spacing:.2px;
+  }
+  #tkStartBtn.is-ready{cursor:pointer;opacity:1;box-shadow:0 0 0 1px rgba(0,0,0,.3) inset, 0 0 14px rgba(77,163,255,.35)}
   `;
 
   function injectCss() {
@@ -36,138 +40,108 @@
     doc.head.appendChild(style);
   }
 
-  function ensureDockLayoutNodes() {
-    if (!els.host) {
-      let host = doc.getElementById('tkDockHost');
-      if (!host) {
-        host = doc.createElement('div');
-        host.id = 'tkDockHost';
-        const anchor = doc.querySelector('#surveyApp .tk-wrap') || doc.getElementById('surveyApp') || doc.body;
-        if (anchor.firstChild) {
-          anchor.insertBefore(host, anchor.firstChild);
-        } else {
-          anchor.appendChild(host);
-        }
-      }
-      els.host = host;
+  function ensureRails() {
+    els.host = doc.getElementById('tkDockHost') || els.host || doc.createElement('div');
+    els.host.id = 'tkDockHost';
+
+    els.left = doc.getElementById('tkDockLeft') || els.left || doc.createElement('aside');
+    els.left.id = 'tkDockLeft';
+
+    els.main = doc.getElementById('tkDockMain') || els.main || doc.createElement('section');
+    els.main.id = 'tkDockMain';
+
+    els.right = doc.getElementById('tkDockRight') || els.right || doc.createElement('aside');
+    els.right.id = 'tkDockRight';
+
+    if (!els.host.parentNode) {
+      const anchor = doc.querySelector('#surveyApp .tk-wrap') || doc.getElementById('surveyApp') || doc.body;
+      anchor.prepend(els.host);
     }
 
-    if (!els.left) {
-      let left = doc.getElementById('tkDockLeft');
-      if (!left) {
-        left = doc.createElement('aside');
-        left.id = 'tkDockLeft';
-      }
-      if (left.parentNode !== els.host) {
-        els.host.insertBefore(left, els.host.firstChild);
-      }
-      els.left = left;
+    if (els.left.parentNode !== els.host) {
+      els.host.insertBefore(els.left, els.host.firstChild);
     }
-
-    if (!els.main) {
-      let main = doc.getElementById('tkDockMain');
-      if (!main) {
-        main = doc.createElement('section');
-        main.id = 'tkDockMain';
+    if (els.main.parentNode !== els.host) {
+      if (els.host.children.length > 1) {
+        els.host.insertBefore(els.main, els.host.children[1]);
+      } else {
+        els.host.appendChild(els.main);
       }
-      if (main.parentNode !== els.host) {
-        if (els.host.children.length > 1) {
-          els.host.insertBefore(main, els.host.children[1]);
-        } else {
-          els.host.appendChild(main);
-        }
-      }
-      els.main = main;
     }
-
-    if (!els.right) {
-      let right = doc.getElementById('tkDockRight');
-      if (!right) {
-        right = doc.createElement('aside');
-        right.id = 'tkDockRight';
-      }
-      if (right.parentNode !== els.host) {
-        els.host.appendChild(right);
-      }
-      els.right = right;
+    if (els.right.parentNode !== els.host) {
+      els.host.appendChild(els.right);
     }
   }
 
-  function mountDockPanel() {
+  function moveCategories() {
     const panel = doc.querySelector('#categoryPanel, .category-panel, [data-role="category-panel"]');
     if (!panel) return false;
 
     panel.removeAttribute('style');
-    let shell = panel.parentElement;
-    if (!shell || !shell.classList.contains('tk-panel')) {
+
+    let shell = els.left.querySelector('.tk-shell');
+    if (!shell) {
       shell = doc.createElement('div');
-      shell.className = 'tk-panel';
-      shell.appendChild(panel);
-    }
-    if (shell.parentNode !== els.left) {
-      els.left.innerHTML = '';
+      shell.className = 'tk-shell';
       els.left.appendChild(shell);
     }
+
+    if (panel.parentNode !== shell) {
+      shell.innerHTML = '';
+      shell.appendChild(panel);
+    }
+
+    ensureStartBar(shell, panel);
     return true;
   }
 
-  function mountQuestionArea() {
-    const targets = [
+  function ensureStartBar(shell, panel) {
+    let bar = doc.getElementById('tkStartBar');
+    if (!bar) {
+      bar = doc.createElement('div');
+      bar.id = 'tkStartBar';
+      bar.innerHTML = '<button id="tkStartBtn" disabled>Start Survey</button>';
+      shell.appendChild(bar);
+    } else if (bar.parentNode !== shell) {
+      shell.appendChild(bar);
+    }
+
+    els.start = bar.querySelector('#tkStartBtn');
+    wireStartEnable(panel);
+  }
+
+  function moveQuestionAndScore() {
+    const questionTargets = [
       '#ctaStack',
       '.tk-meta',
       '.tk-survey-shell',
       '#questionArea',
       '#questionCard',
       '.survey-question-panel',
+      '.question-layout',
+      '[data-role="question-panel"]',
     ];
-    let mounted = false;
 
-    for (const sel of targets) {
+    for (const sel of questionTargets) {
       const node = doc.querySelector(sel);
       if (!node) continue;
       if (node.parentNode !== els.main) {
         els.main.appendChild(node);
       }
-      mounted = true;
     }
 
-    return mounted;
-  }
-
-  function findScoreDock() {
-    if (els.score && doc.contains(els.score)) return;
-    const dock = doc.querySelector('#tkScoreDock, .score-sidebar, [data-sticky="score"]');
-    if (!dock) return;
-    els.score = dock;
-    dock.style.display = 'none';
-  }
-
-  function ensureGate() {
-    if (state.started) return;
-    if (els.start && doc.contains(els.start)) return;
-    const intro = doc.createElement('div');
-    intro.id = 'tkIntro';
-    intro.innerHTML = `
-      <h3 style="margin:0 0 6px 0;font-weight:800">Select at least one category to begin</h3>
-      <ul style="margin:8px 0 14px 18px;line-height:1.45">
-        <li>0 — skip for now</li>
-        <li>1 — hard limit (no-go)</li>
-        <li>2 — soft limit / willing to try</li>
-        <li>3 — context-dependent</li>
-        <li>4 — enthusiastic yes</li>
-        <li>5 — favorite / please do</li>
-      </ul>
-      <button id="tkStart" class="cta" disabled>Start Survey</button>
-    `;
-    els.main.prepend(intro);
-    intro.style.display = 'block';
-    els.start = intro.querySelector('#tkStart');
-    els.start?.addEventListener('click', handleIntroStart);
+    const score = doc.querySelector('#tkScoreDock, .how-to-score, [data-sticky="score"]');
+    if (score) {
+      els.score = score;
+      score.style.display = 'none';
+    }
   }
 
   function selectedCount() {
     const scope = els.left || doc;
-    return scope ? scope.querySelectorAll('input[type="checkbox"]:checked,[role="checkbox"][aria-checked="true"]').length : 0;
+    if (!scope) return 0;
+    const boxes = scope.querySelectorAll('input[type="checkbox"]:checked, [role="checkbox"][aria-checked="true"]');
+    return boxes.length;
   }
 
   function updateStartButtons() {
@@ -177,63 +151,55 @@
       els.start.classList.toggle('is-ready', any);
     }
 
-    const navBtn = doc.getElementById('btnStart');
-    if (navBtn) {
-      if (!navBtn.dataset.tkGateBound) {
-        navBtn.addEventListener('click', () => {
-          if (selectedCount() > 0) {
-            requestStart();
-          }
-        });
-        navBtn.dataset.tkGateBound = '1';
-      }
-      navBtn.disabled = !any;
-      navBtn.title = any ? '' : 'Select at least one category to start';
-      navBtn.classList.toggle('tk-disabled', !any);
-      navBtn.setAttribute('aria-disabled', String(!any));
+    const nav = doc.getElementById('btnStart');
+    if (nav) {
+      nav.disabled = !any;
+      nav.title = any ? '' : 'Select at least one category to start';
+      nav.classList.toggle('tk-disabled', !any);
+      nav.setAttribute('aria-disabled', String(!any));
     }
   }
 
-  function bindCategoryWatcher() {
-    const panel = doc.getElementById('categoryPanel');
-    if (!panel) return;
-
-    const register = () => {
-      const boxes = panel.querySelectorAll('input[type="checkbox"], [role="checkbox"]');
-      boxes.forEach((box) => {
-        if (box.dataset.tkGateBound) return;
-        box.addEventListener('change', updateStartButtons);
-        box.dataset.tkGateBound = '1';
-      });
-      updateStartButtons();
-    };
-
-    register();
-
-    const mo = new MutationObserver(register);
-    mo.observe(panel, { childList: true, subtree: true });
-  }
-
-  function handleIntroStart() {
+  function handleStartClick(evt) {
+    evt.preventDefault();
     if (selectedCount() < 1) return;
-    const navBtn = doc.getElementById('btnStart');
-    if (navBtn) {
-      navBtn.click();
-    } else {
-      requestStart();
+
+    const nav = doc.getElementById('btnStart');
+    if (nav) {
+      nav.click();
     }
+    requestStart();
+  }
+
+  function wireStartEnable(panel) {
+    if (!panel) return;
+    if (els.start && !els.start.dataset.tkBound) {
+      els.start.addEventListener('click', handleStartClick);
+      els.start.dataset.tkBound = '1';
+    }
+
+    const boxes = panel.querySelectorAll('input[type="checkbox"], [role="checkbox"]');
+    boxes.forEach((box) => {
+      if (box.dataset.tkGateBound) return;
+      box.addEventListener('change', updateStartButtons);
+      box.dataset.tkGateBound = '1';
+    });
+
+    updateStartButtons();
   }
 
   function requestStart() {
     if (state.started) return;
     const app = doc.getElementById('surveyApp');
-    if (app && !app.classList.contains('is-prestart')) {
+    if (!app) return;
+
+    if (!app.classList.contains('is-prestart')) {
       activateStart();
       return;
     }
+
     setTimeout(() => {
-      const host = doc.getElementById('surveyApp');
-      if (host && !host.classList.contains('is-prestart')) {
+      if (!app.classList.contains('is-prestart')) {
         activateStart();
       }
     }, 120);
@@ -242,9 +208,8 @@
   function activateStart() {
     if (state.started) return;
     if (selectedCount() < 1) return;
-    state.started = true;
 
-    window.TK_GATE = false;
+    state.started = true;
     doc.body.classList.remove('tk-prestart');
     doc.documentElement.classList.remove('tk-gated');
 
@@ -253,47 +218,50 @@
       if (els.right && els.score.parentNode !== els.right) {
         els.right.appendChild(els.score);
       }
-      if (els.right) {
-        els.right.style.display = '';
-      }
     }
 
-    const intro = doc.getElementById('tkIntro');
-    intro?.remove();
-    els.start = null;
+    if (typeof window.startSurvey === 'function') {
+      try { window.startSurvey(); } catch (err) { console.error('[TK] startSurvey error', err); }
+    }
+
+    doc.dispatchEvent(new CustomEvent('tk:survey:start'));
+
+    const firstQuestion = doc.querySelector('#questionArea, #questionCard, .survey-question-panel, .question-layout, [data-role="question-panel"]');
+    firstQuestion?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function observeSurveyStart() {
     const app = doc.getElementById('surveyApp');
     if (!app) return;
+
     const observer = new MutationObserver(() => {
       if (!app.classList.contains('is-prestart')) {
         activateStart();
       }
     });
+
     observer.observe(app, { attributes: true, attributeFilter: ['class'] });
   }
 
   function remount() {
-    ensureDockLayoutNodes();
-    const hasPanel = mountDockPanel();
-    const hasMain = mountQuestionArea();
-    if (hasPanel) bindCategoryWatcher();
-    if (hasMain) ensureGate();
-    findScoreDock();
-    updateStartButtons();
+    ensureRails();
+    const hasPanel = moveCategories();
+    moveQuestionAndScore();
+    if (hasPanel) updateStartButtons();
   }
 
   function boot() {
     injectCss();
-    window.TK_GATE = true;
     doc.body.classList.add('tk-prestart');
     doc.documentElement.classList.add('tk-gated');
+
     remount();
+    updateStartButtons();
 
     const app = doc.getElementById('surveyApp') || doc.body;
     const observer = new MutationObserver(() => {
       remount();
+      updateStartButtons();
     });
     observer.observe(app, { childList: true, subtree: true });
 
