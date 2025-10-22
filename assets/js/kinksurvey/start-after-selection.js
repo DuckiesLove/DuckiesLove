@@ -4,6 +4,37 @@
 
   // ---- CSS: hide score areas pre-start; helper + CTA styles ----
   const css = `
+    /* GRID: middle card + right guard (keeps your existing left categories rail) */
+    #tk-question-host, .question-layout, #questionArea {
+      display: grid !important;
+      grid-template-columns: minmax(620px, 1fr) 380px !important;
+      gap: 24px !important;
+      align-items: start !important;
+    }
+    @media (max-width: 1100px){
+      #tk-question-host, .question-layout, #questionArea { grid-template-columns: 1fr !important; }
+    }
+
+    /* CENTER CARD: kill the inner scrollbars & allow normal wrapping */
+    #questionCard, .survey-question-panel .question-card, .question-card {
+      overflow: visible !important;
+      max-height: none !important;
+      height: auto !important;
+      white-space: normal !important;
+      word-break: normal !important;
+      overflow-wrap: anywhere !important;
+    }
+    /* If a nested scroller exists, force it open */
+    #questionCard [style*="overflow"], .question-card [style*="overflow"] { overflow: visible !important; }
+
+    /* RIGHT RAIL: sticky, independent scroll */
+    .score-sidebar, [data-sticky="score"], #tkScoreDock, .tk-score-aside {
+      position: sticky !important;
+      top: 96px !important;
+      max-height: calc(100vh - 112px) !important;
+      overflow: auto !important;
+    }
+
     /* Hide ANY score rail/dock until Start Survey */
     body.tk-prestart #tkScoreDock,
     body.tk-prestart .tk-score-aside,
@@ -145,6 +176,7 @@
     // hand off to your existing starter if present
     if (typeof TK.start === 'function') TK.start();
     else if (typeof TK.begin === 'function') TK.begin();
+    else if (typeof window.startSurveyOriginal === 'function') window.startSurveyOriginal();
 
     removeSelectHelper();
   };
