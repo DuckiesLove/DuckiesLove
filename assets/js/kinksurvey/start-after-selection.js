@@ -8,18 +8,24 @@
 
   const CSS = `
   :root{ --dock-gap:24px; --dock-w:360px; --dock-edge:#142331; --dock-bg:#0b1016; }
+  html.tk-gated #tkDockRight,
+  html.tk-gated [data-sticky="score"],
+  html.tk-gated .how-to-score,
+  html.tk-gated #tkScoreDock{display:none !important;}
+  html.tk-gated #questionArea,
+  html.tk-gated #questionCard,
+  html.tk-gated .survey-question-panel,
+  html.tk-gated .question-layout,
+  html.tk-gated [data-role="question-panel"]{display:none !important;}
   #tkDockHost{display:grid;grid-template-columns:minmax(320px,var(--dock-w)) 1fr minmax(280px,0.85fr);gap:var(--dock-gap);align-items:start;margin:0 20px 40px;}
   @media (max-width:1200px){#tkDockHost{grid-template-columns:minmax(320px,var(--dock-w)) 1fr}}
   @media (max-width:960px){#tkDockHost{grid-template-columns:1fr}}
   #tkDockLeft,#tkDockMain,#tkDockRight{min-height:1px}
   #tkDockLeft{position:sticky;top:96px;align-self:start}
   #tkDockLeft .tk-panel{background:var(--dock-bg);border:1px solid var(--dock-edge);border-radius:14px;box-shadow:0 8px 22px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.06);padding:8px}
-  #tkDockRight{display:none}
-  .tk-hide-score .how-to-score, .tk-hide-score [data-sticky="score"] { display:none !important; }
   #tkIntro{display:none;margin:0 auto 16px;max-width:980px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.12);border-radius:18px;box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,170,255,.15);padding:18px 20px}
   #tkIntro .cta{display:inline-flex;gap:10px;align-items:center;padding:10px 14px;border-radius:999px;background:#121821;border:1px solid #1b2b3a;cursor:not-allowed;opacity:.55;transition:opacity .15s ease, box-shadow .15s ease}
   #tkIntro .cta.is-ready{cursor:pointer;opacity:1;box-shadow:0 0 0 1px rgba(0,0,0,.35) inset, 0 0 14px rgba(77,163,255,.35)}
-  body.tk-prestart [data-sticky="score"], body.tk-prestart #tkDockRight{display:none !important;}
   `;
 
   function injectCss() {
@@ -125,7 +131,6 @@
       mounted = true;
     }
 
-    els.main.classList.add('tk-hide-score');
     return mounted;
   }
 
@@ -138,6 +143,7 @@
   }
 
   function ensureGate() {
+    if (state.started) return;
     if (els.start && doc.contains(els.start)) return;
     const intro = doc.createElement('div');
     intro.id = 'tkIntro';
@@ -238,8 +244,9 @@
     if (selectedCount() < 1) return;
     state.started = true;
 
+    window.TK_GATE = false;
     doc.body.classList.remove('tk-prestart');
-    els.main.classList.remove('tk-hide-score');
+    doc.documentElement.classList.remove('tk-gated');
 
     if (els.score) {
       els.score.style.display = '';
@@ -253,6 +260,7 @@
 
     const intro = doc.getElementById('tkIntro');
     intro?.remove();
+    els.start = null;
   }
 
   function observeSurveyStart() {
@@ -278,8 +286,9 @@
 
   function boot() {
     injectCss();
-    doc.body.classList.add('tk-prestart');
     window.TK_GATE = true;
+    doc.body.classList.add('tk-prestart');
+    doc.documentElement.classList.add('tk-gated');
     remount();
 
     const app = doc.getElementById('surveyApp') || doc.body;
