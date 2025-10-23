@@ -78,6 +78,68 @@
       return Boolean(stack || navRow);
     };
 
+    const ensurePanelHeightFallback = () => {
+      const panel =
+        document.getElementById('categoryPanel') ||
+        document.getElementById('categorySurveyPanel');
+      if (!panel || panel.dataset.tkHeightWatch === '1') return;
+
+      const MIN_HEIGHT = 240;
+      const raf = w.requestAnimationFrame ? w.requestAnimationFrame.bind(w) : (cb) => w.setTimeout(cb, 16);
+      let framePending = false;
+
+      panel.dataset.tkHeightWatch = '1';
+
+      function schedule() {
+        if (framePending) return;
+        framePending = true;
+        raf(apply);
+      }
+
+      function onResize() {
+        schedule();
+      }
+
+      function onScroll() {
+        schedule();
+      }
+
+      function cleanup() {
+        w.removeEventListener('resize', onResize);
+        w.removeEventListener('scroll', onScroll);
+        delete panel.dataset.tkHeightWatch;
+      }
+
+      function apply() {
+        framePending = false;
+
+        if (!panel.isConnected) {
+          cleanup();
+          return;
+        }
+
+        const style = w.getComputedStyle ? w.getComputedStyle(panel) : null;
+        if (!style) return;
+
+        const position = style.position;
+        if (position !== 'sticky' && position !== 'fixed') {
+          panel.style.removeProperty('maxHeight');
+          return;
+        }
+
+        const topValue = parseFloat(style.top) || 0;
+        const docEl = document.documentElement;
+        const viewportHeight = Math.max((docEl ? docEl.clientHeight : 0), w.innerHeight || 0);
+        const rect = panel.getBoundingClientRect();
+        const available = Math.max(MIN_HEIGHT, viewportHeight - rect.top - topValue);
+        panel.style.maxHeight = `${Math.round(available)}px`;
+      }
+
+      schedule();
+      w.addEventListener('resize', onResize, { passive: true });
+      w.addEventListener('scroll', onScroll, { passive: true });
+    };
+
     const setupDockedSurveyLayout = () => {
       ensureDockLayoutNodes();
       mountDockPanel();
@@ -89,12 +151,19 @@
       }
 
       document.documentElement.setAttribute('data-tk-docked', 'true');
+      ensurePanelHeightFallback();
     };
 
     w.ensureDockLayoutNodes = ensureDockLayoutNodes;
     w.mountDockPanel = mountDockPanel;
     w.mountDockActions = mountDockActions;
     w.setupDockedSurveyLayout = setupDockedSurveyLayout;
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', ensurePanelHeightFallback, { once: true });
+    } else {
+      ensurePanelHeightFallback();
+    }
   }
 
   const CSS = `
