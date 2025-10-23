@@ -849,42 +849,50 @@ and makes the LEFT category panel longer (sticky-to-viewport).
 ------------------------------------------------------------------------------- -->
 
 <style>
-  /* --- Two-column shell: LEFT = categories, RIGHT = CTAs/content --- */
+  /* If prestart CSS hides content, make sure our main pieces still render */
+  body.tk-prestart #tkPortal,
+  body.tk-prestart #categoryPanel,
+  body.tk-prestart .category-panel,
+  body.tk-prestart #ctaStack { display: revert !important; }
+
+  /* 2-col layout when #tkPortal exists: left=categories, right=CTAs/content */
   #tkPortal{
     display:grid;
-    grid-template-columns: 380px 1fr;   /* tweak 380px if you want wider/narrower left */
-    grid-auto-rows:auto;
+    grid-template-columns: 380px 1fr;
     gap:28px;
     align-items:start;
   }
   @media (max-width:980px){ #tkPortal{ grid-template-columns:1fr; } }
 
-  /* --- LEFT: Category panel (taller + sticky) --- */
+  /* Taller, sticky category panel (works whether ID or class is used) */
   #categoryPanel, .category-panel{
-    grid-column:1; grid-row:1;
     position:sticky; top:16px;
-    max-height:calc(100dvh - 32px);   /* “dvh” fixes mobile toolbar jump */
+    max-height:calc(100dvh - 32px);   /* dvh fixes mobile toolbar jump */
     overflow:auto; scroll-behavior:smooth;
   }
-  /* If an outer wrapper caps height, relax it */
+  /* If an outer wrapper caps height, relax it a bit */
   .tk-left{ max-height:calc(100vh - 5rem); overflow:auto; }
 
   @media (max-width:980px){
     #categoryPanel, .category-panel{ position:relative; top:0; max-height:none; }
   }
 
-  /* --- RIGHT: THREE-STACK buttons (top-right under the title) --- */
-  #ctaStack{
-    grid-column:2; grid-row:1;
-    align-self:start; justify-self:start;
-    max-width:560px;
-  }
+  /* CTA stack: grid/stacked full-width buttons */
+  #ctaStack{ max-width:560px; }
   #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch; }
   #ctaStack .btn{ width:100%; text-align:center; padding:14px 16px; border-radius:12px; font-weight:700; }
   #ctaStack .btn-ghost{ background:transparent; border:2px solid var(--tk-accent,#39e3ff); }
   #ctaStack .btn[disabled]{ opacity:.55; cursor:not-allowed; }
 
-  /* Engine mounts stay hidden until you reveal them */
+  /* Place CTAs in the right column when #tkPortal exists */
+  #tkPortal #ctaStack{ grid-column:2; grid-row:1; align-self:start; justify-self:start; }
+
+  /* Fallback (if #tkPortal missing): keep CTAs visible without breaking layout */
+  .tk-cta-fallback{
+    position:fixed; right:24px; top:120px; z-index:50; width:min(560px, 42vw);
+  }
+
+  /* Keep engine mounts hidden until you show them */
   #surveyApp[hidden], #surveyScoreCard[hidden]{ display:none !important; }
 </style>
 
@@ -896,62 +904,57 @@ and makes the LEFT category panel longer (sticky-to-viewport).
 </nav>
 
 <script>
-/* 0) Safety: prevent any “prestart” blanket from hiding the page (black screen) */
+/* Don’t allow a “prestart” blanket to blank the page */
 document.body.classList.remove('tk-prestart');
 
-/* 1) Position CTAs at top-right beside the category panel */
-(function placeCTAs(){
-  const portal = document.getElementById('tkPortal');
-  const cta    = document.getElementById('ctaStack');
-  if (!portal || !cta) return;
+(function initTK(){
+  const portal   = document.getElementById('tkPortal');
+  const cta      = document.getElementById('ctaStack');
+  const catPanel = document.getElementById('categoryPanel') || document.querySelector('.category-panel');
 
-  // Put CTAs before the main right-column content so they render at row 1.
-  const main = document.getElementById('surveyMain') || document.querySelector('.portal-main');
-  if (main && main.parentElement === portal) portal.insertBefore(cta, main);
-  else if (cta.parentElement !== portal) portal.appendChild(cta);
-
+  /* 1) Position CTAs: prefer grid beside categories; else fall back to fixed top-right */
+  if (portal && cta.parentElement !== portal) {
+    const main = document.getElementById('surveyMain') || document.querySelector('.portal-main');
+    if (main && main.parentElement === portal) portal.insertBefore(cta, main);
+    else portal.appendChild(cta);
+  }
+  if (!portal) {
+    // fallback: keep stack visible top-right without relying on page grid
+    cta.classList.add('tk-cta-fallback');
+  }
   cta.classList.add('tk-stack');
-})();
 
-/* 2) Keep CTAs visible even if survey.js tries: cta.style.display = 'none' */
-(function keepCTAs(){
-  const cta = document.getElementById('ctaStack');
-  const startBtn = document.getElementById('btnStart');
-  if (!cta) return;
-  const show = () => { cta.style.display=''; cta.classList.add('tk-stack'); };
-
+  /* 2) Keep CTAs visible even if some script hides them (cta.style.display='none') */
+  const showCTAs = () => { cta.style.display=''; cta.classList.add('tk-stack'); };
   new MutationObserver(() => {
-    if (getComputedStyle(cta).display === 'none') show();
+    if (getComputedStyle(cta).display === 'none') showCTAs();
   }).observe(cta, { attributes:true, attributeFilter:['style','class'] });
 
+  const startBtn = document.getElementById('btnStart');
   if (startBtn){
     startBtn.addEventListener('click', () => {
-      requestAnimationFrame(show); setTimeout(show,0); setTimeout(show,250);
+      requestAnimationFrame(showCTAs); setTimeout(showCTAs,0); setTimeout(showCTAs,250);
     });
   }
-})();
 
-/* 3) (Optional) Gate Start until at least one category is checked */
-(function gateStart(){
+  /* 3) (Optional) Gate Start until a category is checked */
   const list = document.getElementById('categoryChecklist');
-  const start = document.getElementById('btnStart');
-  if (!list || !start) return;
-  const enable = () => start.toggleAttribute('disabled', !list.querySelector('input[type="checkbox"]:checked'));
-  list.addEventListener('change', e => { if (e.target?.matches('input[type="checkbox"]')) enable(); });
-  requestAnimationFrame(enable);
-})();
+  if (list && startBtn){
+    const enable = () => startBtn.toggleAttribute('disabled', !list.querySelector('input[type="checkbox"]:checked'));
+    list.addEventListener('change', e => { if (e.target?.matches('input[type="checkbox"]')) enable(); });
+    requestAnimationFrame(enable);
+  }
 
-/* 4) Fallback sizing so the left panel always fills the viewport on resize */
-(function sizePanel(){
-  const panel = document.getElementById('categoryPanel') || document.querySelector('.category-panel');
-  if (!panel) return;
-  const update = () => {
-    const r = panel.getBoundingClientRect();
-    const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-    panel.style.maxHeight = Math.max(260, vh - r.top - 16) + 'px';
-  };
-  requestAnimationFrame(update);
-  addEventListener('resize', update);
+  /* 4) JS fallback: keep category panel height synced to viewport */
+  if (catPanel){
+    const size = () => {
+      const r = catPanel.getBoundingClientRect();
+      const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+      catPanel.style.maxHeight = Math.max(260, vh - r.top - 16) + 'px';
+    };
+    requestAnimationFrame(size);
+    addEventListener('resize', size);
+  }
 })();
 </script>
 <!-- ===== END TK ONE-BOX PATCH ===== -->
