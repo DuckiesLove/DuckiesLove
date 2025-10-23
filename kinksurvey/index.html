@@ -21,7 +21,7 @@
       const css = document.createElement('style');
       css.id = 'tk-no-overlay-css';
       css.textContent = `
-        #tkPortal, #tkOverlay, .tkPortal, .tkOverlay, .tkDockShell,
+        #tkOverlay, .tkOverlay, .tkDockShell,
         #tkDevOverlay, .tkDevOverlay, [data-tk-overlay], [data-portal] {
           display: none !important; opacity: 0 !important; visibility: hidden !important;
           pointer-events: none !important;
@@ -36,7 +36,17 @@
         '#tkPortal', '#tkOverlay', '.tkPortal', '.tkOverlay', '.tkDockShell',
         '#tkDevOverlay', '.tkDevOverlay', '[data-tk-overlay]', '[data-portal]'
       ].join(',');
-      document.querySelectorAll(SEL).forEach(n => { try { n.remove(); } catch {} });
+      const keepPortal = (node) => {
+        if (!node || node.id !== 'tkPortal') return false;
+        const host = document.getElementById('surveyApp');
+        return !!(host && host.contains(node));
+      };
+
+      document.querySelectorAll(SEL).forEach(n => {
+        try {
+          if (!keepPortal(n)) n.remove();
+        } catch {}
+      });
 
       /* Ensure the main app stays on top of any leftover artifacts */
       const app = document.querySelector('#surveyApp') || document.querySelector('main');
@@ -97,9 +107,15 @@
         ];
         suspects.forEach(k => { if (k in g) g[k] = noop; });
         // remove any pre-existing overlay nodes if injected before this executes
+        const keepPortal = (node) => {
+          if (!node || node.id !== 'tkPortal') return false;
+          const host = document.getElementById('surveyApp');
+          return !!(host && host.contains(node));
+        };
+
         const killNodes = () => {
           document.querySelectorAll('#tkPortal,.tk-overlay,.tk-drawer,.tk-panel,.portal-overlay')
-            .forEach(n => n.remove());
+            .forEach(n => { if (!keepPortal(n)) n.remove(); });
         };
         document.addEventListener('DOMContentLoaded', killNodes);
         new MutationObserver(killNodes).observe(document.documentElement,{childList:true,subtree:true});
