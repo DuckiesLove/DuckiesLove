@@ -573,6 +573,19 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
     btn.title = n < 1 ? 'Select at least one category to start' : '';
   }
 
+  function ensureCTAVisible() {
+    const cta = $('#ctaStack');
+    if (!cta) return;
+    const show = () => {
+      cta.style.removeProperty('display');
+      cta.classList.add('tk-stack');
+    };
+    show();
+    (window.requestAnimationFrame || ((fn) => setTimeout(fn, 16)))(show);
+    setTimeout(show, 0);
+    setTimeout(show, 250);
+  }
+
   // Start Survey: only builds questions using selected categories and reveals the UI
   $('#btnStart')?.addEventListener('click', () => {
     if (selectedIds().length < 1) return;
@@ -581,10 +594,12 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
     scores.A = {};
     paint();
     progress();
-    const cta = $('#ctaStack'); if (cta) cta.style.display = 'none';
+    ensureCTAVisible();
     $('#surveyApp')?.classList.remove('is-prestart');
     $('#questionArea')?.scrollIntoView({behavior:'smooth', block:'start'});
   });
+
+  ensureCTAVisible();
 
   function rebuildQuestionList(){
     flat = [];
