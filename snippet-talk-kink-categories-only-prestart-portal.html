@@ -48,6 +48,10 @@
     body.tk-prestart #categoryPanel{ display:block !important; }
     body.tk-prestart #categoryPanel ~ *{ display:none !important; }
 
+    /* Categories-only prestart guard also honors the host marker */
+    body.tk-prestart .tk-cat-host{ display:block !important; }
+    body.tk-prestart .tk-cat-host ~ *{ display:none !important; }
+
     body.tk-prestart #tkPortal.tk-portal.grid-2col{ grid-template-columns:1fr; }
     body.tk-prestart #tkPortal > :not(#categoryPanel){ display:none !important; }
 
@@ -77,33 +81,85 @@
 <body class="theme-dark tk-prestart">
   <!-- TK: categories-only prestart guard (ensures siblings stay hidden until Start) -->
   <script>
-    (function(){
-      function ensurePrestart(){
-        const body = document.body;
-        if (!body) return;
-        if (!body.classList.contains('tk-prestart')) body.classList.add('tk-prestart');
-      }
-
-      function exitPrestart(){
-        const body = document.body;
-        if (!body) return;
-        body.classList.remove('tk-prestart');
-        const app = document.getElementById('surveyApp');
-        if (app) app.hidden = false;
-      }
-
-      if (document.readyState === 'loading'){
-        document.addEventListener('DOMContentLoaded', ensurePrestart, { once: true });
+    (() => {
+      const enterPrestart = () => document.body.classList.add('tk-prestart');
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', enterPrestart, { once: true });
       } else {
-        ensurePrestart();
+        enterPrestart();
       }
 
-      document.addEventListener('DOMContentLoaded', () => {
-        const panel = document.getElementById('categoryPanel');
-        const startBtn = document.getElementById('startSurveyBtn');
-        if (panel) panel.addEventListener('tk:survey:start', exitPrestart);
-        if (startBtn) startBtn.addEventListener('click', exitPrestart);
+      const log = (...a) => console.info('[TK:prestart]', ...a);
+      const selectors = [
+        '#categoryPanel',
+        '#tk-cat-list',
+        '#categoryChecklist'
+      ];
+
+      const waitForAny = (sels, { timeout = 12000 } = {}) => new Promise((resolve, reject) => {
+        const hit = sels.map(s => document.querySelector(s)).find(Boolean);
+        if (hit) return resolve({ el: hit, selector: sels.find(s => hit.matches(s)) });
+
+        let timer;
+
+        const obs = new MutationObserver(() => {
+          const found = sels.map(s => document.querySelector(s)).find(Boolean);
+          if (found) {
+            obs.disconnect();
+            clearTimeout(timer);
+            resolve({ el: found, selector: sels.find(s => found.matches(s)) });
+          }
+        });
+        obs.observe(document.documentElement, { childList: true, subtree: true });
+        timer = setTimeout(() => {
+          obs.disconnect();
+          reject(new Error('timeout waiting for category panel'));
+        }, timeout);
       });
+
+      const markCatHost = (node) => {
+        const host = node.closest('.panel, section, aside, .sidebar, .category-panel') || node;
+        host.classList.add('tk-cat-host');
+        log('category host =', host);
+        return host;
+      };
+
+      const exitPrestart = () => {
+        if (document.body.classList.contains('tk-prestart')) {
+          document.body.classList.remove('tk-prestart');
+          const app = document.getElementById('surveyApp');
+          if (app) app.hidden = false;
+          log('exited prestart');
+        }
+      };
+
+      const wireStartDetectors = (host) => {
+        host.addEventListener('tk:survey:start', exitPrestart);
+        const candidates = [
+          '#startSurveyBtn',
+          '#tk-start',
+          '[data-tk-start]',
+          '.start-button'
+        ];
+        const btn = candidates.map(s => document.querySelector(s)).find(Boolean);
+        if (btn) {
+          btn.addEventListener('click', () => {
+            if (!btn.disabled) exitPrestart();
+          });
+        }
+      };
+
+      (async () => {
+        try {
+          const { el, selector } = await waitForAny(selectors);
+          const host = markCatHost(el);
+          wireStartDetectors(host);
+          log(`ready (via ${selector}) — categories-only is active until Start`);
+        } catch (err) {
+          console.warn('[TK:prestart] panel never appeared:', err.message);
+          setTimeout(exitPrestart, 1500);
+        }
+      })();
     })();
   </script>
   <div id="tkPortal" class="tk-portal grid-2col">
