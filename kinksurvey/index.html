@@ -125,8 +125,18 @@
     <link rel="stylesheet" href="/assets/css/kinksurvey/survey.css?v=2025-10-15">
     <script defer src="/assets/js/kinksurvey/survey.js?v=2025-10-15"></script>
     <script defer src="/assets/js/tk-enhancer.js?v=2"></script>
+
+    <style id="tkPrestartStyles">
+      /* Categories-only until Start (adapted for docked layout) */
+      body.tk-prestart #categoryPanel { display: block !important; }
+      body.tk-prestart #tkPortal > :not(.tk-cat-host) { display: none !important; }
+      body.tk-prestart .tk-cat-host { display: block !important; }
+      body.tk-prestart .tk-cat-host ~ * { display: none !important; }
+      body.tk-prestart #tkPortal .tk-left > :not(#categoryPanel) { display: none !important; }
+      #surveyApp[hidden], #surveyScoreCard[hidden] { display: none !important; }
+    </style>
   </head>
-  <body>
+  <body class="tk-prestart">
     <div class="tk-page">
       <header id="tkHeader" class="tk-header">
         <h1 id="pageTitle" class="glow-title">Talk Kink Survey</h1>
@@ -384,6 +394,336 @@
         <table id="compatibilityTable"></table>
       </section>
     </div>
+
+    <script>
+      (function () {
+        if (window.__TK_CATEGORY_PRESTART__) return;
+        window.__TK_CATEGORY_PRESTART__ = true;
+
+        const log = (...a) => console.info("[TK:cat-bootstrap]", ...a);
+        const warn = (...a) => console.warn("[TK:cat-bootstrap]", ...a);
+
+        const ensurePrestart = () => document.body.classList.add("tk-prestart");
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", ensurePrestart, { once: true });
+        } else {
+          ensurePrestart();
+        }
+
+        const $ = (sel, root = document) => root.querySelector(sel);
+        const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        let catByValue = new Map();
+
+        function cssEscape(value) {
+          if (window.CSS && typeof window.CSS.escape === "function") {
+            return window.CSS.escape(value);
+          }
+          return String(value).replace(/["\\]/g, "\\$&");
+        }
+
+        function escapeHtml(value) {
+          return String(value ?? "").replace(/[&<>"']/g, (ch) => {
+            switch (ch) {
+              case "&": return "&amp;";
+              case "<": return "&lt;";
+              case ">": return "&gt;";
+              case '"': return "&quot;";
+              case "'": return "&#39;";
+              default: return ch;
+            }
+          });
+        }
+
+        function slugify(value, fallback = "") {
+          const base = value ?? fallback ?? "";
+          return String(base)
+            .toLowerCase()
+            .replace(/&/g, "and")
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+        }
+
+        function toName(entry, index) {
+          if (entry && typeof entry === "object") {
+            for (const key of ["name", "title", "label", "category", "cat", "Category"]) {
+              if (entry[key]) return String(entry[key]).trim();
+            }
+          }
+          if (typeof entry === "string" || typeof entry === "number") {
+            return String(entry).trim();
+          }
+          if (entry) return String(entry).trim();
+          return `Category ${index + 1}`;
+        }
+
+        function toValue(entry, fallbackName, index) {
+          if (entry && typeof entry === "object") {
+            for (const key of ["id", "value", "slug", "key", "code"]) {
+              if (entry[key]) return String(entry[key]);
+            }
+          }
+          const fallback = fallbackName || `cat-${index}`;
+          const slug = slugify(fallback, `cat-${index}`);
+          return slug || `cat-${index}`;
+        }
+
+        function captureFromDom(ul) {
+          catByValue = new Map();
+          const inputs = $$('input[type="checkbox"]', ul);
+          inputs.forEach((input) => {
+            const id = input.id;
+            let labelText = "";
+            if (id) {
+              const label = ul.querySelector(`label[for="${cssEscape(id)}"]`);
+              if (label) labelText = label.textContent.trim();
+            }
+            if (!labelText) {
+              labelText = input.getAttribute("data-label") || input.dataset?.label || input.value;
+            }
+            catByValue.set(String(input.value), labelText || input.value);
+          });
+          return inputs.length;
+        }
+
+        function render(ul, entries) {
+          catByValue = new Map();
+          ul.innerHTML = entries.map((entry, idx) => {
+            const name = entry.name;
+            const rawValue = entry.value ?? name;
+            const value = String(rawValue);
+            const slug = slugify(value, name) || slugify(name, `cat-${idx}`) || `cat-${idx}`;
+            const id = `cat_${slug}`;
+            catByValue.set(value, name);
+            const safeValue = escapeHtml(value);
+            const safeName = escapeHtml(name);
+            return `<li data-cat="${safeValue}">
+              <input type="checkbox" id="${id}" value="${safeValue}">
+              <label for="${id}">${safeName}</label>
+            </li>`;
+          }).join("");
+        }
+
+        function selectedValues(list) {
+          return $$('input[type="checkbox"]:checked', list).map((input) => input.value);
+        }
+
+        function exitPrestart() {
+          if (!document.body.classList.contains("tk-prestart")) return;
+          document.body.classList.remove("tk-prestart");
+          const app = $("#surveyApp");
+          if (app) {
+            app.hidden = false;
+            app.classList.remove("is-prestart");
+          }
+          log("exited prestart");
+        }
+
+        function getHost() {
+          const panel = $("#categoryPanel") || document.body;
+          const host = panel.closest(".tk-left") || panel;
+          host.classList.add("tk-cat-host");
+          if (host !== panel) panel.classList.add("tk-cat-host");
+          let tkDiv = $("#tk-cat-list", panel);
+          if (!tkDiv) {
+            tkDiv = document.createElement("div");
+            tkDiv.id = "tk-cat-list";
+            panel.appendChild(tkDiv);
+          }
+          let ul = $("#categoryChecklist", panel);
+          if (!ul) {
+            ul = document.createElement("ul");
+            ul.id = "categoryChecklist";
+            ul.className = "category-checklist";
+            tkDiv.appendChild(ul);
+          }
+          return { panel, ul };
+        }
+
+        async function tryFetchJSON(urls) {
+          for (const url of urls) {
+            if (!url) continue;
+            try {
+              const res = await fetch(url, { credentials: "same-origin" });
+              if (!res.ok) {
+                log("skip", url, res.status);
+                continue;
+              }
+              const json = await res.json();
+              log("loaded", url);
+              return json;
+            } catch (err) {
+              log("fail", url, err.message);
+            }
+          }
+          return null;
+        }
+
+        function parseCategoryArray(maybe) {
+          if (!maybe) return [];
+          if (Array.isArray(maybe)) return maybe;
+          if (Array.isArray(maybe.categories)) return maybe.categories;
+          if (maybe.data && Array.isArray(maybe.data.categories)) return maybe.data.categories;
+          if (Array.isArray(maybe.data)) return maybe.data;
+          return [];
+        }
+
+        function deriveCategoriesFromKinks(source) {
+          if (!source) return [];
+          const collected = new Set();
+          const push = (value) => {
+            if (value != null) {
+              const trimmed = String(value).trim();
+              if (trimmed) collected.add(trimmed);
+            }
+          };
+          const visit = (arr) => {
+            if (!Array.isArray(arr)) return;
+            arr.forEach((item) => {
+              if (item && typeof item === "object") {
+                push(item.category || item.cat || item.Category || item.group);
+              } else {
+                push(item);
+              }
+            });
+          };
+          if (Array.isArray(source)) {
+            visit(source);
+          } else if (typeof source === "object") {
+            visit(source.items);
+            visit(source.kinks);
+            visit(source.data);
+            if (!collected.size) {
+              Object.keys(source).forEach((key) => {
+                const maybeArr = source[key];
+                if (Array.isArray(maybeArr)) {
+                  push(key);
+                }
+              });
+            }
+          }
+          return Array.from(collected).sort();
+        }
+
+        function wire(panel) {
+          const ul = $("#categoryChecklist", panel);
+          if (!ul) return;
+
+          const btn = $("#startSurveyBtn") || $("#btnStart") || $("[data-tk-start]");
+          const selEl = $("#categorySelectedCount") || $("#tkCatSel");
+          const totEl = $("#categoryTotalCount");
+          const prestartCount = $("#prestartCount");
+
+          const total = captureFromDom(ul);
+          const totalCount = catByValue.size || total;
+          if (totEl && totalCount) totEl.textContent = String(totalCount);
+
+          const update = () => {
+            const values = selectedValues(ul);
+            const count = values.length;
+            if (selEl) selEl.textContent = String(count);
+            if (prestartCount) prestartCount.textContent = String(count);
+            if (btn) {
+              btn.disabled = count === 0;
+              if ("classList" in btn) {
+                btn.classList.toggle("tk-disabled", count === 0);
+              }
+              btn.setAttribute("aria-disabled", count === 0 ? "true" : "false");
+            }
+            panel.dispatchEvent(new CustomEvent("tk:categories:change", {
+              bubbles: true,
+              detail: {
+                selected: values,
+                labels: values.map((v) => catByValue.get(v) || v),
+                countSelected: count,
+                total: totalCount
+              }
+            }));
+          };
+
+          ul.addEventListener("change", (event) => {
+            if (event.target?.matches('input[type="checkbox"]')) update();
+          });
+
+          if (btn) {
+            btn.addEventListener("click", (event) => {
+              if (btn.disabled) {
+                event.preventDefault();
+                return;
+              }
+              const values = selectedValues(ul);
+              const detail = {
+                selected: values,
+                labels: values.map((v) => catByValue.get(v) || v),
+                countSelected: values.length,
+                total: totalCount
+              };
+              exitPrestart();
+              panel.dispatchEvent(new CustomEvent("tk:survey:start", {
+                bubbles: true,
+                detail
+              }));
+            });
+          }
+
+          if (!window.__TK_PRESTART_EXIT_WIRED__) {
+            window.__TK_PRESTART_EXIT_WIRED__ = true;
+            document.addEventListener("tk:survey:start", exitPrestart);
+          }
+          panel.addEventListener("tk:survey:start", exitPrestart);
+
+          update();
+        }
+
+        async function main() {
+          const { panel, ul } = getHost();
+          await sleep(200);
+
+          if (ul.children.length > 0) {
+            log("Existing bootstrap populated; wiring only.");
+            wire(panel);
+            return;
+          }
+
+          const catsJson = await tryFetchJSON(["/kinksurvey/data/categories.json", "/data/categories.json"]);
+          let entries = parseCategoryArray(catsJson);
+
+          if (!entries.length) {
+            const kinksJson = await tryFetchJSON(["/kinksurvey/data/kinks.json", "/data/kinks.json"]);
+            entries = deriveCategoriesFromKinks(kinksJson);
+          }
+
+          if (!entries.length) {
+            warn("No categories found (both categories.json & kinks.json empty/unavailable).");
+            return;
+          }
+
+          const normalized = [];
+          const seen = new Set();
+          entries.forEach((entry, idx) => {
+            const name = toName(entry, idx).trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            const value = toValue(entry, name, normalized.length);
+            normalized.push({ name, value });
+          });
+
+          normalized.sort((a, b) => a.name.localeCompare(b.name));
+          render(ul, normalized);
+          wire(panel);
+          log(`Rendered ${normalized.length} categories.`);
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", main, { once: true });
+        } else {
+          main();
+        }
+      })();
+    </script>
 
     <script>
       /* ------------------------------------------------------------------
