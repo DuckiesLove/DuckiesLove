@@ -1,4 +1,4 @@
-<!-- Talk Kink — Kink Survey Portal (Codex one-box: HTML + CSS + JS) -->
+<!-- Talk Kink — Categories-Only on Load (Codex one-box) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,277 +6,148 @@
   <title>Talk Kink Survey</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- If your site already loads these, keep them. This one-box works standalone too. -->
+  <!-- keep if your site already loads them; harmless otherwise -->
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/kinksurvey_overrides.css" />
 
   <style>
-    /* ===========================
-       TK: Minimal, safe overrides
-       =========================== */
+    /* ---------- Layout (safe defaults) ---------- */
+    #tkPortal { display:grid; grid-template-columns:320px 1fr; gap:20px; align-items:start; }
+    .category-panel{ position:sticky; top:16px; align-self:start; max-height:calc(100vh - 32px); overflow:auto; padding:16px; border-radius:12px; }
+    .panel-header{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px; }
+    .category-checklist{ list-style:none; margin:12px 0 16px; padding:0; }
+    .category-checklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; cursor:pointer; }
+    .start-button{ width:100%; padding:10px 12px; border-radius:10px; font-weight:600; }
+    .start-button:disabled{ opacity:.5; cursor:not-allowed; }
+    #surveyApp[hidden], #surveyScoreCard[hidden]{ display:none !important; }
 
-    /* Two-column portal layout for the survey shell */
-    #tkPortal.tk-portal.grid-2col {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      gap: 20px;
-      align-items: start;
-    }
+    /* ---------- CATEGORIES-ONLY PRE-START MODE ---------- */
+    /* Hard rule: on load, show ONLY the category panel inside #tkPortal */
+    body.tk-prestart #tkPortal > :not(#categoryPanel){ display:none !important; }
+    /* If your right column is nested, also hide anything in the portal that isn't the left panel */
+    body.tk-prestart #tkPortal .panel:not(.category-panel),
+    body.tk-prestart #surveyMain,
+    body.tk-prestart .portal-main,
+    body.tk-prestart #surveyIntro,
+    body.tk-prestart #rubric,
+    body.tk-prestart #surveyApp,
+    body.tk-prestart #surveyScoreCard { display:none !important; }
 
-    /* Left column: sticky category panel */
-    .category-panel {
-      position: sticky;
-      top: 16px;
-      align-self: start;
-      max-height: calc(100vh - 32px);
-      overflow: auto;
-      padding: 16px;
-      border-radius: 12px;
-    }
-
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-
-    .panel-header h2 {
-      margin: 0;
-      font-size: 1.1rem;
-    }
-
-    .category-counter {
-      opacity: 0.85;
-      font-size: 0.95rem;
-      white-space: nowrap;
-    }
-
-    .category-checklist {
-      list-style: none;
-      margin: 12px 0 16px;
-      padding: 0;
-    }
-
-    .category-checklist li {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 6px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    .category-checklist input[type="checkbox"] {
-      flex: 0 0 auto;
-    }
-
-    .themed-button.start-button {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      font-weight: 600;
-    }
-
-    .themed-button.start-button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    /* Hide app/scorecard until Start */
-    #surveyApp[hidden],
-    #surveyScoreCard[hidden] {
-      display: none !important;
-    }
-
-    /* Responsive collapse */
-    @media (max-width: 980px) {
-      #tkPortal.tk-portal.grid-2col {
-        grid-template-columns: 1fr;
-      }
-      .category-panel {
-        position: relative;
-        top: 0;
-        max-height: none;
-      }
+    @media (max-width:980px){
+      #tkPortal{ grid-template-columns:1fr; }
+      .category-panel{ position:relative; top:0; max-height:none; }
     }
   </style>
 </head>
 
-<body class="theme-dark">
-  <!-- ===========================
-       TK: Main portal wrapper
-       =========================== -->
-  <div id="tkPortal" class="tk-portal grid-2col">
-    <!-- Left column: Category Panel (rendered directly in portal markup) -->
+<!-- tk-prestart ensures only the categories show on first paint -->
+<body class="theme-dark tk-prestart">
+  <div id="tkPortal">
+    <!-- LEFT: Category Panel (must live inside #tkPortal) -->
     <section id="categoryPanel" class="panel category-panel">
       <header class="panel-header">
         <h2>Categories</h2>
         <div class="category-counter">
-          <span id="categorySelectedCount">0</span>
-          <span>/</span>
-          <span id="categoryTotalCount">0</span>
-          <span> selected</span>
+          <span id="categorySelectedCount">0</span><span>/</span><span id="categoryTotalCount">0</span><span> selected</span>
         </div>
       </header>
-
-      <ul id="categoryChecklist" class="category-checklist">
-        <!-- Populated at runtime -->
-      </ul>
-
-      <button id="startSurveyBtn" class="themed-button start-button" disabled>
-        Start Survey
-      </button>
+      <ul id="categoryChecklist" class="category-checklist"><!-- populated at runtime --></ul>
+      <button id="startSurveyBtn" class="themed-button start-button" disabled>Start Survey</button>
     </section>
 
-    <!-- Right column: Main content area -->
+    <!-- RIGHT: Main area (hidden while tk-prestart is on <body>) -->
     <main id="surveyMain" class="portal-main">
-      <!-- Landing / intro (shows first) -->
       <section id="surveyIntro" class="intro">
         <h1 class="themed-header">Talk Kink Survey</h1>
         <p>Select one or more categories on the left, then press <em>Start Survey</em>.</p>
       </section>
-
-      <!-- Survey engine mount (hidden until Start) -->
       <section id="surveyApp" class="survey-app" hidden></section>
-
-      <!-- Scorecard (kept hidden until your engine wants to show it) -->
       <aside id="surveyScoreCard" class="scorecard" hidden></aside>
     </main>
   </div>
 
   <script>
-    /* =========================================================
-       TK: Data seed — replace or inject from your real source.
-       If your app sets window.TK_CATEGORIES earlier, this is ignored.
-       ========================================================= */
+    /* ---------- Helpers ---------- */
+    const TK = window.TK || (window.TK = {});
+    TK.log = (...a)=>console.info("[TK]", ...a);
+    const onReady = (cb)=> (document.readyState==="loading" ? document.addEventListener("DOMContentLoaded", cb, {once:true}) : cb());
+
+    /* Use your real category source; this seed is only a fallback */
     window.TK_CATEGORIES = window.TK_CATEGORIES || [
-      { id: "appearance",  name: "Appearance Play" },
-      { id: "sensation",   name: "Sensation / Impact" },
-      { id: "service",     name: "Service & Protocol" },
-      { id: "psych",       name: "Psychological / Primal" },
-      { id: "bondage",     name: "Bondage / Restraint" },
-      { id: "aftercare",   name: "Care & Aftercare" },
+      { id:"appearance", name:"Appearance Play" },
+      { id:"sensation",  name:"Sensation / Impact" },
+      { id:"service",    name:"Service & Protocol" },
+      { id:"psych",      name:"Psychological / Primal" },
+      { id:"bondage",    name:"Bondage / Restraint" },
+      { id:"aftercare",  name:"Care & Aftercare" }
     ];
 
-    /* =========================================================
-       TK: Survey engine stub — your real app should overwrite
-       window.TKSurvey.start. This is only to prove the wiring.
-       ========================================================= */
+    /* Optional stub; remove once your real engine attaches */
     window.TKSurvey = window.TKSurvey || {
-      start: ({ categories }) => {
-        const mount = document.getElementById('surveyApp');
+      start: ({ categories })=>{
+        const mount = document.getElementById("surveyApp");
         if (!mount) return;
-        mount.innerHTML = `
-          <div class="panel">
-            <h2>Survey</h2>
-            <p>Initialized with categories:</p>
-            <ul>${categories.map(c => `<li>${c}</li>`).join('')}</ul>
-            <p>(Replace this stub with your real survey renderer.)</p>
-          </div>
-        `;
-        // Example: you may choose to reveal the scorecard now or later.
-        // document.getElementById('surveyScoreCard').hidden = false;
+        mount.innerHTML = `<div class="panel"><h2>Survey</h2>
+          <p>Initialized with categories:</p>
+          <ul>${categories.map(c=>`<li>${c}</li>`).join("")}</ul></div>`;
       }
     };
 
-    /* =========================================================
-       TK: Runtime wiring for the category panel + Start gate
-       Mirrors your description: grabs #categoryPanel, syncs counts,
-       dispatches events, keeps scorecard hidden until Start.
-       ========================================================= */
-    (function () {
-      const panel       = document.getElementById('categoryPanel');
-      const checklist   = document.getElementById('categoryChecklist');
-      const startBtn    = document.getElementById('startSurveyBtn');
-      const countSel    = document.getElementById('categorySelectedCount');
-      const countTot    = document.getElementById('categoryTotalCount');
-      const surveyIntro = document.getElementById('surveyIntro');
-      const surveyApp   = document.getElementById('surveyApp');
-      const scoreCard   = document.getElementById('surveyScoreCard');
+    /* ---------- Bootstrap: categories-only view + Start gate ---------- */
+    onReady(()=>{
+      if (window.__TK_CATEGORIES_WIRED__) return;
+      window.__TK_CATEGORIES_WIRED__ = true;
 
-      if (!panel || !checklist || !startBtn) {
-        console.warn('[TK] Category panel missing — verify index.html markup.');
-        return;
-      }
+      const panel       = document.getElementById("categoryPanel");
+      const checklist   = document.getElementById("categoryChecklist");
+      const startBtn    = document.getElementById("startSurveyBtn");
+      const countSel    = document.getElementById("categorySelectedCount");
+      const countTot    = document.getElementById("categoryTotalCount");
+      const surveyApp   = document.getElementById("surveyApp");
+      const scoreCard   = document.getElementById("surveyScoreCard");
+      const surveyIntro = document.getElementById("surveyIntro");
 
-      // Populate checklist from TK_CATEGORIES
-      const CATEGORIES = window.TK_CATEGORIES || [];
-      checklist.innerHTML = CATEGORIES.map(cat => `
+      if (!panel || !checklist || !startBtn){ console.warn("[TK] category panel markup missing"); return; }
+
+      const CATS = window.TK_CATEGORIES || [];
+      checklist.innerHTML = CATS.map(cat => `
         <li data-cat="${cat.id}">
           <input type="checkbox" id="cat_${cat.id}" value="${cat.id}" />
           <label for="cat_${cat.id}">${cat.name}</label>
-        </li>
-      `).join('');
+        </li>`).join("");
+      countTot.textContent = String(CATS.length);
 
-      // Initialize counts
-      const total = CATEGORIES.length;
-      countTot.textContent = String(total);
-
-      const getSelected = () =>
-        Array.from(checklist.querySelectorAll('input[type="checkbox"]:checked'))
-          .map(i => i.value);
-
-      const updateState = () => {
-        const selected = getSelected();
-        countSel.textContent = String(selected.length);
-        startBtn.disabled = selected.length === 0;
-
-        // Fire change event for any listeners (progress, analytics, etc.)
-        panel.dispatchEvent(new CustomEvent('tk:categories:change', {
-          bubbles: true,
-          detail: {
-            selected,
-            total,
-            countSelected: selected.length,
-            timestamp: Date.now()
-          }
-        }));
+      const getSelected = ()=> Array.from(checklist.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
+      const updateState = ()=>{
+        const sel = getSelected();
+        countSel.textContent = String(sel.length);
+        startBtn.disabled = sel.length === 0;
+        panel.dispatchEvent(new CustomEvent("tk:categories:change", {bubbles:true, detail:{selected:sel,total:CATS.length}}));
       };
+      checklist.addEventListener("change", e=>{ if (e.target?.matches('input[type="checkbox"]')) updateState(); });
 
-      // Change wiring (delegation)
-      checklist.addEventListener('change', (e) => {
-        if (e.target && e.target.matches('input[type="checkbox"]')) {
-          updateState();
-        }
-      });
+      // keep engine/scorecard hidden until Start
+      if (surveyApp) surveyApp.hidden = true;
+      if (scoreCard) scoreCard.hidden = true;
 
-      // Ensure hidden-on-load state (no early scorecard)
-      if (surveyApp)   surveyApp.hidden = true;
-      if (scoreCard)   scoreCard.hidden = true;
+      function startSurveyFlow(){
+        const sel = getSelected();
+        if (!sel.length) return;
 
-      // Gate: Start Survey
-      startBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const selected = getSelected();
-        if (selected.length === 0) return;
+        // leave pre-start: reveal everything else
+        document.body.classList.remove("tk-prestart");
+        surveyApp && (surveyApp.hidden = false);
+        surveyIntro?.remove?.();
 
-        // Announce start
-        panel.dispatchEvent(new CustomEvent('tk:survey:start', {
-          bubbles: true,
-          detail: { selected, timestamp: Date.now() }
-        }));
+        panel.dispatchEvent(new CustomEvent("tk:survey:start", {bubbles:true, detail:{selected:sel}}));
+        if (window.TKSurvey?.start) window.TKSurvey.start({ categories: sel });
+      }
+      startBtn.addEventListener("click", (e)=>{ e.preventDefault(); startSurveyFlow(); });
 
-        // Swap intro → app and reveal the engine mount
-        if (surveyIntro) surveyIntro.remove();
-        if (surveyApp)   surveyApp.hidden = false;
-
-        // Your engine decides when to show the scorecard:
-        // scoreCard.hidden = false; // leave hidden until engine opts in
-
-        // Initialize the real survey engine
-        if (window.TKSurvey && typeof window.TKSurvey.start === 'function') {
-          window.TKSurvey.start({ categories: selected });
-        } else {
-          console.warn('[TK] TKSurvey.start not found — ensure engine is loaded.');
-        }
-      });
-
-      // Kick initial state
       updateState();
-    })();
+      TK.log("Categories-only mode active: only left panel visible until Start.");
+    });
   </script>
 </body>
 </html>
