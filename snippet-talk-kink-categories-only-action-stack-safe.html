@@ -1,0 +1,121 @@
+<!-- Talk Kink — Left Categories + RIGHT THREE-STACK PANEL (safe drop-in) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Talk Kink Survey</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- keep if you already ship these -->
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/kinksurvey_overrides.css" />
+
+  <style>
+    /* ===== two-column shell ===== */
+    #tkPortal{ display:grid; grid-template-columns: 380px 1fr; gap:28px; align-items:start; }
+    @media (max-width:980px){ #tkPortal{ grid-template-columns:1fr; } }
+
+    /* ===== left: category panel (your runtime populates it) ===== */
+    .category-panel{ position:sticky; top:16px; max-height:calc(100dvh - 32px); overflow:auto; padding:16px; border-radius:14px; }
+    @media (min-width:1100px){ .category-panel{ top:20px; max-height:calc(100dvh - 40px); } }
+    @media (max-width:980px){ .category-panel{ position:relative; top:0; max-height:none; } }
+
+    /* ===== right: ACTION STACK (the 3 buttons) ===== */
+    #tkActionCol{ align-self:start; }
+    .action-stack{ display:grid; gap:14px; max-width:560px; }
+    .action-stack .themed-button{ display:block; width:100%; text-align:center; padding:14px 16px; border-radius:12px; font-weight:700; }
+    .action-stack .themed-button:disabled{ opacity:.55; cursor:not-allowed; }
+    .action-stack .ghost{ background:transparent; border:2px solid var(--tk-accent,#39e3ff); }
+
+    /* keep these hidden until engine wants them */
+    #surveyApp[hidden], #surveyScoreCard[hidden]{ display:none !important; }
+
+    /* Pre-start: ONLY hide other right-side content; ALWAYS show action stack */
+    body.tk-prestart #tkActionCol{ display:block !important; }
+  </style>
+</head>
+
+<body class="theme-dark tk-prestart">
+  <div id="tkPortal">
+    <!-- LEFT: Category Panel (existing) -->
+    <section id="categoryPanel" class="panel category-panel">
+      <header class="panel-header">
+        <h2>Categories</h2>
+        <div class="category-counter"><span id="categorySelectedCount">0</span>/<span id="categoryTotalCount">0</span> selected</div>
+      </header>
+      <div id="tk-cat-list">
+        <ul id="categoryChecklist" class="category-checklist"><!-- runtime fills from /data/*.json --></ul>
+      </div>
+    </section>
+
+    <!-- RIGHT: the THREE-STACK panel -->
+    <aside id="tkActionCol">
+      <section id="tkActionStack" class="action-stack">
+        <button id="startSurveyBtn" class="themed-button start-button" disabled>Start Survey</button>
+        <a id="btnKinkAnalysis" class="themed-button ghost" href="/kinksurvey/analysis/">Individual Kink Analysis</a>
+        <a id="btnCompatibility" class="themed-button ghost" href="/kinksurvey/compat/">Compatibility Page</a>
+      </section>
+
+      <!-- engine mounts (stay hidden until Start) -->
+      <section id="surveyApp" class="survey-app" hidden></section>
+      <aside id="surveyScoreCard" class="scorecard" hidden></aside>
+    </aside>
+  </div>
+
+  <script>
+    /* make left panel tall & sticky nicely */
+    (function(){
+      const p = document.getElementById('categoryPanel'); if(!p) return;
+      const resize = () => {
+        const r = p.getBoundingClientRect();
+        const vh = Math.max(document.documentElement.clientHeight, window.innerHeight||0);
+        p.style.maxHeight = Math.max(260, vh - r.top - 16) + 'px';
+      };
+      requestAnimationFrame(resize); addEventListener('resize', resize);
+    })();
+
+    /* wire: enable Start when a category is checked + reveal engine on Start */
+    (function(){
+      const panel = document.getElementById('categoryPanel');
+      const ul = document.getElementById('categoryChecklist');
+      const selEl = document.getElementById('categorySelectedCount');
+      const totEl = document.getElementById('categoryTotalCount');
+      const startBtn = document.getElementById('startSurveyBtn');
+      const app = document.getElementById('surveyApp');
+
+      if (!panel || !ul || !startBtn) return;
+
+      const selected = () => Array.from(ul.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
+      const recount  = () => {
+        const total = ul.querySelectorAll('li').length;
+        if (totEl) totEl.textContent = String(total);
+        const count = selected().length;
+        if (selEl) selEl.textContent = String(count);
+        startBtn.disabled = count === 0;
+      };
+
+      ul.addEventListener('change', e => { if (e.target?.matches('input[type="checkbox"]')) recount(); });
+
+      startBtn.addEventListener('click', e => {
+        if (startBtn.disabled) { e.preventDefault(); return; }
+        document.body.classList.remove('tk-prestart');   // keep the 3-stack and now allow the rest of right col
+        if (app) app.hidden = false;
+        panel.dispatchEvent(new CustomEvent('tk:survey:start', { bubbles:true, detail:{ selected: selected() }}));
+        if (window.TKSurvey?.start) window.TKSurvey.start({ categories: selected() });
+      });
+
+      // initial update after runtime likely injected categories
+      requestAnimationFrame(recount);
+    })();
+
+    /* optional stub engine for smoke-test */
+    window.TKSurvey = window.TKSurvey || {
+      start: ({categories})=>{
+        const m = document.getElementById('surveyApp');
+        if (m) m.innerHTML = `<div class="panel"><h2>Survey</h2><p>Categories: ${categories.join(', ')}</p></div>`;
+      }
+    };
+  </script>
+</body>
+</html>
