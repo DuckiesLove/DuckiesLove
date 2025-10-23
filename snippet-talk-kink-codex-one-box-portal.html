@@ -73,8 +73,7 @@
     TK.log = (...a)=>console.info("[TK]", ...a);
     const onReady = (cb)=> (document.readyState==="loading" ? document.addEventListener("DOMContentLoaded", cb, {once:true}) : cb());
 
-    /* Use your real category source; this seed is only a fallback */
-    window.TK_CATEGORIES = window.TK_CATEGORIES || [
+    const DEFAULT_CATEGORIES = [
       { id:"appearance", name:"Appearance Play" },
       { id:"sensation",  name:"Sensation / Impact" },
       { id:"service",    name:"Service & Protocol" },
@@ -82,6 +81,72 @@
       { id:"bondage",    name:"Bondage / Restraint" },
       { id:"aftercare",  name:"Care & Aftercare" }
     ];
+
+    const slug = (value) => String(value ?? "")
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    async function fetchJSON(url){
+      try {
+        const res = await fetch(url, { credentials: "same-origin" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (error) {
+        console.warn(`[TK] Failed to fetch ${url}:`, error.message);
+        throw error;
+      }
+    }
+
+    async function getCategoryNames(){
+      try {
+        const data = await fetchJSON("/data/categories.json");
+        const arr = Array.isArray(data) ? data : (data?.categories || []);
+        if (arr.length) return arr.map((entry) => entry?.name || entry?.title || entry).filter(Boolean);
+      } catch {}
+
+      try {
+        const data = await fetchJSON("/data/kinks.json");
+        const items = Array.isArray(data)
+          ? data
+          : (data?.items || data?.kinks || []);
+        const names = Array.from(new Set(items.map((item) => item?.category || item?.cat || item?.Category).filter(Boolean)));
+        if (names.length) return names;
+      } catch {}
+
+      return [];
+    }
+
+    function normalizeCategoryList(list = []){
+      const used = new Set();
+      const collator = new Intl.Collator("en", { sensitivity: "base" });
+      const mapped = list.map((raw, index) => {
+        const name = String(raw?.name || raw?.title || raw?.label || raw?.category || raw || "")
+          .trim()
+          || `Category ${index + 1}`;
+        const idBase = String(raw?.id || slug(name) || slug(raw?.category)).trim() || `cat-${index}`;
+        let id = idBase;
+        let counter = 2;
+        while (used.has(id)) {
+          id = `${idBase}-${counter++}`;
+        }
+        used.add(id);
+        return { id, name };
+      });
+      mapped.sort((a, b) => collator.compare(a.name, b.name));
+      return mapped;
+    }
+
+    async function resolveCategories(){
+      const seeded = Array.isArray(window.TK_CATEGORIES) ? window.TK_CATEGORIES : [];
+      if (seeded.length) return normalizeCategoryList(seeded);
+
+      const names = await getCategoryNames();
+      if (names.length) return normalizeCategoryList(names);
+
+      return normalizeCategoryList(DEFAULT_CATEGORIES);
+    }
 
     /* Optional stub; remove once your real engine attaches */
     window.TKSurvey = window.TKSurvey || {
@@ -95,7 +160,7 @@
     };
 
     /* ---------- Bootstrap: categories-only view + Start gate ---------- */
-    onReady(()=>{
+    onReady(async ()=>{
       if (window.__TK_CATEGORIES_WIRED__) return;
       window.__TK_CATEGORIES_WIRED__ = true;
 
@@ -110,20 +175,51 @@
 
       if (!panel || !checklist || !startBtn){ console.warn("[TK] category panel markup missing"); return; }
 
-      const CATS = window.TK_CATEGORIES || [];
-      checklist.innerHTML = CATS.map(cat => `
-        <li data-cat="${cat.id}">
-          <input type="checkbox" id="cat_${cat.id}" value="${cat.id}" />
-          <label for="cat_${cat.id}">${cat.name}</label>
-        </li>`).join("");
-      countTot.textContent = String(CATS.length);
+      const categories = await resolveCategories();
+      window.__TK_CATEGORIES_RESOLVED__ = categories;
+      window.TK_CATEGORIES = categories;
+      const catById = new Map(categories.map(cat => [String(cat.id), cat]));
+
+      checklist.innerHTML = "";
+      if (categories.length) {
+        const frag = document.createDocumentFragment();
+        categories.forEach((cat) => {
+          const li = document.createElement("li");
+          li.dataset.cat = cat.id;
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.id = `cat_${cat.id}`;
+          input.value = cat.id;
+          const label = document.createElement("label");
+          label.htmlFor = input.id;
+          label.textContent = cat.name;
+          li.append(input, label);
+          frag.appendChild(li);
+        });
+        checklist.appendChild(frag);
+      } else {
+        const empty = document.createElement("li");
+        empty.className = "empty";
+        empty.textContent = "No categories available.";
+        checklist.appendChild(empty);
+      }
+      countTot.textContent = String(categories.length);
 
       const getSelected = ()=> Array.from(checklist.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
       const updateState = ()=>{
         const sel = getSelected();
         countSel.textContent = String(sel.length);
         startBtn.disabled = sel.length === 0;
-        panel.dispatchEvent(new CustomEvent("tk:categories:change", {bubbles:true, detail:{selected:sel,total:CATS.length}}));
+        panel.dispatchEvent(new CustomEvent("tk:categories:change", {
+          bubbles:true,
+          detail:{
+            selected: sel,
+            categories: sel.map(id => catById.get(id)).filter(Boolean),
+            total: categories.length,
+            countSelected: sel.length,
+            timestamp: Date.now()
+          }
+        }));
       };
       checklist.addEventListener("change", e=>{ if (e.target?.matches('input[type="checkbox"]')) updateState(); });
 
@@ -135,13 +231,27 @@
         const sel = getSelected();
         if (!sel.length) return;
 
+        const detail = {
+          selected: sel,
+          categories: sel.map(id => catById.get(id)).filter(Boolean),
+          total: categories.length,
+          countSelected: sel.length,
+          timestamp: Date.now()
+        };
+
         // leave pre-start: reveal everything else
         document.body.classList.remove("tk-prestart");
         surveyApp && (surveyApp.hidden = false);
         surveyIntro?.remove?.();
 
-        panel.dispatchEvent(new CustomEvent("tk:survey:start", {bubbles:true, detail:{selected:sel}}));
-        if (window.TKSurvey?.start) window.TKSurvey.start({ categories: sel });
+        panel.dispatchEvent(new CustomEvent("tk:survey:start", {bubbles:true, detail}));
+        if (window.TKSurvey?.start) {
+          window.TKSurvey.start({
+            categories: sel,
+            detail,
+            labels: detail.categories.map(cat => cat?.name).filter(Boolean)
+          });
+        }
       }
       startBtn.addEventListener("click", (e)=>{ e.preventDefault(); startSurveyFlow(); });
 
