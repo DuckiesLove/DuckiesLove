@@ -216,17 +216,81 @@
       });
     }
 
-    /* ===== Data source (override with your real list if available) =====
-       If your app sets window.TK_CATEGORIES earlier (e.g., from /data/kinks.json),
-       this seed is ignored. */
-    window.TK_CATEGORIES = window.TK_CATEGORIES || [
-      { id:"appearance", name:"Appearance Play" },
-      { id:"sensation",  name:"Sensation / Impact" },
-      { id:"service",    name:"Service & Protocol" },
-      { id:"psych",      name:"Psychological / Primal" },
-      { id:"bondage",    name:"Bondage / Restraint" },
-      { id:"aftercare",  name:"Care & Aftercare" }
+    /* ===== Category helpers ===== */
+    const DEFAULT_CATEGORIES = [
+      { id: "appearance", name: "Appearance Play" },
+      { id: "sensation",  name: "Sensation / Impact" },
+      { id: "service",    name: "Service & Protocol" },
+      { id: "psych",      name: "Psychological / Primal" },
+      { id: "bondage",    name: "Bondage / Restraint" },
+      { id: "aftercare",  name: "Care & Aftercare" }
     ];
+
+    const slug = (value) => String(value ?? "")
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    async function fetchJSON(url){
+      try {
+        const res = await fetch(url, { credentials: "same-origin" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (error) {
+        console.warn(`[TK] Failed to fetch ${url}:`, error.message);
+        throw error;
+      }
+    }
+
+    async function getCategoryNames(){
+      try {
+        const data = await fetchJSON("/data/categories.json");
+        const arr = Array.isArray(data) ? data : (data?.categories || []);
+        if (arr.length) return arr.map((entry) => entry?.name || entry?.title || entry).filter(Boolean);
+      } catch {}
+
+      try {
+        const data = await fetchJSON("/data/kinks.json");
+        const items = Array.isArray(data)
+          ? data
+          : (data?.items || data?.kinks || []);
+        const names = Array.from(new Set(items.map((item) => item?.category || item?.cat || item?.Category).filter(Boolean)));
+        if (names.length) return names;
+      } catch {}
+
+      return [];
+    }
+
+    function normalizeCategoryList(list = []){
+      const used = new Set();
+      const collator = new Intl.Collator("en", { sensitivity: "base" });
+      const mapped = list.map((raw, index) => {
+        const name = String(raw?.name || raw?.title || raw?.label || raw?.category || raw || "")
+          .trim()
+          || `Category ${index + 1}`;
+        const idBase = String(raw?.id || slug(name) || slug(raw?.category)).trim() || `cat-${index}`;
+        let id = idBase;
+        let counter = 2;
+        while (used.has(id)) {
+          id = `${idBase}-${counter++}`;
+        }
+        used.add(id);
+        return { id, name };
+      });
+      mapped.sort((a, b) => collator.compare(a.name, b.name));
+      return mapped;
+    }
+
+    async function resolveCategories(){
+      const seeded = Array.isArray(window.TK_CATEGORIES) ? window.TK_CATEGORIES : [];
+      if (seeded.length) return normalizeCategoryList(seeded);
+
+      const names = await getCategoryNames();
+      if (names.length) return normalizeCategoryList(names);
+
+      return normalizeCategoryList(DEFAULT_CATEGORIES);
+    }
 
     /* ===== Optional stub engine (safe to remove once your real engine mounts) ===== */
     window.TKSurvey = window.TKSurvey || {
@@ -258,16 +322,38 @@
         const scoreCard   = document.getElementById("surveyScoreCard");
         const surveyIntro = document.getElementById("surveyIntro");
 
+        const categories = await resolveCategories();
+        window.__TK_CATEGORIES_RESOLVED__ = categories;
+        window.TK_CATEGORIES = categories;
+        const catById = new Map(categories.map(cat => [String(cat.id), cat]));
+
         // Populate the checklist with categories
-        const CATS = window.TK_CATEGORIES || [];
-        checklist.innerHTML = CATS.map(cat => `
-          <li data-cat="${cat.id}">
-            <input type="checkbox" id="cat_${cat.id}" value="${cat.id}" />
-            <label for="cat_${cat.id}">${cat.name}</label>
-          </li>`).join("");
+        checklist.innerHTML = "";
+        if (categories.length) {
+          const frag = document.createDocumentFragment();
+          categories.forEach((cat) => {
+            const li = document.createElement("li");
+            li.dataset.cat = cat.id;
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.id = `cat_${cat.id}`;
+            input.value = cat.id;
+            const label = document.createElement("label");
+            label.htmlFor = input.id;
+            label.textContent = cat.name;
+            li.append(input, label);
+            frag.appendChild(li);
+          });
+          checklist.appendChild(frag);
+        } else {
+          const empty = document.createElement("li");
+          empty.className = "empty";
+          empty.textContent = "No categories available.";
+          checklist.appendChild(empty);
+        }
 
         // Counts & gating
-        countTot.textContent = String(CATS.length);
+        countTot.textContent = String(categories.length);
         const getSelected = () =>
           Array.from(checklist.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
 
@@ -278,7 +364,13 @@
 
           panel.dispatchEvent(new CustomEvent("tk:categories:change", {
             bubbles:true,
-            detail:{ selected, total:CATS.length, countSelected:selected.length, timestamp:Date.now() }
+            detail:{
+              selected,
+              categories: selected.map(id => catById.get(id)).filter(Boolean),
+              total: categories.length,
+              countSelected: selected.length,
+              timestamp: Date.now()
+            }
           }));
         }
 
@@ -294,6 +386,14 @@
           const selected = getSelected();
           if (!selected.length) return;
 
+          const detail = {
+            selected,
+            categories: selected.map(id => catById.get(id)).filter(Boolean),
+            total: categories.length,
+            countSelected: selected.length,
+            timestamp: Date.now()
+          };
+
           // Reveal the right column by leaving pre-start mode
           document.body.classList.remove("tk-prestart");
           if (surveyIntro) surveyIntro.remove?.();
@@ -303,11 +403,16 @@
           // scoreCard.hidden = false;
 
           panel.dispatchEvent(new CustomEvent("tk:survey:start", {
-            bubbles:true, detail:{ selected, timestamp:Date.now() }
+            bubbles:true,
+            detail
           }));
 
           if (window.TKSurvey && typeof window.TKSurvey.start === "function"){
-            window.TKSurvey.start({ categories: selected });
+            window.TKSurvey.start({
+              categories: selected,
+              detail,
+              labels: detail.categories.map(cat => cat?.name).filter(Boolean)
+            });
           } else {
             TK.log("No TKSurvey.start found — only wiring ran.");
           }
