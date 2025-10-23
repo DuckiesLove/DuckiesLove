@@ -37,9 +37,10 @@
     box-sizing: border-box;
   }
   .tk-left {
-    min-height: 60vh;
-    max-height: calc(100vh - 9rem);
-    overflow: auto;
+    display:flex;
+    flex-direction:column;
+    min-height: clamp(70vh, 82vh, 92vh);
+    height: min(92vh, calc(100vh - 3rem));
     border: 2px solid rgba(0,255,255,.35);
     border-radius: 16px;
     padding: 16px;
@@ -79,7 +80,15 @@
   /* Responsive: stack on narrow screens */
   @media (max-width: 980px) {
     #tkPortal { grid-template-columns: 1fr; }
-    .tk-left { max-height: none; }
+    .tk-left {
+      display:block;
+      height: auto;
+      min-height: unset;
+    }
+    .panel {
+      min-height: auto;
+      height: auto;
+    }
   }
 
   h1{font-size:clamp(28px,5vw,48px);margin:0 0 18px 0;text-align:center}
@@ -105,7 +114,11 @@
     padding:16px;
     /* full width of the wide container */
     width:100%;
-    max-height:78vh; overflow:auto; margin:0 auto;
+    flex:1;
+    min-height:100%;
+    max-height:none;
+    overflow:auto;
+    margin:0 auto;
   }
   .category-panel select,
   .category-panel input[type="number"],
@@ -264,8 +277,8 @@
       <div class="tk-right">
         <div class="tk-stack" aria-label="Main actions">
           <button class="btn xl tk-disabled" id="startBtn" data-tk-start disabled>Start Survey</button>
-          <a class="btn" href="/compatibility/">Compatibility Page</a>
-          <a class="btn" href="/ika/">Individual Kink Analysis</a>
+          <a class="btn" data-action="compatibility" href="/compatibility/">Compatibility Page</a>
+          <a class="btn" data-action="analysis" href="/ika/">Individual Kink Analysis</a>
         </div>
         <div class="tk-meta" aria-label="Theme">
           <label style="display:flex;gap:10px;align-items:center;justify-content:center">
@@ -358,6 +371,51 @@
       }
     }
     return { dataset: null, source: null, errors };
+  }
+
+  const actionStack = document.querySelector('.tk-right .tk-stack');
+
+  if (actionStack) {
+    const ensureNode = (selector, factory, position = 'append') => {
+      if (actionStack.querySelector(selector)) return actionStack.querySelector(selector);
+      const node = factory();
+      if (!node) return null;
+      if (position === 'prepend' && actionStack.firstChild) {
+        actionStack.insertBefore(node, actionStack.firstChild);
+      } else {
+        actionStack.appendChild(node);
+      }
+      return node;
+    };
+
+    ensureNode('#startBtn', () => {
+      const btn = document.createElement('button');
+      btn.className = 'btn xl tk-disabled';
+      btn.type = 'button';
+      btn.id = 'startBtn';
+      btn.dataset.tkStart = '';
+      btn.disabled = true;
+      btn.textContent = 'Start Survey';
+      return btn;
+    }, 'prepend');
+
+    ensureNode('a[data-action="compatibility"]', () => {
+      const link = document.createElement('a');
+      link.className = 'btn';
+      link.href = '/compatibility/';
+      link.dataset.action = 'compatibility';
+      link.textContent = 'Compatibility Page';
+      return link;
+    });
+
+    ensureNode('a[data-action="analysis"]', () => {
+      const link = document.createElement('a');
+      link.className = 'btn';
+      link.href = '/ika/';
+      link.dataset.action = 'analysis';
+      link.textContent = 'Individual Kink Analysis';
+      return link;
+    });
   }
 
   const el = (id)=>document.getElementById(id);
