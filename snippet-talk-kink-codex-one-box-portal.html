@@ -1,4 +1,4 @@
-<!-- Talk Kink — Categories-Only on Load (Codex one-box) -->
+<!-- Talk Kink — Left Categories + Right Three-Stack (Codex one-box) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,258 +6,139 @@
   <title>Talk Kink Survey</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- keep if your site already loads them; harmless otherwise -->
+  <!-- Harmless if your site already ships these -->
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/kinksurvey_overrides.css" />
 
   <style>
-    /* ---------- Layout (safe defaults) ---------- */
-    #tkPortal { display:grid; grid-template-columns:320px 1fr; gap:20px; align-items:start; }
-    .category-panel{ position:sticky; top:16px; align-self:start; max-height:calc(100vh - 32px); overflow:auto; padding:16px; border-radius:12px; }
+    /* ====== Two-column shell ====== */
+    #tkPortal{ display:grid; grid-template-columns: 380px 1fr; gap:28px; align-items:start; }
+    @media (max-width:980px){ #tkPortal{ grid-template-columns:1fr; } }
+
+    /* ====== LEFT: Category panel (runtime populates) ====== */
+    .category-panel{
+      position:sticky; top:16px;
+      max-height:calc(100dvh - 32px);
+      overflow:auto; padding:16px; border-radius:14px;
+      scroll-behavior:smooth;
+    }
+    @media (min-width:1100px){ .category-panel{ top:20px; max-height:calc(100dvh - 40px); } }
+    @media (max-width:980px){ .category-panel{ position:relative; top:0; max-height:none; } }
     .panel-header{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:10px; }
     .category-checklist{ list-style:none; margin:12px 0 16px; padding:0; }
     .category-checklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; cursor:pointer; }
-    .start-button{ width:100%; padding:10px 12px; border-radius:10px; font-weight:600; }
-    .start-button:disabled{ opacity:.5; cursor:not-allowed; }
+
+    /* ====== RIGHT: THREE-STACK actions ====== */
+    #tkActionCol{ align-self:start; }
+    .action-stack{ display:grid; gap:14px; max-width:560px; }
+    .action-stack .themed-button{
+      display:block; width:100%; text-align:center;
+      padding:14px 16px; border-radius:12px; font-weight:700;
+    }
+    .action-stack .themed-button:disabled{ opacity:.55; cursor:not-allowed; }
+    .action-stack .ghost{ background:transparent; border:2px solid var(--tk-accent, #39e3ff); }
+
+    /* Keep engine bits hidden until Start */
     #surveyApp[hidden], #surveyScoreCard[hidden]{ display:none !important; }
 
-    /* ---------- CATEGORIES-ONLY PRE-START MODE ---------- */
-    /* Hard rule: on load, show ONLY the category panel inside #tkPortal */
-    body.tk-prestart #tkPortal > :not(#categoryPanel){ display:none !important; }
-    /* If your right column is nested, also hide anything in the portal that isn't the left panel */
-    body.tk-prestart #tkPortal .panel:not(.category-panel),
-    body.tk-prestart #surveyMain,
-    body.tk-prestart .portal-main,
-    body.tk-prestart #surveyIntro,
-    body.tk-prestart #rubric,
+    /* Pre-start: show the 3-stack; don't hide the whole right column */
+    body.tk-prestart #tkActionCol{ display:block !important; }
     body.tk-prestart #surveyApp,
-    body.tk-prestart #surveyScoreCard { display:none !important; }
-
-    @media (max-width:980px){
-      #tkPortal{ grid-template-columns:1fr; }
-      .category-panel{ position:relative; top:0; max-height:none; }
-    }
+    body.tk-prestart #surveyScoreCard{ display:none !important; }
   </style>
 </head>
 
-<!-- tk-prestart ensures only the categories show on first paint -->
 <body class="theme-dark tk-prestart">
   <div id="tkPortal">
-    <!-- LEFT: Category Panel (must live inside #tkPortal) -->
+    <!-- LEFT: Category Panel (your bootstrap fills from /data/*.json) -->
     <section id="categoryPanel" class="panel category-panel">
       <header class="panel-header">
         <h2>Categories</h2>
         <div class="category-counter">
-          <span id="categorySelectedCount">0</span><span>/</span><span id="categoryTotalCount">0</span><span> selected</span>
+          <span id="categorySelectedCount">0</span>/<span id="categoryTotalCount">0</span> selected
         </div>
       </header>
-      <ul id="categoryChecklist" class="category-checklist"><!-- populated at runtime --></ul>
-      <button id="startSurveyBtn" class="themed-button start-button" disabled>Start Survey</button>
+      <!-- Support both bootstraps by providing both targets -->
+      <div id="tk-cat-list">
+        <ul id="categoryChecklist" class="category-checklist"><!-- populated at runtime --></ul>
+      </div>
     </section>
 
-    <!-- RIGHT: Main area (hidden while tk-prestart is on <body>) -->
-    <main id="surveyMain" class="portal-main">
-      <section id="surveyIntro" class="intro">
-        <h1 class="themed-header">Talk Kink Survey</h1>
-        <p>Select one or more categories on the left, then press <em>Start Survey</em>.</p>
+    <!-- RIGHT: THREE-STACK ACTION PANEL -->
+    <aside id="tkActionCol">
+      <section id="tkActionStack" class="action-stack">
+        <button id="startSurveyBtn" class="themed-button start-button" disabled>Start Survey</button>
+        <a id="btnKinkAnalysis" class="themed-button ghost" href="/kinksurvey/analysis/">Individual Kink Analysis</a>
+        <a id="btnCompatibility" class="themed-button ghost" href="/kinksurvey/compat/">Compatibility Page</a>
       </section>
+
+      <!-- Engine mounts (stay hidden until Start) -->
       <section id="surveyApp" class="survey-app" hidden></section>
       <aside id="surveyScoreCard" class="scorecard" hidden></aside>
-    </main>
+    </aside>
   </div>
 
   <script>
-    /* ---------- Helpers ---------- */
-    const TK = window.TK || (window.TK = {});
-    TK.log = (...a)=>console.info("[TK]", ...a);
-    const onReady = (cb)=> (document.readyState==="loading" ? document.addEventListener("DOMContentLoaded", cb, {once:true}) : cb());
+    /* Make left panel fill viewport nicely even on resize */
+    (function(){
+      const p = document.getElementById('categoryPanel'); if(!p) return;
+      const resize = () => {
+        const r = p.getBoundingClientRect();
+        const vh = Math.max(document.documentElement.clientHeight, window.innerHeight||0);
+        p.style.maxHeight = Math.max(260, vh - r.top - 16) + 'px';
+      };
+      requestAnimationFrame(resize); addEventListener('resize', resize);
+    })();
 
-    const DEFAULT_CATEGORIES = [
-      { id:"appearance", name:"Appearance Play" },
-      { id:"sensation",  name:"Sensation / Impact" },
-      { id:"service",    name:"Service & Protocol" },
-      { id:"psych",      name:"Psychological / Primal" },
-      { id:"bondage",    name:"Bondage / Restraint" },
-      { id:"aftercare",  name:"Care & Aftercare" }
-    ];
+    /* Gate Start on selection; reveal engine area on Start (no repopulation here) */
+    (function(){
+      const panel  = document.getElementById('categoryPanel');
+      const list   = document.getElementById('categoryChecklist');
+      const start  = document.getElementById('startSurveyBtn');
+      const app    = document.getElementById('surveyApp');
+      const selEl  = document.getElementById('categorySelectedCount');
+      const totEl  = document.getElementById('categoryTotalCount');
 
-    const slug = (value) => String(value ?? "")
-      .toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+      if (!panel || !list || !start) return;
 
-    async function fetchJSON(url){
-      try {
-        const res = await fetch(url, { credentials: "same-origin" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
-      } catch (error) {
-        console.warn(`[TK] Failed to fetch ${url}:`, error.message);
-        throw error;
+      const selected = () =>
+        Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
+
+      function recount(){
+        const total = list.querySelectorAll('li').length;
+        if (totEl) totEl.textContent = String(total);
+        const n = selected().length;
+        if (selEl) selEl.textContent = String(n);
+        start.disabled = n === 0;
       }
-    }
 
-    async function getCategoryNames(){
-      try {
-        const data = await fetchJSON("/data/categories.json");
-        const arr = Array.isArray(data) ? data : (data?.categories || []);
-        if (arr.length) return arr.map((entry) => entry?.name || entry?.title || entry).filter(Boolean);
-      } catch {}
-
-      try {
-        const data = await fetchJSON("/data/kinks.json");
-        const items = Array.isArray(data)
-          ? data
-          : (data?.items || data?.kinks || []);
-        const names = Array.from(new Set(items.map((item) => item?.category || item?.cat || item?.Category).filter(Boolean)));
-        if (names.length) return names;
-      } catch {}
-
-      return [];
-    }
-
-    function normalizeCategoryList(list = []){
-      const used = new Set();
-      const collator = new Intl.Collator("en", { sensitivity: "base" });
-      const mapped = list.map((raw, index) => {
-        const name = String(raw?.name || raw?.title || raw?.label || raw?.category || raw || "")
-          .trim()
-          || `Category ${index + 1}`;
-        const idBase = String(raw?.id || slug(name) || slug(raw?.category)).trim() || `cat-${index}`;
-        let id = idBase;
-        let counter = 2;
-        while (used.has(id)) {
-          id = `${idBase}-${counter++}`;
-        }
-        used.add(id);
-        return { id, name };
+      list.addEventListener('change', e => {
+        if (e.target && e.target.matches('input[type="checkbox"]')) recount();
       });
-      mapped.sort((a, b) => collator.compare(a.name, b.name));
-      return mapped;
-    }
 
-    async function resolveCategories(){
-      const seeded = Array.isArray(window.TK_CATEGORIES) ? window.TK_CATEGORIES : [];
-      if (seeded.length) return normalizeCategoryList(seeded);
+      start.addEventListener('click', e => {
+        if (start.disabled){ e.preventDefault(); return; }
+        document.body.classList.remove('tk-prestart');     // keep 3-stack; allow rest to show
+        if (app) app.hidden = false;                       // show engine mount
+        panel.dispatchEvent(new CustomEvent('tk:survey:start', {
+          bubbles:true, detail:{ selected: selected() }
+        }));
+        if (window.TKSurvey?.start) window.TKSurvey.start({ categories: selected() });
+      });
 
-      const names = await getCategoryNames();
-      if (names.length) return normalizeCategoryList(names);
+      // Run once after the runtime likely injected the category <li>s
+      requestAnimationFrame(recount);
+    })();
 
-      return normalizeCategoryList(DEFAULT_CATEGORIES);
-    }
-
-    /* Optional stub; remove once your real engine attaches */
+    /* Optional stub engine so Start shows something if no real engine attached */
     window.TKSurvey = window.TKSurvey || {
-      start: ({ categories })=>{
-        const mount = document.getElementById("surveyApp");
-        if (!mount) return;
-        mount.innerHTML = `<div class="panel"><h2>Survey</h2>
-          <p>Initialized with categories:</p>
-          <ul>${categories.map(c=>`<li>${c}</li>`).join("")}</ul></div>`;
+      start: ({categories})=>{
+        const m = document.getElementById('surveyApp');
+        if (m) m.innerHTML = `<div class="panel"><h2>Survey</h2>
+          <p>Categories: ${categories.join(', ') || '(none)'}.</p></div>`;
       }
     };
-
-    /* ---------- Bootstrap: categories-only view + Start gate ---------- */
-    onReady(async ()=>{
-      if (window.__TK_CATEGORIES_WIRED__) return;
-      window.__TK_CATEGORIES_WIRED__ = true;
-
-      const panel       = document.getElementById("categoryPanel");
-      const checklist   = document.getElementById("categoryChecklist");
-      const startBtn    = document.getElementById("startSurveyBtn");
-      const countSel    = document.getElementById("categorySelectedCount");
-      const countTot    = document.getElementById("categoryTotalCount");
-      const surveyApp   = document.getElementById("surveyApp");
-      const scoreCard   = document.getElementById("surveyScoreCard");
-      const surveyIntro = document.getElementById("surveyIntro");
-
-      if (!panel || !checklist || !startBtn){ console.warn("[TK] category panel markup missing"); return; }
-
-      const categories = await resolveCategories();
-      window.__TK_CATEGORIES_RESOLVED__ = categories;
-      window.TK_CATEGORIES = categories;
-      const catById = new Map(categories.map(cat => [String(cat.id), cat]));
-
-      checklist.innerHTML = "";
-      if (categories.length) {
-        const frag = document.createDocumentFragment();
-        categories.forEach((cat) => {
-          const li = document.createElement("li");
-          li.dataset.cat = cat.id;
-          const input = document.createElement("input");
-          input.type = "checkbox";
-          input.id = `cat_${cat.id}`;
-          input.value = cat.id;
-          const label = document.createElement("label");
-          label.htmlFor = input.id;
-          label.textContent = cat.name;
-          li.append(input, label);
-          frag.appendChild(li);
-        });
-        checklist.appendChild(frag);
-      } else {
-        const empty = document.createElement("li");
-        empty.className = "empty";
-        empty.textContent = "No categories available.";
-        checklist.appendChild(empty);
-      }
-      countTot.textContent = String(categories.length);
-
-      const getSelected = ()=> Array.from(checklist.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value);
-      const updateState = ()=>{
-        const sel = getSelected();
-        countSel.textContent = String(sel.length);
-        startBtn.disabled = sel.length === 0;
-        panel.dispatchEvent(new CustomEvent("tk:categories:change", {
-          bubbles:true,
-          detail:{
-            selected: sel,
-            categories: sel.map(id => catById.get(id)).filter(Boolean),
-            total: categories.length,
-            countSelected: sel.length,
-            timestamp: Date.now()
-          }
-        }));
-      };
-      checklist.addEventListener("change", e=>{ if (e.target?.matches('input[type="checkbox"]')) updateState(); });
-
-      // keep engine/scorecard hidden until Start
-      if (surveyApp) surveyApp.hidden = true;
-      if (scoreCard) scoreCard.hidden = true;
-
-      function startSurveyFlow(){
-        const sel = getSelected();
-        if (!sel.length) return;
-
-        const detail = {
-          selected: sel,
-          categories: sel.map(id => catById.get(id)).filter(Boolean),
-          total: categories.length,
-          countSelected: sel.length,
-          timestamp: Date.now()
-        };
-
-        // leave pre-start: reveal everything else
-        document.body.classList.remove("tk-prestart");
-        surveyApp && (surveyApp.hidden = false);
-        surveyIntro?.remove?.();
-
-        panel.dispatchEvent(new CustomEvent("tk:survey:start", {bubbles:true, detail}));
-        if (window.TKSurvey?.start) {
-          window.TKSurvey.start({
-            categories: sel,
-            detail,
-            labels: detail.categories.map(cat => cat?.name).filter(Boolean)
-          });
-        }
-      }
-      startBtn.addEventListener("click", (e)=>{ e.preventDefault(); startSurveyFlow(); });
-
-      updateState();
-      TK.log("Categories-only mode active: only left panel visible until Start.");
-    });
   </script>
 </body>
 </html>
