@@ -44,6 +44,24 @@
     /* Keep app/scorecard hidden until the engine decides */
     #surveyApp[hidden], #surveyScoreCard[hidden]{ display:none !important; }
 
+    /* Ensure the category panel stays visible while prestart hides siblings */
+    body.tk-prestart #categoryPanel{ display:block !important; }
+    body.tk-prestart #categoryPanel ~ *{ display:none !important; }
+
+    body.tk-prestart #tkPortal.tk-portal.grid-2col{ grid-template-columns:1fr; }
+    body.tk-prestart #tkPortal > :not(#categoryPanel){ display:none !important; }
+
+    body.tk-prestart main,
+    body.tk-prestart #surveyMain,
+    body.tk-prestart .portal-main,
+    body.tk-prestart #surveyIntro,
+    body.tk-prestart .rubric,
+    body.tk-prestart .score-rubric,
+    body.tk-prestart #rubric,
+    body.tk-prestart #surveyApp,
+    body.tk-prestart #surveyScoreCard,
+    body.tk-prestart #surveyMain ~ * { display:none !important; }
+
     /* ===== Categories-only pre-start mode ===== */
     body.tk-prestart #surveyMain { display: none !important; }  /* hide entire right column pre-start */
 
@@ -57,6 +75,37 @@
 
 <!-- Add tk-prestart here to prevent any flash of the right column -->
 <body class="theme-dark tk-prestart">
+  <!-- TK: categories-only prestart guard (ensures siblings stay hidden until Start) -->
+  <script>
+    (function(){
+      function ensurePrestart(){
+        const body = document.body;
+        if (!body) return;
+        if (!body.classList.contains('tk-prestart')) body.classList.add('tk-prestart');
+      }
+
+      function exitPrestart(){
+        const body = document.body;
+        if (!body) return;
+        body.classList.remove('tk-prestart');
+        const app = document.getElementById('surveyApp');
+        if (app) app.hidden = false;
+      }
+
+      if (document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', ensurePrestart, { once: true });
+      } else {
+        ensurePrestart();
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const panel = document.getElementById('categoryPanel');
+        const startBtn = document.getElementById('startSurveyBtn');
+        if (panel) panel.addEventListener('tk:survey:start', exitPrestart);
+        if (startBtn) startBtn.addEventListener('click', exitPrestart);
+      });
+    })();
+  </script>
   <div id="tkPortal" class="tk-portal grid-2col">
     <!-- LEFT: Category Panel (always visible on load) -->
     <section id="categoryPanel" class="panel category-panel">
