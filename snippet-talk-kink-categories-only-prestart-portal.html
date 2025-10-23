@@ -79,6 +79,162 @@
 
 <!-- Add tk-prestart here to prevent any flash of the right column -->
 <body class="theme-dark tk-prestart">
+  <!-- TK: Fail-safe category panel population + categories-only prestart -->
+  <script>
+    (() => {
+      const LOG = (...a) => console.info("[TK:cat-guard]", ...a);
+
+      const addPrestart = () => document.body.classList.add("tk-prestart");
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", addPrestart, { once: true });
+      } else {
+        addPrestart();
+      }
+
+      const q = (sel, root = document) => root.querySelector(sel);
+      const qa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      function ensureHosts() {
+        const panel = q("#categoryPanel") || document.body;
+        let tkDiv = q("#tk-cat-list", panel);
+        if (!tkDiv) {
+          tkDiv = document.createElement("div");
+          tkDiv.id = "tk-cat-list";
+          panel.appendChild(tkDiv);
+        }
+        let ul = q("#categoryChecklist", panel);
+        if (!ul) {
+          ul = document.createElement("ul");
+          ul.id = "categoryChecklist";
+          ul.className = "category-checklist";
+          tkDiv.appendChild(ul);
+        }
+        return { panel, ul };
+      }
+
+      async function fetchJSON(url) {
+        const res = await fetch(url, { credentials: "same-origin" });
+        if (!res.ok) throw new Error(`${url} ${res.status}`);
+        return res.json();
+      }
+
+      const slug = (value) => String(value ?? "")
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      function renderList(ul, names) {
+        ul.innerHTML = names.map((name) => {
+          const id = slug(name);
+          return `<li data-cat="${id}">
+        <input type="checkbox" id="cat_${id}" value="${id}">
+        <label for="cat_${id}">${name}</label>
+      </li>`;
+        }).join("");
+      }
+
+      function wireCounterAndStart(panel) {
+        const ul = q("#categoryChecklist", panel);
+        const btn = q("#startSurveyBtn");
+        const selEl = q("#categorySelectedCount");
+        const totEl = q("#categoryTotalCount");
+        if (!ul) return;
+
+        const total = qa("li", ul).length;
+        if (totEl) totEl.textContent = String(total);
+
+        const selected = () => qa('input[type="checkbox"]:checked', ul).map((input) => input.value);
+        const update = () => {
+          const n = selected().length;
+          if (selEl) selEl.textContent = String(n);
+          if (btn) btn.disabled = n === 0;
+          panel.dispatchEvent(new CustomEvent("tk:categories:change", {
+            bubbles: true,
+            detail: {
+              countSelected: n,
+              total,
+            },
+          }));
+        };
+
+        ul.addEventListener("change", (event) => {
+          if (event.target?.matches('input[type="checkbox"]')) update();
+        });
+
+        if (btn) {
+          btn.addEventListener("click", (event) => {
+            if (btn.disabled) {
+              event.preventDefault();
+              return;
+            }
+
+            document.body.classList.remove("tk-prestart");
+            const app = q("#surveyApp");
+            if (app) app.hidden = false;
+
+            panel.dispatchEvent(new CustomEvent("tk:survey:start", {
+              bubbles: true,
+              detail: { selected: selected() },
+            }));
+          });
+        }
+
+        update();
+      }
+
+      async function getCanonicalCategories() {
+        try {
+          const data = await fetchJSON("/data/categories.json");
+          const arr = Array.isArray(data) ? data : (data.categories || []);
+          if (arr.length) return arr;
+        } catch (error) {
+          /* ignore */
+        }
+
+        try {
+          const data = await fetchJSON("/data/kinks.json");
+          const items = data.items || data.kinks || data || [];
+          const names = Array.from(new Set(items.map((item) => item?.category || item?.cat || item?.Category).filter(Boolean)));
+          if (names.length) return names.sort();
+        } catch (error) {
+          /* ignore */
+        }
+
+        return [];
+      }
+
+      async function bootstrap() {
+        const { panel, ul } = ensureHosts();
+
+        await sleep(250);
+
+        if (ul.children.length > 0) {
+          LOG("Bootstrap populated the list; wiring only.");
+          wireCounterAndStart(panel);
+          return;
+        }
+
+        const names = await getCanonicalCategories();
+        if (!names.length) {
+          LOG("No categories available (categories.json / kinks.json empty?).");
+          return;
+        }
+
+        renderList(ul, names);
+        wireCounterAndStart(panel);
+        LOG(`Rendered ${names.length} categories (self-populated).`);
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", bootstrap, { once: true });
+      } else {
+        bootstrap();
+      }
+    })();
+  </script>
+
   <!-- TK: categories-only prestart guard (ensures siblings stay hidden until Start) -->
   <script>
     (() => {
@@ -172,7 +328,9 @@
         </div>
       </header>
 
-      <ul id="categoryChecklist" class="category-checklist"><!-- populated at runtime --></ul>
+      <div id="tk-cat-list">
+        <ul id="categoryChecklist" class="category-checklist"><!-- populated at runtime --></ul>
+      </div>
 
       <button id="startSurveyBtn" class="themed-button start-button" disabled>
         Start Survey
