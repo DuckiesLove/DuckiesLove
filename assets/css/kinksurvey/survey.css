@@ -163,11 +163,12 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.15px;
 }
 
-#ctaStack.tk-stack,
-#ctaStack.tk-stack:where(*) {
+
+.tk-stack {
   display: grid;
   gap: 14px;
   justify-items: stretch;
+  width: 100%;
 }
 
 .btn {
@@ -442,7 +443,6 @@ a { color: inherit; text-decoration: none; }
 
 @media (max-width: 600px) {
   :root { --tk-rate-w: 4.75rem; }
-  .tk-stack { width: 100%; }
   .btn { width: 100%; }
   .tk-question-layout { gap: 18px; }
 }
