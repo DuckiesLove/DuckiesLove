@@ -291,7 +291,9 @@
 
                     async function tkForceRender() {
                       try {
-                        const res = await fetch(`/data/kinks.json?v=${Date.now()}`);
+                        const dataURL = new URL('./data/kinks.json', document.baseURI);
+                        dataURL.searchParams.set('v', String(Date.now()));
+                        const res = await fetch(dataURL.toString());
                         if (!res.ok) return;
                         const raw = await res.json();
 

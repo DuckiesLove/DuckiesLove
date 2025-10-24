@@ -8,6 +8,20 @@
     };
   };
 
+  function getKinksJSONUrl() {
+    const fallbackOrigin =
+      (typeof location !== 'undefined' && location.origin)
+        ? `${location.origin}/kinksurvey/`
+        : 'https://example.com/kinksurvey/';
+    const base =
+      (typeof document !== 'undefined' && document.baseURI) ||
+      (typeof location !== 'undefined' && location.href) ||
+      fallbackOrigin;
+    const url = new URL('./data/kinks.json', base);
+    url.searchParams.set('v', String(Date.now()));
+    return url.toString();
+  }
+
   // 1) Hard-disable legacy overlay/portal that caused flashing
   (function killOverlayEarly() {
     try {
@@ -274,7 +288,7 @@
     if (existing && Object.keys(existing).length) return;
 
     try {
-      const res = await fetch(`/data/kinks.json?v=${Date.now()}`);
+      const res = await fetch(getKinksJSONUrl());
       if (!res.ok) throw new Error(`Failed to fetch kinks.json: ${res.status}`);
       const data = await res.json();
       if (typeof globalThis !== 'undefined') {
