@@ -496,8 +496,25 @@ if (localStorage.getItem('__TK_DISABLE_OVERLAY') === '1') {
     initSurvey();
   }
 
+  const safeClone = (value) => {
+    if (typeof structuredClone === 'function') {
+      try {
+        return structuredClone(value);
+      } catch (err) {
+        console.warn('[TK] structuredClone failed, falling back to JSON clone', err);
+      }
+    }
+
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (err) {
+      console.warn('[TK] JSON clone failed; using source object directly', err);
+      return value;
+    }
+  };
+
   function normalize(json){
-    const c = structuredClone(json);
+    const c = safeClone(json);
     const collator = new Intl.Collator('en', { sensitivity: 'base' });
 
     for(const cat of c.categories||[]){
