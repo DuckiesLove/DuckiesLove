@@ -842,61 +842,48 @@
       })();
   </script>
 
-<!-- ===== TK ONE-BOX PATCH for https://talkkink.org/kinksurvey/ =====
-Drop this entire block at the VERY BOTTOM of kinksurvey/index.html (right before </body>).
-It restores the THREE STACKED BUTTONS under the title (to the RIGHT of the categories)
-and makes the LEFT category panel longer (sticky-to-viewport).
-------------------------------------------------------------------------------- -->
+<!-- ================== TK ONE-BOX (paste at the VERY BOTTOM of /kinksurvey/index.html, before </body>) ==================
+Adds/keeps the 3 stacked buttons at the TOP-RIGHT (under the title, beside Categories),
+makes the LEFT category panel longer & sticky, defeats any “prestart hide”, and cache-busts
+critical assets so the page doesn’t go blank when DevTools is closed.
+======================================================================================================================== -->
 
 <style>
-  /* If prestart CSS hides content, make sure our main pieces still render */
+  /* Un-hide critical UI even if an old stylesheet set prestart hides */
   body.tk-prestart #tkPortal,
   body.tk-prestart #categoryPanel,
   body.tk-prestart .category-panel,
   body.tk-prestart #ctaStack { display: revert !important; }
 
-  /* 2-col layout when #tkPortal exists: left=categories, right=CTAs/content */
-  #tkPortal{
-    display:grid;
-    grid-template-columns: 380px 1fr;
-    gap:28px;
-    align-items:start;
-  }
+  /* Two-column shell: LEFT = categories, RIGHT = CTAs/content */
+  #tkPortal{ display:grid; grid-template-columns:380px 1fr; gap:28px; align-items:start; }
   @media (max-width:980px){ #tkPortal{ grid-template-columns:1fr; } }
 
-  /* Taller, sticky category panel (works whether ID or class is used) */
+  /* LEFT: Category panel — tall & sticky to viewport */
   #categoryPanel, .category-panel{
     position:sticky; top:16px;
-    max-height:calc(100dvh - 32px);   /* dvh fixes mobile toolbar jump */
+    max-height:calc(100dvh - 32px);  /* dvh handles mobile browser UI correctly */
     overflow:auto; scroll-behavior:smooth;
   }
-  /* If an outer wrapper caps height, relax it a bit */
+  /* If a wrapper capped height previously, relax it */
   .tk-left{ max-height:calc(100vh - 5rem); overflow:auto; }
 
   @media (max-width:980px){
     #categoryPanel, .category-panel{ position:relative; top:0; max-height:none; }
   }
 
-  /* CTA stack: grid/stacked full-width buttons */
-  #ctaStack{ max-width:560px; }
+  /* RIGHT: CTA stack sits at top-right (row 1, col 2) */
+  #tkPortal #ctaStack{ grid-column:2; grid-row:1; align-self:start; justify-self:start; max-width:560px; }
   #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch; }
   #ctaStack .btn{ width:100%; text-align:center; padding:14px 16px; border-radius:12px; font-weight:700; }
   #ctaStack .btn-ghost{ background:transparent; border:2px solid var(--tk-accent,#39e3ff); }
   #ctaStack .btn[disabled]{ opacity:.55; cursor:not-allowed; }
 
-  /* Place CTAs in the right column when #tkPortal exists */
-  #tkPortal #ctaStack{ grid-column:2; grid-row:1; align-self:start; justify-self:start; }
-
-  /* Fallback (if #tkPortal missing): keep CTAs visible without breaking layout */
-  .tk-cta-fallback{
-    position:fixed; right:24px; top:120px; z-index:50; width:min(560px, 42vw);
-  }
-
-  /* Keep engine mounts hidden until you show them */
+  /* Keep engine mounts hidden until you explicitly show them */
   #surveyApp[hidden], #surveyScoreCard[hidden]{ display:none !important; }
 </style>
 
-<!-- Ensure the CTA markup exists (safe if it already does) -->
+<!-- Ensure the CTA markup exists (safe if already present) -->
 <nav id="ctaStack" class="tk-stack" style="display:grid;gap:14px;max-width:560px;">
   <button id="btnStart" class="btn btn-primary">Start Survey</button>
   <a id="btnKinkAnalysis" class="btn btn-ghost" href="/kinksurvey/analysis/">Individual Kink Analysis</a>
@@ -904,7 +891,7 @@ and makes the LEFT category panel longer (sticky-to-viewport).
 </nav>
 
 <script>
-/* Don’t allow a “prestart” blanket to blank the page */
+/* Safety: don’t allow “prestart” to blank the page */
 document.body.classList.remove('tk-prestart');
 
 (function initTK(){
@@ -912,51 +899,69 @@ document.body.classList.remove('tk-prestart');
   const cta      = document.getElementById('ctaStack');
   const catPanel = document.getElementById('categoryPanel') || document.querySelector('.category-panel');
 
-  /* 1) Position CTAs: prefer grid beside categories; else fall back to fixed top-right */
+  /* 1) Place CTAs top-right beside categories */
   if (portal && cta.parentElement !== portal) {
     const main = document.getElementById('surveyMain') || document.querySelector('.portal-main');
     if (main && main.parentElement === portal) portal.insertBefore(cta, main);
     else portal.appendChild(cta);
   }
-  if (!portal) {
-    // fallback: keep stack visible top-right without relying on page grid
-    cta.classList.add('tk-cta-fallback');
-  }
-  cta.classList.add('tk-stack');
+  cta && cta.classList.add('tk-stack');
 
-  /* 2) Keep CTAs visible even if some script hides them (cta.style.display='none') */
-  const showCTAs = () => { cta.style.display=''; cta.classList.add('tk-stack'); };
-  new MutationObserver(() => {
-    if (getComputedStyle(cta).display === 'none') showCTAs();
-  }).observe(cta, { attributes:true, attributeFilter:['style','class'] });
+  /* 2) Keep CTAs visible even if another script hides them */
+  if (cta){
+    const show = () => { cta.style.display=''; cta.classList.add('tk-stack'); };
+    new MutationObserver(() => {
+      if (getComputedStyle(cta).display === 'none') show();
+    }).observe(cta, { attributes:true, attributeFilter:['style','class'] });
 
-  const startBtn = document.getElementById('btnStart');
-  if (startBtn){
-    startBtn.addEventListener('click', () => {
-      requestAnimationFrame(showCTAs); setTimeout(showCTAs,0); setTimeout(showCTAs,250);
-    });
+    const startBtn = document.getElementById('btnStart');
+    if (startBtn){
+      startBtn.addEventListener('click', () => {
+        requestAnimationFrame(show); setTimeout(show,0); setTimeout(show,250);
+      });
+    }
   }
 
   /* 3) (Optional) Gate Start until a category is checked */
   const list = document.getElementById('categoryChecklist');
-  if (list && startBtn){
-    const enable = () => startBtn.toggleAttribute('disabled', !list.querySelector('input[type="checkbox"]:checked'));
+  const start = document.getElementById('btnStart');
+  if (list && start){
+    const enable = () => start.toggleAttribute('disabled', !list.querySelector('input[type="checkbox"]:checked'));
     list.addEventListener('change', e => { if (e.target?.matches('input[type="checkbox"]')) enable(); });
     requestAnimationFrame(enable);
   }
 
-  /* 4) JS fallback: keep category panel height synced to viewport */
+  /* 4) JS fallback so the category panel stays tall on resize */
   if (catPanel){
-    const size = () => {
+    const update = () => {
       const r = catPanel.getBoundingClientRect();
-      const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+      const vh = Math.max(document.documentElement.clientHeight, window.innerHeight||0);
       catPanel.style.maxHeight = Math.max(260, vh - r.top - 16) + 'px';
     };
-    requestAnimationFrame(size);
-    addEventListener('resize', size);
+    requestAnimationFrame(update);
+    addEventListener('resize', update);
   }
+
+  /* 5) Cache-bust critical assets so non-DevTools loads pick up changes */
+  (function bustCache(){
+    const bump = String(Date.now());
+    const targets = [
+      /\/kinksurvey\/assets\/js\/kinksurvey\/survey\.js/i,
+      /\/kinksurvey\/assets\/js\/kinksurvey\/tk\-enhancer\.js/i,
+      /\/kinksurvey\/css\/kinksurvey_overrides\.css/i
+    ];
+    document.querySelectorAll('script[src],link[rel="stylesheet"][href]').forEach(el=>{
+      const attr = el.tagName==='SCRIPT' ? 'src' : 'href';
+      const url  = el.getAttribute(attr); if (!url) return;
+      if (targets.some(rx=>rx.test(url))){
+        const u = new URL(url, location.origin);
+        u.searchParams.set('v', bump);
+        el.setAttribute(attr, u.pathname + '?' + u.searchParams.toString());
+      }
+    });
+  })();
 })();
 </script>
-<!-- ===== END TK ONE-BOX PATCH ===== -->
+<!-- ================== /TK ONE-BOX ================== -->
   </body>
 </html>
