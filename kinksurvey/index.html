@@ -1176,5 +1176,91 @@ const byId = id => document.getElementById(id);
 })();
 </script>
 
+<!-- ==== TK LAYOUT UPDATE: Move theme selector under title + full-height category panel ==== -->
+<style>
+  /* --- Grid shell stays two columns; left = categories, right = CTAs/content --- */
+  #tkPortal{
+    display:grid;
+    grid-template-columns:380px 1fr;
+    gap:28px;
+    align-items:start;
+  }
+  @media (max-width:980px){ #tkPortal{ grid-template-columns:1fr; } }
+
+  /* --- FULL category panel (no sticky, no max-height cap) --- */
+  #categoryPanel, .category-panel{
+    grid-column:1;
+    grid-row:auto;
+    position:static !important;
+    top:auto !important;
+    max-height:none !important;
+    overflow:visible !important;   /* the page scrolls instead of the panel */
+  }
+
+  /* Optional: make the inner list itself scroll if it’s extremely long on small screens */
+  @media (max-height:680px){
+    #categoryChecklist{ max-height:70vh; overflow:auto; }
+  }
+
+  /* --- CTA stack remains in the right column --- */
+  #ctaStack{ grid-column:2; grid-row:auto; max-width:560px; }
+  #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch; }
+
+  /* --- THEME bar directly under the title (full-width row) --- */
+  .tk-theme-row{
+    grid-column:1 / -1;         /* span both columns */
+    display:flex; flex-wrap:wrap;
+    gap:12px; align-items:center; justify-content:center;
+    margin:-6px 0 18px;          /* snuggle up under the title */
+  }
+  .tk-theme-row .tk-theme-label{
+    opacity:.9; font-weight:700; letter-spacing:.02em; margin-right:6px;
+  }
+</style>
+
+<script>
+(function moveThemeBarUnderTitle(){
+  const theme =
+    document.querySelector('#themePicker, #themeSwitch, #themeBar, [data-theme-picker], .theme-picker')
+    || (() => {
+         const candidates = Array.from(document.querySelectorAll('nav, .toolbar, .controls, .theme, .themes, .btn-row, .button-row'));
+         return candidates.find(el => /dark|forest|lipstick|blue/i.test(el.textContent || ''));
+       })();
+  if (!theme) return;
+
+  const title = document.querySelector('#tkTitle, .portal-title, header h1, main h1, h1');
+  if (!title) return;
+
+  let row = theme.closest('.tk-theme-row');
+  if (!row){
+    row = document.createElement('div');
+    row.className = 'tk-theme-row';
+    if (!/theme/i.test(theme.textContent)) {
+      const lbl = document.createElement('span');
+      lbl.className = 'tk-theme-label';
+      lbl.textContent = 'THEME';
+      row.appendChild(lbl);
+    }
+    theme.parentElement.insertBefore(row, theme);
+    row.appendChild(theme);
+  }
+
+  title.parentElement.insertBefore(row, title.nextSibling);
+})();
+
+(function unlockCategoryPanel(){
+  const panel = document.getElementById('categoryPanel') || document.querySelector('.category-panel');
+  if (!panel) return;
+  const unlock = () => {
+    panel.style.position   = 'static';
+    panel.style.top        = 'auto';
+    panel.style.maxHeight  = 'none';
+    panel.style.overflow   = 'visible';
+  };
+  unlock();
+  new MutationObserver(unlock).observe(panel, { attributes:true, attributeFilter:['style','class'] });
+})();
+</script>
+
   </body>
 </html>
