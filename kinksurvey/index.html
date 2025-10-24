@@ -5,6 +5,68 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Talk Kink — Kink Survey</title>
 
+    <!-- ===== TK EARLY-BOOT FIX: make page show without DevTools, and kill stale cached JSON ===== -->
+    <style>
+      /* Never allow a theme "prestart" to blank the page */
+      html, body { background: #0b1418; }
+      body.tk-prestart { opacity: 1 !important; visibility: visible !important; }
+    </style>
+    <script>
+      /* 1) Unblank ASAP (DOM can still be loading) */
+      (function unblank() {
+        document.documentElement.classList.remove('tk-prestart');
+        document.body && document.body.classList.remove('tk-prestart');
+        const show = () => {
+          document.documentElement.classList.remove('tk-prestart');
+          document.body && document.body.classList.remove('tk-prestart');
+        };
+        document.addEventListener('DOMContentLoaded', show, {once: true});
+        window.addEventListener('load', show, {once: true});
+      })();
+
+      /* 2) Service-worker & cache one-time nuke (prevents “works only with DevTools” due to stale assets) */
+      (function nukeSWOnce() {
+        if (!('serviceWorker' in navigator)) return;
+        const FLAG = 'tk-sw-nuked';
+        if (sessionStorage.getItem(FLAG)) return;
+        Promise.all([
+          navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))),
+          ('caches' in window) ? caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))) : Promise.resolve()
+        ]).finally(() => sessionStorage.setItem(FLAG, '1'));
+      })();
+
+      /* 3) Force-fresh JSON (DevTools disables cache; mimic that here for our data files) */
+      (function monkeypatchFetch() {
+        const ORIG = window.fetch;
+        const STAMP = String(Date.now());
+        window.fetch = function(input, init) {
+          try {
+            const u = new URL(input, location.origin);
+            // Bust cache for our survey data files
+            if (/^\/?kinksurvey\/data\/.+\.json$/i.test(u.pathname)) {
+              u.searchParams.set('v', STAMP);
+              init = Object.assign({cache: 'no-store'}, init || {});
+              return ORIG.call(this, u.toString(), init);
+            }
+          } catch (_) {}
+          return ORIG.call(this, input, init);
+        };
+      })();
+
+      /* 4) Make sure late scripts don’t re-hide CTAs/panel */
+      (function keepVisible() {
+        const keep = (id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          const show = () => { el.style.display = ''; };
+          new MutationObserver(() => { if (getComputedStyle(el).display === 'none') show(); })
+            .observe(el, {attributes: true, attributeFilter: ['style', 'class']});
+        };
+        ['ctaStack', 'categoryPanel'].forEach(keep);
+      })();
+    </script>
+    <!-- ===== /TK EARLY-BOOT FIX ===== -->
+
     <!-- =====================  TalkKink • CODEx PASTE BLOCK  =====================
     Goal: Kill the overlay/portal that causes the page to flash, and keep the
     question/rating cards in normal page flow. Paste this ENTIRE block into
