@@ -966,120 +966,153 @@ makes the LEFT category panel longer & sticky, defeats any “prestart hide”, 
 critical assets so the page doesn’t go blank when DevTools is closed.
 ======================================================================================================================== -->
 
-<style>
-  /* Un-hide critical UI even if an old stylesheet set prestart hides */
-  body.tk-prestart #tkPortal,
-  body.tk-prestart #categoryPanel,
-  body.tk-prestart .category-panel,
-  body.tk-prestart #ctaStack { display: revert !important; }
+<!-- ===== FINAL TK ONE-BOX PATCH (drop at the VERY BOTTOM of /kinksurvey/index.html, before </body>) =====
+What this does:
+• Puts the 3 stacked buttons at the TOP-RIGHT under the title (beside Categories)
+• Makes the LEFT category panel tall & sticky
+• POPULATES the category checklist at load from /kinksurvey/data/categories.json
+  (falls back to deriving names from /kinksurvey/data/kinks.json)
+• Keeps buttons visible after Start; enables Start when ≥1 category selected
+======================================================================================================== -->
 
-  /* Two-column shell: LEFT = categories, RIGHT = CTAs/content */
+<style>
+  /* two-column shell */
   #tkPortal{ display:grid; grid-template-columns:380px 1fr; gap:28px; align-items:start; }
   @media (max-width:980px){ #tkPortal{ grid-template-columns:1fr; } }
 
-  /* LEFT: Category panel — tall & sticky to viewport */
+  /* left: tall sticky category panel */
   #categoryPanel, .category-panel{
+    grid-column:1; grid-row:1;
     position:sticky; top:16px;
-    max-height:calc(100dvh - 32px);  /* dvh handles mobile browser UI correctly */
+    max-height:calc(100dvh - 32px);
     overflow:auto; scroll-behavior:smooth;
   }
-  /* If a wrapper capped height previously, relax it */
+  /* if a wrapper caps height, relax it */
   .tk-left{ max-height:calc(100vh - 5rem); overflow:auto; }
+  @media (max-width:980px){ #categoryPanel, .category-panel{ position:relative; top:0; max-height:none; } }
 
-  @media (max-width:980px){
-    #categoryPanel, .category-panel{ position:relative; top:0; max-height:none; }
-  }
-
-  /* RIGHT: CTA stack sits at top-right (row 1, col 2) */
+  /* right: CTA stack */
   #tkPortal #ctaStack{ grid-column:2; grid-row:1; align-self:start; justify-self:start; max-width:560px; }
   #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch; }
   #ctaStack .btn{ width:100%; text-align:center; padding:14px 16px; border-radius:12px; font-weight:700; }
   #ctaStack .btn-ghost{ background:transparent; border:2px solid var(--tk-accent,#39e3ff); }
   #ctaStack .btn[disabled]{ opacity:.55; cursor:not-allowed; }
 
-  /* Keep engine mounts hidden until you explicitly show them */
-  #surveyApp[hidden], #surveyScoreCard[hidden]{ display:none !important; }
+  /* list styles */
+  #categoryChecklist{ list-style:none; margin:12px 0 16px; padding:0; }
+  #categoryChecklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; cursor:pointer; }
 </style>
 
-<!-- Ensure the CTA markup exists (safe if already present) -->
+<!-- CTA stack (safe if it already exists) -->
 <nav id="ctaStack" class="tk-stack" style="display:grid;gap:14px;max-width:560px;">
-  <button id="btnStart" class="btn btn-primary">Start Survey</button>
+  <button id="btnStart" class="btn btn-primary" disabled>Start Survey</button>
   <a id="btnKinkAnalysis" class="btn btn-ghost" href="/kinksurvey/analysis/">Individual Kink Analysis</a>
   <a id="btnCompatibility" class="btn btn-ghost" href="/kinksurvey/compat/">Compatibility Page</a>
 </nav>
 
 <script>
-/* Safety: don’t allow “prestart” to blank the page */
-document.body.classList.remove('tk-prestart');
+/* ---------- helpers ---------- */
+const $ = sel => document.querySelector(sel);
+const byId = id => document.getElementById(id);
 
-(function initTK(){
-  const portal   = document.getElementById('tkPortal');
-  const cta      = document.getElementById('ctaStack');
-  const catPanel = document.getElementById('categoryPanel') || document.querySelector('.category-panel');
+/* keep CTAs visible even if another script hides them */
+(function keepCTAs(){
+  const cta=byId('ctaStack'); if(!cta) return;
+  const show=()=>{cta.style.display=''; cta.classList.add('tk-stack');};
+  new MutationObserver(()=>{ if(getComputedStyle(cta).display==='none') show(); })
+    .observe(cta,{attributes:true,attributeFilter:['style','class']});
+  const start=byId('btnStart'); if(start){ start.addEventListener('click',()=>{requestAnimationFrame(show); setTimeout(show,0);});}
+})();
 
-  /* 1) Place CTAs top-right beside categories */
-  if (portal && cta.parentElement !== portal) {
-    const main = document.getElementById('surveyMain') || document.querySelector('.portal-main');
-    if (main && main.parentElement === portal) portal.insertBefore(cta, main);
-    else portal.appendChild(cta);
+/* ---------- populate category checklist ---------- */
+(async function buildCategoryPanel(){
+  const panel = byId('categoryPanel') || $('.category-panel');
+  const list  = byId('categoryChecklist') || (()=>{
+    // create a UL if the theme didn't include one
+    const ul = document.createElement('ul'); ul.id='categoryChecklist';
+    (panel || document.body).appendChild(ul); return ul;
+  })();
+  const countSel = byId('categorySelectedCount') || (()=>{
+    const span=document.createElement('span'); span.id='categorySelectedCount'; span.textContent='0'; return span;
+  })();
+  const countTot = byId('categoryTotalCount') || (()=>{
+    const span=document.createElement('span'); span.id='categoryTotalCount'; span.textContent='0'; return span;
+  })();
+
+  // Try canonical list first
+  async function fetchJSON(url){
+    const res = await fetch(url, {cache:'no-store'}); if(!res.ok) throw new Error(url+': '+res.status);
+    return res.json();
   }
-  cta && cta.classList.add('tk-stack');
-
-  /* 2) Keep CTAs visible even if another script hides them */
-  if (cta){
-    const show = () => { cta.style.display=''; cta.classList.add('tk-stack'); };
-    new MutationObserver(() => {
-      if (getComputedStyle(cta).display === 'none') show();
-    }).observe(cta, { attributes:true, attributeFilter:['style','class'] });
-
-    const startBtn = document.getElementById('btnStart');
-    if (startBtn){
-      startBtn.addEventListener('click', () => {
-        requestAnimationFrame(show); setTimeout(show,0); setTimeout(show,250);
+  let categories = [];
+  try {
+    // canonical names
+    const cats = await fetchJSON('/kinksurvey/data/categories.json');
+    categories = (Array.isArray(cats)?cats:cats.categories||[]).map(String);
+  } catch(e1){
+    try {
+      // fallback: derive unique category names from kinks dataset
+      const data = await fetchJSON('/kinksurvey/data/kinks.json');
+      const names = new Set();
+      (Array.isArray(data)?data:(data.kinks||[])).forEach(k=>{
+        const c = (k.category||k.Category||'').toString().trim();
+        if(c) names.add(c);
       });
+      categories = Array.from(names).sort((a,b)=>a.localeCompare(b));
+    } catch(e2){
+      console.warn('[TK] categories load failed', e1, e2);
     }
   }
 
-  /* 3) (Optional) Gate Start until a category is checked */
-  const list = document.getElementById('categoryChecklist');
-  const start = document.getElementById('btnStart');
-  if (list && start){
-    const enable = () => start.toggleAttribute('disabled', !list.querySelector('input[type="checkbox"]:checked'));
-    list.addEventListener('change', e => { if (e.target?.matches('input[type="checkbox"]')) enable(); });
-    requestAnimationFrame(enable);
-  }
+  // render list
+  list.innerHTML='';
+  const frag = document.createDocumentFragment();
+  categories.forEach(name=>{
+    const li = document.createElement('li');
+    const id = 'tk-cat-' + name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
+    li.innerHTML = `<label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+      <input type="checkbox" id="${id}" value="${name}">
+      <span>${name}</span>
+    </label>`;
+    frag.appendChild(li);
+  });
+  list.appendChild(frag);
+  countTot.textContent = String(categories.length);
 
-  /* 4) JS fallback so the category panel stays tall on resize */
-  if (catPanel){
-    const update = () => {
-      const r = catPanel.getBoundingClientRect();
-      const vh = Math.max(document.documentElement.clientHeight, window.innerHeight||0);
-      catPanel.style.maxHeight = Math.max(260, vh - r.top - 16) + 'px';
-    };
-    requestAnimationFrame(update);
-    addEventListener('resize', update);
+  // selection logic
+  const startBtn = byId('btnStart');
+  function recount(){
+    const n = list.querySelectorAll('input[type="checkbox"]:checked').length;
+    countSel.textContent = String(n);
+    if(startBtn) startBtn.disabled = n === 0;
   }
+  list.addEventListener('change', e=>{
+    if(e.target && e.target.matches('input[type="checkbox"]')) recount();
+  });
+  recount(); // initial
 
-  /* 5) Cache-bust critical assets so non-DevTools loads pick up changes */
-  (function bustCache(){
-    const bump = String(Date.now());
-    const targets = [
-      /\/kinksurvey\/assets\/js\/kinksurvey\/survey\.js/i,
-      /\/kinksurvey\/assets\/js\/kinksurvey\/tk\-enhancer\.js/i,
-      /\/kinksurvey\/css\/kinksurvey_overrides\.css/i
-    ];
-    document.querySelectorAll('script[src],link[rel="stylesheet"][href]').forEach(el=>{
-      const attr = el.tagName==='SCRIPT' ? 'src' : 'href';
-      const url  = el.getAttribute(attr); if (!url) return;
-      if (targets.some(rx=>rx.test(url))){
-        const u = new URL(url, location.origin);
-        u.searchParams.set('v', bump);
-        el.setAttribute(attr, u.pathname + '?' + u.searchParams.toString());
-      }
+  // expose selected categories when Start is clicked
+  if(startBtn){
+    startBtn.addEventListener('click', ()=>{
+      const selected = Array.from(list.querySelectorAll('input:checked')).map(i=>i.value);
+      document.dispatchEvent(new CustomEvent('tk:survey:start',{detail:{categories:selected}}));
+      // if your runtime expects window.TKSurvey.start, call it
+      if(window.TKSurvey?.start){ window.TKSurvey.start({categories:selected}); }
     });
-  })();
+  }
+})();
+
+/* ---------- keep panel tall on resize (fallback) ---------- */
+(function keepTall(){
+  const panel = byId('categoryPanel') || $('.category-panel'); if(!panel) return;
+  const update = () => {
+    const r = panel.getBoundingClientRect();
+    const vh = Math.max(document.documentElement.clientHeight, window.innerHeight||0);
+    panel.style.maxHeight = Math.max(260, vh - r.top - 16) + 'px';
+  };
+  requestAnimationFrame(update); addEventListener('resize', update);
 })();
 </script>
-<!-- ================== /TK ONE-BOX ================== -->
+
   </body>
 </html>
