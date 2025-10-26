@@ -1146,55 +1146,99 @@ What this does:
 })();
 
 /* ---------- Build categories list from data ---------- */
-(async function buildCategories(){
+(async function tkLoadCategories(){
   const panel=document.getElementById('categoryPanel')||document.querySelector('.category-panel');
-  let list=document.getElementById('categoryChecklist');
-  if(!list){list=document.createElement('ul');list.id='categoryChecklist';(panel||document.body).appendChild(list)}
-  const totalEl=document.getElementById('categoryTotalCount')||document.createElement('span');
-  const selectedEl=document.getElementById('categorySelectedCount')||document.createElement('span');
+  if(!panel) return;
 
-  async function getJSON(u){const r=await fetch(u,{cache:'no-store'});if(!r.ok) throw 0;return r.json()}
-  let categories=[];
-  try{
-    const cats=await getJSON('/kinksurvey/data/categories.json');
-    categories=(Array.isArray(cats)?cats:cats.categories||[]).map(String);
-  }catch(_){
-    try{
-      const data=await getJSON('/kinksurvey/data/kinks.json');
-      const s=new Set();(Array.isArray(data)?data:(data.kinks||[])).forEach(k=>{
-        const c=(k.category||k.Category||'').toString().trim(); if(c) s.add(c);
-      });
-      categories=[...s].sort((a,b)=>a.localeCompare(b));
-    }catch(e){console.warn('[TK] could not load categories',e)}
+  const selCount=document.getElementById('categorySelectedCount')||(()=>{const s=document.createElement('span');s.id='categorySelectedCount';return s;})();
+  const totCount=document.getElementById('categoryTotalCount')||(()=>{const s=document.createElement('span');s.id='categoryTotalCount';return s;})();
+
+  let list=document.getElementById('categoryChecklist');
+  if(!list){
+    list=document.createElement('ul');
+    list.id='categoryChecklist';
+    list.style.listStyle='none';
+    list.style.margin='12px 0 16px';
+    list.style.padding='0';
+    panel.appendChild(list);
   }
 
-  list.innerHTML='';
-  const frag=document.createDocumentFragment();
-  categories.forEach(name=>{
-    const id='tk-cat-'+name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
-    const li=document.createElement('li');
-    li.innerHTML=`<label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-      <input type="checkbox" id="${id}" value="${name}"><span>${name}</span>
-    </label>`;
-    frag.appendChild(li);
-  });
-  list.appendChild(frag);
-  totalEl.textContent=String(categories.length);
+  async function getJSON(url){
+    const u=new URL(url,location.origin);
+    u.searchParams.set('v',String(Date.now()));
+    const res=await fetch(u.toString(),{cache:'no-store'});
+    if(!res.ok) throw new Error(`${u.pathname} -> ${res.status}`);
+    return res.json();
+  }
 
-  const start=document.getElementById('btnStart');
-  const recount=()=>{
-    const n=list.querySelectorAll('input[type="checkbox"]:checked').length;
-    selectedEl.textContent=String(n); if(start) start.disabled=(n===0);
-  };
-  list.addEventListener('change',e=>{if(e.target?.matches('input[type="checkbox"]')) recount()});
-  recount();
+  async function loadCategories(){
+    try{
+      const data=await getJSON('/kinksurvey/data/categories.json');
+      const cats=Array.isArray(data)?data:(data.categories||[]);
+      if(cats&&cats.length) return cats.map(String);
+    }catch(_){}
 
-  if(start){
-    start.addEventListener('click',()=>{
-      const selected=[...list.querySelectorAll('input:checked')].map(i=>i.value);
-      document.dispatchEvent(new CustomEvent('tk:survey:start',{detail:{categories:selected}}));
-      if(window.TKSurvey?.start){window.TKSurvey.start({categories:selected})}
+    const kinks=await getJSON('/kinksurvey/data/kinks.json');
+    const set=new Set();
+    (Array.isArray(kinks)?kinks:(kinks.kinks||[])).forEach(k=>{
+      const c=(k.category||k.Category||'').toString().trim();
+      if(c) set.add(c);
     });
+    return [...set].sort((a,b)=>a.localeCompare(b));
+  }
+
+  function render(cats){
+    list.textContent='';
+    totCount.textContent=String(cats.length);
+    const frag=document.createDocumentFragment();
+    cats.forEach(name=>{
+      const id='tk-cat-'+name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
+      const li=document.createElement('li');
+      li.style.display='flex';
+      li.style.alignItems='center';
+      li.style.gap='10px';
+      li.style.padding='8px 6px';
+      li.innerHTML=`<label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="${id}" value="${name}">
+        <span>${name}</span>
+      </label>`;
+      frag.appendChild(li);
+    });
+    list.appendChild(frag);
+
+    const btnStart=document.getElementById('btnStart');
+    const recount=()=>{
+      const n=list.querySelectorAll('input[type="checkbox"]:checked').length;
+      selCount.textContent=String(n);
+      if(btnStart) btnStart.disabled=n===0;
+    };
+    list.addEventListener('change',e=>{if(e.target?.matches('input[type="checkbox"]')) recount();});
+    recount();
+
+    if(btnStart){
+      btnStart.addEventListener('click',()=>{
+        const selected=[...list.querySelectorAll('input:checked')].map(i=>i.value);
+        document.dispatchEvent(new CustomEvent('tk:survey:start',{detail:{categories:selected}}));
+        if(window.TKSurvey?.start){window.TKSurvey.start({categories:selected});}
+      },{once:false});
+    }
+  }
+
+  try{
+    const cats=await loadCategories();
+    if(!cats.length) throw new Error('No categories found');
+    render(cats);
+  }catch(err){
+    const msg=document.createElement('div');
+    msg.style.margin='12px 0';
+    msg.style.padding='10px 12px';
+    msg.style.borderRadius='8px';
+    msg.style.background='rgba(255,80,80,.12)';
+    msg.style.border='1px solid rgba(255,80,80,.35)';
+    msg.style.color='#ffd7d7';
+    msg.textContent='Could not load categories. Check /kinksurvey/data/categories.json and /kinksurvey/data/kinks.json.';
+    list.replaceChildren(msg);
+    console.error('[TK] Category load failed:',err);
   }
 })();
 
