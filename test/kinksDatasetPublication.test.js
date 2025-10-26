@@ -10,6 +10,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 const DATA_PATH = path.join(ROOT, 'data', 'kinks.json');
 const DOCS_DATA_PATH = path.join(ROOT, 'docs', 'kinks', 'data', 'kinks.json');
+const KINKSURVEY_DATA_PATH = path.join(ROOT, 'kinksurvey', 'data', 'kinks.json');
 
 async function load(filePath) {
   const contents = await readFile(filePath, 'utf8');
@@ -18,10 +19,12 @@ async function load(filePath) {
 }
 
 test('kinks dataset published with static assets', async () => {
-  const [rootData, docsData] = await Promise.all([
+  const [rootData, docsData, kinksurveyData] = await Promise.all([
     load(DATA_PATH),
-    load(DOCS_DATA_PATH)
+    load(DOCS_DATA_PATH),
+    load(KINKSURVEY_DATA_PATH)
   ]);
 
   assert.strictEqual(rootData, docsData, 'data/kinks.json and docs/kinks/data/kinks.json should match');
+  assert.strictEqual(rootData, kinksurveyData, 'data/kinks.json and kinksurvey/data/kinks.json should match');
 });
