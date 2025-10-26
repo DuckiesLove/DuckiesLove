@@ -1087,121 +1087,116 @@ It works with your existing survey.js and data/*.json.
 })();
 </script>
 
-<!-- ===================== TK: BRING BACK LEFT KINK PANEL ======================
-Drop this block near the *bottom* of /kinksurvey/index.html (just before </body>).
+<!-- ===================== TK: MAKE “LEFT KINK PANEL” LAYOUT HAPPEN =====================
+Drop this block near the BOTTOM of /kinksurvey/index.html (right before </body>).
 
-What it does
-- Keeps the Categories panel visible during the live survey (after “Start Survey”)
-- Pins it on the LEFT as a scrollable sidebar
-- Keeps the center content as the question flow
-- (If a right “How to score / Question Guard” panel exists, it’s pinned on the RIGHT)
-- Theme row you already added remains under the title
+Result (like your screenshot):
+• LEFT: Categories list stays visible as a sticky, scrollable sidebar (during the survey too)
+• MIDDLE: Question flow content
+• RIGHT: “How to score / Question Guard” sidebar (if present), also sticky/scrollable
+• Works with either #categoryPanel or legacy #tk-cat-list, and with your existing survey.js
 
-You do not have to rename your existing elements. This targets common IDs/classes.
-
-==============================================================================-->
+You don’t need to rename anything. This targets the common IDs/classes you already use.
+====================================================================================== -->
 
 <style>
   :root{
-    --tk-header-h: 92px;   /* adjust if your title area is taller/shorter */
+    --tk-header-h: 92px;     /* tweak if your title/header is taller/shorter */
     --tk-gap: 28px;
-    --tk-left-w: 360px;    /* width of the left category sidebar */
-    --tk-right-w: 360px;   /* width of the right guard sidebar (if present) */
+    --tk-left-w: 360px;      /* width of the left category sidebar */
+    --tk-right-w: 360px;     /* width of the right guard sidebar (if present) */
   }
 
-  /* Base two-col layout (left = categories, right = main) */
+  /* Base 2-column portal (left = categories, right = main content) */
   #tkPortal{
-    display: grid;
+    display:grid;
     grid-template-columns: var(--tk-left-w) 1fr;
     gap: var(--tk-gap);
-    align-items: start;
+    align-items:start;
   }
 
-  /* When we detect the right guard panel, flip to three columns */
-  body.tk-live-guard #tkPortal{
+  /* When a right “guard” panel exists, switch to 3 columns */
+  body.tk-has-guard #tkPortal{
     grid-template-columns: var(--tk-left-w) 1fr var(--tk-right-w);
   }
 
-  /* LEFT: categories sidebar (always visible) */
-  #categoryPanel,
-  .category-panel{
-    grid-column: 1 !important;
-    display: block !important;
-    visibility: visible !important;
-    position: sticky;
+  /* LEFT — Categories sidebar (sticky, scrolls independently) */
+  #categoryPanel, .category-panel, #tk-cat-list{
+    grid-column:1 !important;
+    display:block !important;
+    visibility:visible !important;
+    position:sticky;
     top: calc(var(--tk-header-h) + 8px);
     max-height: calc(100vh - var(--tk-header-h) - 16px);
-    overflow: auto;
+    overflow:auto;
   }
-  .tk-left{ max-height: none !important; overflow: visible !important; } /* neutralize old cap */
+  /* Neutralize any old height caps */
+  .tk-left{ max-height:none !important; overflow:visible !important; }
 
-  /* MIDDLE: survey main content */
+  /* MIDDLE — Survey main area */
   #tkSurveyMain, #surveyMain, .portal-main, .survey-main, main .content{
-    grid-column: 2 !important;
-    min-width: 0; /* allow proper shrinking */
+    grid-column:2 !important;
+    min-width:0;            /* allow proper shrinking */
   }
 
-  /* RIGHT: how-to-score / guard sidebar (if present) */
+  /* RIGHT — How-to-score / Question Guard (if present) */
   #questionGuard, .question-guard, .score-guard, .how-to-score, [data-guard]{
-    grid-column: 3 !important;
-    position: sticky;
+    grid-column:3 !important;
+    position:sticky;
     top: calc(var(--tk-header-h) + 8px);
     max-height: calc(100vh - var(--tk-header-h) - 16px);
-    overflow: auto;
-    align-self: start;
+    overflow:auto;
+    align-self:start;
   }
 
-  /* Optional cosmetics for the category list (safe if you already style it) */
-  #categoryChecklist{ list-style: none; margin: 12px 0 16px; padding: 0; }
-  #categoryChecklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; }
+  /* Optional: polish the category checklist if needed */
+  #categoryChecklist{ list-style:none; margin:12px 0 16px; padding:0 }
+  #categoryChecklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px }
 </style>
 
 <script>
-(function TK_restoreLeftPanel(){
-  const portal = document.getElementById('tkPortal') || document.querySelector('#tkPortal, main, #app');
-  const cat    = document.getElementById('categoryPanel') || document.querySelector('.category-panel');
-  if(!portal || !cat) return;
+(function tkMakeLeftPanelLayout(){
+  const portal   = document.getElementById('tkPortal') || document.querySelector('#tkPortal, main, #app');
+  const catPanel = document.getElementById('categoryPanel') || document.querySelector('.category-panel') || document.getElementById('tk-cat-list');
+  if(!portal || !catPanel) return;
 
-  /* Ensure the category panel is physically in the left column container */
-  const ensureLeftPlacement = () => {
-    if (cat.parentElement !== portal){
-      const main = document.getElementById('surveyMain') || document.querySelector('#surveyMain,#tkSurveyMain,.portal-main,.survey-main');
-      if (main && main.parentElement === portal) {
-        portal.insertBefore(cat, main);           // place before main (column 1)
-      } else {
-        portal.prepend(cat);                      // or just make it first
+  /* Ensure the categories live in the left column container */
+  function placeCategoriesLeft(){
+    if(catPanel.parentElement !== portal){
+      const main = document.getElementById('surveyMain') || document.getElementById('tkSurveyMain') ||
+                   document.querySelector('.portal-main, .survey-main, main .content');
+      if(main && main.parentElement === portal){
+        portal.insertBefore(catPanel, main); // put categories before main (grid col 1)
+      }else{
+        portal.prepend(catPanel);
       }
     }
-    cat.style.display = '';                       // undo any runtime hide()
-  };
+    catPanel.style.display = '';  // undo any runtime .style.display='none'
+  }
 
-  /* Detect the right-hand guard / how-to-score panel and toggle 3-col mode */
-  const setGuardMode = () => {
-    const guard = document.querySelector('#questionGuard,.question-guard,.score-guard,.how-to-score,[data-guard]');
-    document.body.classList.toggle('tk-live-guard', !!guard);
-  };
+  /* Toggle 3-column mode when a right guard panel exists */
+  function toggleGuardMode(){
+    const guard = document.querySelector('#questionGuard, .question-guard, .score-guard, .how-to-score, [data-guard]');
+    document.body.classList.toggle('tk-has-guard', !!guard);
+  }
 
-  ensureLeftPlacement();
-  setGuardMode();
+  placeCategoriesLeft();
+  toggleGuardMode();
 
-  /* Some bundles hide the categories after Start. Keep it alive. */
-  const keepVisible = new MutationObserver(() => {
-    if (getComputedStyle(cat).display === 'none') cat.style.display = 'block';
-    setGuardMode();
-    ensureLeftPlacement();
+  /* Some older code hides/moves the left panel after Start; keep it alive */
+  const mo = new MutationObserver(() => {
+    if(getComputedStyle(catPanel).display === 'none'){ catPanel.style.display = 'block'; }
+    placeCategoriesLeft();
+    toggleGuardMode();
+  });
+  mo.observe(document.documentElement, {
+    subtree:true, childList:true, attributes:true, attributeFilter:['style','class']
   });
 
-  keepVisible.observe(document.documentElement, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ['style','class']
-  });
-
-  /* If your code emits a custom event on start, hook it to re-layout immediately */
+  /* If your app fires a custom start event, re-assert layout immediately */
   window.addEventListener('tk:survey:start', () => {
-    ensureLeftPlacement();
-    setGuardMode();
+    placeCategoriesLeft();
+    toggleGuardMode();
   });
 })();
 </script>
