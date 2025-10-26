@@ -28,24 +28,43 @@
       const SS = sessionStorage;
 
       /* 1) Unblank immediately + keep it unblanked */
-      function unblank(){
-        document.documentElement.classList.remove('tk-prestart');
-        document.body && document.body.classList.remove('tk-prestart');
-        ['tkPortal','categoryPanel','ctaStack'].forEach(id=>{
-          const el=document.getElementById(id); if(!el) return;
-          if(getComputedStyle(el).display==='none') el.style.display='';
-          el.style.opacity=''; el.style.visibility='';
-          new MutationObserver(()=>{ if(getComputedStyle(el).display==='none') el.style.display=''; })
-            .observe(el,{attributes:true,attributeFilter:['style','class']});
+      function showCritical(){
+        requestAnimationFrame(()=>{
+          document.documentElement.classList.remove('tk-prestart');
+          if(document.body) document.body.classList.remove('tk-prestart');
+
+          ['tkPortal','categoryPanel','ctaStack'].forEach(id=>{
+            const el=document.getElementById(id);
+            if(!el) return;
+            el.style.display='';
+            el.style.opacity='';
+            el.style.visibility='';
+          });
+
+          document.querySelectorAll('#tkOverlay,.tk-overlay,.overlay,.backdrop,#overlay,#prestart,.prestart,#loading,.loading,#loader,.loader')
+            .forEach(n=>{ n.style.display='none'; });
         });
-        // remove any fullscreen overlay/backdrop/loader
-        document.querySelectorAll('#tkOverlay,.tk-overlay,.overlay,.backdrop,#overlay,#prestart,.prestart,#loading,.loading,#loader,.loader')
-          .forEach(n=>{const r=n.getBoundingClientRect(); if(r.width>innerWidth*0.8 && r.height>innerHeight*0.8) n.remove();});
       }
-      unblank();
-      document.addEventListener('DOMContentLoaded', unblank, {once:true});
-      window.addEventListener('load', unblank, {once:true});
-      setTimeout(unblank,0); setTimeout(unblank,250);
+
+      function keepVisible(el){
+        if(!el) return;
+        const writeVisible=()=>{
+          el.style.display='';
+          el.style.opacity='';
+          el.style.visibility='';
+        };
+        new MutationObserver(()=>writeVisible())
+          .observe(el,{attributes:true,attributeFilter:['style','class']});
+      }
+
+      showCritical();
+      document.addEventListener('DOMContentLoaded', showCritical, {once:true});
+      window.addEventListener('load', showCritical, {once:true});
+      setTimeout(showCritical,0);
+      setTimeout(showCritical,250);
+      ['tkPortal','categoryPanel','ctaStack']
+        .map(id=>document.getElementById(id))
+        .forEach(keepVisible);
 
       /* 2) One-time per tab session: unregister SW + clear Cache Storage */
       (async function nukeSWOnce(){
