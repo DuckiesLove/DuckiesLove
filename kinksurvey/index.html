@@ -1,71 +1,105 @@
 <!doctype html>
 <html lang="en" class="theme-dark">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Talk Kink — Kink Survey</title>
-
-    <!-- ===== TK EARLY-BOOT FIX: make page show without DevTools, and kill stale cached JSON ===== -->
     <style>
-      /* Never allow a theme "prestart" to blank the page */
-      html, body { background: #0b1418; }
-      body.tk-prestart { opacity: 1 !important; visibility: visible !important; }
+      /* Safe base so a hidden body isn’t invisible */
+      html, body { background:#0b1418; min-height:100%; }
+      /* Nuke common “hide at boot” rules */
+      .tk-prestart, body.tk-prestart { opacity:1 !important; visibility:visible !important; }
+      /* If someone set display:none on the portal/panel/ctas, revert it */
+      #tkPortal, #categoryPanel, .category-panel, #ctaStack { display:revert !important; }
     </style>
-    <script>
-      /* 1) Unblank ASAP (DOM can still be loading) */
-      (function unblank() {
-        document.documentElement.classList.remove('tk-prestart');
-        document.body && document.body.classList.remove('tk-prestart');
-        const show = () => {
-          document.documentElement.classList.remove('tk-prestart');
-          document.body && document.body.classList.remove('tk-prestart');
-        };
-        document.addEventListener('DOMContentLoaded', show, {once: true});
-        window.addEventListener('load', show, {once: true});
-      })();
 
-      /* 2) Service-worker & cache one-time nuke (prevents “works only with DevTools” due to stale assets) */
-      (function nukeSWOnce() {
+    <script>
+    (function TK_BOOT_RESCUE(){
+      /* 1) Unblank NOW + keep unblanking if anything tries again */
+      function unblank(){
+        document.documentElement.classList.remove('tk-prestart');
+        if (document.body) document.body.classList.remove('tk-prestart');
+        ['tkPortal','categoryPanel','ctaStack'].forEach(id=>{
+          const el = document.getElementById(id);
+          if (el && getComputedStyle(el).display === 'none') el.style.display = '';
+          if (el) new MutationObserver(()=>{
+            if (getComputedStyle(el).display === 'none') el.style.display = '';
+            el.classList.remove('hidden','is-hidden');
+            el.style.opacity = '';
+            el.style.visibility = '';
+          }).observe(el,{attributes:true,attributeFilter:['style','class']});
+        });
+        // Remove any full-screen overlay/backdrop commonly used
+        const killers = [
+          '#tkOverlay','.tk-overlay','.overlay','.backdrop','#overlay',
+          '#prestart','.prestart','#loading','.loading','#loader','.loader'
+        ];
+        killers.forEach(sel => document.querySelectorAll(sel).forEach(n => {
+          // only remove if it covers most of the viewport
+          const r = n.getBoundingClientRect();
+          if (r.width > innerWidth*0.8 && r.height > innerHeight*0.8) n.remove();
+        }));
+      }
+      unblank();
+      document.addEventListener('DOMContentLoaded', unblank, {once:true});
+      window.addEventListener('load', unblank, {once:true});
+      setTimeout(unblank, 0);
+      setTimeout(unblank, 250);
+
+      /* 2) One-time per session: unregister service worker + clear caches (fixes “works only with F12”) */
+      (function nukeSWOnce(){
         if (!('serviceWorker' in navigator)) return;
         const FLAG = 'tk-sw-nuked';
         if (sessionStorage.getItem(FLAG)) return;
-        Promise.all([
-          navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))),
-          ('caches' in window) ? caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))) : Promise.resolve()
-        ]).finally(() => sessionStorage.setItem(FLAG, '1'));
+        Promise.allSettled([
+          navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r=>r.unregister()))),
+          ('caches' in window) ? caches.keys().then(ks => Promise.all(ks.map(k=>caches.delete(k)))) : null
+        ]).finally(()=>sessionStorage.setItem(FLAG,'1'));
       })();
 
-      /* 3) Force-fresh JSON (DevTools disables cache; mimic that here for our data files) */
-      (function monkeypatchFetch() {
+      /* 3) Cache-bust critical assets (mimics DevTools “Disable cache”) */
+      (function bustCritical(){
+        const bump = String(Date.now());
+        const isCrit = (p)=>
+          /\/kinksurvey\/data\/.+\.json$/i.test(p) ||
+          /\/kinksurvey\/assets\/js\/kinksurvey\/(survey|tk\-enhancer)\.js$/i.test(p) ||
+          /\/kinksurvey\/css\/kinksurvey_overrides\.css$/i.test(p);
+
+        // Patch fetch so data/*.json always bypasses cache
         const ORIG = window.fetch;
-        const STAMP = String(Date.now());
-        window.fetch = function(input, init) {
-          try {
+        window.fetch = function(input, init){
+          try{
             const u = new URL(input, location.origin);
-            // Bust cache for our survey data files
-            if (/^\/?kinksurvey\/data\/.+\.json$/i.test(u.pathname)) {
-              u.searchParams.set('v', STAMP);
-              init = Object.assign({cache: 'no-store'}, init || {});
+            if (isCrit(u.pathname)){
+              u.searchParams.set('v', bump);
+              init = Object.assign({cache:'no-store'}, init||{});
               return ORIG.call(this, u.toString(), init);
             }
-          } catch (_) {}
+          }catch(_){}
           return ORIG.call(this, input, init);
         };
+
+        // Also update already-declared <script>/<link> urls
+        const upd = (el, attr) => {
+          const url = el.getAttribute(attr); if (!url) return;
+          const u = new URL(url, location.origin);
+          if (isCrit(u.pathname)) { u.searchParams.set('v', bump); el.setAttribute(attr, u.pathname + '?' + u.searchParams.toString()); }
+        };
+        document.querySelectorAll('script[src]').forEach(el => upd(el, 'src'));
+        document.querySelectorAll('link[rel="stylesheet"][href]').forEach(el => upd(el, 'href'));
       })();
 
-      /* 4) Make sure late scripts don’t re-hide CTAs/panel */
-      (function keepVisible() {
-        const keep = (id) => {
-          const el = document.getElementById(id);
-          if (!el) return;
-          const show = () => { el.style.display = ''; };
-          new MutationObserver(() => { if (getComputedStyle(el).display === 'none') show(); })
-            .observe(el, {attributes: true, attributeFilter: ['style', 'class']});
-        };
-        ['ctaStack', 'categoryPanel'].forEach(keep);
-      })();
+      /* 4) As a final guard, if the whole body is invisible, force it visible */
+      new MutationObserver(()=>{
+        const s = getComputedStyle(document.body || document.documentElement);
+        if (s.opacity === '0' || s.visibility === 'hidden') {
+          (document.body||document.documentElement).style.opacity = '1';
+          (document.body||document.documentElement).style.visibility = 'visible';
+        }
+      }).observe(document.documentElement, {attributes:true,subtree:true,attributeFilter:['style','class']});
+    })();
     </script>
-    <!-- ===== /TK EARLY-BOOT FIX ===== -->
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Talk Kink — Kink Survey</title>
 
     <!-- =====================  TalkKink • CODEx PASTE BLOCK  =====================
     Goal: Kill the overlay/portal that causes the page to flash, and keep the
