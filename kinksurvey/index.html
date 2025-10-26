@@ -57,10 +57,15 @@
       /* 3) Cache-bust critical assets (mimics DevTools “Disable cache”) */
       (function bustCritical(){
         const bump = String(Date.now());
-        const isCrit = (p)=>
-          /\/kinksurvey\/data\/.+\.json$/i.test(p) ||
-          /\/kinksurvey\/assets\/js\/kinksurvey\/(survey|tk\-enhancer)\.js$/i.test(p) ||
-          /\/kinksurvey\/css\/kinksurvey_overrides\.css$/i.test(p);
+        const isCrit = (p)=>{
+          const norm = p.replace(/\/{2,}/g,'/');
+          return (
+            /\/kinksurvey\/data\/.+\.json$/i.test(norm) ||
+            /\/(?:kinksurvey\/)?assets\/js\/kinksurvey\/survey\.js$/i.test(norm) ||
+            /\/assets\/js\/tk\-enhancer\.js$/i.test(norm) ||
+            /\/(?:kinksurvey\/)?css\/kinksurvey_overrides\.css$/i.test(norm)
+          );
+        };
 
         // Patch fetch so data/*.json always bypasses cache
         const ORIG = window.fetch;
@@ -80,7 +85,11 @@
         const upd = (el, attr) => {
           const url = el.getAttribute(attr); if (!url) return;
           const u = new URL(url, location.origin);
-          if (isCrit(u.pathname)) { u.searchParams.set('v', bump); el.setAttribute(attr, u.pathname + '?' + u.searchParams.toString()); }
+          if (isCrit(u.pathname)) {
+            u.searchParams.set('v', bump);
+            const qs = u.searchParams.toString();
+            el.setAttribute(attr, u.pathname + (qs ? '?' + qs : ''));
+          }
         };
         document.querySelectorAll('script[src]').forEach(el => upd(el, 'src'));
         document.querySelectorAll('link[rel="stylesheet"][href]').forEach(el => upd(el, 'href'));
