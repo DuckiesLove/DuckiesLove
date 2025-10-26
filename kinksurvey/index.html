@@ -511,13 +511,7 @@
       </section>
     </div>
 
-    <!-- CTA stack (safe if it already exists) -->
-    <nav id="ctaStack" class="tk-stack" style="display:grid;gap:14px;max-width:560px;">
-      <button id="btnStart" class="btn btn-primary" disabled>Start Survey</button>
-      <a id="btnKinkAnalysis" class="btn btn-ghost" href="/kinksurvey/analysis/">Individual Kink Analysis</a>
-      <a id="btnCompatibility" class="btn btn-ghost" href="/kinksurvey/compat/">Compatibility Page</a>
-    </nav>
-    <!-- ================== /TK ONE-BOX ================== -->
+<!-- ================== /TK ONE-BOX ================== -->
 
     <script>
       (function () {
@@ -979,135 +973,29 @@
 
 
 
-<!-- ================= TK LAYOUT PATCH (drop-in) =================
-Goal on /kinksurvey/index.html:
-1) Category panel on the LEFT (full-height, page scrolls)
-2) Three stacked buttons on the RIGHT
-3) THEME switch directly UNDER the “Talk Kink Survey” title
+<!-- =============== TK LAYOUT + BOOTSTRAP (drop-in, one box) ===============
+Paste this near the BOTTOM of /kinksurvey/index.html (right before </body>).
 
-Paste this block near the BOTTOM of index.html (just before </body>).
-It works with your existing survey.js and data/*.json.
-================================================================= -->
+It makes your page match the desired design:
+  • LEFT: full-height, sticky, scrollable Categories panel (visible during survey)
+  • MIDDLE: question flow
+  • RIGHT: three stacked buttons (Start / Analysis / Compatibility)
+  • THEME row sits directly under the big “Talk Kink Survey” title
+  • If the category checklist hasn’t populated yet, this will populate it
+    from /kinksurvey/data/categories.json (or fall back to /kinksurvey/data/kinks.json)
 
-<style>
-  /* Two-column portal layout */
-  #tkPortal{
-    display:grid;
-    grid-template-columns: 380px 1fr;   /* left = categories, right = CTAs */
-    gap:28px;
-    align-items:start;
-  }
-  @media (max-width:980px){ #tkPortal{ grid-template-columns:1fr } }
-
-  /* Category panel (left) — no internal scroll cap */
-  #categoryPanel,.category-panel{ grid-column:1!important; position:static!important; max-height:none!important; overflow:visible!important }
-  .tk-left{ max-height:none!important; overflow:visible!important }
-
-  /* CTA stack (right) */
-  #ctaStack{ grid-column:2; max-width:560px }
-  #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch }
-  #ctaStack .btn{ width:100%; text-align:center; padding:14px 16px; border-radius:12px; font-weight:700 }
-  #ctaStack .btn-ghost{ background:transparent; border:2px solid var(--tk-accent,#39e3ff) }
-
-  /* Theme row just under the big title, spans both columns */
-  .tk-theme-row{
-    grid-column:1 / -1;
-    display:flex; flex-wrap:wrap; gap:12px;
-    justify-content:center; align-items:center;
-    margin:-6px 0 18px;
-  }
-  .tk-theme-row .tk-theme-label{ font-weight:700; opacity:.9; margin-right:6px; letter-spacing:.02em }
-
-  /* Checklist cosmetics (safe if your CSS already handles it) */
-  #categoryChecklist{ list-style:none; margin:12px 0 16px; padding:0 }
-  #categoryChecklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px }
-</style>
-
-<!-- If CTAs were removed by older markup, this rebuilds them once -->
-<nav id="ctaStack" class="tk-stack" style="display:grid;gap:14px;max-width:560px;">
-  <button id="btnStart" class="btn btn-primary" disabled>Start Survey</button>
-  <a id="btnKinkAnalysis" class="btn btn-ghost" href="/kinksurvey/analysis/">Individual Kink Analysis</a>
-  <a id="btnCompatibility" class="btn btn-ghost" href="/kinksurvey/compat/">Compatibility Page</a>
-</nav>
-
-<script>
-/* 1) Put THEME row directly under the title */
-(function placeThemeUnderTitle(){
-  const theme = document.querySelector('#themePicker,#themeSwitch,#themeBar,.theme-picker,.tk-theme,[data-theme-picker]') ||
-    Array.from(document.querySelectorAll('nav,.toolbar,.controls,.themes,.btn-row,.button-row'))
-      .find(el => /dark|forest|lipstick|blue/i.test((el.textContent||'').toLowerCase()));
-  const title = document.querySelector('#tkTitle,.portal-title h1,.portal-title,header h1,main h1,h1');
-  if(!theme || !title || !title.parentElement) return;
-
-  let row = theme.closest('.tk-theme-row');
-  if(!row){
-    row = document.createElement('div'); row.className='tk-theme-row';
-    if(!/theme/i.test(theme.textContent)){ const lbl=document.createElement('span'); lbl.className='tk-theme-label'; lbl.textContent='THEME'; row.appendChild(lbl); }
-    theme.parentElement.insertBefore(row, theme); row.appendChild(theme);
-  }
-  title.parentElement.insertBefore(row, title.nextSibling);
-})();
-
-/* 2) Ensure CTAs are in the right column and never hidden */
-(function fixCTAPlacement(){
-  const portal = document.getElementById('tkPortal');
-  const cta = document.getElementById('ctaStack');
-  if(!portal || !cta) return;
-
-  if(cta.parentElement !== portal){
-    const main = document.getElementById('surveyMain') || document.querySelector('.portal-main');
-    if(main && main.parentElement===portal) portal.insertBefore(cta, main); else portal.appendChild(cta);
-  }
-  cta.classList.add('tk-stack'); cta.style.display='';
-  new MutationObserver(()=>{ if(getComputedStyle(cta).display==='none') cta.style.display=''; })
-    .observe(cta,{attributes:true,attributeFilter:['style','class']});
-})();
-
-/* 3) Start button enables when any category is checked (works with your loader) */
-(function enableStartOnSelect(){
-  const list = document.getElementById('categoryChecklist');
-  const btnStart = document.getElementById('btnStart');
-  const selectedCount = document.getElementById('categorySelectedCount');
-  const totalCount = document.getElementById('categoryTotalCount');
-
-  function recount(){
-    if(!list || !btnStart) return;
-    const n = list.querySelectorAll('input[type="checkbox"]:checked').length;
-    if(selectedCount) selectedCount.textContent = String(n);
-    btnStart.disabled = (n === 0);
-  }
-  if(list){
-    if(totalCount){
-      const total = list.querySelectorAll('input[type="checkbox"]').length;
-      if(total) totalCount.textContent = String(total);
-    }
-    list.addEventListener('change', e => { if(e.target?.matches('input[type="checkbox"]')) recount(); });
-    recount();
-  }
-})();
-</script>
-
-<!-- ===================== TK: MAKE “LEFT KINK PANEL” LAYOUT HAPPEN =====================
-Drop this block near the BOTTOM of /kinksurvey/index.html (right before </body>).
-
-Result (like your screenshot):
-• LEFT: Categories list stays visible as a sticky, scrollable sidebar (during the survey too)
-• MIDDLE: Question flow content
-• RIGHT: “How to score / Question Guard” sidebar (if present), also sticky/scrollable
-• Works with either #categoryPanel or legacy #tk-cat-list, and with your existing survey.js
-
-You don’t need to rename anything. This targets the common IDs/classes you already use.
-====================================================================================== -->
+You don’t need to rename existing elements; the script finds what you already have.
+=========================================================================== -->
 
 <style>
   :root{
-    --tk-header-h: 92px;     /* tweak if your title/header is taller/shorter */
+    --tk-header-h: 92px;       /* height buffer under the title */
     --tk-gap: 28px;
-    --tk-left-w: 360px;      /* width of the left category sidebar */
-    --tk-right-w: 360px;     /* width of the right guard sidebar (if present) */
+    --tk-left-w: 360px;        /* left sidebar width */
+    --tk-cta-w: 560px;         /* max width of button column */
   }
 
-  /* Base 2-column portal (left = categories, right = main content) */
+  /* Two columns: LEFT categories, RIGHT buttons/content */
   #tkPortal{
     display:grid;
     grid-template-columns: var(--tk-left-w) 1fr;
@@ -1115,12 +1003,7 @@ You don’t need to rename anything. This targets the common IDs/classes you alr
     align-items:start;
   }
 
-  /* When a right “guard” panel exists, switch to 3 columns */
-  body.tk-has-guard #tkPortal{
-    grid-template-columns: var(--tk-left-w) 1fr var(--tk-right-w);
-  }
-
-  /* LEFT — Categories sidebar (sticky, scrolls independently) */
+  /* LEFT — Categories panel */
   #categoryPanel, .category-panel, #tk-cat-list{
     grid-column:1 !important;
     display:block !important;
@@ -1130,74 +1013,162 @@ You don’t need to rename anything. This targets the common IDs/classes you alr
     max-height: calc(100vh - var(--tk-header-h) - 16px);
     overflow:auto;
   }
-  /* Neutralize any old height caps */
+  /* Remove old caps if present */
   .tk-left{ max-height:none !important; overflow:visible !important; }
 
-  /* MIDDLE — Survey main area */
+  /* RIGHT — CTA stack + main content area lives in column 2 */
+  #ctaStack{ grid-column:2; max-width:var(--tk-cta-w); }
+  #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch }
+  #ctaStack .btn{ width:100%; text-align:center; padding:14px 16px; border-radius:12px; font-weight:700 }
+  #ctaStack .btn-ghost{ background:transparent; border:2px solid var(--tk-accent,#39e3ff) }
+
   #tkSurveyMain, #surveyMain, .portal-main, .survey-main, main .content{
-    grid-column:2 !important;
-    min-width:0;            /* allow proper shrinking */
+    grid-column:2 !important; min-width:0;
   }
 
-  /* RIGHT — How-to-score / Question Guard (if present) */
-  #questionGuard, .question-guard, .score-guard, .how-to-score, [data-guard]{
-    grid-column:3 !important;
-    position:sticky;
-    top: calc(var(--tk-header-h) + 8px);
-    max-height: calc(100vh - var(--tk-header-h) - 16px);
-    overflow:auto;
-    align-self:start;
+  /* THEME row under title across both columns */
+  .tk-theme-row{
+    grid-column:1 / -1;
+    display:flex; flex-wrap:wrap; gap:12px;
+    justify-content:center; align-items:center;
+    margin:-6px 0 18px;
   }
+  .tk-theme-row .tk-theme-label{ font-weight:700; opacity:.9; margin-right:6px; letter-spacing:.02em }
 
-  /* Optional: polish the category checklist if needed */
+  /* (Optional) checklist cosmetics if your CSS doesn’t already handle it */
   #categoryChecklist{ list-style:none; margin:12px 0 16px; padding:0 }
   #categoryChecklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px }
 </style>
 
+<!-- Re-add CTAs if they’re missing; keep them visible after Start -->
+<nav id="ctaStack" class="tk-stack" style="display:grid;gap:14px;max-width:560px;">
+  <button id="btnStart" class="btn btn-primary" disabled>Start Survey</button>
+  <a id="btnKinkAnalysis" class="btn btn-ghost" href="/kinksurvey/analysis/">Individual Kink Analysis</a>
+  <a id="btnCompatibility" class="btn btn-ghost" href="/kinksurvey/compat/">Compatibility Page</a>
+</nav>
+
 <script>
-(function tkMakeLeftPanelLayout(){
-  const portal   = document.getElementById('tkPortal') || document.querySelector('#tkPortal, main, #app');
-  const catPanel = document.getElementById('categoryPanel') || document.querySelector('.category-panel') || document.getElementById('tk-cat-list');
-  if(!portal || !catPanel) return;
+(function tkLayoutAndBootstrap(){
+  const portal = document.getElementById('tkPortal') || document.querySelector('#tkPortal, main, #app');
+  if(!portal) return;
 
-  /* Ensure the categories live in the left column container */
-  function placeCategoriesLeft(){
-    if(catPanel.parentElement !== portal){
-      const main = document.getElementById('surveyMain') || document.getElementById('tkSurveyMain') ||
-                   document.querySelector('.portal-main, .survey-main, main .content');
-      if(main && main.parentElement === portal){
-        portal.insertBefore(catPanel, main); // put categories before main (grid col 1)
-      }else{
-        portal.prepend(catPanel);
+  const catPanel = document.getElementById('categoryPanel')
+                 || document.querySelector('.category-panel')
+                 || document.getElementById('tk-cat-list');
+
+  const main    = document.getElementById('surveyMain') || document.getElementById('tkSurveyMain')
+               || document.querySelector('.portal-main, .survey-main, main .content');
+
+  const ctas    = document.getElementById('ctaStack');
+
+  /* 1) Place THEME row under title */
+  (function placeTheme(){
+    const title = document.querySelector('#tkTitle,.portal-title h1,.portal-title,header h1,main h1,h1');
+    const theme = document.querySelector('#themePicker,#themeSwitch,#themeBar,.theme-picker,.tk-theme,[data-theme-picker]')
+               || Array.from(document.querySelectorAll('nav,.toolbar,.controls,.themes,.btn-row,.button-row'))
+                     .find(el => /dark|forest|lipstick|blue/i.test((el.textContent||'').toLowerCase()));
+    if(!title || !theme) return;
+    let row = theme.closest('.tk-theme-row');
+    if(!row){
+      row = document.createElement('div'); row.className='tk-theme-row';
+      if(!/theme/i.test(theme.textContent)) {
+        const lbl=document.createElement('span'); lbl.className='tk-theme-label'; lbl.textContent='THEME';
+        row.appendChild(lbl);
       }
+      theme.parentElement.insertBefore(row, theme); row.appendChild(theme);
     }
-    catPanel.style.display = '';  // undo any runtime .style.display='none'
+    title.parentElement.insertBefore(row, title.nextSibling);
+  })();
+
+  /* 2) Ensure left panel, then CTAs, then main are in the grid columns */
+  function placeLeftAndRight(){
+    if(catPanel){
+      if(catPanel.parentElement !== portal){
+        if(main && main.parentElement===portal){ portal.insertBefore(catPanel, main); }
+        else { portal.prepend(catPanel); }
+      }
+      catPanel.style.display='';         // un-hide if some code hid it
+    }
+    if(ctas){
+      if(ctas.parentElement !== portal){
+        if(main && main.parentElement===portal){ portal.insertBefore(ctas, main.nextSibling); }
+        else { portal.appendChild(ctas); }
+      }
+      ctas.classList.add('tk-stack');    // vertical stack style
+      ctas.style.display='';             // keep visible after Start
+    }
+    if(main){ main.style.display=''; }
   }
+  placeLeftAndRight();
 
-  /* Toggle 3-column mode when a right guard panel exists */
-  function toggleGuardMode(){
-    const guard = document.querySelector('#questionGuard, .question-guard, .score-guard, .how-to-score, [data-guard]');
-    document.body.classList.toggle('tk-has-guard', !!guard);
-  }
-
-  placeCategoriesLeft();
-  toggleGuardMode();
-
-  /* Some older code hides/moves the left panel after Start; keep it alive */
+  /* 3) Keep CTAs from getting hidden by legacy code */
   const mo = new MutationObserver(() => {
-    if(getComputedStyle(catPanel).display === 'none'){ catPanel.style.display = 'block'; }
-    placeCategoriesLeft();
-    toggleGuardMode();
+    if(ctas && getComputedStyle(ctas).display==='none') ctas.style.display='';
+    if(catPanel && getComputedStyle(catPanel).display==='none') catPanel.style.display='block';
+    placeLeftAndRight();
   });
-  mo.observe(document.documentElement, {
-    subtree:true, childList:true, attributes:true, attributeFilter:['style','class']
-  });
+  mo.observe(document.documentElement, { subtree:true, childList:true, attributes:true, attributeFilter:['style','class'] });
 
-  /* If your app fires a custom start event, re-assert layout immediately */
-  window.addEventListener('tk:survey:start', () => {
-    placeCategoriesLeft();
-    toggleGuardMode();
-  });
+  window.addEventListener('tk:survey:start', placeLeftAndRight);
+
+  /* 4) Enable Start when a category is checked; also update counters */
+  (function bindStart(){
+    const list = document.getElementById('categoryChecklist');
+    const btn  = document.getElementById('btnStart');
+    const selectedCount = document.getElementById('categorySelectedCount');
+    const totalCount    = document.getElementById('categoryTotalCount');
+
+    function recount(){
+      if(!list || !btn) return;
+      const n = list.querySelectorAll('input[type="checkbox"]:checked').length;
+      btn.disabled = (n===0);
+      if(selectedCount) selectedCount.textContent = String(n);
+    }
+    if(list){
+      if(totalCount){
+        const t = list.querySelectorAll('input[type="checkbox"]').length;
+        if(t) totalCount.textContent = String(t);
+      }
+      list.addEventListener('change', e => { if(e.target?.matches('input[type="checkbox"]')) recount(); });
+      recount();
+    }
+  })();
+
+  /* 5) Populate categories if the list is empty */
+  (async function ensureCategories(){
+    const ul = document.getElementById('categoryChecklist') || (catPanel && catPanel.querySelector('ul'));
+    if(!ul) return;
+    if(ul.children.length > 0) return;
+
+    async function fetchJSON(url){
+      const r = await fetch(url, {cache:'no-store'}); if(!r.ok) throw new Error(url);
+      return r.json();
+    }
+
+    let cats = [];
+    try{
+      // Prefer canonical categories.json
+      cats = await fetchJSON('/kinksurvey/data/categories.json');
+    }catch{
+      try{
+        const kinks = await fetchJSON('/kinksurvey/data/kinks.json');
+        const set = new Set();
+        (kinks || []).forEach(k => k?.category && set.add(k.category));
+        cats = Array.from(set).sort();
+      }catch{/* no-op */}
+    }
+
+    if(Array.isArray(cats) && cats.length){
+      ul.innerHTML = cats.map(name => `
+        <li>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" data-category="${name}">
+            <span>${name}</span>
+          </label>
+        </li>`).join('');
+      const evt = new Event('change'); ul.dispatchEvent(evt);
+    }
+  })();
 })();
 </script>
 
