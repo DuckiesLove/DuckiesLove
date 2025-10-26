@@ -1,108 +1,109 @@
 <!doctype html>
 <html lang="en" class="theme-dark">
   <head>
+    <!-- ================== TK “BLACK SCREEN” LAST-RESORT PATCH ==================
+    Put this block AT THE VERY TOP of /kinksurvey/index.html (right after <head>).
+    It:
+      • Forces the page visible immediately (kills prestart/overlay)
+      • Nukes old Service Workers + Cache Storage once per tab session
+      • Cache-busts all /kinksurvey/ JS/CSS/JSON and patches fetch to no-store
+      • Adds a one-time “dead-man switch” reload if nothing renders in time
+      • Keeps CTAs/panel from being re-hidden by legacy code
+    =========================================================================== -->
+
+    <noscript><style>body{background:#0b1418;color:#e7ffff;font:16px system-ui;padding:20px}</style>
+    <p>JavaScript is disabled. Please enable it to load the Talk Kink Survey.</p></noscript>
+
     <style>
-      /* Safe base so a hidden body isn’t invisible */
-      html, body { background:#0b1418; min-height:100%; }
-      /* Nuke common “hide at boot” rules */
-      .tk-prestart, body.tk-prestart { opacity:1 !important; visibility:visible !important; }
-      /* If someone set display:none on the portal/panel/ctas, revert it */
-      #tkPortal, #categoryPanel, .category-panel, #ctaStack { display:revert !important; }
+      /* Fail-open: never allow hidden page */
+      html,body{background:#0b1418;min-height:100%}
+      .tk-prestart, body.tk-prestart{opacity:1!important;visibility:visible!important}
+      /* If something sets display:none on critical UI, revert it */
+      #tkPortal, #categoryPanel, .category-panel, #ctaStack{display:revert!important;opacity:1!important;visibility:visible!important}
     </style>
 
     <script>
-    (function TK_BOOT_RESCUE(){
-      /* 1) Unblank NOW + keep unblanking if anything tries again */
+    (function TK_BOOT_FIX(){
+      const TS = Date.now();
+      const SS = sessionStorage;
+
+      /* 1) Unblank immediately + keep it unblanked */
       function unblank(){
         document.documentElement.classList.remove('tk-prestart');
-        if (document.body) document.body.classList.remove('tk-prestart');
+        document.body && document.body.classList.remove('tk-prestart');
         ['tkPortal','categoryPanel','ctaStack'].forEach(id=>{
-          const el = document.getElementById(id);
-          if (el && getComputedStyle(el).display === 'none') el.style.display = '';
-          if (el) new MutationObserver(()=>{
-            if (getComputedStyle(el).display === 'none') el.style.display = '';
-            el.classList.remove('hidden','is-hidden');
-            el.style.opacity = '';
-            el.style.visibility = '';
-          }).observe(el,{attributes:true,attributeFilter:['style','class']});
+          const el=document.getElementById(id); if(!el) return;
+          if(getComputedStyle(el).display==='none') el.style.display='';
+          el.style.opacity=''; el.style.visibility='';
+          new MutationObserver(()=>{ if(getComputedStyle(el).display==='none') el.style.display=''; })
+            .observe(el,{attributes:true,attributeFilter:['style','class']});
         });
-        // Remove any full-screen overlay/backdrop commonly used
-        const killers = [
-          '#tkOverlay','.tk-overlay','.overlay','.backdrop','#overlay',
-          '#prestart','.prestart','#loading','.loading','#loader','.loader'
-        ];
-        killers.forEach(sel => document.querySelectorAll(sel).forEach(n => {
-          // only remove if it covers most of the viewport
-          const r = n.getBoundingClientRect();
-          if (r.width > innerWidth*0.8 && r.height > innerHeight*0.8) n.remove();
-        }));
+        // remove any fullscreen overlay/backdrop/loader
+        document.querySelectorAll('#tkOverlay,.tk-overlay,.overlay,.backdrop,#overlay,#prestart,.prestart,#loading,.loading,#loader,.loader')
+          .forEach(n=>{const r=n.getBoundingClientRect(); if(r.width>innerWidth*0.8 && r.height>innerHeight*0.8) n.remove();});
       }
       unblank();
       document.addEventListener('DOMContentLoaded', unblank, {once:true});
       window.addEventListener('load', unblank, {once:true});
-      setTimeout(unblank, 0);
-      setTimeout(unblank, 250);
+      setTimeout(unblank,0); setTimeout(unblank,250);
 
-      /* 2) One-time per session: unregister service worker + clear caches (fixes “works only with F12”) */
-      (function nukeSWOnce(){
-        if (!('serviceWorker' in navigator)) return;
-        const FLAG = 'tk-sw-nuked';
-        if (sessionStorage.getItem(FLAG)) return;
-        Promise.allSettled([
-          navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r=>r.unregister()))),
-          ('caches' in window) ? caches.keys().then(ks => Promise.all(ks.map(k=>caches.delete(k)))) : null
-        ]).finally(()=>sessionStorage.setItem(FLAG,'1'));
+      /* 2) One-time per tab session: unregister SW + clear Cache Storage */
+      (async function nukeSWOnce(){
+        if(!('serviceWorker' in navigator)) return;
+        const FLAG='tk-sw-nuked';
+        if(SS.getItem(FLAG)) return;
+        try{
+          const regs=await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r=>r.unregister()));
+          if('caches' in window){
+            const keys=await caches.keys();
+            await Promise.all(keys.map(k=>caches.delete(k)));
+          }
+        }catch(e){}
+        SS.setItem(FLAG,'1');
       })();
 
-      /* 3) Cache-bust critical assets (mimics DevTools “Disable cache”) */
-      (function bustCritical(){
-        const bump = String(Date.now());
-        const isCrit = (p)=>{
-          const norm = p.replace(/\/{2,}/g,'/');
-          return (
-            /\/kinksurvey\/data\/.+\.json$/i.test(norm) ||
-            /\/(?:kinksurvey\/)?assets\/js\/kinksurvey\/survey\.js$/i.test(norm) ||
-            /\/assets\/js\/tk\-enhancer\.js$/i.test(norm) ||
-            /\/(?:kinksurvey\/)?css\/kinksurvey_overrides\.css$/i.test(norm)
-          );
-        };
+      /* 3) Force-fresh critical assets (like DevTools “Disable cache”) */
+      (function cacheBust(){
+        const bump = String(TS);
+        const isCrit = p => /^\/kinksurvey\/(data\/.+\.json|assets\/js\/kinksurvey\/(survey|tk\-enhancer)\.js|css\/kinksurvey_overrides\.css)$/i.test(p);
 
-        // Patch fetch so data/*.json always bypasses cache
+        // Patch fetch for /kinksurvey/data/*.json
         const ORIG = window.fetch;
         window.fetch = function(input, init){
           try{
-            const u = new URL(input, location.origin);
-            if (isCrit(u.pathname)){
-              u.searchParams.set('v', bump);
-              init = Object.assign({cache:'no-store'}, init||{});
-              return ORIG.call(this, u.toString(), init);
-            }
-          }catch(_){}
+            const u=new URL(input, location.origin);
+            if(isCrit(u.pathname)){ u.searchParams.set('v', bump); init=Object.assign({cache:'no-store'}, init||{}); return ORIG.call(this, u.toString(), init); }
+          }catch(_){ }
           return ORIG.call(this, input, init);
         };
 
-        // Also update already-declared <script>/<link> urls
-        const upd = (el, attr) => {
-          const url = el.getAttribute(attr); if (!url) return;
-          const u = new URL(url, location.origin);
-          if (isCrit(u.pathname)) {
-            u.searchParams.set('v', bump);
-            const qs = u.searchParams.toString();
-            el.setAttribute(attr, u.pathname + (qs ? '?' + qs : ''));
-          }
-        };
-        document.querySelectorAll('script[src]').forEach(el => upd(el, 'src'));
-        document.querySelectorAll('link[rel="stylesheet"][href]').forEach(el => upd(el, 'href'));
+        // Update already-present script/link tags
+        const bumpAttr=(el,attr)=>{const href=el.getAttribute(attr);if(!href)return;const u=new URL(href,location.origin);if(isCrit(u.pathname)){u.searchParams.set('v',bump);el.setAttribute(attr, u.pathname+'?'+u.searchParams.toString());}};
+        document.querySelectorAll('script[src]').forEach(s=>bumpAttr(s,'src'));
+        document.querySelectorAll('link[rel="stylesheet"][href]').forEach(l=>bumpAttr(l,'href'));
       })();
 
-      /* 4) As a final guard, if the whole body is invisible, force it visible */
-      new MutationObserver(()=>{
-        const s = getComputedStyle(document.body || document.documentElement);
-        if (s.opacity === '0' || s.visibility === 'hidden') {
-          (document.body||document.documentElement).style.opacity = '1';
-          (document.body||document.documentElement).style.visibility = 'visible';
-        }
-      }).observe(document.documentElement, {attributes:true,subtree:true,attributeFilter:['style','class']});
+      /* 4) Dead-man switch: if nothing rendered, do one safe cache-busted reload */
+      (function deadMan(){
+        const FLAG='tk-deadman-reloaded';
+        if(SS.getItem(FLAG)) return;             // only once per tab
+        const timeout = 1800;                     // ms to wait for first paint
+        setTimeout(()=>{
+          const portal = document.getElementById('tkPortal');
+          const visible = portal && portal.offsetHeight>60 && getComputedStyle(portal).visibility!=='hidden';
+          if(!visible){
+            SS.setItem(FLAG,'1');
+            const u=new URL(location.href);
+            u.searchParams.set('nocache', String(TS));
+            location.replace(u.toString());
+          }
+        }, timeout);
+      })();
+
+      /* 5) Guard against any script re-hiding the whole body */
+      new MutationObserver(()=>{ const s=getComputedStyle(document.body||document.documentElement); if(s.opacity==='0'||s.visibility==='hidden'){ (document.body||document.documentElement).style.opacity='1'; (document.body||document.documentElement).style.visibility='visible'; } })
+        .observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:['style','class']});
     })();
     </script>
 
