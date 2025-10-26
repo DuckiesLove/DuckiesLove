@@ -1083,34 +1083,29 @@ What this does:
 ======================================================================================================== -->
 
 <style>
-  /* two-column shell */
-  #tkPortal{ display:grid; grid-template-columns:380px 1fr; gap:28px; align-items:start; }
-  @media (max-width:980px){ #tkPortal{ grid-template-columns:1fr; } }
+  /* Two-column shell */
+  #tkPortal{display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start}
+  @media (max-width:980px){#tkPortal{grid-template-columns:1fr}}
 
-  /* left: tall sticky category panel */
-  #categoryPanel, .category-panel{
-    grid-column:1; grid-row:1;
-    position:sticky; top:16px;
-    max-height:calc(100dvh - 32px);
-    overflow:auto; scroll-behavior:smooth;
-  }
-  /* if a wrapper caps height, relax it */
-  .tk-left{ max-height:calc(100vh - 5rem); overflow:auto; }
-  @media (max-width:980px){ #categoryPanel, .category-panel{ position:relative; top:0; max-height:none; } }
+  /* Full-height category panel */
+  #categoryPanel,.category-panel{grid-column:1!important;position:static!important;top:auto!important;max-height:none!important;overflow:visible!important}
+  .tk-left{max-height:none!important;overflow:visible!important}
 
-  /* right: CTA stack */
-  #tkPortal #ctaStack{ grid-column:2; grid-row:1; align-self:start; justify-self:start; max-width:560px; }
-  #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch; }
-  #ctaStack .btn{ width:100%; text-align:center; padding:14px 16px; border-radius:12px; font-weight:700; }
-  #ctaStack .btn-ghost{ background:transparent; border:2px solid var(--tk-accent,#39e3ff); }
-  #ctaStack .btn[disabled]{ opacity:.55; cursor:not-allowed; }
+  /* CTA stack */
+  #categoryChecklist{list-style:none;margin:12px 0 16px;padding:0}
+  #categoryChecklist li{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;cursor:pointer}
+  #ctaStack{grid-column:2;grid-row:auto;max-width:560px}
+  #ctaStack.tk-stack{display:grid;gap:14px;justify-items:stretch}
+  #ctaStack .btn{width:100%;text-align:center;padding:14px 16px;border-radius:12px;font-weight:700}
+  #ctaStack .btn-ghost{background:transparent;border:2px solid var(--tk-accent,#39e3ff)}
+  #ctaStack .btn[disabled]{opacity:.55;cursor:not-allowed}
 
-  /* list styles */
-  #categoryChecklist{ list-style:none; margin:12px 0 16px; padding:0; }
-  #categoryChecklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; cursor:pointer; }
+  /* Theme row under title */
+  .tk-theme-row{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;margin:-6px 0 18px}
+  .tk-theme-row .tk-theme-label{font-weight:700;opacity:.9;margin-right:6px;letter-spacing:.02em}
 </style>
 
-<!-- CTA stack (safe if it already exists) -->
+<!-- CTA stack (safe if duplicated) -->
 <nav id="ctaStack" class="tk-stack" style="display:grid;gap:14px;max-width:560px;">
   <button id="btnStart" class="btn btn-primary" disabled>Start Survey</button>
   <a id="btnKinkAnalysis" class="btn btn-ghost" href="/kinksurvey/analysis/">Individual Kink Analysis</a>
@@ -1118,201 +1113,95 @@ What this does:
 </nav>
 
 <script>
-/* ---------- helpers ---------- */
-const $ = sel => document.querySelector(sel);
-const byId = id => document.getElementById(id);
-
-/* keep CTAs visible even if another script hides them */
-(function keepCTAs(){
-  const cta=byId('ctaStack'); if(!cta) return;
-  const show=()=>{cta.style.display=''; cta.classList.add('tk-stack');};
-  new MutationObserver(()=>{ if(getComputedStyle(cta).display==='none') show(); })
-    .observe(cta,{attributes:true,attributeFilter:['style','class']});
-  const start=byId('btnStart'); if(start){ start.addEventListener('click',()=>{requestAnimationFrame(show); setTimeout(show,0);});}
+/* ---------- Move THEME directly under title ---------- */
+(function placeThemeUnderTitle(){
+  const theme=document.querySelector('#themePicker,#themeSwitch,#themeBar,.theme-picker,.tk-theme,[data-theme-picker]')||
+    Array.from(document.querySelectorAll('nav,.toolbar,.controls,.themes,.btn-row,.button-row'))
+      .find(el=>/dark|forest|lipstick|blue/i.test(el.textContent||''));
+  const title=document.querySelector('#tkTitle,.portal-title h1,.portal-title,header h1,main h1,h1');
+  if(!theme||!title||!title.parentElement) return;
+  let row=theme.closest('.tk-theme-row');
+  if(!row){
+    row=document.createElement('div');row.className='tk-theme-row';
+    if(!/theme/i.test(theme.textContent)){const l=document.createElement('span');l.className='tk-theme-label';l.textContent='THEME';row.appendChild(l)}
+    theme.parentElement.insertBefore(row,theme);row.appendChild(theme);
+  }
+  title.parentElement.insertBefore(row,title.nextSibling);
 })();
 
-/* ---------- populate category checklist ---------- */
-(async function buildCategoryPanel(){
-  const panel = byId('categoryPanel') || $('.category-panel');
-  const list  = byId('categoryChecklist') || (()=>{
-    // create a UL if the theme didn't include one
-    const ul = document.createElement('ul'); ul.id='categoryChecklist';
-    (panel || document.body).appendChild(ul); return ul;
-  })();
-  const countSel = byId('categorySelectedCount') || (()=>{
-    const span=document.createElement('span'); span.id='categorySelectedCount'; span.textContent='0'; return span;
-  })();
-  const countTot = byId('categoryTotalCount') || (()=>{
-    const span=document.createElement('span'); span.id='categoryTotalCount'; span.textContent='0'; return span;
-  })();
-
-  // Try canonical list first
-  async function fetchJSON(url){
-    const res = await fetch(url, {cache:'no-store'}); if(!res.ok) throw new Error(url+': '+res.status);
-    return res.json();
+/* ---------- Place CTAs to the right & keep visible ---------- */
+(function setCTAs(){
+  const portal=document.getElementById('tkPortal');
+  const cta=document.getElementById('ctaStack');
+  if(portal&&cta&&cta.parentElement!==portal){
+    const main=document.getElementById('surveyMain')||document.querySelector('.portal-main');
+    if(main&&main.parentElement===portal) portal.insertBefore(cta,main); else portal.appendChild(cta);
   }
-  let categories = [];
-  try {
-    // canonical names
-    const cats = await fetchJSON('/kinksurvey/data/categories.json');
-    categories = (Array.isArray(cats)?cats:cats.categories||[]).map(String);
-  } catch(e1){
-    try {
-      // fallback: derive unique category names from kinks dataset
-      const data = await fetchJSON('/kinksurvey/data/kinks.json');
-      const names = new Set();
-      (Array.isArray(data)?data:(data.kinks||[])).forEach(k=>{
-        const c = (k.category||k.Category||'').toString().trim();
-        if(c) names.add(c);
+  if(cta){cta.classList.add('tk-stack');
+    const show=()=>{cta.style.display='';cta.classList.add('tk-stack')};
+    new MutationObserver(()=>{if(getComputedStyle(cta).display==='none') show()})
+      .observe(cta,{attributes:true,attributeFilter:['style','class']});
+  }
+})();
+
+/* ---------- Build categories list from data ---------- */
+(async function buildCategories(){
+  const panel=document.getElementById('categoryPanel')||document.querySelector('.category-panel');
+  let list=document.getElementById('categoryChecklist');
+  if(!list){list=document.createElement('ul');list.id='categoryChecklist';(panel||document.body).appendChild(list)}
+  const totalEl=document.getElementById('categoryTotalCount')||document.createElement('span');
+  const selectedEl=document.getElementById('categorySelectedCount')||document.createElement('span');
+
+  async function getJSON(u){const r=await fetch(u,{cache:'no-store'});if(!r.ok) throw 0;return r.json()}
+  let categories=[];
+  try{
+    const cats=await getJSON('/kinksurvey/data/categories.json');
+    categories=(Array.isArray(cats)?cats:cats.categories||[]).map(String);
+  }catch(_){
+    try{
+      const data=await getJSON('/kinksurvey/data/kinks.json');
+      const s=new Set();(Array.isArray(data)?data:(data.kinks||[])).forEach(k=>{
+        const c=(k.category||k.Category||'').toString().trim(); if(c) s.add(c);
       });
-      categories = Array.from(names).sort((a,b)=>a.localeCompare(b));
-    } catch(e2){
-      console.warn('[TK] categories load failed', e1, e2);
-    }
+      categories=[...s].sort((a,b)=>a.localeCompare(b));
+    }catch(e){console.warn('[TK] could not load categories',e)}
   }
 
-  // render list
   list.innerHTML='';
-  const frag = document.createDocumentFragment();
+  const frag=document.createDocumentFragment();
   categories.forEach(name=>{
-    const li = document.createElement('li');
-    const id = 'tk-cat-' + name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
-    li.innerHTML = `<label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-      <input type="checkbox" id="${id}" value="${name}">
-      <span>${name}</span>
+    const id='tk-cat-'+name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
+    const li=document.createElement('li');
+    li.innerHTML=`<label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+      <input type="checkbox" id="${id}" value="${name}"><span>${name}</span>
     </label>`;
     frag.appendChild(li);
   });
   list.appendChild(frag);
-  countTot.textContent = String(categories.length);
+  totalEl.textContent=String(categories.length);
 
-  // selection logic
-  const startBtn = byId('btnStart');
-  function recount(){
-    const n = list.querySelectorAll('input[type="checkbox"]:checked').length;
-    countSel.textContent = String(n);
-    if(startBtn) startBtn.disabled = n === 0;
-  }
-  list.addEventListener('change', e=>{
-    if(e.target && e.target.matches('input[type="checkbox"]')) recount();
-  });
-  recount(); // initial
+  const start=document.getElementById('btnStart');
+  const recount=()=>{
+    const n=list.querySelectorAll('input[type="checkbox"]:checked').length;
+    selectedEl.textContent=String(n); if(start) start.disabled=(n===0);
+  };
+  list.addEventListener('change',e=>{if(e.target?.matches('input[type="checkbox"]')) recount()});
+  recount();
 
-  // expose selected categories when Start is clicked
-  if(startBtn){
-    startBtn.addEventListener('click', ()=>{
-      const selected = Array.from(list.querySelectorAll('input:checked')).map(i=>i.value);
+  if(start){
+    start.addEventListener('click',()=>{
+      const selected=[...list.querySelectorAll('input:checked')].map(i=>i.value);
       document.dispatchEvent(new CustomEvent('tk:survey:start',{detail:{categories:selected}}));
-      // if your runtime expects window.TKSurvey.start, call it
-      if(window.TKSurvey?.start){ window.TKSurvey.start({categories:selected}); }
+      if(window.TKSurvey?.start){window.TKSurvey.start({categories:selected})}
     });
   }
 })();
 
-/* ---------- keep panel tall on resize (fallback) ---------- */
-(function keepTall(){
-  const panel = byId('categoryPanel') || $('.category-panel'); if(!panel) return;
-  const update = () => {
-    const r = panel.getBoundingClientRect();
-    const vh = Math.max(document.documentElement.clientHeight, window.innerHeight||0);
-    panel.style.maxHeight = Math.max(260, vh - r.top - 16) + 'px';
-  };
-  requestAnimationFrame(update); addEventListener('resize', update);
-})();
-</script>
-
-<!-- === TK LAYOUT TWEAK: put THEME under title + restore full-height category panel ===
-Paste this near the BOTTOM of /kinksurvey/index.html (right before </body>).
-It moves the theme selector directly under “Talk Kink Survey” and makes the left
-category panel use the page scroll (no inner panel scrollbar / sticky cap).
------------------------------------------------------------------------------------ -->
-<style>
-  /* Keep existing 2-col layout: left = categories, right = CTAs/content */
-  #tkPortal{
-    display:grid;
-    grid-template-columns:380px 1fr;
-    gap:28px;
-    align-items:start;
-  }
-  @media (max-width:980px){ #tkPortal{ grid-template-columns:1fr; } }
-
-  /* FULL category panel (no sticky height or internal scroll) */
-  #categoryPanel, .category-panel{
-    grid-column:1 !important;
-    position:static !important;
-    top:auto !important;
-    max-height:none !important;
-    overflow:visible !important;   /* the PAGE scrolls */
-  }
-  /* If a wrapper previously capped height, relax it */
-  .tk-left{ max-height:none !important; overflow:visible !important; }
-
-  /* Right column CTA stack stays as-is */
-  #ctaStack{ grid-column:2; grid-row:auto; max-width:560px; }
-  #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch; }
-
-  /* THEME row that spans across both columns, directly under the title */
-  .tk-theme-row{
-    grid-column:1 / -1;
-    display:flex; flex-wrap:wrap; gap:12px;
-    justify-content:center; align-items:center;
-    margin:-6px 0 18px;   /* snug under the title */
-  }
-  .tk-theme-row .tk-theme-label{
-    font-weight:700; opacity:.9; margin-right:6px; letter-spacing:.02em;
-  }
-</style>
-
-<script>
-/* 1) Move the existing THEME selector directly under the big title */
-(function placeThemeUnderTitle(){
-  // Find an existing theme block (cover common ids/classes you’ve used)
-  const theme =
-    document.querySelector('#themePicker, #themeSwitch, #themeBar, .theme-picker, .tk-theme, [data-theme-picker]') ||
-    // fallback heuristic: a nav/row that contains known theme names
-    Array.from(document.querySelectorAll('nav, .toolbar, .controls, .themes, .btn-row, .button-row'))
-      .find(el => /dark|forest|lipstick|blue/i.test(el.textContent||''));
-
-  if (!theme) return;
-
-  // Find the big page title
-  const title =
-    document.querySelector('#tkTitle, .portal-title h1, .portal-title, header h1, main h1, h1');
-
-  if (!title || !title.parentElement) return;
-
-  // Wrap theme into a full-width row and insert right after the title
-  let row = theme.closest('.tk-theme-row');
-  if (!row){
-    row = document.createElement('div');
-    row.className = 'tk-theme-row';
-
-    // Optional “THEME” label (don’t add if one is already present)
-    if (!/theme/i.test(theme.textContent)) {
-      const lbl = document.createElement('span');
-      lbl.className = 'tk-theme-label';
-      lbl.textContent = 'THEME';
-      row.appendChild(lbl);
-    }
-    // Move the theme controls into the row
-    theme.parentElement.insertBefore(row, theme);
-    row.appendChild(theme);
-  }
-  title.parentElement.insertBefore(row, title.nextSibling);
-})();
-
-/* 2) Guard against any script re-applying sticky/limits to the category panel */
-(function unlockCategoryPanel(){
-  const panel = document.getElementById('categoryPanel') || document.querySelector('.category-panel');
-  if (!panel) return;
-  const unlock = () => {
-    panel.style.position  = 'static';
-    panel.style.top       = 'auto';
-    panel.style.maxHeight = 'none';
-    panel.style.overflow  = 'visible';
-  };
-  unlock();
-  new MutationObserver(unlock).observe(panel, { attributes:true, attributeFilter:['style','class'] });
+/* ---------- Keep category panel full-height even if styles flip back ---------- */
+(function unlockPanel(){
+  const p=document.getElementById('categoryPanel')||document.querySelector('.category-panel'); if(!p) return;
+  const fix=()=>{p.style.position='static';p.style.top='auto';p.style.maxHeight='none';p.style.overflow='visible'};
+  fix(); new MutationObserver(fix).observe(p,{attributes:true,attributeFilter:['style','class']});
 })();
 </script>
 
