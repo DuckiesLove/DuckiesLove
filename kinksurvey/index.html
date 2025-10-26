@@ -11,6 +11,53 @@
       • Keeps CTAs/panel from being re-hidden by legacy code
     =========================================================================== -->
 
+    <script id="tk-rescue">
+(async () => {
+  try {
+    // If a stale SW or cached bundle is causing a blank page, clear it and force one clean reload
+    const reloadNeeded = !sessionStorage.getItem('tkCacheBusted');
+
+    // Remove ALL service workers for this origin
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+    }
+
+    // Purge all Cache Storage buckets
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+    }
+
+    // Nuke common app caches
+    try { localStorage.removeItem('tk-build-hash'); } catch {}
+    try { sessionStorage.removeItem('tk-build-hash'); } catch {}
+
+    // One-time cache-busting refresh (prevents infinite loop)
+    if (reloadNeeded) {
+      sessionStorage.setItem('tkCacheBusted', '1');
+      const url = new URL(location.href);
+      url.searchParams.set('nuke', Date.now().toString());
+      location.replace(url.toString());
+      return;
+    }
+  } catch (e) {
+    // Non-fatal: continue to page init
+    console.debug('[TK] rescue skipped:', e);
+  }
+
+  // Make sure any legacy overlay is suppressed early
+  try {
+    document.documentElement.classList.add('tk-no-overlay');
+    const kill = sel => document.querySelectorAll(sel).forEach(n => n.remove());
+    kill('#overlay,#loadingOverlay,.loading-overlay,[data-overlay]');
+    const style = document.createElement('style');
+    style.textContent = '.tk-no-overlay #overlay,.tk-no-overlay .loading-overlay{display:none!important;visibility:hidden!important;opacity:0!important}';
+    document.head.appendChild(style);
+  } catch {}
+})();
+</script>
+
     <noscript><style>body{background:#0b1418;color:#e7ffff;font:16px system-ui;padding:20px}</style>
     <p>JavaScript is disabled. Please enable it to load the Talk Kink Survey.</p></noscript>
 
@@ -973,29 +1020,20 @@
 
 
 
-<!-- =============== TK LAYOUT + BOOTSTRAP (drop-in, one box) ===============
-Paste this near the BOTTOM of /kinksurvey/index.html (right before </body>).
 
-It makes your page match the desired design:
-  • LEFT: full-height, sticky, scrollable Categories panel (visible during survey)
-  • MIDDLE: question flow
-  • RIGHT: three stacked buttons (Start / Analysis / Compatibility)
-  • THEME row sits directly under the big “Talk Kink Survey” title
-  • If the category checklist hasn’t populated yet, this will populate it
-    from /kinksurvey/data/categories.json (or fall back to /kinksurvey/data/kinks.json)
-
-You don’t need to rename existing elements; the script finds what you already have.
+<!-- =====================  DROP-IN FIX FOR /kinksurvey/  =====================
+Restores layout & clears caches so the page boots without DevTools.
 =========================================================================== -->
 
 <style>
   :root{
-    --tk-header-h: 92px;       /* height buffer under the title */
+    --tk-header-h: 92px;      /* space under the title */
     --tk-gap: 28px;
-    --tk-left-w: 360px;        /* left sidebar width */
-    --tk-cta-w: 560px;         /* max width of button column */
+    --tk-left-w: 360px;       /* left sidebar width */
+    --tk-cta-w: 560px;        /* max width for stacked buttons */
   }
 
-  /* Two columns: LEFT categories, RIGHT buttons/content */
+  /* Two-column portal: LEFT categories, RIGHT content */
   #tkPortal{
     display:grid;
     grid-template-columns: var(--tk-left-w) 1fr;
@@ -1003,7 +1041,7 @@ You don’t need to rename existing elements; the script finds what you already 
     align-items:start;
   }
 
-  /* LEFT — Categories panel */
+  /* LEFT — Categories panel (full-height, scroll) */
   #categoryPanel, .category-panel, #tk-cat-list{
     grid-column:1 !important;
     display:block !important;
@@ -1013,20 +1051,18 @@ You don’t need to rename existing elements; the script finds what you already 
     max-height: calc(100vh - var(--tk-header-h) - 16px);
     overflow:auto;
   }
-  /* Remove old caps if present */
   .tk-left{ max-height:none !important; overflow:visible !important; }
 
-  /* RIGHT — CTA stack + main content area lives in column 2 */
+  /* RIGHT — three stacked buttons */
   #ctaStack{ grid-column:2; max-width:var(--tk-cta-w); }
   #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch }
   #ctaStack .btn{ width:100%; text-align:center; padding:14px 16px; border-radius:12px; font-weight:700 }
   #ctaStack .btn-ghost{ background:transparent; border:2px solid var(--tk-accent,#39e3ff) }
 
-  #tkSurveyMain, #surveyMain, .portal-main, .survey-main, main .content{
-    grid-column:2 !important; min-width:0;
-  }
+  /* Main survey content sits in column 2 */
+  #tkSurveyMain, #surveyMain, .portal-main, .survey-main, main .content{ grid-column:2 !important; min-width:0; }
 
-  /* THEME row under title across both columns */
+  /* THEME row directly under title and spanning both columns */
   .tk-theme-row{
     grid-column:1 / -1;
     display:flex; flex-wrap:wrap; gap:12px;
@@ -1035,44 +1071,39 @@ You don’t need to rename existing elements; the script finds what you already 
   }
   .tk-theme-row .tk-theme-label{ font-weight:700; opacity:.9; margin-right:6px; letter-spacing:.02em }
 
-  /* (Optional) checklist cosmetics if your CSS doesn’t already handle it */
+  /* (Light checklist cosmetics if your CSS doesn’t already style it) */
   #categoryChecklist{ list-style:none; margin:12px 0 16px; padding:0 }
   #categoryChecklist li{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px }
 </style>
 
-<!-- Re-add CTAs if they’re missing; keep them visible after Start -->
+<!-- Optional: add CTAs if your page doesn’t already have them -->
 <nav id="ctaStack" class="tk-stack" style="display:grid;gap:14px;max-width:560px;">
   <button id="btnStart" class="btn btn-primary" disabled>Start Survey</button>
   <a id="btnKinkAnalysis" class="btn btn-ghost" href="/kinksurvey/analysis/">Individual Kink Analysis</a>
   <a id="btnCompatibility" class="btn btn-ghost" href="/kinksurvey/compat/">Compatibility Page</a>
 </nav>
 
-<script>
-(function tkLayoutAndBootstrap(){
-  const portal = document.getElementById('tkPortal') || document.querySelector('#tkPortal, main, #app');
-  if(!portal) return;
+<script id="tk-layout">
+(() => {
+  const $ = sel => document.querySelector(sel);
 
-  const catPanel = document.getElementById('categoryPanel')
-                 || document.querySelector('.category-panel')
-                 || document.getElementById('tk-cat-list');
+  const portal   = $('#tkPortal') || document.body;                 // fallback
+  const catPanel = $('#categoryPanel') || $('.category-panel') || $('#tk-cat-list');
+  const main     = $('#surveyMain') || $('#tkSurveyMain') || $('.portal-main, .survey-main, main .content');
+  const ctas     = $('#ctaStack');
 
-  const main    = document.getElementById('surveyMain') || document.getElementById('tkSurveyMain')
-               || document.querySelector('.portal-main, .survey-main, main .content');
-
-  const ctas    = document.getElementById('ctaStack');
-
-  /* 1) Place THEME row under title */
+  /* THEME under title */
   (function placeTheme(){
-    const title = document.querySelector('#tkTitle,.portal-title h1,.portal-title,header h1,main h1,h1');
-    const theme = document.querySelector('#themePicker,#themeSwitch,#themeBar,.theme-picker,.tk-theme,[data-theme-picker]')
-               || Array.from(document.querySelectorAll('nav,.toolbar,.controls,.themes,.btn-row,.button-row'))
-                     .find(el => /dark|forest|lipstick|blue/i.test((el.textContent||'').toLowerCase()));
-    if(!title || !theme) return;
+    const title = $('#tkTitle') || $('.portal-title h1') || $('.portal-title') || $('header h1') || $('main h1') || $('h1');
+    const theme = $('#themePicker,#themeSwitch,#themeBar,.theme-picker,.tk-theme,[data-theme-picker]') ||
+                  Array.from(document.querySelectorAll('nav,.toolbar,.controls,.themes,.btn-row,.button-row'))
+                       .find(el => /dark|forest|lipstick|blue/i.test((el.textContent||'').toLowerCase()));
+    if (!title || !theme) return;
     let row = theme.closest('.tk-theme-row');
-    if(!row){
-      row = document.createElement('div'); row.className='tk-theme-row';
-      if(!/theme/i.test(theme.textContent)) {
-        const lbl=document.createElement('span'); lbl.className='tk-theme-label'; lbl.textContent='THEME';
+    if (!row) {
+      row = document.createElement('div'); row.className = 'tk-theme-row';
+      if (!/theme/i.test(theme.textContent)) {
+        const lbl = document.createElement('span'); lbl.className = 'tk-theme-label'; lbl.textContent = 'THEME';
         row.appendChild(lbl);
       }
       theme.parentElement.insertBefore(row, theme); row.appendChild(theme);
@@ -1080,85 +1111,71 @@ You don’t need to rename existing elements; the script finds what you already 
     title.parentElement.insertBefore(row, title.nextSibling);
   })();
 
-  /* 2) Ensure left panel, then CTAs, then main are in the grid columns */
-  function placeLeftAndRight(){
-    if(catPanel){
-      if(catPanel.parentElement !== portal){
-        if(main && main.parentElement===portal){ portal.insertBefore(catPanel, main); }
-        else { portal.prepend(catPanel); }
-      }
-      catPanel.style.display='';         // un-hide if some code hid it
+  /* Put left panel, then CTAs, then main in the grid */
+  function placeColumns(){
+    if (catPanel && catPanel.parentElement !== portal) {
+      portal.prepend(catPanel);
     }
-    if(ctas){
-      if(ctas.parentElement !== portal){
-        if(main && main.parentElement===portal){ portal.insertBefore(ctas, main.nextSibling); }
-        else { portal.appendChild(ctas); }
-      }
-      ctas.classList.add('tk-stack');    // vertical stack style
-      ctas.style.display='';             // keep visible after Start
+    if (ctas && ctas.parentElement !== portal) {
+      if (main && main.parentElement === portal) portal.insertBefore(ctas, main);
+      else portal.appendChild(ctas);
     }
-    if(main){ main.style.display=''; }
+    if (main && main.parentElement !== portal) portal.appendChild(main);
+    if (ctas) { ctas.classList.add('tk-stack'); ctas.style.display=''; }
+    if (catPanel) catPanel.style.display='';
+    if (main) main.style.display='';
   }
-  placeLeftAndRight();
+  placeColumns();
 
-  /* 3) Keep CTAs from getting hidden by legacy code */
+  /* Keep CTAs visible if legacy code hides them */
   const mo = new MutationObserver(() => {
-    if(ctas && getComputedStyle(ctas).display==='none') ctas.style.display='';
-    if(catPanel && getComputedStyle(catPanel).display==='none') catPanel.style.display='block';
-    placeLeftAndRight();
+    if (ctas && getComputedStyle(ctas).display==='none') ctas.style.display='';
+    if (catPanel && getComputedStyle(catPanel).display==='none') catPanel.style.display='block';
   });
-  mo.observe(document.documentElement, { subtree:true, childList:true, attributes:true, attributeFilter:['style','class'] });
+  mo.observe(document.documentElement, {subtree:true, childList:true, attributes:true, attributeFilter:['style','class']});
 
-  window.addEventListener('tk:survey:start', placeLeftAndRight);
-
-  /* 4) Enable Start when a category is checked; also update counters */
+  /* Enable Start when a category is checked and show counts */
   (function bindStart(){
-    const list = document.getElementById('categoryChecklist');
-    const btn  = document.getElementById('btnStart');
-    const selectedCount = document.getElementById('categorySelectedCount');
-    const totalCount    = document.getElementById('categoryTotalCount');
+    const list = $('#categoryChecklist');
+    const btn  = $('#btnStart');
+    const selCount = $('#categorySelectedCount');
+    const totalCount= $('#categoryTotalCount');
 
     function recount(){
       if(!list || !btn) return;
       const n = list.querySelectorAll('input[type="checkbox"]:checked').length;
       btn.disabled = (n===0);
-      if(selectedCount) selectedCount.textContent = String(n);
+      if(selCount) selCount.textContent = String(n);
+      if(totalCount && !totalCount.textContent) {
+        totalCount.textContent = String(list.querySelectorAll('input[type="checkbox"]').length || '');
+      }
     }
     if(list){
-      if(totalCount){
-        const t = list.querySelectorAll('input[type="checkbox"]').length;
-        if(t) totalCount.textContent = String(t);
-      }
       list.addEventListener('change', e => { if(e.target?.matches('input[type="checkbox"]')) recount(); });
       recount();
     }
+    // Keep CTAs after Start
+    if (btn) btn.addEventListener('click', () => { if (ctas) ctas.style.display=''; });
   })();
 
-  /* 5) Populate categories if the list is empty */
+  /* Populate categories if the UL is empty */
   (async function ensureCategories(){
-    const ul = document.getElementById('categoryChecklist') || (catPanel && catPanel.querySelector('ul'));
-    if(!ul) return;
-    if(ul.children.length > 0) return;
+    const ul = $('#categoryChecklist') || (catPanel && catPanel.querySelector('ul'));
+    if (!ul || ul.children.length) return;
 
-    async function fetchJSON(url){
-      const r = await fetch(url, {cache:'no-store'}); if(!r.ok) throw new Error(url);
-      return r.json();
+    async function getJSON(url){
+      const r = await fetch(url, {cache:'no-store'}); if(!r.ok) throw new Error(url); return r.json();
     }
-
     let cats = [];
-    try{
-      // Prefer canonical categories.json
-      cats = await fetchJSON('/kinksurvey/data/categories.json');
-    }catch{
-      try{
-        const kinks = await fetchJSON('/kinksurvey/data/kinks.json');
-        const set = new Set();
-        (kinks || []).forEach(k => k?.category && set.add(k.category));
+    try { cats = await getJSON('/kinksurvey/data/categories.json'); }
+    catch {
+      try {
+        const kinks = await getJSON('/kinksurvey/data/kinks.json');
+        const set = new Set(); (kinks||[]).forEach(k => k?.category && set.add(k.category));
         cats = Array.from(set).sort();
-      }catch{/* no-op */}
+      } catch {}
     }
-
-    if(Array.isArray(cats) && cats.length){
+    if (Array.isArray(cats) && cats.length) {
       ul.innerHTML = cats.map(name => `
         <li>
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
@@ -1166,11 +1183,12 @@ You don’t need to rename existing elements; the script finds what you already 
             <span>${name}</span>
           </label>
         </li>`).join('');
-      const evt = new Event('change'); ul.dispatchEvent(evt);
+      ul.dispatchEvent(new Event('change'));
     }
   })();
 })();
 </script>
+
 
 
   </body>
