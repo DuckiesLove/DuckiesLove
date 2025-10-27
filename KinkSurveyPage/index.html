@@ -58,7 +58,7 @@
     gap: var(--gap);
     margin-bottom: 10px;              /* tighten */
   }
-  #ctaStack{ grid-column: 2 / span 1; display:grid; gap:10px }
+  #ctaStack{ display:grid; gap:10px }
   .btn{
     border:1px solid var(--edge); background:rgba(255,255,255,.03); color:var(--ink);
     padding:14px 18px; border-radius:999px; text-align:center; font-weight:700;
@@ -357,10 +357,17 @@
 
   /* Treat title + theme chips + CTAs as one centered “hero” block */
   .tk-hero{
-    display:grid;
-    justify-items:center;
-    gap: 12px;
-    margin-bottom: 24px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap: 16px;
+    width:min(92vw, 720px);
+    margin: 0 auto 32px;
+  }
+
+  .tk-hero #title{
+    margin-bottom: 0;
   }
 
   /* Theme chips row (already centered visually) */
@@ -368,15 +375,15 @@
     display:flex;
     gap:.6rem;
     justify-content:center;
-    width:min(92vw, 720px);
+    width:100%;
     margin: 0 auto;
   }
 
   /* CTA stack: same width as theme row, centered, not huge */
   #ctaStack.tk-stack{
     display:grid;
-    width:min(92vw, 720px);
-    margin: 0 auto;
+    width:100%;
+    margin: 0;
     gap:16px;
   }
 
@@ -392,7 +399,8 @@
 
   /* Tweak sizes slightly on small screens */
   @media (max-width: 760px){
-    #themeRow, #ctaStack.tk-stack{ width:min(94vw, 620px); }
+    .tk-hero{ width:min(94vw, 560px); }
+    #themeRow, #ctaStack.tk-stack{ width:100%; }
     #ctaStack .btn{ font-size:20px; padding:16px 20px; }
   }
 </style>
@@ -592,26 +600,32 @@ scaleRow.querySelector('input[value="0"]').checked = true;
 </script>
 <style>
   /* Keep the title, chips, and CTAs in one centered hero */
-  #titleArea, .tk-hero{ display:grid; justify-items:center; }
+  #titleArea, .tk-hero{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:16px;
+  }
 
-  /* Chips row stays natural width (shrink-to-fit) */
+  /* Chips row spans the hero width */
   #themeRow{
     display:flex;
     gap:.6rem;
     align-items:center;
     justify-content:center;
-    width:max-content;       /* <- natural content width (“Dark … Blue Glow”) */
+    width:100%;
     margin:8px auto 0;
   }
 
-  /* CTA stack takes the themeRow width via JS below */
+  /* CTA stack mirrors the theme row width */
   #ctaStack.tk-stack{
     display:grid;
     justify-items:stretch;
-    margin:18px auto 0;
+    margin:0;
     gap:16px;
-    width:auto;              /* JS will set an explicit pixel width */
-    max-width:95vw;          /* safety on tiny screens */
+    width:100%;
+    max-width:95vw;
   }
 
   /* Buttons fill the stack width */
