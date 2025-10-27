@@ -307,6 +307,35 @@
       body.tk-prestart #tkPortal .tk-left > :not(#categoryPanel) { display: none !important; }
       #surveyApp[hidden], #surveyScoreCard[hidden] { display: none !important; }
     </style>
+
+    <style>
+      .tk-btn.tk-btn--download {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        padding: 1.1rem 1.4rem;
+        border-radius: 18px;
+        border: 2px solid rgba(0, 255, 255, 0.35);
+        background: radial-gradient(120% 120% at 50% 0%, rgba(0, 255, 255, 0.12), rgba(0, 255, 255, 0.05) 60%, rgba(0, 0, 0, 0.25) 100%);
+        box-shadow: 0 0 24px rgba(0, 255, 255, 0.18), inset 0 0 18px rgba(0, 255, 255, 0.12);
+        color: #e9fbff;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        font-size: 1.05rem;
+        transition: transform 0.06s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      }
+
+      .tk-btn.tk-btn--download:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 0 36px rgba(0, 255, 255, 0.28), inset 0 0 22px rgba(0, 255, 255, 0.18);
+        border-color: rgba(0, 255, 255, 0.55);
+      }
+
+      .tk-btn.tk-btn--download[hidden] {
+        display: none !important;
+      }
+    </style>
   </head>
   <body class="tk-prestart">
     <div class="tk-page">
@@ -364,6 +393,9 @@
                     <!-- Ensure these containers exist for JS to target -->
                     <div id="tk-question-card" class="question-card"></div>
                     <aside id="tk-score-rail" class="score-rail"></aside>
+                    <button id="btnDownloadResults" class="tk-btn tk-btn--download" hidden>
+                      Download Results
+                    </button>
                   </section>
 
                   <aside class="score-sidebar" data-sticky="score">
@@ -1278,6 +1310,220 @@ Restores layout & clears caches so the page boots without DevTools.
 })();
 </script>
 
+    <script>
+      (function () {
+        const SELECTORS = Object.freeze({
+          questionCard: '#questionCard, #tk-question-card, .tk-question-card, [data-role="question-card"]',
+          progressBar: '#progressBar, .tk-progress-bar, [data-role="progress"]'
+        });
+
+        const btn = document.getElementById('btnDownloadResults');
+        if (!btn) return;
+
+        function uniqueInputs() {
+          const seen = new WeakSet();
+          const nodes = [];
+          document
+            .querySelectorAll(
+              '#categoryChecklist input[type="checkbox"], .tk-cat-input, .tk-category-list input[type="checkbox"], .category-list input[type="checkbox"]'
+            )
+            .forEach((input) => {
+              if (!(input instanceof HTMLInputElement) || input.type !== 'checkbox') return;
+              if (seen.has(input)) return;
+              seen.add(input);
+              nodes.push(input);
+            });
+          return nodes;
+        }
+
+        function getSelectedCategories() {
+          const chosen = [];
+          uniqueInputs().forEach((cb) => {
+            if (!cb.checked) return;
+            const fromDataset = cb.dataset?.cat || cb.dataset?.category;
+            if (fromDataset) {
+              chosen.push(fromDataset.trim());
+              return;
+            }
+            const label = cb.closest('label');
+            const text = label?.querySelector('.tk-catname')?.textContent || label?.textContent || '';
+            const cleaned = text.replace(/\s+/g, ' ').trim();
+            if (cleaned) chosen.push(cleaned);
+          });
+          return chosen;
+        }
+
+        function getCurrentQuestion() {
+          const card = document.querySelector(SELECTORS.questionCard);
+          if (!card) return { title: '', path: '' };
+          const title = card.querySelector('.q-title, .tk-question-title strong, .tk-question-title, h2, h3, [data-role="question-title"]');
+          const path = card.querySelector('#questionPath, .q-path, .tk-question-title small');
+          return {
+            title: (title?.textContent || '').trim(),
+            path: (path?.textContent || '').trim()
+          };
+        }
+
+        function getCurrentScore() {
+          const active = document.querySelector(
+            '.tk-rating__choices .tk-scale-btn.is-active, .tk-rating__choices button[aria-pressed="true"], .tk-scale button.is-active, .tk-scale button[aria-pressed="true"]'
+          );
+          if (!active) return '';
+          const value = active.getAttribute('data-value') || active.dataset?.value || active.textContent;
+          return (value || '').trim();
+        }
+
+        function buildResultsHTML() {
+          const categories = getSelectedCategories();
+          const now = new Date();
+          const stamp = now.toLocaleString();
+          const question = getCurrentQuestion();
+          const currentScore = getCurrentScore();
+          const questionLine = [question.path, question.title].filter(Boolean).join(' — ');
+
+          const categoryList = categories.length
+            ? categories.map((c) => `<li>${escapeHTML(c)}</li>`).join('')
+            : '<li><em>No categories selected.</em></li>';
+
+          return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Talk Kink — Survey Summary</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{ --fg:#EAEFF2; --sub:#9FB7C1; --glow:rgba(0,255,255,.35); }
+  html,body{height:100%}
+  body{ margin:0; background:#000; color:var(--fg); font:16px/1.6 ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; }
+  .wrap{ max-width:980px; margin:56px auto; padding:0 20px; }
+  h1{ font-size:clamp(28px,4.5vw,56px); margin:0 0 8px; letter-spacing:.02em }
+  .sub{ color:var(--sub); margin:0 0 28px }
+  section{ border:1px solid #0b2c2c; border-radius:16px; padding:22px 20px; margin:16px 0;
+           background:linear-gradient(180deg,rgba(0,255,255,.05),rgba(0,255,255,.02)); box-shadow:0 0 28px rgba(0,255,255,.08) inset; }
+  h2{ font-size:20px; margin:0 0 12px; letter-spacing:.015em }
+  ul{ margin:10px 0 0 20px }
+  .badge{ display:inline-block; min-width:1.8rem; text-align:center; border:1px solid var(--glow); border-radius:999px; padding:.15rem .55rem; margin-left:.45rem; }
+  .muted{ color:var(--sub); }
+  .footer{ margin-top:32px; color:#89a3ab; font-size:13px }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Talk Kink Survey</h1>
+    <p class="sub">Export generated ${escapeHTML(stamp)}</p>
+
+    <section>
+      <h2>Selected Categories</h2>
+      <ul>${categoryList}</ul>
+    </section>
+
+    <section>
+      <h2>Last Question Answered</h2>
+      <p><strong>${escapeHTML(questionLine || '—')}</strong>
+         ${currentScore !== '' ? `<span class="badge">Score: ${escapeHTML(currentScore)}</span>` : ''}
+      </p>
+      <p class="muted">This export shows your chosen categories and the final question context. Your full answers are saved in your browser’s storage for privacy.</p>
+    </section>
+
+    <p class="footer">© Talk Kink — local export for your records</p>
+  </div>
+</body>
+</html>`;
+        }
+
+        function escapeHTML(value) {
+          return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+          })[ch]);
+        }
+
+        function downloadResults() {
+          const html = buildResultsHTML();
+          const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `talkkink-survey-summary-${new Date().toISOString().replace(/[:.]/g, '-')}.html`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1500);
+        }
+
+        function getProgressPercent() {
+          const pctNode = document.getElementById('progressPct');
+          if (pctNode) {
+            const match = pctNode.textContent?.match(/(\d+(?:\.\d+)?)/);
+            if (match) return Number(match[1]);
+          }
+          const bar = document.querySelector(SELECTORS.progressBar);
+          if (!bar) return 0;
+          const aria = bar.getAttribute('aria-valuenow');
+          if (aria && !Number.isNaN(Number(aria))) return Number(aria);
+          const datasetValue = bar.dataset?.value || bar.dataset?.progress || bar.dataset?.percent;
+          if (datasetValue && !Number.isNaN(Number(datasetValue))) return Number(datasetValue);
+          const width = bar.style?.getPropertyValue('--w');
+          if (width) {
+            const match = width.match(/(\d+(?:\.\d+)?)%/);
+            if (match) return Number(match[1]);
+          }
+          const textMatch = bar.textContent?.match(/(\d+(?:\.\d+)?)\s*%/);
+          if (textMatch) return Number(textMatch[1]);
+          return 0;
+        }
+
+        function atCompletion() {
+          return getProgressPercent() >= 100;
+        }
+
+        function findQuestionCard() {
+          const cards = Array.from(document.querySelectorAll(SELECTORS.questionCard));
+          if (!cards.length) return null;
+          return (
+            cards.find((el) => el.querySelector('.tk-rating__choices, .tk-scale, [data-group="rating-A"]')) ||
+            cards[0]
+          );
+        }
+
+        function placeButton() {
+          const card = findQuestionCard();
+          if (!card || !card.parentElement) return;
+          if (btn.parentElement === card.parentElement && btn.previousElementSibling === card) return;
+          card.insertAdjacentElement('afterend', btn);
+        }
+
+        function updateButtonVisibility() {
+          placeButton();
+          btn.hidden = !atCompletion();
+        }
+
+        btn.addEventListener('click', downloadResults);
+
+        const host = document.getElementById('tk-question-host');
+        if (host) {
+          const mo = new MutationObserver(() => {
+            placeButton();
+            updateButtonVisibility();
+          });
+          mo.observe(host, { childList: true, subtree: true });
+        }
+
+        const progressEl = document.querySelector(SELECTORS.progressBar);
+        if (progressEl) {
+          const mo = new MutationObserver(updateButtonVisibility);
+          mo.observe(progressEl, { attributes: true, childList: true, subtree: true, characterData: true });
+        }
+
+        document.addEventListener('tk:categories:changed', updateButtonVisibility);
+        document.addEventListener('tk:progress:changed', updateButtonVisibility);
+
+        updateButtonVisibility();
+      })();
+    </script>
 
 
   </body>
