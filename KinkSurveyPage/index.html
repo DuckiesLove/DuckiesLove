@@ -255,10 +255,62 @@
     /* We’ll still hide question/scale at start on mobile, then reveal to stack below */
   }
 </style>
+<style>
+  /* Tuck the hero/title + theme row tighter */
+  h1.tk-title{ margin-bottom: 8px !important; line-height: 1.05; }
+  #themeRow{ display:flex; gap:.6rem; justify-content:center; margin: 6px 0 10px; }
+
+  /* Make the stacked buttons wider and bring them up under the title */
+  #ctaStack.tk-stack{
+    /* Wider like your earlier design */
+    max-width: clamp(680px, 68vw, 1040px);
+    margin-inline: auto;
+    margin-top: 8px;              /* closer to the title */
+    gap: 18px;                    /* spacing between the three buttons */
+  }
+  /* Button look & size (closer to your “before”) */
+  #ctaStack .btn{
+    display:block;
+    width: 100%;
+    padding: 22px 26px;
+    border-radius: 20px;
+    font-size: 22px;              /* larger label */
+    font-weight: 800;
+    letter-spacing: .2px;
+    border: 2px solid var(--tk-accent, #1ee0ff);
+    background: rgba(0,0,0,.28);
+    color: #eafcff;
+    text-align:center;
+    box-shadow: 0 0 28px rgba(30,224,255,.18) inset, 0 0 22px rgba(30,224,255,.14);
+    transition: transform .08s ease, box-shadow .18s ease, background .18s ease;
+  }
+  #ctaStack .btn:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 0 34px rgba(30,224,255,.26) inset, 0 0 26px rgba(30,224,255,.18);
+  }
+
+  /* Start the three-column grid a touch lower so buttons feel attached to title */
+  .tk-columns{ margin-top: 16px; }
+
+  /* Keep left panel tall/scrollable as you had */
+  #catColumn{
+    max-height: calc(100vh - 180px);
+    overflow: auto;
+  }
+
+  /* Safety: if any global section has a big top margin, neutralize it under the CTAs */
+  #ctaStack + * { margin-top: 16px !important; }
+
+  /* Mobile: keep buttons readable and centered */
+  @media (max-width: 980px){
+    #ctaStack.tk-stack{ max-width: min(96vw, 720px); }
+    #ctaStack .btn{ font-size: 20px; padding: 18px 22px; }
+  }
+</style>
 </head>
 <body>
   <div class="container">
-    <h1 id="title">Talk Kink Survey</h1>
+    <h1 id="title" class="tk-title">Talk Kink Survey</h1>
 
     <div class="theme-row" id="themeRow">
       <button class="chip active" data-theme="dark">Dark</button>
