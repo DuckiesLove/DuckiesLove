@@ -355,69 +355,66 @@
 /* Drop this at the very end of KinkSurveyPage/index.html (after your theme css)
    Goal: center CTAs under the theme chips AND keep them a reasonable width. */
 
-/* Treat title + theme chips + CTAs as one centered “hero” block */
-.tk-hero,
-#titleArea{
-  display:grid;
-  justify-items:center;         /* centers both rows */
-}
+  /* Treat title + theme chips + CTAs as one centered “hero” block */
+  .tk-hero{
+    display:grid;
+    justify-items:center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
 
-/* Theme chips row (already centered visually) */
-#themeRow{
-  display:flex;
-  gap:.6rem;
-  justify-content:center;
-  width:min(92vw, 720px) !important;   /* <- reference width for the CTAs */
-  margin:10px auto 0;
-}
+  /* Theme chips row (already centered visually) */
+  #themeRow{
+    display:flex;
+    gap:.6rem;
+    justify-content:center;
+    width:min(92vw, 720px);
+    margin: 0 auto;
+  }
 
-/* CTA stack: same width as theme row, centered, not huge */
-#ctaStack.tk-stack{
-  display:grid;
-  justify-items:center;
-  width:min(92vw, 720px) !important;   /* <- keep CTAs same visual width as chips */
-  margin:18px auto 0;                  /* a bit of breathing room below chips */
-  gap:16px;
-}
+  /* CTA stack: same width as theme row, centered, not huge */
+  #ctaStack.tk-stack{
+    display:grid;
+    width:min(92vw, 720px);
+    margin: 0 auto;
+    gap:16px;
+  }
 
-/* Buttons fill the stack width but don’t sprawl */
-#ctaStack .btn{
-  width:100%;
-  max-width:720px;                      /* belt & suspenders */
-  padding:18px 22px;
-  border-radius:18px;
-  font-size:22px;
-  font-weight:800;
-  text-align:center;
-}
+  /* Buttons fill the stack width but don’t sprawl */
+  #ctaStack .btn{
+    width:100%;
+    padding:18px 22px;
+    border-radius:18px;
+    font-size:22px;
+    font-weight:800;
+    text-align:center;
+  }
 
-/* Tweak sizes slightly on small screens */
-@media (max-width: 760px){
-  #themeRow, #ctaStack.tk-stack{ width:min(94vw, 620px) !important; }
-  #ctaStack .btn{ font-size:20px; padding:16px 20px; }
-}
+  /* Tweak sizes slightly on small screens */
+  @media (max-width: 760px){
+    #themeRow, #ctaStack.tk-stack{ width:min(94vw, 620px); }
+    #ctaStack .btn{ font-size:20px; padding:16px 20px; }
+  }
 </style>
 </head>
 <body>
   <div class="container">
-    <h1 id="title" class="tk-title">Talk Kink Survey</h1>
+    <header class="tk-hero">
+      <h1 id="title" class="tk-title">Talk Kink Survey</h1>
 
-    <div class="theme-row" id="themeRow">
-      <button class="chip active" data-theme="dark">Dark</button>
-      <button class="chip" data-theme="lipstick">Lipstick</button>
-      <button class="chip" data-theme="forest">Forest</button>
-      <button class="chip" data-theme="glow">Blue Glow</button>
-    </div>
+      <div class="theme-row" id="themeRow">
+        <button class="chip active" data-theme="dark">Dark</button>
+        <button class="chip" data-theme="lipstick">Lipstick</button>
+        <button class="chip" data-theme="forest">Forest</button>
+        <button class="chip" data-theme="glow">Blue Glow</button>
+      </div>
 
-    <div class="cta-grid">
-      <div></div>
       <nav id="ctaStack" class="tk-stack">
         <button id="btnStart" class="btn" type="button" disabled>Start Survey</button>
         <a class="btn" href="/kinksurvey/#analysis">Individual Kink Analysis</a>
         <a class="btn" href="/kinksurvey/#compatibility">Compatibility Page</a>
       </nav>
-      <div></div>
-    </div>
+    </header>
 
     <section class="tk-columns">
       <!-- LEFT -->
