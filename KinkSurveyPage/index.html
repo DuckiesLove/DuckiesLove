@@ -307,6 +307,50 @@
     #ctaStack .btn{ font-size: 20px; padding: 18px 22px; }
   }
 </style>
+<style>
+  /* Treat the title + theme chips + CTA stack as one centered hero block */
+  .tk-hero,
+  body > header,
+  #titleArea {
+    display: grid;
+    justify-items: center;
+  }
+
+  /* Center the theme selector row */
+  #themeRow{
+    display:flex;
+    gap:.6rem;
+    justify-content:center;
+    margin: 8px 0 0;
+  }
+
+  /* Center the stacked buttons with the theme row and push them down a bit */
+  #ctaStack.tk-stack{
+    display: grid;
+    justify-items: center;
+    width: min(92vw, 980px);
+    margin-top: 36px;
+    gap: 18px;
+  }
+
+  /* (Optional) keep button labels readable and consistent */
+  #ctaStack .btn{
+    width: 100%;
+    padding: 22px 26px;
+    border-radius: 20px;
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  /* Make sure the grid below doesn’t collide with the hero */
+  .tk-columns{ margin-top: 18px; }
+
+  @media (max-width: 980px){
+    #ctaStack.tk-stack{ width: min(96vw, 760px); margin-top: 28px; }
+    #ctaStack .btn{ font-size: 20px; padding: 18px 22px; }
+  }
+</style>
 </head>
 <body>
   <div class="container">
