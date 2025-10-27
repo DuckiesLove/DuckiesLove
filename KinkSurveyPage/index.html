@@ -593,5 +593,66 @@ for(let v=0; v<=5; v++){
 }
 scaleRow.querySelector('input[value="0"]').checked = true;
 </script>
+<style>
+  /* Keep the title, chips, and CTAs in one centered hero */
+  #titleArea, .tk-hero{ display:grid; justify-items:center; }
+
+  /* Chips row stays natural width (shrink-to-fit) */
+  #themeRow{
+    display:flex;
+    gap:.6rem;
+    align-items:center;
+    justify-content:center;
+    width:max-content;       /* <- natural content width (“Dark … Blue Glow”) */
+    margin:8px auto 0;
+  }
+
+  /* CTA stack takes the themeRow width via JS below */
+  #ctaStack.tk-stack{
+    display:grid;
+    justify-items:stretch;
+    margin:18px auto 0;
+    gap:16px;
+    width:auto;              /* JS will set an explicit pixel width */
+    max-width:95vw;          /* safety on tiny screens */
+  }
+
+  /* Buttons fill the stack width */
+  #ctaStack .btn{
+    width:100%;
+    padding:18px 22px;
+    border-radius:18px;
+    font-size:22px;
+    font-weight:800;
+    text-align:center;
+    box-sizing:border-box;
+  }
+
+  @media (max-width: 640px){
+    #ctaStack .btn{ font-size:20px; padding:16px 18px; }
+  }
+</style>
+
+<script>
+  // Make CTA buttons exactly as wide as the theme chips row.
+  (function () {
+    const chips = document.getElementById('themeRow');
+    const ctas  = document.getElementById('ctaStack');
+    if (!chips || !ctas) return;
+
+    function sizeCTAs() {
+      // include sub-pixel and a tiny breathing room so borders don’t wrap
+      const w = Math.ceil(chips.getBoundingClientRect().width) + 2;
+      ctas.style.width = Math.min(w, document.documentElement.clientWidth * 0.95) + 'px';
+    }
+
+    // run on load and any resize/theme/font change
+    window.addEventListener('load', sizeCTAs, { once:true });
+    window.addEventListener('resize', sizeCTAs);
+    // if your theme chips can hide/show, observe layout changes too
+    const ro = new ResizeObserver(sizeCTAs);
+    ro.observe(chips);
+  })();
+</script>
 </body>
 </html>
