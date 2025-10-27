@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Talk Kink Survey — Prototype</title>
 <style>
+  /* --- global box model so borders/padding don't cause overflow --- */
+  *,*::before,*::after{ box-sizing:border-box }
+
   :root{
     --bg: #081017;
     --panel: #0f1f28;
@@ -20,16 +23,16 @@
     --radius: 16px;
   }
 
-  /* ===== Base ===== */
   html,body{height:100%}
   body{
-    margin:0; background:var(--bg); color:var(--ink); font:16px/1.4 system-ui, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.4 system-ui, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   }
 
-  .container{max-width:1300px; margin:0 auto; padding:36px 18px 80px}
+  .container{max-width:1300px; margin:0 auto; padding:24px 18px 64px}
 
   h1#title{
-    margin: 0 0 22px;
+    margin: 0 0 12px;                 /* tighter so the right panel appears above the fold */
     text-align:center;
     font-size: clamp(28px, 6vw, 64px);
     font-weight: 800;
@@ -37,129 +40,115 @@
     text-shadow: 0 0 18px rgba(88,241,255,.38);
   }
 
-  /* ===== Theme chips under title ===== */
   .theme-row{
-    display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin: 0 0 18px;
+    display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin: 0 0 10px;
   }
   .chip{
     background:rgba(255,255,255,.03); border:1px solid var(--edge);
-    padding:8px 14px; border-radius:999px; color:var(--ink); cursor:pointer;
+    padding:7px 12px; border-radius:999px; color:var(--ink); cursor:pointer;
     transition:transform .12s ease, background .12s ease, border-color .12s ease;
   }
   .chip:hover{ transform:translateY(-1px); background:rgba(255,255,255,.05); border-color:rgba(132,255,255,.45) }
   .chip.active{ box-shadow: var(--glow); background:rgba(88,241,255,.1); border-color:rgba(132,255,255,.55) }
 
-  /* ===== Stacked CTAs (right of left column on wide screens) ===== */
+  /* CTAs */
   .cta-grid{
     display:grid;
     grid-template-columns: var(--left) 1fr var(--right);
     gap: var(--gap);
-    margin-bottom: 18px;
+    margin-bottom: 10px;              /* tighten */
   }
-  #ctaStack{
-    grid-column: 2 / span 1;
-    display:grid; gap:12px;
-  }
+  #ctaStack{ grid-column: 2 / span 1; display:grid; gap:10px }
   .btn{
     border:1px solid var(--edge); background:rgba(255,255,255,.03); color:var(--ink);
-    padding:16px 20px; border-radius:999px; text-align:center; font-weight:700;
+    padding:14px 18px; border-radius:999px; text-align:center; font-weight:700;
     box-shadow: var(--glow); cursor:pointer; transition:transform .12s ease, background .12s ease, border-color .12s ease;
   }
   .btn:hover{ transform: translateY(-1px); background: rgba(255,255,255,.06); border-color: rgba(132,255,255,.45); }
 
-  /* ===== Three columns ===== */
-  .tk-columns{
-    display:grid;
-    grid-template-columns: var(--left) 1fr var(--right);
-    gap: var(--gap);
-    align-items: start;
-  }
+  /* 3 columns */
+  .tk-columns{ display:grid; grid-template-columns: var(--left) 1fr var(--right); gap: var(--gap); align-items:start }
 
   .card{
     background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.03));
-    border:1px solid var(--edge); border-radius:var(--radius);
-    box-shadow: var(--glow);
+    border:1px solid var(--edge); border-radius:var(--radius); box-shadow: var(--glow);
   }
   .card > .card-hd{
-    padding:16px 18px; border-bottom:1px solid rgba(132,255,255,.12); color:var(--ink);
-    font-size: clamp(18px, 2.8vw, 24px); font-weight:800; letter-spacing:.3px;
+    padding:14px 16px; border-bottom:1px solid rgba(132,255,255,.12); color:var(--ink);
+    font-size: clamp(18px, 2.6vw, 24px); font-weight:800; letter-spacing:.3px;
   }
-  .card > .card-bd{ padding:16px 18px 18px }
+  .card > .card-bd{ padding:14px 16px 16px }
 
-  /* left category list */
-  .tk-left{ max-height: calc(100vh - 190px); overflow:auto }
+  /* left categories */
+  .tk-left{ max-height: calc(100vh - 170px); overflow:auto }  /* a bit taller, still fits viewport */
   .cat-list{ list-style:none; margin:0; padding:0 }
   .cat-item{
-    display:flex; align-items:center; gap:12px;
-    padding:12px 14px; margin: 8px 12px; border-radius: 12px;
-    background: rgba(255,255,255,.02); border: 1px solid rgba(132,255,255,.14);
-    color:var(--ink);
+    display:flex; align-items:center; gap:12px; padding:12px 14px; margin:8px 12px;
+    border-radius:12px; background:rgba(255,255,255,.02); border:1px solid rgba(132,255,255,.14); color:var(--ink);
   }
-  .cat-item input{ accent-color: var(--accent); }
+  .cat-item input{ accent-color: var(--accent) }
 
-  /* middle card fit-better */
+  /* middle card */
   #surveyMain.card{ width:100%; max-width:none; margin-inline:0 }
   #surveyMain .lead{ color: var(--ink-dim) }
 
-  /* rating scale – equal pills, never clipped */
+  /* --- FIT-BETTER rating box --- */
   .rating-wrap{
     background: rgba(255,255,255,.03);
     border: 1px solid var(--edge);
     border-radius: 14px;
-    padding:14px; margin-top: 10px; overflow: visible;
+    padding:12px;
+    margin-top: 8px;
   }
-  .scale-title{ font-weight: 700; color:var(--ink-dim); margin-bottom: 10px }
+  .scale-title{ font-weight:700; color:var(--ink-dim); margin-bottom:8px }
+
+  /* Key change: flex + equal-width pills that shrink as needed. No overflow. */
   .scale-row{
-    display:grid;
-    grid-template-columns: repeat(6, minmax(64px, 1fr)); /* 0..5 evenly spaced */
-    gap: 10px; align-items: center;
+    display:flex; gap:10px; align-items:stretch; width:100%;
+    min-width: 0;            /* allow shrink inside grid cell */
   }
   .pill{
+    flex: 1 1 0;             /* equal columns; can shrink */
+    min-width: 0;            /* let text/radio wrap within */
     display:flex; align-items:center; justify-content:center; gap:8px;
-    padding:10px 0; border-radius: 12px;
-    border:1px solid var(--edge); background: rgba(255,255,255,.03);
+    padding:12px 6px; border-radius:12px;
+    border:1px solid var(--edge); background:rgba(255,255,255,.03);
     cursor:pointer; user-select:none;
     transition: background .15s ease, transform .15s ease, border-color .15s ease;
   }
   .pill:hover{ background: rgba(255,255,255,.06); border-color: rgba(132,255,255,.45); transform: translateY(-1px);}
   .pill input{ width:16px; height:16px; margin:0; accent-color: var(--accent); }
 
-  /* right guard list */
-  .guard-list{ display:flex; flex-direction:column; gap:12px; padding:12px }
+  /* right guard: raise header so first guard card is visible without scrolling on laptops */
+  .tk-right{ max-height: calc(100vh - 170px); overflow:auto } /* internal scroll only when needed */
+  .tk-right .card-hd{ position:sticky; top:0; background:linear-gradient(180deg, rgba(8,16,23,.9), rgba(8,16,23,.7)); backdrop-filter: blur(2px); z-index:2 }
+
+  .guard-list{ display:flex; flex-direction:column; gap:10px; padding:10px }
   .guard-item{
     display:flex; gap:14px; align-items:flex-start;
-    padding:14px; border-radius:14px; background:rgba(255,255,255,.03); border:1px solid var(--edge);
+    padding:12px; border-radius:14px; background:rgba(255,255,255,.03); border:1px solid var(--edge);
   }
   .badge{
-    width:34px; height:34px; min-width:34px;
-    display:grid; place-items:center;
-    border-radius:999px; font-weight:800; color:#04141b;
-    background: #58f1ff;
+    width:34px; height:34px; min-width:34px; display:grid; place-items:center;
+    border-radius:999px; font-weight:800; color:#04141b; background:#58f1ff;
   }
   .badge.bad-1{ background:#ff6b6b}
   .badge.bad-2{ background:#ffd166}
   .badge.bad-3{ background:#6fd3ff}
   .badge.bad-4{ background:#72ffb3}
 
-  /* ===== Responsive ===== */
-  @media (max-width: 1160px){
-    :root{ --right: 360px; --left: 320px }
-  }
+  @media (max-width: 1160px){ :root{ --right: 360px; --left: 320px } }
   @media (max-width: 980px){
     .cta-grid{ display:block }
-    .tk-columns{
-      grid-template-columns: 1fr;
-    }
-    .tk-left, .tk-right{ max-height:none }
+    .tk-columns{ grid-template-columns: 1fr }
+    .tk-left,.tk-right{ max-height:none; overflow:visible }
   }
 </style>
 </head>
 <body>
   <div class="container">
-
     <h1 id="title">Talk Kink Survey</h1>
 
-    <!-- Theme chips -->
     <div class="theme-row" id="themeRow">
       <button class="chip active" data-theme="dark">Dark</button>
       <button class="chip" data-theme="lipstick">Lipstick</button>
@@ -167,7 +156,6 @@
       <button class="chip" data-theme="glow">Blue Glow</button>
     </div>
 
-    <!-- Stacked CTAs under title, centered (sits between left & right columns on wide screens) -->
     <div class="cta-grid">
       <div></div>
       <nav id="ctaStack">
@@ -178,10 +166,8 @@
       <div></div>
     </div>
 
-    <!-- Three panels -->
     <section class="tk-columns">
-
-      <!-- LEFT: Categories -->
+      <!-- LEFT -->
       <aside class="card tk-left" id="catCard">
         <div class="card-hd">Categories</div>
         <div class="card-bd">
@@ -189,7 +175,7 @@
         </div>
       </aside>
 
-      <!-- MIDDLE: Current question -->
+      <!-- MIDDLE -->
       <main class="card" id="surveyMain" aria-live="polite">
         <div class="card-hd">
           <div class="lead">Appearance Play • Choosing my partner’s outfit for the day or a scene</div>
@@ -200,14 +186,12 @@
         <div class="card-bd">
           <div class="rating-wrap" role="group" aria-labelledby="scaleTitle">
             <div id="scaleTitle" class="scale-title">Rate interest/comfort (0–5)</div>
-            <div class="scale-row" id="scaleRow">
-              <!-- the pills are built by JS so they can reflect selection -->
-            </div>
+            <div class="scale-row" id="scaleRow"></div>
           </div>
         </div>
       </main>
 
-      <!-- RIGHT: Guard / How to score -->
+      <!-- RIGHT -->
       <aside class="card tk-right">
         <div class="card-hd">Rate interest/comfort (0–5)</div>
         <div class="guard-list card-bd">
@@ -237,52 +221,38 @@
           </div>
         </div>
       </aside>
-
     </section>
   </div>
 
 <script>
-/* ========= THEMES (optional) ========= */
+/* themes (cosmetic) */
 document.querySelectorAll('.chip').forEach(chip=>{
   chip.addEventListener('click', ()=>{
     document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
     chip.classList.add('active');
-    // Hook up theme switch here if you have CSS variables per theme.
   });
 });
 
-/* ========= LEFT CATEGORIES =========
-   We load from /data/categories.json (or the kinksurvey/datapath fallback).
-   Each entry should be either a plain string or an object with .name.
-*/
+/* categories */
 const catTargets = [
   '/data/categories.json',
   '/kinksurvey/data/categories.json',
   '/KinkSurveyPage/data/categories.json'
 ];
-
 async function loadCategories(){
   let data = null;
   for(const path of catTargets){
-    try{
-      const r = await fetch(path, {cache:'no-store'});
-      if(r.ok){ data = await r.json(); break; }
-    }catch(e){}
+    try{ const r = await fetch(path,{cache:'no-store'}); if(r.ok){ data = await r.json(); break; } }catch(e){}
   }
   if(!data){
-    // Fallback list (subset)
-    data = [
-      "Appearance Play","Behavioral Play","Body Fluids and Functions","Body Modification",
-      "Body Part / Fetish Play","Body Part Torture","Bondage and Suspension","Breath Play",
-      "Breeding","Chastity Devices","Communication","Consent & Safewords"
-    ];
+    data = ["Appearance Play","Behavioral Play","Body Fluids and Functions","Body Modification",
+            "Body Part / Fetish Play","Body Part Torture","Bondage and Suspension","Breath Play",
+            "Breeding","Chastity Devices","Communication","Consent & Safewords"];
   }
-  const normalize = (entry)=> typeof entry === 'string' ? entry : (entry?.name ?? String(entry));
-  const cats = Array.isArray(data) ? data.map(normalize) : [];
-
+  const normalize = v => typeof v === 'string' ? v : (v?.name ?? String(v));
   const ul = document.getElementById('catList');
   ul.innerHTML = '';
-  cats.forEach(name=>{
+  (Array.isArray(data)?data.map(normalize):[]).forEach(name=>{
     const li = document.createElement('li');
     li.className = 'cat-item';
     li.innerHTML = `<input type="checkbox" aria-label="${name}"><span>${name}</span>`;
@@ -291,16 +261,14 @@ async function loadCategories(){
 }
 loadCategories();
 
-/* ========= RATING SCALE (0–5) – pills never clip ========= */
+/* 0–5 pills: equal width, never overflow */
 const scaleRow = document.getElementById('scaleRow');
-const nameAttr = 'score';
 for(let v=0; v<=5; v++){
   const lab = document.createElement('label');
   lab.className = 'pill';
-  lab.innerHTML = `<input type="radio" name="${nameAttr}" value="${v}"><span>${v}</span>`;
+  lab.innerHTML = `<input type="radio" name="score" value="${v}"><span>${v}</span>`;
   scaleRow.appendChild(lab);
 }
-// Select “skipped for now” = 0 by default
 scaleRow.querySelector('input[value="0"]').checked = true;
 </script>
 </body>
