@@ -1027,42 +1027,52 @@ Restores layout & clears caches so the page boots without DevTools.
 
 <style>
   :root{
-    --tk-header-h: 92px;      /* space under the title */
     --tk-gap: 28px;
-    --tk-left-w: 360px;       /* left sidebar width */
-    --tk-cta-w: 560px;        /* max width for stacked buttons */
+    --tk-left: 360px;     /* left column width  */
+    --tk-right: 420px;    /* right column width */
+    --tk-top: 96px;       /* clearance under the big title */
   }
 
-  /* Two-column portal: LEFT categories, RIGHT content */
+  /* 3-col portal */
   #tkPortal{
     display:grid;
-    grid-template-columns: var(--tk-left-w) 1fr;
+    grid-template-columns: var(--tk-left) 1fr var(--tk-right);
     gap: var(--tk-gap);
     align-items:start;
   }
 
-  /* LEFT — Categories panel (full-height, scroll) */
+  /* LEFT: categories – tall and sticky */
   #categoryPanel, .category-panel, #tk-cat-list{
     grid-column:1 !important;
+    position:sticky; top:var(--tk-top);
+    max-height:calc(100vh - var(--tk-top));
+    overflow:auto;
     display:block !important;
     visibility:visible !important;
-    position:sticky;
-    top: calc(var(--tk-header-h) + 8px);
-    max-height: calc(100vh - var(--tk-header-h) - 16px);
-    overflow:auto;
   }
-  .tk-left{ max-height:none !important; overflow:visible !important; }
 
-  /* RIGHT — three stacked buttons */
-  #ctaStack{ grid-column:2; max-width:var(--tk-cta-w); }
-  #ctaStack.tk-stack{ display:grid; gap:14px; justify-items:stretch }
-  #ctaStack .btn{ width:100%; text-align:center; padding:14px 16px; border-radius:12px; font-weight:700 }
-  #ctaStack .btn-ghost{ background:transparent; border:2px solid var(--tk-accent,#39e3ff) }
+  /* CENTER: survey/questions */
+  #tkCenter{
+    grid-column:2 !important;
+    min-width:0;
+  }
 
-  /* Main survey content sits in column 2 */
-  #tkSurveyMain, #surveyMain, .portal-main, .survey-main, main .content{ grid-column:2 !important; min-width:0; }
+  /* RIGHT: guard panel */
+  #tkRight{
+    grid-column:3;
+    position:sticky; top:var(--tk-top);
+    max-height:calc(100vh - var(--tk-top));
+    overflow:auto;
+    display:flex; flex-direction:column; gap:16px;
+  }
 
-  /* THEME row directly under title and spanning both columns */
+  /* Stacked CTAs sit at top of center column */
+  #ctaStack{ grid-column:2; display:grid; gap:14px; max-width:640px; }
+
+  /* Prevent any “overlay” code from hiding our columns */
+  .tk-force-show{ display:block !important; visibility:visible !important; opacity:1 !important; }
+
+  /* Theme row still spans full width */
   .tk-theme-row{
     grid-column:1 / -1;
     display:flex; flex-wrap:wrap; gap:12px;
@@ -1085,12 +1095,104 @@ Restores layout & clears caches so the page boots without DevTools.
 
 <script id="tk-layout">
 (() => {
-  const $ = sel => document.querySelector(sel);
+  const $  = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  const portal   = $('#tkPortal') || document.body;                 // fallback
+  const portal = $('#tkPortal') || document.body;
+  if (portal && !portal.id) portal.id = 'tkPortal';
+
   const catPanel = $('#categoryPanel') || $('.category-panel') || $('#tk-cat-list');
   const main     = $('#surveyMain') || $('#tkSurveyMain') || $('.portal-main, .survey-main, main .content');
   const ctas     = $('#ctaStack');
+
+  let center = $('#tkCenter');
+  if (!center) {
+    center = document.createElement('div');
+    center.id = 'tkCenter';
+    center.classList.add('tk-force-show');
+  }
+
+  let right = $('#tkRight');
+  if (!right) {
+    right = document.createElement('div');
+    right.id = 'tkRight';
+    right.classList.add('tk-force-show');
+  }
+
+  if (portal && !portal.contains(center)) portal.appendChild(center);
+  if (portal && !portal.contains(right)) portal.appendChild(right);
+
+  if (catPanel) {
+    if (catPanel.parentElement !== portal) portal.prepend(catPanel);
+    catPanel.classList.add('tk-force-show');
+    catPanel.style.display = '';
+  }
+
+  if (ctas) {
+    ctas.classList.add('tk-force-show', 'tk-stack');
+    if (ctas.parentElement !== portal) {
+      portal.insertBefore(ctas, center);
+    }
+    ctas.style.display = 'grid';
+    ctas.removeAttribute('hidden');
+  }
+
+  if (main) {
+    if (main.classList && typeof main.classList.add === 'function') {
+      main.classList.add('tk-force-show');
+    }
+    main.style.display = '';
+    if (!center.contains(main)) {
+      center.appendChild(main);
+    }
+  }
+
+  function pickGuardRoot(){
+    const byHeading = $$('aside,section,div').find(el => {
+      const h = el.querySelector('h2,h3,h4');
+      return h && /how to score|question guard/i.test((h.textContent || '').trim());
+    });
+    if (byHeading) return byHeading;
+
+    const ruleChips = $$('.badge, .chip, .pill, .score, .tk-score, .howto .row');
+    if (ruleChips.length >= 4) {
+      return ruleChips[0].closest('aside,section,.card,.panel') || ruleChips[0].parentElement;
+    }
+    return null;
+  }
+
+  let guard = pickGuardRoot();
+
+  function mountGuard(panel){
+    if (!panel) return;
+    panel.classList.add('tk-force-show');
+    panel.removeAttribute('hidden');
+    if (panel.parentElement !== right) {
+      right.appendChild(panel);
+    }
+  }
+
+  function ensureGuard(){
+    if (guard && !guard.isConnected) {
+      guard = null;
+    }
+    if (!guard) {
+      guard = pickGuardRoot();
+      if (guard) mountGuard(guard);
+    }
+    if (right) {
+      if (guard && right.contains(guard)) {
+        right.style.display = '';
+      } else if (!right.children.length) {
+        right.style.display = 'none';
+      }
+    }
+  }
+
+  ensureGuard();
+
+  center.removeAttribute('hidden');
+  right.removeAttribute('hidden');
 
   /* THEME under title */
   (function placeTheme(){
@@ -1111,26 +1213,14 @@ Restores layout & clears caches so the page boots without DevTools.
     title.parentElement.insertBefore(row, title.nextSibling);
   })();
 
-  /* Put left panel, then CTAs, then main in the grid */
-  function placeColumns(){
-    if (catPanel && catPanel.parentElement !== portal) {
-      portal.prepend(catPanel);
-    }
-    if (ctas && ctas.parentElement !== portal) {
-      if (main && main.parentElement === portal) portal.insertBefore(ctas, main);
-      else portal.appendChild(ctas);
-    }
-    if (main && main.parentElement !== portal) portal.appendChild(main);
-    if (ctas) { ctas.classList.add('tk-stack'); ctas.style.display=''; }
-    if (catPanel) catPanel.style.display='';
-    if (main) main.style.display='';
-  }
-  placeColumns();
-
-  /* Keep CTAs visible if legacy code hides them */
+  /* Keep critical columns visible if legacy code hides them */
   const mo = new MutationObserver(() => {
-    if (ctas && getComputedStyle(ctas).display==='none') ctas.style.display='';
-    if (catPanel && getComputedStyle(catPanel).display==='none') catPanel.style.display='block';
+    ensureGuard();
+    if (ctas && getComputedStyle(ctas).display === 'none') ctas.style.display = 'grid';
+    if (catPanel && getComputedStyle(catPanel).display === 'none') catPanel.style.display = 'block';
+    if (center && getComputedStyle(center).display === 'none') center.style.display = 'block';
+    if (right && getComputedStyle(right).display === 'none' && right.children.length) right.style.display = 'flex';
+    if (guard && getComputedStyle(guard).display === 'none') guard.style.display = '';
   });
   mo.observe(document.documentElement, {subtree:true, childList:true, attributes:true, attributeFilter:['style','class']});
 
@@ -1154,8 +1244,7 @@ Restores layout & clears caches so the page boots without DevTools.
       list.addEventListener('change', e => { if(e.target?.matches('input[type="checkbox"]')) recount(); });
       recount();
     }
-    // Keep CTAs after Start
-    if (btn) btn.addEventListener('click', () => { if (ctas) ctas.style.display=''; });
+    if (btn) btn.addEventListener('click', () => { if (ctas) ctas.style.display='grid'; });
   })();
 
   /* Populate categories if the UL is empty */
