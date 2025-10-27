@@ -144,6 +144,57 @@
     .tk-left,.tk-right{ max-height:none; overflow:visible }
   }
 </style>
+<style id="kinksurvey-layout-tuneups">
+  :root{
+    /* keep your existing custom properties; nothing to change here */
+  }
+
+  /* 1) More breathing room below the stacked CTAs */
+  .cta-grid{
+    margin-bottom: 22px;          /* was ~10px in the previous build */
+  }
+
+  /* 2) Left column scrolls “longer” (more items visible before it needs to scroll) */
+  .tk-left{
+    /* was: max-height: calc(100vh - 170px); */
+    max-height: calc(100vh - 110px);   /* taller viewport allowance */
+    overflow: auto;                     /* keep internal scroll on the left only */
+  }
+
+  /* 3) Nudge the whole three-column grid down a bit more from the CTAs (optional, subtle) */
+  .tk-columns{
+    margin-top: 10px;              /* extra space between buttons and middle card */
+  }
+
+  /* 4) Right column shows the WHOLE scale with no internal scrollbar on desktop */
+  @media (min-width: 981px){
+    .tk-right{
+      max-height: none;            /* let the page scroll instead of the panel */
+      overflow: visible;           /* no inner scrollbar */
+    }
+    .tk-right .card-hd{
+      position: static;            /* unstick the header so content starts higher */
+    }
+  }
+
+  /* (Keep the mobile behavior: single-column stack with natural page scroll) */
+  @media (max-width: 980px){
+    .tk-left{ max-height: none; overflow: visible; }
+    .tk-right{ max-height: none; overflow: visible; }
+  }
+
+  /* 5) Ensure the 0–5 pills always fit within the middle card and never wrap weirdly */
+  .rating-wrap{ padding: 12px; }
+  .scale-row{
+    display: flex; gap: 10px; width: 100%;
+    min-width: 0;                  /* allows shrinking inside grid cell */
+  }
+  .pill{
+    flex: 1 1 0;                   /* equal width, shrinkable */
+    min-width: 0;
+    padding: 12px 6px;
+  }
+</style>
 </head>
 <body>
   <div class="container">
