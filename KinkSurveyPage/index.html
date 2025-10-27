@@ -96,6 +96,13 @@
     line-height: 1.35;
   }
 
+  #questionColumn .subhead{
+    margin-top: 6px;
+    font-size: clamp(14px, 2vw, 18px);
+    font-weight: 800;
+    color: var(--ink);
+  }
+
   /* --- FIT-BETTER rating box --- */
   .rating-wrap{
     background: rgba(255,255,255,.03);
@@ -441,9 +448,7 @@
       <main class="card is-hidden" id="questionColumn" aria-live="polite">
         <div class="card-hd">
           <div class="lead">Appearance Play • Choosing my partner’s outfit for the day or a scene</div>
-          <div style="margin-top:6px; font-size: clamp(18px, 2.6vw, 26px); font-weight:800;">
-            Giving: Rate interest/comfort (0–5)
-          </div>
+          <div class="subhead">Giving: Rate interest/comfort (0–5)</div>
         </div>
         <div class="card-bd">
           <div class="rating-wrap" role="group" aria-labelledby="scaleTitle">
