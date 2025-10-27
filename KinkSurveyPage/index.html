@@ -89,8 +89,8 @@
   .cat-item input{ accent-color: var(--accent) }
 
   /* middle card */
-  #surveyMain.card{ width:100%; max-width:none; margin-inline:0 }
-  #surveyMain .lead{ color: var(--ink-dim) }
+  #questionColumn.card{ width:100%; max-width:none; margin-inline:0 }
+  #questionColumn .lead{ color: var(--ink-dim) }
 
   /* --- FIT-BETTER rating box --- */
   .rating-wrap{
@@ -195,6 +195,66 @@
     padding: 12px 6px;
   }
 </style>
+<style>
+  /* Utility: completely hide until we want to reveal via JS */
+  .is-hidden { display: none !important; }
+
+  /* Stacked CTA look — same style you had “before” */
+  #ctaStack.tk-stack{
+    display: grid;
+    gap: 16px;
+    margin-inline: auto;
+    max-width: 720px;
+  }
+  #ctaStack .btn{
+    display: block;
+    width: 100%;
+    padding: 18px 22px;
+    border: 2px solid var(--tk-accent, #1ee0ff);
+    border-radius: 16px;
+    background: rgba(0,0,0,.25);
+    color: #eafcff;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 0 24px rgba(30,224,255,.15) inset, 0 0 18px rgba(30,224,255,.12);
+    transition: transform .08s ease, box-shadow .18s ease, background .18s ease;
+  }
+  #ctaStack .btn:hover{ transform: translateY(-1px); box-shadow: 0 0 28px rgba(30,224,255,.25) inset, 0 0 22px rgba(30,224,255,.16); }
+  #ctaStack .btn:active{ transform: translateY(0); }
+
+  /* Disabled Start state until a category is selected */
+  #btnStart[disabled]{
+    opacity: .45; cursor: not-allowed;
+    filter: grayscale(.3);
+  }
+
+  /* Layout wrappers (use your existing classes as well) */
+  .tk-columns{
+    display: grid;
+    grid-template-columns: 380px 1fr 420px;   /* left / middle / right */
+    gap: 28px;
+    align-items: start;
+    margin-top: 18px;                         /* space below CTAs */
+  }
+
+  /* Left column: allow internal scroll (longer list) */
+  #catColumn{
+    max-height: calc(100vh - 180px);
+    overflow: auto;
+  }
+
+  /* Middle and right columns start hidden (JS will unhide) */
+  #questionColumn.is-hidden,
+  #scaleColumn.is-hidden { display: none !important; }
+
+  /* Keep mobile friendly */
+  @media (max-width: 980px){
+    .tk-columns{ grid-template-columns: 1fr; }
+    #catColumn{ max-height: none; overflow: visible; }
+    /* We’ll still hide question/scale at start on mobile, then reveal to stack below */
+  }
+</style>
 </head>
 <body>
   <div class="container">
@@ -209,8 +269,8 @@
 
     <div class="cta-grid">
       <div></div>
-      <nav id="ctaStack">
-        <a class="btn" href="/kinksurvey/#start">Start Survey</a>
+      <nav id="ctaStack" class="tk-stack">
+        <button id="btnStart" class="btn" type="button" disabled>Start Survey</button>
         <a class="btn" href="/kinksurvey/#analysis">Individual Kink Analysis</a>
         <a class="btn" href="/kinksurvey/#compatibility">Compatibility Page</a>
       </nav>
@@ -219,7 +279,7 @@
 
     <section class="tk-columns">
       <!-- LEFT -->
-      <aside class="card tk-left" id="catCard">
+      <aside class="card tk-left" id="catColumn">
         <div class="card-hd">Categories</div>
         <div class="card-bd">
           <ul id="catList" class="cat-list" aria-label="Kink categories"></ul>
@@ -227,7 +287,7 @@
       </aside>
 
       <!-- MIDDLE -->
-      <main class="card" id="surveyMain" aria-live="polite">
+      <main class="card is-hidden" id="questionColumn" aria-live="polite">
         <div class="card-hd">
           <div class="lead">Appearance Play • Choosing my partner’s outfit for the day or a scene</div>
           <div style="margin-top:6px; font-size: clamp(20px, 3.2vw, 30px); font-weight:800;">
@@ -243,7 +303,7 @@
       </main>
 
       <!-- RIGHT -->
-      <aside class="card tk-right">
+      <aside class="card tk-right is-hidden" id="scaleColumn">
         <div class="card-hd">Rate interest/comfort (0–5)</div>
         <div class="guard-list card-bd">
           <div class="guard-item">
@@ -275,6 +335,75 @@
     </section>
   </div>
 
+<script>
+(() => {
+  // CONFIG — if your category checkboxes use a different selector, update here:
+  const CAT_CHECK_SELECTOR = '#catColumn input[type="checkbox"], #catColumn .cat-check';
+
+  const $start   = document.getElementById('btnStart');
+  const $cats    = document.getElementById('catColumn');
+  const $middle  = document.getElementById('questionColumn');
+  const $right   = document.getElementById('scaleColumn');
+  const $cta     = document.getElementById('ctaStack');
+
+  if (!$start || !$cats || !$middle || !$right) {
+    console.warn('[KinkSurveyPage] Required elements not found. Check IDs: btnStart, catColumn, questionColumn, scaleColumn');
+    return;
+  }
+
+  // Helper: count selected categories
+  const selectedCount = () => {
+    return Array.from(document.querySelectorAll(CAT_CHECK_SELECTOR))
+      .filter(el => el.checked).length;
+  };
+
+  // Set initial state: only CTAs + categories visible
+  const syncStartEnabled = () => {
+    const n = selectedCount();
+    $start.disabled = n === 0;
+  };
+
+  // Wire up category changes to enable/disable Start
+  const observeCategoryChanges = () => {
+    const inputs = document.querySelectorAll(CAT_CHECK_SELECTOR);
+    inputs.forEach(el => el.addEventListener('change', syncStartEnabled));
+    // Fallback for dynamically injected checkboxes
+    if ($cats) {
+      $cats.addEventListener('change', syncStartEnabled);
+    }
+  };
+
+  // Reveal middle & right when Start is clicked (and at least one category is selected)
+  const onStart = () => {
+    if ($start.disabled) {
+      // optional: a little nudge for the user
+      $start.classList.add('tk-wiggle');
+      setTimeout(() => $start.classList.remove('tk-wiggle'), 350);
+      return;
+    }
+    // Show columns
+    $middle.classList.remove('is-hidden');
+    $right.classList.remove('is-hidden');
+
+    // Optional: scroll the grid into view, just below the buttons
+    const topY = $cta.getBoundingClientRect().bottom + window.scrollY - 8;
+    window.scrollTo({ top: topY, behavior: 'smooth' });
+  };
+
+  // Little CSS wiggle (optional)
+  const wiggleStyle = document.createElement('style');
+  wiggleStyle.textContent = `
+    .tk-wiggle{ animation: tkW .35s ease; }
+    @keyframes tkW{ 0%,100%{ transform: translateX(0);} 25%{ transform: translateX(-2px);} 75%{ transform: translateX(2px);} }
+  `;
+  document.head.appendChild(wiggleStyle);
+
+  // Init
+  observeCategoryChanges();
+  syncStartEnabled();
+  $start.addEventListener('click', onStart);
+})();
+</script>
 <script>
 /* themes (cosmetic) */
 document.querySelectorAll('.chip').forEach(chip=>{
