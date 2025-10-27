@@ -167,6 +167,81 @@
     #categoryPanel, #guardPanel{ position:static; max-height:none; overflow:visible; }
     #ctaStack{ max-width: 100%; }
   }
+
+  /* ==== KinkSurveyPage — “rating card fits better” + middle column stretch ==== */
+  /* Paste this at the END of your CSS (or inside a <style> block at the end of KinkSurveyPage.html). */
+
+  /* (Optional) give the middle column a bit more real estate without breaking the
+     left Categories or right Guard panels. Tweak to taste. */
+  :root{
+    /* If your layout already sets these, this will gently widen the middle. */
+    --left: 350px;         /* was ~360px */
+    --right: 400px;        /* was ~420px */
+    --gap: 24px;           /* default column gap */
+    --panel-edge: rgba(132, 255, 255, 0.25); /* subtle border glow color */
+    --accent: #58f1ff;     /* radio accent */
+  }
+
+  /* --- Make the center “rating card” use the whole middle column --- */
+  #surveyMain .card{
+    width: 100%;
+    max-width: none;       /* remove any previous cap */
+    margin-inline: 0;      /* no auto-centering margin */
+    padding: 18px 20px 22px; /* a little breathing room */
+  }
+
+  /* --- Improved 0–5 scale row: evenly spaced, larger hit targets --- */
+  /* Expect markup like:
+       <div class="scale-row">
+         <label><input type="radio" name="score" value="0">0</label> ... 5
+       </div>
+  */
+  .scale-row{
+    display: grid;
+    grid-template-columns: repeat(6, minmax(56px, 1fr)); /* 0..5 evenly spaced */
+    gap: 10px;
+    align-items: center;
+  }
+
+  .scale-row label{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-radius: 12px;
+    border: 1px solid var(--panel-edge);
+    background: rgba(255,255,255,.03);
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s ease, transform .15s ease, border-color .15s ease;
+  }
+
+  .scale-row label:hover{
+    background: rgba(255,255,255,.05);
+    transform: translateY(-1px);
+    border-color: rgba(132, 255, 255, 0.45);
+  }
+
+  .scale-row input{
+    accent-color: var(--accent);
+    margin: 0;                 /* keep inputs centered within labels */
+  }
+
+  /* --- Keep things balanced on very wide displays --- */
+  @media (min-width: 1400px){
+    :root{ --gap: 26px; }      /* small visual balance tweak */
+  }
+
+  /* --- Safety: if any card elsewhere was globally capped, neutralize it here --- */
+  .card.fit-middle{
+    width: 100% !important;
+    max-width: none !important;
+    margin-inline: 0 !important;
+    padding: 18px 20px 22px !important;
+  }
+  /* Add class="card fit-middle" to the rating card container only if you still
+     see a width cap coming from older CSS that you can’t remove. */
 </style>
 </head>
 <body data-theme="blueglow">
