@@ -240,7 +240,7 @@
     themeRow: document.getElementById('tkThemeRow')
   };
 
-  /* ---------- Theme handling ---------- */
+  /* ---------- Theme handling (unchanged) ---------- */
   for (const chip of el.themeRow.querySelectorAll('.theme-chip')) {
     chip.addEventListener('click', () => {
       document.body.setAttribute('data-theme', chip.dataset.theme);
@@ -249,7 +249,23 @@
     });
   }
 
-  /* ---------- Category loading ---------- */
+  /* ---------- Category normalization helper ---------- */
+  function catName(x){
+    if (x == null) return '';
+    if (typeof x === 'string') return x.trim();
+    // common shapes we’ve seen
+    return (
+      x.name ??
+      x.title ??
+      x.label ??
+      x.display ??
+      x.category ??
+      x.cat ??
+      ''
+    ).toString().trim();
+  }
+
+  /* ---------- Category loading (updated) ---------- */
   async function loadCategories(){
     const urls = [
       '/kinksurvey/data/categories.json',
@@ -262,19 +278,40 @@
         const res = await fetch(u, {cache:'no-store'});
         if (!res.ok) continue;
         const data = await res.json();
-        if (Array.isArray(data)) return data;                       // categories.json array
-        if (data && data.categories) return data.categories;        // { categories: [...] }
-        if (data && Array.isArray(data.kinks)) {
-          const set = new Set(data.kinks.map(k => k.category).filter(Boolean));
-          return [...set].sort();
+        
+        // Case A: categories.json is an array of strings or objects
+        if (Array.isArray(data)) {
+          const names = data.map(catName).filter(Boolean);
+          if (names.length) return names;
         }
-      }catch(_e){ /* try next */ }
+
+        // Case B: { categories: [...] }
+        if (data && Array.isArray(data.categories)) {
+          const names = data.categories.map(catName).filter(Boolean);
+          if (names.length) return names;
+        }
+
+        // Case C: kinks.json — pull unique category fields out of kink objects
+        if (data && Array.isArray(data.kinks)) {
+          const set = new Set(
+            data.kinks
+              .map(k => catName(k.category ?? k.cat ?? k))
+              .filter(Boolean)
+          );
+          if (set.size) return [...set];
+        }
+      }catch(_e){ /* try next URL */ }
     }
     return [];
   }
 
-  function renderCategories(names){
+  /* ---------- Render (updated) ---------- */
+  function renderCategories(items){
+    // de-dupe + sort
+    const names = [...new Set(items.map(catName).filter(Boolean))]
+      .sort((a,b) => a.localeCompare(b));
     el.catList.innerHTML = '';
+
     names.forEach(name => {
       const li = document.createElement('li');
       li.className = 'cat-item';
@@ -292,7 +329,7 @@
     el.catCount.textContent = el.catList.querySelectorAll('input:checked').length;
   }
 
-  /* ---------- Start button (demo behavior) ---------- */
+  /* ---------- Start button (unchanged demo) ---------- */
   el.btnStart.addEventListener('click', () => {
     el.surveyMain.scrollIntoView({behavior:'smooth', block:'start'});
   });
