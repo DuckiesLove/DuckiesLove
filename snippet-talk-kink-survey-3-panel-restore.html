@@ -1,0 +1,176 @@
+<!-- ===== TalkKink Survey: 3-Panel Restore (left cats • center survey • right guard) ===== -->
+<style>
+  :root{
+    --tk-gap: 28px;
+    --tk-left: 360px;     /* width of Categories column */
+    --tk-right: 420px;    /* width of Guard column */
+    --tk-title-clear: 92px; /* sticky offset under page title */
+  }
+
+  /* Mount point: ensure we have a grid wrapper */
+  #tkPortal{
+    display:grid;
+    grid-template-columns: var(--tk-left) 1fr var(--tk-right);
+    gap: var(--tk-gap);
+    align-items:start;
+  }
+
+  /* LEFT — categories */
+  #categoryPanel, .category-panel, #tk-cat-list{
+    grid-column:1 !important;
+    position:sticky; top:var(--tk-title-clear);
+    max-height:calc(100vh - var(--tk-title-clear));
+    overflow:auto;
+    display:block !important; visibility:visible !important; opacity:1 !important;
+  }
+
+  /* CENTER — main stream */
+  #tkCenter{ grid-column:2; min-width:0; }
+
+  /* Stacked CTAs live at top of center column */
+  #ctaStack{
+    grid-column:2;
+    display:grid; gap:14px;
+    max-width:780px; justify-self:center; width:100%;
+  }
+
+  /* Theme pills sit right below the title, full-width center */
+  #tkThemeRow{
+    grid-column: 1 / -1;
+    display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+    margin-top:-8px; margin-bottom:8px;
+  }
+
+  /* RIGHT — guard / how-to */
+  #tkRight{
+    grid-column:3;
+    position:sticky; top:var(--tk-title-clear);
+    max-height:calc(100vh - var(--tk-title-clear));
+    overflow:auto;
+    display:flex; flex-direction:column; gap:16px;
+  }
+
+  /* Helpful utility: force something visible if legacy code hides it */
+  .tk-force-show{ display:block !important; visibility:visible !important; opacity:1 !important; }
+
+  /* Make sure page content doesn’t stretch edge-to-edge on small viewports */
+  @media (max-width: 1200px){
+    :root{ --tk-left:320px; --tk-right:380px; }
+  }
+  @media (max-width: 980px){
+    /* collapse to two columns for narrow screens */
+    #tkPortal{ grid-template-columns: 1fr; }
+    #categoryPanel, .category-panel, #tk-cat-list,
+    #tkRight{ position:static; max-height:none; }
+    #ctaStack, #tkThemeRow{ grid-column:1; }
+  }
+</style>
+
+<!-- center & right placeholders (created only once) -->
+<div id="tkCenter" class="tk-force-show" hidden></div>
+<div id="tkRight"  class="tk-force-show" hidden></div>
+<div id="tkThemeRow" class="tk-force-show" hidden></div>
+
+<script>
+(() => {
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+  // 1) Ensure we’re working inside #tkPortal as the grid root
+  let portal = $('#tkPortal');
+  if (!portal) {
+    // fallbacks that exist on the page; if none, wrap the body content
+    portal = $('#content, main, .portal, body > .wrapper, body') || document.body;
+    portal.id = 'tkPortal';
+  }
+
+  // 2) Gather likely elements
+  const themeRow = $('#tkThemeRow');
+  const center   = $('#tkCenter');
+  const right    = $('#tkRight');
+
+  // left categories: either new (#categoryPanel / .category-panel) or legacy (#tk-cat-list)
+  const cats = $('#categoryPanel') || $('.category-panel') || $('#tk-cat-list');
+
+  // CTA stack (three buttons) – keep visible and stacked
+  const ctas = $('#ctaStack');
+
+  // the main survey stream (big container that question cards render into)
+  const mainCandidates = [
+    '#surveyMain', '#tkSurveyMain', '.survey-main', '.portal-main',
+    '#content main', '#content', 'main'
+  ];
+  const main = mainCandidates.map(sel => $(sel)).find(Boolean) || document.createElement('div');
+
+  // theme chips row (wherever they are now)
+  const themeChips = $$('#themeRow, .theme-row, .tk-theme-row, .tk-theme button, .tk-theme .chip').length
+    ? ($('#themeRow') || $('.theme-row') || $('.tk-theme-row') || $('.tk-theme') )
+    : null;
+
+  // 3) Place columns in grid
+  if (cats && cats.parentElement !== portal) portal.prepend(cats);
+  if (center.parentElement !== portal)       portal.appendChild(center);
+  if (right.parentElement  !== portal)       portal.appendChild(right);
+  if (themeRow.parentElement !== portal)     portal.insertBefore(themeRow, portal.firstChild);
+
+  // Move main content to center column (but not the cats or guard)
+  if (main && !center.contains(main)) center.appendChild(main);
+
+  // Keep CTAs at the top of the center column (under the title)
+  if (ctas) {
+    if (ctas.parentElement !== portal && ctas.parentElement !== center) {
+      portal.insertBefore(ctas, center);
+    }
+    ctas.classList.add('tk-force-show');
+    ctas.style.display = 'grid'; // some legacy code hides it on Start; force it back
+    // Watch for legacy scripts hiding the CTAs
+    new MutationObserver(() => {
+      if (getComputedStyle(ctas).display === 'none') ctas.style.display = 'grid';
+    }).observe(ctas, {attributes:true, attributeFilter:['style','class']});
+  }
+
+  // 4) Theme chips directly below the big title
+  if (themeChips && themeRow) {
+    // Move all buttons/pills into our #tkThemeRow
+    $$('#tkThemeRow > *').forEach(n => n.remove());
+    const items = $$('button, .chip, .pill, a', themeChips);
+    if (items.length) items.forEach(n => themeRow.appendChild(n));
+    themeRow.hidden = false;
+  }
+
+  // 5) Find and move the “How to score / Question Guard” into right column
+  function findGuard(){
+    // First try explicit headings
+    const byHead = $$('aside, section, div').find(el => {
+      const h = el.querySelector('h1,h2,h3,h4');
+      return h && /how to score|question guard/i.test(h.textContent);
+    });
+    if (byHead) return byHead;
+
+    // Heuristic: the 0–5 scale legend block (chips with 0..5 and labels)
+    const legendChips = $$('li, .row, .chip, .pill, .badge')
+      .filter(el => /brain did a cartwheel|hard limit|soft limit|curious|comfortable|favorite/i.test(el.textContent||''));
+    if (legendChips.length >= 3) {
+      return legendChips[0].closest('aside, section, .card, .panel, div');
+    }
+    return null;
+  }
+  const guard = findGuard();
+  if (guard && !right.contains(guard)) right.appendChild(guard);
+
+  // 6) Reveal columns once assembled
+  center.hidden = false;
+  right.hidden  = false;
+  cats && cats.classList.add('tk-force-show');
+
+  // 7) Make the left categories tall & scrollable even if older CSS capped height
+  const fixCats = el => {
+    el.style.position = 'sticky';
+    el.style.top = 'var(--tk-title-clear)';
+    el.style.maxHeight = 'calc(100vh - var(--tk-title-clear))';
+    el.style.overflow = 'auto';
+  };
+  if (cats) fixCats(cats);
+})();
+</script>
+<!-- ===== end TalkKink Survey: 3-Panel Restore ===== -->
