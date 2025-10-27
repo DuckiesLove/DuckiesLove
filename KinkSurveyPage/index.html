@@ -351,6 +351,52 @@
     #ctaStack .btn{ font-size: 20px; padding: 18px 22px; }
   }
 </style>
+<style>
+/* Drop this at the very end of KinkSurveyPage/index.html (after your theme css)
+   Goal: center CTAs under the theme chips AND keep them a reasonable width. */
+
+/* Treat title + theme chips + CTAs as one centered “hero” block */
+.tk-hero,
+#titleArea{
+  display:grid;
+  justify-items:center;         /* centers both rows */
+}
+
+/* Theme chips row (already centered visually) */
+#themeRow{
+  display:flex;
+  gap:.6rem;
+  justify-content:center;
+  width:min(92vw, 720px) !important;   /* <- reference width for the CTAs */
+  margin:10px auto 0;
+}
+
+/* CTA stack: same width as theme row, centered, not huge */
+#ctaStack.tk-stack{
+  display:grid;
+  justify-items:center;
+  width:min(92vw, 720px) !important;   /* <- keep CTAs same visual width as chips */
+  margin:18px auto 0;                  /* a bit of breathing room below chips */
+  gap:16px;
+}
+
+/* Buttons fill the stack width but don’t sprawl */
+#ctaStack .btn{
+  width:100%;
+  max-width:720px;                      /* belt & suspenders */
+  padding:18px 22px;
+  border-radius:18px;
+  font-size:22px;
+  font-weight:800;
+  text-align:center;
+}
+
+/* Tweak sizes slightly on small screens */
+@media (max-width: 760px){
+  #themeRow, #ctaStack.tk-stack{ width:min(94vw, 620px) !important; }
+  #ctaStack .btn{ font-size:20px; padding:16px 20px; }
+}
+</style>
 </head>
 <body>
   <div class="container">
