@@ -41,13 +41,16 @@
   *,*::before,*::after{ box-sizing:border-box }
 
   :root{
-    --bg: #081017;
-    --panel: #0f1f28;
-    --ink: #e7f7ff;
-    --ink-dim: #a5c7d2;
-    --edge: rgba(132,255,255,.25);
-    --glow: 0 0 0.75rem rgba(88, 241, 255, .25);
-    --accent: #58f1ff;
+    --bg: #000000;
+    --panel: #040608;
+    --ink: #e8fbff;
+    --ink-dim: #96d6e8;
+    --edge: rgba(0,204,255,.35);
+    --edge-soft: rgba(0,204,255,.18);
+    --edge-strong: rgba(0,204,255,.6);
+    --glow: 0 0 1.1rem rgba(0,204,255,.32);
+    --accent: #00ccff;
+    --accent-soft: rgba(0,204,255,.08);
 
     --left: 360px;    /* left column */
     --right: 420px;   /* right column */
@@ -69,19 +72,19 @@
     font-size: clamp(28px, 6vw, 64px);
     font-weight: 800;
     letter-spacing:.5px;
-    text-shadow: 0 0 18px rgba(88,241,255,.38);
+    text-shadow: 0 0 18px rgba(0,204,255,.38);
   }
 
   .theme-row{
     display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin: 0 0 10px;
   }
-  .chip{
+  .chip{ 
     background:rgba(255,255,255,.03); border:1px solid var(--edge);
     padding:7px 12px; border-radius:999px; color:var(--ink); cursor:pointer;
     transition:transform .12s ease, background .12s ease, border-color .12s ease;
   }
-  .chip:hover{ transform:translateY(-1px); background:rgba(255,255,255,.05); border-color:rgba(132,255,255,.45) }
-  .chip.active{ box-shadow: var(--glow); background:rgba(88,241,255,.1); border-color:rgba(132,255,255,.55) }
+  .chip:hover{ transform:translateY(-1px); background:rgba(255,255,255,.05); border-color:var(--edge-strong) }
+  .chip.active{ box-shadow: var(--glow); background:var(--accent-soft, rgba(0,204,255,.12)); border-color:var(--edge) }
 
   /* CTAs */
   .cta-grid{
@@ -96,17 +99,18 @@
     padding:14px 18px; border-radius:999px; text-align:center; font-weight:700;
     box-shadow: var(--glow); cursor:pointer; transition:transform .12s ease, background .12s ease, border-color .12s ease;
   }
-  .btn:hover{ transform: translateY(-1px); background: rgba(255,255,255,.06); border-color: rgba(132,255,255,.45); }
+  .btn:hover{ transform: translateY(-1px); background: rgba(255,255,255,.06); border-color: var(--edge-strong); }
 
   /* 3 columns */
   .tk-columns{ display:grid; grid-template-columns: var(--left) 1fr var(--right); gap: var(--gap); align-items:start }
 
   .card{
     background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.03));
+    background-color: var(--panel);
     border:1px solid var(--edge); border-radius:var(--radius); box-shadow: var(--glow);
   }
   .card > .card-hd{
-    padding:14px 16px; border-bottom:1px solid rgba(132,255,255,.12); color:var(--ink);
+    padding:14px 16px; border-bottom:1px solid var(--edge-soft); color:var(--ink);
     font-size: clamp(18px, 2.6vw, 24px); font-weight:800; letter-spacing:.3px;
   }
   .card > .card-bd{ padding:14px 16px 16px }
@@ -121,11 +125,11 @@
   .progress-track{
     position:relative; height:10px; border-radius:999px;
     background:rgba(255,255,255,.06); overflow:hidden;
-    border:1px solid rgba(132,255,255,.2);
+    border:1px solid var(--edge-soft);
   }
   .progress-fill{
     position:absolute; inset:0; width:0%; border-radius:999px;
-    background: var(--accent); box-shadow:0 0 0.5rem rgba(88,241,255,.6);
+    background: var(--accent); box-shadow:0 0 0.5rem rgba(0,204,255,.6);
     transition: width .25s ease;
   }
 
@@ -134,7 +138,7 @@
   .cat-list{ list-style:none; margin:0; padding:0 }
   .cat-item{
     display:flex; align-items:center; gap:12px; padding:12px 14px; margin:8px 12px;
-    border-radius:12px; background:rgba(255,255,255,.02); border:1px solid rgba(132,255,255,.14); color:var(--ink);
+    border-radius:12px; background:rgba(255,255,255,.02); border:1px solid var(--edge-soft); color:var(--ink);
   }
   .cat-item input{ accent-color: var(--accent) }
 
@@ -149,7 +153,7 @@
 
   /* --- FIT-BETTER rating box --- */
   .rating-wrap{
-    background: rgba(255,255,255,.03);
+    background: var(--accent-soft, rgba(255,255,255,.03));
     border: 1px solid var(--edge);
     border-radius: 14px;
     padding:12px;
@@ -171,13 +175,13 @@
     cursor:pointer; user-select:none;
     transition: background .15s ease, transform .15s ease, border-color .15s ease;
   }
-  .pill:hover{ background: rgba(255,255,255,.06); border-color: rgba(132,255,255,.45); transform: translateY(-1px);}
+  .pill:hover{ background: rgba(255,255,255,.06); border-color: var(--edge-strong); transform: translateY(-1px);}
   .pill input{ width:16px; height:16px; margin:0; accent-color: var(--accent); }
-  .pill.active{ background: rgba(88,241,255,.18); border-color: rgba(132,255,255,.6); box-shadow: 0 0 0.45rem rgba(88,241,255,.45); }
+  .pill.active{ background: rgba(0,204,255,.18); border-color: rgba(0,204,255,.6); box-shadow: 0 0 0.45rem rgba(0,204,255,.45); }
 
   /* right guard: raise header so first guard card is visible without scrolling on laptops */
   .tk-right{ max-height: calc(100vh - 170px); overflow:auto } /* internal scroll only when needed */
-  .tk-right .card-hd{ position:sticky; top:0; background:linear-gradient(180deg, rgba(8,16,23,.9), rgba(8,16,23,.7)); backdrop-filter: blur(2px); z-index:2 }
+  .tk-right .card-hd{ position:sticky; top:0; background:linear-gradient(180deg, rgba(0,0,0,.9), rgba(0,0,0,.72)); backdrop-filter: blur(2px); z-index:2 }
 
   .guard-list{ display:flex; flex-direction:column; gap:10px; padding:10px }
   .guard-item{
@@ -301,13 +305,16 @@ const rootStyle = document.documentElement?.style;
 const THEME_KEY = 'tkSurveyTheme';
 const THEMES = {
   dark: {
-    bg: '#081017',
-    panel: '#0f1f28',
-    ink: '#e7f7ff',
-    inkDim: '#a5c7d2',
-    edge: 'rgba(132,255,255,.25)',
-    accent: '#58f1ff',
-    glow: '0 0 0.75rem rgba(88, 241, 255, .25)'
+    bg: '#000000',
+    panel: '#040608',
+    ink: '#e8fbff',
+    inkDim: '#96d6e8',
+    edge: 'rgba(0,204,255,.35)',
+    edgeSoft: 'rgba(0,204,255,.18)',
+    edgeStrong: 'rgba(0,204,255,.6)',
+    accent: '#00ccff',
+    glow: '0 0 1.1rem rgba(0,204,255,.32)',
+    accentSoft: 'rgba(0,204,255,.1)'
   },
   lipstick: {
     bg: '#000000',
@@ -315,8 +322,11 @@ const THEMES = {
     ink: '#ffe8f2',
     inkDim: '#f7aacd',
     edge: 'rgba(255,77,166,.42)',
+    edgeSoft: 'rgba(255,77,166,.22)',
+    edgeStrong: 'rgba(255,77,166,.64)',
     accent: '#ff4da6',
-    glow: '0 0 0.75rem rgba(255,77,166,.32)'
+    glow: '0 0 0.75rem rgba(255,77,166,.32)',
+    accentSoft: 'rgba(255,77,166,.14)'
   },
   forest: {
     bg: '#000000',
@@ -324,8 +334,11 @@ const THEMES = {
     ink: '#e7fff0',
     inkDim: '#a7d8b6',
     edge: 'rgba(56,245,155,.32)',
+    edgeSoft: 'rgba(56,245,155,.18)',
+    edgeStrong: 'rgba(56,245,155,.55)',
     accent: '#38f59b',
-    glow: '0 0 0.75rem rgba(56,245,155,.26)'
+    glow: '0 0 0.75rem rgba(56,245,155,.26)',
+    accentSoft: 'rgba(56,245,155,.15)'
   },
   glow: {
     bg: '#040c12',
@@ -333,8 +346,11 @@ const THEMES = {
     ink: '#e5f6ff',
     inkDim: '#9ecbe1',
     edge: 'rgba(0,234,255,.36)',
+    edgeSoft: 'rgba(0,234,255,.2)',
+    edgeStrong: 'rgba(0,234,255,.6)',
     accent: '#00eaff',
-    glow: '0 0 0.75rem rgba(0,234,255,.28)'
+    glow: '0 0 0.75rem rgba(0,234,255,.28)',
+    accentSoft: 'rgba(0,234,255,.14)'
   }
 };
 
@@ -347,8 +363,11 @@ function applyTheme(name, { persist = true } = {}) {
     rootStyle.setProperty('--ink', theme.ink);
     rootStyle.setProperty('--ink-dim', theme.inkDim);
     rootStyle.setProperty('--edge', theme.edge);
+    rootStyle.setProperty('--edge-soft', theme.edgeSoft || theme.edge);
+    rootStyle.setProperty('--edge-strong', theme.edgeStrong || theme.edge);
     rootStyle.setProperty('--accent', theme.accent);
     rootStyle.setProperty('--glow', theme.glow);
+    rootStyle.setProperty('--accent-soft', theme.accentSoft || 'rgba(255,255,255,.03)');
   }
   if (document.body) {
     document.body.classList.remove('theme-dark', 'theme-lipstick', 'theme-forest', 'theme-glow');
@@ -758,10 +777,10 @@ downloadBtn.addEventListener('click', async ()=>{
     const headerTop = 54;
     const contentWidth = pageWidth - marginX * 2;
     const lineHeight = 18;
-    const accent = [88,241,255];
-    const bodyColor = [231,247,255];
-    const muted = [165,199,210];
-    const background = [8,16,23];
+    const accent = [0,204,255];
+    const bodyColor = [232,251,255];
+    const muted = [150,214,232];
+    const background = [0,0,0];
     const stamp = new Date().toLocaleString();
     let cursorY = headerTop + 72;
 
