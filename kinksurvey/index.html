@@ -1049,6 +1049,153 @@
         });
       })();
   </script>
+    <script>
+      (() => {
+        const log = (...a) => console.log('[TK DL]', ...a);
+        const BTN = document.getElementById('tkDownloadBtn');
+        if (!BTN) return;
+
+        function findCompleteCard() {
+          const blocks = [...document.querySelectorAll('section, .card, .panel, .summary, .survey-complete, .center-col .card, .wrap .card, .content .card, div')]
+            .filter((el) => el.children?.length && el.getBoundingClientRect().height > 60);
+          for (const el of blocks) {
+            const t = (el.textContent || '').toLowerCase();
+            if (t.includes('survey complete') && t.includes('100%')) {
+              return el;
+            }
+          }
+          return null;
+        }
+
+        function isComplete() {
+          const card = findCompleteCard();
+          if (!card) return false;
+          if ((card.textContent || '').includes('100%')) return true;
+          const pb = card.querySelector('[role="progressbar"]');
+          if (pb && Number(pb.getAttribute('aria-valuenow')) >= 100) return true;
+          return false;
+        }
+
+        function placeBtnBelow(card) {
+          if (!card) return;
+          if (!BTN.isConnected) card.insertAdjacentElement('afterend', BTN);
+          BTN.hidden = false;
+          log('Button shown under Survey complete card');
+        }
+
+        function escapeHTML(s) {
+          return String(s).replace(/[&<>"']/g, (ch) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+          })[ch]);
+        }
+
+        function selectedCategories() {
+          const out = [];
+          document.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+            if (!(cb instanceof HTMLInputElement) || !cb.checked) return;
+            let labelTxt = '';
+            if (cb.id) {
+              const lab = document.querySelector(`label[for="${cb.id}"]`);
+              if (lab) labelTxt = lab.textContent?.trim() || '';
+            }
+            if (!labelTxt) labelTxt = cb.closest('label')?.textContent || cb.closest('.row, .item, .line')?.textContent || '';
+            if (labelTxt) out.push(labelTxt.replace(/\s+/g, ' ').trim());
+          });
+          return out;
+        }
+
+        function currentQuestion() {
+          const host = document.querySelector('.tk-question-card, #questionCard, .question-card, .center-col .card, .card') || document;
+          return (host.querySelector('h2, h3, .tk-question-title, [data-role="question-title"]')?.textContent || '').trim();
+        }
+
+        function currentScore() {
+          const r = document.querySelector('input[name="score"]:checked, input[name="rating"]:checked, .tk-score input[type="radio"]:checked');
+          return r ? r.value : '';
+        }
+
+        function buildHTML() {
+          const cats = selectedCategories();
+          const stamp = new Date().toLocaleString();
+          const q = currentQuestion();
+          const s = currentScore();
+          return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
+            + `<title>Talk Kink — Survey Summary</title>`
+            + `<style>`
+            + `  :root{--fg:#EAEFF2;--sub:#9FB7C1;--gl:rgba(0,255,255,.35)}`
+            + `  body{margin:0;background:#000;color:var(--fg);font:16px/1.6 system-ui,Segoe UI,Roboto,Arial}`
+            + `  .wrap{max-width:980px;margin:56px auto;padding:0 20px}`
+            + `  h1{font-size:clamp(28px,4.5vw,56px);margin:0 0 8px}`
+            + `  .sub{color:var(--sub);margin:0 0 28px}`
+            + `  section{border:1px solid #0b2c2c;border-radius:16px;padding:22px 20px;margin:16px 0;`
+            + `          background:linear-gradient(180deg,rgba(0,255,255,.05),rgba(0,255,255,.02));`
+            + `          box-shadow:0 0 28px rgba(0,255,255,.08) inset}`
+            + `  h2{font-size:20px;margin:0 0 12px}`
+            + `  ul{margin:10px 0 0 20px}`
+            + `  .badge{display:inline-block;min-width:1.8rem;text-align:center;border:1px solid var(--gl);`
+            + `        border-radius:999px;padding:.15rem .55rem;margin-left:.45rem}`
+            + `  .muted{color:var(--sub)}`
+            + `  .footer{margin-top:32px;color:#89a3ab;font-size:13px}`
+            + `</style></head><body><div class="wrap">`
+            + `  <h1>Talk Kink Survey</h1>`
+            + `  <p class="sub">Export generated ${escapeHTML(stamp)}</p>`
+            + `  <section><h2>Selected Categories</h2>`
+            + `    <ul>${cats.length ? cats.map((t) => `<li>${escapeHTML(t)}</li>`).join('') : '<li><em>No categories selected.</em></li>'}</ul>`
+            + `  </section>`
+            + `  <section><h2>Last Question Answered</h2>`
+            + `    <p><strong>${escapeHTML(q || '—')}</strong>${s !== '' ? ` <span class="badge">Score: ${escapeHTML(s)}</span>` : ''}</p>`
+            + `    <p class="muted">This export includes your chosen categories and current question context.</p>`
+            + `  </section>`
+            + `  <p class="footer">© Talk Kink — local export</p>`
+            + `</div></body></html>`;
+        }
+
+        function download() {
+          const blob = new Blob([buildHTML()], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = Object.assign(document.createElement('a'), {
+            href: url,
+            download: `talkkink-survey-summary-${new Date().toISOString().replace(/[:.]/g, '-')}.html`
+          });
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1200);
+        }
+
+        BTN.addEventListener('click', download);
+
+        const showIfDone = () => {
+          if (isComplete()) placeBtnBelow(findCompleteCard());
+        };
+
+        new MutationObserver(showIfDone).observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+
+        let tries = 0;
+        const poll = setInterval(() => {
+          showIfDone();
+          if (++tries > 120) clearInterval(poll);
+        }, 1000);
+
+        window.addEventListener('keydown', (e) => {
+          if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+            const card = findCompleteCard();
+            if (card) placeBtnBelow(card);
+            BTN.hidden = false;
+            log('Manual show');
+          }
+        });
+      })();
+    </script>
+
 
 
 
@@ -1310,266 +1457,154 @@ Restores layout & clears caches so the page boots without DevTools.
 })();
 </script>
 
-    <script>
-      (() => {
-        const log = (...a) => console.log('[TK DL]', ...a);
-        const BTN = document.getElementById('tkDownloadBtn');
-        if (!BTN) return;
 
-        const PLACE_UNDER = [
-          '#questionCard',
-          '.tk-question-card',
-          '[data-role="question-card"]',
-          '.question-card',
-          '.center-col .card',
-          '.survey-card',
-          '.panel.question'
-        ];
-        const PLACE_FALLBACK = [
-          '.survey-complete',
-          '.summary-card',
-          '[data-role="summary"]',
-          '.center-col .card:has(h2), .center-col .card:has(h3)'
-        ];
-        const PROGRESS = [
-          '[role="progressbar"]',
-          '.tk-progress [role="progressbar"]',
-          '.tk-progress .bar',
-          '.progress [role="progressbar"]',
-          '.progress .bar',
-          '[data-role="progress"]'
-        ];
 
-        const $ = (sel, root = document) => root.querySelector(sel);
-        const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  <script>
+    (() => {
+      const log = (...a) => console.log('[TK DL]', ...a);
+      const BTN = document.getElementById('tkDownloadBtn');
+      if (!BTN) return;
 
-        function placeButton() {
-          for (const sel of PLACE_UNDER) {
-            const el = $(sel);
-            if (el && !el.contains(BTN)) {
-              el.insertAdjacentElement('afterend', BTN);
-              log('Button placed under', sel);
-              return true;
-            }
-          }
-          for (const sel of PLACE_FALLBACK) {
-            const el = $(sel);
-            if (el && !el.contains(BTN)) {
-              el.insertAdjacentElement('afterend', BTN);
-              log('Button placed under fallback', sel);
-              return true;
-            }
-          }
-          const center = $('.center-col, .tk-center, [data-col="center"]');
-          if (center && !center.contains(BTN)) {
-            center.appendChild(BTN);
-            log('Button appended to center column');
-            return true;
-          }
-          if (!BTN.isConnected) document.body.appendChild(BTN);
-          log('Button appended to body (fallback)');
-          return false;
-        }
-
-        function textSaysDone() {
-          const needles = ['Survey complete', 'All questions answered', '100%'];
-          const scope = $('.survey-complete, .summary-card, .center-col') || document.body;
-          const txt = (scope.textContent || '').toLowerCase();
-          const hit = needles.some((n) => txt.includes(n.toLowerCase()));
-          if (hit) log('Textual completion detected');
-          return hit;
-        }
-
-        function ariaProgress(el) {
-          const v = el.getAttribute('aria-valuenow') ?? el.getAttribute('ariaValueNow');
-          return v != null ? Number(v) : NaN;
-        }
-
-        function styleWidthPercent(el) {
-          const w = (el.style && el.style.width) || '';
-          const m = /(\d+(?:\.\d+)?)%/.exec(w);
-          return m ? Number(m[1]) : NaN;
-        }
-
-        function readProgress() {
-          for (const sel of PROGRESS) {
-            const el = $(sel);
-            if (!el) continue;
-
-            const a = ariaProgress(el);
-            if (Number.isFinite(a)) {
-              log('Progress via aria-valuenow', a, 'from', sel);
-              return a;
-            }
-
-            const s = styleWidthPercent(el);
-            if (Number.isFinite(s)) {
-              log('Progress via style width', s, 'from', sel);
-              return s;
-            }
-
-            const child = el.querySelector('.bar, .progress-bar');
-            if (child) {
-              const c = styleWidthPercent(child);
-              if (Number.isFinite(c)) {
-                log('Progress via child bar width', c, 'from', sel);
-                return c;
-              }
-            }
-
-            const txt = (el.textContent || '').trim();
-            const m = /(\d+(?:\.\d+)?)\s*%/.exec(txt);
-            if (m) {
-              const t = Number(m[1]);
-              log('Progress via text', t, 'from', sel);
-              return t;
-            }
-          }
-          if (textSaysDone()) return 100;
-          return NaN;
-        }
-
-        function isComplete() {
-          const p = readProgress();
-          const done = Number.isFinite(p) ? p >= 100 : textSaysDone();
-          if (done) log('Completion -> true');
-          return done;
-        }
-
-        function escapeHTML(s) {
-          return String(s).replace(/[&<>"']/g, (ch) => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-          })[ch]);
-        }
-
-        function selectedCategories() {
-          const out = [];
-          $$('input[type="checkbox"]', document.body).forEach((cb) => {
-            if (!(cb instanceof HTMLInputElement) || cb.type !== 'checkbox') return;
-            if (!cb.checked) return;
-            let text = '';
-            if (cb.id) {
-              const lab = document.querySelector(`label[for="${cb.id}"]`);
-              if (lab) text = lab.textContent?.trim() || '';
-            }
-            if (!text) {
-              const label = cb.closest('label');
-              const row = cb.closest('.row, .item');
-              text = label?.textContent || row?.textContent || '';
-            }
-            text = text.replace(/\s+/g, ' ').trim();
-            if (text) out.push(text);
-          });
-          return out;
-        }
-
-        function currentQuestion() {
-          const host =
-            $('.tk-question-card, #questionCard, .question-card, .center-col .card') || document;
-          const title = host.querySelector('h2, h3, .tk-question-title, [data-role="question-title"]');
-          return (title?.textContent || '').trim();
-        }
-
-        function currentScore() {
-          const checked = document.querySelector(
-            'input[name="score"]:checked, input[name="rating"]:checked, .tk-score input[type="radio"]:checked'
-          );
-          return checked ? checked.value : '';
-        }
-
-        function buildHTML() {
-          const cats = selectedCategories();
-          const stamp = new Date().toLocaleString();
-          const q = currentQuestion();
-          const s = currentScore();
-          return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Talk Kink — Survey Summary</title>
-<style>
-  :root{ --fg:#EAEFF2; --sub:#9FB7C1; --glow:rgba(0,255,255,.35) }
-  body{ margin:0; background:#000; color:var(--fg); font:16px/1.6 system-ui,Segoe UI,Roboto,Helvetica,Arial }
-  .wrap{ max-width:980px; margin:56px auto; padding:0 20px }
-  h1{ font-size:clamp(28px,4.5vw,56px); margin:0 0 8px }
-  .sub{ color:var(--sub); margin:0 0 28px }
-  section{ border:1px solid #0b2c2c; border-radius:16px; padding:22px 20px; margin:16px 0;
-           background:linear-gradient(180deg,rgba(0,255,255,.05),rgba(0,255,255,.02)); box-shadow:0 0 28px rgba(0,255,255,.08) inset }
-  h2{ font-size:20px; margin:0 0 12px }
-  ul{ margin:10px 0 0 20px }
-  .badge{ display:inline-block; min-width:1.8rem; text-align:center; border:1px solid var(--glow);
-          border-radius:999px; padding:.15rem .55rem; margin-left:.45rem }
-  .muted{ color:var(--sub) }
-  .footer{ margin-top:32px; color:#89a3ab; font-size:13px }
-</style></head><body>
-<div class="wrap">
-  <h1>Talk Kink Survey</h1>
-  <p class="sub">Export generated ${escapeHTML(stamp)}</p>
-  <section>
-    <h2>Selected Categories</h2>
-    <ul>${
-      cats.length ? cats.map((c) => `<li>${escapeHTML(c)}</li>`).join('') : '<li><em>No categories selected.</em></li>'
-    }</ul>
-  </section>
-  <section>
-    <h2>Last Question Answered</h2>
-    <p><strong>${escapeHTML(q || '—')}</strong>${s !== '' ? ` <span class="badge">Score: ${escapeHTML(s)}</span>` : ''}</p>
-    <p class="muted">This export shows your chosen categories and the final question context. Your full answers are stored locally in your browser for privacy.</p>
-  </section>
-  <p class="footer">© Talk Kink — local export</p>
-</div></body></html>`;
-        }
-
-        function download() {
-          const blob = new Blob([buildHTML()], { type: 'text/html;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `talkkink-survey-summary-${new Date().toISOString().replace(/[:.]/g, '-')}.html`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 1200);
-        }
-
-        function showIfDone() {
-          if (isComplete()) {
-            placeButton();
-            BTN.hidden = false;
-          } else {
-            BTN.hidden = true;
+      function findCompleteCard() {
+        const blocks = [...document.querySelectorAll('section, .card, .panel, .summary, .survey-complete, .center-col .card, .wrap .card, .content .card, div')]
+          .filter((el) => el.children?.length && el.getBoundingClientRect().height > 60);
+        for (const el of blocks) {
+          const t = (el.textContent || '').toLowerCase();
+          if (t.includes('survey complete') && t.includes('100%')) {
+            return el;
           }
         }
+        return null;
+      }
 
-        BTN.addEventListener('click', download);
+      function isComplete() {
+        const card = findCompleteCard();
+        if (!card) return false;
+        if ((card.textContent || '').includes('100%')) return true;
+        const pb = card.querySelector('[role="progressbar"]');
+        if (pb && Number(pb.getAttribute('aria-valuenow')) >= 100) return true;
+        return false;
+      }
 
-        const mo = new MutationObserver(showIfDone);
-        mo.observe(document.documentElement, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          characterData: true
+      function placeBtnBelow(card) {
+        if (!card) return;
+        if (!BTN.isConnected) card.insertAdjacentElement('afterend', BTN);
+        BTN.hidden = false;
+        log('Button shown under Survey complete card');
+      }
+
+      function escapeHTML(s) {
+        return String(s).replace(/[&<>"']/g, (ch) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        })[ch]);
+      }
+
+      function selectedCategories() {
+        const out = [];
+        document.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+          if (!(cb instanceof HTMLInputElement) || !cb.checked) return;
+          let labelTxt = '';
+          if (cb.id) {
+            const lab = document.querySelector(`label[for="${cb.id}"]`);
+            if (lab) labelTxt = lab.textContent?.trim() || '';
+          }
+          if (!labelTxt) labelTxt = cb.closest('label')?.textContent || cb.closest('.row, .item, .line')?.textContent || '';
+          if (labelTxt) out.push(labelTxt.replace(/\s+/g, ' ').trim());
         });
+        return out;
+      }
 
-        window.addEventListener('keydown', (e) => {
-          if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
-            placeButton();
-            BTN.hidden = false;
-            log('Manual show via Ctrl+Shift+D');
-          }
+      function currentQuestion() {
+        const host = document.querySelector('.tk-question-card, #questionCard, .question-card, .center-col .card, .card') || document;
+        return (host.querySelector('h2, h3, .tk-question-title, [data-role="question-title"]')?.textContent || '').trim();
+      }
+
+      function currentScore() {
+        const r = document.querySelector('input[name="score"]:checked, input[name="rating"]:checked, .tk-score input[type="radio"]:checked');
+        return r ? r.value : '';
+      }
+
+      function buildHTML() {
+        const cats = selectedCategories();
+        const stamp = new Date().toLocaleString();
+        const q = currentQuestion();
+        const s = currentScore();
+        return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
+          + `<title>Talk Kink — Survey Summary</title>`
+          + `<style>`
+          + `  :root{--fg:#EAEFF2;--sub:#9FB7C1;--gl:rgba(0,255,255,.35)}`
+          + `  body{margin:0;background:#000;color:var(--fg);font:16px/1.6 system-ui,Segoe UI,Roboto,Arial}`
+          + `  .wrap{max-width:980px;margin:56px auto;padding:0 20px}`
+          + `  h1{font-size:clamp(28px,4.5vw,56px);margin:0 0 8px}`
+          + `  .sub{color:var(--sub);margin:0 0 28px}`
+          + `  section{border:1px solid #0b2c2c;border-radius:16px;padding:22px 20px;margin:16px 0;`
+          + `          background:linear-gradient(180deg,rgba(0,255,255,.05),rgba(0,255,255,.02));`
+          + `          box-shadow:0 0 28px rgba(0,255,255,.08) inset}`
+          + `  h2{font-size:20px;margin:0 0 12px}`
+          + `  ul{margin:10px 0 0 20px}`
+          + `  .badge{display:inline-block;min-width:1.8rem;text-align:center;border:1px solid var(--gl);`
+          + `        border-radius:999px;padding:.15rem .55rem;margin-left:.45rem}`
+          + `  .muted{color:var(--sub)}`
+          + `  .footer{margin-top:32px;color:#89a3ab;font-size:13px}`
+          + `</style></head><body><div class="wrap">`
+          + `  <h1>Talk Kink Survey</h1>`
+          + `  <p class="sub">Export generated ${escapeHTML(stamp)}</p>`
+          + `  <section><h2>Selected Categories</h2>`
+          + `    <ul>${cats.length ? cats.map((t) => `<li>${escapeHTML(t)}</li>`).join('') : '<li><em>No categories selected.</em></li>'}</ul>`
+          + `  </section>`
+          + `  <section><h2>Last Question Answered</h2>`
+          + `    <p><strong>${escapeHTML(q || '—')}</strong>${s !== '' ? ` <span class="badge">Score: ${escapeHTML(s)}</span>` : ''}</p>`
+          + `    <p class="muted">This export includes your chosen categories and current question context.</p>`
+          + `  </section>`
+          + `  <p class="footer">© Talk Kink — local export</p>`
+          + `</div></body></html>`;
+      }
+
+      function download() {
+        const blob = new Blob([buildHTML()], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = Object.assign(document.createElement('a'), {
+          href: url,
+          download: `talkkink-survey-summary-${new Date().toISOString().replace(/[:.]/g, '-')}.html`
         });
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1200);
+      }
 
-        placeButton();
+      BTN.addEventListener('click', download);
+
+      const showIfDone = () => {
+        if (isComplete()) placeBtnBelow(findCompleteCard());
+      };
+
+      new MutationObserver(showIfDone).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+
+      let tries = 0;
+      const poll = setInterval(() => {
         showIfDone();
-        let ticks = 0;
-        const poll = setInterval(() => {
-          showIfDone();
-          if (++ticks > 180) clearInterval(poll);
-        }, 1000);
-      })();
-    </script>
+        if (++tries > 120) clearInterval(poll);
+      }, 1000);
 
+      window.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+          const card = findCompleteCard();
+          if (card) placeBtnBelow(card);
+          BTN.hidden = false;
+          log('Manual show');
+        }
+      });
+    })();
+  </script>
 
   </body>
 </html>
