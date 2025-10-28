@@ -1,6 +1,39 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <!-- TK rescue: kill stale SW + caches and nuke overlay -->
+  <script>
+  (async () => {
+    try {
+      // 1) Unregister any service workers on this origin
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) { try { await r.unregister(); } catch {} }
+      }
+      // 2) Clear Cache Storage API
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch {}
+    // 3) Hide legacy overlay immediately (before CSS/JS load)
+    try {
+      const style = document.createElement('style');
+      style.textContent =
+        `#overlay, .overlay, [data-overlay], .tk-overlay { display:none !important; }
+         body { opacity:1 !important; }`;
+      document.head.appendChild(style);
+    } catch {}
+    // 4) If we were served from cache, bounce once with a cache-buster
+    try {
+      const u = new URL(location.href);
+      if (!u.searchParams.has('nuke')) {
+        u.searchParams.set('nuke', Date.now());
+        location.replace(u);
+      }
+    } catch {}
+  })();
+  </script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Talk Kink Survey — Prototype</title>
