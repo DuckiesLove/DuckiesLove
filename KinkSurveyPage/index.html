@@ -296,12 +296,89 @@
 
 <script>
 /* themes (cosmetic) */
-document.querySelectorAll('.chip').forEach(chip=>{
-  chip.addEventListener('click', ()=>{
-    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-    chip.classList.add('active');
+const themeChips = Array.from(document.querySelectorAll('.chip'));
+const rootStyle = document.documentElement?.style;
+const THEME_KEY = 'tkSurveyTheme';
+const THEMES = {
+  dark: {
+    bg: '#081017',
+    panel: '#0f1f28',
+    ink: '#e7f7ff',
+    inkDim: '#a5c7d2',
+    edge: 'rgba(132,255,255,.25)',
+    accent: '#58f1ff',
+    glow: '0 0 0.75rem rgba(88, 241, 255, .25)'
+  },
+  lipstick: {
+    bg: '#12050b',
+    panel: '#2a0a1f',
+    ink: '#ffe8f2',
+    inkDim: '#f7aacd',
+    edge: 'rgba(255,77,166,.42)',
+    accent: '#ff4da6',
+    glow: '0 0 0.75rem rgba(255,77,166,.32)'
+  },
+  forest: {
+    bg: '#04140b',
+    panel: '#0c2416',
+    ink: '#e7fff0',
+    inkDim: '#a7d8b6',
+    edge: 'rgba(56,245,155,.32)',
+    accent: '#38f59b',
+    glow: '0 0 0.75rem rgba(56,245,155,.26)'
+  },
+  glow: {
+    bg: '#040c12',
+    panel: '#0b1e2b',
+    ink: '#e5f6ff',
+    inkDim: '#9ecbe1',
+    edge: 'rgba(0,234,255,.36)',
+    accent: '#00eaff',
+    glow: '0 0 0.75rem rgba(0,234,255,.28)'
+  }
+};
+
+function applyTheme(name, { persist = true } = {}) {
+  const themeName = THEMES[name] ? name : 'dark';
+  const theme = THEMES[themeName];
+  if (rootStyle) {
+    rootStyle.setProperty('--bg', theme.bg);
+    rootStyle.setProperty('--panel', theme.panel);
+    rootStyle.setProperty('--ink', theme.ink);
+    rootStyle.setProperty('--ink-dim', theme.inkDim);
+    rootStyle.setProperty('--edge', theme.edge);
+    rootStyle.setProperty('--accent', theme.accent);
+    rootStyle.setProperty('--glow', theme.glow);
+  }
+  if (document.body) {
+    document.body.classList.remove('theme-dark', 'theme-lipstick', 'theme-forest', 'theme-glow');
+    document.body.classList.add(`theme-${themeName}`);
+  }
+  themeChips.forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.theme === themeName);
+  });
+  if (persist) {
+    try {
+      localStorage.setItem(THEME_KEY, themeName);
+    } catch (_) {}
+  }
+}
+
+themeChips.forEach(chip => {
+  chip.addEventListener('click', () => {
+    const themeName = chip.dataset.theme;
+    applyTheme(themeName);
   });
 });
+
+let initialTheme = 'dark';
+try {
+  const stored = localStorage.getItem(THEME_KEY);
+  if (stored && THEMES[stored]) {
+    initialTheme = stored;
+  }
+} catch (_) {}
+applyTheme(initialTheme, { persist: false });
 
 /* categories */
 const catTargets = [
