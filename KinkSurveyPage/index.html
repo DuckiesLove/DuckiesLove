@@ -1002,23 +1002,23 @@ document.querySelectorAll('.chip').forEach(chip=>{
 });
 
 /* categories */
-  const catTargets = [
-    'data/categories.json',
-    '/data/categories.json',
-    '/kinksurvey/data/categories.json',
-    '/KinkSurveyPage/data/categories.json'
-  ];
-  const loadEmbeddedCategories = () => {
-    try {
-      const raw = window.__TK_EMBEDDED_CATEGORIES__;
-      if (!raw) return null;
-      if (Array.isArray(raw)) return raw;
-      if (raw && Array.isArray(raw.categories)) return raw.categories;
-    } catch (error) {
-      console.warn('[KinkSurveyPage] Embedded categories parse failed', error);
-    }
-    return null;
-  };
+const catTargets = [
+  'data/categories.json',
+  '/data/categories.json',
+  '/kinksurvey/data/categories.json',
+  '/KinkSurveyPage/data/categories.json'
+];
+const loadEmbeddedCategories = () => {
+  try {
+    const raw = window.__TK_EMBEDDED_CATEGORIES__;
+    if (!raw) return null;
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.categories)) return raw.categories;
+  } catch (error) {
+    console.warn('[KinkSurveyPage] Embedded categories parse failed', error);
+  }
+  return null;
+};
 async function loadCategories(){
   let data = loadEmbeddedCategories();
   for(const path of catTargets){
