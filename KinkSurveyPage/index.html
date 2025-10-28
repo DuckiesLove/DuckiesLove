@@ -206,7 +206,16 @@
 
   .hidden{ display:none !important }
 
-  .download-wrap{ margin: 16px auto 28px; display:flex; justify-content:center; }
+  .start-wrap{ margin: 16px auto 28px; display:flex; justify-content:center; }
+  .start-wrap .btn{ width:min(320px,100%); }
+
+  .download-wrap{
+    margin: 0;
+    padding: 18px 16px 20px;
+    border-top: 1px solid var(--edge-soft);
+    display:flex;
+    justify-content:center;
+  }
   .download-wrap .btn{ width:min(320px,100%); }
 </style>
 </head>
@@ -224,15 +233,14 @@
     <div class="cta-grid">
       <div></div>
       <nav id="ctaStack">
-        <button type="button" class="btn" id="startSurveyBtn" disabled aria-disabled="true">Start Survey</button>
         <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#analysis">Individual Kink Analysis</a>
         <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#compatibility">Compatibility Page</a>
       </nav>
       <div></div>
     </div>
 
-    <div id="downloadWrap" class="download-wrap hidden">
-      <button type="button" class="btn" id="downloadBtn">Download Survey</button>
+    <div class="start-wrap">
+      <button type="button" class="btn" id="startSurveyBtn" disabled aria-disabled="true">Start Survey</button>
     </div>
 
     <section class="tk-columns">
@@ -261,6 +269,10 @@
             <div id="scaleTitle" class="scale-title">Rate interest/comfort (0–5)</div>
             <div class="scale-row" id="scaleRow"></div>
           </div>
+        </div>
+
+        <div id="downloadWrap" class="download-wrap hidden">
+          <button type="button" class="btn" id="downloadBtn">Download Survey</button>
         </div>
       </main>
 
