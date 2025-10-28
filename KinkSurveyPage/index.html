@@ -1053,187 +1053,184 @@ for(let v=0; v<=5; v++){
   }
 </style>
 
-<!-- === TK: download-on-finish (KinkSurveyPage) === -->
-<button id="tkDlBtn" hidden
-  style="display:inline-flex;align-items:center;gap:.6rem;padding:1rem 1.25rem;margin-top:14px;
-         border-radius:18px;border:2px solid rgba(0,255,255,.35);
-         background:radial-gradient(120% 120% at 50% 0%,rgba(0,255,255,.12),rgba(0,255,255,.05) 60%,rgba(0,0,0,.25) 100%);
-         box-shadow:0 0 24px rgba(0,255,255,.18),inset 0 0 18px rgba(0,255,255,.12);
-         color:#e9fbff;font-weight:800;letter-spacing:.02em;font-size:1.05rem;cursor:pointer;">
-  ⬇️ Download results
-</button>
+
+<!-- === TK: reliable download-on-finish (KinkSurveyPage) === -->
+<style>
+  #tkDlBtn, #tkDlFab {
+    display:inline-flex;align-items:center;gap:.6rem;user-select:none;white-space:nowrap;
+    border-radius:18px;border:2px solid rgba(0,255,255,.35);
+    background:radial-gradient(120% 120% at 50% 0%,rgba(0,255,255,.12),rgba(0,255,255,.05) 60%,rgba(0,0,0,.25) 100%);
+    box-shadow:0 0 24px rgba(0,255,255,.18),inset 0 0 18px rgba(0,255,255,.12);
+    color:#e9fbff;font-weight:800;letter-spacing:.02em;font-size:1.05rem;cursor:pointer;
+    padding:.9rem 1.15rem;
+  }
+  #tkDlBtn[hidden]{display:none !important;}
+  /* Floating fallback */
+  #tkDlFab {
+    position:fixed;right:18px;bottom:18px;z-index:9999;padding:.85rem 1.05rem;font-size:.98rem;
+    border-radius:999px;backdrop-filter:blur(6px);
+  }
+  #tkDlFab[hidden]{display:none !important;}
+</style>
+
+<button id="tkDlBtn" hidden>⬇️ Download results</button>
+<button id="tkDlFab" hidden title="Download results (fallback)">⬇️ Download</button>
 
 <script>
 (function(){
-  const BTN = document.getElementById('tkDlBtn');
-  if (!BTN) return;
+  const btn  = document.getElementById('tkDlBtn');
+  const fab  = document.getElementById('tkDlFab');
 
-  // --------- helpers
-  const $all = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
-  const txt = el => (el && el.textContent || '').trim();
+  // ========== utilities
+  const $    = (s, r=document) => r.querySelector(s);
+  const $$   = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const txt  = el => (el && el.textContent || '').trim();
 
-  function findCompleteCard() {
-    // Look for a visible block that contains both "Survey complete" and "100%"
-    const blocks = $all('section, .card, .panel, .summary, .survey-complete, .center-col .card, .wrap .card, div')
+  // Prefer explicit slot if you add <div id="tkDlSlot"></div> inside the summary card.
+  function getSlotOrCard(){
+    const slot = $('#tkDlSlot');
+    if (slot) return slot;
+
+    // Find a visible element that includes "Survey complete" AND ( "100%" OR aria-valuenow >= 100 )
+    const candidates = $$('section, .card, .panel, .summary, .survey-complete, .center-col .card, div')
       .filter(el => el.offsetParent !== null && el.getBoundingClientRect().height > 80);
-    for (const el of blocks) {
+
+    for (const el of candidates) {
       const t = txt(el).toLowerCase();
-      if (t.includes('survey complete') && (t.includes('100%') || hasProgress100(el))) return el;
+      if (!t.includes('survey complete')) continue;
+      if (t.includes('100%') || has100(el)) return el;
     }
     return null;
   }
 
-  function hasProgress100(root){
+  function has100(root){
     const bar = root.querySelector('[role="progressbar"]');
     if (bar) {
       const v = Number(bar.getAttribute('aria-valuenow'));
       if (!Number.isNaN(v) && v >= 100) return true;
     }
-    // fallback: a progress rail that has inline width 100%
-    const rail = root.querySelector('[style*="width"][style*="100%"]');
-    return !!rail;
+    // a rail with inline width 100%
+    if (root.querySelector('[style*="width"][style*="100%"]')) return true;
+    return false;
   }
 
-  function isComplete(){
-    const card = findCompleteCard();
+  function completed(){
+    const card = getSlotOrCard();
     if (!card) return false;
-    if (txt(card).includes('100%')) return true;
-    return hasProgress100(card);
+    const t = txt(card).toLowerCase();
+    if (t.includes('100%')) return true;
+    return has100(card);
   }
 
-  function mountButton(){
-    const card = findCompleteCard();
-    if (!card) return;
-    if (!BTN.isConnected) card.insertAdjacentElement('afterend', BTN);
-    BTN.hidden = false;
+  function mountInline(){
+    const target = getSlotOrCard();
+    if (!target) return false;
+    if (!btn.isConnected) target.insertAdjacentElement('afterend', btn);
+    btn.hidden = false;
+    return true;
   }
 
-  // --------- export building (black page + category titles + current question/score)
-  const ESC_MAP = new Map([
-    ['&','&amp;'],
-    ['<','&lt;'],
-    ['>','&gt;'],
-    ['"','&quot;'],
-    ["'",'&#39;']
-  ]);
-  function escapeHTML(s){
-    return String(s).replace(/[&<>"']/g,m=>ESC_MAP.get(m)||m);
-  }
-
+  // ===== export content (black page with categories + last question/score)
+  function escapeHTML(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));}
   function selectedCategories(){
-    const names = [];
-    // checked inputs + their labels
-    $all('input[type="checkbox"]').forEach(cb=>{
+    const out = [];
+    $$('input[type="checkbox"]').forEach(cb=>{
       if (!cb.checked) return;
-      let labelTxt = '';
-      if (cb.id) {
-        const lab = document.querySelector(`label[for="${cb.id}"]`);
-        if (lab) labelTxt = txt(lab);
-      }
-      if (!labelTxt) {
+      let t=''; if (cb.id) { const lab = document.querySelector(`label[for="${cb.id}"]`); if (lab) t = txt(lab); }
+      if (!t) t = txt(cb.closest('label')) || txt(cb.closest('.row,.item,.line')) || '';
+      if (!t) {
         const direct = cb.nextElementSibling;
-        if (direct) labelTxt = txt(direct);
+        if (direct) t = txt(direct);
       }
-      if (!labelTxt) {
-        const wrap = cb.closest('label, .row, .item, .line, li');
-        if (wrap) labelTxt = txt(wrap.querySelector('label span, span, .cat-name')) || txt(wrap);
-      }
-      if (labelTxt) names.push(labelTxt.replace(/\s+/g,' '));
+      if (t) out.push(t.replace(/\s+/g,' '));
     });
-    return Array.from(new Set(names));
+    return out;
   }
-
   function currentQuestion(){
-    // try a couple of likely locations around the center question card
-    const scope = document.querySelector('#questionColumn, .tk-question-card, .question-card, .center-col .card, .card') || document;
+    const scope = $('.tk-question-card, .question-card, .center-col .card, .card') || document;
     return txt(scope.querySelector('h2, h3, .tk-question-title, [data-role="question-title"]'));
   }
   function currentScore(){
-    const r = document.querySelector('input[name="score"]:checked, input[name="rating"]:checked, .tk-score input[type="radio"]:checked');
+    const r = $('input[name="score"]:checked, input[name="rating"]:checked, .tk-score input[type="radio"]:checked');
     return r ? r.value : '';
   }
-
   function buildHTML(){
-    const cats = selectedCategories();
+    const cats  = selectedCategories();
     const stamp = new Date().toLocaleString();
-    const q = currentQuestion();
-    const s = currentScore();
+    const q     = currentQuestion();
+    const s     = currentScore();
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Talk Kink — Survey Summary</title>
 <style>
-  :root{--fg:#EAEFF2;--sub:#9FB7C1;--gl:rgba(0,255,255,.35)}
-  body{margin:0;background:#000;color:var(--fg);font:16px/1.6 system-ui,Segoe UI,Roboto,Arial}
-  .wrap{max-width:980px;margin:56px auto;padding:0 20px}
-  h1{font-size:clamp(28px,4.5vw,56px);margin:0 0 8px}
-  .sub{color:var(--sub);margin:0 0 28px}
-  section{border:1px solid #0b2c2c;border-radius:16px;padding:22px 20px;margin:16px 0;
-          background:linear-gradient(180deg,rgba(0,255,255,.05),rgba(0,255,255,.02));
-          box-shadow:0 0 28px rgba(0,255,255,.08) inset}
-  h2{font-size:20px;margin:0 0 12px}
-  ul{margin:10px 0 0 20px}
-  .badge{display:inline-block;min-width:1.8rem;text-align:center;border:1px solid var(--gl);
-         border-radius:999px;padding:.15rem .55rem;margin-left:.45rem}
-  .muted{color:var(--sub)}
-  .footer{margin-top:32px;color:#89a3ab;font-size:13px}
+:root{--fg:#EAEFF2;--sub:#9FB7C1}
+html,body{height:100%}body{margin:0;background:#000;color:var(--fg);font:16px/1.6 system-ui,Segoe UI,Roboto,Arial}
+.wrap{max-width:980px;margin:56px auto;padding:0 20px}
+h1{font-size:clamp(28px,4.5vw,56px);margin:0 0 8px}
+.sub{color:var(--sub);margin:0 0 28px}
+section{border:1px solid #0b2c2c;border-radius:16px;padding:22px 20px;margin:16px 0;
+  background:linear-gradient(180deg,rgba(0,255,255,.05),rgba(0,255,255,.02));
+  box-shadow:0 0 28px rgba(0,255,255,.08) inset}
+h2{font-size:20px;margin:0 0 12px}
+ul{margin:10px 0 0 20px}
+.badge{display:inline-block;border:1px solid rgba(0,255,255,.35);border-radius:999px;padding:.15rem .55rem;margin-left:.45rem}
+.footer{margin-top:32px;color:#89a3ab;font-size:13px}
 </style></head><body><div class="wrap">
-  <h1>Talk Kink Survey</h1>
-  <p class="sub">Export generated ${escapeHTML(stamp)}</p>
-  <section><h2>Selected Categories</h2>
-    <ul>${
-      cats.length ? cats.map(t=>`<li>${escapeHTML(t)}</li>`).join('') : '<li><em>No categories selected.</em></li>'
-    }</ul>
-  </section>
-  <section><h2>Last Question Answered</h2>
-    <p><strong>${escapeHTML(q||'—')}</strong>${s!==''?` <span class="badge">Score: ${escapeHTML(s)}</span>`:''}</p>
-    <p class="muted">This export includes your chosen categories and current question context.</p>
-  </section>
-  <p class="footer">© Talk Kink — local export</p>
-</div></body></html>`;
+<h1>Talk Kink Survey</h1><p class="sub">Export generated ${escapeHTML(stamp)}</p>
+<section><h2>Selected Categories</h2>
+<ul>${cats.length?cats.map(t=>`<li>${escapeHTML(t)}</li>`).join(''):'<li><em>No categories selected.</em></li>'}</ul>
+</section>
+<section><h2>Last Question Answered</h2>
+<p><strong>${escapeHTML(q||'—')}</strong>${s!==''?` <span class="badge">Score: ${escapeHTML(s)}</span>`:''}</p>
+<p style="color:#9FB7C1">This export contains your chosen categories and last answered context.</p>
+</section>
+<p class="footer">© Talk Kink — local export</p></div></body></html>`;
   }
-
-  function downloadFile(){
+  function download(){
     const blob = new Blob([buildHTML()], {type:'text/html;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
     a.href = url;
     a.download = `talkkink-summary-${new Date().toISOString().replace(/[:.]/g,'-')}.html`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 1200);
   }
-  BTN.addEventListener('click', downloadFile);
+  btn.addEventListener('click', download);
+  fab.addEventListener('click', download);
 
-  // --------- show when complete (and keep trying while UI hydrates)
-  function checkAndShow(){
-    if (isComplete()) { mountButton(); return true; }
+  // ===== show button when complete (inline, else fallback)
+  function update(){
+    if (completed()) {
+      // try to mount inline; if that fails, show floating FAB
+      const ok = mountInline();
+      btn.hidden = !ok;
+      fab.hidden = ok;   // show FAB only if inline could not mount
+      return true;
+    }
+    btn.hidden = true;
+    fab.hidden = true;
     return false;
   }
 
-  function setupWatchers(){
-    // Mutation observer for dynamic UIs
-    const mo = new MutationObserver(() => checkAndShow());
-    mo.observe(document.documentElement, {childList:true,subtree:true,characterData:true});
-    // quick polling safety net (stops once shown or after 2 minutes)
-    let n=0; const t = setInterval(()=>{
-      if (checkAndShow() || ++n>120) clearInterval(t);
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // Observe DOM changes for hydration
+    const mo = new MutationObserver(() => update());
+    mo.observe(document.documentElement, {subtree:true,childList:true,characterData:true,attributes:true});
+    // Poll as safety net (stops after success or 2 minutes)
+    let n=0; const timer = setInterval(()=>{
+      if (update() || ++n>120) clearInterval(timer);
     }, 1000);
-    checkAndShow();
-  }
+  });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupWatchers, { once: true });
-  } else {
-    setupWatchers();
-  }
-
-  // Optional: manual reveal shortcut (Ctrl+Shift+D)
+  // Manual reveal (Ctrl+Shift+D) – helps while testing
   window.addEventListener('keydown', e=>{
     if (e.ctrlKey && e.shiftKey && e.key.toLowerCase()==='d'){
-      mountButton(); BTN.hidden=false;
+      mountInline(); btn.hidden=false; fab.hidden=true;
     }
   });
 })();
 </script>
-<!-- === /TK: download-on-finish === -->
+<!-- === /TK: reliable download-on-finish === -->
+
 
 <script>
   // Make CTA buttons exactly as wide as the theme chips row.
