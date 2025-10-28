@@ -1,89 +1,37 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- TK rescue: keep the prototype visible + bust stale caches once per tab session -->
+  <!-- TK rescue: kill stale SW + caches and nuke overlay -->
   <script>
-  (function tkKspRescue(){
-    const SS = window.sessionStorage;
-    const LS = window.localStorage;
-    const CACHE_FLAG = 'tkKspRescueCacheNuked';
-    const DEAD_FLAG = 'tkKspRescueDeadman';
-
-    const hasFlag = (key) => {
-      try { return SS.getItem(key) === '1'; } catch { return false; }
-    };
-    const setFlag = (key) => {
-      try { SS.setItem(key, '1'); } catch {}
-    };
-
-    const showImmediately = () => {
-      try {
-        document.documentElement.classList.add('tk-no-overlay');
-        const style = document.createElement('style');
-        style.textContent = `
-          body { opacity:1 !important; visibility:visible !important; }
-          #overlay, .overlay, .tk-overlay, [data-overlay] {
-            display:none !important;
-            visibility:hidden !important;
-            opacity:0 !important;
-          }
-        `;
-        document.head.appendChild(style);
-      } catch {}
-    };
-
-    const nukeCaches = async () => {
-      try {
-        if ('serviceWorker' in navigator) {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(r => r.unregister().catch(() => {})));
-        }
-      } catch {}
-      try {
-        if ('caches' in window) {
-          const keys = await caches.keys();
-          await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
-        }
-      } catch {}
-      try { LS.removeItem('tk.ver'); } catch {}
-      try { LS.removeItem('tk.ver.seen'); } catch {}
-    };
-
-    const ensureFreshReload = () => {
-      try {
-        const url = new URL(location.href);
-        if (!url.searchParams.has('nuke')) {
-          url.searchParams.set('nuke', Date.now().toString());
-          setFlag(CACHE_FLAG);
-          location.replace(url.toString());
-          return true;
-        }
-      } catch {}
-      return false;
-    };
-
-    showImmediately();
-
-    (async () => {
-      if (!hasFlag(CACHE_FLAG)) {
-        await nukeCaches();
-        if (ensureFreshReload()) return;
-        setFlag(CACHE_FLAG);
+  (async () => {
+    try {
+      // 1) Unregister any service workers on this origin
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) { try { await r.unregister(); } catch {} }
       }
-
-      if (!hasFlag(DEAD_FLAG)) {
-        setTimeout(() => {
-          try {
-            const catList = document.getElementById('catList');
-            if (catList && catList.children.length > 0) return;
-            const url = new URL(location.href);
-            url.searchParams.set('tkrefresh', Date.now().toString());
-            setFlag(DEAD_FLAG);
-            location.replace(url.toString());
-          } catch {}
-        }, 2200);
+      // 2) Clear Cache Storage API
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
       }
-    })();
+    } catch {}
+    // 3) Hide legacy overlay immediately (before CSS/JS load)
+    try {
+      const style = document.createElement('style');
+      style.textContent =
+        `#overlay, .overlay, [data-overlay], .tk-overlay { display:none !important; }
+         body { opacity:1 !important; }`;
+      document.head.appendChild(style);
+    } catch {}
+    // 4) If we were served from cache, bounce once with a cache-buster
+    try {
+      const u = new URL(location.href);
+      if (!u.searchParams.has('nuke')) {
+        u.searchParams.set('nuke', Date.now());
+        location.replace(u);
+      }
+    } catch {}
   })();
   </script>
 <meta charset="utf-8" />
@@ -115,23 +63,6 @@
   }
 
   .container{max-width:1300px; margin:0 auto; padding:24px 18px 64px}
-
-  .tk-alert{
-    margin:12px auto 0;
-    padding:12px 16px;
-    border-radius:12px;
-    border:1px solid rgba(132,255,255,.35);
-    background:rgba(7, 30, 38, .78);
-    color:var(--ink);
-    font-size:15px;
-    font-weight:500;
-    max-width:min(640px, 96vw);
-    text-align:center;
-    box-shadow:var(--glow);
-    white-space:pre-line;
-  }
-  .tk-alert[data-tone="warn"]{ border-color:rgba(255,210,90,.65); color:#ffeebe; }
-  .tk-alert[data-tone="error"]{ border-color:rgba(255,104,104,.7); color:#ffdada; }
 
   h1#title{
     margin: 0 0 12px;                 /* tighter so the right panel appears above the fold */
@@ -573,8 +504,6 @@
         <a class="btn" href="/kinksurvey/#analysis">Individual Kink Analysis</a>
         <a class="btn" href="/kinksurvey/#compatibility">Compatibility Page</a>
       </nav>
-
-      <div id="tkDiag" class="tk-alert" role="status" aria-live="polite" hidden></div>
     </header>
 
     <section class="tk-columns">
@@ -658,80 +587,23 @@
     }
   ];
 
-  const $start    = document.getElementById('btnStart');
-  const $cats     = document.getElementById('catColumn');
-  const $middle   = document.getElementById('questionColumn');
-  const $right    = document.getElementById('scaleColumn');
-  const $cta      = document.getElementById('ctaStack');
+  const $start   = document.getElementById('btnStart');
+  const $cats    = document.getElementById('catColumn');
+  const $middle  = document.getElementById('questionColumn');
+  const $right   = document.getElementById('scaleColumn');
+  const $cta     = document.getElementById('ctaStack');
   const $scaleRow = document.getElementById('scaleRow');
-  const $lead     = document.getElementById('questionPrompt');
-  const $role     = document.getElementById('questionRole');
+  const $lead    = document.getElementById('questionPrompt');
+  const $role    = document.getElementById('questionRole');
   const $progressShell = document.getElementById('progressShell');
   const $progressBar   = document.getElementById('progressBar');
   const $progressPct   = document.getElementById('progressPct');
   const $progressText  = document.getElementById('progressText');
-  const $diag     = document.getElementById('tkDiag');
 
   if (!$start || !$cats || !$middle || !$right || !$scaleRow) {
     console.warn('[KinkSurveyPage] Required elements not found. Check IDs: btnStart, catColumn, questionColumn, scaleColumn, scaleRow');
     return;
   }
-
-  const statusBanner = (() => {
-    if (!$diag) {
-      const noop = () => {};
-      return {
-        warnCategory: noop,
-        clearCategory: noop,
-        warnBank: noop,
-        clearBank: noop,
-        fatal: noop,
-        clearFatal: noop
-      };
-    }
-
-    $diag.hidden = true;
-    const state = { category: null, bank: null, fatal: null };
-
-    const render = () => {
-      if (state.fatal) {
-        $diag.textContent = state.fatal;
-        $diag.dataset.tone = 'error';
-        $diag.hidden = false;
-        return;
-      }
-
-      const lines = [];
-      if (state.category) lines.push(state.category);
-      if (state.bank) lines.push(state.bank);
-
-      if (lines.length) {
-        $diag.textContent = lines.join('\n');
-        $diag.dataset.tone = 'warn';
-        $diag.hidden = false;
-      } else {
-        $diag.textContent = '';
-        $diag.removeAttribute('data-tone');
-        $diag.hidden = true;
-      }
-    };
-
-    const setMessage = (key, value) => {
-      state[key] = value ? String(value) : null;
-      render();
-    };
-
-    return {
-      warnCategory(message) { setMessage('category', message); },
-      clearCategory() { setMessage('category', null); },
-      warnBank(message) { setMessage('bank', message); },
-      clearBank() { setMessage('bank', null); },
-      fatal(message) { setMessage('fatal', message); },
-      clearFatal() { setMessage('fatal', null); }
-    };
-  })();
-
-  window.tkKspStatus = statusBanner;
 
   const slugify = (value) => {
     return String(value ?? '')
@@ -872,44 +744,21 @@
         '/kinks.json'
       ];
       bankPromise = (async () => {
-        const errors = [];
         for (const url of targets) {
           try {
             const res = await fetch(url, { cache: 'no-store' });
-            if (!res.ok) {
-              errors.push(`${url}: HTTP ${res.status}`);
-              continue;
-            }
+            if (!res.ok) continue;
             const text = await res.text();
             const trimmed = text.trim();
-            if (!trimmed) {
-              errors.push(`${url}: empty response`);
-              continue;
-            }
-            if (trimmed.startsWith('<')) {
-              errors.push(`${url}: HTML response`);
-              continue;
-            }
+            if (!trimmed || trimmed.startsWith('<')) continue;
             const json = JSON.parse(trimmed);
             const bank = normalizeQuestionBank(json);
-            if (bank.length) {
-              if (errors.length) {
-                console.warn('[KinkSurveyPage] Loaded questions after retrying', errors);
-              }
-              statusBanner.clearBank();
-              return bank;
-            }
-            errors.push(`${url}: no usable questions returned`);
+            if (bank.length) return bank;
           } catch (error) {
             console.warn(`[KinkSurveyPage] Unable to load questions from ${url}`, error);
-            errors.push(`${url}: ${error?.message || error}`);
           }
         }
         console.warn('[KinkSurveyPage] Falling back to bundled question sample');
-        if (errors.length) {
-          console.warn('[KinkSurveyPage] Question bank attempts failed:', errors);
-        }
-        statusBanner.warnBank('Using a limited offline question set because the live data could not be reached. Refresh to retry once your connection is stable.');
         return FALLBACK_BANK;
       })();
     }
@@ -1143,32 +992,14 @@ document.querySelectorAll('.chip').forEach(chip=>{
     '/KinkSurveyPage/data/categories.json'
   ];
 async function loadCategories(){
-  const banner = window.tkKspStatus;
   let data = null;
-  const errors = [];
   for(const path of catTargets){
-    try{
-      const res = await fetch(path,{cache:'no-store'});
-      if(!res.ok){ errors.push(`${path}: HTTP ${res.status}`); continue; }
-      const text = await res.text();
-      const trimmed = text.trim();
-      if(!trimmed){ errors.push(`${path}: empty response`); continue; }
-      if(trimmed.startsWith('<')){ errors.push(`${path}: HTML response`); continue; }
-      data = JSON.parse(trimmed);
-      break;
-    }catch(e){ errors.push(`${path}: ${e?.message || e}`); }
+    try{ const r = await fetch(path,{cache:'no-store'}); if(r.ok){ data = await r.json(); break; } }catch(e){}
   }
   if(!data){
-    if(errors.length){ console.warn('[KinkSurveyPage] Category fetch attempts failed:', errors); }
-    banner?.warnCategory?.('Using a reduced offline category list because the live data could not be reached. Refresh to retry.');
     data = ["Appearance Play","Behavioral Play","Body Fluids and Functions","Body Modification",
             "Body Part / Fetish Play","Body Part Torture","Bondage and Suspension","Breath Play",
             "Breeding","Chastity Devices","Communication","Consent & Safewords"];
-  } else if(errors.length){
-    console.warn('[KinkSurveyPage] Loaded categories after retrying', errors);
-    banner?.warnCategory?.('Loaded categories after retrying cached data. Refresh if anything looks missing.');
-  } else {
-    banner?.clearCategory?.();
   }
   const normalize = v => typeof v === 'string' ? v : (v?.name ?? String(v));
   const ul = document.getElementById('catList');
