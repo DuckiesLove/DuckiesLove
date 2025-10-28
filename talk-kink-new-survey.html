@@ -69,6 +69,8 @@
     width:100%;
     justify-items:stretch;
     margin-bottom:32px;
+    position:sticky;
+    top:16px;
   }
 
   #ctaStack .btn{
@@ -104,6 +106,10 @@
   /* Responsive: stack on narrow screens */
   @media (max-width: 980px) {
     #tkPortal { grid-template-columns: 1fr; }
+    #ctaStack{
+      position:static;
+      top:auto;
+    }
     .tk-left {
       display:block;
       height: auto;
