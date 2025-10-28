@@ -566,6 +566,9 @@
     </section>
   </div>
 
+<script src="embedded/question-bank.js"></script>
+<script src="embedded/categories.js"></script>
+
 <script>
 (() => {
   const CAT_CHECK_SELECTOR = '#catColumn input[type="checkbox"], #catColumn .cat-check';
@@ -693,6 +696,18 @@
     return [];
   }
 
+  const loadEmbeddedBank = () => {
+    try {
+      const raw = window.__TK_EMBEDDED_BANK__;
+      if (!raw) return null;
+      const normalized = normalizeQuestionBank(raw);
+      if (normalized.length) return normalized;
+    } catch (error) {
+      console.warn('[KinkSurveyPage] Embedded question bank parse failed', error);
+    }
+    return null;
+  };
+
   const FALLBACK_BANK = normalizeQuestionBank(FALLBACK_RAW);
 
   let questionBank = null;
@@ -744,6 +759,8 @@
         '/kinks.json'
       ];
       bankPromise = (async () => {
+        const embedded = loadEmbeddedBank();
+        if (embedded && embedded.length) return embedded;
         for (const url of targets) {
           try {
             const res = await fetch(url, { cache: 'no-store' });
@@ -991,9 +1008,21 @@ document.querySelectorAll('.chip').forEach(chip=>{
     '/kinksurvey/data/categories.json',
     '/KinkSurveyPage/data/categories.json'
   ];
+  const loadEmbeddedCategories = () => {
+    try {
+      const raw = window.__TK_EMBEDDED_CATEGORIES__;
+      if (!raw) return null;
+      if (Array.isArray(raw)) return raw;
+      if (raw && Array.isArray(raw.categories)) return raw.categories;
+    } catch (error) {
+      console.warn('[KinkSurveyPage] Embedded categories parse failed', error);
+    }
+    return null;
+  };
 async function loadCategories(){
-  let data = null;
+  let data = loadEmbeddedCategories();
   for(const path of catTargets){
+    if (data) break;
     try{ const r = await fetch(path,{cache:'no-store'}); if(r.ok){ data = await r.json(); break; } }catch(e){}
   }
   if(!data){
