@@ -68,6 +68,7 @@
     max-width:560px;
     width:100%;
     justify-items:stretch;
+    margin-bottom:32px;
   }
 
   #ctaStack .btn{
@@ -198,6 +199,18 @@
   /* SURVEY */
   .survey{margin-top:24px;border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:16px}
   .catTitle{margin:0 0 8px 0;color:#7ef9ff}
+  .surveyNav{
+    margin-top:14px;
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .surveyDownload{
+    margin-top:22px;
+    display:flex;
+    justify-content:flex-end;
+  }
   .item{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px dashed #00e5ff22}
   .item:first-child{border-top:0}
   select,input[type="text"]{
@@ -343,9 +356,12 @@
 
       <h2 class="catTitle" id="catTitle"></h2>
       <div id="items"></div>
-      <div class="nav" style="margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end">
+      <div class="surveyNav">
         <button class="btn" id="skipBtn">Skip Category</button>
         <button class="btn" id="nextBtn">Next Category</button>
+      </div>
+      <div class="surveyDownload">
+        <button class="btn btn-ghost" id="surveyDownloadBtn" type="button">Download Survey</button>
       </div>
       </section>
 
@@ -1034,6 +1050,11 @@
     const payload = await buildPayload();
     const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
     download(`tk-survey_${ts}.json`, payload);
+  }
+
+  const inlineDownloadBtn = document.getElementById('surveyDownloadBtn');
+  if (inlineDownloadBtn) {
+    inlineDownloadBtn.addEventListener('click', onDownloadSurvey);
   }
 
   /* ----------------------- 5) Replace “Back to home” with Download button ----------------------- */
