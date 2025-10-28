@@ -251,6 +251,7 @@ registerStaticDir('/src', 'src');
 registerStaticDir('/data', 'data');
 registerStaticDir('/kinks', 'kinks', { index: 'index.html' });
 registerStaticDir('/kinksurvey', 'kinksurvey', { index: 'index.html' });
+registerStaticDir('/KinkSurveyPage', 'KinkSurveyPage', { index: 'index.html' });
 
 app.use(servePublicHtml);
 
