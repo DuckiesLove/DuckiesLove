@@ -88,7 +88,7 @@
     display:grid;
     grid-template-columns: var(--left) 1fr var(--right);
     gap: var(--gap);
-    margin-bottom: 10px;              /* tighten */
+    margin-bottom: 32px;
   }
   #ctaStack{ grid-column: 2 / span 1; display:grid; gap:10px }
   .btn{
@@ -121,8 +121,13 @@
   .cat-item input{ accent-color: var(--accent) }
 
   /* middle card */
-  #surveyMain.card{ width:100%; max-width:none; margin-inline:0 }
-  #surveyMain .lead{ color: var(--ink-dim) }
+  #surveyMain.card{ width:100%; max-width:none; margin-inline:0; font-size:0.95rem }
+  #surveyMain .lead{ color: var(--ink-dim); font-size: clamp(15px, 2vw, 18px) }
+  #surveyMain .scale-heading{
+    margin-top:6px;
+    font-size: clamp(18px, 2.6vw, 26px);
+    font-weight:800;
+  }
 
   /* --- FIT-BETTER rating box --- */
   .rating-wrap{
@@ -211,9 +216,7 @@
       <main class="card" id="surveyMain" aria-live="polite">
         <div class="card-hd">
           <div class="lead">Appearance Play • Choosing my partner’s outfit for the day or a scene</div>
-          <div style="margin-top:6px; font-size: clamp(20px, 3.2vw, 30px); font-weight:800;">
-            Giving: Rate interest/comfort (0–5)
-          </div>
+          <div class="scale-heading">Giving: Rate interest/comfort (0–5)</div>
         </div>
         <div class="card-bd">
           <div class="rating-wrap" role="group" aria-labelledby="scaleTitle">
