@@ -143,7 +143,7 @@
   #surveyMain .lead{ color: var(--ink-dim); font-size: clamp(15px, 2vw, 18px) }
   #surveyMain .scale-heading{
     margin-top:6px;
-    font-size: clamp(16px, 2.2vw, 22px);
+    font-size: clamp(15px, 2vw, 20px);
     font-weight:800;
   }
 
@@ -202,7 +202,7 @@
 
   .hidden{ display:none !important }
 
-  .download-wrap{ margin-top:24px; display:flex; justify-content:center; }
+  .download-wrap{ margin: 16px auto 28px; display:flex; justify-content:center; }
   .download-wrap .btn{ width:min(320px,100%); }
 </style>
 </head>
@@ -225,6 +225,10 @@
         <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#compatibility">Compatibility Page</a>
       </nav>
       <div></div>
+    </div>
+
+    <div id="downloadWrap" class="download-wrap hidden">
+      <button type="button" class="btn" id="downloadBtn">Download Survey</button>
     </div>
 
     <section class="tk-columns">
@@ -288,9 +292,6 @@
       </aside>
     </section>
 
-    <div id="downloadWrap" class="download-wrap hidden">
-      <button type="button" class="btn" id="downloadBtn">Download Survey</button>
-    </div>
   </div>
 
 <script>
