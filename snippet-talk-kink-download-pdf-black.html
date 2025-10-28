@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>TalkKink — Download PDF (Black Theme)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- jsPDF + AutoTable (client-side) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #06131a;
+      --teal: #00e5ff;
+      --muted: #9bd3e0;
+      --card: #0c1c24;
+      --text: #dff7ff;
+    }
+    body {
+      margin: 0; padding: 32px;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+    h1 {
+      margin: 0 0 10px; font-size: 40px; letter-spacing: .5px;
+      text-shadow: 0 0 18px rgba(0,229,255,.35);
+    }
+    .hint { color: var(--muted); margin-bottom: 16px }
+    .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap }
+    button {
+      all: unset; cursor: pointer;
+      background: linear-gradient(180deg, #112834, #0e222c);
+      border: 2px solid rgba(0,229,255,.6);
+      box-shadow: 0 0 22px rgba(0,229,255,.12) inset, 0 0 22px rgba(0,229,255,.08);
+      color: #eaffff;
+      padding: 14px 22px; border-radius: 16px; font-weight: 700;
+      transition: transform .05s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 0 26px rgba(0,229,255,.2) inset, 0 0 26px rgba(0,229,255,.14) }
+    .card {
+      margin-top: 20px; padding: 16px 20px; border-radius: 18px;
+      background: var(--card); border: 1px solid rgba(0,229,255,.25);
+    }
+    code { background:#07202a; color:#b9f4ff; padding:2px 6px; border-radius:8px }
+  </style>
+</head>
+<body>
+  <h1>Talk Kink — PDF Export (Black)</h1>
+  <div class="hint">
+    Click <strong>Download PDF</strong> to open a black PDF with category sections and your scores (0–5).<br />
+    This file is generated entirely in your browser.
+  </div>
+
+  <div class="row">
+    <button id="btnDownloadPDF">Download PDF</button>
+  </div>
+
+  <div class="card">
+    <strong>How this integrates with your page</strong>
+    <div class="hint">
+      This snippet looks for your existing globals: <code>QUESTIONS</code> (array of { id, text, cat }) and <code>answers</code> (Map&lt;id, score&gt;).<br />
+      If they exist, it uses them. If not, it will use a tiny demo dataset so you can test the PDF right away.
+    </div>
+  </div>
+
+  <script>
+    // ================================
+    //  Black PDF generator (jsPDF)
+    // ================================
+    async function generateResultsPDF(questions, answersMap, { openInNewTab = true, filename = 'talkkink-results.pdf' } = {}) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }); // 612 x 792
+
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      // Palette (matches site vibe)
+      const BLACK = [0, 0, 0];
+      const CYAN  = [0, 229, 255];  // headers/accent
+      const MUTE  = [155, 211, 224]; // subtext
+      const TEXT  = [223, 247, 255]; // content
+      const LINES = [0, 190, 210];   // borders
+
+      // Group Qs by category
+      const grouped = new Map();
+      questions.forEach(q => {
+        const arr = grouped.get(q.cat) || [];
+        arr.push({ score: answersMap.get(q.id), text: q.text });
+        grouped.set(q.cat, arr);
+      });
+
+      // Paint per-page (background + header/footer)
+      function paintPage(chapterTitle = '') {
+        // Black background
+        doc.setFillColor(...BLACK);
+        doc.rect(0, 0, pageW, pageH, 'F');
+
+        // Header
+        doc.setTextColor(...CYAN);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(20);
+        doc.text('Talk Kink — Survey Results', 40, 48);
+
+        // Subheader
+        const stamp = new Date().toLocaleString();
+        doc.setTextColor(...MUTE);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        const sub = chapterTitle ? `${stamp}  •  ${chapterTitle}` : stamp;
+        doc.text(sub, 40, 66);
+
+        // Footer (page number)
+        const pageStr = `Page ${doc.getNumberOfPages()}`;
+        const tw = doc.getTextWidth(pageStr);
+        doc.text(pageStr, pageW - 40 - tw, pageH - 24);
+      }
+
+      // AutoTable defaults
+      const tableCommon = {
+        theme: 'grid',
+        styles: {
+          fillColor: BLACK,
+          textColor: TEXT,
+          lineColor: LINES,
+          lineWidth: 0.6,
+          fontSize: 11,
+          cellPadding: { top: 6, right: 8, bottom: 6, left: 8 }
+        },
+        headStyles: {
+          fillColor: BLACK,
+          textColor: CYAN,
+          lineColor: LINES,
+          lineWidth: 0.8,
+          fontStyle: 'bold'
+        },
+        margin: { left: 40, right: 40 },
+        didDrawPage: (data) => {
+          // Ensure background/header/footer are applied every page
+          paintPage(data?.settings?.userStyles?.chapterTitle || '');
+        }
+      };
+
+      // Cover / summary
+      paintPage('Summary');
+      doc.setTextColor(...TEXT);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(28);
+      doc.text('Summary by Category', 40, 110);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor(...MUTE);
+      doc.text('Scores: 0 = skip • 1 = hard limit • 2 = soft limit • 3 = curious • 4 = enjoy • 5 = favorite', 40, 136);
+
+      // Tables by category
+      let y = 160;
+      const ordered = [...grouped.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+      for (const [cat, items] of ordered) {
+        if (y > pageH - 120) { doc.addPage(); y = 80; }
+        doc.setTextColor(...CYAN);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.text(cat, 40, y);
+        y += 14;
+
+        const rows = items.map(i => [ i.score == null ? '–' : String(i.score), i.text ]);
+
+        doc.autoTable({
+          ...tableCommon,
+          head: [['Score', 'Item']],
+          body: rows,
+          startY: y + 10,
+          userStyles: { chapterTitle: cat }
+        });
+
+        y = doc.lastAutoTable.finalY + 24;
+      }
+
+      if (openInNewTab) {
+        const blobUrl = doc.output('bloburl');
+        // Open in a new tab (popups must be allowed)
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        doc.save(filename);
+      }
+    }
+
+    // ==========================================================
+    // Hook up to your page's data OR use a tiny demo fallback.
+    // ==========================================================
+    function getDataOrDemo() {
+      // If your page already defined globals QUESTIONS (array) and answers (Map),
+      // we use them. Otherwise we return a small demo.
+      const hasReal = Array.isArray(window.QUESTIONS) && window.answers && typeof window.answers.get === 'function';
+
+      if (hasReal) {
+        return { questions: window.QUESTIONS, answersMap: window.answers };
+      }
+
+      // Demo data (so the button works standalone)
+      const demoQs = [
+        { id: 'q1', text: "Choosing my partner’s outfit for the day", cat: 'Appearance Play' },
+        { id: 'q2', text: "Praise / degradation in roleplay",        cat: 'Behavioral Play' },
+        { id: 'q3', text: "Wax play",                                 cat: 'Sensation Play' },
+        { id: 'q4', text: "Bondage (rope/shibari)",                   cat: 'Bondage & Suspension' },
+        { id: 'q5', text: "Exhibitionism in semi-public contexts",    cat: 'Voyeurism / Exhibitionism' }
+      ];
+      const demoAnswers = new Map([
+        ['q1', 4], ['q2', 3], ['q3', 2], ['q4', 5], ['q5', 1]
+      ]);
+
+      return { questions: demoQs, answersMap: demoAnswers };
+    }
+
+    // Public helper so you can call window.downloadKinkPDF() from anywhere.
+    window.downloadKinkPDF = () => {
+      const { questions, answersMap } = getDataOrDemo();
+      generateResultsPDF(questions, answersMap, { openInNewTab: true });
+    };
+
+    // Wire the demo button
+    document.getElementById('btnDownloadPDF').addEventListener('click', window.downloadKinkPDF);
+  </script>
+</body>
+</html>
