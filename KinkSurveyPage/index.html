@@ -1053,6 +1053,188 @@ for(let v=0; v<=5; v++){
   }
 </style>
 
+<!-- === TK: download-on-finish (KinkSurveyPage) === -->
+<button id="tkDlBtn" hidden
+  style="display:inline-flex;align-items:center;gap:.6rem;padding:1rem 1.25rem;margin-top:14px;
+         border-radius:18px;border:2px solid rgba(0,255,255,.35);
+         background:radial-gradient(120% 120% at 50% 0%,rgba(0,255,255,.12),rgba(0,255,255,.05) 60%,rgba(0,0,0,.25) 100%);
+         box-shadow:0 0 24px rgba(0,255,255,.18),inset 0 0 18px rgba(0,255,255,.12);
+         color:#e9fbff;font-weight:800;letter-spacing:.02em;font-size:1.05rem;cursor:pointer;">
+  ⬇️ Download results
+</button>
+
+<script>
+(function(){
+  const BTN = document.getElementById('tkDlBtn');
+  if (!BTN) return;
+
+  // --------- helpers
+  const $all = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
+  const txt = el => (el && el.textContent || '').trim();
+
+  function findCompleteCard() {
+    // Look for a visible block that contains both "Survey complete" and "100%"
+    const blocks = $all('section, .card, .panel, .summary, .survey-complete, .center-col .card, .wrap .card, div')
+      .filter(el => el.offsetParent !== null && el.getBoundingClientRect().height > 80);
+    for (const el of blocks) {
+      const t = txt(el).toLowerCase();
+      if (t.includes('survey complete') && (t.includes('100%') || hasProgress100(el))) return el;
+    }
+    return null;
+  }
+
+  function hasProgress100(root){
+    const bar = root.querySelector('[role="progressbar"]');
+    if (bar) {
+      const v = Number(bar.getAttribute('aria-valuenow'));
+      if (!Number.isNaN(v) && v >= 100) return true;
+    }
+    // fallback: a progress rail that has inline width 100%
+    const rail = root.querySelector('[style*="width"][style*="100%"]');
+    return !!rail;
+  }
+
+  function isComplete(){
+    const card = findCompleteCard();
+    if (!card) return false;
+    if (txt(card).includes('100%')) return true;
+    return hasProgress100(card);
+  }
+
+  function mountButton(){
+    const card = findCompleteCard();
+    if (!card) return;
+    if (!BTN.isConnected) card.insertAdjacentElement('afterend', BTN);
+    BTN.hidden = false;
+  }
+
+  // --------- export building (black page + category titles + current question/score)
+  const ESC_MAP = new Map([
+    ['&','&amp;'],
+    ['<','&lt;'],
+    ['>','&gt;'],
+    ['"','&quot;'],
+    ["'",'&#39;']
+  ]);
+  function escapeHTML(s){
+    return String(s).replace(/[&<>"']/g,m=>ESC_MAP.get(m)||m);
+  }
+
+  function selectedCategories(){
+    const names = [];
+    // checked inputs + their labels
+    $all('input[type="checkbox"]').forEach(cb=>{
+      if (!cb.checked) return;
+      let labelTxt = '';
+      if (cb.id) {
+        const lab = document.querySelector(`label[for="${cb.id}"]`);
+        if (lab) labelTxt = txt(lab);
+      }
+      if (!labelTxt) {
+        const direct = cb.nextElementSibling;
+        if (direct) labelTxt = txt(direct);
+      }
+      if (!labelTxt) {
+        const wrap = cb.closest('label, .row, .item, .line, li');
+        if (wrap) labelTxt = txt(wrap.querySelector('label span, span, .cat-name')) || txt(wrap);
+      }
+      if (labelTxt) names.push(labelTxt.replace(/\s+/g,' '));
+    });
+    return Array.from(new Set(names));
+  }
+
+  function currentQuestion(){
+    // try a couple of likely locations around the center question card
+    const scope = document.querySelector('#questionColumn, .tk-question-card, .question-card, .center-col .card, .card') || document;
+    return txt(scope.querySelector('h2, h3, .tk-question-title, [data-role="question-title"]'));
+  }
+  function currentScore(){
+    const r = document.querySelector('input[name="score"]:checked, input[name="rating"]:checked, .tk-score input[type="radio"]:checked');
+    return r ? r.value : '';
+  }
+
+  function buildHTML(){
+    const cats = selectedCategories();
+    const stamp = new Date().toLocaleString();
+    const q = currentQuestion();
+    const s = currentScore();
+    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Talk Kink — Survey Summary</title>
+<style>
+  :root{--fg:#EAEFF2;--sub:#9FB7C1;--gl:rgba(0,255,255,.35)}
+  body{margin:0;background:#000;color:var(--fg);font:16px/1.6 system-ui,Segoe UI,Roboto,Arial}
+  .wrap{max-width:980px;margin:56px auto;padding:0 20px}
+  h1{font-size:clamp(28px,4.5vw,56px);margin:0 0 8px}
+  .sub{color:var(--sub);margin:0 0 28px}
+  section{border:1px solid #0b2c2c;border-radius:16px;padding:22px 20px;margin:16px 0;
+          background:linear-gradient(180deg,rgba(0,255,255,.05),rgba(0,255,255,.02));
+          box-shadow:0 0 28px rgba(0,255,255,.08) inset}
+  h2{font-size:20px;margin:0 0 12px}
+  ul{margin:10px 0 0 20px}
+  .badge{display:inline-block;min-width:1.8rem;text-align:center;border:1px solid var(--gl);
+         border-radius:999px;padding:.15rem .55rem;margin-left:.45rem}
+  .muted{color:var(--sub)}
+  .footer{margin-top:32px;color:#89a3ab;font-size:13px}
+</style></head><body><div class="wrap">
+  <h1>Talk Kink Survey</h1>
+  <p class="sub">Export generated ${escapeHTML(stamp)}</p>
+  <section><h2>Selected Categories</h2>
+    <ul>${
+      cats.length ? cats.map(t=>`<li>${escapeHTML(t)}</li>`).join('') : '<li><em>No categories selected.</em></li>'
+    }</ul>
+  </section>
+  <section><h2>Last Question Answered</h2>
+    <p><strong>${escapeHTML(q||'—')}</strong>${s!==''?` <span class="badge">Score: ${escapeHTML(s)}</span>`:''}</p>
+    <p class="muted">This export includes your chosen categories and current question context.</p>
+  </section>
+  <p class="footer">© Talk Kink — local export</p>
+</div></body></html>`;
+  }
+
+  function downloadFile(){
+    const blob = new Blob([buildHTML()], {type:'text/html;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `talkkink-summary-${new Date().toISOString().replace(/[:.]/g,'-')}.html`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1200);
+  }
+  BTN.addEventListener('click', downloadFile);
+
+  // --------- show when complete (and keep trying while UI hydrates)
+  function checkAndShow(){
+    if (isComplete()) { mountButton(); return true; }
+    return false;
+  }
+
+  function setupWatchers(){
+    // Mutation observer for dynamic UIs
+    const mo = new MutationObserver(() => checkAndShow());
+    mo.observe(document.documentElement, {childList:true,subtree:true,characterData:true});
+    // quick polling safety net (stops once shown or after 2 minutes)
+    let n=0; const t = setInterval(()=>{
+      if (checkAndShow() || ++n>120) clearInterval(t);
+    }, 1000);
+    checkAndShow();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupWatchers, { once: true });
+  } else {
+    setupWatchers();
+  }
+
+  // Optional: manual reveal shortcut (Ctrl+Shift+D)
+  window.addEventListener('keydown', e=>{
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase()==='d'){
+      mountButton(); BTN.hidden=false;
+    }
+  });
+})();
+</script>
+<!-- === /TK: download-on-finish === -->
+
 <script>
   // Make CTA buttons exactly as wide as the theme chips row.
   (function () {
