@@ -703,6 +703,7 @@
     if (questionBank) return questionBank;
     if (!bankPromise) {
       const targets = [
+        'data/kinks.json',
         '/data/kinks.json',
         '/kinksurvey/data/kinks.json',
         '/KinkSurveyPage/data/kinks.json',
@@ -951,11 +952,12 @@ document.querySelectorAll('.chip').forEach(chip=>{
 });
 
 /* categories */
-const catTargets = [
-  '/data/categories.json',
-  '/kinksurvey/data/categories.json',
-  '/KinkSurveyPage/data/categories.json'
-];
+  const catTargets = [
+    'data/categories.json',
+    '/data/categories.json',
+    '/kinksurvey/data/categories.json',
+    '/KinkSurveyPage/data/categories.json'
+  ];
 async function loadCategories(){
   let data = null;
   for(const path of catTargets){
@@ -1249,8 +1251,16 @@ ul{margin:10px 0 0 20px}
     window.addEventListener('load', sizeCTAs, { once:true });
     window.addEventListener('resize', sizeCTAs);
     // if your theme chips can hide/show, observe layout changes too
-    const ro = new ResizeObserver(sizeCTAs);
-    ro.observe(chips);
+    if ('ResizeObserver' in window) {
+      const ro = new ResizeObserver(sizeCTAs);
+      ro.observe(chips);
+    } else {
+      // fall back to a simple interval if ResizeObserver is unavailable
+      const timer = setInterval(() => {
+        sizeCTAs();
+        if (!document.body.contains(chips)) clearInterval(timer);
+      }, 1000);
+    }
   })();
 </script>
 </body>
