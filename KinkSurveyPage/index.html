@@ -1,30 +1,29 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- TK rescue: kill stale SW + caches and nuke overlay -->
+  <!-- TK rescue: clear stale caches and overlays before we load styles/scripts -->
   <script>
   (async () => {
     try {
-      // 1) Unregister any service workers on this origin
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
-        for (const r of regs) { try { await r.unregister(); } catch {} }
+        for (const r of regs) {
+          try {
+            await r.unregister();
+          } catch {}
+        }
       }
-      // 2) Clear Cache Storage API
       if (window.caches) {
         const keys = await caches.keys();
         await Promise.all(keys.map(k => caches.delete(k)));
       }
     } catch {}
-    // 3) Hide legacy overlay immediately (before CSS/JS load)
     try {
       const style = document.createElement('style');
-      style.textContent =
-        `#overlay, .overlay, [data-overlay], .tk-overlay { display:none !important; }
+      style.textContent = `#overlay, .overlay, [data-overlay], .tk-overlay { display:none !important; }
          body { opacity:1 !important; }`;
       document.head.appendChild(style);
     } catch {}
-    // 4) If we were served from cache, bounce once with a cache-buster
     try {
       const u = new URL(location.href);
       if (!u.searchParams.has('nuke')) {
@@ -91,7 +90,7 @@
     gap: var(--gap);
     margin-bottom: 10px;              /* tighten */
   }
-  #ctaStack{ display:grid; gap:10px }
+  #ctaStack{ grid-column: 2 / span 1; display:grid; gap:10px }
   .btn{
     border:1px solid var(--edge); background:rgba(255,255,255,.03); color:var(--ink);
     padding:14px 18px; border-radius:999px; text-align:center; font-weight:700;
@@ -113,7 +112,7 @@
   .card > .card-bd{ padding:14px 16px 16px }
 
   /* left categories */
-  .tk-left{ max-height: calc(100vh - 90px); overflow:auto }  /* taller viewport allowance */
+  .tk-left{ max-height: calc(100vh - 170px); overflow:auto }  /* a bit taller, still fits viewport */
   .cat-list{ list-style:none; margin:0; padding:0 }
   .cat-item{
     display:flex; align-items:center; gap:12px; padding:12px 14px; margin:8px 12px;
@@ -122,19 +121,8 @@
   .cat-item input{ accent-color: var(--accent) }
 
   /* middle card */
-  #questionColumn.card{ width:100%; max-width:none; margin-inline:0 }
-  #questionColumn .lead{
-    color: var(--ink-dim);
-    font-size: clamp(14px, 2vw, 18px);
-    line-height: 1.35;
-  }
-
-  #questionColumn .subhead{
-    margin-top: 6px;
-    font-size: clamp(14px, 2vw, 18px);
-    font-weight: 800;
-    color: var(--ink);
-  }
+  #surveyMain.card{ width:100%; max-width:none; margin-inline:0 }
+  #surveyMain .lead{ color: var(--ink-dim) }
 
   /* --- FIT-BETTER rating box --- */
   .rating-wrap{
@@ -143,44 +131,6 @@
     border-radius: 14px;
     padding:12px;
     margin-top: 8px;
-  }
-  .progress-shell{
-    display:grid;
-    gap:8px;
-    margin-bottom:16px;
-  }
-  #progressBar{
-    position:relative;
-    height:14px;
-    border-radius:999px;
-    border:1px solid var(--edge);
-    background:rgba(255,255,255,.05);
-    overflow:hidden;
-  }
-  #progressBar::before{
-    content:"";
-    position:absolute;
-    inset:0;
-    width:var(--w,0%);
-    background:linear-gradient(90deg, rgba(88,241,255,.85), rgba(88,241,255,.2));
-    transition:width .25s ease;
-  }
-  #progressPct{
-    position:absolute;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:12px;
-    font-weight:700;
-    color:var(--ink);
-    text-shadow:0 0 4px rgba(8,16,23,.6);
-    pointer-events:none;
-  }
-  #progressText{
-    font-size:14px;
-    font-weight:600;
-    color:var(--ink-dim);
   }
   .scale-title{ font-weight:700; color:var(--ink-dim); margin-bottom:8px }
 
@@ -226,289 +176,31 @@
     .tk-left,.tk-right{ max-height:none; overflow:visible }
   }
 </style>
-<style id="kinksurvey-layout-tuneups">
-  :root{
-    /* keep your existing custom properties; nothing to change here */
-  }
-
-  /* 1) More breathing room below the stacked CTAs */
-  .cta-grid{
-    margin-bottom: 22px;          /* was ~10px in the previous build */
-  }
-
-  /* 2) Left column scrolls “longer” (more items visible before it needs to scroll) */
-  .tk-left{
-    /* was: max-height: calc(100vh - 170px); */
-    max-height: calc(100vh - 90px);    /* show more categories before scrolling */
-    overflow: auto;                     /* keep internal scroll on the left only */
-  }
-
-  /* 3) Nudge the whole three-column grid down a bit more from the CTAs (optional, subtle) */
-  .tk-columns{
-    margin-top: 10px;              /* extra space between buttons and middle card */
-  }
-
-  /* 4) Right column shows the WHOLE scale with no internal scrollbar on desktop */
-  @media (min-width: 981px){
-    .tk-right{
-      max-height: none;            /* let the page scroll instead of the panel */
-      overflow: visible;           /* no inner scrollbar */
-    }
-    .tk-right .card-hd{
-      position: static;            /* unstick the header so content starts higher */
-    }
-  }
-
-  /* (Keep the mobile behavior: single-column stack with natural page scroll) */
-  @media (max-width: 980px){
-    .tk-left{ max-height: none; overflow: visible; }
-    .tk-right{ max-height: none; overflow: visible; }
-  }
-
-  /* 5) Ensure the 0–5 pills always fit within the middle card and never wrap weirdly */
-  .rating-wrap{ padding: 12px; }
-  .scale-row{
-    display: flex; gap: 10px; width: 100%;
-    min-width: 0;                  /* allows shrinking inside grid cell */
-  }
-  .pill{
-    flex: 1 1 0;                   /* equal width, shrinkable */
-    min-width: 0;
-    padding: 12px 6px;
-  }
-</style>
-<style>
-  /* Utility: completely hide until we want to reveal via JS */
-  .is-hidden { display: none !important; }
-
-  /* Stacked CTA look — same style you had “before” */
-  #ctaStack.tk-stack{
-    display: grid;
-    gap: 16px;
-    margin-inline: auto;
-    max-width: 720px;
-  }
-  #ctaStack .btn{
-    display: block;
-    width: 100%;
-    padding: 18px 22px;
-    border: 2px solid var(--tk-accent, #1ee0ff);
-    border-radius: 16px;
-    background: rgba(0,0,0,.25);
-    color: #eafcff;
-    font-weight: 700;
-    text-align: center;
-    text-decoration: none;
-    box-shadow: 0 0 24px rgba(30,224,255,.15) inset, 0 0 18px rgba(30,224,255,.12);
-    transition: transform .08s ease, box-shadow .18s ease, background .18s ease;
-  }
-  #ctaStack .btn:hover{ transform: translateY(-1px); box-shadow: 0 0 28px rgba(30,224,255,.25) inset, 0 0 22px rgba(30,224,255,.16); }
-  #ctaStack .btn:active{ transform: translateY(0); }
-
-  /* Disabled Start state until a category is selected */
-  #btnStart[disabled]{
-    opacity: .45; cursor: not-allowed;
-    filter: grayscale(.3);
-  }
-
-  /* Layout wrappers (use your existing classes as well) */
-  .tk-columns{
-    display: grid;
-    grid-template-columns: 380px 1fr 420px;   /* left / middle / right */
-    gap: 28px;
-    align-items: start;
-    margin-top: 18px;                         /* space below CTAs */
-  }
-
-  /* Left column: allow internal scroll (longer list) */
-  #catColumn{
-    max-height: calc(100vh - 100px);
-    overflow: auto;
-  }
-
-  /* Middle and right columns start hidden (JS will unhide) */
-  #questionColumn.is-hidden,
-  #scaleColumn.is-hidden { display: none !important; }
-
-  /* Keep mobile friendly */
-  @media (max-width: 980px){
-    .tk-columns{ grid-template-columns: 1fr; }
-    #catColumn{ max-height: none; overflow: visible; }
-    /* We’ll still hide question/scale at start on mobile, then reveal to stack below */
-  }
-</style>
-<style>
-  /* Tuck the hero/title + theme row tighter */
-  h1.tk-title{ margin-bottom: 8px !important; line-height: 1.05; }
-  #themeRow{ display:flex; gap:.6rem; justify-content:center; margin: 6px 0 10px; }
-
-  /* Make the stacked buttons wider and bring them up under the title */
-  #ctaStack.tk-stack{
-    /* Wider like your earlier design */
-    max-width: clamp(680px, 68vw, 1040px);
-    margin-inline: auto;
-    margin-top: 8px;              /* closer to the title */
-    gap: 18px;                    /* spacing between the three buttons */
-  }
-  /* Button look & size (closer to your “before”) */
-  #ctaStack .btn{
-    display:block;
-    width: 100%;
-    padding: 22px 26px;
-    border-radius: 20px;
-    font-size: 22px;              /* larger label */
-    font-weight: 800;
-    letter-spacing: .2px;
-    border: 2px solid var(--tk-accent, #1ee0ff);
-    background: rgba(0,0,0,.28);
-    color: #eafcff;
-    text-align:center;
-    box-shadow: 0 0 28px rgba(30,224,255,.18) inset, 0 0 22px rgba(30,224,255,.14);
-    transition: transform .08s ease, box-shadow .18s ease, background .18s ease;
-  }
-  #ctaStack .btn:hover{
-    transform: translateY(-1px);
-    box-shadow: 0 0 34px rgba(30,224,255,.26) inset, 0 0 26px rgba(30,224,255,.18);
-  }
-
-  /* Start the three-column grid a touch lower so buttons feel attached to title */
-  .tk-columns{ margin-top: 16px; }
-
-  /* Keep left panel tall/scrollable as you had */
-  #catColumn{
-    max-height: calc(100vh - 100px);
-    overflow: auto;
-  }
-
-  /* Safety: if any global section has a big top margin, neutralize it under the CTAs */
-  #ctaStack + * { margin-top: 16px !important; }
-
-  /* Mobile: keep buttons readable and centered */
-  @media (max-width: 980px){
-    #ctaStack.tk-stack{ max-width: min(96vw, 720px); }
-    #ctaStack .btn{ font-size: 20px; padding: 18px 22px; }
-  }
-</style>
-<style>
-  /* Treat the title + theme chips + CTA stack as one centered hero block */
-  .tk-hero,
-  body > header,
-  #titleArea {
-    display: grid;
-    justify-items: center;
-  }
-
-  /* Center the theme selector row */
-  #themeRow{
-    display:flex;
-    gap:.6rem;
-    justify-content:center;
-    margin: 8px 0 0;
-  }
-
-  /* Center the stacked buttons with the theme row and push them down a bit */
-  #ctaStack.tk-stack{
-    display: grid;
-    justify-items: center;
-    width: min(92vw, 980px);
-    margin-top: 36px;
-    gap: 18px;
-  }
-
-  /* (Optional) keep button labels readable and consistent */
-  #ctaStack .btn{
-    width: 100%;
-    padding: 22px 26px;
-    border-radius: 20px;
-    font-size: 22px;
-    font-weight: 800;
-    text-align: center;
-  }
-
-  /* Make sure the grid below doesn’t collide with the hero */
-  .tk-columns{ margin-top: 18px; }
-
-  @media (max-width: 980px){
-    #ctaStack.tk-stack{ width: min(96vw, 760px); margin-top: 28px; }
-    #ctaStack .btn{ font-size: 20px; padding: 18px 22px; }
-  }
-</style>
-<style>
-/* Drop this at the very end of KinkSurveyPage/index.html (after your theme css)
-   Goal: center CTAs under the theme chips AND keep them a reasonable width. */
-
-  /* Treat title + theme chips + CTAs as one centered “hero” block */
-  .tk-hero{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    text-align:center;
-    gap: 16px;
-    width:min(92vw, 720px);
-    margin: 0 auto 32px;
-  }
-
-  .tk-hero #title{
-    margin-bottom: 0;
-  }
-
-  /* Theme chips row (already centered visually) */
-  #themeRow{
-    display:flex;
-    gap:.6rem;
-    justify-content:center;
-    width:100%;
-    margin: 0 auto;
-  }
-
-  /* CTA stack: same width as theme row, centered, not huge */
-  #ctaStack.tk-stack{
-    display:grid;
-    width:100%;
-    margin: 0;
-    gap:16px;
-  }
-
-  /* Buttons fill the stack width but don’t sprawl */
-  #ctaStack .btn{
-    width:100%;
-    padding:18px 22px;
-    border-radius:18px;
-    font-size:22px;
-    font-weight:800;
-    text-align:center;
-  }
-
-  /* Tweak sizes slightly on small screens */
-  @media (max-width: 760px){
-    .tk-hero{ width:min(94vw, 560px); }
-    #themeRow, #ctaStack.tk-stack{ width:100%; }
-    #ctaStack .btn{ font-size:20px; padding:16px 20px; }
-  }
-</style>
 </head>
 <body>
   <div class="container">
-    <header class="tk-hero">
-      <h1 id="title" class="tk-title">Talk Kink Survey</h1>
+    <h1 id="title">Talk Kink Survey</h1>
 
-      <div class="theme-row" id="themeRow">
-        <button class="chip active" data-theme="dark">Dark</button>
-        <button class="chip" data-theme="lipstick">Lipstick</button>
-        <button class="chip" data-theme="forest">Forest</button>
-        <button class="chip" data-theme="glow">Blue Glow</button>
-      </div>
+    <div class="theme-row" id="themeRow">
+      <button class="chip active" data-theme="dark">Dark</button>
+      <button class="chip" data-theme="lipstick">Lipstick</button>
+      <button class="chip" data-theme="forest">Forest</button>
+      <button class="chip" data-theme="glow">Blue Glow</button>
+    </div>
 
-      <nav id="ctaStack" class="tk-stack">
-        <button id="btnStart" class="btn" type="button" disabled>Start Survey</button>
+    <div class="cta-grid">
+      <div></div>
+      <nav id="ctaStack">
+        <a class="btn" href="#surveyMain">Start Survey</a>
         <a class="btn" href="/kinksurvey/#analysis">Individual Kink Analysis</a>
         <a class="btn" href="/kinksurvey/#compatibility">Compatibility Page</a>
       </nav>
-    </header>
+      <div></div>
+    </div>
 
     <section class="tk-columns">
       <!-- LEFT -->
-      <aside class="card tk-left" id="catColumn">
+      <aside class="card tk-left" id="catCard">
         <div class="card-hd">Categories</div>
         <div class="card-bd">
           <ul id="catList" class="cat-list" aria-label="Kink categories"></ul>
@@ -516,16 +208,14 @@
       </aside>
 
       <!-- MIDDLE -->
-      <main class="card is-hidden" id="questionColumn" aria-live="polite">
+      <main class="card" id="surveyMain" aria-live="polite">
         <div class="card-hd">
-          <div class="lead" id="questionPrompt">Appearance Play • Choosing my partner’s outfit for the day or a scene</div>
-          <div class="subhead" id="questionRole">Giving: Rate interest/comfort (0–5)</div>
+          <div class="lead">Appearance Play • Choosing my partner’s outfit for the day or a scene</div>
+          <div style="margin-top:6px; font-size: clamp(20px, 3.2vw, 30px); font-weight:800;">
+            Giving: Rate interest/comfort (0–5)
+          </div>
         </div>
         <div class="card-bd">
-          <div id="progressShell" class="progress-shell is-hidden" role="status" aria-live="polite">
-            <div id="progressBar"><span id="progressPct">0%</span></div>
-            <div id="progressText">Select categories to begin</div>
-          </div>
           <div class="rating-wrap" role="group" aria-labelledby="scaleTitle">
             <div id="scaleTitle" class="scale-title">Rate interest/comfort (0–5)</div>
             <div class="scale-row" id="scaleRow"></div>
@@ -534,7 +224,7 @@
       </main>
 
       <!-- RIGHT -->
-      <aside class="card tk-right is-hidden" id="scaleColumn">
+      <aside class="card tk-right">
         <div class="card-hd">Rate interest/comfort (0–5)</div>
         <div class="guard-list card-bd">
           <div class="guard-item">
@@ -566,432 +256,6 @@
     </section>
   </div>
 
-<script src="embedded/question-bank.js"></script>
-<script src="embedded/categories.js"></script>
-
-<script>
-(() => {
-  const CAT_CHECK_SELECTOR = '#catColumn input[type="checkbox"], #catColumn .cat-check';
-  const ROLE_ORDER = ['Giving', 'Receiving', 'General'];
-  const FALLBACK_RAW = [
-    {
-      category: 'Appearance Play',
-      items: [
-        { id: 'app-1', label: 'Clothing play', roles: ['Giving', 'Receiving'] },
-        { id: 'app-2', label: 'Makeup/cosplay', roles: ['Giving', 'Receiving'] }
-      ]
-    },
-    {
-      category: 'Behavioral Play',
-      items: [
-        { id: 'beh-1', label: 'Role prompts', roles: ['Giving', 'Receiving'] },
-        { id: 'beh-2', label: 'Obedience games', roles: ['Giving', 'Receiving'] }
-      ]
-    }
-  ];
-
-  const $start   = document.getElementById('btnStart');
-  const $cats    = document.getElementById('catColumn');
-  const $middle  = document.getElementById('questionColumn');
-  const $right   = document.getElementById('scaleColumn');
-  const $cta     = document.getElementById('ctaStack');
-  const $scaleRow = document.getElementById('scaleRow');
-  const $lead    = document.getElementById('questionPrompt');
-  const $role    = document.getElementById('questionRole');
-  const $progressShell = document.getElementById('progressShell');
-  const $progressBar   = document.getElementById('progressBar');
-  const $progressPct   = document.getElementById('progressPct');
-  const $progressText  = document.getElementById('progressText');
-
-  if (!$start || !$cats || !$middle || !$right || !$scaleRow) {
-    console.warn('[KinkSurveyPage] Required elements not found. Check IDs: btnStart, catColumn, questionColumn, scaleColumn, scaleRow');
-    return;
-  }
-
-  const slugify = (value) => {
-    return String(value ?? '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 80);
-  };
-
-  function normalizeItems(items, categoryName) {
-    const result = [];
-    const seen = new Set();
-    let auto = 0;
-    (items || []).forEach((raw) => {
-      const source = typeof raw === 'string' ? { label: raw } : raw || {};
-      const label = String(source.label ?? source.name ?? source.text ?? '').trim();
-      if (!label) return;
-      let baseId = String(source.id ?? '').trim();
-      if (!baseId) baseId = slugify(`${categoryName}-${label}`);
-      if (!baseId) baseId = `item-${auto++}`;
-      while (seen.has(baseId)) {
-        baseId = `${baseId}-${auto++}`;
-      }
-      seen.add(baseId);
-      let roles = Array.isArray(source.roles)
-        ? source.roles.map(r => String(r).trim()).filter(Boolean)
-        : [];
-      roles = roles.filter(role => ROLE_ORDER.includes(role));
-      if (!roles.length) roles = ['Giving'];
-      result.push({ id: baseId, label, roles });
-    });
-    return result;
-  }
-
-  function normalizeQuestionBank(raw) {
-    if (!raw) return [];
-    if (Array.isArray(raw)) {
-      const categories = [];
-      let treatedAsFlat = false;
-      raw.forEach((entry) => {
-        if (entry && typeof entry === 'object' && (entry.items || entry.kinks)) {
-          const name = String(entry.category ?? entry.name ?? '').trim();
-          if (!name) return;
-          const items = entry.items || entry.kinks || [];
-          const normalizedItems = normalizeItems(items, name);
-          if (normalizedItems.length) categories.push({ category: name, items: normalizedItems });
-        } else {
-          treatedAsFlat = true;
-        }
-      });
-      if (categories.length) return categories;
-      if (treatedAsFlat) {
-        const grouped = new Map();
-        raw.forEach((entry) => {
-          if (!entry) return;
-          const catName = String(entry.category ?? '').trim();
-          const label = String(entry.label ?? entry.name ?? entry.text ?? '').trim();
-          if (!catName || !label) return;
-          if (!grouped.has(catName)) grouped.set(catName, []);
-          grouped.get(catName).push(entry);
-        });
-        const out = [];
-        grouped.forEach((items, name) => {
-          const normalizedItems = normalizeItems(items, name);
-          if (normalizedItems.length) out.push({ category: name, items: normalizedItems });
-        });
-        if (out.length) return out;
-      }
-      return [];
-    }
-    if (typeof raw === 'object') {
-      if (Array.isArray(raw.categories)) return normalizeQuestionBank(raw.categories);
-      if (Array.isArray(raw.kinks)) return normalizeQuestionBank(raw.kinks);
-      if (Array.isArray(raw.data)) return normalizeQuestionBank(raw.data);
-      if (Array.isArray(raw.items) && (raw.category || raw.name)) {
-        return normalizeQuestionBank([{ category: raw.category ?? raw.name, items: raw.items }]);
-      }
-      const entries = Object.entries(raw).filter(([, value]) => Array.isArray(value));
-      if (entries.length) {
-        return entries.reduce((acc, [name, items]) => {
-          const normalizedItems = normalizeItems(items, name);
-          if (normalizedItems.length) acc.push({ category: String(name), items: normalizedItems });
-          return acc;
-        }, []);
-      }
-    }
-    return [];
-  }
-
-  const loadEmbeddedBank = () => {
-    try {
-      const raw = window.__TK_EMBEDDED_BANK__;
-      if (!raw) return null;
-      const normalized = normalizeQuestionBank(raw);
-      if (normalized.length) return normalized;
-    } catch (error) {
-      console.warn('[KinkSurveyPage] Embedded question bank parse failed', error);
-    }
-    return null;
-  };
-
-  const FALLBACK_BANK = normalizeQuestionBank(FALLBACK_RAW);
-
-  let questionBank = null;
-  let bankPromise = null;
-  let queue = [];
-  let idx = 0;
-  let answers = {};
-  let activeCategories = [];
-  let isSurveyActive = false;
-
-  const getCategoryName = (input) => {
-    if (!input) return '';
-    const dataName = input.dataset ? (input.dataset.categoryName || input.dataset.name) : '';
-    const fromAttr = input.getAttribute('aria-label') || input.getAttribute('data-label');
-    const fromText = input.nextElementSibling ? input.nextElementSibling.textContent : '';
-    return (dataName || fromAttr || fromText || '').trim();
-  };
-
-  const selectedCategories = () => {
-    const names = Array.from(document.querySelectorAll(CAT_CHECK_SELECTOR))
-      .filter(el => el.checked)
-      .map(getCategoryName)
-      .filter(Boolean);
-    return Array.from(new Set(names));
-  };
-
-  const selectedCount = () => selectedCategories().length;
-
-  const syncStartEnabled = () => {
-    $start.disabled = selectedCount() === 0;
-  };
-
-  const observeCategoryChanges = () => {
-    document.querySelectorAll(CAT_CHECK_SELECTOR).forEach(el => {
-      el.addEventListener('change', syncStartEnabled);
-    });
-    $cats.addEventListener('change', syncStartEnabled);
-  };
-
-  async function ensureQuestionBank() {
-    if (questionBank) return questionBank;
-    if (!bankPromise) {
-      const targets = [
-        'data/kinks.json',
-        '/data/kinks.json',
-        '/kinksurvey/data/kinks.json',
-        '/KinkSurveyPage/data/kinks.json',
-        '/kinks/data/kinks.json',
-        '/kinks.json'
-      ];
-      bankPromise = (async () => {
-        const embedded = loadEmbeddedBank();
-        if (embedded && embedded.length) return embedded;
-        for (const url of targets) {
-          try {
-            const res = await fetch(url, { cache: 'no-store' });
-            if (!res.ok) continue;
-            const text = await res.text();
-            const trimmed = text.trim();
-            if (!trimmed || trimmed.startsWith('<')) continue;
-            const json = JSON.parse(trimmed);
-            const bank = normalizeQuestionBank(json);
-            if (bank.length) return bank;
-          } catch (error) {
-            console.warn(`[KinkSurveyPage] Unable to load questions from ${url}`, error);
-          }
-        }
-        console.warn('[KinkSurveyPage] Falling back to bundled question sample');
-        return FALLBACK_BANK;
-      })();
-    }
-    questionBank = await bankPromise;
-    return questionBank;
-  }
-
-  const buildQuestionQueue = (bank, categories) => {
-    const wanted = new Set(categories);
-    const matchAll = wanted.size === 0;
-    const out = [];
-    bank.forEach(cat => {
-      const name = String(cat?.category ?? '').trim();
-      if (!name) return;
-      if (!matchAll && !wanted.has(name)) return;
-      const items = Array.isArray(cat?.items) ? cat.items : [];
-      items.forEach(item => {
-        const prompt = String(item?.label ?? '').trim();
-        if (!prompt) return;
-        let baseId = String(item?.id ?? '').trim();
-        if (!baseId) baseId = slugify(`${name}-${prompt}`);
-        if (!baseId) baseId = `q-${out.length}`;
-        const roles = Array.isArray(item?.roles) && item.roles.length ? item.roles : ['Giving'];
-        const orderedRoles = ROLE_ORDER.filter(role => roles.includes(role));
-        const finalRoles = orderedRoles.length ? orderedRoles : roles;
-        finalRoles.forEach(role => {
-          out.push({ id: `${baseId}::${role}`, category: name, prompt, role });
-        });
-      });
-    });
-    return out;
-  };
-
-  const clearScaleSelection = (disable = false) => {
-    const radios = $scaleRow.querySelectorAll('input[name="score"]');
-    radios.forEach(radio => {
-      radio.checked = false;
-      radio.disabled = disable;
-    });
-  };
-
-  const setScaleValue = (value) => {
-    const radios = $scaleRow.querySelectorAll('input[name="score"]');
-    const numeric = Number(value);
-    const hasValue = Number.isFinite(numeric);
-    radios.forEach(radio => {
-      radio.checked = hasValue && Number(radio.value) === numeric;
-    });
-  };
-
-  const updateProgress = () => {
-    const total = queue.length;
-    const answered = queue.reduce((count, q) => (
-      Number.isFinite(answers[q.id]) ? count + 1 : count
-    ), 0);
-    const pct = total ? Math.min(100, Math.round((answered / total) * 100)) : 0;
-    if ($progressBar) {
-      $progressBar.style.setProperty('--w', `${pct}%`);
-    }
-    if ($progressPct) {
-      $progressPct.textContent = `${pct}%`;
-    }
-    if ($progressText) {
-      if (!total) {
-        $progressText.textContent = activeCategories.length
-          ? 'No questions available for the selected categories yet.'
-          : 'Select at least one category to begin';
-      } else if (answered >= total) {
-        $progressText.textContent = `All ${total} questions answered`;
-      } else {
-        const currentNumber = Math.min(idx + 1, total);
-        const remaining = Math.max(total - answered, 0);
-        const parts = [`Question ${currentNumber} of ${total}`];
-        parts.push(`${remaining} left`);
-        $progressText.textContent = parts.join(' • ');
-      }
-    }
-    if ($progressShell) {
-      $progressShell.classList.toggle('is-hidden', total === 0);
-    }
-  };
-
-  const renderQuestion = () => {
-    if (idx < 0) idx = 0;
-    const total = queue.length;
-    if (idx > total) idx = total;
-    const current = queue[idx];
-
-    if (!total) {
-      isSurveyActive = false;
-      if ($lead) {
-        if (activeCategories.length) {
-          $lead.textContent = 'No questions available for the selected categories yet';
-        } else {
-          $lead.textContent = 'Select categories to begin';
-        }
-      }
-      if ($role) {
-        $role.textContent = activeCategories.length
-          ? 'Try choosing a different mix of categories to keep exploring.'
-          : 'Choose one or more categories on the left, then press Start Survey.';
-      }
-      clearScaleSelection(true);
-      updateProgress();
-      return;
-    }
-
-    if (!current) {
-      isSurveyActive = false;
-      if ($lead) $lead.textContent = 'Survey complete';
-      if ($role) $role.textContent = 'All questions answered. Select more categories to keep going.';
-      clearScaleSelection(true);
-      updateProgress();
-      return;
-    }
-
-    isSurveyActive = true;
-    if ($lead) $lead.textContent = `${current.category} • ${current.prompt}`;
-    if ($role) $role.textContent = `${current.role}: Rate interest/comfort (0–5)`;
-    clearScaleSelection(false);
-    setScaleValue(answers[current.id]);
-    updateProgress();
-  };
-
-  const beginSurvey = async () => {
-    activeCategories = selectedCategories();
-    answers = {};
-    idx = 0;
-
-    if (!activeCategories.length) {
-      queue = [];
-      renderQuestion();
-      return;
-    }
-
-    queue = [];
-    if ($lead) $lead.textContent = 'Loading questions…';
-    if ($role) $role.textContent = 'Fetching the next set of prompts.';
-    clearScaleSelection(true);
-    updateProgress();
-
-    try {
-      const bank = await ensureQuestionBank();
-      queue = buildQuestionQueue(bank, activeCategories);
-    } catch (error) {
-      console.error('[KinkSurveyPage] Unable to prepare question bank', error);
-      queue = buildQuestionQueue(FALLBACK_BANK, activeCategories);
-    }
-
-    answers = {};
-    idx = 0;
-    renderQuestion();
-  };
-
-  const handleScoreSelection = (value) => {
-    if (!queue.length) return;
-    const current = queue[idx];
-    if (!current) return;
-    answers[current.id] = value;
-    if (idx < queue.length - 1) {
-      idx += 1;
-    } else {
-      idx = queue.length;
-    }
-    renderQuestion();
-  };
-
-  const onStart = async () => {
-    if ($start.disabled) {
-      $start.classList.add('tk-wiggle');
-      setTimeout(() => $start.classList.remove('tk-wiggle'), 350);
-      return;
-    }
-    $middle.classList.remove('is-hidden');
-    $right.classList.remove('is-hidden');
-    await beginSurvey();
-    const topY = $cta.getBoundingClientRect().bottom + window.scrollY - 8;
-    window.scrollTo({ top: topY, behavior: 'smooth' });
-  };
-
-  $scaleRow.addEventListener('change', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    if (target.name !== 'score') return;
-    if (!isSurveyActive) return;
-    const value = Number(target.value);
-    if (!Number.isFinite(value)) return;
-    handleScoreSelection(value);
-  });
-
-  const disableScaleUntilReady = (attempt = 0) => {
-    if (attempt > 10) return;
-    const radios = $scaleRow.querySelectorAll('input[name="score"]');
-    if (!radios.length) {
-      setTimeout(() => disableScaleUntilReady(attempt + 1), 60);
-      return;
-    }
-    radios.forEach(radio => {
-      radio.disabled = true;
-    });
-  };
-
-  const wiggleStyle = document.createElement('style');
-  wiggleStyle.textContent = `
-    .tk-wiggle{ animation: tkW .35s ease; }
-    @keyframes tkW{ 0%,100%{ transform: translateX(0);} 25%{ transform: translateX(-2px);} 75%{ transform: translateX(2px);} }
-  `;
-  document.head.appendChild(wiggleStyle);
-
-  observeCategoryChanges();
-  syncStartEnabled();
-  disableScaleUntilReady();
-  renderQuestion();
-  $start.addEventListener('click', onStart);
-})();
-</script>
 <script>
 /* themes (cosmetic) */
 document.querySelectorAll('.chip').forEach(chip=>{
@@ -1002,27 +266,14 @@ document.querySelectorAll('.chip').forEach(chip=>{
 });
 
 /* categories */
-  const catTargets = [
-    'data/categories.json',
-    '/data/categories.json',
-    '/kinksurvey/data/categories.json',
-    '/KinkSurveyPage/data/categories.json'
-  ];
-  const loadEmbeddedCategories = () => {
-    try {
-      const raw = window.__TK_EMBEDDED_CATEGORIES__;
-      if (!raw) return null;
-      if (Array.isArray(raw)) return raw;
-      if (raw && Array.isArray(raw.categories)) return raw.categories;
-    } catch (error) {
-      console.warn('[KinkSurveyPage] Embedded categories parse failed', error);
-    }
-    return null;
-  };
+const catTargets = [
+  '/data/categories.json',
+  '/kinksurvey/data/categories.json',
+  '/KinkSurveyPage/data/categories.json'
+];
 async function loadCategories(){
-  let data = loadEmbeddedCategories();
+  let data = null;
   for(const path of catTargets){
-    if (data) break;
     try{ const r = await fetch(path,{cache:'no-store'}); if(r.ok){ data = await r.json(); break; } }catch(e){}
   }
   if(!data){
@@ -1033,22 +284,10 @@ async function loadCategories(){
   const normalize = v => typeof v === 'string' ? v : (v?.name ?? String(v));
   const ul = document.getElementById('catList');
   ul.innerHTML = '';
-  (Array.isArray(data)?data.map(normalize):[]).forEach((name, index)=>{
-    const safeName = String(name ?? '').trim();
-    if(!safeName) return;
-    const slug = safeName.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || `cat-${index}`;
+  (Array.isArray(data)?data.map(normalize):[]).forEach(name=>{
     const li = document.createElement('li');
     li.className = 'cat-item';
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.setAttribute('aria-label', safeName);
-    input.dataset.categoryName = safeName;
-    input.value = slug;
-    input.id = `cat-${slug}`;
-    const label = document.createElement('span');
-    label.textContent = safeName;
-    li.appendChild(input);
-    li.appendChild(label);
+    li.innerHTML = `<input type="checkbox" aria-label="${name}"><span>${name}</span>`;
     ul.appendChild(li);
   });
 }
@@ -1059,271 +298,10 @@ const scaleRow = document.getElementById('scaleRow');
 for(let v=0; v<=5; v++){
   const lab = document.createElement('label');
   lab.className = 'pill';
-  const input = document.createElement('input');
-  input.type = 'radio';
-  input.name = 'score';
-  input.value = String(v);
-  input.disabled = true;
-  const span = document.createElement('span');
-  span.textContent = String(v);
-  lab.appendChild(input);
-  lab.appendChild(span);
+  lab.innerHTML = `<input type="radio" name="score" value="${v}"><span>${v}</span>`;
   scaleRow.appendChild(lab);
 }
-</script>
-<style>
-  /* Keep the title, chips, and CTAs in one centered hero */
-  #titleArea, .tk-hero{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    text-align:center;
-    gap:16px;
-  }
-
-  /* Chips row spans the hero width */
-  #themeRow{
-    display:flex;
-    gap:.6rem;
-    align-items:center;
-    justify-content:center;
-    width:100%;
-    margin:8px auto 0;
-  }
-
-  /* CTA stack mirrors the theme row width */
-  #ctaStack.tk-stack{
-    display:grid;
-    justify-items:stretch;
-    margin:0;
-    gap:16px;
-    width:100%;
-    max-width:95vw;
-  }
-
-  /* Buttons fill the stack width */
-  #ctaStack .btn{
-    width:100%;
-    padding:14px 18px;
-    border-radius:16px;
-    font-size:18px;
-    font-weight:700;
-    text-align:center;
-    box-sizing:border-box;
-  }
-
-  @media (max-width: 640px){
-    #ctaStack .btn{ font-size:16px; padding:12px 16px; }
-  }
-</style>
-
-
-<!-- === TK: reliable download-on-finish (KinkSurveyPage) === -->
-<style>
-  #tkDlBtn, #tkDlFab {
-    display:inline-flex;align-items:center;gap:.6rem;user-select:none;white-space:nowrap;
-    border-radius:18px;border:2px solid rgba(0,255,255,.35);
-    background:radial-gradient(120% 120% at 50% 0%,rgba(0,255,255,.12),rgba(0,255,255,.05) 60%,rgba(0,0,0,.25) 100%);
-    box-shadow:0 0 24px rgba(0,255,255,.18),inset 0 0 18px rgba(0,255,255,.12);
-    color:#e9fbff;font-weight:800;letter-spacing:.02em;font-size:1.05rem;cursor:pointer;
-    padding:.9rem 1.15rem;
-  }
-  #tkDlBtn[hidden]{display:none !important;}
-  /* Floating fallback */
-  #tkDlFab {
-    position:fixed;right:18px;bottom:18px;z-index:9999;padding:.85rem 1.05rem;font-size:.98rem;
-    border-radius:999px;backdrop-filter:blur(6px);
-  }
-  #tkDlFab[hidden]{display:none !important;}
-</style>
-
-<button id="tkDlBtn" hidden>⬇️ Download results</button>
-<button id="tkDlFab" hidden title="Download results (fallback)">⬇️ Download</button>
-
-<script>
-(function(){
-  const btn  = document.getElementById('tkDlBtn');
-  const fab  = document.getElementById('tkDlFab');
-
-  // ========== utilities
-  const $    = (s, r=document) => r.querySelector(s);
-  const $$   = (s, r=document) => Array.from(r.querySelectorAll(s));
-  const txt  = el => (el && el.textContent || '').trim();
-
-  // Prefer explicit slot if you add <div id="tkDlSlot"></div> inside the summary card.
-  function getSlotOrCard(){
-    const slot = $('#tkDlSlot');
-    if (slot) return slot;
-
-    // Find a visible element that includes "Survey complete" AND ( "100%" OR aria-valuenow >= 100 )
-    const candidates = $$('section, .card, .panel, .summary, .survey-complete, .center-col .card, div')
-      .filter(el => el.offsetParent !== null && el.getBoundingClientRect().height > 80);
-
-    for (const el of candidates) {
-      const t = txt(el).toLowerCase();
-      if (!t.includes('survey complete')) continue;
-      if (t.includes('100%') || has100(el)) return el;
-    }
-    return null;
-  }
-
-  function has100(root){
-    const bar = root.querySelector('[role="progressbar"]');
-    if (bar) {
-      const v = Number(bar.getAttribute('aria-valuenow'));
-      if (!Number.isNaN(v) && v >= 100) return true;
-    }
-    // a rail with inline width 100%
-    if (root.querySelector('[style*="width"][style*="100%"]')) return true;
-    return false;
-  }
-
-  function completed(){
-    const card = getSlotOrCard();
-    if (!card) return false;
-    const t = txt(card).toLowerCase();
-    if (t.includes('100%')) return true;
-    return has100(card);
-  }
-
-  function mountInline(){
-    const target = getSlotOrCard();
-    if (!target) return false;
-    if (!btn.isConnected) target.insertAdjacentElement('afterend', btn);
-    btn.hidden = false;
-    return true;
-  }
-
-  // ===== export content (black page with categories + last question/score)
-  function escapeHTML(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));}
-  function selectedCategories(){
-    const out = [];
-    $$('input[type="checkbox"]').forEach(cb=>{
-      if (!cb.checked) return;
-      let t=''; if (cb.id) { const lab = document.querySelector(`label[for="${cb.id}"]`); if (lab) t = txt(lab); }
-      if (!t) t = txt(cb.closest('label')) || txt(cb.closest('.row,.item,.line')) || '';
-      if (!t) {
-        const direct = cb.nextElementSibling;
-        if (direct) t = txt(direct);
-      }
-      if (t) out.push(t.replace(/\s+/g,' '));
-    });
-    return out;
-  }
-  function currentQuestion(){
-    const scope = $('.tk-question-card, .question-card, .center-col .card, .card') || document;
-    return txt(scope.querySelector('h2, h3, .tk-question-title, [data-role="question-title"]'));
-  }
-  function currentScore(){
-    const r = $('input[name="score"]:checked, input[name="rating"]:checked, .tk-score input[type="radio"]:checked');
-    return r ? r.value : '';
-  }
-  function buildHTML(){
-    const cats  = selectedCategories();
-    const stamp = new Date().toLocaleString();
-    const q     = currentQuestion();
-    const s     = currentScore();
-    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Talk Kink — Survey Summary</title>
-<style>
-:root{--fg:#EAEFF2;--sub:#9FB7C1}
-html,body{height:100%}body{margin:0;background:#000;color:var(--fg);font:16px/1.6 system-ui,Segoe UI,Roboto,Arial}
-.wrap{max-width:980px;margin:56px auto;padding:0 20px}
-h1{font-size:clamp(28px,4.5vw,56px);margin:0 0 8px}
-.sub{color:var(--sub);margin:0 0 28px}
-section{border:1px solid #0b2c2c;border-radius:16px;padding:22px 20px;margin:16px 0;
-  background:linear-gradient(180deg,rgba(0,255,255,.05),rgba(0,255,255,.02));
-  box-shadow:0 0 28px rgba(0,255,255,.08) inset}
-h2{font-size:20px;margin:0 0 12px}
-ul{margin:10px 0 0 20px}
-.badge{display:inline-block;border:1px solid rgba(0,255,255,.35);border-radius:999px;padding:.15rem .55rem;margin-left:.45rem}
-.footer{margin-top:32px;color:#89a3ab;font-size:13px}
-</style></head><body><div class="wrap">
-<h1>Talk Kink Survey</h1><p class="sub">Export generated ${escapeHTML(stamp)}</p>
-<section><h2>Selected Categories</h2>
-<ul>${cats.length?cats.map(t=>`<li>${escapeHTML(t)}</li>`).join(''):'<li><em>No categories selected.</em></li>'}</ul>
-</section>
-<section><h2>Last Question Answered</h2>
-<p><strong>${escapeHTML(q||'—')}</strong>${s!==''?` <span class="badge">Score: ${escapeHTML(s)}</span>`:''}</p>
-<p style="color:#9FB7C1">This export contains your chosen categories and last answered context.</p>
-</section>
-<p class="footer">© Talk Kink — local export</p></div></body></html>`;
-  }
-  function download(){
-    const blob = new Blob([buildHTML()], {type:'text/html;charset=utf-8'});
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `talkkink-summary-${new Date().toISOString().replace(/[:.]/g,'-')}.html`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 1200);
-  }
-  btn.addEventListener('click', download);
-  fab.addEventListener('click', download);
-
-  // ===== show button when complete (inline, else fallback)
-  function update(){
-    if (completed()) {
-      // try to mount inline; if that fails, show floating FAB
-      const ok = mountInline();
-      btn.hidden = !ok;
-      fab.hidden = ok;   // show FAB only if inline could not mount
-      return true;
-    }
-    btn.hidden = true;
-    fab.hidden = true;
-    return false;
-  }
-
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // Observe DOM changes for hydration
-    const mo = new MutationObserver(() => update());
-    mo.observe(document.documentElement, {subtree:true,childList:true,characterData:true,attributes:true});
-    // Poll as safety net (stops after success or 2 minutes)
-    let n=0; const timer = setInterval(()=>{
-      if (update() || ++n>120) clearInterval(timer);
-    }, 1000);
-  });
-
-  // Manual reveal (Ctrl+Shift+D) – helps while testing
-  window.addEventListener('keydown', e=>{
-    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase()==='d'){
-      mountInline(); btn.hidden=false; fab.hidden=true;
-    }
-  });
-})();
-</script>
-<!-- === /TK: reliable download-on-finish === -->
-
-
-<script>
-  // Make CTA buttons exactly as wide as the theme chips row.
-  (function () {
-    const chips = document.getElementById('themeRow');
-    const ctas  = document.getElementById('ctaStack');
-    if (!chips || !ctas) return;
-
-    function sizeCTAs() {
-      // include sub-pixel and a tiny breathing room so borders don’t wrap
-      const w = Math.ceil(chips.getBoundingClientRect().width) + 2;
-      ctas.style.width = Math.min(w, document.documentElement.clientWidth * 0.95) + 'px';
-    }
-
-    // run on load and any resize/theme/font change
-    window.addEventListener('load', sizeCTAs, { once:true });
-    window.addEventListener('resize', sizeCTAs);
-    // if your theme chips can hide/show, observe layout changes too
-    if ('ResizeObserver' in window) {
-      const ro = new ResizeObserver(sizeCTAs);
-      ro.observe(chips);
-    } else {
-      // fall back to a simple interval if ResizeObserver is unavailable
-      const timer = setInterval(() => {
-        sizeCTAs();
-        if (!document.body.contains(chips)) clearInterval(timer);
-      }, 1000);
-    }
-  })();
+scaleRow.querySelector('input[value="0"]').checked = true;
 </script>
 </body>
 </html>
