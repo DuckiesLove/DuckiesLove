@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Talk Kink — Survey (Safe Mode)</title>
+
+  <!-- SW/cache rescue + overlay kill + one-time cache-bust -->
+  <script>
+  (async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) { try { await r.unregister(); } catch {} }
+      }
+      if (self.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch {}
+    try {
+      const s = document.createElement('style');
+      s.textContent = `
+        #overlay,.overlay,[data-overlay],.tk-overlay { display:none !important; }
+        body { opacity:1 !important; }
+      `;
+      document.head.appendChild(s);
+    } catch {}
+    try {
+      const u = new URL(location.href);
+      if (!u.searchParams.has('nuke')) {
+        u.searchParams.set('nuke', Date.now());
+        location.replace(u.toString());
+      }
+    } catch {}
+  })();
+  </script>
+
+  <!-- quiet favicon -->
+  <link rel="icon" href="data:," />
+
+  <style>
+    :root{
+      --bg:#071017; --panel:#0d1a22; --text:#dff7ff; --muted:#9bd3e0;
+      --edge:#0fe; --edge-dim:#1a9fb4; --radius:16px;
+      --panel-grad: radial-gradient(120% 120% at 50% 0%, #0f2430 0%, #0b1a23 60%, #08131a 100%);
+      --card-shadow: 0 0 0 1px rgba(0,255,255,.15), 0 8px 40px rgba(0,255,255,.08);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Inter,Arial,sans-serif;line-height:1.35}
+    .wrap{max-width:1280px;margin:0 auto;padding:32px 20px 64px}
+    .title{font-size:64px;font-weight:800;text-align:center;margin:16px 0 10px;text-shadow:0 0 28px rgba(0,255,255,.25)}
+    .themes{display:flex;gap:12px;justify-content:center;margin:12px 0 18px}
+    .pill{padding:10px 16px;border:1px solid var(--edge-dim);border-radius:999px;background:transparent;color:var(--text);cursor:pointer}
+    .pill:hover{box-shadow:0 0 0 1px var(--edge),0 0 24px rgba(0,255,255,.2)}
+    .stack{display:flex;flex-direction:column;align-items:center;gap:18px;margin:0 0 20px}
+    .cta{
+      width:min(900px,90%);padding:18px 20px;border-radius:28px;border:1px solid var(--edge-dim);
+      background:linear-gradient(180deg, rgba(2,40,50,.4), rgba(5,25,32,.35));
+      color:var(--text);font-weight:800;font-size:26px;text-align:center;cursor:pointer;
+      box-shadow:0 0 0 1px rgba(0,255,255,.12), 0 10px 40px rgba(0,255,255,.08);transition:.18s;
+    }
+    .cta:hover{transform:translateY(-1px);box-shadow:0 0 0 1px var(--edge), 0 16px 48px rgba(0,255,255,.14)}
+
+    .grid{display:grid;grid-template-columns: 320px 1fr 420px;gap:18px;align-items:start}
+    .panel{border-radius:var(--radius);background:var(--panel-grad);border:1px solid rgba(0,255,255,.12);box-shadow:var(--card-shadow);padding:16px}
+    .panel h3{margin:6px 0 12px;font-size:28px}
+
+    .cat-list{max-height:68vh;overflow:auto;padding-right:8px}
+    .cat{display:flex;align-items:center;gap:10px;margin:8px 0;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.02);border:1px solid rgba(0,255,255,.08)}
+    .cat input{width:18px;height:18px}
+    .muted{color:var(--muted);font-weight:500}
+
+    .qcard .question{font-size:22px;margin:6px 0 8px}
+    .scale{display:flex;gap:10px;flex-wrap:wrap}
+    .chip{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;min-width:56px;border-radius:12px;border:1px solid rgba(0,255,255,.18);background:rgba(0,0,0,.25);cursor:pointer}
+    .chip.active,.chip:hover{border-color:var(--edge);box-shadow:0 0 0 1px var(--edge)}
+    .actions{margin-top:16px;display:flex;gap:12px}
+    .btn{padding:10px 14px;border-radius:12px;border:1px solid var(--edge-dim);background:transparent;color:var(--text);cursor:pointer}
+
+    .guard-item{display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:12px;border:1px solid rgba(0,255,255,.1);background:rgba(255,255,255,.02);margin:10px 0}
+    .badge{flex:0 0 36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#021a1e;background:#0fe1;border:1px solid var(--edge-dim)}
+
+    .hidden{display:none !important}
+    .err{margin:10px 0;padding:10px 12px;border:1px solid #ff6b6b;background:#2b0f12;border-radius:10px;color:#ffe1e1}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">Talk Kink Survey</div>
+
+    <!-- theme selector -->
+    <div class="themes" id="themeRow">
+      <button class="pill" data-theme="dark">Dark</button>
+      <button class="pill" data-theme="lipstick">Lipstick</button>
+      <button class="pill" data-theme="forest">Forest</button>
+      <button class="pill" data-theme="blue">Blue Glow</button>
+    </div>
+
+    <!-- three centered buttons -->
+    <div class="stack">
+      <button id="btnStart" class="cta">Start Survey</button>
+      <button id="btnAnalysis" class="cta">Individual Kink Analysis</button>
+      <button id="btnCompat" class="cta">Compatibility Page</button>
+    </div>
+
+    <!-- main app -->
+    <div class="grid" id="app">
+      <!-- left -->
+      <section class="panel">
+        <h3>Categories</h3>
+        <div id="catErr" class="err hidden"></div>
+        <div id="catList" class="cat-list"></div>
+      </section>
+
+      <!-- middle (hidden until start) -->
+      <section class="panel qcard hidden" id="qCol">
+        <div class="muted" id="qPath">Pick categories then Start Survey</div>
+        <div class="question" id="qText"></div>
+        <div class="scale" id="qScale"></div>
+        <div class="actions">
+          <button class="btn" id="btnPrev">Back</button>
+          <button class="btn" id="btnSkip">Skip</button>
+          <button class="btn" id="btnNext">Next</button>
+        </div>
+        <div id="completeBlock" class="hidden" style="margin-top:16px">
+          <div class="muted">Survey complete</div>
+          <button id="btnDownload" class="btn">Download results</button>
+        </div>
+      </section>
+
+      <!-- right (hidden until start) -->
+      <aside class="panel hidden" id="rCol">
+        <h3>Rate interest/comfort (0–5)</h3>
+        <div class="guard-item"><div class="badge">0</div><div><strong>Brain did a cartwheel</strong> — skipped for now</div></div>
+        <div class="guard-item"><div class="badge">1</div><div><strong>Hard Limit</strong> — full stop / non-negotiable</div></div>
+        <div class="guard-item"><div class="badge">2</div><div><strong>Soft Limit</strong> — willing to try; strong boundaries & safety checks</div></div>
+        <div class="guard-item"><div class="badge">3</div><div><strong>Curious / context-dependent</strong> — okay with discussion; needs clear negotiation</div></div>
+        <div class="guard-item"><div class="badge">4</div><div><strong>Comfortable / enjoy</strong> — generally a yes; normal precautions & check-ins</div></div>
+        <div class="guard-item"><div class="badge">5</div><div><strong>Favorite / enthusiastic yes</strong> — happily into it; green-light</div></div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+  // Simple themes
+  const themes = {
+    dark:{bg:'#071017',edge:'#0fe'},
+    lipstick:{bg:'#12050b',edge:'#ff4da6'},
+    forest:{bg:'#06140a',edge:'#38f59b'},
+    blue:{bg:'#040c12',edge:'#00eaff'}
+  };
+  document.getElementById('themeRow').addEventListener('click',e=>{
+    const t=e.target?.dataset?.theme; if(!t) return;
+    const th=themes[t]; if(!th) return;
+    document.documentElement.style.setProperty('--bg',th.bg);
+    document.documentElement.style.setProperty('--edge',th.edge);
+    document.documentElement.style.setProperty('--edge-dim',th.edge);
+  });
+
+  // Elements
+  const catsEl   = document.getElementById('catList');
+  const catErr   = document.getElementById('catErr');
+  const qCol     = document.getElementById('qCol');
+  const rCol     = document.getElementById('rCol');
+  const qPath    = document.getElementById('qPath');
+  const qText    = document.getElementById('qText');
+  const qScale   = document.getElementById('qScale');
+  const btnPrev  = document.getElementById('btnPrev');
+  const btnSkip  = document.getElementById('btnSkip');
+  const btnNext  = document.getElementById('btnNext');
+  const complete = document.getElementById('completeBlock');
+  const btnDl    = document.getElementById('btnDownload');
+
+  // State
+  let ALL_CATS=[], ACTIVE=new Set(), QUESTIONS=[], answers=new Map(), idx=0;
+
+  const fetchJSON = async (url) => {
+    const bust = url + (url.includes('?')?'&':'?') + 'v=' + Date.now();
+    const r = await fetch(bust,{cache:'no-store'}); if(!r.ok) throw new Error(r.status);
+    return r.json();
+  };
+
+  const loadCats = async () => {
+    try{
+      const data = await fetchJSON('/data/categories.json');
+      ALL_CATS = data.categories || data || [];
+      if(!Array.isArray(ALL_CATS) || !ALL_CATS.length) throw new Error('No categories');
+      renderCats(); catErr.classList.add('hidden');
+    }catch(e){
+      // graceful placeholder
+      ALL_CATS = [
+        {id:'appearance', name:'Appearance Play', items:[{id:'q1', text:'Choosing partner’s outfit for a day — rate interest (0–5)'}]},
+        {id:'behavior',   name:'Behavioral Play', items:[{id:'q2', text:'Praise/discipline scene — rate interest (0–5)'}]}
+      ];
+      renderCats();
+      catErr.textContent = 'Could not load categories.json. Using placeholders.';
+      catErr.classList.remove('hidden');
+    }
+  };
+
+  function renderCats(){
+    const frag=document.createDocumentFragment();
+    ALL_CATS.forEach(cat=>{
+      const row=document.createElement('label'); row.className='cat';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.value=cat.id??cat.slug??cat.name;
+      cb.addEventListener('change',()=>{cb.checked?ACTIVE.add(cb.value):ACTIVE.delete(cb.value)});
+      const span=document.createElement('span'); span.textContent=cat.name||cat.title||'[unnamed]';
+      row.append(cb,span); frag.appendChild(row);
+    });
+    catsEl.innerHTML=''; catsEl.appendChild(frag);
+  }
+
+  function buildQuestions(){
+    const byId=new Map(ALL_CATS.map(c=>[String(c.id??c.slug??c.name),c]));
+    QUESTIONS=[]; answers=new Map(); idx=0;
+    ACTIVE.forEach(id=>{
+      const c=byId.get(String(id));
+      if(c && Array.isArray(c.items)){
+        c.items.forEach((q,i)=>QUESTIONS.push({
+          id:String(q.id??(id+'-'+i)), text:String(q.text??q.title??'[question]'),
+          cat:String(c.name??c.title??id)
+        }));
+      }
+    });
+  }
+
+  function renderQ(){
+    const done = QUESTIONS.length>0 && answers.size>=QUESTIONS.length;
+    if(done){
+      qPath.textContent='All questions answered.';
+      qText.textContent='Great job! You can download a summary.';
+      qScale.innerHTML=''; complete.classList.remove('hidden'); return;
+    }
+    complete.classList.add('hidden');
+    const q=QUESTIONS[idx]; if(!q){qPath.textContent='Select more categories to keep going.'; qText.textContent=''; qScale.innerHTML=''; return;}
+    qPath.textContent = q.cat + ' • Question ' + (idx+1) + ' of ' + QUESTIONS.length;
+    qText.textContent = q.text;
+    qScale.innerHTML='';
+    for(let n=0;n<=5;n++){
+      const chip=document.createElement('button');
+      chip.className='chip'+(answers.get(q.id)===n?' active':''); chip.innerHTML=`<strong>${n}</strong>`;
+      chip.addEventListener('click',()=>{answers.set(q.id,n); chip.classList.add('active'); renderQ();});
+      qScale.appendChild(chip);
+    }
+  }
+
+  // navigation
+  btnPrev.addEventListener('click',()=>{if(idx>0){idx--; renderQ();}});
+  btnSkip.addEventListener('click',()=>{if(!QUESTIONS[idx])return; answers.set(QUESTIONS[idx].id,0); if(idx<QUESTIONS.length-1) idx++; renderQ();});
+  btnNext.addEventListener('click',()=>{if(idx<QUESTIONS.length-1) idx++; renderQ();});
+
+  // Start Survey: reveal middle/right only then
+  document.getElementById('btnStart').addEventListener('click',()=>{
+    buildQuestions();
+    qCol.classList.remove('hidden');
+    rCol.classList.remove('hidden');
+    renderQ();
+    qCol.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+
+  // Download results (black-style text, grouped by category)
+  btnDl.addEventListener('click',()=>{
+    const grouped=new Map();
+    for(const q of QUESTIONS){
+      const s=answers.get(q.id);
+      const arr=grouped.get(q.cat)||[];
+      arr.push({text:q.text, score:(s==null?'(no score)':String(s))});
+      grouped.set(q.cat,arr);
+    }
+    const out=[];
+    out.push('Talk Kink Survey — Results');
+    out.push('========================================');
+    for(const cat of [...grouped.keys()].sort()){
+      out.push('');
+      out.push(cat.toUpperCase());
+      out.push('-'.repeat(cat.length));
+      for(const item of grouped.get(cat)){ out.push(` • [${item.score}] ${item.text}`); }
+    }
+    const blob=new Blob([out.join('\n')],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='talkkink-results.txt';
+    document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
+  });
+
+  // boot
+  loadCats();
+  </script>
+</body>
+</html>
