@@ -111,6 +111,24 @@
   }
   .card > .card-bd{ padding:14px 16px 16px }
 
+  .progress-wrap{
+    display:flex; flex-direction:column; gap:6px; margin-bottom:12px;
+  }
+  .progress-label{
+    font-weight:700; color:var(--ink-dim);
+    font-size: clamp(13px, 1.8vw, 15px);
+  }
+  .progress-track{
+    position:relative; height:10px; border-radius:999px;
+    background:rgba(255,255,255,.06); overflow:hidden;
+    border:1px solid rgba(132,255,255,.2);
+  }
+  .progress-fill{
+    position:absolute; inset:0; width:0%; border-radius:999px;
+    background: var(--accent); box-shadow:0 0 0.5rem rgba(88,241,255,.6);
+    transition: width .25s ease;
+  }
+
   /* left categories */
   .tk-left{ max-height: calc(100vh - 170px); overflow:auto }  /* a bit taller, still fits viewport */
   .cat-list{ list-style:none; margin:0; padding:0 }
@@ -155,6 +173,7 @@
   }
   .pill:hover{ background: rgba(255,255,255,.06); border-color: rgba(132,255,255,.45); transform: translateY(-1px);}
   .pill input{ width:16px; height:16px; margin:0; accent-color: var(--accent); }
+  .pill.active{ background: rgba(88,241,255,.18); border-color: rgba(132,255,255,.6); box-shadow: 0 0 0.45rem rgba(88,241,255,.45); }
 
   /* right guard: raise header so first guard card is visible without scrolling on laptops */
   .tk-right{ max-height: calc(100vh - 170px); overflow:auto } /* internal scroll only when needed */
@@ -180,6 +199,11 @@
     .tk-columns{ grid-template-columns: 1fr }
     .tk-left,.tk-right{ max-height:none; overflow:visible }
   }
+
+  .hidden{ display:none !important }
+
+  .download-wrap{ margin-top:24px; display:flex; justify-content:center; }
+  .download-wrap .btn{ width:min(320px,100%); }
 </style>
 </head>
 <body>
@@ -215,8 +239,14 @@
       <!-- MIDDLE -->
       <main class="card" id="surveyMain" aria-live="polite">
         <div class="card-hd">
-          <div class="lead">Appearance Play • Choosing my partner’s outfit for the day or a scene</div>
-          <div class="scale-heading">Giving: Rate interest/comfort (0–5)</div>
+          <div class="progress-wrap hidden" id="progressWrap" aria-live="polite">
+            <div class="progress-label" id="progressLabel">Loading progress…</div>
+            <div class="progress-track" id="progressTrack" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0 of 0 answered">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+          </div>
+          <div class="lead" id="questionCategory">Loading category…</div>
+          <div class="scale-heading" id="questionPrompt">Loading question…</div>
         </div>
         <div class="card-bd">
           <div class="rating-wrap" role="group" aria-labelledby="scaleTitle">
@@ -257,6 +287,10 @@
         </div>
       </aside>
     </section>
+
+    <div id="downloadWrap" class="download-wrap hidden">
+      <button type="button" class="btn" id="downloadBtn">Download Survey</button>
+    </div>
   </div>
 
 <script>
@@ -298,13 +332,200 @@ loadCategories();
 
 /* 0–5 pills: equal width, never overflow */
 const scaleRow = document.getElementById('scaleRow');
+const questionCategoryEl = document.getElementById('questionCategory');
+const questionPromptEl = document.getElementById('questionPrompt');
+const progressWrap = document.getElementById('progressWrap');
+const progressLabel = document.getElementById('progressLabel');
+const progressTrack = document.getElementById('progressTrack');
+const progressFill = document.getElementById('progressFill');
+const downloadWrap = document.getElementById('downloadWrap');
+const downloadBtn = document.getElementById('downloadBtn');
+
+const scaleInputs = [];
+const scaleLabels = [];
 for(let v=0; v<=5; v++){
   const lab = document.createElement('label');
   lab.className = 'pill';
-  lab.innerHTML = `<input type="radio" name="score" value="${v}"><span>${v}</span>`;
+  lab.innerHTML = `<input type="radio" name="score" value="${v}" aria-label="Score ${v}"><span>${v}</span>`;
+  const input = lab.querySelector('input');
+  input.addEventListener('change', ()=>handleScore(Number(input.value)));
+  scaleLabels.push(lab);
+  scaleInputs.push(input);
   scaleRow.appendChild(lab);
 }
-scaleRow.querySelector('input[value="0"]').checked = true;
+
+const questionTargets = [
+  '/KinkSurveyPage/data/kinks.json',
+  '/kinksurvey/data/kinks.json',
+  '/data/kinks.json'
+];
+
+let questionList = [];
+let currentQuestionIndex = 0;
+const answers = new Map();
+
+function normalizeQuestions(data){
+  const categories = Array.isArray(data?.categories) ? data.categories : [];
+  const result = [];
+  categories.forEach((cat, catIndex)=>{
+    const catName = String(cat?.category ?? cat?.name ?? cat?.title ?? `Category ${catIndex+1}`);
+    const items = Array.isArray(cat?.items) ? cat.items : [];
+    items.forEach((item, itemIndex)=>{
+      if(item?.type && item.type !== 'scale') return;
+      const baseId = String(item?.id ?? `${catIndex}-${itemIndex}`);
+      const label = String(item?.label ?? item?.text ?? item?.title ?? 'Survey question');
+      const roles = Array.isArray(item?.roles) && item.roles.length ? [item.roles[0]] : [null];
+      roles.forEach((role, roleIndex)=>{
+        const roleSlug = role ? role.toLowerCase().replace(/[^a-z0-9]+/g,'-') : `role${roleIndex}`;
+        result.push({
+          id: `${baseId}-${roleSlug}`,
+          category: catName,
+          prompt: role ? `${role}: ${label}` : label
+        });
+      });
+    });
+  });
+  return result;
+}
+
+function fallbackQuestions(){
+  return [
+    { id:'fallback-appearance-giving', category:'Appearance Play', prompt:'Giving: Choosing my partner’s outfit for the day or a scene' },
+    { id:'fallback-appearance-receiving', category:'Appearance Play', prompt:'Receiving: Selecting their underwear, lingerie, or base layers' },
+    { id:'fallback-protocol', category:'Protocol and Ritual', prompt:'Giving: Offering makeup, polish, or accessories as part of ritual or play' },
+    { id:'fallback-impact', category:'Impact Play', prompt:'Giving: Hair pulling intensity preferences' },
+    { id:'fallback-voyeurism', category:'Voyeurism/Exhibitionism', prompt:'Receiving: Exhibition scenes with a small audience' }
+  ];
+}
+
+async function loadQuestions(){
+  for(const path of questionTargets){
+    try{
+      const res = await fetch(path,{cache:'no-store'});
+      if(res.ok){
+        const json = await res.json();
+        const normalized = normalizeQuestions(json);
+        if(normalized.length){
+          return normalized;
+        }
+      }
+    }catch(e){}
+  }
+  return fallbackQuestions();
+}
+
+function updateProgress(total, completed){
+  const percent = total ? Math.min(100, (completed / total) * 100) : 0;
+  progressFill.style.width = `${percent}%`;
+  progressTrack.setAttribute('aria-valuenow', percent.toFixed(1));
+  progressTrack.setAttribute('aria-valuetext', `${completed} of ${total} answered`);
+}
+
+function resetScaleState(disabled){
+  scaleInputs.forEach((input, idx)=>{
+    input.checked = false;
+    input.disabled = !!disabled;
+    scaleLabels[idx].classList.remove('active');
+  });
+}
+
+function renderQuestion(){
+  const total = questionList.length;
+  const completed = answers.size;
+
+  if(!total){
+    progressWrap.classList.add('hidden');
+    questionCategoryEl.textContent = 'No survey questions available.';
+    questionPromptEl.textContent = 'Please check back later.';
+    resetScaleState(true);
+    downloadWrap.classList.add('hidden');
+    updateProgress(0,0);
+    return;
+  }
+
+  progressWrap.classList.remove('hidden');
+  updateProgress(total, completed);
+
+  if(currentQuestionIndex >= total){
+    questionCategoryEl.textContent = 'Survey complete';
+    questionPromptEl.textContent = 'You have answered all available questions.';
+    resetScaleState(true);
+    progressLabel.textContent = `Survey complete • ${total} questions`;
+    updateProgress(total, total);
+    downloadWrap.classList.remove('hidden');
+    return;
+  }
+
+  downloadWrap.classList.add('hidden');
+  resetScaleState(false);
+
+  const current = questionList[currentQuestionIndex];
+  questionCategoryEl.textContent = current.category;
+  questionPromptEl.textContent = current.prompt;
+  progressLabel.textContent = `Question ${currentQuestionIndex + 1} of ${total}`;
+
+  const existingScore = answers.get(current.id);
+  if(existingScore != null){
+    scaleInputs.forEach((input, idx)=>{
+      if(Number(input.value) === existingScore){
+        input.checked = true;
+        scaleLabels[idx].classList.add('active');
+      }
+    });
+  }
+}
+
+function handleScore(value){
+  if(!questionList.length || currentQuestionIndex >= questionList.length) return;
+  const current = questionList[currentQuestionIndex];
+  answers.set(current.id, value);
+  if(currentQuestionIndex < questionList.length - 1){
+    currentQuestionIndex++;
+  }else{
+    currentQuestionIndex = questionList.length;
+  }
+  renderQuestion();
+}
+
+downloadBtn.addEventListener('click', ()=>{
+  if(!questionList.length || answers.size < questionList.length) return;
+  const grouped = new Map();
+  questionList.forEach(q=>{
+    const arr = grouped.get(q.category) || [];
+    const score = answers.has(q.id) ? answers.get(q.id) : '(no response)';
+    arr.push({prompt:q.prompt, score});
+    grouped.set(q.category, arr);
+  });
+  const lines = [];
+  lines.push('Talk Kink Survey — Responses');
+  lines.push('========================================');
+  [...grouped.keys()].forEach(cat=>{
+    lines.push('');
+    lines.push(cat.toUpperCase());
+    lines.push('-'.repeat(cat.length));
+    grouped.get(cat).forEach(item=>{
+      lines.push(` • [${item.score}] ${item.prompt}`);
+    });
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'talkkink-survey-results.txt';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{
+    URL.revokeObjectURL(url);
+    a.remove();
+  },0);
+});
+
+(async ()=>{
+  questionList = await loadQuestions();
+  currentQuestionIndex = 0;
+  answers.clear();
+  renderQuestion();
+})();
 </script>
 </body>
 </html>
