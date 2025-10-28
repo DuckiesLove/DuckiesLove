@@ -220,7 +220,7 @@
     <div class="cta-grid">
       <div></div>
       <nav id="ctaStack">
-        <a class="btn" href="#surveyMain">Start Survey</a>
+        <button type="button" class="btn" id="startSurveyBtn" disabled aria-disabled="true">Start Survey</button>
         <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#analysis">Individual Kink Analysis</a>
         <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#compatibility">Compatibility Page</a>
       </nav>
@@ -308,6 +308,42 @@ const catTargets = [
   '/kinksurvey/data/categories.json',
   '/KinkSurveyPage/data/categories.json'
 ];
+const startSurveyBtn = document.getElementById('startSurveyBtn');
+const selectedCategories = new Set();
+const DEFAULT_PRE_SURVEY_MESSAGE = 'Select one or more categories on the left, then press Start Survey to begin.';
+let preSurveyMessage = DEFAULT_PRE_SURVEY_MESSAGE;
+let surveyStarted = false;
+
+function normalizeCategoryName(value){
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function updateStartSurveyState(){
+  if(!startSurveyBtn) return;
+  const hasSelection = selectedCategories.size > 0;
+  if(hasSelection){
+    startSurveyBtn.disabled = false;
+    startSurveyBtn.removeAttribute('aria-disabled');
+  }else{
+    startSurveyBtn.disabled = true;
+    startSurveyBtn.setAttribute('aria-disabled', 'true');
+  }
+}
+
+function handleCategoryChange(event){
+  const name = event.target.dataset.name ?? '';
+  if(event.target.checked){
+    selectedCategories.add(name);
+  }else{
+    selectedCategories.delete(name);
+  }
+  updateStartSurveyState();
+  if(!surveyStarted){
+    preSurveyMessage = DEFAULT_PRE_SURVEY_MESSAGE;
+    renderQuestion();
+  }
+}
+
 async function loadCategories(){
   let data = null;
   for(const path of catTargets){
@@ -321,12 +357,17 @@ async function loadCategories(){
   const normalize = v => typeof v === 'string' ? v : (v?.name ?? String(v));
   const ul = document.getElementById('catList');
   ul.innerHTML = '';
+  selectedCategories.clear();
   (Array.isArray(data)?data.map(normalize):[]).forEach(name=>{
     const li = document.createElement('li');
     li.className = 'cat-item';
     li.innerHTML = `<input type="checkbox" aria-label="${name}"><span>${name}</span>`;
+    const input = li.querySelector('input');
+    input.dataset.name = name;
+    input.addEventListener('change', handleCategoryChange);
     ul.appendChild(li);
   });
+  updateStartSurveyState();
 }
 loadCategories();
 
@@ -360,6 +401,7 @@ const questionTargets = [
   '/data/kinks.json'
 ];
 
+let allQuestions = [];
 let questionList = [];
 let currentQuestionIndex = 0;
 const answers = new Map();
@@ -414,6 +456,47 @@ async function loadQuestions(){
   return fallbackQuestions();
 }
 
+function startSurvey(){
+  if(selectedCategories.size === 0){
+    preSurveyMessage = 'Select at least one category to start the survey.';
+    surveyStarted = false;
+    renderQuestion();
+    return;
+  }
+
+  if(!allQuestions.length){
+    preSurveyMessage = 'Survey questions are still loading. Please try again in a moment.';
+    surveyStarted = false;
+    renderQuestion();
+    return;
+  }
+
+  const normalizedSelected = new Set([...selectedCategories].map(normalizeCategoryName));
+  const filtered = allQuestions.filter(q=>normalizedSelected.has(normalizeCategoryName(q.category)));
+
+  if(!filtered.length){
+    preSurveyMessage = 'No survey questions are available for the selected categories. Try a different selection.';
+    surveyStarted = false;
+    renderQuestion();
+    return;
+  }
+
+  surveyStarted = true;
+  questionList = filtered;
+  currentQuestionIndex = 0;
+  answers.clear();
+  preSurveyMessage = DEFAULT_PRE_SURVEY_MESSAGE;
+  renderQuestion();
+  const surveyMain = document.getElementById('surveyMain');
+  if(surveyMain){
+    surveyMain.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+if(startSurveyBtn){
+  startSurveyBtn.addEventListener('click', startSurvey);
+}
+
 function updateProgress(total, completed){
   const percent = total ? Math.min(100, (completed / total) * 100) : 0;
   progressFill.style.width = `${percent}%`;
@@ -430,13 +513,24 @@ function resetScaleState(disabled){
 }
 
 function renderQuestion(){
+  if(!surveyStarted){
+    progressWrap.classList.add('hidden');
+    questionCategoryEl.textContent = 'Survey not started';
+    questionPromptEl.textContent = preSurveyMessage;
+    progressLabel.textContent = 'Waiting to start';
+    resetScaleState(true);
+    downloadWrap.classList.add('hidden');
+    updateProgress(0,0);
+    return;
+  }
+
   const total = questionList.length;
   const completed = answers.size;
 
   if(!total){
     progressWrap.classList.add('hidden');
     questionCategoryEl.textContent = 'No survey questions available.';
-    questionPromptEl.textContent = 'Please check back later.';
+    questionPromptEl.textContent = 'Please adjust your category selection or try again later.';
     resetScaleState(true);
     downloadWrap.classList.add('hidden');
     updateProgress(0,0);
@@ -476,7 +570,7 @@ function renderQuestion(){
 }
 
 function handleScore(value){
-  if(!questionList.length || currentQuestionIndex >= questionList.length) return;
+  if(!surveyStarted || !questionList.length || currentQuestionIndex >= questionList.length) return;
   const current = questionList[currentQuestionIndex];
   answers.set(current.id, value);
   if(currentQuestionIndex < questionList.length - 1){
@@ -488,7 +582,7 @@ function handleScore(value){
 }
 
 downloadBtn.addEventListener('click', ()=>{
-  if(!questionList.length || answers.size < questionList.length) return;
+  if(!surveyStarted || !questionList.length || answers.size < questionList.length) return;
   const grouped = new Map();
   questionList.forEach(q=>{
     const arr = grouped.get(q.category) || [];
@@ -521,9 +615,12 @@ downloadBtn.addEventListener('click', ()=>{
 });
 
 (async ()=>{
-  questionList = await loadQuestions();
+  allQuestions = await loadQuestions();
+  questionList = [];
   currentQuestionIndex = 0;
   answers.clear();
+  surveyStarted = false;
+  preSurveyMessage = DEFAULT_PRE_SURVEY_MESSAGE;
   renderQuestion();
 })();
 </script>
