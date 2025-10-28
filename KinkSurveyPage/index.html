@@ -87,13 +87,17 @@
   .chip.active{ box-shadow: var(--glow); background:var(--accent-soft, rgba(0,204,255,.12)); border-color:var(--edge) }
 
   /* CTAs */
-  .cta-grid{
+  .cta-stack{
     display:grid;
-    grid-template-columns: var(--left) 1fr var(--right);
-    gap: var(--gap);
-    margin: 36px 0 32px;
+    gap:10px;
+    margin:24px 0 0;
+    grid-column: 2;
+    grid-row: 2;
+    justify-items: stretch;
+    width:min(360px, 100%);
+    justify-self:center;
+    align-self:start;
   }
-  #ctaStack{ grid-column: 2 / span 1; display:grid; gap:10px }
   .btn{
     border:1px solid var(--edge); background:rgba(255,255,255,.03); color:var(--ink);
     padding:14px 18px; border-radius:999px; text-align:center; font-weight:700;
@@ -199,9 +203,9 @@
 
   @media (max-width: 1160px){ :root{ --right: 360px; --left: 320px } }
   @media (max-width: 980px){
-    .cta-grid{ display:block }
     .tk-columns{ grid-template-columns: 1fr }
     .tk-left,.tk-right{ max-height:none; overflow:visible }
+    .cta-stack{ grid-column: 1; grid-row: auto; margin-top:18px }
   }
 
   .hidden{ display:none !important }
@@ -228,15 +232,6 @@
       <button class="chip" data-theme="lipstick">Lipstick</button>
       <button class="chip" data-theme="forest">Forest</button>
       <button class="chip" data-theme="glow">Blue Glow</button>
-    </div>
-
-    <div class="cta-grid">
-      <div></div>
-      <nav id="ctaStack">
-        <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#analysis">Individual Kink Analysis</a>
-        <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#compatibility">Compatibility Page</a>
-      </nav>
-      <div></div>
     </div>
 
     <div class="start-wrap">
@@ -275,6 +270,11 @@
           <button type="button" class="btn" id="downloadBtn">Download Survey</button>
         </div>
       </main>
+
+      <nav class="cta-stack" aria-label="Additional survey tools">
+        <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#analysis">Individual Kink Analysis</a>
+        <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#compatibility">Compatibility Page</a>
+      </nav>
 
       <!-- RIGHT -->
       <aside class="card tk-right">
