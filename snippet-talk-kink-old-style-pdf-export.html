@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Talk Kink — Old-Style PDF Export (Download)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- jsPDF + AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root{
+      --bg:#050e13; --teal:#00e5ff; --tealSoft:#00c4df;
+      --text:#dff7ff; --muted:#98c8d5; --card:#0a1b22; --line:#00bfd3;
+      --red:#ff5a64; --amber:#ffc247; --green:#57e68a; --blue:#4ab2ff;
+    }
+    html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    h1{margin:28px 32px 6px;font-size:46px;letter-spacing:.5px;
+       color:var(--text);text-shadow:0 0 28px rgba(0,229,255,.45),0 0 8px rgba(0,229,255,.25)}
+    .row{display:flex;gap:16px;align-items:center;margin:8px 32px 24px}
+    .pill{display:inline-flex;align-items:center;gap:.5ch;padding:8px 14px;border:2px solid rgba(0,229,255,.5);
+      border-radius:999px;color:var(--text);background:linear-gradient(180deg,#0f2530,#0c2028);box-shadow:0 0 18px rgba(0,229,255,.12) inset}
+    .btn{all:unset;cursor:pointer;margin:0 32px 28px;background:linear-gradient(180deg,#112834,#0f2430);
+      border:2px solid rgba(0,229,255,.55); color:var(--text); padding:14px 22px;border-radius:16px;
+      font-weight:800; box-shadow:0 0 24px rgba(0,229,255,.12), inset 0 0 20px rgba(0,229,255,.08)}
+    .btn:hover{box-shadow:0 0 28px rgba(0,229,255,.18), inset 0 0 24px rgba(0,229,255,.12)}
+    .hint{margin:-12px 32px 22px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <h1>Talk Kink Survey</h1>
+  <div class="row">
+    <span class="pill">Dark</span><span class="pill">Lipstick</span><span class="pill">Forest</span><span class="pill">Blue Glow</span>
+  </div>
+  <button class="btn" id="downloadBtn">Download PDF</button>
+  <div class="hint">API: <code>TalkKinkPDF.export(questions, answersMap, { filename })</code>. Uses globals if present, otherwise a demo dataset.</div>
+
+<script>
+/* ========= small public API so you can call from any page ========= */
+window.TalkKinkPDF = (function(){
+  const { jsPDF } = window.jspdf;
+
+  const C = {
+    black:[5,14,19],
+    card:[10,27,34],
+    text:[223,247,255],
+    muted:[152,200,213],
+    teal:[0,229,255],
+    line:[0,191,211],
+    red:[255,90,100],
+    amber:[255,194,71],
+    green:[87,230,138],
+    blue:[74,178,255]
+  };
+
+  function createDoc() {
+    const doc = new jsPDF({unit:'pt',format:'letter'}); // 612x792
+    return doc;
+  }
+
+  function drawBackgroundHeader(doc, subtitle='') {
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+    // bg
+    doc.setFillColor(...C.black); doc.rect(0,0,W,H,'F');
+    // header
+    doc.setFont('helvetica','bold'); doc.setFontSize(34); doc.setTextColor(...C.text);
+    doc.setDrawColor(...C.teal); doc.setLineWidth(1);
+    doc.text('Talk Kink Survey', 40, 60);
+    // subtitle + timestamp
+    doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(...C.muted);
+    const stamp=new Date().toLocaleString();
+    doc.text(subtitle ? `${subtitle}  •  ${stamp}` : stamp, 40, 80);
+    // footer page number
+    const p = `Page ${doc.getNumberOfPages()}`;
+    const tw = doc.getTextWidth(p);
+    doc.text(p, W-40-tw, H-24);
+  }
+
+  function guardPill(doc, x,y,num,label,fillRGB){
+    const r = 12;
+    doc.setFillColor(...fillRGB); doc.setDrawColor(...fillRGB);
+    doc.circle(x+r, y+r, r, 'F');
+    doc.setTextColor(5,14,19);
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    const nW = doc.getTextWidth(String(num));
+    doc.text(String(num), x+r - nW/2, y+r + 3);
+
+    doc.setTextColor(...C.text);
+    doc.setFont('helvetica','normal'); doc.setFontSize(12);
+    doc.text(label, x + 30, y + r + 4);
+  }
+
+  function drawLegend(doc){
+    const W = doc.internal.pageSize.getWidth();
+    const x = W - 260, y = 110, w = 220, h = 220;
+    doc.setFillColor(...C.card); doc.setDrawColor(...C.line); doc.setLineWidth(1.2);
+    doc.roundedRect(x, y, w, h, 10, 10, 'FD');
+    doc.setTextColor(...C.teal); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.text('Rate interest/comfort (0–5)', x+16, y+24);
+    const rows = [
+      {n:0,label:'Brain did a cartwheel — skipped for now', color:C.blue},
+      {n:1,label:'Hard Limit — full stop / non-negotiable', color:C.red},
+      {n:2,label:'Soft Limit — willing to try; strong boundaries & safety checks', color:C.amber},
+      {n:3,label:'Curious / context-dependent — okay with discussion', color:C.blue},
+      {n:4,label:'Comfortable / enjoy — generally a yes', color:C.green},
+      {n:5,label:'Favorite / enthusiastic yes — happily into it', color:C.green}
+    ];
+    let yy = y+40;
+    for (let i=0;i<rows.length;i++){
+      guardPill(doc, x+16, yy, rows[i].n, rows[i].label, rows[i].color);
+      yy += 30;
+      if (yy > y+h-24) break;
+    }
+  }
+
+  function renderCategoryCard(doc, cat, items, startY){
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+    let y = startY;
+    const lineH = 18, innerPad = 10;
+    const rows = Math.max(items.length, 1);
+    const cardH = 44 + rows * (lineH + 8) + innerPad*2;
+
+    if (y + cardH + 40 > H) { doc.addPage(); drawBackgroundHeader(doc, cat); y = 90; }
+
+    doc.setFillColor(...C.card); doc.setDrawColor(...C.line); doc.setLineWidth(1.2);
+    doc.roundedRect(40, y, W-80, cardH, 14, 14, 'FD');
+
+    doc.setTextColor(...C.teal); doc.setFont('helvetica','bold'); doc.setFontSize(18);
+    doc.text(cat, 56, y + 28);
+
+    let ry = y + 54;
+    for (const it of items) {
+      const s = it.score==null ? '–' : String(it.score);
+      doc.setTextColor(...C.text); doc.setFont('helvetica','bold'); doc.setFontSize(13);
+      doc.setDrawColor(...C.line); doc.setFillColor(8,25,32);
+      doc.roundedRect(56, ry-12, 28, 22, 6, 6, 'FD');
+      const sw = doc.getTextWidth(s);
+      doc.text(s, 56 + 14 - sw/2, ry+3);
+
+      doc.setFont('helvetica','normal'); doc.setTextColor(...C.text); doc.setFontSize(12);
+      const wrap = doc.splitTextToSize(it.text, W-80 - 56 - 40 - 28);
+      doc.text(wrap, 56 + 28 + 12, ry+3);
+
+      ry += Math.max(lineH, wrap.length*14) + 8;
+    }
+    return y + cardH + 20;
+  }
+
+  function buildGrouped(questions, answersMap){
+    const byCat = new Map();
+    for (const q of questions) {
+      const score = answersMap ? answersMap.get(q.id) : null;
+      if (!byCat.has(q.cat)) {
+        byCat.set(q.cat, []);
+      }
+      byCat.get(q.cat).push({score, text:q.text});
+    }
+    return [...byCat.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  }
+
+  function exportPdf(questions, answersMap, opts={}){
+    const doc = createDoc();
+    const W = doc.internal.pageSize.getWidth();
+    drawBackgroundHeader(doc, 'Complete answers grouped by category');
+    drawLegend(doc);
+
+    doc.setTextColor(...C.text); doc.setFont('helvetica','bold'); doc.setFontSize(22);
+    doc.text('Summary by Category', 40, 120);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...C.muted); doc.setFontSize(12);
+    doc.text('Mirrors the old /kinksurvey layout: black background, neon teal, and category cards.', 40, 140);
+
+    const entries = buildGrouped(questions, answersMap);
+    let y = 160;
+    for (const [cat, items] of entries) {
+      y = renderCategoryCard(doc, cat, items, y);
+    }
+
+    // DOWNLOAD like the old button
+    const name = (opts && opts.filename) || 'talkkink-survey-results.pdf';
+    doc.save(name); // triggers browser download
+  }
+
+  return { export: exportPdf };
+})();
+
+/* ========= demo + button wiring ========= */
+function getRuntimeDataOrDemo() {
+  const ok = Array.isArray(window.QUESTIONS) && window.answers && typeof window.answers.get==='function';
+  if (ok) return {questions: window.QUESTIONS, answersMap: window.answers};
+
+  const demoQs = [
+    {id:'q1', text:"Choosing my partner’s outfit for the day", cat:'Appearance Play'},
+    {id:'q2', text:"Praise / degradation in roleplay", cat:'Behavioral Play'},
+    {id:'q3', text:"Wax play", cat:'Sensation Play'},
+    {id:'q4', text:"Bondage (rope / shibari)", cat:'Bondage & Suspension'},
+    {id:'q5', text:"Exhibitionism in semi-public contexts", cat:'Voyeurism / Exhibitionism'},
+    {id:'q6', text:"Receiving impact (paddle / flogger)", cat:'Impact Play'}
+  ];
+  const demoAns = new Map([['q1',4],['q2',3],['q3',2],['q4',5],['q5',1],['q6',0]]);
+  return {questions: demoQs, answersMap: demoAns};
+}
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const {questions, answersMap} = getRuntimeDataOrDemo();
+  TalkKinkPDF.export(questions, answersMap, { filename: 'talkkink-survey-results.pdf' });
+});
+</script>
+</body>
+</html>
