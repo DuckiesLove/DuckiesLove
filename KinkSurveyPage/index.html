@@ -168,34 +168,37 @@
 
   /* Key change: flex + equal-width pills that shrink as needed. No overflow. */
   .scale-row{
-    display:flex; gap:10px; align-items:stretch; width:100%;
+    display:flex; gap:8px; align-items:stretch; width:100%;
     min-width: 0;            /* allow shrink inside grid cell */
   }
   .pill{
     flex: 1 1 0;             /* equal columns; can shrink */
     min-width: 0;            /* let text/radio wrap within */
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    padding:12px 6px; border-radius:12px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:10px 4px; border-radius:12px;
     border:1px solid var(--edge); background:rgba(255,255,255,.03);
     cursor:pointer; user-select:none;
     transition: background .15s ease, transform .15s ease, border-color .15s ease;
   }
   .pill:hover{ background: rgba(255,255,255,.06); border-color: var(--edge-strong); transform: translateY(-1px);}
-  .pill input{ width:16px; height:16px; margin:0; accent-color: var(--accent); }
+  .pill input{ width:14px; height:14px; margin:0; accent-color: var(--accent); }
   .pill.active{ background: rgba(0,204,255,.18); border-color: rgba(0,204,255,.6); box-shadow: 0 0 0.45rem rgba(0,204,255,.45); }
 
   /* right guard: raise header so first guard card is visible without scrolling on laptops */
   .tk-right{ max-height: calc(100vh - 170px); overflow:auto } /* internal scroll only when needed */
   .tk-right .card-hd{ position:sticky; top:0; background:linear-gradient(180deg, rgba(0,0,0,.9), rgba(0,0,0,.72)); backdrop-filter: blur(2px); z-index:2 }
 
-  .guard-list{ display:flex; flex-direction:column; gap:10px; padding:10px }
+  .guard-list{ display:flex; flex-direction:column; gap:6px; padding:8px }
   .guard-item{
-    display:flex; gap:14px; align-items:flex-start;
-    padding:12px; border-radius:14px; background:rgba(255,255,255,.03); border:1px solid var(--edge);
+    display:flex; gap:8px; align-items:flex-start;
+    padding:8px 10px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid var(--edge);
+    font-size:clamp(12.5px,1.5vw,13.5px); line-height:1.35;
   }
+  .guard-item strong{ display:block; margin-bottom:2px; font-size:1em; }
   .badge{
-    width:34px; height:34px; min-width:34px; display:grid; place-items:center;
+    width:26px; height:26px; min-width:26px; display:grid; place-items:center;
     border-radius:999px; font-weight:800; color:#04141b; background:#58f1ff;
+    font-size:13px;
   }
   .badge.bad-1{ background:#ff6b6b}
   .badge.bad-2{ background:#ffd166}
