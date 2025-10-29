@@ -235,6 +235,9 @@
     padding: 18px 16px 20px;
     border-top: 1px solid var(--edge-soft);
     display:flex;
+    flex-direction:column;
+    gap:12px;
+    align-items:center;
     justify-content:center;
   }
   .download-wrap .btn{ width:min(320px,100%); }
@@ -289,6 +292,7 @@
 
         <div id="downloadWrap" class="download-wrap hidden">
           <button type="button" class="btn" id="downloadBtn">Download Survey</button>
+          <button type="button" class="btn" id="compatExportBtn">Download Compatibility Export</button>
         </div>
       </main>
 
@@ -787,6 +791,532 @@ downloadBtn.addEventListener('click', ()=>{
   surveyStarted = false;
   preSurveyMessage = DEFAULT_PRE_SURVEY_MESSAGE;
   renderQuestion();
+})();
+</script>
+
+<script>
+(() => {
+  /***********************
+   * TalkKink – Export v2 *
+   ***********************/
+  const EXPORT_FORMAT = 'talkkink.v2';
+  const LS_KEYS = ['tk_answers_v2', 'tk_answers', 'survey_answers', 'talkkink.answers'];
+  const CATEGORIES_SRC = window.TK_CATEGORIES || window.categories || null;
+  const KINKS_SRC = window.TK_KINKS || window.kinks || null;
+
+  /** Utilities **/
+  const qs = (sel, el = document) => el.querySelector(sel);
+  const qsa = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+  const nowISO = () => new Date().toISOString();
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+
+  function download(filename, text, type = 'application/json') {
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function deepClone(o) {
+    try {
+      return JSON.parse(JSON.stringify(o));
+    } catch (err) {
+      return null;
+    }
+  }
+
+  const slugify = (value) =>
+    String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-');
+
+  const capitalize = (value) => {
+    if (!value) return '';
+    const str = String(value);
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
+  const clampScore = (value) => {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    if (num <= 0) return 0;
+    if (num >= 5) return 5;
+    return Math.round(num);
+  };
+
+  function questionCatalog() {
+    const catalog = new Map();
+    const push = (question, index) => {
+      if (!question || !question.id) return;
+      const id = String(question.id);
+      if (!catalog.has(id)) {
+        catalog.set(id, {
+          id,
+          prompt: question.prompt || question.label || question.text || '',
+          label: question.label || question.prompt || question.text || '',
+          category: question.category || question.categoryName || '',
+          categoryId: question.categoryId || question.sectionId || '',
+          role: question.role || '',
+          index
+        });
+      }
+    };
+
+    if (Array.isArray(window.questionList)) {
+      window.questionList.forEach((q, idx) => push(q, idx));
+    }
+    if (Array.isArray(window.allQuestions)) {
+      window.allQuestions.forEach((q, idx) => push(q, idx));
+    }
+    return catalog;
+  }
+
+  function ingestCategories(catById) {
+    const apply = (entry) => {
+      if (!entry) return;
+      if (typeof entry === 'string') {
+        const id = slugify(entry) || entry;
+        if (!catById.has(id)) catById.set(id, { id, name: entry });
+        return;
+      }
+      const id = String(entry.id || entry.slug || entry.handle || entry.category || entry.name || '');
+      const name = String(entry.name || entry.title || entry.category || id || 'Uncategorized');
+      if (!id && !name) return;
+      const finalId = id || slugify(name) || 'category';
+      if (!catById.has(finalId)) {
+        catById.set(finalId, { id: finalId, name });
+      }
+    };
+
+    const absorb = (source) => {
+      if (!source) return;
+      if (Array.isArray(source)) {
+        source.forEach((item) => absorb(item));
+        return;
+      }
+      if (typeof source !== 'object') return;
+      if (Array.isArray(source.categories)) {
+        source.categories.forEach((cat) => absorb(cat));
+      }
+      if (Array.isArray(source.sections)) {
+        source.sections.forEach((cat) => absorb(cat));
+      }
+      if (Array.isArray(source.groups)) {
+        source.groups.forEach((cat) => absorb(cat));
+      }
+      if (source.category || source.name) {
+        apply(source);
+      }
+    };
+
+    absorb(CATEGORIES_SRC);
+    absorb(KINKS_SRC);
+  }
+
+  function ingestKinks(catById) {
+    const kinkById = new Map();
+
+    const applyLabelMap = (labels) => {
+      if (!labels || typeof labels !== 'object') return;
+      Object.entries(labels).forEach(([id, label]) => {
+        const key = String(id);
+        if (!kinkById.has(key)) kinkById.set(key, { id: key });
+        kinkById.get(key).label = String(label);
+      });
+    };
+
+    const absorbItems = (items, cat) => {
+      if (!Array.isArray(items)) return;
+      items.forEach((item) => {
+        if (!item) return;
+        const id = String(item.id || item.slug || item.code || item.key || item.qid || item.questionId || '');
+        if (!id) return;
+        if (!kinkById.has(id)) kinkById.set(id, { id });
+        const entry = kinkById.get(id);
+        if (!entry.label && (item.label || item.text || item.title)) {
+          entry.label = String(item.label || item.text || item.title);
+        }
+        if (Array.isArray(item.roles) && item.roles.length) {
+          entry.roles = Array.from(new Set([...(entry.roles || []), ...item.roles.map(String)]));
+        }
+        if (cat) {
+          const catId = String(cat.id || cat.slug || cat.handle || cat.category || cat.name || '');
+          const catName = String(cat.name || cat.title || cat.category || catId || 'Uncategorized');
+          entry.categoryId = entry.categoryId || catId || slugify(catName);
+          entry.category = entry.category || catName;
+          if (entry.categoryId && !catById.has(entry.categoryId)) {
+            catById.set(entry.categoryId, { id: entry.categoryId, name: entry.category || catName });
+          }
+        }
+      });
+    };
+
+    const absorb = (source) => {
+      if (!source) return;
+      if (Array.isArray(source)) {
+        source.forEach((item) => absorb(item));
+        return kinkById;
+      }
+      if (typeof source !== 'object') return kinkById;
+      if (source.labels) applyLabelMap(source.labels);
+      if (Array.isArray(source.categories)) {
+        source.categories.forEach((cat) => {
+          absorbItems(cat?.items || cat?.kinks, cat);
+        });
+      }
+      if (Array.isArray(source.sections)) {
+        source.sections.forEach((cat) => {
+          absorbItems(cat?.items || cat?.kinks, cat);
+        });
+      }
+      if (Array.isArray(source.groups)) {
+        source.groups.forEach((cat) => {
+          absorbItems(cat?.items || cat?.kinks, cat);
+        });
+      }
+      if (Array.isArray(source.items)) {
+        absorbItems(source.items, null);
+      }
+      return kinkById;
+    };
+
+    absorb(KINKS_SRC);
+    return kinkById;
+  }
+
+  function guessRoleFromPrompt(prompt) {
+    if (!prompt || typeof prompt !== 'string') return '';
+    const parts = prompt.split(':');
+    if (parts.length < 2) return '';
+    const candidate = parts[0].trim();
+    if (/^(giving|receiving|general|watching|sharing|leading|following|switching)$/i.test(candidate)) {
+      return capitalize(candidate);
+    }
+    return '';
+  }
+
+  function stripRoleFromPrompt(prompt) {
+    if (!prompt || typeof prompt !== 'string') return prompt;
+    const idx = prompt.indexOf(':');
+    if (idx === -1) return prompt;
+    return prompt.slice(idx + 1).trim();
+  }
+
+  /** Try to collect answers from common places without breaking your page */
+  function readAnswersFromKnownPlaces() {
+    const catalog = questionCatalog();
+
+    if (typeof answers !== 'undefined' && answers && typeof answers.forEach === 'function' && answers.size) {
+      const items = [];
+      let order = 0;
+      answers.forEach((score, id) => {
+        const meta = catalog.get(String(id)) || {};
+        items.push({
+          id: String(id),
+          score,
+          prompt: meta.prompt,
+          label: meta.label,
+          category: meta.category,
+          categoryId: meta.categoryId,
+          role: meta.role,
+          order: meta.index ?? order
+        });
+        order += 1;
+      });
+      items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      return { flat: true, items };
+    }
+
+    if (window.TK_SURVEY?.answers) return deepClone(window.TK_SURVEY.answers);
+    if (window.SURVEY?.answers) return deepClone(window.SURVEY.answers);
+    if (window.appState?.answers) return deepClone(window.appState.answers);
+
+    for (const key of LS_KEYS) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      } catch (e) {}
+    }
+
+    const rows = qsa('[data-qid]');
+    if (rows.length) {
+      const scraped = [];
+      rows.forEach((row, idx) => {
+        const qid = row.getAttribute('data-qid');
+        const label = row.getAttribute('data-label') || '';
+        const role = row.getAttribute('data-role') || '';
+        const selected =
+          qs('input[type="radio"][name][value]:checked', row) || qs('[role="radio"][aria-checked="true"]', row);
+        if (!selected) return;
+        const v = selected.value ?? selected.getAttribute('data-value') ?? selected.textContent?.trim();
+        const score = Number(v);
+        if (!Number.isNaN(score)) scraped.push({ id: qid, label, role, score, order: idx });
+      });
+      return scraped.length ? { flat: true, items: scraped } : null;
+    }
+
+    return null;
+  }
+
+  function finalizeRecord(entry, index, kinkById, catById) {
+    if (entry == null) return null;
+
+    let base = entry;
+    if (Array.isArray(entry)) {
+      if (entry.length < 2) return null;
+      base = { id: entry[0], score: entry[1], label: entry[2], category: entry[3] };
+    } else if (typeof entry === 'number') {
+      const lookup =
+        (Array.isArray(window.questionList) && window.questionList[index]) ||
+        (Array.isArray(window.allQuestions) && window.allQuestions[index]);
+      if (!lookup || !lookup.id) return null;
+      base = {
+        id: lookup.id,
+        score: entry,
+        label: lookup.prompt || lookup.label,
+        prompt: lookup.prompt || lookup.label,
+        category: lookup.category,
+        role: lookup.role,
+        order: index
+      };
+    }
+
+    const idRaw = base.id ?? base.qid ?? base.key ?? base.code ?? base.questionId ?? base.slug;
+    if (!idRaw) return null;
+    const id = String(idRaw).trim();
+    if (!id) return null;
+
+    const score = clampScore(base.score ?? base.value ?? base.rating ?? base.answer ?? base.selected ?? base.val ?? base.s);
+    if (score == null) return null;
+
+    let prompt = base.prompt || base.label || base.text || base.name || '';
+    let label = base.label || base.text || base.name || '';
+    let role = base.role || base.mode || base.position || '';
+    let categoryName = base.category || base.categoryName || base.section || base.group || base.bucket || '';
+    let categoryId = base.categoryId || base.sectionId || base.groupId || '';
+
+    const meta = kinkById.get(id) || {};
+    if (!label && meta.label) label = meta.label;
+    if (!prompt && meta.label) prompt = meta.label;
+    if (!categoryName && meta.category) categoryName = meta.category;
+    if (!categoryId && meta.categoryId) categoryId = meta.categoryId;
+    if (!role && Array.isArray(meta.roles) && meta.roles.length === 1) role = meta.roles[0];
+
+    if (!categoryId && categoryName) {
+      categoryId = slugify(categoryName);
+    }
+    if (!categoryName && categoryId && catById.has(categoryId)) {
+      categoryName = catById.get(categoryId).name || categoryId;
+    }
+
+    if (!categoryId) categoryId = 'uncategorized';
+    if (!categoryName) categoryName = 'Uncategorized';
+
+    if (!role) {
+      const guessed = guessRoleFromPrompt(prompt);
+      if (guessed) {
+        role = guessed;
+        prompt = stripRoleFromPrompt(prompt);
+      }
+    }
+
+    const cleanLabel = label ? String(label).trim() : '';
+    const cleanPrompt = prompt ? String(prompt).trim() : cleanLabel;
+    const final = { id, score };
+    if (cleanLabel) final.label = cleanLabel;
+    if (cleanPrompt && cleanPrompt !== cleanLabel) final.prompt = cleanPrompt;
+    if (role) final.role = role;
+
+    return {
+      answer: final,
+      categoryId,
+      categoryName,
+      order: Number.isFinite(base.order) ? base.order : index
+    };
+  }
+
+  /** Normalize whatever we found into the compatibility JSON your /compatibility.html expects. */
+  function buildExportObject() {
+    const raw = readAnswersFromKnownPlaces();
+    if (!raw) return null;
+
+    const catById = new Map();
+    ingestCategories(catById);
+    const kinkById = ingestKinks(catById);
+
+    const ensureCategory = (list, categoryId, categoryName) => {
+      const id = categoryId || slugify(categoryName) || 'uncategorized';
+      const name = categoryName || (catById.get(id)?.name ?? 'Uncategorized');
+      let cat = list.find((entry) => entry.id === id);
+      if (!cat) {
+        cat = { id, name, answers: [], order: list.length };
+        list.push(cat);
+      }
+      return cat;
+    };
+
+    const categorized = [];
+    const flatRecords = [];
+
+    const collectFlat = (items) => {
+      if (!Array.isArray(items)) return;
+      items.forEach((item, idx) => {
+        const normalized = finalizeRecord(item, idx, kinkById, catById);
+        if (normalized) {
+          flatRecords.push(normalized);
+        }
+      });
+    };
+
+    const groups = raw?.categories || raw?.sections || raw?.groups;
+    if (Array.isArray(groups)) {
+      groups.forEach((group, gIdx) => {
+        const catId = String(group?.id || group?.slug || group?.category || group?.name || `category-${gIdx}`);
+        const catName = String(group?.name || group?.title || group?.category || catId || 'Uncategorized');
+        const category = ensureCategory(categorized, catId, catName);
+        const items = group?.items || group?.questions || group?.kinks || [];
+        items.forEach((item, idx) => {
+          const normalized = finalizeRecord(item, idx, kinkById, catById);
+          if (normalized) {
+            category.answers.push(normalized.answer);
+            flatRecords.push({ ...normalized, categoryId: category.id, categoryName: category.name });
+          }
+        });
+      });
+    }
+
+    if (!flatRecords.length) {
+      if (raw?.flat === true && Array.isArray(raw?.items)) collectFlat(raw.items);
+      collectFlat(raw?.items);
+      collectFlat(raw?.answers);
+      collectFlat(raw?.responses);
+      collectFlat(raw?.rows);
+      collectFlat(raw?.data?.answers);
+      if (Array.isArray(raw)) collectFlat(raw);
+
+      const mapCandidates = [raw?.answersById, raw?.answersByKey, raw?.map, raw?.scores, raw?.ratings];
+      mapCandidates.forEach((candidate) => {
+        if (!candidate || typeof candidate !== 'object') return;
+        Object.entries(candidate).forEach(([id, score]) => {
+          const normalized = finalizeRecord({ id, score }, flatRecords.length, kinkById, catById);
+          if (normalized) flatRecords.push(normalized);
+        });
+      });
+    }
+
+    const filteredFlat = flatRecords.filter((entry) => entry && entry.answer);
+    filteredFlat.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    filteredFlat.forEach((entry) => {
+      const category = ensureCategory(categorized, entry.categoryId, entry.categoryName);
+      category.answers.push(entry.answer);
+    });
+
+    const finalCategories = categorized
+      .filter((cat) => Array.isArray(cat.answers) && cat.answers.length)
+      .map((cat) => ({ id: cat.id, name: cat.name, answers: cat.answers }));
+
+    const items = [];
+    const answersById = {};
+    finalCategories.forEach((cat) => {
+      cat.answers.forEach((ans) => {
+        items.push({ ...ans, categoryId: cat.id, category: cat.name });
+        answersById[ans.id] = ans.score;
+      });
+    });
+
+    if (!items.length) return null;
+
+    const now = new Date();
+    const theme =
+      document.documentElement.getAttribute('data-theme') ||
+      qs('[data-theme-active]')?.getAttribute('data-theme-active') ||
+      'dark';
+
+    const exportObject = {
+      format: EXPORT_FORMAT,
+      version: 1,
+      generatedAt: nowISO(),
+      stamp: stamp(now),
+      theme,
+      source: {
+        url: window.location?.href || '',
+        title: document.title || '',
+        theme,
+        generatedAt: raw?.generatedAt || raw?.timestamp || null
+      },
+      counts: {
+        categories: finalCategories.length,
+        answers: items.length
+      },
+      categories: finalCategories,
+      items,
+      answers: answersById
+    };
+
+    if (!exportObject.source.generatedAt) delete exportObject.source.generatedAt;
+
+    const context = {};
+    ['meta', 'profile', 'partner', 'partnerName', 'partners', 'info', 'notes'].forEach((key) => {
+      if (raw && raw[key] != null && typeof raw[key] !== 'function') {
+        context[key] = raw[key];
+      }
+    });
+    if (raw?.summary) context.summary = raw.summary;
+    if (Object.keys(context).length) {
+      exportObject.context = context;
+    }
+
+    window.TK_LAST_EXPORT = exportObject;
+    return exportObject;
+  }
+
+  function handleExportClick() {
+    const btn = document.getElementById('compatExportBtn');
+    if (!btn) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Preparing export…';
+    btn.setAttribute('aria-busy', 'true');
+    try {
+      const payload = buildExportObject();
+      if (!payload) {
+        alert('Could not find completed survey answers to export.');
+        return;
+      }
+      const file = `talkkink-compat-${stamp(new Date())}.json`;
+      const text = JSON.stringify(payload, null, 2);
+      download(file, text);
+    } catch (err) {
+      console.error('[TalkKink] compatibility export failed', err);
+      alert('Could not prepare the compatibility export. Please try again.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+      btn.removeAttribute('aria-busy');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('compatExportBtn');
+    if (!btn) return;
+    btn.addEventListener('click', handleExportClick);
+  });
+
+  window.TK_EXPORT = {
+    build: buildExportObject,
+    trigger: handleExportClick
+  };
 })();
 </script>
 </body>
