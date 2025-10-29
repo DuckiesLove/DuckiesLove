@@ -98,6 +98,17 @@
   }
 })();
   </script>
+  <script>
+    window.TK_COMPAT_UPLOAD_CFG = {
+      btnSelf: '#uploadYourSurvey',
+      btnPartner: '#uploadPartnerSurvey',
+      btnPdf: '#downloadPdfBtn',
+      selfInput: '#fileA',
+      partnerInput: '#fileB',
+      guardPdf: false
+    };
+  </script>
+  <script defer src="/js/tk-compat-upload-glue.js"></script>
 <!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
 <script>
 /* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
