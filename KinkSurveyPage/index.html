@@ -90,13 +90,9 @@
   .cta-stack{
     display:grid;
     gap:10px;
-    margin:24px 0 0;
-    grid-column: 2;
-    grid-row: 2;
+    margin:18px auto 0;
     justify-items: stretch;
-    width:min(360px, 100%);
-    justify-self:center;
-    align-self:start;
+    width:min(420px, 100%);
   }
   .btn{
     border:1px solid var(--edge); background:rgba(255,255,255,.03); color:var(--ink);
@@ -106,7 +102,12 @@
   .btn:hover{ transform: translateY(-1px); background: rgba(255,255,255,.06); border-color: var(--edge-strong); }
 
   /* 3 columns */
-  .tk-columns{ display:grid; grid-template-columns: var(--left) 1fr var(--right); gap: var(--gap); align-items:start }
+  .tk-columns{
+    display:grid;
+    grid-template-columns: var(--left) 1fr var(--right);
+    gap: var(--gap);
+    align-items:start;
+  }
 
   .card{
     background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.03));
@@ -203,9 +204,10 @@
 
   @media (max-width: 1160px){ :root{ --right: 360px; --left: 320px } }
   @media (max-width: 980px){
-    .tk-columns{ grid-template-columns: 1fr }
+    .tk-columns{
+      grid-template-columns: 1fr;
+    }
     .tk-left,.tk-right{ max-height:none; overflow:visible }
-    .cta-stack{ grid-column: 1; grid-row: auto; margin-top:18px }
   }
 
   .hidden{ display:none !important }
@@ -264,17 +266,16 @@
             <div id="scaleTitle" class="scale-title">Rate interest/comfort (0–5)</div>
             <div class="scale-row" id="scaleRow"></div>
           </div>
+          <nav class="cta-stack" aria-label="Additional survey tools">
+            <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#analysis">Individual Kink Analysis</a>
+            <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#compatibility">Compatibility Page</a>
+          </nav>
         </div>
 
         <div id="downloadWrap" class="download-wrap hidden">
           <button type="button" class="btn" id="downloadBtn">Download Survey</button>
         </div>
       </main>
-
-      <nav class="cta-stack" aria-label="Additional survey tools">
-        <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#analysis">Individual Kink Analysis</a>
-        <a class="btn" href="https://talkkink.org/KinkSurveyPage/index.html#compatibility">Compatibility Page</a>
-      </nav>
 
       <!-- RIGHT -->
       <aside class="card tk-right">
