@@ -709,217 +709,69 @@ function handleScore(value){
   renderQuestion();
 }
 
-const loadedScripts = new Set();
-function loadScript(url){
-  return new Promise((resolve, reject)=>{
-    if(!url){
-      reject(new Error('Missing script URL'));
-      return;
-    }
-    if(loadedScripts.has(url)){
-      resolve();
-      return;
-    }
-    const doc = document;
-    if(!doc){
-      reject(new Error('Document is not available'));
-      return;
-    }
-    const existing = doc.querySelector(`script[src="${url}"]`);
-    if(existing){
-      const done = ()=>{
-        loadedScripts.add(url);
-        resolve();
-      };
-      if(existing.readyState === 'complete' || existing.readyState === 'loaded'){
-        done();
-        return;
-      }
-      existing.addEventListener('load', done, { once:true });
-      existing.addEventListener('error', ()=>reject(new Error(`Failed to load script: ${url}`)), { once:true });
-      return;
-    }
-    const script = doc.createElement('script');
-    script.src = url;
-    script.async = true;
-    script.defer = true;
-    script.onload = ()=>{
-      loadedScripts.add(url);
-      resolve();
-    };
-    script.onerror = ()=>reject(new Error(`Failed to load script: ${url}`));
-    doc.head.appendChild(script);
-  });
-}
-
-let jsPDFLoader = null;
-async function ensureJsPDF(){
-  if(window.jspdf && window.jspdf.jsPDF){
-    window.jsPDF = window.jspdf.jsPDF;
-    return window.jspdf.jsPDF;
-  }
-  if(jsPDFLoader) return jsPDFLoader;
-  const sources = [
-    '../js/vendor/jspdf.umd.min.js',
-    '/js/vendor/jspdf.umd.min.js',
-    'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js'
-  ];
-  jsPDFLoader = (async()=>{
-    for(const url of sources){
-      try{
-        await loadScript(url);
-        if(window.jspdf && window.jspdf.jsPDF) break;
-      }catch(err){
-        console.warn('Failed to load jsPDF from', url, err);
-      }
-    }
-    if(!(window.jspdf && window.jspdf.jsPDF)){
-      throw new Error('jsPDF failed to load');
-    }
-    window.jsPDF = window.jspdf.jsPDF;
-    return window.jspdf.jsPDF;
-  })();
-  return jsPDFLoader;
-}
-
-downloadBtn.addEventListener('click', async ()=>{
+downloadBtn.addEventListener('click', ()=>{
   if(!surveyStarted || !questionList.length || answers.size < questionList.length) return;
-  const grouped = new Map();
-  const order = [];
-  questionList.forEach(q=>{
-    if(!grouped.has(q.category)){
-      grouped.set(q.category, []);
-      order.push(q.category);
-    }
-    const score = answers.has(q.id) ? answers.get(q.id) : '(no response)';
-    grouped.get(q.category).push({prompt:q.prompt, score});
-  });
 
   const originalText = downloadBtn.textContent;
-  downloadBtn.textContent = 'Preparing PDF…';
+  downloadBtn.textContent = 'Preparing download…';
   downloadBtn.setAttribute('aria-busy', 'true');
   downloadBtn.disabled = true;
+
   try{
-    const jsPDFCtor = await ensureJsPDF();
-    const doc = new jsPDFCtor({ unit:'pt', format:'letter', putOnlyUsedFonts:true });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const marginX = 56;
-    const headerTop = 54;
-    const contentWidth = pageWidth - marginX * 2;
-    const lineHeight = 18;
-    const accent = [0,204,255];
-    const bodyColor = [232,251,255];
-    const muted = [150,214,232];
-    const background = [0,0,0];
-    const stamp = new Date().toLocaleString();
-    let cursorY = headerTop + 72;
-
-    const paintPage = ()=>{
-      doc.setFillColor(...background);
-      doc.rect(0, 0, pageWidth, pageHeight, 'F');
-      doc.setTextColor(...bodyColor);
-    };
-
-    const renderFirstHeader = ()=>{
-      paintPage();
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(28);
-      doc.setTextColor(...accent);
-      doc.text('Talk Kink Survey', marginX, headerTop);
-      doc.setFontSize(18);
-      doc.text('Responses', marginX, headerTop + 28);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(...muted);
-      doc.text(`Exported ${stamp}`, pageWidth - marginX, headerTop + 4, { align:'right' });
-      doc.setFontSize(12);
-      doc.text('Complete answers grouped by category.', marginX, headerTop + 48);
-      doc.setTextColor(...bodyColor);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(12);
-    };
-
-    const renderContinuationHeader = ()=>{
-      paintPage();
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.setTextColor(...accent);
-      doc.text('Talk Kink Survey — Responses (continued)', marginX, headerTop);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(...muted);
-      doc.text(stamp, pageWidth - marginX, headerTop, { align:'right' });
-      doc.setTextColor(...bodyColor);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(12);
-      cursorY = headerTop + 28;
-    };
-
-    const ensureSpace = amount=>{
-      const needed = cursorY + amount;
-      const limit = pageHeight - 56;
-      if(needed > limit){
-        doc.addPage();
-        renderContinuationHeader();
-      }
-    };
-
-    renderFirstHeader();
-
-    order.forEach(category=>{
-      const entries = grouped.get(category) || [];
-      if(!entries.length) return;
-      ensureSpace(32);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.setTextColor(...accent);
-      doc.text(String(category || '').toUpperCase(), marginX, cursorY);
-      cursorY += 22;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(12);
-      doc.setTextColor(...bodyColor);
-      entries.forEach(item=>{
-        const score = item.score == null ? '(no response)' : item.score;
-        const bullet = `• [${score}] ${item.prompt}`;
-        const lines = doc.splitTextToSize(bullet, contentWidth);
-        lines.forEach(line=>{
-          ensureSpace(lineHeight);
-          doc.text(line, marginX, cursorY);
-          cursorY += lineHeight;
-        });
-        cursorY += 6;
-      });
-      cursorY += 6;
+    const responses = questionList.map((q, idx)=>{
+      const rating = answers.has(q.id) ? answers.get(q.id) : null;
+      return {
+        index: idx + 1,
+        id: q.id,
+        category: q.category,
+        prompt: q.prompt,
+        rating: typeof rating === 'number' ? rating : null
+      };
     });
 
-    ensureSpace(32);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(...muted);
-    doc.text('Scores range from 0 (hard limit) to 5 (enthusiastic yes).', marginX, cursorY);
-    cursorY += 14;
-    doc.text('Generated for personal reference — TalkKink.org', marginX, cursorY);
+    const answersByKey = {};
+    const answersById = {};
+    const cells = [];
+    responses.forEach(entry=>{
+      const rating = typeof entry.rating === 'number' ? entry.rating : 0;
+      answersByKey[String(entry.index)] = rating;
+      answersById[entry.id] = rating;
+      cells.push(rating);
+    });
 
-    const filename = 'talkkink-survey-results.pdf';
-    if(typeof doc.save === 'function'){
-      doc.save(filename);
-    }else{
-      const blob = doc.output('blob');
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{
-        URL.revokeObjectURL(url);
-        a.remove();
-      },0);
-    }
+    const payload = {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      meta: {
+        categories: Array.from(new Set(responses.map(r=>r.category))),
+        selectedCategories: Array.from(selectedCategories),
+        totals: {
+          questions: questionList.length,
+          answered: responses.filter(r=>typeof r.rating === 'number').length
+        }
+      },
+      responses,
+      answers: { ...answersByKey },
+      answersByKey,
+      answersById,
+      cells
+    };
+
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `talkkink-survey-${Date.now()}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    setTimeout(()=>{
+      URL.revokeObjectURL(url);
+      anchor.remove();
+    },0);
   }catch(err){
-    console.error('Failed to generate survey PDF', err);
-    alert('Could not generate the survey PDF. Please try again.');
+    console.error('Failed to prepare survey export', err);
+    alert('Could not prepare the survey export. Please try again.');
   }finally{
     downloadBtn.disabled = false;
     downloadBtn.textContent = originalText;
