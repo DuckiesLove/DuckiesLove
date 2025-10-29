@@ -1,3 +1,5 @@
+import { savePDF as savePdfDownload } from './talkKinkDownload.js';
+
 'use strict';
 
 const BTN_SELECTORS = ['#downloadBtn', '#downloadPdfBtn', '[data-download-pdf]'];
@@ -10,6 +12,23 @@ const DEFAULT_COLUMNS = [
   { header: 'Match %', dataKey: 'pct', align: 'center' },
   { header: 'Partner B', dataKey: 'b', align: 'center' },
 ];
+
+function canUseTalkKinkDownload(){
+  try {
+    const doc = getDocument();
+    const win = getWindow();
+    if (!doc || !win) return false;
+    if (typeof win.URL === 'undefined' || typeof win.URL.createObjectURL !== 'function') return false;
+    if (typeof doc.createElement !== 'function') return false;
+    const anchor = doc.createElement('a');
+    if (!anchor || typeof anchor.click !== 'function') return false;
+    anchor.remove?.();
+    if (!doc.body && !doc.documentElement && !doc.head) return false;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 
 function getDocument(){
   return typeof document === 'undefined' ? null : document;
@@ -402,7 +421,18 @@ export async function downloadCompatibilityPDF(...args){
   };
 
   execAutoTable(tableOptions);
-  if (typeof doc.save === 'function') {
+
+  let saved = false;
+  if (canUseTalkKinkDownload()) {
+    try {
+      await savePdfDownload(doc, filename);
+      saved = true;
+    } catch (error) {
+      console.error('[pdf] download helper failed, falling back to jsPDF.save()', error);
+    }
+  }
+
+  if (!saved && typeof doc.save === 'function') {
     doc.save(filename);
   }
 }
