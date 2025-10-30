@@ -119,8 +119,10 @@ It will also fall back to localStorage keys:
   function paintCategoryBlock(doc, cat, items, startY) {
     let y = startY + 6;
     const x = MARGIN.l, maxW = PAGE.w - MARGIN.l - MARGIN.r;
-    doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(255,255,255);
-    y = addWrapText(doc, cat, x, y, maxW, LINE);
+    if (cat) {
+      doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(255,255,255);
+      y = addWrapText(doc, cat, x, y, maxW, LINE);
+    }
     doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(220,220,220);
     for (const r of items) {
       const chip = ` [${r.rating}] `, bullet = '• ', headW = doc.getTextWidth(bullet + chip);
