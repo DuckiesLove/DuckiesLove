@@ -10,6 +10,8 @@
   const btnExport = $('#btnDownloadPdf') || $('#btnExport');
   const SELF_KEY = 'tk_compat.self';
   const PARTNER_KEY = 'tk_compat.partner';
+  const ALT_SELF_KEYS = ['talkkink:mine', 'talkkink:survey'];
+  const ALT_PARTNER_KEY = 'talkkink:partner';
 
   function getTheme() {
     const doc = document.documentElement;
@@ -39,10 +41,31 @@
       payload.meta.surveyTitle = fileName.replace(/\.[^.]+$/, '');
     }
 
+    let serialized;
     try {
-      localStorage.setItem(key, JSON.stringify(payload));
+      serialized = JSON.stringify(payload);
     } catch (err) {
       console.warn('[compat] unable to persist survey payload', err);
+      return;
+    }
+
+    const keysToStore = [key];
+    if (key === SELF_KEY) keysToStore.push(...ALT_SELF_KEYS);
+    if (key === PARTNER_KEY) keysToStore.push(ALT_PARTNER_KEY);
+
+    keysToStore.forEach(name => {
+      try {
+        localStorage.setItem(name, serialized);
+      } catch (err) {
+        console.warn('[compat] unable to persist survey payload', err);
+      }
+    });
+
+    if (key === SELF_KEY) {
+      window.talkkinkMine = payload;
+      window.talkkinkSurvey = payload;
+    } else if (key === PARTNER_KEY) {
+      window.talkkinkPartner = payload;
     }
   }
 
@@ -75,7 +98,9 @@
 
   btnExport?.addEventListener('click', ()=>{
     if(!(aData && bData)) return;
-    if (window.TKCompatPDF && typeof window.TKCompatPDF.generateFromStorage === 'function') {
+    if (window.TKPDF && typeof window.TKPDF.download === 'function') {
+      window.TKPDF.download();
+    } else if (window.TKCompatPDF && typeof window.TKCompatPDF.generateFromStorage === 'function') {
       window.TKCompatPDF.generateFromStorage();
     } else if (typeof window.downloadCompatibilityPDF === 'function') {
       window.downloadCompatibilityPDF(aData, bData, { theme: document.documentElement.className });

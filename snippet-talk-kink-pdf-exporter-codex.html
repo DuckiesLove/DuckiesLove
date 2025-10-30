@@ -56,11 +56,21 @@ It will also fall back to localStorage keys:
         const s = localStorage.getItem('talkkink:survey');
         if (s) out.mine = JSON.parse(s);
       }
-      if (!out.partner) {
+      if (!out.mine) {
         const a = localStorage.getItem('talkkink:mine');
+        if (a) out.mine = JSON.parse(a);
+      }
+      if (!out.partner) {
         const b = localStorage.getItem('talkkink:partner');
-        if (!out.mine && a) out.mine = JSON.parse(a);
         if (b) out.partner = JSON.parse(b);
+      }
+      if (!out.mine) {
+        const legacySelf = localStorage.getItem('tk_compat.self');
+        if (legacySelf) out.mine = JSON.parse(legacySelf);
+      }
+      if (!out.partner) {
+        const legacyPartner = localStorage.getItem('tk_compat.partner');
+        if (legacyPartner) out.partner = JSON.parse(legacyPartner);
       }
     } catch {}
     return out;
