@@ -1,0 +1,307 @@
+<!-- TalkKink — PDF Exporter (Codex drop-in)
+  Usage:
+    Paste this block at the bottom of compatibility.html or KinkSurveyPage/index.html.
+    Provides TKPDF.download() helper and auto-binds to #downloadPdfBtn.
+-->
+<!-- === TalkKink PDF Exporter — single drop-in file for Codex ===
+Paste this whole block at the bottom of your page (e.g., compatibility.html
+or /KinkSurveyPage/index.html). It auto-binds to a button with id="downloadPdfBtn".
+Provide survey data via:
+  - window.talkkinkSurvey (single export)    OR
+  - window.talkkinkMine & window.talkkinkPartner (compat export)
+It will also fall back to localStorage keys:
+  'talkkink:survey'  or  'talkkink:mine' + 'talkkink:partner'
+-->
+
+<!-- (Optional) A download button to trigger the export -->
+<button id="downloadPdfBtn" style="display:none">Download PDF</button>
+
+<script>
+(function () {
+  // ---- Public hook ----
+  const TKPDF = (window.TKPDF = window.TKPDF || {});
+
+  // ---- Page, layout, style ----
+  const PAGE = { w: 612, h: 792 };     // Letter portrait, points
+  const MARGIN = { t: 48, r: 40, b: 54, l: 40 };
+  const LINE = 16;
+  const COL_GAP = 18;
+
+  // ---- jsPDF loader (CDN) ----
+  async function ensureJsPDF() {
+    if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+    await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js";
+      s.async = true;
+      s.onload = res;
+      s.onerror = () => rej(new Error("Failed to load jsPDF"));
+      document.head.appendChild(s);
+    });
+    if (!(window.jspdf && window.jspdf.jsPDF)) throw new Error("jsPDF init failed");
+    return window.jspdf.jsPDF;
+  }
+
+  // ---- Utils ----
+  const nowStamp = () => {
+    const d = new Date(), pad = (n)=>String(n).padStart(2,"0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  function pickSurveySources(opts = {}) {
+    const out = { mine: null, partner: null };
+    // explicit
+    if (opts.mine) out.mine = opts.mine;
+    if (opts.partner) out.partner = opts.partner;
+    // window globals
+    if (!out.mine && window.talkkinkSurvey) out.mine = window.talkkinkSurvey;
+    if (!out.mine && window.talkkinkMine) out.mine = window.talkkinkMine;
+    if (!out.partner && window.talkkinkPartner) out.partner = window.talkkinkPartner;
+    // localStorage fallback
+    try {
+      if (!out.mine) {
+        const s = localStorage.getItem("talkkink:survey");
+        if (s) out.mine = JSON.parse(s);
+      }
+      if (!out.partner) {
+        const a = localStorage.getItem("talkkink:mine");
+        const b = localStorage.getItem("talkkink:partner");
+        if (!out.mine && a) out.mine = JSON.parse(a);
+        if (b) out.partner = JSON.parse(b);
+      }
+    } catch {}
+    return out;
+  }
+
+  function groupByCategory(survey) {
+    const byCat = new Map();
+    (survey?.responses || []).forEach((r) => {
+      if (!byCat.has(r.category)) byCat.set(r.category, []);
+      byCat.get(r.category).push(r);
+    });
+    for (const arr of byCat.values()) arr.sort((a,b)=> (a.index??0)-(b.index??0));
+    return byCat;
+  }
+
+  function summarize(survey) {
+    const counts = [0,0,0,0,0,0];
+    (survey?.responses||[]).forEach(r=>{
+      const k = Math.max(0, Math.min(5, Number(r.rating)||0));
+      counts[k]++;
+    });
+    return counts;
+  }
+
+  // ---- Drawing helpers ----
+  function paintHeader(doc, title, subtitle) {
+    // bg black
+    doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,"F");
+    // header text
+    doc.setTextColor(255,255,255);
+    doc.setFont("helvetica","bold"); doc.setFontSize(32);
+    doc.text(title, PAGE.w/2, MARGIN.t, {align:"center", baseline:"top"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(12);
+    doc.text(subtitle, PAGE.w/2, MARGIN.t+28, {align:"center", baseline:"top"});
+    return MARGIN.t + 38; // current y
+  }
+
+  function addFooter(doc, pageNo, total) {
+    doc.setFont("helvetica","normal"); doc.setFontSize(9);
+    doc.setTextColor(180,180,180);
+    doc.text(`TalkKink • ${nowStamp()} • Page ${pageNo}/${total}`,
+      PAGE.w/2, PAGE.h - MARGIN.b + 24,
+      {align:"center", baseline:"bottom"});
+  }
+
+  function addWrapText(doc, text, x, y, maxWidth, lineH) {
+    const words = (text||"").split(/\s+/), getW = (t)=>doc.getTextWidth(t);
+    let line = "", cy = y;
+    for (const w of words) {
+      const t = line? line+" "+w : w;
+      if (getW(t) > maxWidth) {
+        if (line) { doc.text(line, x, cy); cy += lineH; }
+        line = w;
+      } else line = t;
+    }
+    if (line) { doc.text(line, x, cy); cy += lineH; }
+    return cy;
+  }
+
+  function paintCategoryBlock(doc, cat, items, startY) {
+    let y = startY + 6;
+    const x = MARGIN.l, maxW = PAGE.w - MARGIN.l - MARGIN.r;
+
+    // cat title
+    doc.setFont("helvetica","bold"); doc.setFontSize(16);
+    doc.setTextColor(255,255,255);
+    y = addWrapText(doc, cat, x, y, maxW, LINE);
+
+    // items
+    doc.setFont("helvetica","normal"); doc.setFontSize(11);
+    doc.setTextColor(220,220,220);
+
+    for (const r of items) {
+      const chip = ` [${r.rating}] `, bullet = "• ", head = bullet + chip;
+      const headW = doc.getTextWidth(head);
+      doc.text(bullet, x, y);
+      doc.setTextColor(140,230,255); doc.text(chip, x + doc.getTextWidth(bullet), y);
+      doc.setTextColor(220,220,220);
+      const px = x + headW + 2;
+      y = addWrapText(doc, r.prompt || r.id, px, y, maxW-headW-4, LINE-2) - 4;
+      y += 4;
+
+      if (y > PAGE.h - MARGIN.b - 40) {
+        doc.addPage("letter","portrait");
+        doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,"F");
+        doc.setTextColor(255,255,255);
+        y = MARGIN.t;
+      }
+    }
+    doc.setDrawColor(60,120,140); doc.line(MARGIN.l, y, PAGE.w - MARGIN.r, y);
+    return y + 10;
+  }
+
+  function paintSummary(doc, survey, label, y) {
+    const counts = summarize(survey);
+    doc.setFont("helvetica","bold"); doc.setFontSize(14);
+    doc.setTextColor(255,255,255); doc.text(`${label} — Rating Summary`, MARGIN.l, y);
+    y += LINE;
+    doc.setFont("helvetica","normal"); doc.setTextColor(200,200,200);
+    doc.text(counts.map((c,i)=>`${i}: ${c}`).join("    "), MARGIN.l, y);
+    return y + LINE;
+  }
+
+  function titleFromMode(mine, partner) {
+    return partner ? "TalkKink Compatibility Report" : "TalkKink Survey Export";
+  }
+  function subtitleFromMode(mine, partner) {
+    const cats = mine?.meta?.selectedCategories?.join(", ") || "All Categories";
+    if (partner) {
+      const catsB = partner?.meta?.selectedCategories?.join(", ") || "All Categories";
+      return `Exported ${nowStamp()} • Mine: ${cats} • Partner: ${catsB}`;
+    }
+    return `Exported ${nowStamp()} • Selected: ${cats}`;
+  }
+
+  async function buildPdf({ mine, partner, filename }) {
+    const jsPDF = await ensureJsPDF();
+    const doc = new jsPDF({ unit:"pt", format:"letter", compress:true });
+
+    let y = paintHeader(doc, titleFromMode(mine, partner), subtitleFromMode(mine, partner));
+    y += 14;
+
+    if (partner) {
+      y = paintSummary(doc, mine, "Mine", y);
+      y = paintSummary(doc, partner, "Partner", y);
+      y += 6;
+    } else {
+      y = paintSummary(doc, mine, "Summary", y);
+      y += 6;
+    }
+
+    const mineCats = groupByCategory(mine);
+    const catList = Array.from(mineCats.keys());
+    const partnerCats = partner ? groupByCategory(partner) : null;
+
+    for (const cat of catList) {
+      if (y > PAGE.h - MARGIN.b - 120) {
+        doc.addPage("letter","portrait");
+        doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,"F");
+        y = MARGIN.t;
+      }
+
+      if (partner) {
+        const left = mineCats.get(cat) || [];
+        const right = (partnerCats.get(cat) || []).map(e=>({...e}));
+
+        // category heading
+        doc.setFont("helvetica","bold"); doc.setFontSize(18);
+        doc.setTextColor(255,255,255);
+        y = addWrapText(doc, cat, MARGIN.l, y, PAGE.w-MARGIN.l-MARGIN.r, LINE) + 2;
+
+        const colW = (PAGE.w - MARGIN.l - MARGIN.r - COL_GAP) / 2;
+
+        // left column (Mine)
+        doc.setFont("helvetica","bold"); doc.setFontSize(12);
+        doc.text("Mine", MARGIN.l, y);
+        let yL = paintCategoryBlock(doc, "", left, y + LINE - LINE);
+
+        // right column (Partner)
+        let yR = y;
+        if (yR + 40 > PAGE.h - MARGIN.b) {
+          doc.addPage("letter","portrait");
+          doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,"F");
+          yR = MARGIN.t;
+        }
+        doc.setFont("helvetica","bold"); doc.setFontSize(12);
+        doc.text("Partner", MARGIN.l + colW + COL_GAP, yR);
+        yR += LINE;
+
+        // manual right column draw
+        (function drawRight() {
+          let yPR = yR + 6;
+          const x = MARGIN.l + colW + COL_GAP;
+          const maxW = colW;
+
+          doc.setFont("helvetica","normal"); doc.setFontSize(11);
+          doc.setTextColor(220,220,220);
+
+          for (const r of right) {
+            const chip = ` [${r.rating}] `, bullet = "• ";
+            const headW = doc.getTextWidth(bullet + chip);
+
+            doc.text(bullet, x, yPR);
+            doc.setTextColor(140,230,255);
+            doc.text(chip, x + doc.getTextWidth(bullet), yPR);
+            doc.setTextColor(220,220,220);
+
+            const px = x + headW + 2;
+            yPR = addWrapText(doc, r.prompt || r.id, px, yPR, maxW - headW - 4, LINE-2) - 4;
+            yPR += 4;
+
+            if (yPR > PAGE.h - MARGIN.b - 40) {
+              doc.addPage("letter","portrait");
+              doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,"F");
+              yPR = MARGIN.t;
+            }
+          }
+          doc.setDrawColor(60,120,140); doc.line(x, yPR, x + maxW, yPR);
+          yR = yPR + 12;
+        })();
+
+        y = Math.max(yL, yR) + 10;
+      } else {
+        const items = mineCats.get(cat) || [];
+        y = paintCategoryBlock(doc, cat, items, y);
+      }
+    }
+
+    const total = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {
+      doc.setPage(i); addFooter(doc, i, total);
+    }
+    const base = partner ? "talkkink-compatibility" : "talkkink-survey";
+    doc.save(filename || `${base}-results.pdf`);
+  }
+
+  // ---- Public API ----
+  TKPDF.download = async function (opts = {}) {
+    const { mine, partner } = pickSurveySources(opts);
+    if (!mine) { alert("Export unavailable: no survey data found."); return; }
+    try { await buildPdf({ mine, partner, filename: opts.filename }); }
+    catch (e) { console.error(e); alert("Export unavailable: missing PDF exporter or network error."); }
+  };
+
+  // ---- Auto-bind button id="downloadPdfBtn" if present ----
+  function bindBtn() {
+    const btn = document.getElementById("downloadPdfBtn");
+    if (!btn) return;
+    // You can set it visible via CSS; we show it if present for convenience
+    btn.style.display = "";
+    btn.addEventListener("click", ()=> TKPDF.download());
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindBtn);
+  } else bindBtn();
+})();
+</script>
