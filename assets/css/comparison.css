@@ -439,6 +439,7 @@ body[data-page="compat"] .tk-btn.ghost{
 }
 
 /* Disabled export remains aligned, with softer glow */
+body[data-page="compat"] #btnDownloadPdf[disabled],
 body[data-page="compat"] #btnExport[disabled]{
   opacity:.75; cursor:not-allowed;
   box-shadow:
@@ -531,6 +532,7 @@ body[data-page="compat"] .tk-btn{
 }
 
 /* Disabled PDF keeps faint glow but muted label */
+body[data-page="compat"] #btnDownloadPdf[disabled],
 body[data-page="compat"] #btnExport[disabled]{
   opacity:.75; cursor:not-allowed;
   box-shadow:
