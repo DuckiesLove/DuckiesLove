@@ -14,6 +14,7 @@ Provide survey data via:
   - window.talkkinkMine & window.talkkinkPartner (compat export)
 It will also fall back to localStorage keys:
   'talkkink:survey'  or  'talkkink:mine' + 'talkkink:partner'
+  (legacy support: 'tk_compat.self' + 'tk_compat.partner')
 -->
 
 <!-- (Optional) A download button to trigger the export -->
@@ -21,260 +22,182 @@ It will also fall back to localStorage keys:
 
 <script>
 (function () {
-  const TKPDF = (window.TKPDF = window.TKPDF || {});
+  /* ---------- constants ---------- */
+  const PAGE = { w: 612, h: 792 }, MARGIN = { t: 48, r: 40, b: 54, l: 40 }, LINE = 16, COL_GAP = 18;
 
-  const PAGE = { w: 612, h: 792 };              // Letter portrait in points
-  const MARGIN = { t: 48, r: 40, b: 54, l: 40 };
-  const LINE = 16, COL_GAP = 18;
+  /* ---------- helpers ---------- */
+  const nowStamp=()=>{const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`};
 
-  function nowStamp() {
-    const d = new Date(), p = n => String(n).padStart(2,"0");
-    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-  }
-
-  async function ensureJsPDF() {
-    if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
-    await new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
-      s.async = true; s.onload = res; s.onerror = () => rej(new Error('jsPDF load failed'));
-      document.head.appendChild(s);
-    });
-    if (!(window.jspdf && window.jspdf.jsPDF)) throw new Error('jsPDF init failed');
+  async function ensureJsPDF(){
+    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    await new Promise((res, rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';s.async=true;s.onload=res;s.onerror=()=>rej(new Error('jsPDF load failed'));document.head.appendChild(s)});
+    if (!(window.jspdf?.jsPDF)) throw new Error('jsPDF init failed');
     return window.jspdf.jsPDF;
   }
 
-  function pickSources(opts = {}) {
-    const out = { mine: null, partner: null };
-    if (opts.mine) out.mine = opts.mine;
-    if (opts.partner) out.partner = opts.partner;
-    if (!out.mine && window.talkkinkSurvey) out.mine = window.talkkinkSurvey;
-    if (!out.mine && window.talkkinkMine) out.mine = window.talkkinkMine;
-    if (!out.partner && window.talkkinkPartner) out.partner = window.talkkinkPartner;
-    try {
-      if (!out.mine) {
-        const s = localStorage.getItem('talkkink:survey');
-        if (s) out.mine = JSON.parse(s);
-      }
-      if (!out.mine) {
-        const a = localStorage.getItem('talkkink:mine');
-        if (a) out.mine = JSON.parse(a);
-      }
-      if (!out.partner) {
-        const b = localStorage.getItem('talkkink:partner');
-        if (b) out.partner = JSON.parse(b);
-      }
-      if (!out.mine) {
-        const legacySelf = localStorage.getItem('tk_compat.self');
-        if (legacySelf) out.mine = JSON.parse(legacySelf);
-      }
-      if (!out.partner) {
-        const legacyPartner = localStorage.getItem('tk_compat.partner');
-        if (legacyPartner) out.partner = JSON.parse(legacyPartner);
-      }
-    } catch {}
+  function pickSources(opts={}) {
+    const out={mine:null,partner:null};
+    if(opts.mine)out.mine=opts.mine; if(opts.partner)out.partner=opts.partner;
+    if(!out.mine) out.mine = window.talkkinkMine || window.talkkinkSurvey;
+    if(!out.partner) out.partner = window.talkkinkPartner;
+
+    try{
+      if(!out.mine){ const s=localStorage.getItem('talkkink:survey')||localStorage.getItem('talkkink:mine'); if(s) out.mine=JSON.parse(s); }
+      if(!out.partner){ const p=localStorage.getItem('talkkink:partner'); if(p) out.partner=JSON.parse(p); }
+      if(!out.mine){ const legacySelf=localStorage.getItem('tk_compat.self'); if(legacySelf) out.mine=JSON.parse(legacySelf); }
+      if(!out.partner){ const legacyPartner=localStorage.getItem('tk_compat.partner'); if(legacyPartner) out.partner=JSON.parse(legacyPartner); }
+    }catch{}
     return out;
   }
 
-  function groupByCategory(survey) {
-    const m = new Map();
-    (survey?.responses || []).forEach(r=>{
-      if (!m.has(r.category)) m.set(r.category, []);
-      m.get(r.category).push(r);
-    });
-    for (const arr of m.values()) arr.sort((a,b)=> (a.index??0)-(b.index??0));
+  const groupByCategory = (survey)=> {
+    const m=new Map(); (survey?.responses||[]).forEach(r=>{ if(!m.has(r.category))m.set(r.category,[]); m.get(r.category).push(r); });
+    for(const arr of m.values()) arr.sort((a,b) => (a.index??0)-(b.index??0));
     return m;
-  }
-  function summarize(s) {
-    const c = [0,0,0,0,0,0];
-    (s?.responses||[]).forEach(r=> c[Math.max(0, Math.min(5, Number(r.rating)||0))]++);
-    return c;
-  }
+  };
 
-  function addFooter(doc, pageNo, total) {
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.setTextColor(180,180,180);
-    doc.text(`TalkKink • ${nowStamp()} • Page ${pageNo}/${total}`, PAGE.w/2, PAGE.h - MARGIN.b + 24, {align:'center', baseline:'bottom'});
+  const summarize = (s)=>{const c=[0,0,0,0,0,0]; (s?.responses||[]).forEach(r=>c[Math.max(0,Math.min(5,Number(r.rating)||0))]++); return c;};
+
+  function addFooter(doc, pageNo, total){
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(180,180,180);
+    doc.text(`TalkKink • ${nowStamp()} • Page ${pageNo}/${total}`, PAGE.w/2, PAGE.h-MARGIN.b+24, {align:'center',baseline:'bottom'});
   }
-  function addWrapText(doc, text, x, y, maxW, lh) {
-    const words = String(text||'').split(/\s+/), width = t=>doc.getTextWidth(t);
-    let line = '', cy = y;
-    for (const w of words) {
-      const t = line ? line+' '+w : w;
-      if (width(t) > maxW) { if (line) { doc.text(line, x, cy); cy += lh; } line = w; }
-      else line = t;
-    }
-    if (line) { doc.text(line, x, cy); cy += lh; }
-    return cy;
+  function addWrapText(doc, text, x, y, maxW, lh){
+    const words=String(text||'').split(/\s+/); let line='', cy=y;
+    const w= t => doc.getTextWidth(t);
+    for(const wd of words){const t=line?line+' '+wd:wd; if(w(t)>maxW){ if(line){doc.text(line,x,cy); cy+=lh;} line=wd;} else line=t;}
+    if(line){doc.text(line,x,cy); cy+=lh;} return cy;
   }
-  function paintHeader(doc, title, subtitle) {
+  function paintHeader(doc, title, subtitle){
     doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F');
-    doc.setTextColor(255,255,255);
-    doc.setFont('helvetica','bold'); doc.setFontSize(32);
-    doc.text(title, PAGE.w/2, MARGIN.t, {align:'center', baseline:'top'});
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(32);
+    doc.text(title, PAGE.w/2, MARGIN.t, {align:'center',baseline:'top'});
     doc.setFont('helvetica','normal'); doc.setFontSize(12);
-    doc.text(subtitle, PAGE.w/2, MARGIN.t+28, {align:'center', baseline:'top'});
-    return MARGIN.t + 38;
+    doc.text(subtitle, PAGE.w/2, MARGIN.t+28, {align:'center',baseline:'top'});
+    return MARGIN.t+38;
   }
-  function paintCategoryBlock(doc, cat, items, startY) {
-    let y = startY + 6;
-    const x = MARGIN.l, maxW = PAGE.w - MARGIN.l - MARGIN.r;
-    if (cat) {
-      doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(255,255,255);
-      y = addWrapText(doc, cat, x, y, maxW, LINE);
-    }
+  function paintCategoryBlock(doc, cat, items, startY){
+    let y=startY+6; const x=MARGIN.l, maxW=PAGE.w-MARGIN.l-MARGIN.r;
+    if(cat){doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(255,255,255);
+      y=addWrapText(doc, cat, x, y, maxW, LINE);}
     doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(220,220,220);
-    for (const r of items) {
-      const chip = ` [${r.rating}] `, bullet = '• ', headW = doc.getTextWidth(bullet + chip);
+    for(const r of items){
+      const chip=` [${r.rating}] `, bullet='• ', headW=doc.getTextWidth(bullet+chip);
       doc.text(bullet, x, y);
-      doc.setTextColor(140,230,255); doc.text(chip, x + doc.getTextWidth(bullet), y);
+      doc.setTextColor(140,230,255); doc.text(chip, x+doc.getTextWidth(bullet), y);
       doc.setTextColor(220,220,220);
-      const px = x + headW + 2;
-      y = addWrapText(doc, r.prompt || r.id, px, y, maxW - headW - 4, LINE-2) - 4;
-      y += 4;
-      if (y > PAGE.h - MARGIN.b - 40) {
-        doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); y = MARGIN.t;
-      }
+      const px=x+headW+2;
+      y=addWrapText(doc, r.prompt||r.id, px, y, maxW-headW-4, LINE-2)-4;
+      y+=4;
+      if(y>PAGE.h-MARGIN.b-40){ doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); y=MARGIN.t; }
     }
-    doc.setDrawColor(60,120,140); doc.line(MARGIN.l, y, PAGE.w - MARGIN.r, y);
-    return y + 10;
+    doc.setDrawColor(60,120,140); doc.line(MARGIN.l, y, PAGE.w-MARGIN.r, y);
+    return y+10;
   }
-  function paintSummary(doc, survey, label, y) {
-    const counts = summarize(survey);
+  function paintSummary(doc, survey, label, y){
+    const counts=summarize(survey);
     doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(255,255,255);
-    doc.text(`${label} — Rating Summary`, MARGIN.l, y); y += LINE;
+    doc.text(`${label} — Rating Summary`, MARGIN.l, y); y+=LINE;
     doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200);
     doc.text(counts.map((c,i)=>`${i}: ${c}`).join('    '), MARGIN.l, y);
-    return y + LINE;
+    return y+LINE;
   }
 
-  function titleFromMode(mine, partner) { return partner ? 'TalkKink Compatibility Report' : 'TalkKink Survey Export'; }
-  function subtitleFromMode(mine, partner) {
-    const cats = mine?.meta?.selectedCategories?.join(', ') || 'All Categories';
-    if (partner) {
-      const catsB = partner?.meta?.selectedCategories?.join(', ') || 'All Categories';
-      return `Exported ${nowStamp()} • Mine: ${cats} • Partner: ${catsB}`;
-    }
+  const titleFromMode=(mine, partner)=> partner?'TalkKink Compatibility Report':'TalkKink Survey Export';
+  function subtitleFromMode(mine, partner){
+    const cats=mine?.meta?.selectedCategories?.join(', ')||'All Categories';
+    if(partner){const catsB=partner?.meta?.selectedCategories?.join(', ')||'All Categories'; return `Exported ${nowStamp()} • Mine: ${cats} • Partner: ${catsB}`;}
     return `Exported ${nowStamp()} • Selected: ${cats}`;
   }
 
-  async function buildPdf({ mine, partner, filename }) {
-    const jsPDF = await ensureJsPDF();
-    const doc = new jsPDF({ unit:'pt', format:'letter', compress:true });
+  async function buildPdf({mine, partner, filename}){
+    const jsPDF=await ensureJsPDF(); const doc=new jsPDF({unit:'pt',format:'letter',compress:true});
+    let y=paintHeader(doc, titleFromMode(mine,partner), subtitleFromMode(mine,partner)); y+=14;
+    if(partner){ y=paintSummary(doc,mine,'Mine',y); y=paintSummary(doc,partner,'Partner',y); y+=6; }
+    else{ y=paintSummary(doc,mine,'Summary',y)+6; }
 
-    let y = paintHeader(doc, titleFromMode(mine, partner), subtitleFromMode(mine, partner));
-    y += 14;
-
-    if (partner) {
-      y = paintSummary(doc, mine, 'Mine', y);
-      y = paintSummary(doc, partner, 'Partner', y);
-      y += 6;
-    } else {
-      y = paintSummary(doc, mine, 'Summary', y) + 6;
-    }
-
-    const mineCats = groupByCategory(mine);
-    const partnerCats = partner ? groupByCategory(partner) : null;
-    const list = Array.from(mineCats.keys());
-
-    for (const cat of list) {
-      if (y > PAGE.h - MARGIN.b - 120) {
-        doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); y = MARGIN.t;
-      }
-      if (partner) {
-        const left = mineCats.get(cat) || [];
-        const right = partnerCats.get(cat) || [];
+    const mineCats=groupByCategory(mine), partnerCats=partner?groupByCategory(partner):null, list=Array.from(mineCats.keys());
+    for(const cat of list){
+      if(y>PAGE.h-MARGIN.b-120){ doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); y=MARGIN.t; }
+      if(partner){
         doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(255,255,255);
-        y = addWrapText(doc, cat, MARGIN.l, y, PAGE.w-MARGIN.l-MARGIN.r, LINE) + 2;
+        y=addWrapText(doc, cat, MARGIN.l, y, PAGE.w-MARGIN.l-MARGIN.r, LINE)+2;
 
-        const colW = (PAGE.w - MARGIN.l - MARGIN.r - COL_GAP) / 2;
-
+        const colW=(PAGE.w-MARGIN.l-MARGIN.r-COL_GAP)/2;
+        // left: mine
         doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Mine', MARGIN.l, y);
-        let yL = paintCategoryBlock(doc, '', left, y + LINE - LINE);
+        let yL=paintCategoryBlock(doc,'', mineCats.get(cat)||[], y+LINE-LINE);
 
-        let yR = y;
-        if (yR + 40 > PAGE.h - MARGIN.b) {
-          doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); yR = MARGIN.t;
-        }
-        doc.setFont('helvetica','bold'); doc.setFontSize(12);
-        doc.text('Partner', MARGIN.l + colW + COL_GAP, yR); yR += LINE;
+        // right: partner
+        let yR=y; if(yR+40>PAGE.h-MARGIN.b){ doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); yR=MARGIN.t; }
+        doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Partner', MARGIN.l+colW+COL_GAP, yR); yR+=LINE;
 
         (function drawRight(){
-          let cy = yR + 6, x = MARGIN.l + colW + COL_GAP, maxW = colW;
+          let cy=yR+6, x=MARGIN.l+colW+COL_GAP, maxW=colW;
           doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(220,220,220);
-          for (const r of right) {
-            const chip = ` [${r.rating}] `, bullet = '• ', headW = doc.getTextWidth(bullet + chip);
+          for(const r of (partnerCats.get(cat)||[])){
+            const chip=` [${r.rating}] `, bullet='• ', headW=doc.getTextWidth(bullet+chip);
             doc.text(bullet, x, cy);
-            doc.setTextColor(140,230,255); doc.text(chip, x + doc.getTextWidth(bullet), cy);
+            doc.setTextColor(140,230,255); doc.text(chip, x+doc.getTextWidth(bullet), cy);
             doc.setTextColor(220,220,220);
-            const px = x + headW + 2;
-            cy = addWrapText(doc, r.prompt || r.id, px, cy, maxW - headW - 4, LINE-2) - 4;
-            cy += 4;
-            if (cy > PAGE.h - MARGIN.b - 40) {
-              doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); cy = MARGIN.t;
-            }
+            const px=x+headW+2;
+            cy=addWrapText(doc, r.prompt||r.id, px, cy, maxW-headW-4, LINE-2)-4;
+            cy+=4;
+            if(cy>PAGE.h-MARGIN.b-40){ doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); cy=MARGIN.t; }
           }
-          doc.setDrawColor(60,120,140); doc.line(x, cy, x + maxW, cy);
-          yR = cy + 12;
+          doc.setDrawColor(60,120,140); doc.line(x, cy, x+maxW, cy); yR=cy+12;
         })();
 
-        y = Math.max(yL, yR) + 10;
+        y=Math.max(yL,yR)+10;
       } else {
-        y = paintCategoryBlock(doc, cat, mineCats.get(cat)||[], y);
+        y=paintCategoryBlock(doc, cat, mineCats.get(cat)||[], y);
       }
     }
 
-    const total = doc.internal.getNumberOfPages();
-    for (let i=1;i<=total;i++) { doc.setPage(i); addFooter(doc, i, total); }
-    doc.save(filename || (partner ? 'talkkink-compatibility-results.pdf' : 'talkkink-survey-results.pdf'));
+    const total=doc.internal.getNumberOfPages(); for(let i=1;i<=total;i++){doc.setPage(i); addFooter(doc,i,total);}
+    doc.save(filename || (partner?'talkkink-compatibility-results.pdf':'talkkink-survey-results.pdf'));
   }
 
-  TKPDF.download = async function(opts={}) {
-    const { mine, partner } = pickSources(opts);
-    if (!mine) { alert('Export unavailable: no survey data found.'); return; }
-    try { await buildPdf({ mine, partner, filename: opts.filename }); }
-    catch (e) { console.error(e); alert('Export unavailable: missing PDF exporter or network error.'); }
+  /* ---------- public API ---------- */
+  window.TKPDF=window.TKPDF||{};
+  window.TKPDF.download=async function(opts={}){
+    const {mine,partner}=pickSources(opts);
+    if(!mine){ alert('Export unavailable: no survey data found.'); return; }
+    try{ await buildPdf({mine,partner,filename:opts.filename}); }
+    catch(e){ console.error(e); alert('Export unavailable: missing PDF exporter or network error.'); }
   };
 
-  function attachUpload(btn, setKey) {
-    if (!btn) return;
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'application/json';
-    input.style.display = 'none'; document.body.appendChild(input);
-    btn.addEventListener('click', ()=> input.click());
+  /* ---------- uploads + bindings ---------- */
+  function attachUpload(btn, key){
+    if(!btn) return;
+    const input=document.createElement('input'); input.type='file'; input.accept='application/json'; input.style.display='none'; document.body.appendChild(input);
+    btn.addEventListener('click', ()=>input.click());
     input.addEventListener('change', async ()=>{
-      const file = input.files?.[0]; if (!file) return;
-      try {
-        const text = await file.text();
-        const json = JSON.parse(text);
-        localStorage.setItem(setKey, text);
-        if (setKey === 'talkkink:mine') { window.talkkinkMine = json; window.talkkinkSurvey = json; }
-        if (setKey === 'talkkink:partner') { window.talkkinkPartner = json; }
+      const f=input.files?.[0]; if(!f) return;
+      try{
+        const text=await f.text(); const json=JSON.parse(text);
+        localStorage.setItem(key, text);
+        if(key==='talkkink:mine'){ window.talkkinkMine=json; window.talkkinkSurvey=json; }
+        if(key==='talkkink:partner'){ window.talkkinkPartner=json; }
         alert('Uploaded ✓');
-      } catch (e) {
-        console.error(e); alert('Invalid file — expected TalkKink JSON export.');
-      }
-      input.value = '';
+      }catch(e){ console.error(e); alert('Invalid file — expected TalkKink JSON export.'); }
+      input.value='';
     });
   }
 
-  function findByTextContains(txt) {
-    const t = (txt||'').toLowerCase();
-    return Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent||'').toLowerCase().includes(t));
+  function findByTextContains(txt){
+    const t=(txt||'').toLowerCase();
+    return Array.from(document.querySelectorAll('button,a,[role="button"]')).find(el=>(el.textContent||'').toLowerCase().includes(t));
   }
 
-  function bindUI() {
-    const mineBtn = document.getElementById('uploadMineBtn') || findByTextContains('upload your survey');
-    const partnerBtn = document.getElementById('uploadPartnerBtn') || findByTextContains('upload partner');
-    const dlBtn = document.getElementById('downloadPdfBtn') || findByTextContains('download pdf');
-
-    attachUpload(mineBtn, 'talkkink:mine');
-    attachUpload(partnerBtn, 'talkkink:partner');
-
-    if (dlBtn) dlBtn.addEventListener('click', ()=> window.TKPDF.download());
+  function bindUI(){
+    const mineBtn=document.getElementById('uploadMineBtn')||findByTextContains('upload your survey');
+    const partnerBtn=document.getElementById('uploadPartnerBtn')||findByTextContains('upload partner');
+    const dlBtn=document.getElementById('downloadPdfBtn')||findByTextContains('download pdf');
+    attachUpload(mineBtn,'talkkink:mine'); attachUpload(partnerBtn,'talkkink:partner');
+    if(dlBtn) dlBtn.addEventListener('click', ()=>window.TKPDF.download());
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindUI);
-  else bindUI();
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bindUI); else bindUI();
 })();
 </script>
