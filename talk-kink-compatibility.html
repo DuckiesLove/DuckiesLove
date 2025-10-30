@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Talk Kink – Compatibility</title>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
 <style>
   :root{
     --bg:#f7f9fc; --fg:#152133; --muted:#5f6b7a; --line:#d5dce6; --accent:#2a7de1;
@@ -186,6 +187,12 @@ html,body{
 
   // --- rendering ------------------------------------------------------------
   const tbody = document.getElementById("tbody");
+  const statusEl = document.getElementById("status");
+  if (!tbody || !statusEl) {
+    console.warn("[compat] required table elements missing; aborting render wiring");
+    return;
+  }
+
   function render() {
     if (!surveyA && !surveyB) return;
     const codes = collectCategoryCodes(surveyA, surveyB);
@@ -240,11 +247,20 @@ html,body{
     const s = [];
     if (surveyA) s.push("A ✓"); else s.push("A —");
     if (surveyB) s.push("B ✓"); else s.push("B —");
-    document.getElementById("status").textContent = `Loaded: ${s.join("  ·  ")}`;
+    statusEl.textContent = `Loaded: ${s.join("  ·  ")}`;
   }
 
   // --- UI wiring ------------------------------------------------------------
-  document.getElementById("fileA").addEventListener("change", async (e)=>{
+  const fileAInput = document.getElementById("fileA");
+  const fileBInput = document.getElementById("fileB");
+  const missingBtn = document.getElementById("missingBtn");
+
+  if (!fileAInput || !fileBInput) {
+    console.warn("[compat] upload inputs not found; skipping event bindings");
+    return;
+  }
+
+  fileAInput.addEventListener("change", async (e)=>{
     if (!e.target.files?.[0]) return;
     try {
       surveyA = await readJSON(e.target.files[0]);
@@ -253,7 +269,7 @@ html,body{
     finally { e.target.value = ""; }
   });
 
-  document.getElementById("fileB").addEventListener("change", async (e)=>{
+  fileBInput.addEventListener("change", async (e)=>{
     if (!e.target.files?.[0]) return;
     try {
       surveyB = await readJSON(e.target.files[0]);
@@ -262,11 +278,13 @@ html,body{
     finally { e.target.value = ""; }
   });
 
-  document.getElementById("missingBtn").addEventListener("click", ()=> {
-    if (!missing.size) { alert("Great! No missing labels."); return; }
-    const list = [...missing].sort().join("\n");
-    alert("Add these to /data/labels-overrides.json:\n\n" + list);
-  });
+  if (missingBtn) {
+    missingBtn.addEventListener("click", ()=> {
+      if (!missing.size) { alert("Great! No missing labels."); return; }
+      const list = [...missing].sort().join("\n");
+      alert("Add these to /data/labels-overrides.json:\n\n" + list);
+    });
+  }
 
   // start
   loadLabels().then(render);
