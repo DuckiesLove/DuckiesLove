@@ -462,7 +462,7 @@
     <div class="tk-menu">
       <label for="fileA" class="tk-btn">Upload Your Survey</label>
       <label for="fileB" class="tk-btn">Upload Partner’s Survey</label>
-      <button id="btnExport" class="tk-btn" disabled>Download PDF</button>
+      <button id="btnDownloadPdf" class="tk-btn" disabled>Download PDF</button>
     </div>
 
         <a href="https://talkkink.org/KinkSurveyPage/index.html" class="tk-btn back">← Back</a>
@@ -563,6 +563,198 @@
   <script defer src="/js/theme-globals.js"></script>
   <script defer src="/js/pdfDownload.js"></script>
   <script defer src="/assets/js/comparison.js"></script>
+  <!-- =====================  TalkKink Compatibility PDF (ALL-IN-ONE)  =====================
+Paste this whole block into Codex (e.g., at the end of compatibility.html, before </body>).
+It adds a "Download PDF" button (id="btnDownloadPdf") and generates a black-background,
+category-grouped PDF using the surveys stored in localStorage as:
+  - tk_compat.self
+  - tk_compat.partner
+======================================================================================== -->
+
+  <!-- 1) jsPDF UMD (must come before our script) -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <!-- 2) ALL-IN-ONE UMD PDF GENERATOR (no ES modules) -->
+  <script>
+(function (global) {
+  'use strict';
+
+  // ---------- helpers ----------
+  function ensureJsPDF() {
+    const j = global.jspdf && global.jspdf.jsPDF;
+    if (!j) {
+      alert('jsPDF not loaded. Include jspdf.umd.min.js before this script.');
+      return null;
+    }
+    return j;
+  }
+
+  function split(doc, text, width) {
+    return doc.splitTextToSize(String(text ?? ''), width);
+  }
+
+  function groupByCategory(rows) {
+    const map = new Map();
+    (rows || []).forEach(r => {
+      const key = r.category || r.categoryId || 'Other';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(r);
+    });
+    return map;
+  }
+
+  function paintBlackBackground(doc) {
+    const { wPt, hPt } = doc.internal.pageSize;
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, wPt, hPt, 'F');
+  }
+
+  function writeLines(doc, lines, x, y, lineH, margin) {
+    const { hPt } = doc.internal.pageSize;
+    let cy = y, maxY = hPt - margin;
+    lines.forEach(line => {
+      if (cy + lineH > maxY) {
+        doc.addPage();
+        paintBlackBackground(doc);
+        cy = margin;
+      }
+      doc.text(line, x, cy);
+      cy += lineH;
+    });
+    return cy;
+  }
+
+  function mergePairs(self, partner) {
+    const out = [];
+    const ids = new Set([
+      ...Object.keys(self?.byKink || {}),
+      ...Object.keys(partner?.byKink || {})
+    ]);
+    ids.forEach(kid => {
+      const s = self.byKink?.[kid] || {};
+      const p = partner.byKink?.[kid] || {};
+      const ref = (self.answers?.find(a => a.kinkId == kid) ||
+                   partner.answers?.find(a => a.kinkId == kid)) || { title: kid, category: 'Other' };
+      out.push({
+        kinkId: kid,
+        title: ref.title || kid,
+        category: ref.category || ref.categoryId || 'Other',
+        sGiving: s.giving ?? null,
+        sReceiving: s.receiving ?? null,
+        sGeneral: s.general ?? null,
+        pGiving: p.giving ?? null,
+        pReceiving: p.receiving ?? null,
+        pGeneral: p.general ?? null
+      });
+    });
+    return out;
+  }
+
+  function buildCategoryRows(self, partner) {
+    const merged = mergePairs(self, partner);
+    return merged.map(m => ({
+      category: m.category,
+      title: m.title,
+      pairText: [
+        `You/Partner — G: ${m.sGiving ?? '-'} / ${m.pGiving ?? '-'}`,
+        `R: ${m.sReceiving ?? '-'} / ${m.pReceiving ?? '-'}`,
+        `Gen: ${m.sGeneral ?? '-'} / ${m.pGeneral ?? '-'}`
+      ].join(' • ')
+    }));
+  }
+
+  function headerLine(doc, txt, x, y) {
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(txt, x, y);
+    doc.setFont('helvetica', 'normal');
+  }
+
+  // ---------- main ----------
+  function generate(self, partner, filename = 'talkkink-compatibility.pdf') {
+    const jsPDF = ensureJsPDF();
+    if (!jsPDF) return;
+    if (!self || !partner) {
+      alert('Upload both surveys first.');
+      return;
+    }
+
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' }); // 612 x 792
+    paintBlackBackground(doc);
+    doc.setTextColor(255, 255, 255);
+
+    const margin = 48;
+    const contentW = doc.internal.pageSize.wPt - margin * 2;
+    let y = margin + 10;
+
+    // Title
+    doc.setFontSize(26);
+    doc.setFont('helvetica', 'bold');
+    const title = 'TalkKink Compatibility';
+    const tW = doc.getTextWidth(title);
+    doc.text(title, (doc.internal.pageSize.wPt - tW) / 2, y);
+    y += 30;
+
+    // Meta
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const selectedCats = (self.meta?.selectedCategories && self.meta.selectedCategories.length)
+      ? self.meta.selectedCategories.join(', ')
+      : '—';
+    y = writeLines(doc, [
+      `Exported: ${new Date().toLocaleString()}`,
+      `Theme: ${self.meta?.theme || partner.meta?.theme || 'dark'}`,
+      `Selected Categories: ${selectedCats}`
+    ], margin, y, 14, margin) + 8;
+
+    // Category blocks
+    const catMap = groupByCategory(buildCategoryRows(self, partner));
+    for (const [cat, items] of catMap.entries()) {
+      headerLine(doc, cat, margin, y);
+      y += 20;
+
+      items.forEach(item => {
+        doc.setFontSize(12);
+        y = writeLines(doc, split(doc, `• ${item.title}`, contentW), margin, y, 15, margin);
+        doc.setFontSize(10);
+        y = writeLines(doc, split(doc, item.pairText, contentW), margin + 16, y, 13, margin);
+        y += 6;
+      });
+
+      y += 10;
+    }
+
+    // Footer
+    const { hPt } = doc.internal.pageSize;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.text('TalkKink — https://talkkink.org', margin, hPt - margin + 20);
+
+    doc.save(filename);
+  }
+
+  function generateFromStorage() {
+    let self = null, partner = null;
+    try { self = JSON.parse(localStorage.getItem('tk_compat.self')); } catch {}
+    try { partner = JSON.parse(localStorage.getItem('tk_compat.partner')); } catch {}
+    if (!self || !partner) {
+      alert('Upload both surveys first.');
+      return;
+    }
+    generate(self, partner);
+  }
+
+  // expose global
+  global.TKCompatPDF = { generate, generateFromStorage };
+
+})(window);
+
+// 3) WIRE THE BUTTON (expects a button with id="btnDownloadPdf")
+(function () {
+  const btn = document.querySelector('#btnDownloadPdf');
+  if (btn) btn.addEventListener('click', () => window.TKCompatPDF.generateFromStorage());
+})();
+  </script>
 </body>
 
 </html>
