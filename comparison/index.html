@@ -41,14 +41,14 @@
     window.downloadCompatibilityPDF = downloadCompatibilityPDF;
   </script>
   <script src="/assets/js/comparison.js"></script>
-  <!-- ===== TalkKink: inline PDF + upload logic (no imports) ===== -->
+  <!-- ===== TalkKink: inline PDF + upload logic (standalone) ===== -->
   <script>
 (function () {
   /* ---------- constants ---------- */
   const PAGE = { w: 612, h: 792 }, MARGIN = { t: 48, r: 40, b: 54, l: 40 }, LINE = 16, COL_GAP = 18;
 
   /* ---------- helpers ---------- */
-  const nowStamp=()=>{const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`};
+  const nowStamp=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`};
 
   async function ensureJsPDF(){
     if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
@@ -66,15 +66,13 @@
     try{
       if(!out.mine){ const s=localStorage.getItem('talkkink:survey')||localStorage.getItem('talkkink:mine'); if(s) out.mine=JSON.parse(s); }
       if(!out.partner){ const p=localStorage.getItem('talkkink:partner'); if(p) out.partner=JSON.parse(p); }
-      if(!out.mine){ const legacySelf=localStorage.getItem('tk_compat.self'); if(legacySelf) out.mine=JSON.parse(legacySelf); }
-      if(!out.partner){ const legacyPartner=localStorage.getItem('tk_compat.partner'); if(legacyPartner) out.partner=JSON.parse(legacyPartner); }
     }catch{}
     return out;
   }
 
   const groupByCategory = (survey)=> {
     const m=new Map(); (survey?.responses||[]).forEach(r=>{ if(!m.has(r.category))m.set(r.category,[]); m.get(r.category).push(r); });
-    for(const arr of m.values()) arr.sort((a,b) => (a.index??0)-(b.index??0));
+    for(const arr of m.values()) arr.sort((a,b)=>(a.index??0)-(b.index??0));
     return m;
   };
 
@@ -223,5 +221,6 @@
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bindUI); else bindUI();
 })();
   </script>
+
 </body>
 </html>
