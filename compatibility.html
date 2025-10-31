@@ -561,199 +561,386 @@
     window.ksvParseSurveyJsonText = ksvParseSurveyJsonText;
   </script>
 
-  <script defer src="/js/theme-globals.js"></script>
-  <script defer src="/js/pdfDownload.js"></script>
   <script defer src="/assets/js/comparison.js"></script>
-  <!-- =====================  TalkKink Compatibility PDF (ALL-IN-ONE)  =====================
-Paste this whole block into Codex (e.g., at the end of compatibility.html, before </body>).
-It adds a "Download PDF" button (id="btnDownloadPdf") and generates a black-background,
-category-grouped PDF using the surveys stored in localStorage as:
-  - tk_compat.self
-  - tk_compat.partner
-======================================================================================== -->
-
-  <!-- 1) jsPDF UMD (must come before our script) -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-
-  <!-- 2) ALL-IN-ONE UMD PDF GENERATOR (no ES modules) -->
+  <!-- ===== TalkKink: inline PDF + upload logic (standalone) ===== -->
   <script>
-(function (global) {
-  'use strict';
-
-  // ---------- helpers ----------
-  function ensureJsPDF() {
-    const j = global.jspdf && global.jspdf.jsPDF;
-    if (!j) {
-      alert('jsPDF not loaded. Include jspdf.umd.min.js before this script.');
-      return null;
+/* ---- 1) Remove the two problematic scripts if they’re on the page ---- */
+(function killBadIncludes(){
+  const sel = 'script[src*="theme-globals.js"],script[src*="pdfDownload.js"]';
+  document.querySelectorAll(sel).forEach(node => {
+    try {
+      node.parentNode?.removeChild(node);
+    } catch (_) {
+      /* ignore */
     }
-    return j;
-  }
+  });
+})();
 
-  function split(doc, text, width) {
-    return doc.splitTextToSize(String(text ?? ''), width);
-  }
+/* ---- 2) Null-guard for the “dock margin” style error ---- */
+try {
+  const dock = document.querySelector('[data-dock-margin]') ||
+               document.getElementById('dock-margin') ||
+               document.querySelector('.dock-margin');
+  if (dock && dock.style) dock.style.margin = '';
+} catch (_) {}
 
-  function groupByCategory(rows) {
-    const map = new Map();
-    (rows || []).forEach(r => {
-      const key = r.category || r.categoryId || 'Other';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(r);
+/* ---- 3) Minimal standalone PDF exporter (jsPDF via CDN) ---- */
+(function () {
+  const PAGE = { w: 612, h: 792 };
+  const MARGIN = { t: 48, r: 40, b: 54, l: 40 };
+  const LINE = 16;
+  const COL_GAP = 18;
+  const SELF_KEYS = ['talkkink:survey', 'talkkink:mine', 'tk_compat.self'];
+  const PARTNER_KEYS = ['talkkink:partner', 'tk_compat.partner'];
+
+  const nowStamp = () => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  async function loadJsPDF() {
+    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+      s.async = true;
+      s.onload = res;
+      s.onerror = () => rej(new Error('jsPDF load failed'));
+      document.head.appendChild(s);
     });
-    return map;
+    if (!(window.jspdf?.jsPDF)) throw new Error('jsPDF init failed');
+    return window.jspdf.jsPDF;
   }
 
-  function paintBlackBackground(doc) {
-    const { wPt, hPt } = doc.internal.pageSize;
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, wPt, hPt, 'F');
+  function normalizeRating(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    return Math.max(0, Math.min(5, Math.round(num)));
   }
 
-  function writeLines(doc, lines, x, y, lineH, margin) {
-    const { hPt } = doc.internal.pageSize;
-    let cy = y, maxY = hPt - margin;
-    lines.forEach(line => {
-      if (cy + lineH > maxY) {
-        doc.addPage();
-        paintBlackBackground(doc);
-        cy = margin;
-      }
-      doc.text(line, x, cy);
-      cy += lineH;
-    });
-    return cy;
-  }
-
-  function mergePairs(self, partner) {
-    const out = [];
-    const ids = new Set([
-      ...Object.keys(self?.byKink || {}),
-      ...Object.keys(partner?.byKink || {})
-    ]);
-    ids.forEach(kid => {
-      const s = self.byKink?.[kid] || {};
-      const p = partner.byKink?.[kid] || {};
-      const ref = (self.answers?.find(a => a.kinkId == kid) ||
-                   partner.answers?.find(a => a.kinkId == kid)) || { title: kid, category: 'Other' };
-      out.push({
-        kinkId: kid,
-        title: ref.title || kid,
-        category: ref.category || ref.categoryId || 'Other',
-        sGiving: s.giving ?? null,
-        sReceiving: s.receiving ?? null,
-        sGeneral: s.general ?? null,
-        pGiving: p.giving ?? null,
-        pReceiving: p.receiving ?? null,
-        pGeneral: p.general ?? null
-      });
-    });
-    return out;
-  }
-
-  function buildCategoryRows(self, partner) {
-    const merged = mergePairs(self, partner);
-    return merged.map(m => ({
-      category: m.category,
-      title: m.title,
-      pairText: [
-        `You/Partner — G: ${m.sGiving ?? '-'} / ${m.pGiving ?? '-'}`,
-        `R: ${m.sReceiving ?? '-'} / ${m.pReceiving ?? '-'}`,
-        `Gen: ${m.sGeneral ?? '-'} / ${m.pGeneral ?? '-'}`
-      ].join(' • ')
+  function normalizeRows(survey) {
+    const rows = Array.isArray(survey?.responses) ? survey.responses : [];
+    return rows.map((row, idx) => ({
+      id: row.id ?? row.prompt ?? row.text ?? row.title ?? `item-${idx}`,
+      prompt: row.prompt ?? row.text ?? row.title ?? row.label ?? row.question ?? row.id ?? '',
+      category: row.category ?? row.categoryId ?? row.cat ?? row.section ?? 'Other',
+      rating: normalizeRating(row.rating ?? row.score ?? row.value ?? row.answer ?? 0),
+      index: row.index ?? row.order ?? row.position ?? idx
     }));
   }
 
-  function headerLine(doc, txt, x, y) {
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text(txt, x, y);
-    doc.setFont('helvetica', 'normal');
+  const groupByCategory = (survey) => {
+    const grouped = new Map();
+    normalizeRows(survey).forEach(row => {
+      if (!grouped.has(row.category)) grouped.set(row.category, []);
+      grouped.get(row.category).push(row);
+    });
+    for (const list of grouped.values()) {
+      list.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    }
+    return grouped;
+  };
+
+  const summarize = (survey) => {
+    const counts = [0, 0, 0, 0, 0, 0];
+    normalizeRows(survey).forEach(row => {
+      counts[row.rating] += 1;
+    });
+    return counts;
+  };
+
+  function addWrapText(doc, text, x, y, maxW, lh) {
+    const words = String(text || '').split(/\s+/);
+    let line = '';
+    let cy = y;
+    const width = (t) => doc.getTextWidth(t);
+    words.forEach(word => {
+      const test = line ? `${line} ${word}` : word;
+      if (width(test) > maxW) {
+        if (line) {
+          doc.text(line, x, cy);
+          cy += lh;
+        }
+        line = word;
+      } else {
+        line = test;
+      }
+    });
+    if (line) {
+      doc.text(line, x, cy);
+      cy += lh;
+    }
+    return cy;
   }
 
-  // ---------- main ----------
-  function generate(self, partner, filename = 'talkkink-compatibility.pdf') {
-    const jsPDF = ensureJsPDF();
-    if (!jsPDF) return;
-    if (!self || !partner) {
-      alert('Upload both surveys first.');
-      return;
-    }
-
-    const doc = new jsPDF({ unit: 'pt', format: 'letter' }); // 612 x 792
-    paintBlackBackground(doc);
+  function header(doc, title, subtitle) {
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
     doc.setTextColor(255, 255, 255);
-
-    const margin = 48;
-    const contentW = doc.internal.pageSize.wPt - margin * 2;
-    let y = margin + 10;
-
-    // Title
-    doc.setFontSize(26);
     doc.setFont('helvetica', 'bold');
-    const title = 'TalkKink Compatibility';
-    const tW = doc.getTextWidth(title);
-    doc.text(title, (doc.internal.pageSize.wPt - tW) / 2, y);
-    y += 30;
-
-    // Meta
+    doc.setFontSize(32);
+    doc.text(title, PAGE.w / 2, MARGIN.t, { align: 'center', baseline: 'top' });
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    const selectedCats = (self.meta?.selectedCategories && self.meta.selectedCategories.length)
-      ? self.meta.selectedCategories.join(', ')
-      : '—';
-    y = writeLines(doc, [
-      `Exported: ${new Date().toLocaleString()}`,
-      `Theme: ${self.meta?.theme || partner.meta?.theme || 'dark'}`,
-      `Selected Categories: ${selectedCats}`
-    ], margin, y, 14, margin) + 8;
-
-    // Category blocks
-    const catMap = groupByCategory(buildCategoryRows(self, partner));
-    for (const [cat, items] of catMap.entries()) {
-      headerLine(doc, cat, margin, y);
-      y += 20;
-
-      items.forEach(item => {
-        doc.setFontSize(12);
-        y = writeLines(doc, split(doc, `• ${item.title}`, contentW), margin, y, 15, margin);
-        doc.setFontSize(10);
-        y = writeLines(doc, split(doc, item.pairText, contentW), margin + 16, y, 13, margin);
-        y += 6;
-      });
-
-      y += 10;
-    }
-
-    // Footer
-    const { hPt } = doc.internal.pageSize;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'italic');
-    doc.text('TalkKink — https://talkkink.org', margin, hPt - margin + 20);
-
-    doc.save(filename);
+    doc.setFontSize(12);
+    doc.text(subtitle, PAGE.w / 2, MARGIN.t + 28, { align: 'center', baseline: 'top' });
+    return MARGIN.t + 42;
   }
 
-  function generateFromStorage() {
-    let self = null, partner = null;
-    try { self = JSON.parse(localStorage.getItem('tk_compat.self')); } catch {}
-    try { partner = JSON.parse(localStorage.getItem('tk_compat.partner')); } catch {}
-    if (!self || !partner) {
-      alert('Upload both surveys first.');
+  function addFooter(doc, page, total) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(180, 180, 180);
+    doc.text(`TalkKink • ${nowStamp()} • Page ${page}/${total}`, PAGE.w / 2, PAGE.h - MARGIN.b + 24, { align: 'center', baseline: 'bottom' });
+  }
+
+  function block(doc, cat, items, startY) {
+    let cy = startY + 6;
+    const x = MARGIN.l;
+    const maxW = PAGE.w - MARGIN.l - MARGIN.r;
+    if (cat) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      cy = addWrapText(doc, cat, x, cy, maxW, LINE);
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(220, 220, 220);
+    for (const row of items) {
+      const chip = ` [${row.rating}] `;
+      const bullet = '• ';
+      const headW = doc.getTextWidth(bullet + chip);
+      doc.text(bullet, x, cy);
+      doc.setTextColor(140, 230, 255);
+      doc.text(chip, x + doc.getTextWidth(bullet), cy);
+      doc.setTextColor(220, 220, 220);
+      const px = x + headW + 2;
+      cy = addWrapText(doc, row.prompt || row.id, px, cy, maxW - headW - 4, LINE - 2) - 4;
+      cy += 4;
+      if (cy > PAGE.h - MARGIN.b - 40) {
+        doc.addPage('letter', 'portrait');
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
+        cy = MARGIN.t;
+      }
+    }
+    doc.setDrawColor(60, 120, 140);
+    doc.line(MARGIN.l, cy, PAGE.w - MARGIN.r, cy);
+    return cy + 10;
+  }
+
+  function summary(doc, survey, label, startY) {
+    const counts = summarize(survey);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`${label} — Rating Summary`, MARGIN.l, startY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(200, 200, 200);
+    doc.text(counts.map((count, rating) => `${rating}: ${count}`).join('    '), MARGIN.l, startY + LINE);
+    return startY + LINE * 2;
+  }
+
+  function pickSources(opts = {}) {
+    const out = { mine: opts.mine ?? null, partner: opts.partner ?? null };
+    if (!out.mine) out.mine = window.talkkinkMine || window.talkkinkSurvey;
+    if (!out.partner) out.partner = window.talkkinkPartner;
+    try {
+      if (!out.mine) {
+        for (const key of SELF_KEYS) {
+          const value = localStorage.getItem(key);
+          if (value) { out.mine = JSON.parse(value); break; }
+        }
+      }
+      if (!out.partner) {
+        for (const key of PARTNER_KEYS) {
+          const value = localStorage.getItem(key);
+          if (value) { out.partner = JSON.parse(value); break; }
+        }
+      }
+    } catch (_) {}
+    return out;
+  }
+
+  async function buildPdf({ mine, partner, filename }) {
+    const jsPDF = await loadJsPDF();
+    const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
+    const title = partner ? 'TalkKink Compatibility Report' : 'TalkKink Survey Export';
+    const mineCats = mine?.meta?.selectedCategories?.join(', ') || 'All Categories';
+    const partnerCats = partner?.meta?.selectedCategories?.join(', ') || 'All Categories';
+    const subtitle = partner
+      ? `Exported ${nowStamp()} • Mine: ${mineCats} • Partner: ${partnerCats}`
+      : `Exported ${nowStamp()} • Selected: ${mineCats}`;
+
+    let y = header(doc, title, subtitle);
+    if (partner) {
+      y = summary(doc, mine, 'Mine', y);
+      y = summary(doc, partner, 'Partner', y) + 6;
+    } else {
+      y = summary(doc, mine, 'Summary', y) + 6;
+    }
+
+    const mineMap = groupByCategory(mine);
+    const partnerMap = partner ? groupByCategory(partner) : null;
+
+    for (const [cat, items] of mineMap.entries()) {
+      if (y > PAGE.h - MARGIN.b - 120) {
+        doc.addPage('letter', 'portrait');
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
+        y = MARGIN.t;
+      }
+
+      if (partner && partnerMap) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(255, 255, 255);
+        y = addWrapText(doc, cat, MARGIN.l, y, PAGE.w - MARGIN.l - MARGIN.r, LINE) + 2;
+
+        const colW = (PAGE.w - MARGIN.l - MARGIN.r - COL_GAP) / 2;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text('Mine', MARGIN.l, y);
+        const yL = block(doc, '', items, y + LINE - LINE);
+
+        let yR = y;
+        let xR = MARGIN.l + colW + COL_GAP;
+        if (yR + 40 > PAGE.h - MARGIN.b) {
+          doc.addPage('letter', 'portrait');
+          doc.setFillColor(0, 0, 0);
+          doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
+          yR = MARGIN.t;
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text('Partner', xR, yR);
+        yR += LINE;
+
+        (function drawRight() {
+          let cy = yR + 6;
+          const maxW = colW;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(11);
+          doc.setTextColor(220, 220, 220);
+          for (const row of partnerMap.get(cat) || []) {
+            const chip = ` [${row.rating}] `;
+            const bullet = '• ';
+            const headW = doc.getTextWidth(bullet + chip);
+            doc.text(bullet, xR, cy);
+            doc.setTextColor(140, 230, 255);
+            doc.text(chip, xR + doc.getTextWidth(bullet), cy);
+            doc.setTextColor(220, 220, 220);
+            const px = xR + headW + 2;
+            cy = addWrapText(doc, row.prompt || row.id, px, cy, maxW - headW - 4, LINE - 2) - 4;
+            cy += 4;
+            if (cy > PAGE.h - MARGIN.b - 40) {
+              doc.addPage('letter', 'portrait');
+              doc.setFillColor(0, 0, 0);
+              doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
+              cy = MARGIN.t;
+            }
+          }
+          doc.setDrawColor(60, 120, 140);
+          doc.line(xR, cy, xR + maxW, cy);
+          yR = cy + 12;
+        })();
+
+        y = Math.max(yL, yR) + 10;
+      } else {
+        y = block(doc, cat, items, y);
+      }
+    }
+
+    const total = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= total; i += 1) {
+      doc.setPage(i);
+      addFooter(doc, i, total);
+    }
+    doc.save(filename || (partner ? 'talkkink-compatibility-results.pdf' : 'talkkink-survey-results.pdf'));
+  }
+
+  window.TKPDF = window.TKPDF || {};
+  window.TKPDF.download = (opts = {}) => {
+    const { mine, partner } = pickSources(opts);
+    if (!mine) {
+      alert('Export unavailable: no survey data found.');
       return;
     }
-    generate(self, partner);
+    buildPdf({ mine, partner, filename: opts.filename }).catch(err => {
+      console.error(err);
+      alert('Export failed.');
+    });
+  };
+
+  function attachUpload(btn, key, input) {
+    if (!btn && !input) return;
+    let fileInput = input || null;
+    const created = !fileInput;
+    if (!fileInput) {
+      fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'application/json';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+    } else if (!fileInput.accept) {
+      fileInput.accept = 'application/json';
+    }
+
+    const isLabelForInput = Boolean(btn && fileInput && btn.tagName === 'LABEL' && btn.htmlFor && fileInput.id && btn.htmlFor === fileInput.id);
+    if (btn && !isLabelForInput && btn !== fileInput) {
+      btn.addEventListener('click', () => fileInput.click());
+    }
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        localStorage.setItem(key, text);
+        if (key === 'talkkink:mine') {
+          window.talkkinkMine = json;
+          window.talkkinkSurvey = json;
+        }
+        if (key === 'talkkink:partner') {
+          window.talkkinkPartner = json;
+        }
+        alert('Uploaded ✓');
+      } catch (err) {
+        console.error(err);
+        alert('Invalid file — expected TalkKink JSON export.');
+      }
+      if (created) {
+        fileInput.value = '';
+      }
+    });
   }
 
-  // expose global
-  global.TKCompatPDF = { generate, generateFromStorage };
+  function findBtn(txt) {
+    const needle = (txt || '').toLowerCase();
+    return Array.from(document.querySelectorAll('button,a,[role="button"]')).find(el => (el.textContent || '').toLowerCase().includes(needle));
+  }
 
-})(window);
+  function bindUI() {
+    const mineBtn = document.getElementById('uploadMineBtn') || findBtn('upload your survey');
+    const partnerBtn = document.getElementById('uploadPartnerBtn') || findBtn('upload partner');
+    const dlBtn = document.getElementById('downloadPdfBtn') || document.getElementById('btnDownloadPdf') || findBtn('download pdf');
+    const mineInput = document.getElementById('fileA') || document.querySelector('[data-upload-input="mine"]');
+    const partnerInput = document.getElementById('fileB') || document.querySelector('[data-upload-input="partner"]');
+    attachUpload(mineBtn, 'talkkink:mine', mineInput);
+    attachUpload(partnerBtn, 'talkkink:partner', partnerInput);
+    if (dlBtn) {
+      dlBtn.addEventListener('click', () => window.TKPDF.download());
+    }
+  }
 
-// 3) WIRE THE BUTTON (expects a button with id="btnDownloadPdf")
-(function () {
-  const btn = document.querySelector('#btnDownloadPdf');
-  if (btn) btn.addEventListener('click', () => window.TKCompatPDF.generateFromStorage());
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindUI);
+  } else {
+    bindUI();
+  }
 })();
   </script>
 </body>
