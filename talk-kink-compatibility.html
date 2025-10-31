@@ -1,301 +1,219 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Talk Kink – Compatibility</title>
-<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
-<style>
-  :root{
-    --bg:#f7f9fc; --fg:#152133; --muted:#5f6b7a; --line:#d5dce6; --accent:#2a7de1;
-    --cell-pad:.9rem; --track:#e3e9f2;
-  }
-/* resolved: full-width black layout */
-:root{
-  --bg:#000;
-  --fg:#fff;
-  --muted:#94a3bb;
-  --line:#1f2733;
-  --track:#0f1720;
-}
-
-html,body{
-  background:#000;          /* force pure black */
-  color:var(--fg);
-  margin:0;
-  font:16px/1.4 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-}
-
-.wrap{
-  width:100%;
-  margin:0;
-  padding:32px clamp(16px,4vw,48px);
-  box-sizing:border-box;
-}
-
-/* optional: make print/PDF full-bleed too */
-@page { margin:0; }
-* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-  h1{font-weight:700;letter-spacing:.4px;margin:0 0 10px}
-  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 22px}
-  .btn{
-    background:transparent;border:2px solid var(--accent);color:var(--accent);
-    padding:.55rem .9rem;border-radius:10px;cursor:pointer;font-weight:600
-  }
-  .btn:hover{background:rgba(42,125,225,.12)}
-  .note{color:var(--muted);font-size:.9rem}
-  .file{display:inline-block}
-  table{width:100%;border-collapse:collapse;table-layout:fixed}
-  thead th{
-    text-align:center;font-weight:800;border:2px solid var(--line);
-    padding:.85rem;background:var(--bg);position:sticky;top:0
-  }
-  tbody td{
-    border:2px solid var(--line);padding:var(--cell-pad);vertical-align:middle
-  }
-  td.cat{width:56%;font-weight:600}
-  td.num, th.num{text-align:center;width:14%}
-  td.muted{color:var(--muted)}
-  /* Subtle progress background – can remove if you want pure text */
-  .pct-shell{height:12px;background:var(--track);border-radius:7px;overflow:hidden;border:1px solid var(--line)}
-  .pct-bar{height:100%;background:var(--accent);width:0%}
-  /* Print: preserve the on-screen colors in the PDF */
-  @media print{
-    html,body,.wrap,table,th,td{
-      background:#000 !important;
-      color:#fff !important;
-    }
-    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .wrap{padding:0 !important}
-    .bar,.note{display:none}
-    thead th{position:static}
-  }
-</style>
+  <meta charset="utf-8" />
+  <title>TalkKink Compatibility</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Your existing CSS / theme links stay as-is -->
+  <style>
+    /* keep your site styles; the following are only fallbacks */
+    body { background:#000; color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .cta { display:block; width:420px; margin:18px auto; padding:18px 22px; text-align:center;
+           border:2px solid rgba(0,255,255,.5); border-radius:14px; background:rgba(0,20,25,.35);
+           box-shadow:0 0 18px rgba(0,200,255,.15) inset, 0 0 30px rgba(0,200,255,.2);
+           color:#fff; text-decoration:none; font-weight:700; letter-spacing:.2px; }
+    h1 { text-align:center; margin:48px 0 28px; font-size:52px; text-shadow:0 0 18px rgba(0,255,255,.35); }
+  </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Compatibility</h1>
+  <h1>TalkKink Compatibility</h1>
 
-    <div class="bar">
-      <label class="file btn">Load Survey A
-        <input id="fileA" type="file" accept="application/json" hidden>
-      </label>
-      <label class="file btn">Load Survey B
-        <input id="fileB" type="file" accept="application/json" hidden>
-      </label>
-      <button id="dl" class="btn">Download PDF</button>
-      <button id="missingBtn" class="btn" title="Show any codes missing a label">Missing labels</button>
-      <span class="note" id="status">Waiting for uploads…</span>
-    </div>
+  <!-- Your real buttons can keep existing markup / classes; IDs are optional -->
+  <button id="uploadMineBtn" class="cta">Upload Your Survey</button>
+  <button id="uploadPartnerBtn" class="cta">Upload Partner’s Survey</button>
+  <button id="downloadPdfBtn" class="cta">Download PDF</button>
+  <a href="/KinkSurveyPage/" class="cta">← Back</a>
 
-    <table id="compat">
-      <thead>
-        <tr>
-          <th class="cat">Category</th>
-          <th class="num">Partner A</th>
-          <th class="num">Match %</th>
-          <th class="num">Partner B</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+  <!-- ====== Standalone logic: remove theme-globals.js and pdfDownload.js includes ====== -->
+  <script>
+  (function () {
+    /* --------- kill the old “dock margin” crash safely (null guard) --------- */
+    try {
+      const dock = document.querySelector('[data-dock-margin]') ||
+                   document.getElementById('dock-margin') ||
+                   document.querySelector('.dock-margin');
+      if (dock && dock.style) { dock.style.margin = ''; }
+    } catch (e) { /* ignore */ }
 
-    <p class="note" style="margin-top:14px">
-      Tip: If “Missing labels” shows anything, add those mappings to
-      <code>/data/labels-overrides.json</code> so names render (the table will never show raw cb_ codes).
-    </p>
-  </div>
-
-<script>
-(() => {
-  // --- data holders ---------------------------------------------------------
-  let surveyA = null, surveyB = null;
-  const LABELS = {};          // combined labels (overrides + base)
-  const missing = new Set();  // codes that had no label
-
-  // --- load label sources (overrides first) --------------------------------
-  const labelSources = [
-    "/data/labels-overrides.json", // your curated names win
-    "/data/kinks.json"             // base map
-  ];
-
-  async function loadLabels() {
-    for (const url of labelSources) {
-      try {
-        const res = await fetch(url, {cache:"no-store"});
-        if (!res.ok) continue;
-        const obj = await res.json();
-        for (const [k,v] of Object.entries(obj)) {
-          if (v && typeof v === "string") LABELS[k] = v.trim();
-        }
-      } catch { /* ignore */ }
-    }
-  }
-
-  // never expose cb_* in UI. If unknown -> "—" and remember for the side list.
-  function prettyLabel(code) {
-    const name = LABELS[code];
-    if (name && name.trim()) return name.trim();
-    missing.add(code);
-    return "—";
-  }
-
-  // --- file helpers ---------------------------------------------------------
-  function readJSON(file) {
-    return new Promise((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onerror = () => reject(new Error("Could not read file."));
-      fr.onload = () => {
-        try { resolve(JSON.parse(fr.result)); }
-        catch(e){ reject(new Error("Invalid JSON.")); }
-      };
-      fr.readAsText(file);
-    });
-  }
-
-  // find all category codes present in either survey (array of cb_* ids).
-  function collectCategoryCodes(a, b) {
-    const set = new Set();
-    const push = obj => {
-      if (!obj) return;
-      // Accept both shapes: {answers:[{id,value}...]} or {…id:value…}
-      if (Array.isArray(obj.answers)) {
-        for (const row of obj.answers) if (row && row.id) set.add(row.id);
-      } else {
-        for (const k of Object.keys(obj)) if (k.startsWith("cb_")) set.add(k);
-      }
+    /* ================== jsPDF loader (CDN) ================== */
+    const loadJsPDF = async () => {
+      if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+        s.async = true; s.onload = res; s.onerror = () => rej(new Error('jsPDF load failed'));
+        document.head.appendChild(s);
+      });
+      if (!(window.jspdf?.jsPDF)) throw new Error('jsPDF init failed');
+      return window.jspdf.jsPDF;
     };
-    push(a); push(b);
-    return [...set];
-  }
 
-  // score helpers – you can swap this for your project’s real logic
-  const valOf = (obj, id) => {
-    if (!obj) return null;
-    if (Array.isArray(obj.answers)) {
-      const r = obj.answers.find(x => x.id === id);
-      return r ? r.value ?? r.answer ?? null : null;
-    }
-    return obj[id] ?? null;
-  };
-  function matchPercent(aVal, bVal){
-    if (aVal == null || bVal == null) return null;
-    // Simple: identical = 100, else 0. Replace with your real formula if needed.
-    return aVal === bVal ? 100 : 0;
-  }
+    /* ================== utilities ================== */
+    const PAGE = { w: 612, h: 792 }, MARGIN = { t: 48, r: 40, b: 54, l: 40 }, LINE = 16, GAP = 18;
+    const nowStamp = () => { const d=new Date(), p=n=>String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 
-  // --- rendering ------------------------------------------------------------
-  const tbody = document.getElementById("tbody");
-  const statusEl = document.getElementById("status");
-  if (!tbody || !statusEl) {
-    console.warn("[compat] required table elements missing; aborting render wiring");
-    return;
-  }
-
-  function render() {
-    if (!surveyA && !surveyB) return;
-    const codes = collectCategoryCodes(surveyA, surveyB);
-
-    // Make rows (resolve names now so we can sort by them)
-    const rows = codes.map(code => {
-      const name = prettyLabel(code);
-      const aVal = valOf(surveyA, code);
-      const bVal = valOf(surveyB, code);
-      const pct  = matchPercent(aVal, bVal);
-      return { code, name, aVal, bVal, pct };
-    });
-
-    // Alphabetical by the display name (case-insensitive), keep blanks last.
-    rows.sort((r1, r2) => {
-      const n1 = r1.name === "—" ? "~~~" : r1.name.toLowerCase();
-      const n2 = r2.name === "—" ? "~~~" : r2.name.toLowerCase();
-      return n1.localeCompare(n2);
-    });
-
-    // Build table
-    tbody.innerHTML = "";
-    for (const r of rows) {
-      const tr = document.createElement("tr");
-
-      const tdCat = document.createElement("td");
-      tdCat.className = "cat";
-      tdCat.textContent = r.name;               // never show code
-      tr.appendChild(tdCat);
-
-      const tdA = document.createElement("td");
-      tdA.className = "num";
-      tdA.textContent = (r.aVal ?? "—");
-      tr.appendChild(tdA);
-
-      const tdPct = document.createElement("td");
-      tdPct.className = "num";
-      tdPct.innerHTML = r.pct == null
-        ? "—"
-        : `<div class="pct-shell"><div class="pct-bar" style="width:${r.pct}%"></div></div>`;
-      tr.appendChild(tdPct);
-
-      const tdB = document.createElement("td");
-      tdB.className = "num";
-      tdB.textContent = (r.bVal ?? "—");
-      tr.appendChild(tdB);
-
-      tbody.appendChild(tr);
+    function pickSources(opts={}) {
+      const out = { mine: opts.mine || null, partner: opts.partner || null };
+      if (!out.mine) out.mine = window.talkkinkMine || window.talkkinkSurvey;
+      if (!out.partner) out.partner = window.talkkinkPartner;
+      try {
+        if (!out.mine) {
+          const s = localStorage.getItem('talkkink:survey') || localStorage.getItem('talkkink:mine');
+          if (s) out.mine = JSON.parse(s);
+        }
+        if (!out.partner) {
+          const p = localStorage.getItem('talkkink:partner');
+          if (p) out.partner = JSON.parse(p);
+        }
+      } catch {}
+      return out;
     }
 
-    // status
-    const s = [];
-    if (surveyA) s.push("A ✓"); else s.push("A —");
-    if (surveyB) s.push("B ✓"); else s.push("B —");
-    statusEl.textContent = `Loaded: ${s.join("  ·  ")}`;
-  }
+    const groupByCategory = (s) => {
+      const m = new Map();
+      (s?.responses || []).forEach(r => { if (!m.has(r.category)) m.set(r.category, []); m.get(r.category).push(r); });
+      for (const arr of m.values()) arr.sort((a,b)=>(a.index??0)-(b.index??0));
+      return m;
+    };
+    const summarize = (s) => { const c=[0,0,0,0,0,0]; (s?.responses||[]).forEach(r=>c[Math.max(0,Math.min(5,+r.rating||0))]++); return c; };
 
-  // --- UI wiring ------------------------------------------------------------
-  const fileAInput = document.getElementById("fileA");
-  const fileBInput = document.getElementById("fileB");
-  const missingBtn = document.getElementById("missingBtn");
+    function addFooter(doc, i, total){
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(180,180,180);
+      doc.text(`TalkKink • ${nowStamp()} • Page ${i}/${total}`, PAGE.w/2, PAGE.h-MARGIN.b+24, {align:'center',baseline:'bottom'});
+    }
+    function addWrapText(doc, text, x, y, maxW, lh){
+      const words=String(text||'').split(/\s+/); let line='', cy=y, width=t=>doc.getTextWidth(t);
+      for(const w of words){ const t=line?line+' '+w:w; if(width(t)>maxW){ if(line){doc.text(line,x,cy); cy+=lh;} line=w; } else line=t; }
+      if(line){ doc.text(line,x,cy); cy+=lh; } return cy;
+    }
+    function paintHeader(doc, title, subtitle){
+      doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F');
+      doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(32);
+      doc.text(title, PAGE.w/2, MARGIN.t, {align:'center',baseline:'top'});
+      doc.setFont('helvetica','normal'); doc.setFontSize(12);
+      doc.text(subtitle, PAGE.w/2, MARGIN.t+28, {align:'center',baseline:'top'});
+      return MARGIN.t+38;
+    }
+    function paintCategoryBlock(doc, cat, items, startY){
+      let y=startY+6, x=MARGIN.l, maxW=PAGE.w-MARGIN.l-MARGIN.r;
+      if(cat){ doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(255,255,255);
+        y=addWrapText(doc, cat, x, y, maxW, LINE); }
+      doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(220,220,220);
+      for(const r of items){
+        const chip=` [${r.rating}] `, bullet='• ', headW=doc.getTextWidth(bullet+chip);
+        doc.text(bullet, x, y);
+        doc.setTextColor(140,230,255); doc.text(chip, x+doc.getTextWidth(bullet), y);
+        doc.setTextColor(220,220,220);
+        const px=x+headW+2;
+        y=addWrapText(doc, r.prompt||r.id, px, y, maxW-headW-4, LINE-2)-4;
+        y+=4;
+        if(y>PAGE.h-MARGIN.b-40){ doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); y=MARGIN.t; }
+      }
+      doc.setDrawColor(60,120,140); doc.line(MARGIN.l, y, PAGE.w-MARGIN.r, y);
+      return y+10;
+    }
+    function paintSummary(doc, survey, label, y){
+      const counts=summarize(survey);
+      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(255,255,255);
+      doc.text(`${label} — Rating Summary`, MARGIN.l, y); y+=LINE;
+      doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200);
+      doc.text(counts.map((c,i)=>`${i}: ${c}`).join('    '), MARGIN.l, y);
+      return y+LINE;
+    }
+    const titleFor=(mine,partner)=>partner?'TalkKink Compatibility Report':'TalkKink Survey Export';
+    const subtitleFor=(mine,partner)=>{
+      const a=mine?.meta?.selectedCategories?.join(', ')||'All Categories';
+      if(partner){ const b=partner?.meta?.selectedCategories?.join(', ')||'All Categories'; return `Exported ${nowStamp()} • Mine: ${a} • Partner: ${b}`; }
+      return `Exported ${nowStamp()} • Selected: ${a}`;
+    };
 
-  if (!fileAInput || !fileBInput) {
-    console.warn("[compat] upload inputs not found; skipping event bindings");
-    return;
-  }
+    async function buildPdf({mine, partner, filename}){
+      const jsPDF = await loadJsPDF();
+      const doc = new jsPDF({unit:'pt',format:'letter',compress:true});
+      let y = paintHeader(doc, titleFor(mine,partner), subtitleFor(mine,partner)) + 14;
+      if(partner){ y=paintSummary(doc,mine,'Mine',y); y=paintSummary(doc,partner,'Partner',y)+6; }
+      else{ y=paintSummary(doc,mine,'Summary',y)+6; }
 
-  fileAInput.addEventListener("change", async (e)=>{
-    if (!e.target.files?.[0]) return;
-    try {
-      surveyA = await readJSON(e.target.files[0]);
-      render();
-    } catch(err){ alert("Survey A: " + err.message); }
-    finally { e.target.value = ""; }
-  });
+      const mineCats=groupByCategory(mine), partnerCats=partner?groupByCategory(partner):null;
+      for(const cat of mineCats.keys()){
+        if(y>PAGE.h-MARGIN.b-120){ doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); y=MARGIN.t; }
+        if(partner){
+          doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(255,255,255);
+          y=addWrapText(doc, cat, MARGIN.l, y, PAGE.w-MARGIN.l-MARGIN.r, LINE)+2;
 
-  fileBInput.addEventListener("change", async (e)=>{
-    if (!e.target.files?.[0]) return;
-    try {
-      surveyB = await readJSON(e.target.files[0]);
-      render();
-    } catch(err){ alert("Survey B: " + err.message); }
-    finally { e.target.value = ""; }
-  });
+          const colW=(PAGE.w-MARGIN.l-MARGIN.r-GAP)/2;
+          doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Mine', MARGIN.l, y);
+          const yL=paintCategoryBlock(doc,'', mineCats.get(cat)||[], y+LINE-LINE);
 
-  if (missingBtn) {
-    missingBtn.addEventListener("click", ()=> {
-      if (!missing.size) { alert("Great! No missing labels."); return; }
-      const list = [...missing].sort().join("\n");
-      alert("Add these to /data/labels-overrides.json:\n\n" + list);
-    });
-  }
+          let yR=y, xR=MARGIN.l+colW+GAP, maxW=colW;
+          if(yR+40>PAGE.h-MARGIN.b){ doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); yR=MARGIN.t; }
+          doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Partner', xR, yR); yR+=LINE;
 
-  // start
-  loadLabels().then(render);
+          (function drawRight(){
+            let cy=yR+6;
+            doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(220,220,220);
+            for(const r of (partnerCats.get(cat)||[])){
+              const chip=` [${r.rating}] `, bullet='• ', headW=doc.getTextWidth(bullet+chip);
+              doc.text(bullet, xR, cy);
+              doc.setTextColor(140,230,255); doc.text(chip, xR+doc.getTextWidth(bullet), cy);
+              doc.setTextColor(220,220,220);
+              const px=xR+headW+2;
+              cy=addWrapText(doc, r.prompt||r.id, px, cy, maxW-headW-4, LINE-2)-4;
+              cy+=4;
+              if(cy>PAGE.h-MARGIN.b-40){ doc.addPage('letter','portrait'); doc.setFillColor(0,0,0); doc.rect(0,0,PAGE.w,PAGE.h,'F'); cy=MARGIN.t; }
+            }
+            doc.setDrawColor(60,120,140); doc.line(xR, cy, xR+maxW, cy); yR=cy+12;
+          })();
+
+          y=Math.max(yL,yR)+10;
+        } else {
+          y=paintCategoryBlock(doc, cat, mineCats.get(cat)||[], y);
+        }
+      }
+      const total=doc.internal.getNumberOfPages(); for(let i=1;i<=total;i++){ doc.setPage(i); addFooter(doc,i,total); }
+      doc.save(filename || (partner?'talkkink-compatibility-results.pdf':'talkkink-survey-results.pdf'));
+    }
+
+    /* ================== public API ================== */
+    window.TKPDF = window.TKPDF || {};
+    window.TKPDF.download = async (opts={}) => {
+      const {mine, partner} = pickSources(opts);
+      if (!mine) { alert('Export unavailable: no survey data found.'); return; }
+      try { await buildPdf({mine, partner, filename: opts.filename}); }
+      catch (e) { console.error(e); alert('Export unavailable: missing PDF exporter or network error.'); }
+    };
+
+    /* ================== uploads + button bindings ================== */
+    function attachUpload(btn, key){
+      if(!btn) return;
+      const input=document.createElement('input'); input.type='file'; input.accept='application/json'; input.style.display='none'; document.body.appendChild(input);
+      btn.addEventListener('click', ()=>input.click());
+      input.addEventListener('change', async ()=>{
+        const f=input.files?.[0]; if(!f) return;
+        try{
+          const text=await f.text(); const json=JSON.parse(text);
+          localStorage.setItem(key, text);
+          if(key==='talkkink:mine'){ window.talkkinkMine=json; window.talkkinkSurvey=json; }
+          if(key==='talkkink:partner'){ window.talkkinkPartner=json; }
+          alert('Uploaded ✓');
+        }catch(e){ console.error(e); alert('Invalid file — expected TalkKink JSON export.'); }
+        input.value='';
+      });
+    }
+    function findBtn(txt){
+      const t=(txt||'').toLowerCase();
+      return Array.from(document.querySelectorAll('button,a,[role="button"]')).find(el=>(el.textContent||'').toLowerCase().includes(t));
+    }
+    function bindUI(){
+      const mineBtn=document.getElementById('uploadMineBtn')||findBtn('upload your survey');
+      const partnerBtn=document.getElementById('uploadPartnerBtn')||findBtn('upload partner');
+      const dlBtn=document.getElementById('downloadPdfBtn')||findBtn('download pdf');
+      attachUpload(mineBtn,'talkkink:mine'); attachUpload(partnerBtn,'talkkink:partner');
+      if(dlBtn) dlBtn.addEventListener('click', ()=>window.TKPDF.download());
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bindUI); else bindUI();
   })();
   </script>
-<!-- jsPDF + (optional) autotable must load before our exporter -->
-<script src="/js/vendor/jspdf.umd.min.js"></script>
-<!-- If you already load AutoTable elsewhere, keep that; otherwise add one: -->
-<script src="/js/vendor/jspdf.plugin.autotable.min.js"></script>
-
-<!-- New exporter that maps codes → labels and makes a full-bleed black PDF -->
-<script defer src="/js/compatibility-pdf-export.js"></script>
 </body>
 </html>
