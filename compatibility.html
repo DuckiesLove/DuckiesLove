@@ -184,10 +184,10 @@
         if (n) n.remove();
       }
 
-      try {
-        document.body.style.marginLeft = '';
-      } catch (err) {
-        console.warn('[compat] unable to clear dock margin', err);
+      document.body.style.marginLeft = '';
+      const _dock = document.querySelector('#compat-dock');
+      if (_dock) {
+        _dock.style.removeProperty('margin-bottom');
       }
     })();
   </script>
@@ -943,57 +943,30 @@ try {
   }
 })();
   </script>
-  <!-- CODEx: Safe clearDockMargin (paste near end of <body>) -->
-  <script>
+  <script defer>
+    /**
+     * Safely clear margin on the dock *only if it exists on this page*.
+     * This replaces any previous null-unsafe code around lines ~188–192.
+     */
     (function () {
       const SELECTOR = '#compat-dock, .compat-dock, [data-compat-dock]';
-      const SHADOW_HOST = null;
-      const DEBUG = false;
-
-      const log = (...a) => DEBUG && console.info('[compat]', ...a);
-      const warn = (...a) => DEBUG && console.warn('[compat]', ...a);
-
-      function findDock() {
-        if (SHADOW_HOST) {
-          const host = document.querySelector(SHADOW_HOST);
-          const root = host && host.shadowRoot;
-          const el = root ? root.querySelector(SELECTOR) : null;
-          if (!el) log('dock not found in shadow root', { SELECTOR, SHADOW_HOST });
-          return el;
-        }
-
-        const el = document.querySelector(SELECTOR);
-        if (!el) log('dock not found in light DOM', { SELECTOR });
-        return el;
-      }
 
       function clearDockMarginSafe() {
-        const el = findDock();
-        if (!el) return;
-
-        try {
-          el.style.removeProperty('margin');
-          el.style.removeProperty('margin-bottom');
-          log('dock margin cleared');
-        } catch (err) {
-          warn('clearDockMargin failed:', err);
-        }
+        const el = document.querySelector(SELECTOR);
+        if (!el) return;                  // No-op if the dock isn't present
+        el.style.removeProperty('margin');
+        el.style.removeProperty('margin-bottom');
       }
 
+      // Run after DOM is parsed; also handle late mounts briefly
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', clearDockMarginSafe, { once: true });
       } else {
         queueMicrotask(clearDockMarginSafe);
       }
-
-      window.addEventListener('load', () => setTimeout(clearDockMarginSafe, 0), { once: true });
-
       const mo = new MutationObserver(() => {
-        const el = findDock();
-        if (el) {
-          clearDockMarginSafe();
-          mo.disconnect();
-        }
+        const el = document.querySelector(SELECTOR);
+        if (el) { clearDockMarginSafe(); mo.disconnect(); }
       });
       mo.observe(document.documentElement, { childList: true, subtree: true });
       setTimeout(() => mo.disconnect(), 3000);
