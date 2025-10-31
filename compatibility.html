@@ -191,6 +191,46 @@
       }
     })();
   </script>
+  <script>
+    // --- compat: clear dock margin safely ---
+    (function () {
+      const SEL = '#compat-dock';
+
+      function clearDockMargin() {
+        const el = document.querySelector(SEL);
+        if (!el) {
+          console.warn('[compat] clearDockMargin skipped: element not found', { selector: SEL });
+          return;
+        }
+
+        try {
+          el.style.margin = '';
+          if (typeof el.style.removeProperty === 'function') {
+            el.style.removeProperty('margin-bottom');
+          }
+          console.info('[compat] dock margin cleared');
+        } catch (err) {
+          console.error('[compat] clearDockMargin failed:', err);
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', clearDockMargin);
+      } else {
+        clearDockMargin();
+
+        const mo = new MutationObserver(() => {
+          const el = document.querySelector(SEL);
+          if (el) {
+            clearDockMargin();
+            mo.disconnect();
+          }
+        });
+
+        mo.observe(document.documentElement, { childList: true, subtree: true });
+      }
+    })();
+  </script>
   <!-- Import theme and global layout styles -->
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/global.css" />
