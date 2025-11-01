@@ -184,9 +184,30 @@
       if (!input.id) input.id = 'partnerFile';
     }
 
-    input.addEventListener('change', () => {
+    input.addEventListener('change', async () => {
       const file = input.files && input.files[0];
       if (!file) return;
+
+      if (onLoaded === savePartner) {
+        let ok = true;
+        if (typeof window.tkConfirmPartnerConsent === 'function') {
+          try {
+            ok = await window.tkConfirmPartnerConsent();
+          } catch (err) {
+            console.error('[compat] partner consent check failed:', err);
+            ok = false;
+          }
+        } else {
+          ok = window.confirm(
+            'Before importing a partner\'s survey, confirm you have their explicit consent to upload and compare their responses here.\n\nClick "OK" to confirm consent and continue, or "Cancel" to stop.'
+          );
+        }
+
+        if (!ok) {
+          input.value = '';
+          return;
+        }
+      }
       const reader = new FileReader();
       reader.onload = () => {
         try {
