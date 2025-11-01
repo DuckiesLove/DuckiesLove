@@ -178,16 +178,28 @@
   </style>
   <script>
     (function () {
-      // Nuke any leftover dock/overlay/panel on this page
-      for (const sel of ['#tkDockCard', '.tk-overlay', '#categorySurveyPanel', '.category-panel']) {
-        const n = document.querySelector(sel);
-        if (n) n.remove();
-      }
+      const clearDock = () => {
+        // Nuke any leftover dock/overlay/panel on this page
+        for (const sel of ['#tkDockCard', '.tk-overlay', '#categorySurveyPanel', '.category-panel']) {
+          const n = document.querySelector(sel);
+          if (n) n.remove();
+        }
 
-      document.body.style.marginLeft = '';
-      const _dock = document.querySelector('#compat-dock');
-      if (_dock) {
-        _dock.style.removeProperty('margin-bottom');
+        const body = document.body;
+        if (body) {
+          body.style.marginLeft = '';
+        }
+
+        const dock = document.querySelector('#compat-dock');
+        if (dock) {
+          dock.style.removeProperty('margin-bottom');
+        }
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', clearDock, { once: true });
+      } else {
+        clearDock();
       }
     })();
   </script>
