@@ -63,8 +63,6 @@ try {
 (function () {
   const PAGE = { w: 612, h: 792 };
   const MARGIN = { t: 48, r: 40, b: 54, l: 40 };
-  const LINE = 16;
-  const COL_GAP = 18;
   const SELF_KEYS = ['talkkink:survey', 'talkkink:mine', 'tk_compat.self'];
   const PARTNER_KEYS = ['talkkink:partner', 'tk_compat.partner'];
 
@@ -100,7 +98,10 @@ try {
       id: row.id ?? row.prompt ?? row.text ?? row.title ?? `item-${idx}`,
       prompt: row.prompt ?? row.text ?? row.title ?? row.label ?? row.question ?? row.id ?? '',
       category: row.category ?? row.categoryId ?? row.cat ?? row.section ?? 'Other',
-      rating: normalizeRating(row.rating ?? row.score ?? row.value ?? row.answer ?? 0),
+      rating:
+        row.rating == null && row.score == null && row.value == null && row.answer == null
+          ? null
+          : normalizeRating(row.rating ?? row.score ?? row.value ?? row.answer),
       index: row.index ?? row.order ?? row.position ?? idx
     }));
   }
@@ -120,38 +121,166 @@ try {
   const summarize = (survey) => {
     const counts = [0, 0, 0, 0, 0, 0];
     normalizeRows(survey).forEach(row => {
+      if (row.rating == null) return;
       counts[row.rating] += 1;
     });
     return counts;
   };
 
-  function addWrapText(doc, text, x, y, maxW, lh) {
-    const words = String(text || '').split(/\s+/);
-    let line = '';
-    let cy = y;
-    const width = (t) => doc.getTextWidth(t);
-    words.forEach(word => {
-      const test = line ? `${line} ${word}` : word;
-      if (width(test) > maxW) {
-        if (line) {
-          doc.text(line, x, cy);
-          cy += lh;
-        }
-        line = word;
+  const safeScore = (value) => {
+    if (value == null) return null;
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return Math.max(0, Math.min(5, num));
+  };
+
+  const computeMatch = (a, b) => {
+    const aNorm = safeScore(a);
+    const bNorm = safeScore(b);
+    if (aNorm == null || bNorm == null) return null;
+    const diff = Math.min(5, Math.abs(aNorm - bNorm));
+    return Math.round(100 - diff * 20);
+  };
+
+  const shortenPrompt = (text) => {
+    const str = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!str) return '';
+    if (str.length <= 72) return str;
+    const words = str.split(' ');
+    let out = '';
+    for (const word of words) {
+      const next = out ? `${out} ${word}` : word;
+      if (next.length > 68) break;
+      out = next;
+    }
+    const base = out || str.slice(0, 68).trim();
+    return base.endsWith('…') ? base : `${base}…`;
+  };
+
+  const MINE_COLOR = [90, 200, 255];
+  const PARTNER_COLOR = [255, 160, 220];
+
+  function drawProgressBar(doc, x, y, width, height, percent, color = MINE_COLOR) {
+    const pct = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
+    doc.setDrawColor(70, 70, 70);
+    doc.setFillColor(26, 26, 26);
+    doc.roundedRect(x, y, width, height, 3, 3, 'DF');
+    const fillWidth = Math.max(0, ((width - 2) * pct) / 100);
+    if (fillWidth > 0) {
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.roundedRect(x + 1, y + 1, fillWidth, height - 2, 2, 2, 'F');
+    }
+    const textColor = pct > 55 ? [0, 0, 0] : [255, 255, 255];
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(`${pct}%`, x + width / 2, y + height / 2 + 3, { align: 'center' });
+    doc.setTextColor(255, 255, 255);
+  }
+
+  function drawScoreCell(doc, x, y, width, height, score, color = MINE_COLOR) {
+    if (width <= 0) return;
+    doc.setDrawColor(70, 70, 70);
+    doc.setFillColor(24, 24, 32);
+    doc.roundedRect(x, y, width, height, 2, 2, 'DF');
+    const norm = safeScore(score);
+    if (norm == null) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(180, 180, 180);
+      doc.text('—', x + width / 2, y + height / 2 + 3, { align: 'center' });
+      doc.setTextColor(255, 255, 255);
+      return;
+    }
+    const fillWidth = ((width - 4) * norm) / 5;
+    if (fillWidth > 0) {
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.roundedRect(x + 2, y + 2, fillWidth, height - 4, 1.5, 1.5, 'F');
+    }
+    const textColor = fillWidth > width * 0.55 ? [0, 0, 0] : [255, 255, 255];
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(String(norm), x + width / 2, y + height / 2 + 3, { align: 'center' });
+    doc.setTextColor(255, 255, 255);
+  }
+
+  function matchFillColor(percentage) {
+    if (percentage == null) return [90, 90, 90];
+    if (percentage >= 90) return [110, 220, 140];
+    if (percentage >= 70) return [230, 210, 120];
+    if (percentage >= 50) return [240, 170, 90];
+    return [240, 110, 110];
+  }
+
+  function drawMatchCell(doc, x, y, width, height, percentage) {
+    if (width <= 0) return;
+    doc.setDrawColor(70, 70, 70);
+    doc.setFillColor(24, 24, 32);
+    doc.roundedRect(x, y, width, height, 2, 2, 'DF');
+    if (percentage == null) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(180, 180, 180);
+      doc.text('N/A', x + width / 2, y + height / 2 + 3, { align: 'center' });
+      doc.setTextColor(255, 255, 255);
+      return;
+    }
+    const pct = Math.max(0, Math.min(100, percentage));
+    const fillWidth = ((width - 4) * pct) / 100;
+    const color = matchFillColor(pct);
+    if (fillWidth > 0) {
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.roundedRect(x + 2, y + 2, fillWidth, height - 4, 1.5, 1.5, 'F');
+    }
+    const textColor = pct >= 60 ? [0, 0, 0] : [255, 255, 255];
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(`${pct}%`, x + width / 2, y + height / 2 + 3, { align: 'center' });
+    doc.setTextColor(255, 255, 255);
+  }
+
+  function mergeCategoryRows(mineRows = [], partnerRows = []) {
+    const map = new Map();
+    mineRows.forEach((row, idx) => {
+      const key = row.id ?? `mine-${idx}`;
+      map.set(key, {
+        id: key,
+        prompt: row.prompt || row.id || '',
+        mine: row.rating,
+        partner: null,
+        index: row.index ?? idx
+      });
+    });
+    partnerRows.forEach((row, idx) => {
+      const key = row.id ?? `partner-${idx}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.partner = row.rating;
+        if (!existing.prompt && row.prompt) existing.prompt = row.prompt;
+        const candidateIndex = row.index ?? idx;
+        existing.index = Math.min(existing.index ?? candidateIndex, candidateIndex);
       } else {
-        line = test;
+        map.set(key, {
+          id: key,
+          prompt: row.prompt || row.id || '',
+          mine: null,
+          partner: row.rating,
+          index: row.index ?? idx
+        });
       }
     });
-    if (line) {
-      doc.text(line, x, cy);
-      cy += lh;
-    }
-    return cy;
+    return Array.from(map.values()).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  }
+
+  function paintBackground(doc) {
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
   }
 
   function header(doc, title, subtitle) {
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
+    paintBackground(doc);
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(32);
@@ -169,53 +298,146 @@ try {
     doc.text(`TalkKink • ${nowStamp()} • Page ${page}/${total}`, PAGE.w / 2, PAGE.h - MARGIN.b + 24, { align: 'center', baseline: 'bottom' });
   }
 
-  function block(doc, cat, items, startY) {
-    let cy = startY + 6;
-    const x = MARGIN.l;
-    const maxW = PAGE.w - MARGIN.l - MARGIN.r;
-    if (cat) {
+  function renderCategoryTable(doc, category, mineRows, partnerRows, startY, opts = {}) {
+    const showPartner = Boolean(opts.showPartner);
+    const rows = mergeCategoryRows(mineRows, showPartner ? partnerRows : []);
+    const totalWidth = PAGE.w - MARGIN.l - MARGIN.r;
+    const gap = 12;
+    const baseGap = showPartner ? gap * 3 : gap;
+    const available = Math.max(0, totalWidth - baseGap);
+    const questionWidth = showPartner ? available * 0.5 : available * 0.68;
+    const mineWidth = showPartner ? available * 0.18 : available * 0.32;
+    const partnerWidth = showPartner ? available * 0.16 : 0;
+    const matchWidth = showPartner ? available * 0.16 : 0;
+    const questionX = MARGIN.l;
+    const mineX = questionX + questionWidth + gap;
+    const partnerX = showPartner ? mineX + mineWidth + gap : 0;
+    const matchX = showPartner ? partnerX + partnerWidth + gap : 0;
+    const tableWidth = totalWidth;
+    const rowHeight = 22;
+    const cellHeight = 16;
+
+    const total = rows.length;
+    const mineAnswered = rows.reduce((acc, row) => acc + (row.mine != null ? 1 : 0), 0);
+    const partnerAnswered = showPartner
+      ? rows.reduce((acc, row) => acc + (row.partner != null ? 1 : 0), 0)
+      : 0;
+    const minePercent = total ? Math.round((mineAnswered / total) * 100) : 0;
+    const partnerPercent = showPartner && total ? Math.round((partnerAnswered / total) * 100) : 0;
+    const matches = showPartner
+      ? rows.map((row) => computeMatch(row.mine, row.partner)).filter((v) => v != null)
+      : [];
+    const avgMatch = matches.length ? Math.round(matches.reduce((sum, v) => sum + v, 0) / matches.length) : null;
+
+    const summaryLine = showPartner
+      ? `Answered • Mine ${mineAnswered}/${total} (${minePercent}%) • Partner ${partnerAnswered}/${total} (${partnerPercent}%)${avgMatch != null ? ` • Avg Match ${avgMatch}%` : ''}`
+      : `Answered ${mineAnswered}/${total} (${minePercent}%)`;
+
+    let y = startY;
+    const headerHeight = showPartner ? 40 : 36;
+
+    const renderHeader = (cont = false) => {
+      if (y + headerHeight > PAGE.h - MARGIN.b) {
+        doc.addPage('letter', 'portrait');
+        paintBackground(doc);
+        y = MARGIN.t;
+      }
+      const title = cont ? `${category} (cont.)` : category;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
       doc.setTextColor(255, 255, 255);
-      cy = addWrapText(doc, cat, x, cy, maxW, LINE);
-    }
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(220, 220, 220);
-    for (const row of items) {
-      const chip = ` [${row.rating}] `;
-      const bullet = '• ';
-      const headW = doc.getTextWidth(bullet + chip);
-      doc.text(bullet, x, cy);
-      doc.setTextColor(140, 230, 255);
-      doc.text(chip, x + doc.getTextWidth(bullet), cy);
+      doc.text(title, MARGIN.l, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(180, 210, 255);
+      doc.text(summaryLine, MARGIN.l, y + 12, {
+        maxWidth: PAGE.w - MARGIN.l - MARGIN.r,
+        align: 'left'
+      });
+      const headY = y + 26;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
       doc.setTextColor(220, 220, 220);
-      const px = x + headW + 2;
-      cy = addWrapText(doc, row.prompt || row.id, px, cy, maxW - headW - 4, LINE - 2) - 4;
-      cy += 4;
-      if (cy > PAGE.h - MARGIN.b - 40) {
-        doc.addPage('letter', 'portrait');
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-        cy = MARGIN.t;
-      }
+      doc.text('Question', questionX, headY, { baseline: 'bottom' });
+      doc.text('Mine', mineX, headY, { baseline: 'bottom' });
+      if (showPartner) doc.text('Partner', partnerX, headY, { baseline: 'bottom' });
+      if (showPartner) doc.text('Match', matchX, headY, { baseline: 'bottom' });
+      doc.setDrawColor(70, 70, 70);
+      doc.line(MARGIN.l, headY + 2, MARGIN.l + tableWidth, headY + 2);
+      y = headY + 6;
+    };
+
+    renderHeader(false);
+
+    if (!total) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(180, 180, 180);
+      doc.text('No responses recorded for this category.', questionX, y + 12);
+      doc.setTextColor(255, 255, 255);
+      return y + 24;
     }
-    doc.setDrawColor(60, 120, 140);
-    doc.line(MARGIN.l, cy, PAGE.w - MARGIN.r, cy);
-    return cy + 10;
+
+    rows.forEach((row, idx) => {
+      if (y + rowHeight > PAGE.h - MARGIN.b) {
+        doc.addPage('letter', 'portrait');
+        paintBackground(doc);
+        y = MARGIN.t;
+        renderHeader(true);
+      }
+      const rowColor = idx % 2 === 0 ? [28, 28, 40] : [22, 22, 34];
+      doc.setFillColor(rowColor[0], rowColor[1], rowColor[2]);
+      doc.rect(MARGIN.l, y, tableWidth, rowHeight, 'F');
+
+      const label = shortenPrompt(row.prompt || row.id || '');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(235, 235, 235);
+      doc.text(label, questionX + 4, y + rowHeight / 2 + 3, {
+        baseline: 'middle',
+        maxWidth: Math.max(questionWidth - 8, 20),
+        align: 'left'
+      });
+
+      drawScoreCell(doc, mineX, y + 3, mineWidth, cellHeight, row.mine, MINE_COLOR);
+      if (showPartner) {
+        drawScoreCell(doc, partnerX, y + 3, partnerWidth, cellHeight, row.partner, PARTNER_COLOR);
+        drawMatchCell(doc, matchX, y + 3, matchWidth, cellHeight, computeMatch(row.mine, row.partner));
+      }
+
+      doc.setTextColor(255, 255, 255);
+      y += rowHeight;
+    });
+
+    return y + 16;
   }
 
-  function summary(doc, survey, label, startY) {
+  function summary(doc, survey, label, startY, accent = MINE_COLOR) {
+    const rows = normalizeRows(survey);
+    const total = rows.length;
+    const answered = rows.reduce((acc, row) => acc + (row.rating != null ? 1 : 0), 0);
+    const percent = total ? Math.round((answered / total) * 100) : 0;
     const counts = summarize(survey);
+
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
     doc.setTextColor(255, 255, 255);
     doc.text(`${label} — Rating Summary`, MARGIN.l, startY);
+
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setTextColor(200, 200, 200);
-    doc.text(counts.map((count, rating) => `${rating}: ${count}`).join('    '), MARGIN.l, startY + LINE);
-    return startY + LINE * 2;
+    doc.text(`Answered ${answered}/${total} (${percent}%)`, MARGIN.l, startY + 14);
+
+    drawProgressBar(doc, MARGIN.l, startY + 18, 200, 10, percent, accent);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(170, 200, 240);
+    doc.text(counts.map((count, rating) => `${rating}: ${count}`).join('    '), MARGIN.l, startY + 36);
+
+    doc.setTextColor(255, 255, 255);
+    return startY + 48;
   }
 
   function pickSources(opts = {}) {
@@ -251,82 +473,43 @@ try {
 
     let y = header(doc, title, subtitle);
     if (partner) {
-      y = summary(doc, mine, 'Mine', y);
-      y = summary(doc, partner, 'Partner', y) + 6;
+      y = summary(doc, mine, 'Mine', y, MINE_COLOR);
+      y = summary(doc, partner, 'Partner', y, PARTNER_COLOR) + 6;
     } else {
-      y = summary(doc, mine, 'Summary', y) + 6;
+      y = summary(doc, mine, 'Summary', y, MINE_COLOR) + 6;
     }
 
     const mineMap = groupByCategory(mine);
     const partnerMap = partner ? groupByCategory(partner) : null;
+    const sections = [];
+    const seen = new Set();
 
-    for (const [cat, items] of mineMap.entries()) {
-      if (y > PAGE.h - MARGIN.b - 120) {
-        doc.addPage('letter', 'portrait');
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-        y = MARGIN.t;
-      }
+    mineMap.forEach((items, cat) => {
+      sections.push({ name: cat, mine: items, partner: partner && partnerMap ? partnerMap.get(cat) || [] : [] });
+      seen.add(cat);
+    });
 
-      if (partner && partnerMap) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.setTextColor(255, 255, 255);
-        y = addWrapText(doc, cat, MARGIN.l, y, PAGE.w - MARGIN.l - MARGIN.r, LINE) + 2;
-
-        const colW = (PAGE.w - MARGIN.l - MARGIN.r - COL_GAP) / 2;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('Mine', MARGIN.l, y);
-        const yL = block(doc, '', items, y + LINE - LINE);
-
-        let yR = y;
-        let xR = MARGIN.l + colW + COL_GAP;
-        if (yR + 40 > PAGE.h - MARGIN.b) {
-          doc.addPage('letter', 'portrait');
-          doc.setFillColor(0, 0, 0);
-          doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-          yR = MARGIN.t;
+    if (partner && partnerMap) {
+      partnerMap.forEach((items, cat) => {
+        if (!seen.has(cat)) {
+          sections.push({ name: cat, mine: [], partner: items });
         }
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('Partner', xR, yR);
-        yR += LINE;
-
-        (function drawRight() {
-          let cy = yR + 6;
-          const maxW = colW;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          doc.setTextColor(220, 220, 220);
-          for (const row of partnerMap.get(cat) || []) {
-            const chip = ` [${row.rating}] `;
-            const bullet = '• ';
-            const headW = doc.getTextWidth(bullet + chip);
-            doc.text(bullet, xR, cy);
-            doc.setTextColor(140, 230, 255);
-            doc.text(chip, xR + doc.getTextWidth(bullet), cy);
-            doc.setTextColor(220, 220, 220);
-            const px = xR + headW + 2;
-            cy = addWrapText(doc, row.prompt || row.id, px, cy, maxW - headW - 4, LINE - 2) - 4;
-            cy += 4;
-            if (cy > PAGE.h - MARGIN.b - 40) {
-              doc.addPage('letter', 'portrait');
-              doc.setFillColor(0, 0, 0);
-              doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-              cy = MARGIN.t;
-            }
-          }
-          doc.setDrawColor(60, 120, 140);
-          doc.line(xR, cy, xR + maxW, cy);
-          yR = cy + 12;
-        })();
-
-        y = Math.max(yL, yR) + 10;
-      } else {
-        y = block(doc, cat, items, y);
-      }
+      });
     }
+
+    if (!sections.length) {
+      sections.push({
+        name: 'Survey Responses',
+        mine: normalizeRows(mine),
+        partner: partner ? normalizeRows(partner) : []
+      });
+    }
+
+    sections.forEach((section) => {
+      y = renderCategoryTable(doc, section.name, section.mine, section.partner, y, {
+        showPartner: Boolean(partner)
+      });
+    });
 
     const total = doc.internal.getNumberOfPages();
     for (let i = 1; i <= total; i += 1) {
