@@ -1,12 +1,12 @@
-<!-- ================= CODEX: Consent + Pretty PDF (A/B or Single) ================= -->
-<input id="yourFile" type="file" accept="application/json" style="display:none" />
+<!-- ================= CODEX DROP-IN: Fast Upload + Consent + Pretty PDF ================= -->
+<input id="yourFile"    type="file" accept="application/json" style="display:none" />
 <input id="partnerFile" type="file" accept="application/json" style="display:none" />
 
 <button id="yourBtn"    type="button">Upload Your Survey</button>
 <button id="partnerBtn" type="button">Upload Partner’s Survey</button>
 <button id="downloadBtn" type="button">Download PDF</button>
 
-<!-- jsPDF + autoTable for the formatted PDF -->
+<!-- jsPDF + autoTable -->
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
 
@@ -14,44 +14,57 @@
 (function () {
   const $ = (s, r=document) => r.querySelector(s);
 
-  // Wire pickers
-  $('#yourBtn')?.addEventListener('click', () => $('#yourFile').click());
-  $('#partnerBtn')?.addEventListener('click', () => $('#partnerFile').click());
+  // Wire UI
+  $('#yourBtn')?.addEventListener('click',   () => $('#yourFile').click());
+  $('#partnerBtn')?.addEventListener('click',() => $('#partnerFile').click());
 
-  // Store loaded JSONs
+  // State (only store Files at change time → fast handler)
+  let yourFileBlob = null;
+  let partnerFileBlob = null;
   let yourJSON = null;
   let partnerJSON = null;
 
-  // ---- Upload: YOUR survey
-  $('#yourFile')?.addEventListener('change', async (ev) => {
+  // ---- FAST change handlers: do nothing heavy here ----
+  $('#yourFile')?.addEventListener('change', (ev) => {
     const f = ev.target?.files?.[0]; if (!f) return;
-    try {
-      yourJSON = JSON.parse(await f.text());
-      alert('Uploaded ✓');
-    } catch (e) { console.error(e); alert('Could not read your survey JSON.'); }
-    finally { ev.target.value = ''; }
+    yourFileBlob = f;          // store only
+    alert('Uploaded ✓');
+    ev.target.value = '';
   });
 
-  // ---- Upload: PARTNER survey with consent prompt + note in alert
-  $('#partnerFile')?.addEventListener('change', async (ev) => {
+  $('#partnerFile')?.addEventListener('change', (ev) => {
     const f = ev.target?.files?.[0]; if (!f) return;
 
     const ok = confirm(
-      'Before importing a partner’s survey, confirm you have their explicit consent ' +
+      'Before importing a partner’s survey, confirm you have their explicit consent '+
       'to upload and compare their responses here.\n\nClick “OK” to continue or “Cancel” to stop.'
     );
     if (!ok) { ev.target.value = ''; return; }
 
-    try {
-      partnerJSON = JSON.parse(await f.text());
-      alert('Uploaded ✓\n(You confirmed you have your partner’s explicit consent.)');
-    } catch (e) { console.error(e); alert('Could not read partner survey JSON.'); }
-    finally { ev.target.value = ''; }
+    partnerFileBlob = f;       // store only
+    alert('Uploaded ✓\n(You confirmed you have your partner’s explicit consent.)');
+    ev.target.value = '';
   });
 
-  // ---- Download PDF
+  // ---- Parse files lazily (after a tick / on demand) ----
+  async function ensureParsed() {
+    // Yield so we never block the change event: avoids "[Violation] 'change' handler took …ms"
+    await new Promise(r => setTimeout(r, 0));
+
+    if (yourFileBlob && !yourJSON) {
+      const text = await yourFileBlob.text();
+      yourJSON = JSON.parse(text);
+    }
+    if (partnerFileBlob && !partnerJSON) {
+      const text = await partnerFileBlob.text();
+      partnerJSON = JSON.parse(text);
+    }
+  }
+
+  // ---- Download pretty PDF (A/B or single) ----
   $('#downloadBtn')?.addEventListener('click', async () => {
     try {
+      await ensureParsed();
       await generatePrettyPDF(yourJSON, partnerJSON);
     } catch (e) {
       console.error(e);
@@ -59,14 +72,13 @@
     }
   });
 
-  // ======= Helpers: parse TalkKink JSON into rows =======
-  // Returns: [{Category, Item, Role, Score}]
+  // ======= Parse TalkKink JSON -> rows =======
   function rowsFromTalkKink(json) {
     if (!json) return [];
-    const map = json?.answersById || {};
+    const map = json.answersById || {};
     const out = [];
     for (const [id, score] of Object.entries(map)) {
-      // e.g. behavioral-play-writing-lines-or-apology-letters-as-correction-giving
+      // behavioral-play-assigning-corner-time-or-time-outs-giving
       const parts = id.split('-');
       const role = parts.at(-1); // giving|receiving|general
       const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, m=>m.toUpperCase());
@@ -86,32 +98,22 @@
 
     const rowsA = rowsFromTalkKink(yourJSON);
     const rowsB = rowsFromTalkKink(partnerJSON);
+    const hasA = rowsA.length > 0, hasB = rowsB.length > 0;
 
-    // Header
+    // Header bar
     const now = new Date().toLocaleString();
-    doc.setFillColor(0, 0, 0);        // black header bar
-    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 64, 'F');
-
-    doc.setTextColor(0, 255, 255);
-    doc.setFont('helvetica','bold'); doc.setFontSize(18);
+    doc.setFillColor(0,0,0); doc.rect(0,0,doc.internal.pageSize.getWidth(),64,'F');
+    doc.setTextColor(0,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(18);
     doc.text('TalkKink Compatibility — Printable Report', 48, 40);
-
-    doc.setTextColor(220);
-    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    doc.setTextColor(220); doc.setFont('helvetica','normal'); doc.setFontSize(10);
     doc.text(`Generated: ${now}`, 48, 56);
 
-    // Determine layout mode
-    const hasA = rowsA.length > 0;
-    const hasB = rowsB.length > 0;
-
-    const yStart = 88;
-    let y = yStart;
+    const yStart = 88; let y = yStart;
 
     if (hasA && hasB) {
-      // ----- Side-by-side A vs B with Match % and flags -----
-      const categories = [...new Set([...rowsA, ...rowsB].map(r => r.Category))];
-
-      for (const cat of categories) {
+      // A/B comparison with Match % and flags
+      const cats = [...new Set([...rowsA, ...rowsB].map(r=>r.Category))];
+      for (const cat of cats) {
         doc.setTextColor(0); doc.setFont('helvetica','bold'); doc.setFontSize(13);
         doc.text(cat, 48, y); y += 8;
 
@@ -126,27 +128,24 @@
           head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
           body,
           styles: { font:'helvetica', fontSize:10, cellPadding:4, overflow:'linebreak' },
-          headStyles: { fillColor: [0,0,0], textColor: 255 },
-          alternateRowStyles: { fillColor: [245,245,245] },
+          headStyles: { fillColor:[0,0,0], textColor:255 },
+          alternateRowStyles: { fillColor:[245,245,245] },
           columnStyles: {
-            0:{ cellWidth:70 },
-            1:{ cellWidth:280 },
-            2:{ cellWidth:60, halign:'center' },
-            3:{ cellWidth:60, halign:'center' },
-            4:{ cellWidth:40, halign:'center' },
-            5:{ cellWidth:60, halign:'center' },
+            0:{ cellWidth:70 }, 1:{ cellWidth:280 }, 2:{ cellWidth:60, halign:'center' },
+            3:{ cellWidth:60, halign:'center' }, 4:{ cellWidth:40, halign:'center' },
+            5:{ cellWidth:60, halign:'center' }
           }
         });
         y = doc.lastAutoTable.finalY + 16;
         if (y > doc.internal.pageSize.getHeight()-72) { doc.addPage(); y = yStart; }
       }
     } else {
-      // ----- Single survey printable (Your OR Partner) -----
+      // Single survey pretty print
       const rows = hasA ? rowsA : rowsB;
       const whose = hasA ? 'Partner A' : 'Partner';
-      const categories = [...new Set(rows.map(r => r.Category))];
+      const cats = [...new Set(rows.map(r=>r.Category))];
 
-      for (const cat of categories) {
+      for (const cat of cats) {
         doc.setTextColor(0); doc.setFont('helvetica','bold'); doc.setFontSize(13);
         doc.text(`${cat} — ${whose}`, 48, y); y += 8;
 
@@ -157,8 +156,8 @@
           head: [['Role','Item','Score']],
           body,
           styles: { font:'helvetica', fontSize:10, cellPadding:4, overflow:'linebreak' },
-          headStyles: { fillColor: [0,0,0], textColor: 255 },
-          alternateRowStyles: { fillColor: [245,245,245] },
+          headStyles: { fillColor:[0,0,0], textColor:255 },
+          alternateRowStyles: { fillColor:[245,245,245] },
           columnStyles: { 0:{cellWidth:90}, 1:{cellWidth:350}, 2:{cellWidth:60, halign:'center'} }
         });
         y = doc.lastAutoTable.finalY + 16;
@@ -166,13 +165,11 @@
       }
     }
 
-    const name = (hasA && hasB) ? 'compatibility-pretty.pdf' : 'partner-survey-pretty.pdf';
-    doc.save(name);
+    const filename = (hasA && hasB) ? 'compatibility-pretty.pdf' : 'partner-survey-pretty.pdf';
+    doc.save(filename);
   }
 
-  // Build A/B comparison rows with match % and emoji flags
   function buildComparisonBody(rowsA, rowsB) {
-    // Key by role+item to align rows even if one side is missing
     const key = r => `${r.Role}|${r.Item}`.toLowerCase();
     const mapA = Object.fromEntries(rowsA.map(r => [key(r), r]));
     const mapB = Object.fromEntries(rowsB.map(r => [key(r), r]));
@@ -186,14 +183,11 @@
       const aScore = Number.isFinite(a?.Score) ? a.Score : '';
       const bScore = Number.isFinite(b?.Score) ? b.Score : '';
 
-      let match = '';
-      let flag = '';
+      let match = '', flag = '';
       if (a && b) {
         const diff = Math.abs(a.Score - b.Score);
         const pct = Math.round((1 - diff/5) * 100);
         match = pct + '%';
-
-        // Flags: ⭐ for >=90, 🚩 for <=30, 🟨 if one is 5 and the other lower
         if (pct >= 90) flag = '⭐';
         else if (pct <= 30) flag = '🚩';
         if ((a.Score === 5 && b.Score < 5) || (b.Score === 5 && a.Score < 5)) {
@@ -206,4 +200,4 @@
   }
 })();
 </script>
-<!-- =================================================================== -->
+<!-- =============================================================================== -->
