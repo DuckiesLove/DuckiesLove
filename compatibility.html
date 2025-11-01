@@ -943,9 +943,7 @@
       );
 
       if (downloadBtn) {
-        downloadBtn.addEventListener('click', (event) => event.stopImmediatePropagation(), true);
-
-        downloadBtn.addEventListener('click', async () => {
+        const handleDownloadClick = async () => {
           try {
             await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
             if (!yourJSON && !partnerJSON) {
@@ -963,7 +961,18 @@
             }
             alert('Sorry—could not generate the PDF.');
           }
-        });
+        };
+
+        downloadBtn.addEventListener(
+          'click',
+          (event) => {
+            event.stopImmediatePropagation();
+            event.stopPropagation();
+            event.preventDefault();
+            handleDownloadClick();
+          },
+          true
+        );
       }
 
       const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
