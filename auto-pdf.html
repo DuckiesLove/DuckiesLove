@@ -50,7 +50,7 @@
     </label>
     <label id="uploadPartnerSurvey" class="file-upload">
       <span>Upload Partner’s Survey</span>
-      <input type="file" id="fileB" hidden />
+      <input type="file" id="fileB" hidden data-partner-upload />
     </label>
     <button id="downloadPdfBtn" class="download-button" disabled>Download PDF</button>
   </div>
@@ -255,5 +255,177 @@
 })();
 </script>
 <!-- ---------- End Safe Bootstrap ---------- -->
+<!-- ======================= CODEX DROP-IN: Partner Upload Consent + Clean PDF ======================= -->
+<!-- Partner input markup lives above; this drop-in layers consent + clean partner PDF export. -->
+<style>
+  .tk-consent-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:9999}
+  .tk-consent-modal{width:min(560px,92vw);background:#0b0b0c;color:#e9e9ef;border:1px solid #2a2a35;border-radius:16px;padding:18px 18px 14px;box-shadow:0 12px 40px rgba(0,0,0,.6);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  .tk-consent-modal h3{margin:0 0 6px 0;font-size:18px}
+  .tk-consent-modal p{margin:6px 0 10px}
+  .tk-consent-row{display:flex;gap:10px;align-items:flex-start;margin:10px 0 16px}
+  .tk-consent-row input[type="checkbox"]{margin-top:2px;transform:scale(1.05)}
+  .tk-consent-actions{display:flex;gap:10px;justify-content:flex-end}
+  .tk-btn{padding:10px 14px;border-radius:12px;border:1px solid #3b3b49;background:#18181c;color:#fafafc;cursor:pointer}
+  .tk-btn.primary{background:#2b64ff;border-color:#2b64ff}
+  .tk-btn:disabled{opacity:.6;cursor:not-allowed}
+  .tk-consent-small{opacity:.8}
+  .tk-consent-banner{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#0e2810;color:#d7f8dd;border:1px solid #2e6b33;border-radius:10px;padding:8px 12px;display:none;z-index:10000}
+</style>
+
+<div id="tk-consent" class="tk-consent-backdrop" aria-hidden="true">
+  <div role="dialog" aria-modal="true" aria-labelledby="tk-consent-title" class="tk-consent-modal">
+    <h3 id="tk-consent-title">Confirm Partner Consent</h3>
+    <p>Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.</p>
+    <div class="tk-consent-row">
+      <input id="tk-consent-checkbox" type="checkbox" />
+      <label for="tk-consent-checkbox">
+        I have my partner’s explicit permission to upload and process their survey responses on this site.
+      </label>
+    </div>
+    <p class="tk-consent-small">If you do not have consent, click <b>Cancel</b>. You can delete uploaded data at any time.</p>
+    <div class="tk-consent-actions">
+      <button class="tk-btn" data-action="cancel">Cancel</button>
+      <button class="tk-btn primary" data-action="continue" disabled>Continue</button>
+    </div>
+  </div>
+</div>
+
+<div id="tk-consent-banner" class="tk-consent-banner">✔ Partner consent confirmed. Processing file…</div>
+
+<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
+
+<script>
+(function () {
+  const $ = (s, r=document) => r.querySelector(s);
+
+  async function tkConfirmPartnerConsent() {
+    const root = $("#tk-consent");
+    if (!root) return true;
+
+    const checkbox = $("#tk-consent-checkbox", root);
+    const btnContinue = root.querySelector('[data-action="continue"]');
+    const btnCancel   = root.querySelector('[data-action="cancel"]');
+
+    checkbox.checked = false; btnContinue.disabled = true;
+
+    const done = (()=>{ let resolve; const p=new Promise(r=>resolve=r); return {promise:p, resolve}; })();
+    const onCheck = () => { btnContinue.disabled = !checkbox.checked; };
+    const onCancel = () => cleanup(false);
+    const onContinue = () => cleanup(true);
+
+    checkbox.addEventListener('change', onCheck);
+    btnCancel.addEventListener('click', onCancel);
+    btnContinue.addEventListener('click', onContinue);
+
+    show(root);
+
+    function cleanup(val){
+      hide(root);
+      checkbox.removeEventListener('change', onCheck);
+      btnCancel.removeEventListener('click', onCancel);
+      btnContinue.removeEventListener('click', onContinue);
+      done.resolve(val);
+    }
+    return done.promise;
+  }
+  window.tkConfirmPartnerConsent = tkConfirmPartnerConsent;
+
+  const input = document.querySelector('input[data-partner-upload]') || document.querySelector('#partnerFile');
+
+  if (input) {
+    input.addEventListener('change', async (ev) => {
+      const file = ev.target?.files?.[0];
+      if (!file) return;
+
+      const ok = await tkConfirmPartnerConsent();
+      if (!ok) { ev.target.value = ''; return; }
+
+      flashConsentBanner();
+
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const rows = extractRowsFromTalkKinkJSON(data);
+        await generateCleanPartnerPDF(rows, data?.meta);
+      } catch (err) {
+        console.error('[talkkink] partner file processing error:', err);
+        alert('Sorry—could not read that file. Is it a valid TalkKink survey JSON?');
+      } finally {
+        ev.target.value = '';
+      }
+    });
+  }
+
+  function show(el){ el.style.display='flex'; el.setAttribute('aria-hidden','false'); }
+  function hide(el){ el.style.display='none'; el.setAttribute('aria-hidden','true'); }
+  function flashConsentBanner() {
+    const b = document.getElementById('tk-consent-banner'); if (!b) return;
+    b.style.display='block'; setTimeout(()=>{ b.style.display='none'; }, 2500);
+  }
+
+  function extractRowsFromTalkKinkJSON(data){
+    const map = data?.answersById || {};
+    const rows = [];
+    for (const [id, score] of Object.entries(map)) {
+      const parts = id.split('-');
+      const role  = parts[parts.length - 1];
+      const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, m=>m.toUpperCase());
+      const item = parts.slice(2, -1).join(' ')
+        .replace(/\bTv\b/gi, 'TV')
+        .replace(/\s+/g,' ')
+        .trim();
+      rows.push({ Category: category, Item: capFirst(item), Role: capFirst(role), Score: Number(score) });
+    }
+    rows.sort((a,b)=> a.Category.localeCompare(b.Category) || a.Role.localeCompare(b.Role) || a.Item.localeCompare(b.Item));
+    return rows;
+  }
+  function capFirst(s){ return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+  async function generateCleanPartnerPDF(rows, meta){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'pt', format:'letter' });
+
+    const title = 'TalkKink — Partner Survey (Clean Report)';
+    const date  = new Date().toLocaleString();
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.text(title, 48, 56);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    doc.text(`Generated: ${date}`, 48, 72);
+
+    if (meta?.categories?.length) {
+      doc.text(`Categories in file: ${meta.categories.join(', ')}`, 48, 88);
+    }
+
+    let y = 110;
+    const categories = [...new Set(rows.map(r=>r.Category))];
+
+    for (const cat of categories) {
+      doc.setFont('helvetica','bold'); doc.setFontSize(13);
+      doc.text(cat, 48, y); y += 8;
+
+      const body = rows.filter(r=>r.Category===cat).map(r => [r.Role, r.Item, String(r.Score)]);
+      doc.autoTable({
+        startY: y + 8,
+        margin: { left: 48, right: 48 },
+        head: [['Role', 'Item', 'Score']],
+        body,
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 4, overflow: 'linebreak' },
+        headStyles: { fillColor: [0,0,0], textColor: 255 },
+        alternateRowStyles: { fillColor: [245,245,245] },
+        columnStyles: { 0: { cellWidth: 90 }, 1: { cellWidth: 360 }, 2: { cellWidth: 60, halign: 'center' } }
+      });
+      y = doc.lastAutoTable.finalY + 14;
+      if (y > doc.internal.pageSize.getHeight() - 72) {
+        doc.addPage(); y = 56;
+      }
+    }
+
+    const filename = 'partner-survey-clean.pdf';
+    doc.save(filename);
+  }
+})();
+</script>
 </body>
 </html>

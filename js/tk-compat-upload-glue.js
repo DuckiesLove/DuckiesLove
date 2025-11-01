@@ -179,6 +179,11 @@
       btn.addEventListener('click', () => input.click());
     }
 
+    if (onLoaded === savePartner && input) {
+      input.setAttribute('data-partner-upload', '');
+      if (!input.id) input.id = 'partnerFile';
+    }
+
     input.addEventListener('change', () => {
       const file = input.files && input.files[0];
       if (!file) return;
