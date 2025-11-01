@@ -458,6 +458,90 @@
     box-shadow: 0 0 6px #00e6ff66 inset;
   }
 
+  .tk-upload-messages {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0.75rem auto 0;
+    max-width: 32rem;
+  }
+
+  .tk-upload-status {
+    font: 500 0.92rem/1.35 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #c9f4ff;
+    text-align: center;
+    padding: 0.45rem 0.75rem;
+    background: rgba(0, 230, 255, 0.08);
+    border: 1px solid rgba(0, 230, 255, 0.18);
+    border-radius: 0.75rem;
+    margin: 0;
+  }
+
+  .tk-upload-status[data-state="info"] {
+    color: #c9f4ff;
+  }
+
+  .tk-upload-status[data-state="success"] {
+    color: #9fffd6;
+    background: rgba(53, 255, 197, 0.08);
+    border-color: rgba(105, 255, 213, 0.25);
+  }
+
+  .tk-upload-status[data-state="error"] {
+    color: #ffc1ce;
+    background: rgba(255, 70, 102, 0.07);
+    border-color: rgba(255, 102, 133, 0.2);
+  }
+
+  .tk-consent-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 16, 28, 0.82);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1.5rem;
+  }
+
+  .tk-consent-card {
+    background: #04111c;
+    border: 1px solid rgba(0, 230, 255, 0.25);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    border-radius: 1rem;
+    padding: 1.65rem;
+    max-width: min(34rem, 100%);
+    color: #f2fbff;
+  }
+
+  .tk-consent-card h2 {
+    font: 700 1.2rem/1.3 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0 0 0.75rem;
+  }
+
+  .tk-consent-card p {
+    margin: 0 0 1.25rem;
+    font: 500 0.98rem/1.6 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #c8e9ff;
+  }
+
+  .tk-consent-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+
+  .tk-btn.tk-btn-secondary {
+    background: rgba(0, 230, 255, 0.08);
+  }
+
+  .tk-btn.tk-btn-secondary:hover {
+    background: rgba(0, 230, 255, 0.14);
+  }
+
+  .tk-consent-backdrop[hidden] {
+    display: none;
+  }
+
   td.ksv-cat{
     word-break: break-word;
   }
@@ -476,6 +560,11 @@
       <label id="yourBtn" for="yourFile" class="tk-btn">Upload Your Survey</label>
       <label id="partnerBtn" for="partnerFile" class="tk-btn">Upload Partner’s Survey</label>
       <button id="downloadBtn" class="tk-btn" disabled>Download PDF</button>
+    </div>
+
+    <div class="tk-upload-messages" aria-live="polite" aria-atomic="true">
+      <p id="yourStatus" class="tk-upload-status" role="status" hidden></p>
+      <p id="partnerStatus" class="tk-upload-status" role="status" hidden></p>
     </div>
 
         <a href="https://talkkink.org/KinkSurveyPage/index.html" class="tk-btn back">← Back</a>
@@ -607,7 +696,107 @@
       const downloadBtn = $('#downloadBtn');
       const parseQueue = new Set();
 
-      function resetSelection(which) {
+      const statusEls = {
+        self: $('#yourStatus'),
+        partner: $('#partnerStatus')
+      };
+
+      const setStatus = (which, message, state = 'info') => {
+        const el = statusEls[which];
+        if (!el) return;
+        if (!message) {
+          el.textContent = '';
+          el.hidden = true;
+          el.removeAttribute('data-state');
+          return;
+        }
+        el.textContent = message;
+        el.dataset.state = state;
+        el.hidden = false;
+      };
+
+      let consentUI = null;
+
+      function ensureConsentUI() {
+        if (consentUI) return consentUI;
+        const overlay = document.createElement('div');
+        overlay.className = 'tk-consent-backdrop';
+        overlay.hidden = true;
+
+        overlay.innerHTML = `
+          <div class="tk-consent-card" role="dialog" aria-modal="true" aria-labelledby="tk-consent-title" aria-describedby="tk-consent-copy">
+            <h2 id="tk-consent-title">Confirm partner consent</h2>
+            <p id="tk-consent-copy">
+              Before importing a partner’s survey, confirm you have their explicit permission to upload and compare
+              their responses here.
+            </p>
+            <div class="tk-consent-actions">
+              <button type="button" class="tk-btn tk-btn-secondary" data-action="cancel">Cancel</button>
+              <button type="button" class="tk-btn" data-action="confirm">Yes, I have consent</button>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const card = overlay.querySelector('.tk-consent-card');
+        const confirmBtn = overlay.querySelector('[data-action="confirm"]');
+        const cancelBtn = overlay.querySelector('[data-action="cancel"]');
+
+        card.tabIndex = -1;
+
+        consentUI = { overlay, card, confirmBtn, cancelBtn };
+        return consentUI;
+      }
+
+      function requestPartnerConsent() {
+        const { overlay, card, confirmBtn, cancelBtn } = ensureConsentUI();
+        overlay.hidden = false;
+
+        const previousFocus = document.activeElement;
+
+        return new Promise((resolve) => {
+          const cleanup = (result) => {
+            overlay.hidden = true;
+            overlay.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onKeyDown, true);
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelBtn.removeEventListener('click', onCancel);
+            if (previousFocus && typeof previousFocus.focus === 'function') {
+              previousFocus.focus();
+            }
+            resolve(result);
+          };
+
+          const onConfirm = () => cleanup(true);
+          const onCancel = () => cleanup(false);
+
+          const onBackdrop = (event) => {
+            if (event.target === overlay) {
+              event.preventDefault();
+              onCancel();
+            }
+          };
+
+          const onKeyDown = (event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              onCancel();
+            }
+          };
+
+          overlay.addEventListener('click', onBackdrop);
+          document.addEventListener('keydown', onKeyDown, true);
+          confirmBtn.addEventListener('click', onConfirm);
+          cancelBtn.addEventListener('click', onCancel);
+
+          requestAnimationFrame(() => {
+            card.focus();
+          });
+        });
+      }
+
+      function resetSelection(which, { resetStatus = true } = {}) {
         if (which === 'self') {
           yourBlob = null;
           yourJSON = null;
@@ -615,6 +804,7 @@
           partnerBlob = null;
           partnerJSON = null;
         }
+        if (resetStatus) setStatus(which, '', '');
       }
 
       function updateDownloadState() {
@@ -655,6 +845,12 @@
           fileName: blob.name || ''
         });
 
+        if (which === 'partner') {
+          setStatus(which, 'Partner survey ready ✓ — consent recorded.', 'success');
+        } else {
+          setStatus(which, 'Your survey ready ✓', 'success');
+        }
+
         updateDownloadState();
         return json;
       }
@@ -668,9 +864,9 @@
             await parseAndCache(which);
           } catch (err) {
             console.error(err);
-            alert('Invalid file — expected TalkKink JSON export.');
             const id = err?.which || which;
-            resetSelection(id);
+            resetSelection(id, { resetStatus: false });
+            setStatus(id, 'Invalid file — expected a TalkKink JSON export.', 'error');
             updateDownloadState();
             dispatch('compat:file-selected', { which: id, file: null });
           }
@@ -690,47 +886,54 @@
           const which = target.id === 'partnerFile' ? 'partner' : 'self';
           const file = target.files && target.files[0];
 
-          if (!file) {
-            resetSelection(which);
-            updateDownloadState();
-            dispatch('compat:file-selected', { which, file: null });
-            return;
-          }
-
-          if (which === 'partner') {
-            const ok = confirm(
-              'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\nClick “OK” to continue or “Cancel” to stop.'
-            );
-            if (!ok) {
+          const run = async () => {
+            if (!file) {
               target.value = '';
-              resetSelection('partner');
+              resetSelection(which);
               updateDownloadState();
-              dispatch('compat:file-selected', { which: 'partner', file: null });
+              dispatch('compat:file-selected', { which, file: null });
               return;
             }
-          }
 
-          if (which === 'self') {
-            yourBlob = file;
-            yourJSON = null;
-          } else {
-            partnerBlob = file;
-            partnerJSON = null;
-          }
+            if (which === 'partner') {
+              setStatus(which, 'Awaiting partner consent…', 'info');
+              const ok = await requestPartnerConsent();
+              if (!ok) {
+                target.value = '';
+                resetSelection('partner');
+                updateDownloadState();
+                setStatus('partner', 'Upload canceled — partner consent required.', 'info');
+                dispatch('compat:file-selected', { which: 'partner', file: null });
+                return;
+              }
+            }
 
-          dispatch('compat:file-selected', { which, file });
+            if (which === 'self') {
+              yourBlob = file;
+              yourJSON = null;
+            } else {
+              partnerBlob = file;
+              partnerJSON = null;
+            }
 
-          if (which === 'partner') {
-            alert('Uploaded ✓\n(You confirmed you have your partner’s explicit consent.)');
-          } else {
-            alert('Uploaded ✓');
-          }
+            const statusMessage =
+              which === 'partner' ? 'Processing partner survey…' : 'Processing your survey…';
+            setStatus(which, statusMessage, 'info');
 
-          target.value = '';
-          updateDownloadState();
-          scheduleParse(which);
+            dispatch('compat:file-selected', { which, file });
 
-          queueMicrotask(() => {});
+            target.value = '';
+            updateDownloadState();
+            scheduleParse(which);
+          };
+
+          run().catch((error) => {
+            console.error(error);
+            resetSelection(which, { resetStatus: false });
+            setStatus(which, 'Upload failed. Please try again.', 'error');
+            updateDownloadState();
+            dispatch('compat:file-selected', { which, file: null });
+          });
         },
         true
       );
