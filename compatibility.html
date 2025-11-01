@@ -908,6 +908,17 @@ try {
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files?.[0];
       if (!file) return;
+      const isPartner = key === 'talkkink:partner';
+      if (isPartner) {
+        const ok = window.confirm(
+          'Before importing a partner\'s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
+            'Click “OK” to confirm consent and continue, or “Cancel” to stop.'
+        );
+        if (!ok) {
+          fileInput.value = '';
+          return;
+        }
+      }
       try {
         const text = await file.text();
         const json = JSON.parse(text);
@@ -916,10 +927,10 @@ try {
           window.talkkinkMine = json;
           window.talkkinkSurvey = json;
         }
-        if (key === 'talkkink:partner') {
+        if (isPartner) {
           window.talkkinkPartner = json;
         }
-        alert('Uploaded ✓');
+        notifyUploadDone({ isPartner });
       } catch (err) {
         console.error(err);
         alert('Invalid file — expected TalkKink JSON export.');
@@ -928,6 +939,12 @@ try {
         fileInput.value = '';
       }
     });
+  }
+
+  function notifyUploadDone({ isPartner }) {
+    const base = 'Uploaded ✓';
+    const consentNote = '\n(You confirmed you have your partner\'s explicit consent.)';
+    alert(isPartner ? base + consentNote : base);
   }
 
   function findBtn(txt) {
