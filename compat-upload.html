@@ -5,8 +5,41 @@
   <title>Compatibility Upload Test</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    .tk-consent-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:9999}
+    .tk-consent-modal{width:min(540px,92vw);background:#0b0b0c;color:#e9e9ef;border:1px solid #2a2a35;border-radius:16px;padding:20px 18px;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+    .tk-consent-modal h3{margin:0 0 8px 0;font-size:1.1rem}
+    .tk-consent-modal p{margin:6px 0 12px 0;line-height:1.35}
+    .tk-consent-row{display:flex;gap:10px;align-items:flex-start;margin:10px 0 16px}
+    .tk-consent-row input[type="checkbox"]{margin-top:3px;transform:scale(1.1)}
+    .tk-consent-actions{display:flex;gap:10px;justify-content:flex-end}
+    .tk-btn{padding:10px 14px;border-radius:12px;border:1px solid #3b3b49;background:#18181c;color:#fafafc;cursor:pointer}
+    .tk-btn.primary{background:#2b64ff;border-color:#2b64ff}
+    .tk-btn:disabled{opacity:.6;cursor:not-allowed}
+    .tk-consent-small{opacity:.8;font-size:.9rem}
+  </style>
 </head>
 <body>
+<!-- ========== TalkKink: Partner Consent Gate ========== -->
+<div id="tk-consent" class="tk-consent-backdrop" aria-hidden="true">
+  <div role="dialog" aria-modal="true" aria-labelledby="tk-consent-title" class="tk-consent-modal">
+    <h3 id="tk-consent-title">Confirm Partner Consent</h3>
+    <p>Before importing a partner’s survey, please confirm you have their explicit consent to upload and compare their responses here.</p>
+    <div class="tk-consent-row">
+      <input id="tk-consent-checkbox" type="checkbox" />
+      <label for="tk-consent-checkbox">
+        I have my partner’s explicit permission to upload and process their survey responses on this site.
+      </label>
+    </div>
+    <p class="tk-consent-small">You can remove uploaded data at any time. If you do not have consent, click <b>Cancel</b>.</p>
+    <div class="tk-consent-actions">
+      <button class="tk-btn" data-action="cancel">Cancel</button>
+      <button class="tk-btn primary" data-action="continue" disabled>Continue</button>
+    </div>
+  </div>
+</div>
+<!-- ========== /Partner Consent Gate ========== -->
+
 <!-- ======= UI: error surfaces, status, file inputs, and download button ======= -->
 <div id="compat-upload">
   <div id="globalError" style="display:none;color:#b00020;margin:.5rem 0;"></div>
@@ -22,13 +55,54 @@
   <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-top:.5rem">
     <label>
       <strong>Survey B (Partner B):</strong>
-      <input id="uploadB" type="file" accept="application/json,.json" />
+      <input id="uploadB" type="file" accept="application/json,.json" data-partner-upload />
     </label>
     <span id="statusB" style="font-size:.9rem;color:#666">No file</span>
   </div>
 
   <button id="downloadBtn" disabled style="margin-top:.75rem">Download Compatibility PDF</button>
 </div>
+
+<script>
+(function () {
+  async function tkConfirmPartnerConsent() {
+    const root = document.getElementById('tk-consent');
+    if (!root) return false;
+    const checkbox = root.querySelector('#tk-consent-checkbox');
+    const btnContinue = root.querySelector('[data-action="continue"]');
+    const btnCancel = root.querySelector('[data-action="cancel"]');
+    if (!checkbox || !btnContinue || !btnCancel) return false;
+
+    checkbox.checked = false;
+    btnContinue.disabled = true;
+
+    const result = await new Promise(resolve => {
+      function onCheck() { btnContinue.disabled = !checkbox.checked; }
+      function cleanup(value) {
+        root.style.display = 'none';
+        root.setAttribute('aria-hidden', 'true');
+        checkbox.removeEventListener('change', onCheck);
+        btnCancel.removeEventListener('click', onCancel);
+        btnContinue.removeEventListener('click', onContinue);
+        resolve(value);
+      }
+      function onCancel() { cleanup(false); }
+      function onContinue() { cleanup(true); }
+
+      checkbox.addEventListener('change', onCheck);
+      btnCancel.addEventListener('click', onCancel);
+      btnContinue.addEventListener('click', onContinue);
+
+      root.style.display = 'flex';
+      root.setAttribute('aria-hidden', 'false');
+    });
+
+    return result;
+  }
+
+  window.tkConfirmPartnerConsent = tkConfirmPartnerConsent;
+})();
+</script>
 
 <script>
 (function(){
@@ -294,7 +368,18 @@ function updateComparison() {
 
   /* ---------- Wire up inputs & button ---------- */
   document.getElementById("uploadA")?.addEventListener("change", e => handleUpload(e.target.files?.[0], "A"));
-  document.getElementById("uploadB")?.addEventListener("change", e => handleUpload(e.target.files?.[0], "B"));
+  const uploadB = document.getElementById("uploadB");
+  if (uploadB) {
+    uploadB.addEventListener("change", async e => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (typeof window.tkConfirmPartnerConsent === "function") {
+        const ok = await window.tkConfirmPartnerConsent();
+        if (!ok) { e.target.value = ""; return; }
+      }
+      handleUpload(file, "B");
+    });
+  }
 
   })();
 </script>
