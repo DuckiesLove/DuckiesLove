@@ -72,7 +72,13 @@
 
   function setChip(chip, file){ if(!chip || !file) return; chip.textContent = file.name; chip.hidden = false; }
   function clearChip(chip){ if(!chip) return; chip.textContent = ''; chip.hidden = true; }
-  function enableIfReady(){ if(btnExport) btnExport.disabled = !(aData && bData); }
+
+  function canDownload(){
+    const allowSingle = Boolean(window.__TK_ALLOW_SINGLE_PDF__ || document.body?.dataset?.allowSinglePdf === 'true');
+    return allowSingle ? Boolean(aData || bData) : Boolean(aData && bData);
+  }
+
+  function enableIfReady(){ if(btnExport) btnExport.disabled = !canDownload(); }
 
   async function readJSON(file){
     const t = await file.text();

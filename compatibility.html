@@ -682,6 +682,7 @@
       const dispatch = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
 
       window.__TK_FAST_UPLOADS__ = true;
+      window.__TK_ALLOW_SINGLE_PDF__ = true;
 
       // --- Open hidden pickers ---
       $('#yourBtn')?.addEventListener('click', () => $('#yourFile')?.click());
@@ -807,9 +808,12 @@
         if (resetStatus) setStatus(which, '', '');
       }
 
+      const allowSingle = Boolean(window.__TK_ALLOW_SINGLE_PDF__);
+
       function updateDownloadState() {
         if (!downloadBtn) return;
-        downloadBtn.disabled = !(yourJSON && partnerJSON);
+        const ready = allowSingle ? Boolean(yourJSON || partnerJSON) : Boolean(yourJSON && partnerJSON);
+        downloadBtn.disabled = !ready;
       }
 
       async function parseAndCache(which) {
