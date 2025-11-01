@@ -473,15 +473,15 @@
     <h1 class="tk-title">TalkKink Compatibility</h1>
 
     <div class="tk-menu">
-      <label for="fileA" class="tk-btn">Upload Your Survey</label>
-      <label for="fileB" class="tk-btn">Upload Partner’s Survey</label>
-      <button id="btnDownloadPdf" class="tk-btn" disabled>Download PDF</button>
+      <label id="yourBtn" for="yourFile" class="tk-btn">Upload Your Survey</label>
+      <label id="partnerBtn" for="partnerFile" class="tk-btn">Upload Partner’s Survey</label>
+      <button id="downloadBtn" class="tk-btn" disabled>Download PDF</button>
     </div>
 
         <a href="https://talkkink.org/KinkSurveyPage/index.html" class="tk-btn back">← Back</a>
 
-    <input id="fileA" type="file" accept=".json" hidden />
-    <input id="fileB" type="file" accept=".json" hidden />
+    <input id="yourFile" type="file" accept="application/json" hidden />
+    <input id="partnerFile" type="file" accept="application/json" hidden />
   </main>
 
   <script>
@@ -573,405 +573,351 @@
     window.ksvParseSurveyJsonText = ksvParseSurveyJsonText;
   </script>
 
-  <script defer src="/assets/js/comparison.js"></script>
-  <!-- ===== TalkKink: inline PDF + upload logic (standalone) ===== -->
-  <script>
-/* ---- 1) Remove the two problematic scripts if they’re on the page ---- */
-(function killBadIncludes(){
-  const sel = 'script[src*="theme-globals.js"],script[src*="pdfDownload.js"]';
-  document.querySelectorAll(sel).forEach(node => {
-    try {
-      node.parentNode?.removeChild(node);
-    } catch (_) {
-      /* ignore */
-    }
-  });
-})();
+    <script defer src="/assets/js/comparison.js"></script>
+    <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
 
-/* ---- 2) Null-guard for the “dock margin” style error ---- */
-try {
-  const dock = document.querySelector('[data-dock-margin]') ||
-               document.getElementById('dock-margin') ||
-               document.querySelector('.dock-margin');
-  if (dock && dock.style) dock.style.margin = '';
-} catch (_) {}
+    <script>
+      (function () {
+        window.__TK_FAST_UPLOADS__ = true;
 
-/* ---- 3) Minimal standalone PDF exporter (jsPDF via CDN) ---- */
-(function () {
-  const PAGE = { w: 612, h: 792 };
-  const MARGIN = { t: 48, r: 40, b: 54, l: 40 };
-  const LINE = 16;
-  const COL_GAP = 18;
-  const SELF_KEYS = ['talkkink:survey', 'talkkink:mine', 'tk_compat.self'];
-  const PARTNER_KEYS = ['talkkink:partner', 'tk_compat.partner'];
+        const $ = (selector, root = document) => root.querySelector(selector);
+        const dispatch = (name, detail) => {
+          document.dispatchEvent(new CustomEvent(name, { detail }));
+        };
 
-  const nowStamp = () => {
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-
-  async function loadJsPDF() {
-    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
-    await new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
-      s.async = true;
-      s.onload = res;
-      s.onerror = () => rej(new Error('jsPDF load failed'));
-      document.head.appendChild(s);
-    });
-    if (!(window.jspdf?.jsPDF)) throw new Error('jsPDF init failed');
-    return window.jspdf.jsPDF;
-  }
-
-  function normalizeRating(value) {
-    const num = Number(value);
-    if (!Number.isFinite(num)) return 0;
-    return Math.max(0, Math.min(5, Math.round(num)));
-  }
-
-  function normalizeRows(survey) {
-    const rows = Array.isArray(survey?.responses) ? survey.responses : [];
-    return rows.map((row, idx) => ({
-      id: row.id ?? row.prompt ?? row.text ?? row.title ?? `item-${idx}`,
-      prompt: row.prompt ?? row.text ?? row.title ?? row.label ?? row.question ?? row.id ?? '',
-      category: row.category ?? row.categoryId ?? row.cat ?? row.section ?? 'Other',
-      rating: normalizeRating(row.rating ?? row.score ?? row.value ?? row.answer ?? 0),
-      index: row.index ?? row.order ?? row.position ?? idx
-    }));
-  }
-
-  const groupByCategory = (survey) => {
-    const grouped = new Map();
-    normalizeRows(survey).forEach(row => {
-      if (!grouped.has(row.category)) grouped.set(row.category, []);
-      grouped.get(row.category).push(row);
-    });
-    for (const list of grouped.values()) {
-      list.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-    }
-    return grouped;
-  };
-
-  const summarize = (survey) => {
-    const counts = [0, 0, 0, 0, 0, 0];
-    normalizeRows(survey).forEach(row => {
-      counts[row.rating] += 1;
-    });
-    return counts;
-  };
-
-  function addWrapText(doc, text, x, y, maxW, lh) {
-    const words = String(text || '').split(/\s+/);
-    let line = '';
-    let cy = y;
-    const width = (t) => doc.getTextWidth(t);
-    words.forEach(word => {
-      const test = line ? `${line} ${word}` : word;
-      if (width(test) > maxW) {
-        if (line) {
-          doc.text(line, x, cy);
-          cy += lh;
+        function hijackFileInput(id) {
+          const el = document.getElementById(id);
+          if (!el) return null;
+          const clone = el.cloneNode(true);
+          el.replaceWith(clone);
+          return clone;
         }
-        line = word;
-      } else {
-        line = test;
-      }
-    });
-    if (line) {
-      doc.text(line, x, cy);
-      cy += lh;
-    }
-    return cy;
-  }
 
-  function header(doc, title, subtitle) {
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(32);
-    doc.text(title, PAGE.w / 2, MARGIN.t, { align: 'center', baseline: 'top' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(12);
-    doc.text(subtitle, PAGE.w / 2, MARGIN.t + 28, { align: 'center', baseline: 'top' });
-    return MARGIN.t + 42;
-  }
+        const yourInput = hijackFileInput('yourFile');
+        const partnerInput = hijackFileInput('partnerFile');
 
-  function addFooter(doc, page, total) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(180, 180, 180);
-    doc.text(`TalkKink • ${nowStamp()} • Page ${page}/${total}`, PAGE.w / 2, PAGE.h - MARGIN.b + 24, { align: 'center', baseline: 'bottom' });
-  }
+        const yourBtn = $('#yourBtn');
+        const partnerBtn = $('#partnerBtn');
+        const downloadBtn = $('#downloadBtn');
 
-  function block(doc, cat, items, startY) {
-    let cy = startY + 6;
-    const x = MARGIN.l;
-    const maxW = PAGE.w - MARGIN.l - MARGIN.r;
-    if (cat) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.setTextColor(255, 255, 255);
-      cy = addWrapText(doc, cat, x, cy, maxW, LINE);
-    }
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(220, 220, 220);
-    for (const row of items) {
-      const chip = ` [${row.rating}] `;
-      const bullet = '• ';
-      const headW = doc.getTextWidth(bullet + chip);
-      doc.text(bullet, x, cy);
-      doc.setTextColor(140, 230, 255);
-      doc.text(chip, x + doc.getTextWidth(bullet), cy);
-      doc.setTextColor(220, 220, 220);
-      const px = x + headW + 2;
-      cy = addWrapText(doc, row.prompt || row.id, px, cy, maxW - headW - 4, LINE - 2) - 4;
-      cy += 4;
-      if (cy > PAGE.h - MARGIN.b - 40) {
-        doc.addPage('letter', 'portrait');
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-        cy = MARGIN.t;
-      }
-    }
-    doc.setDrawColor(60, 120, 140);
-    doc.line(MARGIN.l, cy, PAGE.w - MARGIN.r, cy);
-    return cy + 10;
-  }
-
-  function summary(doc, survey, label, startY) {
-    const counts = summarize(survey);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`${label} — Rating Summary`, MARGIN.l, startY);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(200, 200, 200);
-    doc.text(counts.map((count, rating) => `${rating}: ${count}`).join('    '), MARGIN.l, startY + LINE);
-    return startY + LINE * 2;
-  }
-
-  function pickSources(opts = {}) {
-    const out = { mine: opts.mine ?? null, partner: opts.partner ?? null };
-    if (!out.mine) out.mine = window.talkkinkMine || window.talkkinkSurvey;
-    if (!out.partner) out.partner = window.talkkinkPartner;
-    try {
-      if (!out.mine) {
-        for (const key of SELF_KEYS) {
-          const value = localStorage.getItem(key);
-          if (value) { out.mine = JSON.parse(value); break; }
+        if (yourBtn && yourInput && yourBtn !== yourInput) {
+          yourBtn.addEventListener('click', () => yourInput.click());
         }
-      }
-      if (!out.partner) {
-        for (const key of PARTNER_KEYS) {
-          const value = localStorage.getItem(key);
-          if (value) { out.partner = JSON.parse(value); break; }
+        if (partnerBtn && partnerInput && partnerBtn !== partnerInput) {
+          partnerBtn.addEventListener('click', () => partnerInput.click());
         }
-      }
-    } catch (_) {}
-    return out;
-  }
 
-  async function buildPdf({ mine, partner, filename }) {
-    const jsPDF = await loadJsPDF();
-    const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
-    const title = partner ? 'TalkKink Compatibility Report' : 'TalkKink Survey Export';
-    const mineCats = mine?.meta?.selectedCategories?.join(', ') || 'All Categories';
-    const partnerCats = partner?.meta?.selectedCategories?.join(', ') || 'All Categories';
-    const subtitle = partner
-      ? `Exported ${nowStamp()} • Mine: ${mineCats} • Partner: ${partnerCats}`
-      : `Exported ${nowStamp()} • Selected: ${mineCats}`;
+        let yourBlob = null;
+        let partnerBlob = null;
+        let yourJSON = null;
+        let partnerJSON = null;
 
-    let y = header(doc, title, subtitle);
-    if (partner) {
-      y = summary(doc, mine, 'Mine', y);
-      y = summary(doc, partner, 'Partner', y) + 6;
-    } else {
-      y = summary(doc, mine, 'Summary', y) + 6;
-    }
+        const parseQueue = new Set();
 
-    const mineMap = groupByCategory(mine);
-    const partnerMap = partner ? groupByCategory(partner) : null;
+        const fileNameOf = (which) =>
+          which === 'self' ? yourBlob?.name || '' : partnerBlob?.name || '';
 
-    for (const [cat, items] of mineMap.entries()) {
-      if (y > PAGE.h - MARGIN.b - 120) {
-        doc.addPage('letter', 'portrait');
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-        y = MARGIN.t;
-      }
-
-      if (partner && partnerMap) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.setTextColor(255, 255, 255);
-        y = addWrapText(doc, cat, MARGIN.l, y, PAGE.w - MARGIN.l - MARGIN.r, LINE) + 2;
-
-        const colW = (PAGE.w - MARGIN.l - MARGIN.r - COL_GAP) / 2;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('Mine', MARGIN.l, y);
-        const yL = block(doc, '', items, y + LINE - LINE);
-
-        let yR = y;
-        let xR = MARGIN.l + colW + COL_GAP;
-        if (yR + 40 > PAGE.h - MARGIN.b) {
-          doc.addPage('letter', 'portrait');
-          doc.setFillColor(0, 0, 0);
-          doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-          yR = MARGIN.t;
+        function updateDownloadState() {
+          if (!downloadBtn) return;
+          downloadBtn.disabled = !(yourJSON && partnerJSON);
         }
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('Partner', xR, yR);
-        yR += LINE;
 
-        (function drawRight() {
-          let cy = yR + 6;
-          const maxW = colW;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          doc.setTextColor(220, 220, 220);
-          for (const row of partnerMap.get(cat) || []) {
-            const chip = ` [${row.rating}] `;
-            const bullet = '• ';
-            const headW = doc.getTextWidth(bullet + chip);
-            doc.text(bullet, xR, cy);
-            doc.setTextColor(140, 230, 255);
-            doc.text(chip, xR + doc.getTextWidth(bullet), cy);
-            doc.setTextColor(220, 220, 220);
-            const px = xR + headW + 2;
-            cy = addWrapText(doc, row.prompt || row.id, px, cy, maxW - headW - 4, LINE - 2) - 4;
-            cy += 4;
-            if (cy > PAGE.h - MARGIN.b - 40) {
-              doc.addPage('letter', 'portrait');
-              doc.setFillColor(0, 0, 0);
-              doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-              cy = MARGIN.t;
+        async function ensureParsed(which) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          if ((!which || which === 'self') && yourBlob && !yourJSON) {
+            const text = await yourBlob.text();
+            yourJSON = JSON.parse(text);
+          }
+          if ((!which || which === 'partner') && partnerBlob && !partnerJSON) {
+            const text = await partnerBlob.text();
+            partnerJSON = JSON.parse(text);
+          }
+        }
+
+        function scheduleParse(which) {
+          if (parseQueue.has(which)) return;
+          if (which === 'self' && !yourBlob) return;
+          if (which === 'partner' && !partnerBlob) return;
+          parseQueue.add(which);
+          setTimeout(async () => {
+            parseQueue.delete(which);
+            try {
+              await ensureParsed(which);
+              const json = which === 'self' ? yourJSON : partnerJSON;
+              if (json) {
+                if (which === 'self') {
+                  window.talkkinkMine = json;
+                  window.talkkinkSurvey = json;
+                } else if (which === 'partner') {
+                  window.talkkinkPartner = json;
+                }
+                dispatch('compat:json-ready', {
+                  which,
+                  json,
+                  fileName: fileNameOf(which)
+                });
+              }
+              updateDownloadState();
+            } catch (err) {
+              console.error(err);
+              alert('Invalid file — expected TalkKink JSON export.');
+              if (which === 'self') {
+                yourBlob = null;
+                yourJSON = null;
+              } else {
+                partnerBlob = null;
+                partnerJSON = null;
+              }
+              updateDownloadState();
+              dispatch('compat:file-selected', { which, file: null });
+            }
+          }, 0);
+        }
+
+        if (yourInput) {
+          yourInput.addEventListener('change', (ev) => {
+            const file = ev.target?.files?.[0];
+            if (!file) return;
+            yourBlob = file;
+            yourJSON = null;
+            dispatch('compat:file-selected', { which: 'self', file });
+            alert('Uploaded ✓');
+            ev.target.value = '';
+            updateDownloadState();
+            scheduleParse('self');
+          });
+        }
+
+        if (partnerInput) {
+          partnerInput.addEventListener('change', (ev) => {
+            const file = ev.target?.files?.[0];
+            if (!file) return;
+            const ok = confirm(
+              'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
+                'Click “OK” to continue or “Cancel” to stop.'
+            );
+            if (!ok) {
+              ev.target.value = '';
+              partnerBlob = null;
+              partnerJSON = null;
+              updateDownloadState();
+              dispatch('compat:file-selected', { which: 'partner', file: null });
+              return;
+            }
+            partnerBlob = file;
+            partnerJSON = null;
+            dispatch('compat:file-selected', { which: 'partner', file });
+            alert('Uploaded ✓\n(You confirmed you have your partner’s explicit consent.)');
+            ev.target.value = '';
+            updateDownloadState();
+            scheduleParse('partner');
+          });
+        }
+
+        if (downloadBtn) {
+          downloadBtn.addEventListener(
+            'click',
+            (event) => event.stopImmediatePropagation(),
+            true
+          );
+
+          downloadBtn.addEventListener('click', async () => {
+            try {
+              await ensureParsed();
+              if (!yourJSON && !partnerJSON) {
+                alert('Please upload at least one survey before downloading.');
+                return;
+              }
+              await generateDarkPDF(yourJSON, partnerJSON);
+            } catch (err) {
+              console.error(err);
+              alert('Sorry—could not generate the PDF.');
+            }
+          });
+        }
+
+        const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+        function rowsFromTalkKink(json) {
+          if (!json) return [];
+          const map = json.answersById || {};
+          const out = [];
+          for (const [id, score] of Object.entries(map)) {
+            const parts = id.split('-');
+            const role = parts.at(-1);
+            const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, (m) => m.toUpperCase());
+            const item = parts
+              .slice(2, -1)
+              .join(' ')
+              .replace(/\bTv\b/gi, 'TV')
+              .replace(/\s+/g, ' ')
+              .trim();
+            out.push({ Category: category, Item: cap(item), Role: cap(role), Score: Number(score) });
+          }
+          out.sort(
+            (a, b) =>
+              a.Category.localeCompare(b.Category) ||
+              a.Role.localeCompare(b.Role) ||
+              a.Item.localeCompare(b.Item)
+          );
+          return out;
+        }
+
+        async function generateDarkPDF(yourJSON, partnerJSON) {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
+          const W = doc.internal.pageSize.getWidth();
+          const H = doc.internal.pageSize.getHeight();
+
+          function paintPageChrome() {
+            doc.setFillColor(10, 10, 12);
+            doc.rect(0, 0, W, H, 'F');
+            doc.setDrawColor(0, 255, 255);
+            doc.setLineWidth(1);
+            doc.line(48, 68, W - 48, 68);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(18);
+            doc.text('TalkKink Compatibility — Printable Report', 48, 50);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(170, 200, 255);
+            doc.text('Generated: ' + new Date().toLocaleString(), 48, 62);
+          }
+          paintPageChrome();
+
+          const tableBase = {
+            theme: 'grid',
+            styles: {
+              font: 'helvetica',
+              fontSize: 10,
+              cellPadding: 4,
+              textColor: [235, 235, 242],
+              lineColor: [60, 60, 78],
+              lineWidth: 0.25,
+              fillColor: [18, 18, 22]
+            },
+            alternateRowStyles: { fillColor: [26, 26, 32] },
+            headStyles: { fillColor: [0, 0, 0], textColor: [0, 255, 255] },
+            margin: { left: 48, right: 48 },
+            didAddPage: () => paintPageChrome()
+          };
+
+          const rowsA = rowsFromTalkKink(yourJSON);
+          const rowsB = rowsFromTalkKink(partnerJSON);
+          const hasA = rowsA.length > 0;
+          const hasB = rowsB.length > 0;
+
+          let y = 90;
+
+          if (hasA && hasB) {
+            const cats = [...new Set([...rowsA, ...rowsB].map((r) => r.Category))];
+            for (const cat of cats) {
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(13);
+              doc.setTextColor(255, 255, 255);
+              doc.text(cat, 48, y);
+              y += 8;
+
+              const body = buildComparisonBody(
+                rowsA.filter((r) => r.Category === cat),
+                rowsB.filter((r) => r.Category === cat)
+              );
+
+              doc.autoTable({
+                ...tableBase,
+                startY: y + 8,
+                head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
+                body,
+                columnStyles: {
+                  0: { cellWidth: 70 },
+                  1: { cellWidth: 280 },
+                  2: { cellWidth: 60, halign: 'center' },
+                  3: { cellWidth: 60, halign: 'center' },
+                  4: { cellWidth: 40, halign: 'center' },
+                  5: { cellWidth: 60, halign: 'center' }
+                }
+              });
+              y = doc.lastAutoTable.finalY + 16;
+              if (y > H - 72) {
+                doc.addPage();
+                paintPageChrome();
+                y = 90;
+              }
+            }
+          } else {
+            const rows = hasA ? rowsA : rowsB;
+            const whose = hasA ? 'Partner A' : 'Partner';
+            const cats = [...new Set(rows.map((r) => r.Category))];
+
+            for (const cat of cats) {
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(13);
+              doc.setTextColor(255, 255, 255);
+              doc.text(`${cat} — ${whose}`, 48, y);
+              y += 8;
+
+              const body = rows
+                .filter((r) => r.Category === cat)
+                .map((r) => [r.Role, r.Item, String(r.Score)]);
+              doc.autoTable({
+                ...tableBase,
+                startY: y + 8,
+                head: [['Role', 'Item', 'Score']],
+                body,
+                columnStyles: {
+                  0: { cellWidth: 90 },
+                  1: { cellWidth: 350 },
+                  2: { cellWidth: 60, halign: 'center' }
+                }
+              });
+              y = doc.lastAutoTable.finalY + 16;
+              if (y > H - 72) {
+                doc.addPage();
+                paintPageChrome();
+                y = 90;
+              }
             }
           }
-          doc.setDrawColor(60, 120, 140);
-          doc.line(xR, cy, xR + maxW, cy);
-          yR = cy + 12;
-        })();
 
-        y = Math.max(yL, yR) + 10;
-      } else {
-        y = block(doc, cat, items, y);
-      }
-    }
-
-    const total = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= total; i += 1) {
-      doc.setPage(i);
-      addFooter(doc, i, total);
-    }
-    doc.save(filename || (partner ? 'talkkink-compatibility-results.pdf' : 'talkkink-survey-results.pdf'));
-  }
-
-  window.TKPDF = window.TKPDF || {};
-  window.TKPDF.download = (opts = {}) => {
-    const { mine, partner } = pickSources(opts);
-    if (!mine) {
-      alert('Export unavailable: no survey data found.');
-      return;
-    }
-    buildPdf({ mine, partner, filename: opts.filename }).catch(err => {
-      console.error(err);
-      alert('Export failed.');
-    });
-  };
-
-  function attachUpload(btn, key, input) {
-    if (!btn && !input) return;
-    let fileInput = input || null;
-    const created = !fileInput;
-    if (!fileInput) {
-      fileInput = document.createElement('input');
-      fileInput.type = 'file';
-      fileInput.accept = 'application/json';
-      fileInput.style.display = 'none';
-      document.body.appendChild(fileInput);
-    } else if (!fileInput.accept) {
-      fileInput.accept = 'application/json';
-    }
-
-    const isLabelForInput = Boolean(btn && fileInput && btn.tagName === 'LABEL' && btn.htmlFor && fileInput.id && btn.htmlFor === fileInput.id);
-    if (btn && !isLabelForInput && btn !== fileInput) {
-      btn.addEventListener('click', () => fileInput.click());
-    }
-
-    fileInput.addEventListener('change', async () => {
-      const file = fileInput.files?.[0];
-      if (!file) return;
-      const isPartner = key === 'talkkink:partner';
-      if (isPartner) {
-        const ok = window.confirm(
-          'Before importing a partner\'s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
-            'Click “OK” to confirm consent and continue, or “Cancel” to stop.'
-        );
-        if (!ok) {
-          fileInput.value = '';
-          return;
+          const name = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
+          doc.save(name);
         }
-      }
-      try {
-        const text = await file.text();
-        const json = JSON.parse(text);
-        localStorage.setItem(key, text);
-        if (key === 'talkkink:mine') {
-          window.talkkinkMine = json;
-          window.talkkinkSurvey = json;
+
+        function buildComparisonBody(rowsA, rowsB) {
+          const key = (r) => `${r.Role}|${r.Item}`.toLowerCase();
+          const mapA = Object.fromEntries(rowsA.map((r) => [key(r), r]));
+          const mapB = Object.fromEntries(rowsB.map((r) => [key(r), r]));
+          const keys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
+          const body = [];
+          for (const k of keys) {
+            const a = mapA[k];
+            const b = mapB[k];
+            const role = a?.Role || b?.Role || '';
+            const item = a?.Item || b?.Item || '';
+            const aScore = Number.isFinite(a?.Score) ? a.Score : '';
+            const bScore = Number.isFinite(b?.Score) ? b.Score : '';
+
+            let match = '';
+            let flag = '';
+            if (a && b) {
+              const diff = Math.abs(a.Score - b.Score);
+              const pct = Math.round((1 - diff / 5) * 100);
+              match = pct + '%';
+              if (pct >= 90) flag = '⭐';
+              else if (pct <= 30) flag = '🚩';
+              if ((a?.Score === 5 && b?.Score < 5) || (b?.Score === 5 && a?.Score < 5)) {
+                flag = flag ? flag + ' 🟨' : '🟨';
+              }
+            }
+            body.push([role, item, String(aScore), match, flag, String(bScore)]);
+          }
+          return body;
         }
-        if (isPartner) {
-          window.talkkinkPartner = json;
-        }
-        notifyUploadDone({ isPartner });
-      } catch (err) {
-        console.error(err);
-        alert('Invalid file — expected TalkKink JSON export.');
-      }
-      if (created) {
-        fileInput.value = '';
-      }
-    });
-  }
-
-  function notifyUploadDone({ isPartner }) {
-    const base = 'Uploaded ✓';
-    const consentNote = '\n(You confirmed you have your partner\'s explicit consent.)';
-    alert(isPartner ? base + consentNote : base);
-  }
-
-  function findBtn(txt) {
-    const needle = (txt || '').toLowerCase();
-    return Array.from(document.querySelectorAll('button,a,[role="button"]')).find(el => (el.textContent || '').toLowerCase().includes(needle));
-  }
-
-  function bindUI() {
-    const mineBtn = document.getElementById('uploadMineBtn') || findBtn('upload your survey');
-    const partnerBtn = document.getElementById('uploadPartnerBtn') || findBtn('upload partner');
-    const dlBtn = document.getElementById('downloadPdfBtn') || document.getElementById('btnDownloadPdf') || findBtn('download pdf');
-    const mineInput = document.getElementById('fileA') || document.querySelector('[data-upload-input="mine"]');
-    const partnerInput = document.getElementById('fileB') || document.querySelector('[data-upload-input="partner"]');
-    attachUpload(mineBtn, 'talkkink:mine', mineInput);
-    attachUpload(partnerBtn, 'talkkink:partner', partnerInput);
-    if (dlBtn) {
-      dlBtn.addEventListener('click', () => window.TKPDF.download());
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindUI);
-  } else {
-    bindUI();
-  }
-})();
-  </script>
+      })();
+    </script>
   <script defer>
     /**
      * Safely clear margin on the dock *only if it exists on this page*.
