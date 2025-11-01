@@ -1,4 +1,4 @@
-<!-- ================= CODEX: Dark PDF + Consent + Fast Upload ================= -->
+<!-- ================= CODEX: Dark PDF + Consent + Robust Uploads ================= -->
 <input id="yourFile"    type="file" accept="application/json" style="display:none" />
 <input id="partnerFile" type="file" accept="application/json" style="display:none" />
 
@@ -6,202 +6,184 @@
 <button id="partnerBtn" type="button">Upload Partner’s Survey</button>
 <button id="downloadBtn" type="button">Download PDF</button>
 
-<!-- jsPDF + autoTable -->
-<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
-
 <script>
 (function () {
   const $ = (s, r=document) => r.querySelector(s);
 
-  // Buttons open hidden inputs
-  $('#yourBtn')?.addEventListener('click',   () => $('#yourFile').click());
-  $('#partnerBtn')?.addEventListener('click',() => $('#partnerFile').click());
+  // Buttons/inputs
+  const yourBtn     = $('#yourBtn');
+  const partnerBtn  = $('#partnerBtn');
+  const downloadBtn = $('#downloadBtn');
+  const yourInput   = $('#yourFile');
+  const partnerInput= $('#partnerFile');
 
-  // Stash files; parse later (keeps 'change' handler fast)
-  let yourBlob = null, partnerBlob = null;
-  let yourJSON = null, partnerJSON = null;
+  // State
+  let yourBlob=null, partnerBlob=null, yourJSON=null, partnerJSON=null;
+  let libsReady=false;
 
-  $('#yourFile')?.addEventListener('change', (ev) => {
-    const f = ev.target?.files?.[0]; if (!f) return;
-    yourBlob = f; alert('Uploaded ✓'); ev.target.value = '';
-  });
-
-  $('#partnerFile')?.addEventListener('change', (ev) => {
-    const f = ev.target?.files?.[0]; if (!f) return;
-    const ok = confirm(
-      'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
-      'Click “OK” to continue or “Cancel” to stop.'
-    );
-    if (!ok) { ev.target.value = ''; return; }
-    partnerBlob = f; alert('Uploaded ✓\n(You confirmed you have your partner’s explicit consent.)');
-    ev.target.value = '';
-  });
-
-  // Stop old exporter (if any) from also handling the click
-  $('#downloadBtn')?.addEventListener('click', (e) => e.stopImmediatePropagation(), true);
-
-  $('#downloadBtn')?.addEventListener('click', async () => {
+  // ————————— Load libs on demand with fallback —————————
+  async function loadLibs() {
+    if (libsReady && window.jspdf && window.jspdf.jsPDF && window.jspdf_autotable) return true;
+    const load = (src) => new Promise((res, rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
     try {
-      await parseIfNeeded();
-      await generateDarkPDF(yourJSON, partnerJSON);
-    } catch (e) {
-      console.error(e); alert('Sorry—could not generate the PDF.');
+      if (!window.jspdf) await load('https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js');
+      if (!window.jspdf_autotable) await load('https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+      libsReady = true;
+      return true;
+    } catch {
+      // fallback CDN
+      await load('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+      await load('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+      libsReady = true; 
+      return true;
     }
+  }
+
+  // ————————— Fix: always fire change (clear value BEFORE click) —————————
+  function openFilePicker(input){
+    if (!input) return;
+    input.value = '';        // important: clear BEFORE click so selecting same file fires 'change'
+    input.click();
+  }
+
+  yourBtn   && yourBtn.addEventListener('click',   () => openFilePicker(yourInput));
+  partnerBtn&& partnerBtn.addEventListener('click',() => openFilePicker(partnerInput));
+
+  // ————————— Fast change handlers (stash only) —————————
+  yourInput && yourInput.addEventListener('change', (ev)=>{
+    const f = ev.target?.files?.[0]; if(!f) return;
+    yourBlob = f;
+    // optional toast/alert you already use:
+    (window.tkNotifyYourReady ? tkNotifyYourReady() : alert('Uploaded ✓'));
   });
 
-  async function parseIfNeeded() {
-    await new Promise(r => setTimeout(r, 0)); // yield so change handler stays snappy
+  partnerInput && partnerInput.addEventListener('change', (ev)=>{
+    const f = ev.target?.files?.[0]; if(!f) return;
+    const ok = confirm(
+      'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\nClick “OK” to continue or “Cancel” to stop.'
+    );
+    if(!ok) return;
+    partnerBlob = f;
+    (window.tkNotifyPartnerReady ? tkNotifyPartnerReady() : alert('Uploaded ✓\n(You confirmed you have your partner’s explicit consent.)'));
+  });
+
+  // ————————— Parse lazily —————————
+  async function ensureParsed(){
+    await Promise.resolve(); // microtask to keep change fast
     if (yourBlob && !yourJSON)     yourJSON     = JSON.parse(await yourBlob.text());
     if (partnerBlob && !partnerJSON) partnerJSON = JSON.parse(await partnerBlob.text());
   }
 
-  // ---------- TalkKink JSON → rows ----------
-  function rowsFromTalkKink(json) {
-    if (!json) return [];
-    const m = json.answersById || {};
-    const out = [];
-    for (const [id, score] of Object.entries(m)) {
-      const parts = id.split('-');
-      const role = parts.at(-1); // giving|receiving|general
-      const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, s=>s.toUpperCase());
-      const item = parts.slice(2, -1).join(' ').replace(/\bTv\b/gi,'TV').replace(/\s+/g,' ').trim();
-      out.push({ Category: category, Item: cap(item), Role: cap(role), Score: Number(score) });
+  // ————————— Download PDF —————————
+  downloadBtn && downloadBtn.addEventListener('click', async ()=>{
+    try {
+      await loadLibs();
+      await ensureParsed();
+
+      if (!yourJSON && !partnerJSON) {
+        alert('Load at least one survey first (yours or partner).');
+        return;
+      }
+      await generateDarkPDF(yourJSON, partnerJSON);
+    } catch (e) {
+      console.error(e);
+      alert('Could not generate the PDF. Check your connection and try again.');
     }
-    out.sort((a,b)=> a.Category.localeCompare(b.Category) || a.Role.localeCompare(b.Role) || a.Item.localeCompare(b.Item));
+  });
+
+  // ————————— Helpers —————————
+  function rowsFromTalkKink(json){
+    if(!json) return [];
+    const map = json.answersById || {};
+    const out = [];
+    for (const [id, score] of Object.entries(map)) {
+      const parts=id.split('-');
+      const role=parts.at(-1);
+      const category=(parts[0]+' '+parts[1]).replace(/\b\w/g,m=>m.toUpperCase());
+      const item=parts.slice(2,-1).join(' ').replace(/\bTv\b/gi,'TV').replace(/\s+/g,' ').trim();
+      out.push({Category:category, Item:item.charAt(0).toUpperCase()+item.slice(1), Role:role.charAt(0).toUpperCase()+role.slice(1), Score:Number(score)});
+    }
+    out.sort((a,b)=>a.Category.localeCompare(b.Category)||a.Role.localeCompare(b.Role)||a.Item.localeCompare(b.Item));
     return out;
   }
-  const cap = s => s ? s[0].toUpperCase()+s.slice(1) : s;
 
-  // ---------- DARK THEME PDF ----------
-  async function generateDarkPDF(yourJSON, partnerJSON) {
+  async function generateDarkPDF(yourJSON, partnerJSON){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit:'pt', format:'letter' });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
 
-    const W = doc.internal.pageSize.getWidth();
-    const H = doc.internal.pageSize.getHeight();
-
-    // Draws full-page black background + cyan header each page
-    function paintPageChrome() {
-      doc.setFillColor(10,10,12); doc.rect(0,0,W,H,'F');        // background
-      doc.setDrawColor(0,255,255); doc.setLineWidth(1);
-      doc.line(48, 68, W-48, 68);                               // cyan underline
-      doc.setTextColor(255,255,255);
-      doc.setFont('helvetica','bold'); doc.setFontSize(18);
+    function paint() {
+      doc.setFillColor(10,10,12); doc.rect(0,0,W,H,'F');
+      doc.setDrawColor(0,255,255); doc.setLineWidth(1); doc.line(48,68,W-48,68);
+      doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(18);
       doc.text('TalkKink Compatibility — Printable Report', 48, 50);
-      doc.setFont('helvetica','normal'); doc.setFontSize(10);
-      doc.setTextColor(170,200,255);
-      doc.text('Generated: ' + new Date().toLocaleString(), 48, 62);
+      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(170,200,255);
+      doc.text('Generated: '+new Date().toLocaleString(), 48, 62);
     }
-    paintPageChrome();
+    paint();
 
-    // Hook to repaint background/header whenever autoTable creates a new page
-    const tableOptsBase = {
-      theme: 'grid',
-      styles: {
-        font: 'helvetica',
-        fontSize: 10,
-        cellPadding: 4,
-        textColor: [235,235,242],
-        lineColor: [60,60,78],
-        lineWidth: 0.25,
-        fillColor: [18,18,22]      // default body background (dark)
-      },
-      alternateRowStyles: { fillColor: [26,26,32] },
-      headStyles: { fillColor: [0,0,0], textColor: [0,255,255] },
-      margin: { left: 48, right: 48 },
-      didAddPage: () => paintPageChrome()
+    const tableBase = {
+      theme:'grid',
+      styles:{ font:'helvetica', fontSize:10, cellPadding:4, textColor:[235,235,242], lineColor:[60,60,78], lineWidth:0.25, fillColor:[18,18,22] },
+      alternateRowStyles:{ fillColor:[26,26,32] },
+      headStyles:{ fillColor:[0,0,0], textColor:[0,255,255] },
+      margin:{ left:48, right:48 },
+      didAddPage:()=>paint()
     };
 
-    const rowsA = rowsFromTalkKink(yourJSON);
-    const rowsB = rowsFromTalkKink(partnerJSON);
-    const hasA = rowsA.length > 0, hasB = rowsB.length > 0;
+    const A = rowsFromTalkKink(yourJSON);
+    const B = rowsFromTalkKink(partnerJSON);
+    const hasA = A.length>0, hasB = B.length>0;
 
     let y = 90;
 
     if (hasA && hasB) {
-      const cats = [...new Set([...rowsA, ...rowsB].map(r=>r.Category))];
-      for (const cat of cats) {
-        doc.setFont('helvetica','bold'); doc.setFontSize(13);
-        doc.setTextColor(255,255,255);
-        doc.text(cat, 48, y); y += 8;
-
-        const body = buildComparisonBody(
-          rowsA.filter(r=>r.Category===cat),
-          rowsB.filter(r=>r.Category===cat)
-        );
-
-        doc.autoTable({
-          ...tableOptsBase,
-          startY: y + 8,
-          head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
-          body,
-          columnStyles: {
-            0:{ cellWidth:70 },
-            1:{ cellWidth:280 },
-            2:{ cellWidth:60, halign:'center' },
-            3:{ cellWidth:60, halign:'center' },
-            4:{ cellWidth:40, halign:'center' },
-            5:{ cellWidth:60, halign:'center' }
-          }
-        });
-        y = doc.lastAutoTable.finalY + 16;
-        if (y > H - 72) { doc.addPage(); paintPageChrome(); y = 90; }
+      const cats=[...new Set([...A,...B].map(r=>r.Category))];
+      for(const cat of cats){
+        doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255); doc.text(cat,48,y); y+=8;
+        const body = buildAB(A.filter(r=>r.Category===cat), B.filter(r=>r.Category===cat));
+        doc.autoTable({ ...tableBase, startY:y+8, head:[['Role','Item','Partner A','Match','Flag','Partner B']], body,
+          columnStyles:{0:{cellWidth:70},1:{cellWidth:280},2:{cellWidth:60,halign:'center'},3:{cellWidth:60,halign:'center'},4:{cellWidth:40,halign:'center'},5:{cellWidth:60,halign:'center'}} });
+        y = doc.lastAutoTable.finalY + 16; if (y > H-72) { doc.addPage(); y = 90; }
       }
     } else {
-      const rows = hasA ? rowsA : rowsB;
-      const whose = hasA ? 'Partner A' : 'Partner';
-      const cats = [...new Set(rows.map(r=>r.Category))];
-
-      for (const cat of cats) {
-        doc.setFont('helvetica','bold'); doc.setFontSize(13);
-        doc.setTextColor(255,255,255);
-        doc.text(`${cat} — ${whose}`, 48, y); y += 8;
-
-        const body = rows.filter(r=>r.Category===cat).map(r => [r.Role, r.Item, String(r.Score)]);
-        doc.autoTable({
-          ...tableOptsBase,
-          startY: y + 8,
-          head: [['Role','Item','Score']],
-          body,
-          columnStyles: { 0:{cellWidth:90}, 1:{cellWidth:350}, 2:{cellWidth:60, halign:'center'} }
-        });
-        y = doc.lastAutoTable.finalY + 16;
-        if (y > H - 72) { doc.addPage(); paintPageChrome(); y = 90; }
+      const rows = hasA ? A : B; const who = hasA ? 'Partner A' : 'Partner';
+      const cats=[...new Set(rows.map(r=>r.Category))];
+      for(const cat of cats){
+        doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255); doc.text(`${cat} — ${who}`,48,y); y+=8;
+        const body = rows.filter(r=>r.Category===cat).map(r=>[r.Role,r.Item,String(r.Score)]);
+        doc.autoTable({ ...tableBase, startY:y+8, head:[['Role','Item','Score']], body,
+          columnStyles:{0:{cellWidth:90},1:{cellWidth:350},2:{cellWidth:60,halign:'center'}} });
+        y = doc.lastAutoTable.finalY + 16; if (y > H-72) { doc.addPage(); y = 90; }
       }
     }
 
-    const name = (hasA && hasB) ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
+    const name = (hasA && hasB)?'compatibility-pretty-dark.pdf':'partner-survey-pretty-dark.pdf';
     doc.save(name);
   }
 
-  function buildComparisonBody(rowsA, rowsB) {
-    const key = r => `${r.Role}|${r.Item}`.toLowerCase();
-    const mapA = Object.fromEntries(rowsA.map(r => [key(r), r]));
-    const mapB = Object.fromEntries(rowsB.map(r => [key(r), r]));
-    const keys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
-    const body = [];
-    for (const k of keys) {
-      const a = mapA[k], b = mapB[k];
-      const role = (a?.Role || b?.Role || '');
-      const item = (a?.Item || b?.Item || '');
-      const aScore = Number.isFinite(a?.Score) ? a.Score : '';
-      const bScore = Number.isFinite(b?.Score) ? b.Score : '';
-
-      let match = '', flag = '';
+  function buildAB(A,B){
+    const key = r=>`${r.Role}|${r.Item}`.toLowerCase();
+    const mA = Object.fromEntries(A.map(r=>[key(r),r]));
+    const mB = Object.fromEntries(B.map(r=>[key(r),r]));
+    const keys=[...new Set([...Object.keys(mA),...Object.keys(mB)])].sort();
+    const rows=[];
+    for(const k of keys){
+      const a=mA[k], b=mB[k];
+      const role=a?.Role||b?.Role||'';
+      const item=a?.Item||b?.Item||'';
+      const aS=Number.isFinite(a?.Score)?a.Score:'';
+      const bS=Number.isFinite(b?.Score)?b.Score:'';
+      let match='', flag='';
       if (a && b) {
-        const diff = Math.abs(a.Score - b.Score);
-        const pct = Math.round((1 - diff/5) * 100);
-        match = pct + '%';
-        if (pct >= 90) flag = '⭐';
-        else if (pct <= 30) flag = '🚩';
-        if ((a?.Score === 5 && b?.Score < 5) || (b?.Score === 5 && a?.Score < 5)) {
-          flag = flag ? flag + ' 🟨' : '🟨';
-        }
+        const pct = Math.round((1 - Math.abs(a.Score - b.Score)/5)*100);
+        match = pct+'%';
+        if (pct>=90) flag='⭐'; else if (pct<=30) flag='🚩';
+        if ((a.Score===5&&b.Score<5) || (b.Score===5&&a.Score<5)) flag = flag? flag+' 🟨' : '🟨';
       }
-      body.push([role, item, String(aScore), match, flag, String(bScore)]);
+      rows.push([role,item,String(aS),match,flag,String(bS)]);
     }
-    return body;
+    return rows;
   }
 })();
 </script>
