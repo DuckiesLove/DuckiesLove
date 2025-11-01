@@ -573,351 +573,374 @@
     window.ksvParseSurveyJsonText = ksvParseSurveyJsonText;
   </script>
 
-    <script defer src="/assets/js/comparison.js"></script>
-    <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
+  <!-- ================== CODEX: Hard-intercept slow 'change' handler + Consent + Dark PDF ==================
+       Paste this once near the END of compatibility.html (after your inputs/buttons).
+       What this does:
+         • Kills the long-running legacy 'change' handler by intercepting it in the CAPTURE phase and stopping propagation.
+         • Shows a consent confirm for Partner uploads and adds the consent line to the “Uploaded ✓” alert.
+         • Defers all heavy work (JSON parse + PDF) off the 'change' event.
+         • Generates a DARK, neon-themed PDF (A/B comparison or single) on the Download button.
+       Assumed IDs:
+         #yourBtn  -> #yourFile
+         #partnerBtn -> #partnerFile
+         #downloadBtn -> build PDF
+  ======================================================================================================= -->
+  <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
+  <script>
+    (function () {
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const dispatch = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
 
-    <script>
-      (function () {
-        window.__TK_FAST_UPLOADS__ = true;
+      window.__TK_FAST_UPLOADS__ = true;
 
-        const $ = (selector, root = document) => root.querySelector(selector);
-        const dispatch = (name, detail) => {
-          document.dispatchEvent(new CustomEvent(name, { detail }));
-        };
+      // --- Open hidden pickers ---
+      $('#yourBtn')?.addEventListener('click', () => $('#yourFile')?.click());
+      $('#partnerBtn')?.addEventListener('click', () => $('#partnerFile')?.click());
 
-        function hijackFileInput(id) {
-          const el = document.getElementById(id);
-          if (!el) return null;
-          const clone = el.cloneNode(true);
-          el.replaceWith(clone);
-          return clone;
+      // --- State ---
+      let yourBlob = null;
+      let partnerBlob = null;
+      let yourJSON = null;
+      let partnerJSON = null;
+
+      const downloadBtn = $('#downloadBtn');
+      const parseQueue = new Set();
+
+      function resetSelection(which) {
+        if (which === 'self') {
+          yourBlob = null;
+          yourJSON = null;
+        } else {
+          partnerBlob = null;
+          partnerJSON = null;
+        }
+      }
+
+      function updateDownloadState() {
+        if (!downloadBtn) return;
+        downloadBtn.disabled = !(yourJSON && partnerJSON);
+      }
+
+      async function parseAndCache(which) {
+        const isSelf = which === 'self';
+        const blob = isSelf ? yourBlob : partnerBlob;
+        if (!blob) return null;
+
+        if (isSelf ? yourJSON : partnerJSON) {
+          return isSelf ? yourJSON : partnerJSON;
         }
 
-        const yourInput = hijackFileInput('yourFile');
-        const partnerInput = hijackFileInput('partnerFile');
-
-        const yourBtn = $('#yourBtn');
-        const partnerBtn = $('#partnerBtn');
-        const downloadBtn = $('#downloadBtn');
-
-        if (yourBtn && yourInput && yourBtn !== yourInput) {
-          yourBtn.addEventListener('click', () => yourInput.click());
-        }
-        if (partnerBtn && partnerInput && partnerBtn !== partnerInput) {
-          partnerBtn.addEventListener('click', () => partnerInput.click());
+        const text = await blob.text();
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch (err) {
+          err.which = which;
+          throw err;
         }
 
-        let yourBlob = null;
-        let partnerBlob = null;
-        let yourJSON = null;
-        let partnerJSON = null;
-
-        const parseQueue = new Set();
-
-        const fileNameOf = (which) =>
-          which === 'self' ? yourBlob?.name || '' : partnerBlob?.name || '';
-
-        function updateDownloadState() {
-          if (!downloadBtn) return;
-          downloadBtn.disabled = !(yourJSON && partnerJSON);
+        if (isSelf) {
+          yourJSON = json;
+          window.talkkinkMine = json;
+          window.talkkinkSurvey = json;
+        } else {
+          partnerJSON = json;
+          window.talkkinkPartner = json;
         }
 
-        async function ensureParsed(which) {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-          if ((!which || which === 'self') && yourBlob && !yourJSON) {
-            const text = await yourBlob.text();
-            yourJSON = JSON.parse(text);
-          }
-          if ((!which || which === 'partner') && partnerBlob && !partnerJSON) {
-            const text = await partnerBlob.text();
-            partnerJSON = JSON.parse(text);
-          }
-        }
+        dispatch('compat:json-ready', {
+          which,
+          json,
+          fileName: blob.name || ''
+        });
 
-        function scheduleParse(which) {
-          if (parseQueue.has(which)) return;
-          if (which === 'self' && !yourBlob) return;
-          if (which === 'partner' && !partnerBlob) return;
-          parseQueue.add(which);
-          setTimeout(async () => {
-            parseQueue.delete(which);
-            try {
-              await ensureParsed(which);
-              const json = which === 'self' ? yourJSON : partnerJSON;
-              if (json) {
-                if (which === 'self') {
-                  window.talkkinkMine = json;
-                  window.talkkinkSurvey = json;
-                } else if (which === 'partner') {
-                  window.talkkinkPartner = json;
-                }
-                dispatch('compat:json-ready', {
-                  which,
-                  json,
-                  fileName: fileNameOf(which)
-                });
-              }
-              updateDownloadState();
-            } catch (err) {
-              console.error(err);
-              alert('Invalid file — expected TalkKink JSON export.');
-              if (which === 'self') {
-                yourBlob = null;
-                yourJSON = null;
-              } else {
-                partnerBlob = null;
-                partnerJSON = null;
-              }
-              updateDownloadState();
-              dispatch('compat:file-selected', { which, file: null });
-            }
-          }, 0);
-        }
+        updateDownloadState();
+        return json;
+      }
 
-        if (yourInput) {
-          yourInput.addEventListener('change', (ev) => {
-            const file = ev.target?.files?.[0];
-            if (!file) return;
-            yourBlob = file;
-            yourJSON = null;
-            dispatch('compat:file-selected', { which: 'self', file });
-            alert('Uploaded ✓');
-            ev.target.value = '';
+      function scheduleParse(which) {
+        if (parseQueue.has(which)) return;
+        parseQueue.add(which);
+        setTimeout(async () => {
+          parseQueue.delete(which);
+          try {
+            await parseAndCache(which);
+          } catch (err) {
+            console.error(err);
+            alert('Invalid file — expected TalkKink JSON export.');
+            const id = err?.which || which;
+            resetSelection(id);
             updateDownloadState();
-            scheduleParse('self');
-          });
-        }
+            dispatch('compat:file-selected', { which: id, file: null });
+          }
+        }, 0);
+      }
 
-        if (partnerInput) {
-          partnerInput.addEventListener('change', (ev) => {
-            const file = ev.target?.files?.[0];
-            if (!file) return;
+      document.addEventListener(
+        'change',
+        (ev) => {
+          const target = ev.target;
+          if (!target || !(target instanceof HTMLInputElement)) return;
+          if (!target.matches('#yourFile, #partnerFile')) return;
+
+          ev.stopImmediatePropagation();
+          ev.stopPropagation();
+
+          const which = target.id === 'partnerFile' ? 'partner' : 'self';
+          const file = target.files && target.files[0];
+
+          if (!file) {
+            resetSelection(which);
+            updateDownloadState();
+            dispatch('compat:file-selected', { which, file: null });
+            return;
+          }
+
+          if (which === 'partner') {
             const ok = confirm(
-              'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
-                'Click “OK” to continue or “Cancel” to stop.'
+              'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\nClick “OK” to continue or “Cancel” to stop.'
             );
             if (!ok) {
-              ev.target.value = '';
-              partnerBlob = null;
-              partnerJSON = null;
+              target.value = '';
+              resetSelection('partner');
               updateDownloadState();
               dispatch('compat:file-selected', { which: 'partner', file: null });
               return;
             }
+          }
+
+          if (which === 'self') {
+            yourBlob = file;
+            yourJSON = null;
+          } else {
             partnerBlob = file;
             partnerJSON = null;
-            dispatch('compat:file-selected', { which: 'partner', file });
+          }
+
+          dispatch('compat:file-selected', { which, file });
+
+          if (which === 'partner') {
             alert('Uploaded ✓\n(You confirmed you have your partner’s explicit consent.)');
-            ev.target.value = '';
-            updateDownloadState();
-            scheduleParse('partner');
-          });
-        }
-
-        if (downloadBtn) {
-          downloadBtn.addEventListener(
-            'click',
-            (event) => event.stopImmediatePropagation(),
-            true
-          );
-
-          downloadBtn.addEventListener('click', async () => {
-            try {
-              await ensureParsed();
-              if (!yourJSON && !partnerJSON) {
-                alert('Please upload at least one survey before downloading.');
-                return;
-              }
-              await generateDarkPDF(yourJSON, partnerJSON);
-            } catch (err) {
-              console.error(err);
-              alert('Sorry—could not generate the PDF.');
-            }
-          });
-        }
-
-        const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
-
-        function rowsFromTalkKink(json) {
-          if (!json) return [];
-          const map = json.answersById || {};
-          const out = [];
-          for (const [id, score] of Object.entries(map)) {
-            const parts = id.split('-');
-            const role = parts.at(-1);
-            const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, (m) => m.toUpperCase());
-            const item = parts
-              .slice(2, -1)
-              .join(' ')
-              .replace(/\bTv\b/gi, 'TV')
-              .replace(/\s+/g, ' ')
-              .trim();
-            out.push({ Category: category, Item: cap(item), Role: cap(role), Score: Number(score) });
-          }
-          out.sort(
-            (a, b) =>
-              a.Category.localeCompare(b.Category) ||
-              a.Role.localeCompare(b.Role) ||
-              a.Item.localeCompare(b.Item)
-          );
-          return out;
-        }
-
-        async function generateDarkPDF(yourJSON, partnerJSON) {
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF({ unit: 'pt', format: 'letter' });
-
-          const W = doc.internal.pageSize.getWidth();
-          const H = doc.internal.pageSize.getHeight();
-
-          function paintPageChrome() {
-            doc.setFillColor(10, 10, 12);
-            doc.rect(0, 0, W, H, 'F');
-            doc.setDrawColor(0, 255, 255);
-            doc.setLineWidth(1);
-            doc.line(48, 68, W - 48, 68);
-            doc.setTextColor(255, 255, 255);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(18);
-            doc.text('TalkKink Compatibility — Printable Report', 48, 50);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            doc.setTextColor(170, 200, 255);
-            doc.text('Generated: ' + new Date().toLocaleString(), 48, 62);
-          }
-          paintPageChrome();
-
-          const tableBase = {
-            theme: 'grid',
-            styles: {
-              font: 'helvetica',
-              fontSize: 10,
-              cellPadding: 4,
-              textColor: [235, 235, 242],
-              lineColor: [60, 60, 78],
-              lineWidth: 0.25,
-              fillColor: [18, 18, 22]
-            },
-            alternateRowStyles: { fillColor: [26, 26, 32] },
-            headStyles: { fillColor: [0, 0, 0], textColor: [0, 255, 255] },
-            margin: { left: 48, right: 48 },
-            didAddPage: () => paintPageChrome()
-          };
-
-          const rowsA = rowsFromTalkKink(yourJSON);
-          const rowsB = rowsFromTalkKink(partnerJSON);
-          const hasA = rowsA.length > 0;
-          const hasB = rowsB.length > 0;
-
-          let y = 90;
-
-          if (hasA && hasB) {
-            const cats = [...new Set([...rowsA, ...rowsB].map((r) => r.Category))];
-            for (const cat of cats) {
-              doc.setFont('helvetica', 'bold');
-              doc.setFontSize(13);
-              doc.setTextColor(255, 255, 255);
-              doc.text(cat, 48, y);
-              y += 8;
-
-              const body = buildComparisonBody(
-                rowsA.filter((r) => r.Category === cat),
-                rowsB.filter((r) => r.Category === cat)
-              );
-
-              doc.autoTable({
-                ...tableBase,
-                startY: y + 8,
-                head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
-                body,
-                columnStyles: {
-                  0: { cellWidth: 70 },
-                  1: { cellWidth: 280 },
-                  2: { cellWidth: 60, halign: 'center' },
-                  3: { cellWidth: 60, halign: 'center' },
-                  4: { cellWidth: 40, halign: 'center' },
-                  5: { cellWidth: 60, halign: 'center' }
-                }
-              });
-              y = doc.lastAutoTable.finalY + 16;
-              if (y > H - 72) {
-                doc.addPage();
-                paintPageChrome();
-                y = 90;
-              }
-            }
           } else {
-            const rows = hasA ? rowsA : rowsB;
-            const whose = hasA ? 'Partner A' : 'Partner';
-            const cats = [...new Set(rows.map((r) => r.Category))];
-
-            for (const cat of cats) {
-              doc.setFont('helvetica', 'bold');
-              doc.setFontSize(13);
-              doc.setTextColor(255, 255, 255);
-              doc.text(`${cat} — ${whose}`, 48, y);
-              y += 8;
-
-              const body = rows
-                .filter((r) => r.Category === cat)
-                .map((r) => [r.Role, r.Item, String(r.Score)]);
-              doc.autoTable({
-                ...tableBase,
-                startY: y + 8,
-                head: [['Role', 'Item', 'Score']],
-                body,
-                columnStyles: {
-                  0: { cellWidth: 90 },
-                  1: { cellWidth: 350 },
-                  2: { cellWidth: 60, halign: 'center' }
-                }
-              });
-              y = doc.lastAutoTable.finalY + 16;
-              if (y > H - 72) {
-                doc.addPage();
-                paintPageChrome();
-                y = 90;
-              }
-            }
+            alert('Uploaded ✓');
           }
 
-          const name = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
-          doc.save(name);
-        }
+          target.value = '';
+          updateDownloadState();
+          scheduleParse(which);
 
-        function buildComparisonBody(rowsA, rowsB) {
-          const key = (r) => `${r.Role}|${r.Item}`.toLowerCase();
-          const mapA = Object.fromEntries(rowsA.map((r) => [key(r), r]));
-          const mapB = Object.fromEntries(rowsB.map((r) => [key(r), r]));
-          const keys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
-          const body = [];
-          for (const k of keys) {
-            const a = mapA[k];
-            const b = mapB[k];
-            const role = a?.Role || b?.Role || '';
-            const item = a?.Item || b?.Item || '';
-            const aScore = Number.isFinite(a?.Score) ? a.Score : '';
-            const bScore = Number.isFinite(b?.Score) ? b.Score : '';
+          queueMicrotask(() => {});
+        },
+        true
+      );
 
-            let match = '';
-            let flag = '';
-            if (a && b) {
-              const diff = Math.abs(a.Score - b.Score);
-              const pct = Math.round((1 - diff / 5) * 100);
-              match = pct + '%';
-              if (pct >= 90) flag = '⭐';
-              else if (pct <= 30) flag = '🚩';
-              if ((a?.Score === 5 && b?.Score < 5) || (b?.Score === 5 && a?.Score < 5)) {
-                flag = flag ? flag + ' 🟨' : '🟨';
-              }
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', (event) => event.stopImmediatePropagation(), true);
+
+        downloadBtn.addEventListener('click', async () => {
+          try {
+            await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
+            if (!yourJSON && !partnerJSON) {
+              alert('Please upload at least one survey before downloading.');
+              return;
             }
-            body.push([role, item, String(aScore), match, flag, String(bScore)]);
+            await generateDarkPDF(yourJSON, partnerJSON);
+          } catch (err) {
+            console.error(err);
+            const id = err?.which;
+            if (id === 'self' || id === 'partner') {
+              resetSelection(id);
+              updateDownloadState();
+              dispatch('compat:file-selected', { which: id, file: null });
+            }
+            alert('Sorry—could not generate the PDF.');
           }
-          return body;
+        });
+      }
+
+      const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+      function rowsFromTalkKink(json) {
+        if (!json) return [];
+        const map = json.answersById || {};
+        const out = [];
+        for (const [id, score] of Object.entries(map)) {
+          const parts = id.split('-');
+          const role = parts.at(-1);
+          const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, (m) => m.toUpperCase());
+          const item = parts
+            .slice(2, -1)
+            .join(' ')
+            .replace(/\bTv\b/gi, 'TV')
+            .replace(/\s+/g, ' ')
+            .trim();
+          out.push({ Category: category, Item: cap(item), Role: cap(role), Score: Number(score) });
         }
-      })();
-    </script>
+        out.sort(
+          (a, b) =>
+            a.Category.localeCompare(b.Category) ||
+            a.Role.localeCompare(b.Role) ||
+            a.Item.localeCompare(b.Item)
+        );
+        return out;
+      }
+
+      async function generateDarkPDF(yourJSON, partnerJSON) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
+        const W = doc.internal.pageSize.getWidth();
+        const H = doc.internal.pageSize.getHeight();
+
+        function paintPageChrome() {
+          doc.setFillColor(10, 10, 12);
+          doc.rect(0, 0, W, H, 'F');
+          doc.setDrawColor(0, 255, 255);
+          doc.setLineWidth(1);
+          doc.line(48, 68, W - 48, 68);
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(18);
+          doc.text('TalkKink Compatibility — Printable Report', 48, 50);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.setTextColor(170, 200, 255);
+          doc.text('Generated: ' + new Date().toLocaleString(), 48, 62);
+        }
+        paintPageChrome();
+
+        const tableBase = {
+          theme: 'grid',
+          styles: {
+            font: 'helvetica',
+            fontSize: 10,
+            cellPadding: 4,
+            textColor: [235, 235, 242],
+            lineColor: [60, 60, 78],
+            lineWidth: 0.25,
+            fillColor: [18, 18, 22]
+          },
+          alternateRowStyles: { fillColor: [26, 26, 32] },
+          headStyles: { fillColor: [0, 0, 0], textColor: [0, 255, 255] },
+          margin: { left: 48, right: 48 },
+          didAddPage: () => paintPageChrome()
+        };
+
+        const rowsA = rowsFromTalkKink(yourJSON);
+        const rowsB = rowsFromTalkKink(partnerJSON);
+        const hasA = rowsA.length > 0;
+        const hasB = rowsB.length > 0;
+
+        let y = 90;
+
+        if (hasA && hasB) {
+          const cats = [...new Set([...rowsA, ...rowsB].map((r) => r.Category))];
+          for (const cat of cats) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(13);
+            doc.setTextColor(255, 255, 255);
+            doc.text(cat, 48, y);
+            y += 8;
+
+            const body = buildComparisonBody(
+              rowsA.filter((r) => r.Category === cat),
+              rowsB.filter((r) => r.Category === cat)
+            );
+
+            doc.autoTable({
+              ...tableBase,
+              startY: y + 8,
+              head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
+              body,
+              columnStyles: {
+                0: { cellWidth: 70 },
+                1: { cellWidth: 280 },
+                2: { cellWidth: 60, halign: 'center' },
+                3: { cellWidth: 60, halign: 'center' },
+                4: { cellWidth: 40, halign: 'center' },
+                5: { cellWidth: 60, halign: 'center' }
+              }
+            });
+            y = doc.lastAutoTable.finalY + 16;
+            if (y > H - 72) {
+              doc.addPage();
+              paintPageChrome();
+              y = 90;
+            }
+          }
+        } else {
+          const rows = hasA ? rowsA : rowsB;
+          const whose = hasA ? 'Partner A' : 'Partner';
+          const cats = [...new Set(rows.map((r) => r.Category))];
+
+          for (const cat of cats) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(13);
+            doc.setTextColor(255, 255, 255);
+            doc.text(`${cat} — ${whose}`, 48, y);
+            y += 8;
+
+            const body = rows
+              .filter((r) => r.Category === cat)
+              .map((r) => [r.Role, r.Item, String(r.Score)]);
+            doc.autoTable({
+              ...tableBase,
+              startY: y + 8,
+              head: [['Role', 'Item', 'Score']],
+              body,
+              columnStyles: {
+                0: { cellWidth: 90 },
+                1: { cellWidth: 350 },
+                2: { cellWidth: 60, halign: 'center' }
+              }
+            });
+            y = doc.lastAutoTable.finalY + 16;
+            if (y > H - 72) {
+              doc.addPage();
+              paintPageChrome();
+              y = 90;
+            }
+          }
+        }
+
+        const name = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
+        doc.save(name);
+      }
+
+      function buildComparisonBody(rowsA, rowsB) {
+        const key = (r) => `${r.Role}|${r.Item}`.toLowerCase();
+        const mapA = Object.fromEntries(rowsA.map((r) => [key(r), r]));
+        const mapB = Object.fromEntries(rowsB.map((r) => [key(r), r]));
+        const keys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
+        const body = [];
+        for (const k of keys) {
+          const a = mapA[k];
+          const b = mapB[k];
+          const role = a?.Role || b?.Role || '';
+          const item = a?.Item || b?.Item || '';
+          const aScore = Number.isFinite(a?.Score) ? a.Score : '';
+          const bScore = Number.isFinite(b?.Score) ? b.Score : '';
+
+          let match = '';
+          let flag = '';
+          if (a && b) {
+            const diff = Math.abs(a.Score - b.Score);
+            const pct = Math.round((1 - diff / 5) * 100);
+            match = pct + '%';
+            if (pct >= 90) flag = '⭐';
+            else if (pct <= 30) flag = '🚩';
+            if ((a?.Score === 5 && b?.Score < 5) || (b?.Score === 5 && a?.Score < 5)) {
+              flag = flag ? flag + ' 🟨' : '🟨';
+            }
+          }
+          body.push([role, item, String(aScore), match, flag, String(bScore)]);
+        }
+        return body;
+      }
+    })();
+  </script>
+    <script defer src="/assets/js/comparison.js"></script>
   <script defer>
     /**
      * Safely clear margin on the dock *only if it exists on this page*.
