@@ -6,198 +6,372 @@
 <button id="partnerBtn" type="button">Upload Partner’s Survey</button>
 <button id="downloadBtn" type="button">Download PDF</button>
 
-<!-- jsPDF + autoTable -->
-<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
-
 <script>
 (function () {
   const $ = (s, r=document) => r.querySelector(s);
 
-  // Wire UI
-  $('#yourBtn')?.addEventListener('click',   () => $('#yourFile').click());
-  $('#partnerBtn')?.addEventListener('click',() => $('#partnerFile').click());
+  const yourBtn      = $('#yourBtn');
+  const partnerBtn   = $('#partnerBtn');
+  const downloadBtn  = $('#downloadBtn');
+  const yourInput    = $('#yourFile');
+  const partnerInput = $('#partnerFile');
 
-  // State (only store Files at change time → fast handler)
-  let yourFileBlob = null;
-  let partnerFileBlob = null;
+  // State to hold the selected files / parsed JSON
+  let yourBlob = null;
+  let partnerBlob = null;
   let yourJSON = null;
   let partnerJSON = null;
 
-  // ---- FAST change handlers: do nothing heavy here ----
-  $('#yourFile')?.addEventListener('change', (ev) => {
-    const f = ev.target?.files?.[0]; if (!f) return;
-    yourFileBlob = f;          // store only
-    alert('Uploaded ✓');
-    ev.target.value = '';
-  });
+  // Remember partner consent per tab so we only ask once
+  const CONSENT_KEY = 'tk.partnerConsent.v1';
 
-  $('#partnerFile')?.addEventListener('change', (ev) => {
-    const f = ev.target?.files?.[0]; if (!f) return;
+  // 1. Always clear the input BEFORE opening picker.
+  //    This fixes "I had to upload twice because picking same file didn't trigger change."
+  function openPicker(inputEl) {
+    if (!inputEl) return;
+    inputEl.value = ''; // force change event even if it's the same file name
+    inputEl.click();
+  }
 
-    const ok = confirm(
-      'Before importing a partner’s survey, confirm you have their explicit consent '+
-      'to upload and compare their responses here.\n\nClick “OK” to continue or “Cancel” to stop.'
-    );
-    if (!ok) { ev.target.value = ''; return; }
+  yourBtn    && yourBtn.addEventListener('click',   () => openPicker(yourInput));
+  partnerBtn && partnerBtn.addEventListener('click',() => openPicker(partnerInput));
 
-    partnerFileBlob = f;       // store only
-    alert('Uploaded ✓\n(You confirmed you have your partner’s explicit consent.)');
-    ev.target.value = '';
-  });
+  // 2. HARD BLOCK legacy slow/bubbled listeners so they never run.
+  //    We do this for BOTH inputs, but we handle consent logic ourselves below.
+  document.addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    if (t !== yourInput && t !== partnerInput) return;
 
-  // ---- Parse files lazily (after a tick / on demand) ----
-  async function ensureParsed() {
-    // Yield so we never block the change event: avoids "[Violation] 'change' handler took …ms"
-    await new Promise(r => setTimeout(r, 0));
+    // stop any old attached change handlers so we don't double-run
+    ev.stopImmediatePropagation();
+    ev.stopPropagation();
+    // Don't preventDefault; we still want the file to be there for us.
+  }, true); // capture=true so we block before old handlers fire
 
-    if (yourFileBlob && !yourJSON) {
-      const text = await yourFileBlob.text();
-      yourJSON = JSON.parse(text);
+  // 3. Our *own* lightweight change handlers (no re-dispatch, no second pick)
+
+  if (yourInput) {
+    yourInput.addEventListener('change', async (ev) => {
+      const file = ev.target?.files?.[0];
+      if (!file) return;
+
+      // stash file once
+      yourBlob = file;
+
+      // lightweight UI notify - replace with toast() if you wired that already
+      if (window.tkNotifyYourReady) {
+        tkNotifyYourReady(); // shows "Your survey ready ✓"
+      } else {
+        console.info('[compat] Your survey ready ✓');
+      }
+
+      // DO NOT parse JSON here; we do that later when building the PDF
+      // DO NOT re-dispatch the event
+    });
+  }
+
+  if (partnerInput) {
+    partnerInput.addEventListener('change', async (ev) => {
+      const file = ev.target?.files?.[0];
+      if (!file) return;
+
+      // If we haven't gotten consent this tab, ask now
+      if (!sessionStorage.getItem(CONSENT_KEY)) {
+        const ok = confirm(
+          'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
+          'Click “OK” to confirm consent and continue, or “Cancel” to stop.'
+        );
+
+        if (!ok) {
+          // User said no: wipe file so they have to pick again later.
+          ev.target.value = '';
+          return;
+        }
+
+        // User said yes: remember so we will NOT ask them again this tab.
+        sessionStorage.setItem(CONSENT_KEY, '1');
+      }
+
+      // stash file once
+      partnerBlob = file;
+
+      // lightweight UI notify - replace with tkNotifyPartnerReady() for your toast line
+      if (window.tkNotifyPartnerReady) {
+        tkNotifyPartnerReady(); // "Partner survey ready ✓ — consent recorded."
+      } else {
+        console.info('[compat] Partner survey ready ✓ — consent recorded.');
+      }
+
+      // Again, no re-dispatch, no second upload
+    });
+  }
+
+  // 4. PDF generation hook
+  //    - load libs on demand,
+  //    - parse yourBlob/partnerBlob lazily,
+  //    - generate your dark PDF.
+  //    This is the same logic we've been building, but self-contained.
+
+  let libsReady = false;
+
+  async function loadLibsOnce() {
+    if (libsReady && window.jspdf && window.jspdf.jsPDF && window.jspdf_autotable) return;
+    async function load(src) {
+      return new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = res;
+        s.onerror = rej;
+        document.head.appendChild(s);
+      });
     }
-    if (partnerFileBlob && !partnerJSON) {
-      const text = await partnerFileBlob.text();
-      partnerJSON = JSON.parse(text);
+    try {
+      if (!window.jspdf) await load('https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js');
+      if (!window.jspdf_autotable) await load('https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+      libsReady = true;
+    } catch {
+      // fallback CDNs
+      if (!window.jspdf) await load('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+      if (!window.jspdf_autotable) await load('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+      libsReady = true;
     }
   }
 
-  // ---- Download pretty PDF (A/B or single) ----
-  $('#downloadBtn')?.addEventListener('click', async () => {
+  async function ensureParsed() {
+    // Parse only when we actually need it
+    await Promise.resolve(); // microtask yield
+    if (yourBlob && !yourJSON) {
+      yourJSON = JSON.parse(await yourBlob.text());
+    }
+    if (partnerBlob && !partnerJSON) {
+      partnerJSON = JSON.parse(await partnerBlob.text());
+    }
+  }
+
+  downloadBtn && downloadBtn.addEventListener('click', async () => {
     try {
+      await loadLibsOnce();
       await ensureParsed();
-      await generatePrettyPDF(yourJSON, partnerJSON);
-    } catch (e) {
-      console.error(e);
-      alert('Sorry—could not generate the PDF.');
+
+      if (!yourJSON && !partnerJSON) {
+        alert('Load at least one survey first (yours or partner).');
+        return;
+      }
+
+      await generateDarkPDF(yourJSON, partnerJSON);
+    } catch (err) {
+      console.error(err);
+      alert('Could not generate the PDF. Please try again.');
     }
   });
 
-  // ======= Parse TalkKink JSON -> rows =======
+  // --- Helpers to normalize survey data and build the dark PDF ---
+
   function rowsFromTalkKink(json) {
     if (!json) return [];
     const map = json.answersById || {};
     const out = [];
     for (const [id, score] of Object.entries(map)) {
-      // behavioral-play-assigning-corner-time-or-time-outs-giving
+      // example id: behavioral-play-assigning-corner-time-or-time-outs-giving
       const parts = id.split('-');
-      const role = parts.at(-1); // giving|receiving|general
-      const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, m=>m.toUpperCase());
-      const item = parts.slice(2, -1).join(' ')
-        .replace(/\bTv\b/gi,'TV').replace(/\s+/g,' ').trim();
-      out.push({ Category: category, Item: cap(item), Role: cap(role), Score: Number(score) });
+      const role = parts.at(-1); // giving | receiving | general
+      const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, m => m.toUpperCase());
+      const item = parts
+        .slice(2, -1)
+        .join(' ')
+        .replace(/\bTv\b/gi, 'TV')
+        .replace(/\s+/g, ' ')
+        .trim();
+      out.push({
+        Category: category,
+        Item: item.charAt(0).toUpperCase() + item.slice(1),
+        Role: role.charAt(0).toUpperCase() + role.slice(1),
+        Score: Number(score)
+      });
     }
-    out.sort((a,b)=> a.Category.localeCompare(b.Category) || a.Role.localeCompare(b.Role) || a.Item.localeCompare(b.Item));
+    out.sort((a,b) =>
+      a.Category.localeCompare(b.Category) ||
+      a.Role.localeCompare(b.Role) ||
+      a.Item.localeCompare(b.Item)
+    );
     return out;
   }
-  const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 
-  // ======= Pretty PDF =======
-  async function generatePrettyPDF(yourJSON, partnerJSON) {
+  async function generateDarkPDF(yourJSON, partnerJSON) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit:'pt', format:'letter' });
 
-    const rowsA = rowsFromTalkKink(yourJSON);
-    const rowsB = rowsFromTalkKink(partnerJSON);
-    const hasA = rowsA.length > 0, hasB = rowsB.length > 0;
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
 
-    // Header bar
-    const now = new Date().toLocaleString();
-    doc.setFillColor(0,0,0); doc.rect(0,0,doc.internal.pageSize.getWidth(),64,'F');
-    doc.setTextColor(0,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(18);
-    doc.text('TalkKink Compatibility — Printable Report', 48, 40);
-    doc.setTextColor(220); doc.setFont('helvetica','normal'); doc.setFontSize(10);
-    doc.text(`Generated: ${now}`, 48, 56);
+    function paintPageChrome() {
+      // black bg
+      doc.setFillColor(10,10,12);
+      doc.rect(0,0,W,H,'F');
 
-    const yStart = 88; let y = yStart;
+      // cyan header rule
+      doc.setDrawColor(0,255,255);
+      doc.setLineWidth(1);
+      doc.line(48,68,W-48,68);
+
+      // header text
+      doc.setTextColor(255,255,255);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(18);
+      doc.text('TalkKink Compatibility — Printable Report', 48, 50);
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(10);
+      doc.setTextColor(170,200,255);
+      doc.text('Generated: ' + new Date().toLocaleString(), 48, 62);
+    }
+    paintPageChrome();
+
+    const tableStyles = {
+      theme: 'grid',
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+        cellPadding: 4,
+        textColor: [235,235,242],
+        lineColor: [60,60,78],
+        lineWidth: 0.25,
+        fillColor: [18,18,22]
+      },
+      alternateRowStyles: { fillColor: [26,26,32] },
+      headStyles: { fillColor: [0,0,0], textColor: [0,255,255] },
+      margin: { left: 48, right: 48 },
+      didAddPage: () => paintPageChrome()
+    };
+
+    const A = rowsFromTalkKink(yourJSON);
+    const B = rowsFromTalkKink(partnerJSON);
+    const hasA = A.length > 0;
+    const hasB = B.length > 0;
+    let y = 90;
 
     if (hasA && hasB) {
-      // A/B comparison with Match % and flags
-      const cats = [...new Set([...rowsA, ...rowsB].map(r=>r.Category))];
+      const cats = [...new Set([...A, ...B].map(r => r.Category))];
       for (const cat of cats) {
-        doc.setTextColor(0); doc.setFont('helvetica','bold'); doc.setFontSize(13);
-        doc.text(cat, 48, y); y += 8;
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(13);
+        doc.setTextColor(255,255,255);
+        doc.text(cat, 48, y);
+        y += 8;
 
-        const body = buildComparisonBody(
-          rowsA.filter(r=>r.Category===cat),
-          rowsB.filter(r=>r.Category===cat)
-        );
+        const body = buildAB(A.filter(r => r.Category === cat), B.filter(r => r.Category === cat));
 
         doc.autoTable({
+          ...tableStyles,
           startY: y + 8,
-          margin: { left: 48, right: 48 },
           head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
           body,
-          styles: { font:'helvetica', fontSize:10, cellPadding:4, overflow:'linebreak' },
-          headStyles: { fillColor:[0,0,0], textColor:255 },
-          alternateRowStyles: { fillColor:[245,245,245] },
           columnStyles: {
-            0:{ cellWidth:70 }, 1:{ cellWidth:280 }, 2:{ cellWidth:60, halign:'center' },
-            3:{ cellWidth:60, halign:'center' }, 4:{ cellWidth:40, halign:'center' },
+            0:{ cellWidth:70 },
+            1:{ cellWidth:280 },
+            2:{ cellWidth:60, halign:'center' },
+            3:{ cellWidth:60, halign:'center' },
+            4:{ cellWidth:40, halign:'center' },
             5:{ cellWidth:60, halign:'center' }
           }
         });
+
         y = doc.lastAutoTable.finalY + 16;
-        if (y > doc.internal.pageSize.getHeight()-72) { doc.addPage(); y = yStart; }
+        if (y > H - 72) {
+          doc.addPage();
+          paintPageChrome();
+          y = 90;
+        }
       }
     } else {
-      // Single survey pretty print
-      const rows = hasA ? rowsA : rowsB;
-      const whose = hasA ? 'Partner A' : 'Partner';
-      const cats = [...new Set(rows.map(r=>r.Category))];
+      const rows = hasA ? A : B;
+      const who  = hasA ? 'Partner A' : 'Partner';
+      const cats = [...new Set(rows.map(r => r.Category))];
 
       for (const cat of cats) {
-        doc.setTextColor(0); doc.setFont('helvetica','bold'); doc.setFontSize(13);
-        doc.text(`${cat} — ${whose}`, 48, y); y += 8;
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(13);
+        doc.setTextColor(255,255,255);
+        doc.text(`${cat} — ${who}`, 48, y);
+        y += 8;
 
-        const body = rows.filter(r=>r.Category===cat).map(r => [r.Role, r.Item, String(r.Score)]);
+        const body = rows
+          .filter(r => r.Category === cat)
+          .map(r => [r.Role, r.Item, String(r.Score)]);
+
         doc.autoTable({
+          ...tableStyles,
           startY: y + 8,
-          margin: { left: 48, right: 48 },
-          head: [['Role','Item','Score']],
+          head: [['Role', 'Item', 'Score']],
           body,
-          styles: { font:'helvetica', fontSize:10, cellPadding:4, overflow:'linebreak' },
-          headStyles: { fillColor:[0,0,0], textColor:255 },
-          alternateRowStyles: { fillColor:[245,245,245] },
-          columnStyles: { 0:{cellWidth:90}, 1:{cellWidth:350}, 2:{cellWidth:60, halign:'center'} }
+          columnStyles: {
+            0:{ cellWidth:90 },
+            1:{ cellWidth:350 },
+            2:{ cellWidth:60, halign:'center' }
+          }
         });
+
         y = doc.lastAutoTable.finalY + 16;
-        if (y > doc.internal.pageSize.getHeight()-72) { doc.addPage(); y = yStart; }
+        if (y > H - 72) {
+          doc.addPage();
+          paintPageChrome();
+          y = 90;
+        }
       }
     }
 
-    const filename = (hasA && hasB) ? 'compatibility-pretty.pdf' : 'partner-survey-pretty.pdf';
+    const filename = (hasA && hasB)
+      ? 'compatibility-pretty-dark.pdf'
+      : 'partner-survey-pretty-dark.pdf';
+
     doc.save(filename);
   }
 
-  function buildComparisonBody(rowsA, rowsB) {
-    const key = r => `${r.Role}|${r.Item}`.toLowerCase();
-    const mapA = Object.fromEntries(rowsA.map(r => [key(r), r]));
-    const mapB = Object.fromEntries(rowsB.map(r => [key(r), r]));
-    const keys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
-
-    const body = [];
+  function buildAB(A, B) {
+    // match rows by Role+Item so they line up even if one side is missing
+    const keyOf = r => `${r.Role}|${r.Item}`.toLowerCase();
+    const aMap = Object.fromEntries(A.map(r => [keyOf(r), r]));
+    const bMap = Object.fromEntries(B.map(r => [keyOf(r), r]));
+    const keys = [...new Set([...Object.keys(aMap), ...Object.keys(bMap)])].sort();
+    const out = [];
     for (const k of keys) {
-      const a = mapA[k], b = mapB[k];
-      const role = (a?.Role || b?.Role || '');
-      const item = (a?.Item || b?.Item || '');
+      const a = aMap[k];
+      const b = bMap[k];
+      const role = a?.Role || b?.Role || '';
+      const item = a?.Item || b?.Item || '';
       const aScore = Number.isFinite(a?.Score) ? a.Score : '';
       const bScore = Number.isFinite(b?.Score) ? b.Score : '';
 
-      let match = '', flag = '';
+      let match = '';
+      let flag  = '';
       if (a && b) {
-        const diff = Math.abs(a.Score - b.Score);
-        const pct = Math.round((1 - diff/5) * 100);
+        const pct = Math.round((1 - Math.abs(a.Score - b.Score)/5) * 100);
         match = pct + '%';
-        if (pct >= 90) flag = '⭐';
-        else if (pct <= 30) flag = '🚩';
-        if ((a.Score === 5 && b.Score < 5) || (b.Score === 5 && a.Score < 5)) {
+
+        if (pct >= 90) {
+          flag = '⭐';
+        } else if (pct <= 30) {
+          flag = '🚩';
+        }
+        if (
+          (a.Score === 5 && b.Score < 5) ||
+          (b.Score === 5 && a.Score < 5)
+        ) {
           flag = flag ? flag + ' 🟨' : '🟨';
         }
       }
-      body.push([role, item, String(aScore), match, flag, String(bScore)]);
+
+      out.push([role, item, String(aScore), match, flag, String(bScore)]);
     }
-    return body;
+    return out;
   }
+
+  // optional helper to wipe consent so you can test again without closing the tab
+  window.tkResetPartnerConsent = () => {
+    sessionStorage.removeItem(CONSENT_KEY);
+    console.info('[compat] Partner consent reset for this tab.');
+  };
 })();
 </script>
 <!-- =============================================================================== -->
