@@ -718,6 +718,150 @@
 
       let consentUI = null;
 
+      const clampScore = (value) => {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return 0;
+        if (num <= 0) return 0;
+        if (num >= 5) return 5;
+        return Math.round(num);
+      };
+
+      const ROLE_ALIASES = {
+        giving: 'Giving',
+        giver: 'Giving',
+        dom: 'Dominant',
+        dominant: 'Dominant',
+        top: 'Dominant',
+        receiving: 'Receiving',
+        receiver: 'Receiving',
+        sub: 'Submissive',
+        submissive: 'Submissive',
+        bottom: 'Submissive',
+        switch: 'Switch',
+        general: 'General',
+        neutral: 'General'
+      };
+
+      const normalizeRole = (value) => {
+        if (!value) return 'General';
+        const key = String(value).trim().toLowerCase();
+        return ROLE_ALIASES[key] || (key ? key[0].toUpperCase() + key.slice(1) : 'General');
+      };
+
+      const tidyLabel = (value, fallback) => {
+        const str = String(value || '').replace(/\s+/g, ' ').trim();
+        if (str) return str;
+        return fallback ? String(fallback) : '';
+      };
+
+      function normalizeCompatPayload(raw, which) {
+        if (!raw) return raw;
+
+        if (Array.isArray(raw)) {
+          const answers = raw.map((score, idx) => ({
+            kinkId: `item-${idx + 1}`,
+            side: 'general',
+            score
+          }));
+          return normalizeCompatPayload({ answers }, which);
+        }
+
+        if (typeof raw !== 'object') return raw;
+
+        const normalized = { ...raw };
+
+        const responses = Array.isArray(normalized.responses)
+          ? normalized.responses.map((entry, idx) => {
+              if (!entry || typeof entry !== 'object') {
+                return null;
+              }
+              const baseId = String(entry.id || `${which || 'A'}-${idx + 1}`);
+              const role = normalizeRole(entry.role || entry.side || entry.channel);
+              const rating = clampScore(entry.rating ?? entry.score ?? entry.value ?? 0);
+              const prompt = tidyLabel(entry.prompt || entry.label || entry.title || entry.name || entry.question, baseId);
+              const category = tidyLabel(
+                entry.category || entry.categoryName || entry.group || entry.section,
+                normalized.meta?.surveyTitle || ''
+              );
+              return {
+                ...entry,
+                id: baseId,
+                role,
+                rating,
+                prompt,
+                category
+              };
+            }).filter(Boolean)
+          : [];
+
+        normalized.responses = responses;
+
+        const seenIds = new Set(responses.map((entry) => entry.id));
+        const ensureAnswersArray = () => {
+          const sources = [];
+          if (Array.isArray(normalized.answers)) sources.push(normalized.answers);
+          if (Array.isArray(normalized.survey?.answers)) sources.push(normalized.survey.answers);
+          if (Array.isArray(normalized.survey?.responses)) sources.push(normalized.survey.responses);
+          return sources.flat();
+        };
+
+        const candidates = ensureAnswersArray();
+
+        candidates.forEach((answer, idx) => {
+          if (!answer || typeof answer !== 'object') return;
+          const kinkId = tidyLabel(
+            answer.kinkId || answer.id || answer.key || answer.name || answer.questionId,
+            `item-${idx + 1}`
+          );
+          const sideRaw = String(answer.side || answer.role || answer.channel || 'general');
+          const role = normalizeRole(sideRaw);
+          const score = clampScore(answer.score ?? answer.rating ?? answer.value ?? answer.answer ?? 0);
+          const category = tidyLabel(
+            answer.category || answer.categoryName || answer.group || answer.section || answer.categoryId,
+            normalized.meta?.surveyTitle || ''
+          );
+          const prompt = tidyLabel(answer.title || answer.label || answer.prompt || answer.name || kinkId, kinkId);
+          const idHint = tidyLabel(answer.id || '', kinkId);
+          const baseId = idHint && idHint !== kinkId ? idHint : kinkId;
+          const sideKey = sideRaw.trim().toLowerCase() || 'general';
+          const composedId = baseId.toLowerCase().endsWith(`-${sideKey}`)
+            ? baseId
+            : `${baseId}-${sideKey}`;
+          if (!seenIds.has(composedId)) {
+            responses.push({
+              id: composedId,
+              kinkId,
+              role,
+              rating: score,
+              category,
+              prompt
+            });
+            seenIds.add(composedId);
+          }
+        });
+
+        if (!normalized.answersById || typeof normalized.answersById !== 'object') {
+          normalized.answersById = {};
+        }
+
+        responses.forEach((entry, idx) => {
+          if (!entry || typeof entry !== 'object') return;
+          const id = tidyLabel(entry.id, `${which || 'A'}-${idx + 1}`);
+          const score = clampScore(entry.rating ?? entry.score ?? entry.value ?? 0);
+          normalized.answersById[id] = score;
+        });
+
+        if (!normalized.answersByKey || typeof normalized.answersByKey !== 'object') {
+          const map = {};
+          responses.forEach((entry, idx) => {
+            map[String(idx + 1)] = clampScore(entry.rating ?? entry.score ?? entry.value ?? 0);
+          });
+          if (Object.keys(map).length) normalized.answersByKey = map;
+        }
+
+        return normalized;
+      }
+
       function ensureConsentUI() {
         if (consentUI) return consentUI;
         const overlay = document.createElement('div');
@@ -833,6 +977,8 @@
           err.which = which;
           throw err;
         }
+
+        json = normalizeCompatPayload(json, which);
 
         if (isSelf) {
           yourJSON = json;
@@ -979,27 +1125,67 @@
 
       function rowsFromTalkKink(json) {
         if (!json) return [];
-        const map = json.answersById || {};
-        const out = [];
-        for (const [id, score] of Object.entries(map)) {
-          const parts = id.split('-');
-          const role = parts.at(-1);
-          const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, (m) => m.toUpperCase());
-          const item = parts
-            .slice(2, -1)
-            .join(' ')
-            .replace(/\bTv\b/gi, 'TV')
-            .replace(/\s+/g, ' ')
-            .trim();
-          out.push({ Category: category, Item: cap(item), Role: cap(role), Score: Number(score) });
+
+        const rows = [];
+        const pushRow = (source, idx = 0) => {
+          if (!source || typeof source !== 'object') return;
+          const score = clampScore(source.score ?? source.rating ?? source.value ?? source.answer ?? 0);
+          const label = tidyLabel(source.item || source.prompt || source.title || source.label || source.name || source.id, `Item ${idx + 1}`);
+          const role = normalizeRole(source.role || source.side || source.channel || source.position);
+          const category = tidyLabel(source.category || source.categoryName || source.group || source.section, 'Other');
+          const kinkKey = tidyLabel(source.kinkId || source.id || label, label);
+          rows.push({
+            Category: category || 'Other',
+            Item: cap(label),
+            Role: role,
+            Score: score,
+            _key: `${kinkKey}|${role}`.toLowerCase()
+          });
+        };
+
+        if (Array.isArray(json.responses) && json.responses.length) {
+          json.responses.forEach((resp, idx) => pushRow(resp, idx));
+        } else if (Array.isArray(json.answers) && json.answers.length) {
+          json.answers.forEach((answer, idx) => pushRow(answer, idx));
+        } else if (json.answersById && typeof json.answersById === 'object') {
+          Object.entries(json.answersById).forEach(([id, score], idx) => {
+            if (!id) return;
+            const parts = String(id).split('-');
+            const role = normalizeRole(parts.at(-1));
+            const base = parts.slice(0, -1).join('-');
+            const label = tidyLabel(
+              parts
+                .slice(2, -1)
+                .join(' ')
+                .replace(/\bTv\b/gi, 'TV'),
+              `Item ${idx + 1}`
+            );
+            const category = tidyLabel(parts.slice(0, 2).join(' '), 'Other');
+            rows.push({
+              Category: category || 'Other',
+              Item: cap(label),
+              Role: role,
+              Score: clampScore(score),
+              _key: `${base}|${role}`.toLowerCase()
+            });
+          });
         }
-        out.sort(
+
+        const deduped = Array.from(
+          rows.reduce((map, row) => {
+            if (!map.has(row._key)) map.set(row._key, row);
+            return map;
+          }, new Map()).values()
+        );
+
+        deduped.sort(
           (a, b) =>
             a.Category.localeCompare(b.Category) ||
             a.Role.localeCompare(b.Role) ||
             a.Item.localeCompare(b.Item)
         );
-        return out;
+
+        return deduped;
       }
 
       async function generateDarkPDF(yourJSON, partnerJSON) {
@@ -1125,7 +1311,7 @@
       }
 
       function buildComparisonBody(rowsA, rowsB) {
-        const key = (r) => `${r.Role}|${r.Item}`.toLowerCase();
+        const key = (r) => (r._key || `${r.Role}|${r.Item}`).toLowerCase();
         const mapA = Object.fromEntries(rowsA.map((r) => [key(r), r]));
         const mapB = Object.fromEntries(rowsB.map((r) => [key(r), r]));
         const keys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
