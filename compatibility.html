@@ -571,6 +571,72 @@
 
     <input id="yourFile" type="file" accept="application/json" hidden />
     <input id="partnerFile" type="file" accept="application/json" hidden />
+
+  <script>
+    (function () {
+      const PARTNER_INPUT_SEL = '#partnerFile';
+      const CONSENT_KEY = 'tk.partnerConsent.v1';
+
+      const partnerInput = document.querySelector(PARTNER_INPUT_SEL);
+      if (!partnerInput) return;
+
+      let passthroughOnce = false;
+
+      document.addEventListener(
+        'change',
+        async (ev) => {
+          const t = ev.target;
+          if (!(t instanceof HTMLInputElement) || t !== partnerInput) return;
+
+          if (passthroughOnce) return;
+
+          try {
+            if (sessionStorage.getItem(CONSENT_KEY) === '1') return;
+          } catch (err) {
+            console.warn('[compat] unable to read consent flag', err);
+          }
+
+          ev.stopImmediatePropagation();
+          ev.stopPropagation();
+
+          const ok = await requestPartnerConsentDialog();
+          if (!ok) {
+            t.value = '';
+            return;
+          }
+
+          try {
+            sessionStorage.setItem(CONSENT_KEY, '1');
+          } catch (err) {
+            console.warn('[compat] unable to persist consent flag', err);
+          }
+
+          passthroughOnce = true;
+          setTimeout(() => {
+            t.dispatchEvent(new Event('change', { bubbles: true }));
+            passthroughOnce = false;
+          }, 0);
+        },
+        true
+      );
+
+      async function requestPartnerConsentDialog() {
+        return confirm(
+          'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
+            'Click “OK” to confirm consent and continue, or “Cancel” to stop.'
+        );
+      }
+
+      window.tkResetPartnerConsent = function () {
+        try {
+          sessionStorage.removeItem(CONSENT_KEY);
+        } catch (err) {
+          console.warn('[compat] unable to reset consent flag', err);
+        }
+        console.info('[compat] partner consent reset for this tab.');
+      };
+    })();
+  </script>
   </main>
 
   <script>
@@ -683,6 +749,25 @@
 
       window.__TK_FAST_UPLOADS__ = true;
       window.__TK_ALLOW_SINGLE_PDF__ = true;
+
+      const PARTNER_CONSENT_KEY = 'tk.partnerConsent.v1';
+
+      const getConsentFlag = () => {
+        try {
+          return sessionStorage.getItem(PARTNER_CONSENT_KEY) === '1';
+        } catch (err) {
+          console.warn('[compat] unable to access consent flag', err);
+          return false;
+        }
+      };
+
+      const setConsentFlag = () => {
+        try {
+          sessionStorage.setItem(PARTNER_CONSENT_KEY, '1');
+        } catch (err) {
+          console.warn('[compat] unable to persist consent flag', err);
+        }
+      };
 
       // --- Open hidden pickers ---
       $('#yourBtn')?.addEventListener('click', () => $('#yourFile')?.click());
@@ -1045,7 +1130,7 @@
               return;
             }
 
-            if (which === 'partner') {
+            if (which === 'partner' && !getConsentFlag()) {
               setStatus(which, 'Awaiting partner consent…', 'info');
               const ok = await requestPartnerConsent();
               if (!ok) {
@@ -1056,6 +1141,7 @@
                 dispatch('compat:file-selected', { which: 'partner', file: null });
                 return;
               }
+              setConsentFlag();
             }
 
             if (which === 'self') {
