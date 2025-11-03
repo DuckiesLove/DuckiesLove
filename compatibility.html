@@ -770,8 +770,24 @@
       };
 
       // --- Open hidden pickers ---
-      $('#yourBtn')?.addEventListener('click', () => $('#yourFile')?.click());
-      $('#partnerBtn')?.addEventListener('click', () => $('#partnerFile')?.click());
+      const bindPicker = (buttonSelector, inputSelector) => {
+        const button = $(buttonSelector);
+        const input = $(inputSelector);
+        if (!button || !input) return;
+
+        // Labels with matching "for" already forward clicks to the input.
+        if (button.tagName === 'LABEL' && button.htmlFor === input.id) {
+          return;
+        }
+
+        button.addEventListener('click', (event) => {
+          if (event.defaultPrevented) return;
+          input.click();
+        });
+      };
+
+      bindPicker('#yourBtn', '#yourFile');
+      bindPicker('#partnerBtn', '#partnerFile');
 
       // --- State ---
       let yourBlob = null;
