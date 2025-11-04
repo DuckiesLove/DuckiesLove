@@ -755,8 +755,6 @@
   let yourJSON = null;
   let partnerJSON = null;
   const parseTimers = new Map();
-  let libsReady = Boolean(window.jspdf && window.jspdf.jsPDF && window.jspdf_autotable);
-
   const statusEls = { self: yourStatus, partner: partnerStatus };
 
   // ---------- HELPERS ----------
@@ -1203,40 +1201,295 @@
     return json;
   }
 
-  async function loadLibsOnce() {
-    if (libsReady && window.jspdf && window.jspdf.jsPDF && window.jspdf_autotable) return;
-    const inject = (src) =>
-      new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-    try {
-      if (!window.jspdf) await inject('https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js');
-      if (!window.jspdf_autotable) await inject('https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
-    } catch (error) {
-      if (!window.jspdf) await inject('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-      if (!window.jspdf_autotable) await inject('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+  class MiniPDF {
+    constructor({ width = 612, height = 792 } = {}) {
+      this.width = width;
+      this.height = height;
+      this.pages = [];
+      this.fontSize = 12;
+      this.currentFont = 'F1';
+      this.textColor = [0, 0, 0];
+      this.fillColor = [0, 0, 0];
+      this.strokeColor = [0, 0, 0];
+      this.lineWidth = 1;
+      this.addPage();
     }
-    if (!(window.jspdf && window.jspdf.jsPDF)) throw new Error('jsPDF failed to load');
-    if (!window.jspdf_autotable) throw new Error('autoTable failed to load');
-    libsReady = true;
+
+    addPage() {
+      this.pages.push({ commands: [] });
+      this.pageIndex = this.pages.length - 1;
+    }
+
+    _cmd(cmd) {
+      this.pages[this.pageIndex].commands.push(cmd);
+    }
+
+    _formatColor(color) {
+      return color
+        .map((value) => {
+          const num = Math.max(0, Math.min(255, Number(value) || 0)) / 255;
+          return num.toFixed(3).replace(/\.0+$/, '').replace(/0+$/, '').replace(/\.$/, '') || '0';
+        })
+        .join(' ');
+    }
+
+    setFillColor(r = 0, g = 0, b = 0) {
+      this.fillColor = [r, g, b];
+    }
+
+    setDrawColor(r = 0, g = 0, b = 0) {
+      this.strokeColor = [r, g, b];
+    }
+
+    setTextColor(r = 0, g = 0, b = 0) {
+      this.textColor = [r, g, b];
+    }
+
+    setLineWidth(width = 1) {
+      const num = Number(width);
+      this.lineWidth = Number.isFinite(num) && num > 0 ? num : 1;
+    }
+
+    setFont(_font = 'helvetica', style = 'normal') {
+      const s = String(style || '').toLowerCase();
+      this.currentFont = s.includes('bold') ? 'F2' : 'F1';
+    }
+
+    setFontSize(size = 12) {
+      const num = Number(size);
+      if (Number.isFinite(num) && num > 0) {
+        this.fontSize = num;
+      }
+    }
+
+    measureText(text, fontSize = this.fontSize) {
+      const str = String(text ?? '');
+      return str.length * (fontSize * 0.55);
+    }
+
+    _escape(text) {
+      return String(text ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/\(/g, '\\(')
+        .replace(/\)/g, '\\)')
+        .replace(/\r?\n/g, '\\n');
+    }
+
+    text(text, x, y, opts = {}) {
+      const lines = String(text ?? '').split(/\r?\n/);
+      const align = String(opts.align || '').toLowerCase();
+      const lineHeight = opts.lineHeight || this.fontSize * 1.2;
+      lines.forEach((line, idx) => {
+        const width = this.measureText(line, this.fontSize);
+        let drawX = x;
+        if (align === 'center') drawX = x - width / 2;
+        else if (align === 'right') drawX = x - width;
+        const drawY = y + idx * lineHeight;
+        const pdfY = this.height - drawY;
+        const color = this._formatColor(this.textColor);
+        const escaped = this._escape(line);
+        const cmd = [
+          `${color} rg`,
+          `BT /${this.currentFont} ${this.fontSize.toFixed(2)} Tf`,
+          `${drawX.toFixed(2)} ${pdfY.toFixed(2)} Td (${escaped}) Tj`,
+          'ET'
+        ].join('\n');
+        this._cmd(cmd);
+      });
+    }
+
+    rect(x, y, w, h, mode = 'S') {
+      const pdfY = this.height - y - h;
+      const fill = this._formatColor(this.fillColor);
+      const stroke = this._formatColor(this.strokeColor);
+      const lw = this.lineWidth.toFixed(2).replace(/\.0+$/, '').replace(/0+$/, '').replace(/\.$/, '') || '1';
+      let op = 'S';
+      if (mode === 'F') op = 'f';
+      else if (mode === 'FD' || mode === 'DF') op = 'B';
+      const cmds = [];
+      if (op === 'f' || op === 'B') cmds.push(`${fill} rg`);
+      if (op === 'S' || op === 'B') {
+        cmds.push(`${stroke} RG`);
+        cmds.push(`${lw} w`);
+      }
+      cmds.push(`${x.toFixed(2)} ${pdfY.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re`);
+      cmds.push(op);
+      this._cmd(cmds.join('\n'));
+    }
+
+    line(x1, y1, x2, y2) {
+      const pdfY1 = this.height - y1;
+      const pdfY2 = this.height - y2;
+      const stroke = this._formatColor(this.strokeColor);
+      const lw = this.lineWidth.toFixed(2).replace(/\.0+$/, '').replace(/0+$/, '').replace(/\.$/, '') || '1';
+      const cmd = [
+        `${stroke} RG`,
+        `${lw} w`,
+        `${x1.toFixed(2)} ${pdfY1.toFixed(2)} m`,
+        `${x2.toFixed(2)} ${pdfY2.toFixed(2)} l`,
+        'S'
+      ].join('\n');
+      this._cmd(cmd);
+    }
+
+    save(filename = 'document.pdf') {
+      const objects = [];
+      const pageRefs = [];
+
+      objects.push({ name: 'font_regular', body: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>' });
+      objects.push({ name: 'font_bold', body: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>' });
+
+      this.pages.forEach((page, idx) => {
+        const stream = page.commands.join('\n');
+        const contentName = `content_${idx}`;
+        const pageName = `page_${idx}`;
+        objects.push({
+          name: contentName,
+          body: `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`
+        });
+        objects.push({
+          name: pageName,
+          body: `<< /Type /Page /Parent {{pages}} 0 R /MediaBox [0 0 ${this.width} ${this.height}] /Resources << /Font << /F1 {{font_regular}} 0 R /F2 {{font_bold}} 0 R >> >> /Contents {{${contentName}}} 0 R >>`
+        });
+        pageRefs.push(`{{${pageName}}} 0 R`);
+      });
+
+      objects.push({
+        name: 'pages',
+        body: `<< /Type /Pages /Kids [ ${pageRefs.join(' ')} ] /Count ${this.pages.length} >>`
+      });
+
+      objects.push({ name: 'catalog', body: '<< /Type /Catalog /Pages {{pages}} 0 R >>' });
+
+      const refMap = new Map();
+      objects.forEach((obj, idx) => {
+        refMap.set(obj.name, idx + 1);
+      });
+
+      const resolveRefs = (body) =>
+        body.replace(/\{\{([^}]+)\}\}/g, (_, name) => {
+          const ref = refMap.get(name);
+          if (!ref) throw new Error(`Unknown PDF reference: ${name}`);
+          return String(ref);
+        });
+
+      let pdf = '%PDF-1.4\n';
+      const offsets = [0];
+      objects.forEach((obj, idx) => {
+        offsets.push(pdf.length);
+        pdf += `${idx + 1} 0 obj\n${resolveRefs(obj.body)}\nendobj\n`;
+      });
+
+      const xref = pdf.length;
+      pdf += `xref\n0 ${objects.length + 1}\n`;
+      pdf += '0000000000 65535 f \n';
+      for (let i = 1; i <= objects.length; i += 1) {
+        pdf += offsets[i].toString().padStart(10, '0') + ' 00000 n \n';
+      }
+      const rootRef = refMap.get('catalog');
+      pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${rootRef} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+
+      const blob = new Blob([pdf], { type: 'application/pdf' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(link.href);
+        link.remove();
+      }, 0);
+    }
+  }
+
+  function wrapText(text, maxWidth, fontSize = 10) {
+    const raw = String(text ?? '').trim();
+    if (!raw) return [''];
+    const approxCharWidth = fontSize * 0.55;
+    const maxChars = Math.max(Math.floor(maxWidth / approxCharWidth), 1);
+    const words = raw.split(/\s+/);
+    const lines = [];
+    let current = '';
+    const flush = () => {
+      if (current) {
+        lines.push(current);
+        current = '';
+      }
+    };
+    words.forEach((word) => {
+      if (!word) return;
+      if (!current.length) {
+        if (word.length <= maxChars) {
+          current = word;
+        } else {
+          for (let i = 0; i < word.length; i += maxChars) {
+            const chunk = word.slice(i, i + maxChars);
+            if (chunk.length === maxChars) lines.push(chunk);
+            else current = chunk;
+          }
+        }
+        return;
+      }
+      if (current.length + 1 + word.length <= maxChars) {
+        current += ` ${word}`;
+        return;
+      }
+      flush();
+      if (word.length <= maxChars) {
+        current = word;
+      } else {
+        for (let i = 0; i < word.length; i += maxChars) {
+          const chunk = word.slice(i, i + maxChars);
+          if (chunk.length === maxChars) lines.push(chunk);
+          else current = chunk;
+        }
+      }
+    });
+    flush();
+    return lines.length ? lines : [''];
+  }
+
+  function drawTextBlock(doc, lines, x, y, width, height, { align = 'left', fontSize = 10, fontStyle = 'normal' } = {}) {
+    const cleanLines = lines.length ? lines : [''];
+    const lineHeight = fontSize * 1.2;
+    const totalHeight = cleanLines.length * lineHeight;
+    const offsetY = y + Math.max((height - totalHeight) / 2, 0) + lineHeight - 2;
+    doc.setFont('helvetica', fontStyle);
+    doc.setFontSize(fontSize);
+    cleanLines.forEach((line, idx) => {
+      let drawX = x;
+      if (align === 'center') drawX = x + width / 2;
+      else if (align === 'right') drawX = x + width;
+      doc.text(line, drawX, offsetY + idx * lineHeight, { align });
+    });
   }
 
   async function generateDarkPDF(yourData, partnerData) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
-
-    const W = doc.internal.pageSize.getWidth();
-    const H = doc.internal.pageSize.getHeight();
+    const doc = new MiniPDF({ width: 612, height: 792 });
+    const W = doc.width;
+    const H = doc.height;
 
     const CONTENT_W = Math.min(680, W - 96);
     const ML = (W - CONTENT_W) / 2;
-    const MR = ML;
+    const TOP_START = 96;
+    const BOTTOM_LIMIT = H - 72;
 
-    function paint() {
+    const CYAN = [0, 255, 255];
+    const BODY1 = [8, 8, 10];
+    const BODY2 = [13, 13, 17];
+    const GRID = [30, 30, 38];
+    const WHITE = [255, 255, 255];
+
+    const PAD_X = 10;
+    const PAD_Y = 6;
+    const LINE_HEIGHT = 12;
+    const MIN_ROW_HEIGHT = LINE_HEIGHT + PAD_Y * 2;
+    const HEADER_HEIGHT_DUAL = 28;
+    const HEADER_HEIGHT_SINGLE = 26;
+    const SECTION_GAP = 18;
+
+    const paintPage = () => {
       doc.setFillColor(10, 10, 12);
       doc.rect(0, 0, W, H, 'F');
       doc.setTextColor(255, 255, 255);
@@ -1249,38 +1502,247 @@
       doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
       doc.setDrawColor(0, 255, 255);
       doc.setLineWidth(1);
-      doc.line(ML, 72, W - MR, 72);
-    }
-    paint();
+      doc.line(ML, 72, ML + CONTENT_W, 72);
+    };
 
-    const CYAN = [0, 255, 255];
-    const BODY1 = [8, 8, 10];
-    const BODY2 = [13, 13, 17];
-    const GRID = [30, 30, 38];
-    const WHITE = [255, 255, 255];
+    paintPage();
 
-    const tableBase = {
-      theme: 'grid',
-      tableWidth: CONTENT_W,
-      margin: { left: ML, right: MR },
-      styles: {
-        font: 'helvetica',
-        fontSize: 10,
-        cellPadding: 4,
-        textColor: WHITE,
-        fillColor: BODY1,
-        lineColor: GRID,
-        lineWidth: 0.25
-      },
-      alternateRowStyles: { fillColor: BODY2 },
-      headStyles: {
-        fillColor: [0, 0, 0],
-        textColor: CYAN,
-        lineColor: GRID,
-        lineWidth: 0.25,
-        fontStyle: 'bold'
-      },
-      didAddPage: () => paint()
+    let y = TOP_START;
+
+    const ensureSpace = (needed) => {
+      if (y + needed <= BOTTOM_LIMIT) return false;
+      doc.addPage();
+      paintPage();
+      y = TOP_START;
+      return true;
+    };
+
+    const drawCategoryTitle = (label) => {
+      ensureSpace(32);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(...WHITE);
+      doc.text(label, W / 2, y, { align: 'center' });
+      y += 26;
+    };
+
+    const columnsDual = [
+      { key: 'role', header: 'Role', width: 80, align: 'center' },
+      { key: 'item', header: 'Item', width: CONTENT_W - (80 + 70 + 60 + 50 + 70), align: 'left' },
+      { key: 'a', header: 'Partner A', width: 70, align: 'center' },
+      { key: 'match', header: 'Match', width: 60, align: 'center' },
+      { key: 'flag', header: 'Flag', width: 50, align: 'center' },
+      { key: 'b', header: 'Partner B', width: 70, align: 'center' }
+    ];
+
+    const columnsSingle = [
+      { key: 'role', header: 'Role', width: 100, align: 'center' },
+      { key: 'item', header: 'Item', width: CONTENT_W - (100 + 70), align: 'left' },
+      { key: 'score', header: 'Score', width: 70, align: 'center' }
+    ];
+
+    const drawHeader = (columns, height) => {
+      doc.setFillColor(0, 0, 0);
+      doc.rect(ML, y, CONTENT_W, height, 'F');
+      doc.setDrawColor(...GRID);
+      doc.setLineWidth(0.75);
+      doc.line(ML, y, ML + CONTENT_W, y);
+      doc.line(ML, y + height, ML + CONTENT_W, y + height);
+      let cursor = ML;
+      doc.line(cursor, y, cursor, y + height);
+      columns.forEach((col) => {
+        const next = cursor + col.width;
+        doc.line(next, y, next, y + height);
+        doc.setTextColor(...CYAN);
+        drawTextBlock(
+          doc,
+          [col.header],
+          cursor + PAD_X,
+          y + PAD_Y,
+          col.width - PAD_X * 2,
+          height - PAD_Y * 2,
+          { align: col.align || 'left', fontSize: 11, fontStyle: 'bold' }
+        );
+        cursor = next;
+      });
+      y += height;
+      doc.setTextColor(...WHITE);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+    };
+
+    const prepareDualRow = (row) => {
+      const [role, item, aScore, match, flag, bScore] = row || [];
+      const safe = (value, fallback = '—') => {
+        const trimmed = String(value ?? '').trim();
+        return trimmed ? trimmed : fallback;
+      };
+      const itemLines = wrapText(safe(item, '—'), columnsDual[1].width - PAD_X * 2, 10);
+      const height = Math.max(MIN_ROW_HEIGHT, itemLines.length * LINE_HEIGHT + PAD_Y * 2);
+      return {
+        roleText: safe(role, '—'),
+        itemLines,
+        aText: safe(aScore, '—'),
+        matchText: safe(match, '—'),
+        flagText: String(flag ?? '').trim() || ' ',
+        bText: safe(bScore, '—'),
+        height
+      };
+    };
+
+    const drawDualRow = (data, index) => {
+      const background = index % 2 === 0 ? BODY1 : BODY2;
+      doc.setFillColor(...background);
+      doc.rect(ML, y, CONTENT_W, data.height, 'F');
+      doc.setDrawColor(...GRID);
+      doc.setLineWidth(0.5);
+      let cursor = ML;
+      doc.line(cursor, y, cursor, y + data.height);
+      columnsDual.forEach((col) => {
+        const next = cursor + col.width;
+        doc.line(next, y, next, y + data.height);
+        const lines =
+          col.key === 'item'
+            ? data.itemLines
+            : col.key === 'role'
+            ? [data.roleText]
+            : col.key === 'a'
+            ? [data.aText]
+            : col.key === 'match'
+            ? [data.matchText]
+            : col.key === 'flag'
+            ? [data.flagText]
+            : [data.bText];
+        drawTextBlock(
+          doc,
+          lines,
+          cursor + PAD_X,
+          y + PAD_Y,
+          col.width - PAD_X * 2,
+          data.height - PAD_Y * 2,
+          { align: col.align || 'left', fontSize: 10, fontStyle: col.key === 'role' ? 'bold' : 'normal' }
+        );
+        cursor = next;
+      });
+      doc.line(ML, y + data.height, ML + CONTENT_W, y + data.height);
+      y += data.height;
+    };
+
+    const prepareSingleRow = (entry) => {
+      const safe = (value, fallback = '—') => {
+        const trimmed = String(value ?? '').trim();
+        return trimmed ? trimmed : fallback;
+      };
+      const itemLines = wrapText(safe(entry?.Item, '—'), columnsSingle[1].width - PAD_X * 2, 10);
+      const height = Math.max(MIN_ROW_HEIGHT, itemLines.length * LINE_HEIGHT + PAD_Y * 2);
+      return {
+        roleText: safe(entry?.Role, '—'),
+        itemLines,
+        scoreText: safe(entry?.Score, '—'),
+        height
+      };
+    };
+
+    const drawSingleRow = (data, index) => {
+      const background = index % 2 === 0 ? BODY1 : BODY2;
+      doc.setFillColor(...background);
+      doc.rect(ML, y, CONTENT_W, data.height, 'F');
+      doc.setDrawColor(...GRID);
+      doc.setLineWidth(0.5);
+      let cursor = ML;
+      doc.line(cursor, y, cursor, y + data.height);
+      columnsSingle.forEach((col) => {
+        const next = cursor + col.width;
+        doc.line(next, y, next, y + data.height);
+        const lines =
+          col.key === 'item'
+            ? data.itemLines
+            : col.key === 'role'
+            ? [data.roleText]
+            : [data.scoreText];
+        drawTextBlock(
+          doc,
+          lines,
+          cursor + PAD_X,
+          y + PAD_Y,
+          col.width - PAD_X * 2,
+          data.height - PAD_Y * 2,
+          { align: col.align || 'left', fontSize: 10, fontStyle: col.key === 'role' ? 'bold' : 'normal' }
+        );
+        cursor = next;
+      });
+      doc.line(ML, y + data.height, ML + CONTENT_W, y + data.height);
+      y += data.height;
+    };
+
+    const renderDualCategory = (label, rows) => {
+      const prepared = (rows.length ? rows : [['—', 'No overlapping items', '—', '—', '', '—']]).map(prepareDualRow);
+      let index = 0;
+      let firstPass = true;
+      while (index < prepared.length) {
+        const upcoming = prepared[index]?.height || MIN_ROW_HEIGHT;
+        ensureSpace(HEADER_HEIGHT_DUAL + upcoming + 40);
+        drawCategoryTitle(firstPass ? label : `${label} (cont.)`);
+        drawHeader(columnsDual, HEADER_HEIGHT_DUAL);
+        const startIndex = index;
+        while (index < prepared.length) {
+          const row = prepared[index];
+          if (y + row.height > BOTTOM_LIMIT) break;
+          drawDualRow(row, index);
+          index += 1;
+        }
+        if (index === startIndex) {
+          // Ensure forward progress if a single row is taller than the page remainder.
+          doc.addPage();
+          paintPage();
+          y = TOP_START;
+          firstPass = false;
+          continue;
+        }
+        y += SECTION_GAP;
+        firstPass = false;
+        if (index < prepared.length) {
+          doc.addPage();
+          paintPage();
+          y = TOP_START;
+        }
+      }
+    };
+
+    const renderSingleCategory = (label, rows) => {
+      const prepared = (rows.length
+        ? rows
+        : [{ Role: '—', Item: 'No responses found', Score: '—' }]
+      ).map(prepareSingleRow);
+      let index = 0;
+      let firstPass = true;
+      while (index < prepared.length) {
+        const upcoming = prepared[index]?.height || MIN_ROW_HEIGHT;
+        ensureSpace(HEADER_HEIGHT_SINGLE + upcoming + 40);
+        drawCategoryTitle(firstPass ? label : `${label} (cont.)`);
+        drawHeader(columnsSingle, HEADER_HEIGHT_SINGLE);
+        const startIndex = index;
+        while (index < prepared.length) {
+          const row = prepared[index];
+          if (y + row.height > BOTTOM_LIMIT) break;
+          drawSingleRow(row, index);
+          index += 1;
+        }
+        if (index === startIndex) {
+          doc.addPage();
+          paintPage();
+          y = TOP_START;
+          firstPass = false;
+          continue;
+        }
+        y += SECTION_GAP;
+        firstPass = false;
+        if (index < prepared.length) {
+          doc.addPage();
+          paintPage();
+          y = TOP_START;
+        }
+      }
     };
 
     const rowsA = rowsFromTalkKink(yourData);
@@ -1288,72 +1750,41 @@
     const hasA = rowsA.length > 0;
     const hasB = rowsB.length > 0;
 
-    let y = 96;
-    function cat(text) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.setTextColor(WHITE);
-      doc.text(text, W / 2, y, { align: 'center' });
-      y += 12;
+    if (!hasA && !hasB) {
+      drawCategoryTitle('No surveys loaded');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor(...WHITE);
+      doc.text('Upload at least one TalkKink survey JSON to generate a PDF.', W / 2, y + 12, {
+        align: 'center'
+      });
+      doc.save('compatibility-pretty-dark.pdf');
+      return;
     }
 
     if (hasA && hasB) {
-      const cats = [...new Set([...rowsA, ...rowsB].map((r) => r.Category))];
-      for (const c of cats) {
-        cat(c);
-        const body = buildComparisonBody(rowsA.filter((r) => r.Category === c), rowsB.filter((r) => r.Category === c));
-        doc.autoTable({
-          ...tableBase,
-          startY: y + 8,
-          head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
-          body,
-          columnStyles: {
-            0: { cellWidth: 80 },
-            1: { cellWidth: CONTENT_W - (80 + 70 + 60 + 50 + 70) },
-            2: { cellWidth: 70, halign: 'center' },
-            3: { cellWidth: 60, halign: 'center' },
-            4: { cellWidth: 50, halign: 'center' },
-            5: { cellWidth: 70, halign: 'center' }
-          }
-        });
-        y = doc.lastAutoTable.finalY + 18;
-        if (y > H - 72) {
-          doc.addPage();
-          paint();
-          y = 96;
-        }
-      }
+      const categories = [...new Set([...rowsA, ...rowsB].map((r) => r.Category || 'Other'))];
+      categories.forEach((category) => {
+        const label = category || 'Other';
+        const body = buildComparisonBody(
+          rowsA.filter((r) => (r.Category || 'Other') === label),
+          rowsB.filter((r) => (r.Category || 'Other') === label)
+        );
+        renderDualCategory(label, body);
+      });
     } else {
       const rows = hasA ? rowsA : rowsB;
       const who = hasA ? 'Partner A' : 'Partner';
-      const cats = [...new Set(rows.map((r) => r.Category))];
-      for (const c of cats) {
-        cat(`${c} — ${who}`);
-        const body = rows
-          .filter((r) => r.Category === c)
-          .map((r) => [r.Role, r.Item, String(r.Score)]);
-        doc.autoTable({
-          ...tableBase,
-          startY: y + 8,
-          head: [['Role', 'Item', 'Score']],
-          body,
-          columnStyles: {
-            0: { cellWidth: 100 },
-            1: { cellWidth: CONTENT_W - (100 + 70) },
-            2: { cellWidth: 70, halign: 'center' }
-          }
-        });
-        y = doc.lastAutoTable.finalY + 18;
-        if (y > H - 72) {
-          doc.addPage();
-          paint();
-          y = 96;
-        }
-      }
+      const categories = [...new Set(rows.map((r) => r.Category || 'Other'))];
+      categories.forEach((category) => {
+        const label = `${category || 'Other'} — ${who}`;
+        const catRows = rows.filter((r) => (r.Category || 'Other') === category);
+        renderSingleCategory(label, catRows);
+      });
     }
 
-    const name = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
-    doc.save(name);
+    const filename = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
+    doc.save(filename);
   }
 
   window.generateDarkPDF = generateDarkPDF;
@@ -1366,7 +1797,6 @@
         event.stopImmediatePropagation();
         event.stopPropagation();
         try {
-          await loadLibsOnce();
           await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
 
           if (!yourJSON && !partnerJSON) {
