@@ -728,742 +728,672 @@
     window.ksvParseSurveyJsonText = ksvParseSurveyJsonText;
   </script>
 
-  <!-- ================== CODEX: Hard-intercept slow 'change' handler + Consent + Dark PDF ==================
-       Paste this once near the END of compatibility.html (after your inputs/buttons).
-       What this does:
-         • Kills the long-running legacy 'change' handler by intercepting it in the CAPTURE phase and stopping propagation.
-         • Shows a consent confirm for Partner uploads and adds the consent line to the “Uploaded ✓” alert.
-         • Defers all heavy work (JSON parse + PDF) off the 'change' event.
-         • Generates a DARK, neon-themed PDF (A/B comparison or single) on the Download button.
-       Assumed IDs:
-         #yourBtn  -> #yourFile
-         #partnerBtn -> #partnerFile
-         #downloadBtn -> build PDF
-  ======================================================================================================= -->
-  <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
+  <!-- CODEX: Resilient dark PDF exporter (dual-CDN, guarded parsing, consent, diagnostics) -->
   <script>
-    (function () {
-      const $ = (selector, root = document) => root.querySelector(selector);
-      const dispatch = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
+(function () {
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const dispatch = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
 
-      window.__TK_FAST_UPLOADS__ = true;
-      window.__TK_ALLOW_SINGLE_PDF__ = true;
+  const yourBtn = $('#yourBtn');
+  const partnerBtn = $('#partnerBtn');
+  const downloadBtn = $('#downloadBtn');
+  const yourInput = $('#yourFile');
+  const partnerInput = $('#partnerFile');
+  const yourStatus = $('#yourStatus');
+  const partnerStatus = $('#partnerStatus');
 
-      const PARTNER_CONSENT_KEY = 'tk.partnerConsent.v1';
+  if (!yourInput || !partnerInput || !downloadBtn) {
+    console.error('[compat] Required elements missing (#yourFile, #partnerFile, #downloadBtn).');
+  }
 
-      const getConsentFlag = () => {
-        try {
-          return sessionStorage.getItem(PARTNER_CONSENT_KEY) === '1';
-        } catch (err) {
-          console.warn('[compat] unable to access consent flag', err);
-          return false;
+  window.__TK_FAST_UPLOADS__ = true;
+  window.__TK_ALLOW_SINGLE_PDF__ = true;
+
+  // ---------- STATE ----------
+  let yourBlob = null;
+  let partnerBlob = null;
+  let yourJSON = null;
+  let partnerJSON = null;
+  const parseTimers = new Map();
+  let libsReady = Boolean(window.jspdf && window.jspdf.jsPDF && window.jspdf_autotable);
+
+  const statusEls = { self: yourStatus, partner: partnerStatus };
+
+  // ---------- HELPERS ----------
+  function setStatus(which, message, state = 'info') {
+    const el = statusEls[which];
+    if (!el) return;
+    if (!message) {
+      el.hidden = true;
+      el.textContent = '';
+      el.removeAttribute('data-state');
+      return;
+    }
+    el.hidden = false;
+    el.textContent = message;
+    el.dataset.state = state;
+  }
+
+  function resetSelection(which, { resetStatus = true } = {}) {
+    if (which === 'self') {
+      yourBlob = null;
+      yourJSON = null;
+    } else {
+      partnerBlob = null;
+      partnerJSON = null;
+    }
+    if (resetStatus) setStatus(which, '', '');
+  }
+
+  const allowSingle = () => Boolean(window.__TK_ALLOW_SINGLE_PDF__ || document.body?.dataset?.allowSinglePdf === 'true');
+
+  function updateDownloadState() {
+    if (!downloadBtn) return;
+    const ready = allowSingle() ? Boolean(yourJSON || partnerJSON) : Boolean(yourJSON && partnerJSON);
+    downloadBtn.disabled = !ready;
+  }
+
+  function openPicker(input) {
+    if (!input) return;
+    input.value = '';
+    input.click();
+  }
+
+  yourBtn && yourBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    openPicker(yourInput);
+  });
+
+  partnerBtn && partnerBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    openPicker(partnerInput);
+  });
+
+  const CONSENT_KEY = 'tk.partnerConsent.v1';
+
+  function getConsentFlag() {
+    try {
+      return sessionStorage.getItem(CONSENT_KEY) === '1';
+    } catch (err) {
+      console.warn('[compat] unable to access consent flag', err);
+      return false;
+    }
+  }
+
+  function setConsentFlag() {
+    try {
+      sessionStorage.setItem(CONSENT_KEY, '1');
+    } catch (err) {
+      console.warn('[compat] unable to persist consent flag', err);
+    }
+  }
+
+  function scheduleParse(which) {
+    if (parseTimers.has(which)) {
+      clearTimeout(parseTimers.get(which));
+    }
+    const timer = setTimeout(async () => {
+      parseTimers.delete(which);
+      try {
+        await parseAndCache(which);
+      } catch (error) {
+        console.error('[compat] Unable to parse survey', error);
+        const id = error?.which || which;
+        resetSelection(id, { resetStatus: false });
+        let message = 'Upload failed. Please try again.';
+        if (error instanceof SyntaxError) {
+          message = 'Invalid file — expected a TalkKink JSON export.';
+        } else if (error?.message === 'No survey answers found') {
+          message = 'Upload failed — no survey answers detected.';
         }
-      };
-
-      const setConsentFlag = () => {
-        try {
-          sessionStorage.setItem(PARTNER_CONSENT_KEY, '1');
-        } catch (err) {
-          console.warn('[compat] unable to persist consent flag', err);
-        }
-      };
-
-      // --- Open hidden pickers ---
-      const bindPicker = (buttonSelector, inputSelector) => {
-        const button = $(buttonSelector);
-        const input = $(inputSelector);
-        if (!button || !input) return;
-
-        // Labels with matching "for" already forward clicks to the input.
-        if (button.tagName === 'LABEL' && button.htmlFor === input.id) {
-          return;
-        }
-
-        button.addEventListener('click', (event) => {
-          if (event.defaultPrevented) return;
-          input.click();
-        });
-      };
-
-      bindPicker('#yourBtn', '#yourFile');
-      bindPicker('#partnerBtn', '#partnerFile');
-
-      // --- State ---
-      let yourBlob = null;
-      let partnerBlob = null;
-      let yourJSON = null;
-      let partnerJSON = null;
-
-      const downloadBtn = $('#downloadBtn');
-      const parseQueue = new Set();
-
-      const statusEls = {
-        self: $('#yourStatus'),
-        partner: $('#partnerStatus')
-      };
-
-      const setStatus = (which, message, state = 'info') => {
-        const el = statusEls[which];
-        if (!el) return;
-        if (!message) {
-          el.textContent = '';
-          el.hidden = true;
-          el.removeAttribute('data-state');
-          return;
-        }
-        el.textContent = message;
-        el.dataset.state = state;
-        el.hidden = false;
-      };
-
-      let consentUI = null;
-
-      const clampScore = (value) => {
-        const num = Number(value);
-        if (!Number.isFinite(num)) return 0;
-        if (num <= 0) return 0;
-        if (num >= 5) return 5;
-        return Math.round(num);
-      };
-
-      const ROLE_ALIASES = {
-        giving: 'Giving',
-        giver: 'Giving',
-        dom: 'Dominant',
-        dominant: 'Dominant',
-        top: 'Dominant',
-        receiving: 'Receiving',
-        receiver: 'Receiving',
-        sub: 'Submissive',
-        submissive: 'Submissive',
-        bottom: 'Submissive',
-        switch: 'Switch',
-        general: 'General',
-        neutral: 'General'
-      };
-
-      const normalizeRole = (value) => {
-        if (!value) return 'General';
-        const key = String(value).trim().toLowerCase();
-        return ROLE_ALIASES[key] || (key ? key[0].toUpperCase() + key.slice(1) : 'General');
-      };
-
-      const tidyLabel = (value, fallback) => {
-        const str = String(value || '').replace(/\s+/g, ' ').trim();
-        if (str) return str;
-        return fallback ? String(fallback) : '';
-      };
-
-      function normalizeCompatPayload(raw, which) {
-        if (!raw) return raw;
-
-        if (Array.isArray(raw)) {
-          const answers = raw.map((score, idx) => ({
-            kinkId: `item-${idx + 1}`,
-            side: 'general',
-            score
-          }));
-          return normalizeCompatPayload({ answers }, which);
-        }
-
-        if (typeof raw !== 'object') return raw;
-
-        const normalized = { ...raw };
-
-        const responses = Array.isArray(normalized.responses)
-          ? normalized.responses.map((entry, idx) => {
-              if (!entry || typeof entry !== 'object') {
-                return null;
-              }
-              const baseId = String(entry.id || `${which || 'A'}-${idx + 1}`);
-              const role = normalizeRole(entry.role || entry.side || entry.channel);
-              const rating = clampScore(entry.rating ?? entry.score ?? entry.value ?? 0);
-              const prompt = tidyLabel(entry.prompt || entry.label || entry.title || entry.name || entry.question, baseId);
-              const category = tidyLabel(
-                entry.category || entry.categoryName || entry.group || entry.section,
-                normalized.meta?.surveyTitle || ''
-              );
-              return {
-                ...entry,
-                id: baseId,
-                role,
-                rating,
-                prompt,
-                category
-              };
-            }).filter(Boolean)
-          : [];
-
-        normalized.responses = responses;
-
-        const seenIds = new Set(responses.map((entry) => entry.id));
-        const ensureAnswersArray = () => {
-          const sources = [];
-          if (Array.isArray(normalized.answers)) sources.push(normalized.answers);
-          if (Array.isArray(normalized.survey?.answers)) sources.push(normalized.survey.answers);
-          if (Array.isArray(normalized.survey?.responses)) sources.push(normalized.survey.responses);
-          return sources.flat();
-        };
-
-        const candidates = ensureAnswersArray();
-
-        candidates.forEach((answer, idx) => {
-          if (!answer || typeof answer !== 'object') return;
-          const kinkId = tidyLabel(
-            answer.kinkId || answer.id || answer.key || answer.name || answer.questionId,
-            `item-${idx + 1}`
-          );
-          const sideRaw = String(answer.side || answer.role || answer.channel || 'general');
-          const role = normalizeRole(sideRaw);
-          const score = clampScore(answer.score ?? answer.rating ?? answer.value ?? answer.answer ?? 0);
-          const category = tidyLabel(
-            answer.category || answer.categoryName || answer.group || answer.section || answer.categoryId,
-            normalized.meta?.surveyTitle || ''
-          );
-          const prompt = tidyLabel(answer.title || answer.label || answer.prompt || answer.name || kinkId, kinkId);
-          const idHint = tidyLabel(answer.id || '', kinkId);
-          const baseId = idHint && idHint !== kinkId ? idHint : kinkId;
-          const sideKey = sideRaw.trim().toLowerCase() || 'general';
-          const composedId = baseId.toLowerCase().endsWith(`-${sideKey}`)
-            ? baseId
-            : `${baseId}-${sideKey}`;
-          if (!seenIds.has(composedId)) {
-            responses.push({
-              id: composedId,
-              kinkId,
-              role,
-              rating: score,
-              category,
-              prompt
-            });
-            seenIds.add(composedId);
-          }
-        });
-
-        if (!normalized.answersById || typeof normalized.answersById !== 'object') {
-          normalized.answersById = {};
-        }
-
-        responses.forEach((entry, idx) => {
-          if (!entry || typeof entry !== 'object') return;
-          const id = tidyLabel(entry.id, `${which || 'A'}-${idx + 1}`);
-          const score = clampScore(entry.rating ?? entry.score ?? entry.value ?? 0);
-          normalized.answersById[id] = score;
-        });
-
-        if (!normalized.answersByKey || typeof normalized.answersByKey !== 'object') {
-          const map = {};
-          responses.forEach((entry, idx) => {
-            map[String(idx + 1)] = clampScore(entry.rating ?? entry.score ?? entry.value ?? 0);
-          });
-          if (Object.keys(map).length) normalized.answersByKey = map;
-        }
-
-        return normalized;
-      }
-
-      function ensureConsentUI() {
-        if (consentUI) return consentUI;
-        const overlay = document.createElement('div');
-        overlay.className = 'tk-consent-backdrop';
-        overlay.hidden = true;
-
-        overlay.innerHTML = `
-          <div class="tk-consent-card" role="dialog" aria-modal="true" aria-labelledby="tk-consent-title" aria-describedby="tk-consent-copy">
-            <h2 id="tk-consent-title">Confirm partner consent</h2>
-            <p id="tk-consent-copy">
-              Before importing a partner’s survey, confirm you have their explicit permission to upload and compare
-              their responses here.
-            </p>
-            <div class="tk-consent-actions">
-              <button type="button" class="tk-btn tk-btn-secondary" data-action="cancel">Cancel</button>
-              <button type="button" class="tk-btn" data-action="confirm">Yes, I have consent</button>
-            </div>
-          </div>
-        `;
-
-        document.body.appendChild(overlay);
-
-        const card = overlay.querySelector('.tk-consent-card');
-        const confirmBtn = overlay.querySelector('[data-action="confirm"]');
-        const cancelBtn = overlay.querySelector('[data-action="cancel"]');
-
-        card.tabIndex = -1;
-
-        consentUI = { overlay, card, confirmBtn, cancelBtn };
-        return consentUI;
-      }
-
-      function requestPartnerConsent() {
-        const { overlay, card, confirmBtn, cancelBtn } = ensureConsentUI();
-        overlay.hidden = false;
-
-        const previousFocus = document.activeElement;
-
-        return new Promise((resolve) => {
-          const cleanup = (result) => {
-            overlay.hidden = true;
-            overlay.removeEventListener('click', onBackdrop);
-            document.removeEventListener('keydown', onKeyDown, true);
-            confirmBtn.removeEventListener('click', onConfirm);
-            cancelBtn.removeEventListener('click', onCancel);
-            if (previousFocus && typeof previousFocus.focus === 'function') {
-              previousFocus.focus();
-            }
-            resolve(result);
-          };
-
-          const onConfirm = () => cleanup(true);
-          const onCancel = () => cleanup(false);
-
-          const onBackdrop = (event) => {
-            if (event.target === overlay) {
-              event.preventDefault();
-              onCancel();
-            }
-          };
-
-          const onKeyDown = (event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              onCancel();
-            }
-          };
-
-          overlay.addEventListener('click', onBackdrop);
-          document.addEventListener('keydown', onKeyDown, true);
-          confirmBtn.addEventListener('click', onConfirm);
-          cancelBtn.addEventListener('click', onCancel);
-
-          requestAnimationFrame(() => {
-            card.focus();
-          });
-        });
-      }
-
-      function resetSelection(which, { resetStatus = true } = {}) {
-        if (which === 'self') {
-          yourBlob = null;
-          yourJSON = null;
-        } else {
-          partnerBlob = null;
-          partnerJSON = null;
-        }
-        if (resetStatus) setStatus(which, '', '');
-      }
-
-      const allowSingle = Boolean(window.__TK_ALLOW_SINGLE_PDF__);
-
-      function updateDownloadState() {
-        if (!downloadBtn) return;
-        const ready = allowSingle ? Boolean(yourJSON || partnerJSON) : Boolean(yourJSON && partnerJSON);
-        downloadBtn.disabled = !ready;
-      }
-
-      async function parseAndCache(which) {
-        const isSelf = which === 'self';
-        const blob = isSelf ? yourBlob : partnerBlob;
-        if (!blob) return null;
-
-        if (isSelf ? yourJSON : partnerJSON) {
-          return isSelf ? yourJSON : partnerJSON;
-        }
-
-        const text = await blob.text();
-        let json;
-        try {
-          json = JSON.parse(text);
-        } catch (err) {
-          err.which = which;
-          throw err;
-        }
-
-        json = normalizeCompatPayload(json, which);
-
-        if (isSelf) {
-          yourJSON = json;
-          window.talkkinkMine = json;
-          window.talkkinkSurvey = json;
-        } else {
-          partnerJSON = json;
-          window.talkkinkPartner = json;
-        }
-
-        dispatch('compat:json-ready', {
-          which,
-          json,
-          fileName: blob.name || ''
-        });
-
-        if (which === 'partner') {
-          setStatus(which, 'Partner survey ready ✓ — consent recorded.', 'success');
-        } else {
-          setStatus(which, 'Your survey ready ✓', 'success');
-        }
-
+        setStatus(id, message, 'error');
         updateDownloadState();
-        return json;
+        dispatch('compat:file-selected', { which: id, file: null });
       }
+    }, 0);
+    parseTimers.set(which, timer);
+  }
 
-      function scheduleParse(which) {
-        if (parseQueue.has(which)) return;
-        parseQueue.add(which);
-        setTimeout(async () => {
-          parseQueue.delete(which);
-          try {
-            await parseAndCache(which);
-          } catch (err) {
-            console.error(err);
-            const id = err?.which || which;
-            resetSelection(id, { resetStatus: false });
-            setStatus(id, 'Invalid file — expected a TalkKink JSON export.', 'error');
-            updateDownloadState();
-            dispatch('compat:file-selected', { which: id, file: null });
-          }
-        }, 0);
-      }
+  document.addEventListener(
+    'change',
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (target !== yourInput && target !== partnerInput) return;
 
-      document.addEventListener(
-        'change',
-        (ev) => {
-          const target = ev.target;
-          if (!target || !(target instanceof HTMLInputElement)) return;
-          if (!target.matches('#yourFile, #partnerFile')) return;
+      event.stopImmediatePropagation();
+      event.stopPropagation();
 
-          ev.stopImmediatePropagation();
-          ev.stopPropagation();
+      const which = target === partnerInput ? 'partner' : 'self';
+      const file = target.files?.[0];
 
-          const which = target.id === 'partnerFile' ? 'partner' : 'self';
-          const file = target.files && target.files[0];
+      const run = async () => {
+        if (!file) {
+          target.value = '';
+          resetSelection(which);
+          updateDownloadState();
+          dispatch('compat:file-selected', { which, file: null });
+          return;
+        }
 
-          const run = async () => {
-            if (!file) {
-              target.value = '';
-              resetSelection(which);
-              updateDownloadState();
-              dispatch('compat:file-selected', { which, file: null });
-              return;
-            }
-
-            if (which === 'partner' && !getConsentFlag()) {
-              setStatus(which, 'Awaiting partner consent…', 'info');
-              const ok = await requestPartnerConsent();
-              if (!ok) {
-                target.value = '';
-                resetSelection('partner');
-                updateDownloadState();
-                setStatus('partner', 'Upload canceled — partner consent required.', 'info');
-                dispatch('compat:file-selected', { which: 'partner', file: null });
-                return;
-              }
-              setConsentFlag();
-            }
-
-            if (which === 'self') {
-              yourBlob = file;
-              yourJSON = null;
-            } else {
-              partnerBlob = file;
-              partnerJSON = null;
-            }
-
-            const statusMessage =
-              which === 'partner' ? 'Processing partner survey…' : 'Processing your survey…';
-            setStatus(which, statusMessage, 'info');
-
-            dispatch('compat:file-selected', { which, file });
-
+        if (which === 'partner' && !getConsentFlag()) {
+          const ok = confirm(
+            'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
+              'Click “OK” to confirm consent and continue, or “Cancel” to stop.'
+          );
+          if (!ok) {
             target.value = '';
+            resetSelection('partner');
+            setStatus('partner', 'Upload canceled — partner consent required.', 'info');
             updateDownloadState();
-            scheduleParse(which);
-          };
-
-          run().catch((error) => {
-            console.error(error);
-            resetSelection(which, { resetStatus: false });
-            setStatus(which, 'Upload failed. Please try again.', 'error');
-            updateDownloadState();
-            dispatch('compat:file-selected', { which, file: null });
-          });
-        },
-        true
-      );
-
-      if (downloadBtn) {
-        const handleDownloadClick = async () => {
-          try {
-            await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
-            if (!yourJSON && !partnerJSON) {
-              alert('Please upload at least one survey before downloading.');
-              return;
-            }
-            await generateDarkPDF(yourJSON, partnerJSON);
-          } catch (err) {
-            console.error(err);
-            const id = err?.which;
-            if (id === 'self' || id === 'partner') {
-              resetSelection(id);
-              updateDownloadState();
-              dispatch('compat:file-selected', { which: id, file: null });
-            }
-            alert('Sorry—could not generate the PDF.');
+            dispatch('compat:file-selected', { which: 'partner', file: null });
+            return;
           }
-        };
-
-        downloadBtn.addEventListener(
-          'click',
-          (event) => {
-            event.stopImmediatePropagation();
-            event.stopPropagation();
-            event.preventDefault();
-            handleDownloadClick();
-          },
-          true
-        );
-      }
-
-      const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
-
-      function rowsFromTalkKink(json) {
-        if (!json) return [];
-
-        const rows = [];
-        const pushRow = (source, idx = 0) => {
-          if (!source || typeof source !== 'object') return;
-          const score = clampScore(source.score ?? source.rating ?? source.value ?? source.answer ?? 0);
-          const label = tidyLabel(source.item || source.prompt || source.title || source.label || source.name || source.id, `Item ${idx + 1}`);
-          const role = normalizeRole(source.role || source.side || source.channel || source.position);
-          const category = tidyLabel(source.category || source.categoryName || source.group || source.section, 'Other');
-          const kinkKey = tidyLabel(source.kinkId || source.id || label, label);
-          rows.push({
-            Category: category || 'Other',
-            Item: cap(label),
-            Role: role,
-            Score: score,
-            _key: `${kinkKey}|${role}`.toLowerCase()
-          });
-        };
-
-        if (Array.isArray(json.responses) && json.responses.length) {
-          json.responses.forEach((resp, idx) => pushRow(resp, idx));
-        } else if (Array.isArray(json.answers) && json.answers.length) {
-          json.answers.forEach((answer, idx) => pushRow(answer, idx));
-        } else if (json.answersById && typeof json.answersById === 'object') {
-          Object.entries(json.answersById).forEach(([id, score], idx) => {
-            if (!id) return;
-            const parts = String(id).split('-');
-            const role = normalizeRole(parts.at(-1));
-            const base = parts.slice(0, -1).join('-');
-            const label = tidyLabel(
-              parts
-                .slice(2, -1)
-                .join(' ')
-                .replace(/\bTv\b/gi, 'TV'),
-              `Item ${idx + 1}`
-            );
-            const category = tidyLabel(parts.slice(0, 2).join(' '), 'Other');
-            rows.push({
-              Category: category || 'Other',
-              Item: cap(label),
-              Role: role,
-              Score: clampScore(score),
-              _key: `${base}|${role}`.toLowerCase()
-            });
-          });
+          setConsentFlag();
         }
 
-        const deduped = Array.from(
-          rows.reduce((map, row) => {
-            if (!map.has(row._key)) map.set(row._key, row);
-            return map;
-          }, new Map()).values()
-        );
-
-        deduped.sort(
-          (a, b) =>
-            a.Category.localeCompare(b.Category) ||
-            a.Role.localeCompare(b.Role) ||
-            a.Item.localeCompare(b.Item)
-        );
-
-        return deduped;
-      }
-
-      async function generateDarkPDF(yourJSON, partnerJSON) {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'pt', format: 'letter' });
-
-        const W = doc.internal.pageSize.getWidth();
-        const H = doc.internal.pageSize.getHeight();
-
-        const CONTENT_W = Math.min(680, W - 96);
-        const MARGIN_L = (W - CONTENT_W) / 2;
-        const MARGIN_R = MARGIN_L;
-
-        function paintPageChrome() {
-          doc.setFillColor(10, 10, 12);
-          doc.rect(0, 0, W, H, 'F');
-
-          doc.setTextColor(255, 255, 255);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(20);
-          doc.text('TalkKink Compatibility', W / 2, 50, { align: 'center' });
-
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(10);
-          doc.setTextColor(170, 200, 255);
-          doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
-
-          doc.setDrawColor(0, 255, 255);
-          doc.setLineWidth(1);
-          doc.line(MARGIN_L, 72, W - MARGIN_R, 72);
-        }
-        paintPageChrome();
-
-        const CYAN = [0, 255, 255];
-        const BODY_BG_1 = [8, 8, 10];
-        const BODY_BG_2 = [13, 13, 17];
-        const GRID = [30, 30, 38];
-        const WHITE = [255, 255, 255];
-
-        const tableBase = {
-          theme: 'grid',
-          tableWidth: CONTENT_W,
-          margin: { left: MARGIN_L, right: MARGIN_R },
-          styles: {
-            font: 'helvetica',
-            fontSize: 10,
-            cellPadding: 4,
-            textColor: WHITE,
-            fillColor: BODY_BG_1,
-            lineColor: GRID,
-            lineWidth: 0.25
-          },
-          alternateRowStyles: { fillColor: BODY_BG_2 },
-          headStyles: {
-            fillColor: [0, 0, 0],
-            textColor: CYAN,
-            lineColor: GRID,
-            lineWidth: 0.25,
-            fontStyle: 'bold'
-          },
-          didAddPage: () => paintPageChrome()
-        };
-
-        const rowsA = rowsFromTalkKink(yourJSON);
-        const rowsB = rowsFromTalkKink(partnerJSON);
-        const hasA = rowsA.length > 0;
-        const hasB = rowsB.length > 0;
-
-        let y = 96;
-
-        function catHeading(text) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(16);
-          doc.setTextColor(WHITE);
-          doc.text(text, W / 2, y, { align: 'center' });
-          y += 12;
-        }
-
-        if (hasA && hasB) {
-          const cats = [...new Set([...rowsA, ...rowsB].map((r) => r.Category))];
-          for (const cat of cats) {
-            catHeading(cat);
-
-            const body = buildComparisonBody(
-              rowsA.filter((r) => r.Category === cat),
-              rowsB.filter((r) => r.Category === cat)
-            );
-
-            doc.autoTable({
-              ...tableBase,
-              startY: y + 8,
-              head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
-              body,
-              columnStyles: {
-                0: { cellWidth: 80 },
-                1: { cellWidth: CONTENT_W - (80 + 70 + 60 + 50 + 70) },
-                2: { cellWidth: 70, halign: 'center' },
-                3: { cellWidth: 60, halign: 'center' },
-                4: { cellWidth: 50, halign: 'center' },
-                5: { cellWidth: 70, halign: 'center' }
-              }
-            });
-            y = doc.lastAutoTable.finalY + 18;
-            if (y > H - 72) {
-              doc.addPage();
-              paintPageChrome();
-              y = 96;
-            }
-          }
+        if (which === 'self') {
+          yourBlob = file;
+          yourJSON = null;
+          setStatus('self', 'Processing your survey…', 'info');
         } else {
-          const rows = hasA ? rowsA : rowsB;
-          const whose = hasA ? 'Partner A' : 'Partner';
-          const cats = [...new Set(rows.map((r) => r.Category))];
-
-          for (const cat of cats) {
-            catHeading(`${cat} — ${whose}`);
-
-            const body = rows
-              .filter((r) => r.Category === cat)
-              .map((r) => [r.Role, r.Item, String(r.Score)]);
-            doc.autoTable({
-              ...tableBase,
-              startY: y + 8,
-              head: [['Role', 'Item', 'Score']],
-              body,
-              columnStyles: {
-                0: { cellWidth: 100 },
-                1: { cellWidth: CONTENT_W - (100 + 70) },
-                2: { cellWidth: 70, halign: 'center' }
-              }
-            });
-            y = doc.lastAutoTable.finalY + 18;
-            if (y > H - 72) {
-              doc.addPage();
-              paintPageChrome();
-              y = 96;
-            }
-          }
+          partnerBlob = file;
+          partnerJSON = null;
+          setStatus('partner', 'Processing partner survey…', 'info');
         }
 
-        const name = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
-        doc.save(name);
+        dispatch('compat:file-selected', { which, file });
+        updateDownloadState();
+        target.value = '';
+        scheduleParse(which);
+      };
+
+      run().catch((error) => {
+        console.error('[compat] File selection failed', error);
+        resetSelection(which);
+        updateDownloadState();
+        dispatch('compat:file-selected', { which, file: null });
+      });
+    },
+    true
+  );
+
+  function clampScore(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    if (num <= 0) return 0;
+    if (num >= 5) return 5;
+    return Math.round(num);
+  }
+
+  const ROLE_ALIASES = {
+    giving: 'Giving',
+    giver: 'Giving',
+    dom: 'Dominant',
+    dominant: 'Dominant',
+    top: 'Dominant',
+    receiving: 'Receiving',
+    receiver: 'Receiving',
+    sub: 'Submissive',
+    submissive: 'Submissive',
+    bottom: 'Submissive',
+    switch: 'Switch',
+    general: 'General',
+    neutral: 'General'
+  };
+
+  function normalizeRole(value) {
+    if (!value) return 'General';
+    const key = String(value).trim().toLowerCase();
+    return ROLE_ALIASES[key] || (key ? key[0].toUpperCase() + key.slice(1) : 'General');
+  }
+
+  function tidyLabel(value, fallback = '') {
+    const str = String(value || '').replace(/\s+/g, ' ').trim();
+    return str || fallback;
+  }
+
+  function normalizeCompatPayload(raw, which) {
+    if (!raw) return raw;
+
+    if (Array.isArray(raw)) {
+      const answers = raw.map((score, idx) => ({
+        kinkId: `item-${idx + 1}`,
+        side: 'general',
+        score
+      }));
+      return normalizeCompatPayload({ answers }, which);
+    }
+
+    if (typeof raw !== 'object') return raw;
+
+    const normalized = { ...raw };
+
+    const responses = Array.isArray(normalized.responses)
+      ? normalized.responses
+          .map((entry, idx) => {
+            if (!entry || typeof entry !== 'object') return null;
+            const baseId = String(entry.id || `${which || 'A'}-${idx + 1}`);
+            const role = normalizeRole(entry.role || entry.side || entry.channel);
+            const rating = clampScore(entry.rating ?? entry.score ?? entry.value ?? 0);
+            const prompt = tidyLabel(entry.prompt || entry.label || entry.title || entry.name || entry.question, baseId);
+            const category = tidyLabel(
+              entry.category || entry.categoryName || entry.group || entry.section,
+              normalized.meta?.surveyTitle || ''
+            );
+            return {
+              ...entry,
+              id: baseId,
+              role,
+              rating,
+              prompt,
+              category
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    normalized.responses = responses;
+
+    const seenIds = new Set(responses.map((entry) => entry.id));
+    const ensureAnswersArray = () => {
+      const sources = [];
+      if (Array.isArray(normalized.answers)) sources.push(normalized.answers);
+      if (Array.isArray(normalized.survey?.answers)) sources.push(normalized.survey.answers);
+      if (Array.isArray(normalized.survey?.responses)) sources.push(normalized.survey.responses);
+      return sources.flat();
+    };
+
+    const candidates = ensureAnswersArray();
+
+    candidates.forEach((answer, idx) => {
+      if (!answer || typeof answer !== 'object') return;
+      const kinkId = tidyLabel(answer.kinkId || answer.id || answer.key || answer.name || answer.questionId, `item-${idx + 1}`);
+      const sideRaw = String(answer.side || answer.role || answer.channel || 'general');
+      const role = normalizeRole(sideRaw);
+      const score = clampScore(answer.score ?? answer.rating ?? answer.value ?? answer.answer ?? 0);
+      const category = tidyLabel(
+        answer.category || answer.categoryName || answer.group || answer.section || answer.categoryId,
+        normalized.meta?.surveyTitle || ''
+      );
+      const prompt = tidyLabel(answer.title || answer.label || answer.prompt || answer.name || kinkId, kinkId);
+      const idHint = tidyLabel(answer.id || '', kinkId);
+      const baseId = idHint && idHint !== kinkId ? idHint : kinkId;
+      const sideKey = sideRaw.trim().toLowerCase() || 'general';
+      const composedId = baseId.toLowerCase().endsWith(`-${sideKey}`) ? baseId : `${baseId}-${sideKey}`;
+      if (!seenIds.has(composedId)) {
+        responses.push({
+          id: composedId,
+          kinkId,
+          role,
+          rating: score,
+          category,
+          prompt
+        });
+        seenIds.add(composedId);
       }
+    });
 
-      function buildComparisonBody(rowsA, rowsB) {
-        const key = (r) => (r._key || `${r.Role}|${r.Item}`).toLowerCase();
-        const mapA = Object.fromEntries(rowsA.map((r) => [key(r), r]));
-        const mapB = Object.fromEntries(rowsB.map((r) => [key(r), r]));
-        const keys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
-        const body = [];
-        for (const k of keys) {
-          const a = mapA[k];
-          const b = mapB[k];
-          const role = a?.Role || b?.Role || '';
-          const item = a?.Item || b?.Item || '';
-          const aScore = Number.isFinite(a?.Score) ? a.Score : '';
-          const bScore = Number.isFinite(b?.Score) ? b.Score : '';
+    if (!normalized.answersById || typeof normalized.answersById !== 'object') {
+      normalized.answersById = {};
+    }
 
-          let match = '';
-          let flag = '';
-          if (a && b) {
-            const diff = Math.abs(a.Score - b.Score);
-            const pct = Math.round((1 - diff / 5) * 100);
-            match = pct + '%';
-            if (pct >= 90) flag = '⭐';
-            else if (pct <= 30) flag = '🚩';
-            if ((a?.Score === 5 && b?.Score < 5) || (b?.Score === 5 && a?.Score < 5)) {
-              flag = flag ? flag + ' 🟨' : '🟨';
-            }
-          }
-          body.push([role, item, String(aScore), match, flag, String(bScore)]);
+    responses.forEach((entry, idx) => {
+      if (!entry || typeof entry !== 'object') return;
+      const id = tidyLabel(entry.id, `${which || 'A'}-${idx + 1}`);
+      const score = clampScore(entry.rating ?? entry.score ?? entry.value ?? 0);
+      normalized.answersById[id] = score;
+    });
+
+    if (!normalized.answersByKey || typeof normalized.answersByKey !== 'object') {
+      const map = {};
+      responses.forEach((entry, idx) => {
+        map[String(idx + 1)] = clampScore(entry.rating ?? entry.score ?? entry.value ?? 0);
+      });
+      if (Object.keys(map).length) normalized.answersByKey = map;
+    }
+
+    return normalized;
+  }
+
+  function rowsFromTalkKink(json) {
+    if (!json) return [];
+
+    const rows = [];
+    const pushRow = (source, idx = 0) => {
+      if (!source || typeof source !== 'object') return;
+      const score = clampScore(source.score ?? source.rating ?? source.value ?? source.answer ?? 0);
+      const label = tidyLabel(source.item || source.prompt || source.title || source.label || source.name || source.id, `Item ${idx + 1}`);
+      const role = normalizeRole(source.role || source.side || source.channel || source.position);
+      const category = tidyLabel(source.category || source.categoryName || source.group || source.section, 'Other');
+      const kinkKey = tidyLabel(source.kinkId || source.id || label, label);
+      rows.push({
+        Category: category || 'Other',
+        Item: label ? label.charAt(0).toUpperCase() + label.slice(1) : 'Item',
+        Role: role,
+        Score: score,
+        _key: `${kinkKey}|${role}`.toLowerCase()
+      });
+    };
+
+    if (Array.isArray(json.responses) && json.responses.length) {
+      json.responses.forEach((resp, idx) => pushRow(resp, idx));
+    } else if (Array.isArray(json.answers) && json.answers.length) {
+      json.answers.forEach((answer, idx) => pushRow(answer, idx));
+    } else if (json.answersById && typeof json.answersById === 'object') {
+      Object.entries(json.answersById).forEach(([id, score], idx) => {
+        if (!id) return;
+        const parts = String(id).split('-');
+        const role = normalizeRole(parts.at(-1));
+        const base = parts.slice(0, -1).join('-');
+        const label = tidyLabel(
+          parts
+            .slice(2, -1)
+            .join(' ')
+            .replace(/\bTv\b/gi, 'TV'),
+          `Item ${idx + 1}`
+        );
+        const category = tidyLabel(parts.slice(0, 2).join(' '), 'Other');
+        rows.push({
+          Category: category || 'Other',
+          Item: label ? label.charAt(0).toUpperCase() + label.slice(1) : 'Item',
+          Role: role,
+          Score: clampScore(score),
+          _key: `${base}|${role}`.toLowerCase()
+        });
+      });
+    }
+
+    const deduped = Array.from(
+      rows.reduce((map, row) => {
+        if (!map.has(row._key)) map.set(row._key, row);
+        return map;
+      }, new Map()).values()
+    );
+
+    deduped.sort(
+      (a, b) =>
+        a.Category.localeCompare(b.Category) ||
+        a.Role.localeCompare(b.Role) ||
+        a.Item.localeCompare(b.Item)
+    );
+
+    return deduped;
+  }
+
+  function buildComparisonBody(rowsA, rowsB) {
+    const key = (r) => (r._key || `${r.Role}|${r.Item}`).toLowerCase();
+    const mapA = Object.fromEntries(rowsA.map((r) => [key(r), r]));
+    const mapB = Object.fromEntries(rowsB.map((r) => [key(r), r]));
+    const keys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
+    const body = [];
+    for (const k of keys) {
+      const a = mapA[k];
+      const b = mapB[k];
+      const role = a?.Role || b?.Role || '';
+      const item = a?.Item || b?.Item || '';
+      const aScore = Number.isFinite(a?.Score) ? a.Score : '';
+      const bScore = Number.isFinite(b?.Score) ? b.Score : '';
+
+      let match = '';
+      let flag = '';
+      if (a && b) {
+        const diff = Math.abs(a.Score - b.Score);
+        const pct = Math.round((1 - diff / 5) * 100);
+        match = pct + '%';
+        if (pct >= 90) flag = '⭐';
+        else if (pct <= 30) flag = '🚩';
+        if ((a?.Score === 5 && b?.Score < 5) || (b?.Score === 5 && a?.Score < 5)) {
+          flag = flag ? `${flag} 🟨` : '🟨';
         }
-        return body;
       }
-    })();
+      body.push([role, item, String(aScore), match, flag, String(bScore)]);
+    }
+    return body;
+  }
+
+  async function parseAndCache(which) {
+    const isSelf = which === 'self';
+    const blob = isSelf ? yourBlob : partnerBlob;
+    if (!blob) return null;
+
+    if (isSelf ? yourJSON : partnerJSON) {
+      return isSelf ? yourJSON : partnerJSON;
+    }
+
+    const text = await blob.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (err) {
+      err.which = which;
+      throw err;
+    }
+
+    json = normalizeCompatPayload(json, which);
+
+    if (!json || !json.answersById || !Object.keys(json.answersById).length) {
+      const error = new Error('No survey answers found');
+      error.which = which;
+      throw error;
+    }
+
+    if (isSelf) {
+      yourJSON = json;
+      window.talkkinkMine = json;
+      window.talkkinkSurvey = json;
+    } else {
+      partnerJSON = json;
+      window.talkkinkPartner = json;
+    }
+
+    dispatch('compat:json-ready', {
+      which,
+      json,
+      fileName: blob.name || ''
+    });
+
+    if (which === 'partner') {
+      setStatus(which, 'Partner survey ready ✓ — consent recorded.', 'success');
+    } else {
+      setStatus(which, 'Your survey ready ✓', 'success');
+    }
+
+    updateDownloadState();
+    return json;
+  }
+
+  async function loadLibsOnce() {
+    if (libsReady && window.jspdf && window.jspdf.jsPDF && window.jspdf_autotable) return;
+    const inject = (src) =>
+      new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    try {
+      if (!window.jspdf) await inject('https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js');
+      if (!window.jspdf_autotable) await inject('https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+    } catch (error) {
+      if (!window.jspdf) await inject('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+      if (!window.jspdf_autotable) await inject('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+    }
+    if (!(window.jspdf && window.jspdf.jsPDF)) throw new Error('jsPDF failed to load');
+    if (!window.jspdf_autotable) throw new Error('autoTable failed to load');
+    libsReady = true;
+  }
+
+  async function generateDarkPDF(yourData, partnerData) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+
+    const CONTENT_W = Math.min(680, W - 96);
+    const ML = (W - CONTENT_W) / 2;
+    const MR = ML;
+
+    function paint() {
+      doc.setFillColor(10, 10, 12);
+      doc.rect(0, 0, W, H, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.text('TalkKink Compatibility', W / 2, 50, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(170, 200, 255);
+      doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
+      doc.setDrawColor(0, 255, 255);
+      doc.setLineWidth(1);
+      doc.line(ML, 72, W - MR, 72);
+    }
+    paint();
+
+    const CYAN = [0, 255, 255];
+    const BODY1 = [8, 8, 10];
+    const BODY2 = [13, 13, 17];
+    const GRID = [30, 30, 38];
+    const WHITE = [255, 255, 255];
+
+    const tableBase = {
+      theme: 'grid',
+      tableWidth: CONTENT_W,
+      margin: { left: ML, right: MR },
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+        cellPadding: 4,
+        textColor: WHITE,
+        fillColor: BODY1,
+        lineColor: GRID,
+        lineWidth: 0.25
+      },
+      alternateRowStyles: { fillColor: BODY2 },
+      headStyles: {
+        fillColor: [0, 0, 0],
+        textColor: CYAN,
+        lineColor: GRID,
+        lineWidth: 0.25,
+        fontStyle: 'bold'
+      },
+      didAddPage: () => paint()
+    };
+
+    const rowsA = rowsFromTalkKink(yourData);
+    const rowsB = rowsFromTalkKink(partnerData);
+    const hasA = rowsA.length > 0;
+    const hasB = rowsB.length > 0;
+
+    let y = 96;
+    function cat(text) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(WHITE);
+      doc.text(text, W / 2, y, { align: 'center' });
+      y += 12;
+    }
+
+    if (hasA && hasB) {
+      const cats = [...new Set([...rowsA, ...rowsB].map((r) => r.Category))];
+      for (const c of cats) {
+        cat(c);
+        const body = buildComparisonBody(rowsA.filter((r) => r.Category === c), rowsB.filter((r) => r.Category === c));
+        doc.autoTable({
+          ...tableBase,
+          startY: y + 8,
+          head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
+          body,
+          columnStyles: {
+            0: { cellWidth: 80 },
+            1: { cellWidth: CONTENT_W - (80 + 70 + 60 + 50 + 70) },
+            2: { cellWidth: 70, halign: 'center' },
+            3: { cellWidth: 60, halign: 'center' },
+            4: { cellWidth: 50, halign: 'center' },
+            5: { cellWidth: 70, halign: 'center' }
+          }
+        });
+        y = doc.lastAutoTable.finalY + 18;
+        if (y > H - 72) {
+          doc.addPage();
+          paint();
+          y = 96;
+        }
+      }
+    } else {
+      const rows = hasA ? rowsA : rowsB;
+      const who = hasA ? 'Partner A' : 'Partner';
+      const cats = [...new Set(rows.map((r) => r.Category))];
+      for (const c of cats) {
+        cat(`${c} — ${who}`);
+        const body = rows
+          .filter((r) => r.Category === c)
+          .map((r) => [r.Role, r.Item, String(r.Score)]);
+        doc.autoTable({
+          ...tableBase,
+          startY: y + 8,
+          head: [['Role', 'Item', 'Score']],
+          body,
+          columnStyles: {
+            0: { cellWidth: 100 },
+            1: { cellWidth: CONTENT_W - (100 + 70) },
+            2: { cellWidth: 70, halign: 'center' }
+          }
+        });
+        y = doc.lastAutoTable.finalY + 18;
+        if (y > H - 72) {
+          doc.addPage();
+          paint();
+          y = 96;
+        }
+      }
+    }
+
+    const name = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
+    doc.save(name);
+  }
+
+  window.generateDarkPDF = generateDarkPDF;
+
+  downloadBtn && downloadBtn.addEventListener('click', (event) => event.stopImmediatePropagation(), true);
+
+  downloadBtn &&
+    downloadBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      try {
+        await loadLibsOnce();
+        await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
+
+        if (!yourJSON && !partnerJSON) {
+          alert('Load at least one survey first (yours or partner).');
+          console.warn('[compat] No survey loaded; aborting PDF.');
+          return;
+        }
+
+        await generateDarkPDF(yourJSON, partnerJSON);
+      } catch (error) {
+        console.error('[compat] PDF generation failed:', error);
+        alert('Sorry—could not generate the PDF.');
+      }
+    });
+
+  updateDownloadState();
+
+  window.tkResetPartnerConsent = () => {
+    try {
+      sessionStorage.removeItem(CONSENT_KEY);
+    } catch (err) {
+      console.warn('[compat] unable to reset consent flag', err);
+    }
+    console.info('[compat] Partner consent reset for this tab.');
+  };
+})();
   </script>
+
+
     <script defer src="/assets/js/comparison.js"></script>
   <script defer>
     /**
