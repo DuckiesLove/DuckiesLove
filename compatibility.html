@@ -1297,20 +1297,27 @@
         const W = doc.internal.pageSize.getWidth();
         const H = doc.internal.pageSize.getHeight();
 
+        const CONTENT_W = Math.min(680, W - 96);
+        const MARGIN_L = (W - CONTENT_W) / 2;
+        const MARGIN_R = MARGIN_L;
+
         function paintPageChrome() {
           doc.setFillColor(10, 10, 12);
           doc.rect(0, 0, W, H, 'F');
-          doc.setDrawColor(0, 255, 255);
-          doc.setLineWidth(1);
-          doc.line(48, 68, W - 48, 68);
+
           doc.setTextColor(255, 255, 255);
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(18);
-          doc.text('TalkKink Compatibility — Printable Report', 48, 50);
+          doc.setFontSize(20);
+          doc.text('TalkKink Compatibility', W / 2, 50, { align: 'center' });
+
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(10);
           doc.setTextColor(170, 200, 255);
-          doc.text('Generated: ' + new Date().toLocaleString(), 48, 62);
+          doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
+
+          doc.setDrawColor(0, 255, 255);
+          doc.setLineWidth(1);
+          doc.line(MARGIN_L, 72, W - MARGIN_R, 72);
         }
         paintPageChrome();
 
@@ -1327,8 +1334,9 @@
           },
           alternateRowStyles: { fillColor: [26, 26, 32] },
           headStyles: { fillColor: [0, 0, 0], textColor: [0, 255, 255] },
-          margin: { left: 48, right: 48 },
-          didAddPage: () => paintPageChrome()
+          margin: { left: MARGIN_L, right: MARGIN_R },
+          didAddPage: () => paintPageChrome(),
+          tableWidth: CONTENT_W
         };
 
         const rowsA = rowsFromTalkKink(yourJSON);
@@ -1336,16 +1344,20 @@
         const hasA = rowsA.length > 0;
         const hasB = rowsB.length > 0;
 
-        let y = 90;
+        let y = 96;
+
+        function catHeading(text) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.setTextColor(255, 255, 255);
+          doc.text(text, W / 2, y, { align: 'center' });
+          y += 10;
+        }
 
         if (hasA && hasB) {
           const cats = [...new Set([...rowsA, ...rowsB].map((r) => r.Category))];
           for (const cat of cats) {
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(13);
-            doc.setTextColor(255, 255, 255);
-            doc.text(cat, 48, y);
-            y += 8;
+            catHeading(cat);
 
             const body = buildComparisonBody(
               rowsA.filter((r) => r.Category === cat),
@@ -1358,19 +1370,19 @@
               head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
               body,
               columnStyles: {
-                0: { cellWidth: 70 },
-                1: { cellWidth: 280 },
-                2: { cellWidth: 60, halign: 'center' },
+                0: { cellWidth: 80 },
+                1: { cellWidth: CONTENT_W - (80 + 70 + 60 + 50 + 70) },
+                2: { cellWidth: 70, halign: 'center' },
                 3: { cellWidth: 60, halign: 'center' },
-                4: { cellWidth: 40, halign: 'center' },
-                5: { cellWidth: 60, halign: 'center' }
+                4: { cellWidth: 50, halign: 'center' },
+                5: { cellWidth: 70, halign: 'center' }
               }
             });
-            y = doc.lastAutoTable.finalY + 16;
+            y = doc.lastAutoTable.finalY + 18;
             if (y > H - 72) {
               doc.addPage();
               paintPageChrome();
-              y = 90;
+              y = 96;
             }
           }
         } else {
@@ -1379,11 +1391,7 @@
           const cats = [...new Set(rows.map((r) => r.Category))];
 
           for (const cat of cats) {
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(13);
-            doc.setTextColor(255, 255, 255);
-            doc.text(`${cat} — ${whose}`, 48, y);
-            y += 8;
+            catHeading(`${cat} — ${whose}`);
 
             const body = rows
               .filter((r) => r.Category === cat)
@@ -1394,16 +1402,16 @@
               head: [['Role', 'Item', 'Score']],
               body,
               columnStyles: {
-                0: { cellWidth: 90 },
-                1: { cellWidth: 350 },
-                2: { cellWidth: 60, halign: 'center' }
+                0: { cellWidth: 100 },
+                1: { cellWidth: CONTENT_W - (100 + 70) },
+                2: { cellWidth: 70, halign: 'center' }
               }
             });
-            y = doc.lastAutoTable.finalY + 16;
+            y = doc.lastAutoTable.finalY + 18;
             if (y > H - 72) {
               doc.addPage();
               paintPageChrome();
-              y = 90;
+              y = 96;
             }
           }
         }
