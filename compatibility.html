@@ -1358,27 +1358,31 @@
 
   window.generateDarkPDF = generateDarkPDF;
 
-  downloadBtn && downloadBtn.addEventListener('click', (event) => event.stopImmediatePropagation(), true);
-
   downloadBtn &&
-    downloadBtn.addEventListener('click', async (event) => {
-      event.preventDefault();
-      try {
-        await loadLibsOnce();
-        await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
+    downloadBtn.addEventListener(
+      'click',
+      async (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        try {
+          await loadLibsOnce();
+          await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
 
-        if (!yourJSON && !partnerJSON) {
-          alert('Load at least one survey first (yours or partner).');
-          console.warn('[compat] No survey loaded; aborting PDF.');
-          return;
+          if (!yourJSON && !partnerJSON) {
+            alert('Load at least one survey first (yours or partner).');
+            console.warn('[compat] No survey loaded; aborting PDF.');
+            return;
+          }
+
+          await generateDarkPDF(yourJSON, partnerJSON);
+        } catch (error) {
+          console.error('[compat] PDF generation failed:', error);
+          alert('Sorry—could not generate the PDF.');
         }
-
-        await generateDarkPDF(yourJSON, partnerJSON);
-      } catch (error) {
-        console.error('[compat] PDF generation failed:', error);
-        alert('Sorry—could not generate the PDF.');
-      }
-    });
+      },
+      true
+    );
 
   updateDownloadState();
 
