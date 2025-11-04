@@ -218,7 +218,7 @@
       // header text
       doc.setTextColor(255,255,255);
       doc.setFont('helvetica','bold');
-      doc.setFontSize(18);
+      doc.setFontSize(20);
       doc.text('TalkKink Compatibility — Printable Report', 48, 50);
 
       doc.setFont('helvetica','normal');
@@ -228,19 +228,25 @@
     }
     paintPageChrome();
 
+    const CYAN = [0,255,255];
+    const BODY_BG_1 = [8,8,10];
+    const BODY_BG_2 = [13,13,17];
+    const GRID = [30,30,38];
+    const WHITE = [255,255,255];
+
     const tableStyles = {
       theme: 'grid',
       styles: {
         font: 'helvetica',
         fontSize: 10,
         cellPadding: 4,
-        textColor: [235,235,242],
-        lineColor: [60,60,78],
+        textColor: WHITE,
+        lineColor: GRID,
         lineWidth: 0.25,
-        fillColor: [18,18,22]
+        fillColor: BODY_BG_1
       },
-      alternateRowStyles: { fillColor: [26,26,32] },
-      headStyles: { fillColor: [0,0,0], textColor: [0,255,255] },
+      alternateRowStyles: { fillColor: BODY_BG_2 },
+      headStyles: { fillColor: [0,0,0], textColor: CYAN, lineColor: GRID, lineWidth: 0.25, fontStyle: 'bold' },
       margin: { left: 48, right: 48 },
       didAddPage: () => paintPageChrome()
     };
@@ -255,10 +261,10 @@
       const cats = [...new Set([...A, ...B].map(r => r.Category))];
       for (const cat of cats) {
         doc.setFont('helvetica','bold');
-        doc.setFontSize(13);
-        doc.setTextColor(255,255,255);
+        doc.setFontSize(16);
+        doc.setTextColor(WHITE);
         doc.text(cat, 48, y);
-        y += 8;
+        y += 12;
 
         const body = buildAB(A.filter(r => r.Category === cat), B.filter(r => r.Category === cat));
 
@@ -291,10 +297,10 @@
 
       for (const cat of cats) {
         doc.setFont('helvetica','bold');
-        doc.setFontSize(13);
-        doc.setTextColor(255,255,255);
+        doc.setFontSize(16);
+        doc.setTextColor(WHITE);
         doc.text(`${cat} — ${who}`, 48, y);
-        y += 8;
+        y += 12;
 
         const body = rows
           .filter(r => r.Category === cat)
