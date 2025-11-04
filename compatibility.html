@@ -1321,22 +1321,34 @@
         }
         paintPageChrome();
 
+        const CYAN = [0, 255, 255];
+        const BODY_BG_1 = [8, 8, 10];
+        const BODY_BG_2 = [13, 13, 17];
+        const GRID = [30, 30, 38];
+        const WHITE = [255, 255, 255];
+
         const tableBase = {
           theme: 'grid',
+          tableWidth: CONTENT_W,
+          margin: { left: MARGIN_L, right: MARGIN_R },
           styles: {
             font: 'helvetica',
             fontSize: 10,
             cellPadding: 4,
-            textColor: [235, 235, 242],
-            lineColor: [60, 60, 78],
-            lineWidth: 0.25,
-            fillColor: [18, 18, 22]
+            textColor: WHITE,
+            fillColor: BODY_BG_1,
+            lineColor: GRID,
+            lineWidth: 0.25
           },
-          alternateRowStyles: { fillColor: [26, 26, 32] },
-          headStyles: { fillColor: [0, 0, 0], textColor: [0, 255, 255] },
-          margin: { left: MARGIN_L, right: MARGIN_R },
-          didAddPage: () => paintPageChrome(),
-          tableWidth: CONTENT_W
+          alternateRowStyles: { fillColor: BODY_BG_2 },
+          headStyles: {
+            fillColor: [0, 0, 0],
+            textColor: CYAN,
+            lineColor: GRID,
+            lineWidth: 0.25,
+            fontStyle: 'bold'
+          },
+          didAddPage: () => paintPageChrome()
         };
 
         const rowsA = rowsFromTalkKink(yourJSON);
@@ -1348,10 +1360,10 @@
 
         function catHeading(text) {
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(14);
-          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(16);
+          doc.setTextColor(WHITE);
           doc.text(text, W / 2, y, { align: 'center' });
-          y += 10;
+          y += 12;
         }
 
         if (hasA && hasB) {

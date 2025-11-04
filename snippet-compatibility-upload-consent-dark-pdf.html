@@ -115,19 +115,25 @@
     function paint() {
       doc.setFillColor(10,10,12); doc.rect(0,0,W,H,'F');
       doc.setDrawColor(0,255,255); doc.setLineWidth(1); doc.line(48,68,W-48,68);
-      doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(18);
+      doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(20);
       doc.text('TalkKink Compatibility — Printable Report', 48, 50);
       doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(170,200,255);
       doc.text('Generated: '+new Date().toLocaleString(), 48, 62);
     }
     paint();
 
+    const CYAN = [0,255,255];
+    const BODY_BG_1 = [8,8,10];
+    const BODY_BG_2 = [13,13,17];
+    const GRID = [30,30,38];
+    const WHITE = [255,255,255];
+
     const tableBase = {
       theme:'grid',
-      styles:{ font:'helvetica', fontSize:10, cellPadding:4, textColor:[235,235,242], lineColor:[60,60,78], lineWidth:0.25, fillColor:[18,18,22] },
-      alternateRowStyles:{ fillColor:[26,26,32] },
-      headStyles:{ fillColor:[0,0,0], textColor:[0,255,255] },
       margin:{ left:48, right:48 },
+      styles:{ font:'helvetica', fontSize:10, cellPadding:4, textColor:WHITE, fillColor:BODY_BG_1, lineColor:GRID, lineWidth:0.25 },
+      alternateRowStyles:{ fillColor:BODY_BG_2 },
+      headStyles:{ fillColor:[0,0,0], textColor:CYAN, lineColor:GRID, lineWidth:0.25, fontStyle:'bold' },
       didAddPage:()=>paint()
     };
 
@@ -140,7 +146,7 @@
     if (hasA && hasB) {
       const cats=[...new Set([...A,...B].map(r=>r.Category))];
       for(const cat of cats){
-        doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255); doc.text(cat,48,y); y+=8;
+        doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(WHITE); doc.text(cat,48,y); y+=12;
         const body = buildAB(A.filter(r=>r.Category===cat), B.filter(r=>r.Category===cat));
         doc.autoTable({ ...tableBase, startY:y+8, head:[['Role','Item','Partner A','Match','Flag','Partner B']], body,
           columnStyles:{0:{cellWidth:70},1:{cellWidth:280},2:{cellWidth:60,halign:'center'},3:{cellWidth:60,halign:'center'},4:{cellWidth:40,halign:'center'},5:{cellWidth:60,halign:'center'}} });
@@ -150,7 +156,7 @@
       const rows = hasA ? A : B; const who = hasA ? 'Partner A' : 'Partner';
       const cats=[...new Set(rows.map(r=>r.Category))];
       for(const cat of cats){
-        doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255); doc.text(`${cat} — ${who}`,48,y); y+=8;
+        doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(WHITE); doc.text(`${cat} — ${who}`,48,y); y+=12;
         const body = rows.filter(r=>r.Category===cat).map(r=>[r.Role,r.Item,String(r.Score)]);
         doc.autoTable({ ...tableBase, startY:y+8, head:[['Role','Item','Score']], body,
           columnStyles:{0:{cellWidth:90},1:{cellWidth:350},2:{cellWidth:60,halign:'center'}} });
