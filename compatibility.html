@@ -1507,344 +1507,253 @@
     });
   }
 
-  async function generateDarkPDF(yourData, partnerData) {
-    const doc = new MiniPDF({ width: 612, height: 792 });
-    const W = doc.width;
-    const H = doc.height;
+  async function generateDarkPDF(yourJSON, partnerJSON) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
 
     const CONTENT_W = Math.min(680, W - 96);
     const ML = (W - CONTENT_W) / 2;
-    const TOP_START = 96;
-    const BOTTOM_LIMIT = H - 72;
+    const MR = ML;
+
+    function paint() {
+      doc.setFillColor(10, 10, 12);
+      doc.rect(0, 0, W, H, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.text('TalkKink Compatibility', W / 2, 50, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(170, 200, 255);
+      doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
+
+      doc.setDrawColor(0, 255, 255);
+      doc.setLineWidth(1);
+      doc.line(ML, 72, W - MR, 72);
+    }
+    paint();
 
     const CYAN = [0, 255, 255];
     const BODY1 = [8, 8, 10];
     const BODY2 = [13, 13, 17];
     const GRID = [30, 30, 38];
     const WHITE = [255, 255, 255];
+    const GREEN = [0, 200, 140];
+    const YELLOW = [255, 210, 70];
+    const RED = [255, 86, 86];
 
-    const PAD_X = 10;
-    const PAD_Y = 6;
-    const LINE_HEIGHT = 12;
-    const MIN_ROW_HEIGHT = LINE_HEIGHT + PAD_Y * 2;
-    const HEADER_HEIGHT_DUAL = 28;
-    const HEADER_HEIGHT_SINGLE = 26;
-    const SECTION_GAP = 18;
-
-    const paintPage = () => {
-      doc.setFillColor(10, 10, 12);
-      doc.rect(0, 0, W, H, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.text('TalkKink Compatibility', W / 2, 50, { align: 'center' });
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(170, 200, 255);
-      doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
-      doc.setDrawColor(0, 255, 255);
-      doc.setLineWidth(1);
-      doc.line(ML, 72, ML + CONTENT_W, 72);
+    const base = {
+      theme: 'grid',
+      tableWidth: CONTENT_W,
+      margin: { left: ML, right: MR },
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+        cellPadding: 4,
+        textColor: WHITE,
+        fillColor: BODY1,
+        lineColor: GRID,
+        lineWidth: 0.25
+      },
+      alternateRowStyles: { fillColor: BODY2 },
+      headStyles: {
+        fillColor: [0, 0, 0],
+        textColor: CYAN,
+        lineColor: GRID,
+        lineWidth: 0.25,
+        fontStyle: 'bold'
+      },
+      didAddPage: () => paint()
     };
 
-    paintPage();
-
-    let y = TOP_START;
-
-    const ensureSpace = (needed) => {
-      if (y + needed <= BOTTOM_LIMIT) return false;
-      doc.addPage();
-      paintPage();
-      y = TOP_START;
-      return true;
+    const rowsFrom = (json) => {
+      if (!json) return [];
+      const map = json.answersById || {};
+      const out = [];
+      for (const [id, score] of Object.entries(map)) {
+        const parts = id.split('-');
+        const role = parts.at(-1);
+        const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, (m) => m.toUpperCase());
+        const item = parts
+          .slice(2, -1)
+          .join(' ')
+          .replace(/\bTv\b/gi, 'TV')
+          .replace(/\s+/g, ' ')
+          .trim();
+        out.push({
+          Category: category,
+          Item: item.charAt(0).toUpperCase() + item.slice(1),
+          Role: role.charAt(0).toUpperCase() + role.slice(1),
+          Score: Number(score)
+        });
+      }
+      out.sort(
+        (a, b) =>
+          a.Category.localeCompare(b.Category) ||
+          a.Role.localeCompare(b.Role) ||
+          a.Item.localeCompare(b.Item)
+      );
+      return out;
     };
 
-    const drawCategoryTitle = (label) => {
-      ensureSpace(32);
+    const A = rowsFrom(window.yourJSON || yourJSON);
+    const B = rowsFrom(window.partnerJSON || partnerJSON);
+    const hasA = A.length > 0;
+    const hasB = B.length > 0;
+
+    let y = 96;
+    const cat = (t) => {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
-      doc.setTextColor(...WHITE);
-      doc.text(label, W / 2, y, { align: 'center' });
-      y += 26;
+      doc.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
+      doc.text(t, W / 2, y, { align: 'center' });
+      y += 12;
     };
 
-    const columnsDual = [
-      { key: 'item', header: 'Item', width: CONTENT_W - (70 + 60 + 50 + 70), align: 'left' },
-      { key: 'a', header: 'Partner A', width: 70, align: 'center' },
-      { key: 'match', header: 'Match', width: 60, align: 'center' },
-      { key: 'flag', header: 'Flag', width: 50, align: 'center' },
-      { key: 'b', header: 'Partner B', width: 70, align: 'center' }
-    ];
+    function buildAB(Arows, Brows) {
+      const key = (r) => `${r.Role}|${r.Item}`.toLowerCase();
+      const aMap = Object.fromEntries(Arows.map((r) => [key(r), r]));
+      const bMap = Object.fromEntries(Brows.map((r) => [key(r), r]));
+      const keys = [...new Set([...Object.keys(aMap), ...Object.keys(bMap)])].sort();
+      return keys.map((k) => {
+        const a = aMap[k];
+        const b = bMap[k];
+        const item = a?.Item || b?.Item || '';
+        const aS = Number.isFinite(a?.Score) ? a.Score : null;
+        const bS = Number.isFinite(b?.Score) ? b.Score : null;
 
-    const columnsSingle = [
-      { key: 'role', header: 'Role', width: 100, align: 'center' },
-      { key: 'item', header: 'Item', width: CONTENT_W - (100 + 70), align: 'left' },
-      { key: 'score', header: 'Score', width: 70, align: 'center' }
-    ];
-
-    const drawHeader = (columns, height) => {
-      doc.setFillColor(0, 0, 0);
-      doc.rect(ML, y, CONTENT_W, height, 'F');
-      doc.setDrawColor(...GRID);
-      doc.setLineWidth(0.75);
-      doc.line(ML, y, ML + CONTENT_W, y);
-      doc.line(ML, y + height, ML + CONTENT_W, y + height);
-      let cursor = ML;
-      doc.line(cursor, y, cursor, y + height);
-      columns.forEach((col) => {
-        const next = cursor + col.width;
-        doc.line(next, y, next, y + height);
-        doc.setTextColor(...CYAN);
-        drawTextBlock(
-          doc,
-          [col.header],
-          cursor + PAD_X,
-          y + PAD_Y,
-          col.width - PAD_X * 2,
-          height - PAD_Y * 2,
-          { align: col.align || 'left', fontSize: 11, fontStyle: 'bold' }
-        );
-        cursor = next;
+        let pct = null;
+        let color = null;
+        if (aS != null && bS != null) {
+          pct = Math.round((1 - Math.abs(aS - bS) / 5) * 100);
+          if (pct > 85) color = GREEN;
+          else if (pct >= 50) color = YELLOW;
+          else color = RED;
+        }
+        return {
+          item,
+          a: aS == null ? '' : String(aS),
+          match: pct == null ? '' : pct + '%',
+          flag: '',
+          _flagColor: color,
+          b: bS == null ? '' : String(bS)
+        };
       });
-      y += height;
-      doc.setTextColor(...WHITE);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-    };
+    }
 
-    const prepareDualRow = (row = {}) => {
-      const safe = (value, fallback = '—') => {
-        const trimmed = String(value ?? '').trim();
-        return trimmed ? trimmed : fallback;
-      };
-      const itemLines = wrapText(safe(row.item, '—'), columnsDual[0].width - PAD_X * 2, 10);
-      const height = Math.max(MIN_ROW_HEIGHT, itemLines.length * LINE_HEIGHT + PAD_Y * 2);
+    function flagShapeHook(flagKey) {
       return {
-        itemLines,
-        aText: safe(row.aScore, '—'),
-        matchText: safe(row.matchText, '—'),
-        flagText: ' ',
-        flagColor: Array.isArray(row.flagColor) ? row.flagColor.slice() : null,
-        bText: safe(row.bScore, '—'),
-        height
+        didDrawCell(data) {
+          if (data.section !== 'body' || data.column.dataKey !== flagKey) return;
+          const color = data.row.raw._flagColor;
+          if (!color) return;
+
+          const { x, y, width, height } = data.cell;
+          const poleX = x + 10;
+          const poleTop = y + 6;
+          const poleBottom = y + height - 6;
+          const pennantWidth = 14;
+          const pennantHeight = 10;
+
+          const prevStroke = doc.getDrawColor();
+          doc.setDrawColor(180, 180, 190);
+          doc.setLineWidth(1);
+          doc.line(poleX, poleTop, poleX, poleBottom);
+
+          const px = poleX + 1;
+          const py = (poleTop + poleBottom) / 2 - pennantHeight / 2;
+          const prevFill = doc.getFillColor();
+          doc.setFillColor(color[0], color[1], color[2]);
+          doc.triangle(
+            px,
+            py,
+            px + pennantWidth,
+            py + pennantHeight / 2,
+            px,
+            py + pennantHeight,
+            'F'
+          );
+          doc.setFillColor(prevFill);
+          doc.setDrawColor(prevStroke);
+        }
       };
-    };
-
-    const drawDualRow = (data, index) => {
-      const background = index % 2 === 0 ? BODY1 : BODY2;
-      doc.setFillColor(...background);
-      doc.rect(ML, y, CONTENT_W, data.height, 'F');
-      doc.setDrawColor(...GRID);
-      doc.setLineWidth(0.5);
-      let cursor = ML;
-      doc.line(cursor, y, cursor, y + data.height);
-      columnsDual.forEach((col) => {
-        const colLeft = cursor;
-        const next = colLeft + col.width;
-        doc.line(next, y, next, y + data.height);
-        const lines =
-          col.key === 'item'
-            ? data.itemLines
-            : col.key === 'a'
-            ? [data.aText]
-            : col.key === 'match'
-            ? [data.matchText]
-            : col.key === 'flag'
-            ? [data.flagText]
-            : [data.bText];
-        drawTextBlock(
-          doc,
-          lines,
-          colLeft + PAD_X,
-          y + PAD_Y,
-          col.width - PAD_X * 2,
-          data.height - PAD_Y * 2,
-          { align: col.align || 'left', fontSize: 10, fontStyle: 'normal' }
-        );
-        if (col.key === 'flag' && data.flagColor) {
-          const [r, g, b] = data.flagColor;
-          const prevFill = doc.fillColor.slice();
-          doc.setFillColor(r, g, b);
-          const radius = Math.min(5, col.width / 3, data.height / 3);
-          const centerX = colLeft + col.width / 2;
-          const centerY = y + data.height / 2;
-          doc.circle(centerX, centerY, radius, 'F');
-          doc.setFillColor(...prevFill);
-        }
-        cursor = next;
-      });
-      doc.line(ML, y + data.height, ML + CONTENT_W, y + data.height);
-      y += data.height;
-    };
-
-    const prepareSingleRow = (entry) => {
-      const safe = (value, fallback = '—') => {
-        const trimmed = String(value ?? '').trim();
-        return trimmed ? trimmed : fallback;
-      };
-      const itemLines = wrapText(safe(entry?.Item, '—'), columnsSingle[1].width - PAD_X * 2, 10);
-      const height = Math.max(MIN_ROW_HEIGHT, itemLines.length * LINE_HEIGHT + PAD_Y * 2);
-      return {
-        roleText: safe(entry?.Role, '—'),
-        itemLines,
-        scoreText: safe(entry?.Score, '—'),
-        height
-      };
-    };
-
-    const drawSingleRow = (data, index) => {
-      const background = index % 2 === 0 ? BODY1 : BODY2;
-      doc.setFillColor(...background);
-      doc.rect(ML, y, CONTENT_W, data.height, 'F');
-      doc.setDrawColor(...GRID);
-      doc.setLineWidth(0.5);
-      let cursor = ML;
-      doc.line(cursor, y, cursor, y + data.height);
-      columnsSingle.forEach((col) => {
-        const next = cursor + col.width;
-        doc.line(next, y, next, y + data.height);
-        const lines =
-          col.key === 'item'
-            ? data.itemLines
-            : col.key === 'role'
-            ? [data.roleText]
-            : [data.scoreText];
-        drawTextBlock(
-          doc,
-          lines,
-          cursor + PAD_X,
-          y + PAD_Y,
-          col.width - PAD_X * 2,
-          data.height - PAD_Y * 2,
-          { align: col.align || 'left', fontSize: 10, fontStyle: col.key === 'role' ? 'bold' : 'normal' }
-        );
-        cursor = next;
-      });
-      doc.line(ML, y + data.height, ML + CONTENT_W, y + data.height);
-      y += data.height;
-    };
-
-    const renderDualCategory = (label, rows) => {
-      const prepared = (rows.length
-        ? rows
-        : [
-            {
-              item: 'No overlapping items',
-              aScore: '—',
-              matchText: '—',
-              bScore: '—'
-            }
-          ]
-      ).map(prepareDualRow);
-      let index = 0;
-      let firstPass = true;
-      while (index < prepared.length) {
-        const upcoming = prepared[index]?.height || MIN_ROW_HEIGHT;
-        ensureSpace(HEADER_HEIGHT_DUAL + upcoming + 40);
-        drawCategoryTitle(firstPass ? label : `${label} (cont.)`);
-        drawHeader(columnsDual, HEADER_HEIGHT_DUAL);
-        const startIndex = index;
-        while (index < prepared.length) {
-          const row = prepared[index];
-          if (y + row.height > BOTTOM_LIMIT) break;
-          drawDualRow(row, index);
-          index += 1;
-        }
-        if (index === startIndex) {
-          // Ensure forward progress if a single row is taller than the page remainder.
-          doc.addPage();
-          paintPage();
-          y = TOP_START;
-          firstPass = false;
-          continue;
-        }
-        y += SECTION_GAP;
-        firstPass = false;
-        if (index < prepared.length) {
-          doc.addPage();
-          paintPage();
-          y = TOP_START;
-        }
-      }
-    };
-
-    const renderSingleCategory = (label, rows) => {
-      const prepared = (rows.length
-        ? rows
-        : [{ Role: '—', Item: 'No responses found', Score: '—' }]
-      ).map(prepareSingleRow);
-      let index = 0;
-      let firstPass = true;
-      while (index < prepared.length) {
-        const upcoming = prepared[index]?.height || MIN_ROW_HEIGHT;
-        ensureSpace(HEADER_HEIGHT_SINGLE + upcoming + 40);
-        drawCategoryTitle(firstPass ? label : `${label} (cont.)`);
-        drawHeader(columnsSingle, HEADER_HEIGHT_SINGLE);
-        const startIndex = index;
-        while (index < prepared.length) {
-          const row = prepared[index];
-          if (y + row.height > BOTTOM_LIMIT) break;
-          drawSingleRow(row, index);
-          index += 1;
-        }
-        if (index === startIndex) {
-          doc.addPage();
-          paintPage();
-          y = TOP_START;
-          firstPass = false;
-          continue;
-        }
-        y += SECTION_GAP;
-        firstPass = false;
-        if (index < prepared.length) {
-          doc.addPage();
-          paintPage();
-          y = TOP_START;
-        }
-      }
-    };
-
-    const rowsA = rowsFromTalkKink(yourData);
-    const rowsB = rowsFromTalkKink(partnerData);
-    const hasA = rowsA.length > 0;
-    const hasB = rowsB.length > 0;
-
-    if (!hasA && !hasB) {
-      drawCategoryTitle('No surveys loaded');
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(12);
-      doc.setTextColor(...WHITE);
-      doc.text('Upload at least one TalkKink survey JSON to generate a PDF.', W / 2, y + 12, {
-        align: 'center'
-      });
-      doc.save('compatibility-pretty-dark.pdf');
-      return;
     }
 
     if (hasA && hasB) {
-      const categories = [...new Set([...rowsA, ...rowsB].map((r) => r.Category || 'Other'))];
-      categories.forEach((category) => {
-        const label = category || 'Other';
-        const body = buildComparisonBody(
-          rowsA.filter((r) => (r.Category || 'Other') === label),
-          rowsB.filter((r) => (r.Category || 'Other') === label)
+      const cats = [...new Set([...A, ...B].map((r) => r.Category))];
+      for (const c of cats) {
+        cat(c);
+        const body = buildAB(
+          A.filter((r) => r.Category === c),
+          B.filter((r) => r.Category === c)
         );
-        renderDualCategory(label, body);
-      });
+
+        const itemWidth = CONTENT_W - (70 + 60 + 50 + 70);
+
+        doc.autoTable({
+          ...base,
+          ...flagShapeHook('flag'),
+          startY: y + 8,
+          columns: [
+            { header: 'Item', dataKey: 'item' },
+            { header: 'Partner A', dataKey: 'a' },
+            { header: 'Match', dataKey: 'match' },
+            { header: 'Flag', dataKey: 'flag' },
+            { header: 'Partner B', dataKey: 'b' }
+          ],
+          body,
+          columnStyles: {
+            item: { cellWidth: itemWidth },
+            a: { cellWidth: 70, halign: 'center' },
+            match: { cellWidth: 60, halign: 'center' },
+            flag: { cellWidth: 50, halign: 'left' },
+            b: { cellWidth: 70, halign: 'center' }
+          }
+        });
+
+        y = doc.lastAutoTable.finalY + 18;
+        if (y > H - 72) {
+          doc.addPage();
+          paint();
+          y = 96;
+        }
+      }
     } else {
-      const rows = hasA ? rowsA : rowsB;
+      const rows = hasA ? A : B;
       const who = hasA ? 'Partner A' : 'Partner';
-      const categories = [...new Set(rows.map((r) => r.Category || 'Other'))];
-      categories.forEach((category) => {
-        const label = `${category || 'Other'} — ${who}`;
-        const catRows = rows.filter((r) => (r.Category || 'Other') === category);
-        renderSingleCategory(label, catRows);
-      });
+      const cats = [...new Set(rows.map((r) => r.Category))];
+      for (const c of cats) {
+        cat(`${c} — ${who}`);
+        doc.autoTable({
+          ...base,
+          startY: y + 8,
+          head: [['Item', 'Score']],
+          body: rows
+            .filter((r) => r.Category === c)
+            .map((r) => [r.Item, String(r.Score)]),
+          columnStyles: {
+            0: { cellWidth: CONTENT_W - 70 },
+            1: { cellWidth: 70, halign: 'center' }
+          }
+        });
+        y = doc.lastAutoTable.finalY + 18;
+        if (y > H - 72) {
+          doc.addPage();
+          paint();
+          y = 96;
+        }
+      }
     }
 
-    const filename = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
-    doc.save(filename);
+    const name = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
+    doc.save(name);
   }
+
 
   window.generateDarkPDF = generateDarkPDF;
 
