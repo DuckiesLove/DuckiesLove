@@ -200,177 +200,209 @@
 
   async function generateDarkPDF(yourJSON, partnerJSON) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit:'pt', format:'letter' });
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
     const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
 
-    function paintPageChrome() {
-      // black bg
-      doc.setFillColor(10,10,12);
-      doc.rect(0,0,W,H,'F');
+    const CONTENT_W = Math.min(680, W - 96);
+    const ML = (W - CONTENT_W) / 2;
+    const MR = ML;
 
-      // cyan header rule
-      doc.setDrawColor(0,255,255);
-      doc.setLineWidth(1);
-      doc.line(48,68,W-48,68);
+    function paint() {
+      // page bg
+      doc.setFillColor(10, 10, 12);
+      doc.rect(0, 0, W, H, 'F');
 
-      // header text
-      doc.setTextColor(255,255,255);
-      doc.setFont('helvetica','bold');
+      // title
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(20);
-      doc.text('TalkKink Compatibility — Printable Report', 48, 50);
+      doc.text('TalkKink Compatibility', W / 2, 50, { align: 'center' });
 
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(10);
-      doc.setTextColor(170,200,255);
-      doc.text('Generated: ' + new Date().toLocaleString(), 48, 62);
+      // timestamp (SMALLER)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(170, 200, 255);
+      doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
+
+      // cyan rule
+      doc.setDrawColor(0, 255, 255);
+      doc.setLineWidth(1);
+      doc.line(ML, 72, W - MR, 72);
     }
-    paintPageChrome();
+    paint();
 
-    const CYAN = [0,255,255];
-    const BODY_BG_1 = [8,8,10];
-    const BODY_BG_2 = [13,13,17];
-    const GRID = [30,30,38];
-    const WHITE = [255,255,255];
+    // palette
+    const CYAN = [0, 255, 255];
+    const BODY1 = [8, 8, 10];
+    const BODY2 = [13, 13, 17];
+    const GRID = [30, 30, 38];
+    const WHITE = [255, 255, 255];
+    const GREEN = [0, 200, 140];
+    const YELLOW = [255, 210, 70];
+    const RED = [255, 86, 86];
 
-    const tableStyles = {
+    // table style
+    const base = {
       theme: 'grid',
+      tableWidth: CONTENT_W,
+      margin: { left: ML, right: MR },
       styles: {
         font: 'helvetica',
         fontSize: 10,
         cellPadding: 4,
         textColor: WHITE,
+        fillColor: BODY1,
         lineColor: GRID,
-        lineWidth: 0.25,
-        fillColor: BODY_BG_1
+        lineWidth: 0.25
       },
-      alternateRowStyles: { fillColor: BODY_BG_2 },
-      headStyles: { fillColor: [0,0,0], textColor: CYAN, lineColor: GRID, lineWidth: 0.25, fontStyle: 'bold' },
-      margin: { left: 48, right: 48 },
-      didAddPage: () => paintPageChrome()
+      alternateRowStyles: { fillColor: BODY2 },
+      headStyles: { fillColor: [0, 0, 0], textColor: CYAN, lineColor: GRID, lineWidth: 0.25, fontStyle: 'bold' },
+      didAddPage: () => paint()
     };
 
     const A = rowsFromTalkKink(yourJSON);
     const B = rowsFromTalkKink(partnerJSON);
+
     const hasA = A.length > 0;
     const hasB = B.length > 0;
-    let y = 90;
+
+    let y = 96;
+    const cat = (t) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(WHITE);
+      doc.text(t, W / 2, y, { align: 'center' });
+      y += 12;
+    };
 
     if (hasA && hasB) {
-      const cats = [...new Set([...A, ...B].map(r => r.Category))];
-      for (const cat of cats) {
-        doc.setFont('helvetica','bold');
-        doc.setFontSize(16);
-        doc.setTextColor(WHITE);
-        doc.text(cat, 48, y);
-        y += 12;
-
-        const body = buildAB(A.filter(r => r.Category === cat), B.filter(r => r.Category === cat));
-
+      const cats = [...new Set([...A, ...B].map((r) => r.Category))];
+      for (const c of cats) {
+        cat(c);
+        const body = buildAB(
+          A.filter((r) => r.Category === c),
+          B.filter((r) => r.Category === c)
+        );
         doc.autoTable({
-          ...tableStyles,
+          ...base,
+          ...withFlagDotHooks('flag'),
           startY: y + 8,
-          head: [['Role', 'Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
+          columns: [
+            { header: 'Role', dataKey: 'role' },
+            { header: 'Item', dataKey: 'item' },
+            { header: 'Partner A', dataKey: 'a' },
+            { header: 'Match', dataKey: 'match' },
+            { header: 'Flag', dataKey: 'flag' },
+            { header: 'Partner B', dataKey: 'b' }
+          ],
           body,
           columnStyles: {
-            0:{ cellWidth:70 },
-            1:{ cellWidth:280 },
-            2:{ cellWidth:60, halign:'center' },
-            3:{ cellWidth:60, halign:'center' },
-            4:{ cellWidth:40, halign:'center' },
-            5:{ cellWidth:60, halign:'center' }
+            role: { cellWidth: 80 },
+            item: { cellWidth: CONTENT_W - (80 + 70 + 60 + 50 + 70) },
+            a: { cellWidth: 70, halign: 'center' },
+            match: { cellWidth: 60, halign: 'center' },
+            flag: { cellWidth: 50, halign: 'left' },
+            b: { cellWidth: 70, halign: 'center' }
           }
         });
-
-        y = doc.lastAutoTable.finalY + 16;
+        y = doc.lastAutoTable.finalY + 18;
         if (y > H - 72) {
           doc.addPage();
-          paintPageChrome();
-          y = 90;
+          paint();
+          y = 96;
         }
       }
     } else {
       const rows = hasA ? A : B;
-      const who  = hasA ? 'Partner A' : 'Partner';
-      const cats = [...new Set(rows.map(r => r.Category))];
-
-      for (const cat of cats) {
-        doc.setFont('helvetica','bold');
-        doc.setFontSize(16);
-        doc.setTextColor(WHITE);
-        doc.text(`${cat} — ${who}`, 48, y);
-        y += 12;
-
+      const who = hasA ? 'Partner A' : 'Partner';
+      const cats = [...new Set(rows.map((r) => r.Category))];
+      for (const c of cats) {
+        cat(`${c} — ${who}`);
         const body = rows
-          .filter(r => r.Category === cat)
-          .map(r => [r.Role, r.Item, String(r.Score)]);
-
+          .filter((r) => r.Category === c)
+          .map((r) => ({ role: r.Role, item: r.Item, score: String(r.Score) }));
         doc.autoTable({
-          ...tableStyles,
+          ...base,
           startY: y + 8,
-          head: [['Role', 'Item', 'Score']],
+          columns: [
+            { header: 'Role', dataKey: 'role' },
+            { header: 'Item', dataKey: 'item' },
+            { header: 'Score', dataKey: 'score' }
+          ],
           body,
           columnStyles: {
-            0:{ cellWidth:90 },
-            1:{ cellWidth:350 },
-            2:{ cellWidth:60, halign:'center' }
+            role: { cellWidth: 100 },
+            item: { cellWidth: CONTENT_W - (100 + 70) },
+            score: { cellWidth: 70, halign: 'center' }
           }
         });
-
-        y = doc.lastAutoTable.finalY + 16;
+        y = doc.lastAutoTable.finalY + 18;
         if (y > H - 72) {
           doc.addPage();
-          paintPageChrome();
-          y = 90;
+          paint();
+          y = 96;
         }
       }
     }
 
-    const filename = (hasA && hasB)
-      ? 'compatibility-pretty-dark.pdf'
-      : 'partner-survey-pretty-dark.pdf';
+    const name = hasA && hasB ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
+    doc.save(name);
 
-    doc.save(filename);
-  }
+    function buildAB(Arows, Brows) {
+      const key = (r) => `${r.Role}|${r.Item}`.toLowerCase();
+      const aMap = Object.fromEntries(Arows.map((r) => [key(r), r]));
+      const bMap = Object.fromEntries(Brows.map((r) => [key(r), r]));
+      const keys = [...new Set([...Object.keys(aMap), ...Object.keys(bMap)])].sort();
+      return keys.map((k) => {
+        const a = aMap[k];
+        const b = bMap[k];
+        const role = a?.Role || b?.Role || '';
+        const item = a?.Item || b?.Item || '';
+        const aS = Number.isFinite(a?.Score) ? a.Score : null;
+        const bS = Number.isFinite(b?.Score) ? b.Score : null;
+        let pct = null;
+        let flagColor = null;
 
-  function buildAB(A, B) {
-    // match rows by Role+Item so they line up even if one side is missing
-    const keyOf = r => `${r.Role}|${r.Item}`.toLowerCase();
-    const aMap = Object.fromEntries(A.map(r => [keyOf(r), r]));
-    const bMap = Object.fromEntries(B.map(r => [keyOf(r), r]));
-    const keys = [...new Set([...Object.keys(aMap), ...Object.keys(bMap)])].sort();
-    const out = [];
-    for (const k of keys) {
-      const a = aMap[k];
-      const b = bMap[k];
-      const role = a?.Role || b?.Role || '';
-      const item = a?.Item || b?.Item || '';
-      const aScore = Number.isFinite(a?.Score) ? a.Score : '';
-      const bScore = Number.isFinite(b?.Score) ? b.Score : '';
-
-      let match = '';
-      let flag  = '';
-      if (a && b) {
-        const pct = Math.round((1 - Math.abs(a.Score - b.Score)/5) * 100);
-        match = pct + '%';
-
-        if (pct >= 90) {
-          flag = '⭐';
-        } else if (pct <= 30) {
-          flag = '🚩';
+        if (aS != null && bS != null) {
+          pct = Math.round((1 - Math.abs(aS - bS) / 5) * 100);
+          if (pct > 85) flagColor = GREEN;
+          else if (pct >= 50) flagColor = YELLOW;
+          else flagColor = RED;
         }
-        if (
-          (a.Score === 5 && b.Score < 5) ||
-          (b.Score === 5 && a.Score < 5)
-        ) {
-          flag = flag ? flag + ' 🟨' : '🟨';
-        }
-      }
-
-      out.push([role, item, String(aScore), match, flag, String(bScore)]);
+        return {
+          role,
+          item,
+          a: aS == null ? '' : String(aS),
+          match: pct == null ? '' : pct + '%',
+          flag: '',
+          flagColor,
+          b: bS == null ? '' : String(bS)
+        };
+      });
     }
-    return out;
+
+    function withFlagDotHooks(flagColKey) {
+      return {
+        didDrawCell(data) {
+          if (data.section === 'body' && data.column.dataKey === flagColKey) {
+            const color = data.row.raw.flagColor;
+            if (!color) return;
+            const { x, y, height } = data.cell;
+            const cx = x + 10;
+            const cy = y + height / 2;
+            const r = 4;
+            const [rC, gC, bC] = color;
+            doc.setFillColor(rC, gC, bC);
+            doc.circle(cx, cy, r, 'F');
+            const baseFill = data.row.index % 2 === 0 ? BODY1 : BODY2;
+            const [bR, bG, bB] = baseFill;
+            doc.setFillColor(bR, bG, bB);
+          }
+        }
+      };
+    }
   }
 
   // optional helper to wipe consent so you can test again without closing the tab
