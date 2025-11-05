@@ -1647,55 +1647,56 @@
     }
 
     function flagShapeHook(flagKey){
-      // Uses jsPDF.lines() (available in 2.5.x) instead of doc.triangle(), which was causing
-      // "PDF generation failed" on some builds. This draws a proper flag (pole + triangular pennant).
       return {
         didDrawCell(data){
           if (data.section !== 'body' || data.column.dataKey !== flagKey) return;
 
-          const color = data.row.raw._flagColor;     // set earlier from your match %
+          const color = data.row?.raw?._flagColor;
           if (!color) return;
 
-          // jsPDF instance from outer scope:
-          // (this function is defined inside generateDarkPDF, so it closes over `doc`)
           const { x, y, height } = data.cell;
-
-          // geometry
           const poleX = x + 10;
           const poleTop = y + 6;
           const poleBottom = y + height - 6;
 
-          // pennant origin/size
-          const px = poleX + 1;      // a bit to the right of the pole
-          const h  = 10;             // pennant height
-          const w  = 14;             // pennant width
+          // Pennant geometry
+          const px = poleX + 1;     // pennant start (slightly right of pole)
+          const h  = 10;            // pennant height
+          const w  = 14;            // pennant width
           const py = (poleTop + poleBottom)/2 - h/2;
 
-          // draw pole (subtle gray)
+          // Draw pole (subtle gray)
           const prevStroke = doc.getDrawColor();
           doc.setDrawColor(180,180,190);
           doc.setLineWidth(1);
           doc.line(poleX, poleTop, poleX, poleBottom);
 
-          // draw filled triangular pennant using lines()
-          // path: (px,py) -> (px+w, py+h/2) -> (px, py+h), closed & filled
+          // Try to draw a FILLED triangular pennant using jsPDF.lines (stable across builds)
           const prevFill = doc.getFillColor();
-          doc.setFillColor(color[0], color[1], color[2]);
-          doc.setDrawColor(color[0], color[1], color[2]);
-          doc.lines(
-            [
-              [ w,   h/2],  // to (px+w, py+h/2)
-              [-w,   h/2]   // to (px,   py+h)
-            ],
-            px, py,
-            [1],           // scale
-            'F',           // fill
-            true           // closed path
-          );
-
-          // restore colors
-          doc.setFillColor(prevFill);
-          doc.setDrawColor(prevStroke);
+          try {
+            doc.setFillColor(color[0], color[1], color[2]);
+            doc.setDrawColor(color[0], color[1], color[2]);
+            // Path: (px,py) -> (px+w, py+h/2) -> (px, py+h) -> close
+            // Signature: lines(segments, startX, startY, scale=1, style='F', closed=true)
+            doc.lines(
+              [
+                [ w,   h/2],   // to (px+w, py+h/2)
+                [-w,   h/2]    // to (px,   py+h)
+              ],
+              px, py,
+              1,              // scale (NUMBER, not array) — prevents crash
+              'F',            // fill
+              true            // closed path
+            );
+          } catch (e) {
+            // Fallback: draw a colored dot so PDF still generates
+            const cx = px + 6, cy = py + h/2, r = 4;
+            doc.setFillColor(color[0], color[1], color[2]);
+            doc.circle(cx, cy, r, 'F');
+          } finally {
+            doc.setFillColor(prevFill);
+            doc.setDrawColor(prevStroke);
+          }
         }
       };
     }
