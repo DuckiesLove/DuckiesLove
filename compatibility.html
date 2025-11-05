@@ -718,6 +718,122 @@
     if (resetStatus) setStatus(which, '', '');
   }
 
+  // ---------- ASSET LOADING ----------
+  const SCRIPT_PROMISES = new Map();
+  const JSPDF_SOURCES = [
+    '/js/vendor/jspdf.umd.min.js',
+    '/assets/js/vendor/jspdf.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+  ];
+  const AUTOTABLE_SOURCES = [
+    '/js/vendor/jspdf.plugin.autotable.min.js',
+    '/assets/js/vendor/jspdf.plugin.autotable.min.js',
+    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js'
+  ];
+
+  function loadScript(src) {
+    if (!src) return Promise.reject(new Error('Script source required'));
+    if (SCRIPT_PROMISES.has(src)) return SCRIPT_PROMISES.get(src);
+
+    if (document.querySelector(`script[src="${src}"]`)) {
+      return Promise.resolve();
+    }
+
+    const promise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.crossOrigin = 'anonymous';
+      script.onload = () => resolve();
+      script.onerror = () => {
+        script.remove();
+        reject(new Error(`Failed to load ${src}`));
+      };
+      document.head.appendChild(script);
+    }).catch((error) => {
+      SCRIPT_PROMISES.delete(src);
+      throw error;
+    });
+
+    SCRIPT_PROMISES.set(src, promise);
+    return promise;
+  }
+
+  const hasJsPDF = () => Boolean(window.jspdf?.jsPDF);
+  const hasAutoTable = () =>
+    Boolean(
+      window.jspdf?.autoTable ||
+        (window.jspdf?.jsPDF?.API && typeof window.jspdf.jsPDF.API.autoTable === 'function')
+    );
+
+  let ensureJsPdfPromise = null;
+  async function ensureJsPDF() {
+    if (hasJsPDF()) {
+      window.jsPDF = window.jspdf.jsPDF;
+      return window.jspdf.jsPDF;
+    }
+
+    if (!ensureJsPdfPromise) {
+      ensureJsPdfPromise = (async () => {
+        for (const src of JSPDF_SOURCES) {
+          try {
+            await loadScript(src);
+            if (hasJsPDF()) break;
+          } catch (error) {
+            console.warn('[compat] jsPDF load failed from', src, error);
+          }
+        }
+
+        if (!hasJsPDF()) {
+          throw new Error('jsPDF library unavailable');
+        }
+
+        window.jsPDF = window.jspdf.jsPDF;
+        return window.jspdf.jsPDF;
+      })().catch((error) => {
+        ensureJsPdfPromise = null;
+        throw error;
+      });
+    }
+
+    return ensureJsPdfPromise;
+  }
+
+  let ensureAutoTablePromise = null;
+  async function ensureAutoTable() {
+    if (hasAutoTable()) return true;
+
+    if (!ensureAutoTablePromise) {
+      ensureAutoTablePromise = (async () => {
+        await ensureJsPDF();
+
+        if (hasAutoTable()) return true;
+
+        for (const src of AUTOTABLE_SOURCES) {
+          try {
+            await loadScript(src);
+            if (hasAutoTable()) break;
+          } catch (error) {
+            console.warn('[compat] jsPDF autoTable load failed from', src, error);
+          }
+        }
+
+        if (!hasAutoTable()) {
+          throw new Error('jsPDF autoTable plugin unavailable');
+        }
+
+        return true;
+      })().catch((error) => {
+        ensureAutoTablePromise = null;
+        throw error;
+      });
+    }
+
+    return ensureAutoTablePromise;
+  }
+
   const allowSingle = () => Boolean(window.__TK_ALLOW_SINGLE_PDF__ || document.body?.dataset?.allowSinglePdf === 'true');
 
   function updateDownloadState() {
@@ -1443,6 +1559,8 @@
   }
 
   async function generateDarkPDF(yourJSON, partnerJSON) {
+    await ensureAutoTable();
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
