@@ -2109,6 +2109,129 @@ It:
 })();
 </script>
 
+    <script>
+      (function () {
+        const $ = (s, r = document) => r.querySelector(s);
+
+        // --- elements ---
+        let yourInput = $('#yourFile');
+        let partnerInput = $('#partnerFile');
+        const yourBtn = $('#yourBtn');
+        const partnerBtn = $('#partnerBtn');
+
+        if (!yourInput || !partnerInput) {
+          console.error('[compat] file inputs not found');
+          return;
+        }
+
+        // --- shared state used by your existing PDF code (don’t rename) ---
+        window.yourJSON = window.yourJSON || null;
+        window.partnerJSON = window.partnerJSON || null;
+        let yourBlob = null;
+        let partnerBlob = null;
+
+        // Single-tab consent memory
+        const CONSENT_KEY = 'tk.partnerConsent.v1';
+
+        // A per-input selection token that increments each time we open the picker.
+        // Only events that carry the current token are processed.
+        let yourToken = 0,
+          partnerToken = 0;
+
+        // Harden an <input type="file"> by cloning it (wipes old listeners) and
+        // attaching ONE guarded change handler that cannot double-fire.
+        function hardenFileInput(input, onChange) {
+          const clone = input.cloneNode(true); // copies attributes, not listeners
+          input.replaceWith(clone);
+          return clone.addEventListener('change', async function (ev) {
+            const file = this.files && this.files[0];
+            if (!file) return;
+
+            // Per-selection dedupe: ignore stale (double) change events.
+            const token = Number(this.dataset.selToken || '0');
+            const current = this === yourInput ? yourToken : partnerToken;
+            if (token !== current) return;
+
+            // Fast “same file again” debounce (Edge sometimes emits two change events).
+            const sig = file.name + '|' + file.size + '|' + file.lastModified;
+            if (this.dataset.lastSig === sig) return;
+            this.dataset.lastSig = sig;
+
+            await onChange(file);
+          });
+        }
+
+        // Re-wire inputs (strip any previous listeners from other scripts)
+        yourInput =
+          hardenFileInput(yourInput, async (file) => {
+            yourBlob = file;
+            try {
+              window.yourJSON = JSON.parse(await file.text());
+              console.info('[compat] Your survey ready ✓');
+              // (Optional) update UI badge if you have one
+            } catch (e) {
+              console.error('[compat] Failed to parse your survey:', e);
+              alert('Could not read your survey file.');
+            }
+          }) || $('#yourFile');
+
+        partnerInput =
+          hardenFileInput(partnerInput, async (file) => {
+            // Ask consent only ONCE per selection attempt
+            if (!sessionStorage.getItem(CONSENT_KEY)) {
+              const ok = confirm(
+                'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
+                  'Click “OK” to confirm consent and continue, or “Cancel” to stop.'
+              );
+              if (!ok) {
+                partnerInput.value = '';
+                return;
+              }
+              sessionStorage.setItem(CONSENT_KEY, '1');
+            }
+            partnerBlob = file;
+            try {
+              window.partnerJSON = JSON.parse(await file.text());
+              console.info('[compat] Partner survey ready ✓ — consent recorded.');
+              // (Optional) update UI badge if you have one
+            } catch (e) {
+              console.error('[compat] Failed to parse partner survey:', e);
+              alert('Could not read the partner survey file.');
+            }
+          }) || $('#partnerFile');
+
+        // When opening the picker, bump the token and store it on the input.
+        function openPicker(input, which) {
+          // Clear value so choosing the same file again still fires one (guarded) change.
+          input.value = '';
+          if (which === 'y') {
+            yourToken++;
+            input.dataset.selToken = String(yourToken);
+          } else {
+            partnerToken++;
+            input.dataset.selToken = String(partnerToken);
+          }
+          input.click();
+        }
+
+        yourBtn && yourBtn.addEventListener('click', () => openPicker(yourInput, 'y'));
+        partnerBtn && partnerBtn.addEventListener('click', () => openPicker(partnerInput, 'p'));
+
+        // Safety: cancel any other bubbling/capture handlers from older code paths
+        // that may still be attached higher in the tree and re-open the picker.
+        document.addEventListener(
+          'change',
+          (ev) => {
+            const t = ev.target;
+            if (t === yourInput || t === partnerInput) {
+              ev.stopImmediatePropagation();
+              ev.stopPropagation();
+            }
+          },
+          true
+        );
+      })();
+    </script>
     <script defer src="/assets/js/comparison.js"></script>
   <script defer>
     /**
