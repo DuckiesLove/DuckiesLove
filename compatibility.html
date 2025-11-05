@@ -1128,24 +1128,27 @@
     for (const k of keys) {
       const a = mapA[k];
       const b = mapB[k];
-      const role = a?.Role || b?.Role || '';
       const item = a?.Item || b?.Item || '';
       const aScore = Number.isFinite(a?.Score) ? a.Score : '';
       const bScore = Number.isFinite(b?.Score) ? b.Score : '';
 
-      let match = '';
-      let flag = '';
+      let matchText = '';
+      let flagColor = null;
       if (a && b) {
         const diff = Math.abs(a.Score - b.Score);
-        const pct = Math.round((1 - diff / 5) * 100);
-        match = pct + '%';
-        if (pct >= 90) flag = '⭐';
-        else if (pct <= 30) flag = '🚩';
-        if ((a?.Score === 5 && b?.Score < 5) || (b?.Score === 5 && a?.Score < 5)) {
-          flag = flag ? `${flag} 🟨` : '🟨';
-        }
+        const pct = Math.max(0, Math.min(100, Math.round((1 - diff / 5) * 100)));
+        matchText = `${pct}%`;
+        if (pct > 85) flagColor = FLAG_GREEN;
+        else if (pct >= 50) flagColor = FLAG_YELLOW;
+        else flagColor = FLAG_RED;
       }
-      body.push([role, item, String(aScore), match, flag, String(bScore)]);
+      body.push({
+        item,
+        aScore: String(aScore),
+        matchText,
+        flagColor,
+        bScore: String(bScore)
+      });
     }
     return body;
   }
@@ -1332,6 +1335,41 @@
       this._cmd(cmd);
     }
 
+    circle(cx, cy, radius, mode = 'S') {
+      const r = Number(radius);
+      if (!Number.isFinite(r) || r <= 0) return;
+      const fmt = (value) =>
+        value.toFixed(2).replace(/\.0+$/, '').replace(/0+$/, '').replace(/\.$/, '') || '0';
+      const toPdfY = (value) => this.height - value;
+      const c = r * 0.5522847498;
+      const segments = [
+        [cx + c, cy - r, cx + r, cy - c, cx + r, cy],
+        [cx + r, cy + c, cx + c, cy + r, cx, cy + r],
+        [cx - c, cy + r, cx - r, cy + c, cx - r, cy],
+        [cx - r, cy - c, cx - c, cy - r, cx, cy - r]
+      ];
+      const path = [`${fmt(cx)} ${fmt(toPdfY(cy - r))} m`];
+      segments.forEach(([cp1x, cp1y, cp2x, cp2y, x, y]) => {
+        path.push(
+          `${fmt(cp1x)} ${fmt(toPdfY(cp1y))} ${fmt(cp2x)} ${fmt(toPdfY(cp2y))} ${fmt(x)} ${fmt(toPdfY(y))} c`
+        );
+      });
+      path.push('h');
+      let op = 'S';
+      if (mode === 'F') op = 'f';
+      else if (mode === 'FD' || mode === 'DF') op = 'B';
+      const cmds = [];
+      if (op === 'f' || op === 'B') cmds.push(`${this._formatColor(this.fillColor)} rg`);
+      if (op === 'S' || op === 'B') {
+        cmds.push(`${this._formatColor(this.strokeColor)} RG`);
+        const lw = this.lineWidth.toFixed(2).replace(/\.0+$/, '').replace(/0+$/, '').replace(/\.$/, '') || '1';
+        cmds.push(`${lw} w`);
+      }
+      cmds.push(path.join('\n'));
+      cmds.push(op);
+      this._cmd(cmds.join('\n'));
+    }
+
     save(filename = 'document.pdf') {
       const objects = [];
       const pageRefs = [];
@@ -1402,6 +1440,10 @@
       }, 0);
     }
   }
+
+  const FLAG_GREEN = [0, 200, 140];
+  const FLAG_YELLOW = [255, 210, 70];
+  const FLAG_RED = [255, 86, 86];
 
   function wrapText(text, maxWidth, fontSize = 10) {
     const raw = String(text ?? '').trim();
@@ -1497,7 +1539,7 @@
       doc.setFontSize(20);
       doc.text('TalkKink Compatibility', W / 2, 50, { align: 'center' });
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setTextColor(170, 200, 255);
       doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
       doc.setDrawColor(0, 255, 255);
@@ -1527,8 +1569,7 @@
     };
 
     const columnsDual = [
-      { key: 'role', header: 'Role', width: 80, align: 'center' },
-      { key: 'item', header: 'Item', width: CONTENT_W - (80 + 70 + 60 + 50 + 70), align: 'left' },
+      { key: 'item', header: 'Item', width: CONTENT_W - (70 + 60 + 50 + 70), align: 'left' },
       { key: 'a', header: 'Partner A', width: 70, align: 'center' },
       { key: 'match', header: 'Match', width: 60, align: 'center' },
       { key: 'flag', header: 'Flag', width: 50, align: 'center' },
@@ -1571,21 +1612,20 @@
       doc.setFontSize(10);
     };
 
-    const prepareDualRow = (row) => {
-      const [role, item, aScore, match, flag, bScore] = row || [];
+    const prepareDualRow = (row = {}) => {
       const safe = (value, fallback = '—') => {
         const trimmed = String(value ?? '').trim();
         return trimmed ? trimmed : fallback;
       };
-      const itemLines = wrapText(safe(item, '—'), columnsDual[1].width - PAD_X * 2, 10);
+      const itemLines = wrapText(safe(row.item, '—'), columnsDual[0].width - PAD_X * 2, 10);
       const height = Math.max(MIN_ROW_HEIGHT, itemLines.length * LINE_HEIGHT + PAD_Y * 2);
       return {
-        roleText: safe(role, '—'),
         itemLines,
-        aText: safe(aScore, '—'),
-        matchText: safe(match, '—'),
-        flagText: String(flag ?? '').trim() || ' ',
-        bText: safe(bScore, '—'),
+        aText: safe(row.aScore, '—'),
+        matchText: safe(row.matchText, '—'),
+        flagText: ' ',
+        flagColor: Array.isArray(row.flagColor) ? row.flagColor.slice() : null,
+        bText: safe(row.bScore, '—'),
         height
       };
     };
@@ -1599,13 +1639,12 @@
       let cursor = ML;
       doc.line(cursor, y, cursor, y + data.height);
       columnsDual.forEach((col) => {
-        const next = cursor + col.width;
+        const colLeft = cursor;
+        const next = colLeft + col.width;
         doc.line(next, y, next, y + data.height);
         const lines =
           col.key === 'item'
             ? data.itemLines
-            : col.key === 'role'
-            ? [data.roleText]
             : col.key === 'a'
             ? [data.aText]
             : col.key === 'match'
@@ -1616,12 +1655,22 @@
         drawTextBlock(
           doc,
           lines,
-          cursor + PAD_X,
+          colLeft + PAD_X,
           y + PAD_Y,
           col.width - PAD_X * 2,
           data.height - PAD_Y * 2,
-          { align: col.align || 'left', fontSize: 10, fontStyle: col.key === 'role' ? 'bold' : 'normal' }
+          { align: col.align || 'left', fontSize: 10, fontStyle: 'normal' }
         );
+        if (col.key === 'flag' && data.flagColor) {
+          const [r, g, b] = data.flagColor;
+          const prevFill = doc.fillColor.slice();
+          doc.setFillColor(r, g, b);
+          const radius = Math.min(5, col.width / 3, data.height / 3);
+          const centerX = colLeft + col.width / 2;
+          const centerY = y + data.height / 2;
+          doc.circle(centerX, centerY, radius, 'F');
+          doc.setFillColor(...prevFill);
+        }
         cursor = next;
       });
       doc.line(ML, y + data.height, ML + CONTENT_W, y + data.height);
@@ -1676,7 +1725,17 @@
     };
 
     const renderDualCategory = (label, rows) => {
-      const prepared = (rows.length ? rows : [['—', 'No overlapping items', '—', '—', '', '—']]).map(prepareDualRow);
+      const prepared = (rows.length
+        ? rows
+        : [
+            {
+              item: 'No overlapping items',
+              aScore: '—',
+              matchText: '—',
+              bScore: '—'
+            }
+          ]
+      ).map(prepareDualRow);
       let index = 0;
       let firstPass = true;
       while (index < prepared.length) {
