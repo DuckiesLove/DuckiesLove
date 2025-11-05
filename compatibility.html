@@ -1813,6 +1813,302 @@
   </script>
 
 
+<!-- CODEX: One-stop fix (jsPDF undefined), + real colored flags, + centered dark PDF
+Drop this whole block near the END of compatibility.html (after your buttons/inputs).
+It:
+  • Loads jsPDF + autoTable with dual-CDN fallback
+  • Uses a SAFE getter for jsPDF: window.jspdf?.jsPDF || window.jsPDF
+  • Prevents double “change” handlers (no double uploads)
+  • Confirms partner consent once per tab
+  • Generates a centered dark PDF with real GREEN/YELLOW/RED flags (triangle pennant)
+  • Smaller timestamp, Role column removed in comparison view
+-->
+
+<script>
+(function () {
+  const $ = (s, r=document) => r.querySelector(s);
+
+  // --- Elements (adjust IDs if yours differ) ---
+  const yourBtn      = $('#yourBtn');
+  const partnerBtn   = $('#partnerBtn');
+  const downloadBtn  = $('#downloadBtn');
+  const yourInput    = $('#yourFile');
+  const partnerInput = $('#partnerFile');
+
+  // --- State ---
+  let yourBlob = null, partnerBlob = null;
+  let yourJSON = null, partnerJSON = null;
+  let libsReady = false;
+
+  // --- Open pickers, always fire change even if same file ---
+  function openPicker(input){ if (!input) return; input.value=''; input.click(); }
+  yourBtn    && yourBtn.addEventListener('click',   () => openPicker(yourInput));
+  partnerBtn && partnerBtn.addEventListener('click',() => openPicker(partnerInput));
+
+  // --- Kill legacy listeners that made you upload twice ---
+  document.addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    if (t !== yourInput && t !== partnerInput) return;
+    ev.stopImmediatePropagation();
+    ev.stopPropagation();
+  }, true);
+
+  // --- Consent (once per tab) ---
+  const CONSENT_KEY = 'tk.partnerConsent.v1';
+
+  yourInput && yourInput.addEventListener('change', (ev) => {
+    const f = ev.target?.files?.[0]; if (!f) return;
+    yourBlob = f;
+    console.info('[compat] Your survey ready ✓');
+  });
+
+  partnerInput && partnerInput.addEventListener('change', (ev) => {
+    const f = ev.target?.files?.[0]; if (!f) return;
+    if (!sessionStorage.getItem(CONSENT_KEY)) {
+      const ok = confirm(
+        'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
+        'Click “OK” to confirm consent and continue, or “Cancel” to stop.'
+      );
+      if (!ok) { ev.target.value=''; return; }
+      sessionStorage.setItem(CONSENT_KEY, '1');
+    }
+    partnerBlob = f;
+    console.info('[compat] Partner survey ready ✓ — consent recorded.');
+  });
+
+  // --- Robust library loader (unpkg + jsDelivr fallback) ---
+  async function loadLibsOnce() {
+    if (libsReady && (window.jspdf?.jsPDF || window.jsPDF) && window.jspdf_autotable) return;
+
+    const inject = (src) => new Promise((res, rej) => {
+      const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s);
+    });
+
+    try {
+      if (!(window.jspdf?.jsPDF || window.jsPDF)) await inject('https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js');
+      if (!window.jspdf_autotable)              await inject('https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+    } catch {
+      if (!(window.jspdf?.jsPDF || window.jsPDF)) await inject('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+      if (!window.jspdf_autotable)               await inject('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+    }
+
+    if (!(window.jspdf?.jsPDF || window.jsPDF)) throw new Error('jsPDF failed to load');
+    if (!window.jspdf_autotable) throw new Error('autoTable failed to load');
+    libsReady = true;
+  }
+
+  // --- Lazy parse files only when needed ---
+  async function ensureParsed() {
+    if (yourBlob && !yourJSON)     yourJSON     = JSON.parse(await yourBlob.text());
+    if (partnerBlob && !partnerJSON) partnerJSON = JSON.parse(await partnerBlob.text());
+  }
+
+  // --- SAFELY get jsPDF constructor across builds ---
+  function getJsPDF() {
+    const ctor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
+    if (!ctor) throw new Error('jsPDF constructor not available');
+    return ctor;
+  }
+
+  // --- PDF generator (centered, dark, flags, smaller timestamp) ---
+  async function generateDarkPDF(yJ, pJ) {
+    const jsPDF = getJsPDF();
+    const doc = new jsPDF({ unit:'pt', format:'letter' });
+
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+
+    const CONTENT_W = Math.min(680, W - 96);
+    const ML = (W - CONTENT_W) / 2, MR = ML;
+
+    function paint() {
+      doc.setFillColor(10,10,12); doc.rect(0,0,W,H,'F');
+      doc.setTextColor(255,255,255);
+      doc.setFont('helvetica','bold'); doc.setFontSize(20);
+      doc.text('TalkKink Compatibility', W/2, 50, { align:'center' });
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      doc.setTextColor(170,200,255);
+      doc.text('Generated: ' + new Date().toLocaleString(), W/2, 64, { align:'center' });
+      doc.setDrawColor(0,255,255); doc.setLineWidth(1);
+      doc.line(ML, 72, W - MR, 72);
+    }
+    paint();
+
+    const CYAN=[0,255,255], BODY1=[8,8,10], BODY2=[13,13,17], GRID=[30,30,38], WHITE=[255,255,255];
+    const GREEN=[0,200,140], YELLOW=[255,210,70], RED=[255,86,86];
+
+    const base = {
+      theme:'grid',
+      tableWidth: CONTENT_W,
+      margin:{ left: ML, right: MR },
+      styles:{ font:'helvetica', fontSize:10, cellPadding:4, textColor:WHITE, fillColor:BODY1, lineColor:GRID, lineWidth:0.25 },
+      alternateRowStyles:{ fillColor: BODY2 },
+      headStyles:{ fillColor:[0,0,0], textColor:CYAN, lineColor:GRID, lineWidth:0.25, fontStyle:'bold' },
+      didAddPage: ()=>paint()
+    };
+
+    // Parse rows
+    const rowsFrom = (json)=>{
+      if (!json) return [];
+      const map=json.answersById||{}, out=[];
+      for (const [id,score] of Object.entries(map)) {
+        const parts=id.split('-');
+        const role=parts.at(-1);
+        const category=(parts[0]+' '+parts[1]).replace(/\b\w/g,m=>m.toUpperCase());
+        const item=parts.slice(2,-1).join(' ').replace(/\bTv\b/gi,'TV').replace(/\s+/g,' ').trim();
+        out.push({ Category:category, Item:item.charAt(0).toUpperCase()+item.slice(1), Role:role.charAt(0).toUpperCase()+role.slice(1), Score:Number(score) });
+      }
+      out.sort((a,b)=> a.Category.localeCompare(b.Category) || a.Role.localeCompare(b.Role) || a.Item.localeCompare(b.Item));
+      return out;
+    };
+
+    const A = rowsFrom(yJ);
+    const B = rowsFrom(pJ);
+    const hasA = A.length>0, hasB = B.length>0;
+
+    let y = 96;
+    const cat = (t)=>{ doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(WHITE); doc.text(t, W/2, y, {align:'center'}); y+=12; };
+
+    // Build comparison rows without Role col; compute match & color
+    function buildAB(Arows, Brows){
+      const key=r=>`${r.Role}|${r.Item}`.toLowerCase();
+      const aMap=Object.fromEntries(Arows.map(r=>[key(r),r]));
+      const bMap=Object.fromEntries(Brows.map(r=>[key(r),r]));
+      const keys=[...new Set([...Object.keys(aMap),...Object.keys(bMap)])].sort();
+      return keys.map(k=>{
+        const a=aMap[k], b=bMap[k];
+        const item=(a?.Item||b?.Item||'');
+        const aS=Number.isFinite(a?.Score)?a.Score:null;
+        const bS=Number.isFinite(b?.Score)?b.Score:null;
+        let pct=null, color=null;
+        if (aS!=null && bS!=null){
+          pct = Math.round((1 - Math.abs(aS - bS)/5)*100);
+          if (pct > 85)      color = GREEN;
+          else if (pct >=50) color = YELLOW;
+          else               color = RED;
+        }
+        return { item, a:(aS==null?'':String(aS)), match:(pct==null?'':pct+'%'), flag:'', _flagColor:color, b:(bS==null?'':String(bS)) };
+      });
+    }
+
+    // Draw a proper triangular flag; if it errors, fall back to a dot
+    function flagShapeHook(flagKey){
+      return {
+        didDrawCell(data){
+          if (data.section !== 'body' || data.column.dataKey !== flagKey) return;
+          const color = data.row?.raw?._flagColor; if (!color) return;
+
+          const { x, y, height } = data.cell;
+          const poleX = x + 10;
+          const poleTop = y + 6;
+          const poleBottom = y + height - 6;
+
+          const px = poleX + 1;      // pennant start
+          const h  = 10;
+          const w  = 14;
+          const py = (poleTop + poleBottom)/2 - h/2;
+
+          const prevStroke = doc.getDrawColor();
+          doc.setDrawColor(180,180,190);
+          doc.setLineWidth(1);
+          doc.line(poleX, poleTop, poleX, poleBottom);
+
+          const prevFill = doc.getFillColor();
+          try {
+            doc.setFillColor(color[0], color[1], color[2]);
+            doc.setDrawColor(color[0], color[1], color[2]);
+            // Use lines(segments, startX, startY, scale, style, closed)
+            doc.lines([[ w, h/2], [-w, h/2]], px, py, 1, 'F', true);
+          } catch {
+            // fallback to dot
+            const cx = px + 6, cy = py + h/2, r = 4;
+            doc.setFillColor(color[0], color[1], color[2]);
+            doc.circle(cx, cy, r, 'F');
+          } finally {
+            doc.setFillColor(prevFill);
+            doc.setDrawColor(prevStroke);
+          }
+        }
+      };
+    }
+
+    if (hasA && hasB) {
+      const cats=[...new Set([...A,...B].map(r=>r.Category))];
+      for (const c of cats) {
+        cat(c);
+        const body = buildAB(A.filter(r=>r.Category===c), B.filter(r=>r.Category===c));
+        const itemWidth = CONTENT_W - (70 + 60 + 50 + 70); // A + Match + Flag + B
+
+        doc.autoTable({
+          ...base,
+          ...flagShapeHook('flag'),
+          startY: y + 8,
+          columns: [
+            { header:'Item',      dataKey:'item'  },
+            { header:'Partner A', dataKey:'a'     },
+            { header:'Match',     dataKey:'match' },
+            { header:'Flag',      dataKey:'flag'  },
+            { header:'Partner B', dataKey:'b'     }
+          ],
+          body,
+          columnStyles:{
+            item : { cellWidth: itemWidth },
+            a    : { cellWidth: 70, halign:'center' },
+            match: { cellWidth: 60, halign:'center' },
+            flag : { cellWidth: 50, halign:'left' },
+            b    : { cellWidth: 70, halign:'center' }
+          }
+        });
+
+        y = doc.lastAutoTable.finalY + 18;
+        if (y > H - 72) { doc.addPage(); paint(); y = 96; }
+      }
+    } else {
+      // single-side
+      const rows = hasA ? A : B;
+      const who  = hasA ? 'Partner A' : 'Partner';
+      const cats=[...new Set(rows.map(r=>r.Category))];
+      for (const c of cats) {
+        cat(`${c} — ${who}`);
+        doc.autoTable({
+          ...base,
+          startY: y + 8,
+          head: [['Item','Score']],
+          body: rows.filter(r=>r.Category===c).map(r=>[r.Item, String(r.Score)]),
+          columnStyles:{
+            0:{ cellWidth: CONTENT_W - 70 },
+            1:{ cellWidth: 70, halign:'center' }
+          }
+        });
+        y = doc.lastAutoTable.finalY + 18;
+        if (y > H - 72) { doc.addPage(); paint(); y = 96; }
+      }
+    }
+
+    const name = (hasA && hasB) ? 'compatibility-pretty-dark.pdf' : 'partner-survey-pretty-dark.pdf';
+    doc.save(name);
+  }
+
+  // --- Own the Download button; ensure libs + parsing first ---
+  downloadBtn && downloadBtn.addEventListener('click', async (e) => {
+    e.stopImmediatePropagation();
+    try {
+      await loadLibsOnce();
+      await ensureParsed();
+      if (!yourJSON && !partnerJSON) { alert('Load at least one survey first.'); return; }
+      await generateDarkPDF(yourJSON, partnerJSON);
+    } catch (err) {
+      console.error('[compat] PDF generation failed:', err);
+      alert('Sorry—could not generate the PDF.');
+    }
+  });
+
+  // helper to reset consent (for testing)
+  window.tkResetPartnerConsent = () => { sessionStorage.removeItem(CONSENT_KEY); console.info('[compat] Partner consent reset.'); };
+})();
+</script>
+
     <script defer src="/assets/js/comparison.js"></script>
   <script defer>
     /**
