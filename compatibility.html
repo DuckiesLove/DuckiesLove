@@ -1646,38 +1646,54 @@
       });
     }
 
-    function flagShapeHook(flagKey) {
+    function flagShapeHook(flagKey){
+      // Uses jsPDF.lines() (available in 2.5.x) instead of doc.triangle(), which was causing
+      // "PDF generation failed" on some builds. This draws a proper flag (pole + triangular pennant).
       return {
-        didDrawCell(data) {
+        didDrawCell(data){
           if (data.section !== 'body' || data.column.dataKey !== flagKey) return;
-          const color = data.row.raw._flagColor;
+
+          const color = data.row.raw._flagColor;     // set earlier from your match %
           if (!color) return;
 
-          const { x, y, width, height } = data.cell;
+          // jsPDF instance from outer scope:
+          // (this function is defined inside generateDarkPDF, so it closes over `doc`)
+          const { x, y, height } = data.cell;
+
+          // geometry
           const poleX = x + 10;
           const poleTop = y + 6;
           const poleBottom = y + height - 6;
-          const pennantWidth = 14;
-          const pennantHeight = 10;
 
+          // pennant origin/size
+          const px = poleX + 1;      // a bit to the right of the pole
+          const h  = 10;             // pennant height
+          const w  = 14;             // pennant width
+          const py = (poleTop + poleBottom)/2 - h/2;
+
+          // draw pole (subtle gray)
           const prevStroke = doc.getDrawColor();
-          doc.setDrawColor(180, 180, 190);
+          doc.setDrawColor(180,180,190);
           doc.setLineWidth(1);
           doc.line(poleX, poleTop, poleX, poleBottom);
 
-          const px = poleX + 1;
-          const py = (poleTop + poleBottom) / 2 - pennantHeight / 2;
+          // draw filled triangular pennant using lines()
+          // path: (px,py) -> (px+w, py+h/2) -> (px, py+h), closed & filled
           const prevFill = doc.getFillColor();
           doc.setFillColor(color[0], color[1], color[2]);
-          doc.triangle(
-            px,
-            py,
-            px + pennantWidth,
-            py + pennantHeight / 2,
-            px,
-            py + pennantHeight,
-            'F'
+          doc.setDrawColor(color[0], color[1], color[2]);
+          doc.lines(
+            [
+              [ w,   h/2],  // to (px+w, py+h/2)
+              [-w,   h/2]   // to (px,   py+h)
+            ],
+            px, py,
+            [1],           // scale
+            'F',           // fill
+            true           // closed path
           );
+
+          // restore colors
           doc.setFillColor(prevFill);
           doc.setDrawColor(prevStroke);
         }
