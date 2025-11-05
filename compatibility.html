@@ -1846,13 +1846,28 @@ It:
   partnerBtn && partnerBtn.addEventListener('click',() => openPicker(partnerInput));
 
   // --- Kill legacy listeners that made you upload twice ---
-  document.addEventListener('change', (ev) => {
-    const t = ev.target;
-    if (!(t instanceof HTMLInputElement)) return;
-    if (t !== yourInput && t !== partnerInput) return;
-    ev.stopImmediatePropagation();
-    ev.stopPropagation();
-  }, true);
+  const TK_CHANGE_BYPASS = '__tkCompatBypass';
+
+  document.addEventListener(
+    'change',
+    (ev) => {
+      const t = ev.target;
+      if (!(t instanceof HTMLInputElement)) return;
+      if (t !== yourInput && t !== partnerInput) return;
+      if (ev[TK_CHANGE_BYPASS]) return;
+
+      ev.stopImmediatePropagation();
+      ev.stopPropagation();
+
+      const redispatch = new Event('change', { bubbles: true });
+      redispatch[TK_CHANGE_BYPASS] = true;
+      const schedule = typeof queueMicrotask === 'function'
+        ? queueMicrotask
+        : (cb) => setTimeout(cb, 0);
+      schedule(() => t.dispatchEvent(redispatch));
+    },
+    true
+  );
 
   // --- Consent (once per tab) ---
   const CONSENT_KEY = 'tk.partnerConsent.v1';
