@@ -16,10 +16,18 @@
     lsSelfKey: 'tk_compat.self',
     lsPartKey: 'tk_compat.partner',
     guardPdf: true,
+    autoInit: true,
   };
 
   const overrides = (typeof window !== 'undefined' && window.TK_COMPAT_UPLOAD_CFG) || {};
   const cfg = Object.assign({}, defaults, overrides);
+
+  if (cfg.autoInit === false) {
+    if (typeof console !== 'undefined' && console.info) {
+      console.info('[compat] upload glue disabled via config');
+    }
+    return;
+  }
 
   // ---- Helpers -------------------------------------------------------------
 
