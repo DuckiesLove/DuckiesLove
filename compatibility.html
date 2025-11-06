@@ -669,17 +669,15 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const dispatch = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
 
-  const yourBtn = $('#yourBtn');
-  const partnerBtn = $('#partnerBtn');
-  const downloadBtn = $('#downloadBtn');
-  const yourInput = $('#yourFile');
-  const partnerInput = $('#partnerFile');
-  const yourStatus = $('#yourStatus');
-  const partnerStatus = $('#partnerStatus');
+  let yourBtn = null;
+  let partnerBtn = null;
+  let downloadBtn = null;
+  let yourInput = null;
+  let partnerInput = null;
+  let yourStatus = null;
+  let partnerStatus = null;
 
-  if (!yourInput || !partnerInput || !downloadBtn) {
-    console.error('[compat] Required elements missing (#yourFile, #partnerFile, #downloadBtn).');
-  }
+  const statusEls = { self: null, partner: null };
 
   window.__TK_FAST_UPLOADS__ = true;
   window.__TK_ALLOW_SINGLE_PDF__ = true;
@@ -690,7 +688,6 @@
   let yourJSON = null;
   let partnerJSON = null;
   const parseTimers = new Map();
-  const statusEls = { self: yourStatus, partner: partnerStatus };
 
   // ---------- HELPERS ----------
   function setStatus(which, message, state = 'info') {
@@ -848,16 +845,6 @@
     input.click();
   }
 
-  yourBtn && yourBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-    openPicker(yourInput);
-  });
-
-  partnerBtn && partnerBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-    openPicker(partnerInput);
-  });
-
   const CONSENT_KEY = 'tk.partnerConsent.v1';
 
   function getConsentFlag() {
@@ -903,69 +890,65 @@
     parseTimers.set(which, timer);
   }
 
-  document.addEventListener(
-    'change',
-    (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      if (target !== yourInput && target !== partnerInput) return;
+  function handleFileSelection(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target !== yourInput && target !== partnerInput) return;
 
-      event.stopImmediatePropagation();
-      event.stopPropagation();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
 
-      const which = target === partnerInput ? 'partner' : 'self';
-      const file = target.files?.[0];
+    const which = target === partnerInput ? 'partner' : 'self';
+    const file = target.files?.[0];
 
-      const run = async () => {
-        if (!file) {
-          target.value = '';
-          resetSelection(which);
-          updateDownloadState();
-          dispatch('compat:file-selected', { which, file: null });
-          return;
-        }
-
-        if (which === 'partner' && !getConsentFlag()) {
-          const ok = confirm(
-            'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
-              'Click “OK” to confirm consent and continue, or “Cancel” to stop.'
-          );
-          if (!ok) {
-            target.value = '';
-            resetSelection('partner');
-            setStatus('partner', 'Upload canceled — partner consent required.', 'info');
-            updateDownloadState();
-            dispatch('compat:file-selected', { which: 'partner', file: null });
-            return;
-          }
-          setConsentFlag();
-        }
-
-        if (which === 'self') {
-          yourBlob = file;
-          yourJSON = null;
-          setStatus('self', 'Processing your survey…', 'info');
-        } else {
-          partnerBlob = file;
-          partnerJSON = null;
-          setStatus('partner', 'Processing partner survey…', 'info');
-        }
-
-        dispatch('compat:file-selected', { which, file });
-        updateDownloadState();
+    const run = async () => {
+      if (!file) {
         target.value = '';
-        scheduleParse(which);
-      };
-
-      run().catch((error) => {
-        console.error('[compat] File selection failed', error);
         resetSelection(which);
         updateDownloadState();
         dispatch('compat:file-selected', { which, file: null });
-      });
-    },
-    true
-  );
+        return;
+      }
+
+      if (which === 'partner' && !getConsentFlag()) {
+        const ok = confirm(
+          'Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.\n\n' +
+            'Click “OK” to confirm consent and continue, or “Cancel” to stop.'
+        );
+        if (!ok) {
+          target.value = '';
+          resetSelection('partner');
+          setStatus('partner', 'Upload canceled — partner consent required.', 'info');
+          updateDownloadState();
+          dispatch('compat:file-selected', { which: 'partner', file: null });
+          return;
+        }
+        setConsentFlag();
+      }
+
+      if (which === 'self') {
+        yourBlob = file;
+        yourJSON = null;
+        setStatus('self', 'Processing your survey…', 'info');
+      } else {
+        partnerBlob = file;
+        partnerJSON = null;
+        setStatus('partner', 'Processing partner survey…', 'info');
+      }
+
+      dispatch('compat:file-selected', { which, file });
+      updateDownloadState();
+      target.value = '';
+      scheduleParse(which);
+    };
+
+    run().catch((error) => {
+      console.error('[compat] File selection failed', error);
+      resetSelection(which);
+      updateDownloadState();
+      dispatch('compat:file-selected', { which, file: null });
+    });
+  }
 
   function clampScore(value) {
     const num = Number(value);
@@ -1827,32 +1810,71 @@
 
   window.generateDarkPDF = generateDarkPDF;
 
-  downloadBtn &&
-    downloadBtn.addEventListener(
-      'click',
-      async (event) => {
+  async function handleDownloadClick(event) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+    try {
+      await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
+
+      if (!yourJSON && !partnerJSON) {
+        alert('Load at least one survey first (yours or partner).');
+        console.warn('[compat] No survey loaded; aborting PDF.');
+        return;
+      }
+
+      await generateDarkPDF(yourJSON, partnerJSON);
+    } catch (error) {
+      console.error('[compat] PDF generation failed:', error);
+      alert('Sorry—could not generate the PDF.');
+    }
+  }
+
+  function bindDomOnce() {
+    if (bindDomOnce.bound) return;
+
+    yourBtn = $('#yourBtn');
+    partnerBtn = $('#partnerBtn');
+    downloadBtn = $('#downloadBtn');
+    yourInput = $('#yourFile');
+    partnerInput = $('#partnerFile');
+    yourStatus = $('#yourStatus');
+    partnerStatus = $('#partnerStatus');
+
+    statusEls.self = yourStatus;
+    statusEls.partner = partnerStatus;
+
+    if (!yourInput || !partnerInput || !downloadBtn) {
+      console.error('[compat] Required elements missing (#yourFile, #partnerFile, #downloadBtn).');
+      return;
+    }
+
+    if (yourBtn) {
+      yourBtn.addEventListener('click', (event) => {
         event.preventDefault();
-        event.stopImmediatePropagation();
-        event.stopPropagation();
-        try {
-          await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
+        openPicker(yourInput);
+      });
+    }
 
-          if (!yourJSON && !partnerJSON) {
-            alert('Load at least one survey first (yours or partner).');
-            console.warn('[compat] No survey loaded; aborting PDF.');
-            return;
-          }
+    if (partnerBtn) {
+      partnerBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        openPicker(partnerInput);
+      });
+    }
 
-          await generateDarkPDF(yourJSON, partnerJSON);
-        } catch (error) {
-          console.error('[compat] PDF generation failed:', error);
-          alert('Sorry—could not generate the PDF.');
-        }
-      },
-      true
-    );
+    document.addEventListener('change', handleFileSelection, true);
+    downloadBtn.addEventListener('click', handleDownloadClick, true);
 
-  updateDownloadState();
+    updateDownloadState();
+    bindDomOnce.bound = true;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindDomOnce, { once: true });
+  } else {
+    bindDomOnce();
+  }
 
   window.tkResetPartnerConsent = () => {
     try {
