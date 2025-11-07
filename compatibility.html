@@ -1554,11 +1554,27 @@
     });
   }
 
+  function tkEnsurePdfCompat(doc) {
+    if (typeof doc.setLineWidth !== 'function') {
+      doc.setLineWidth = function () {
+        // no-op for builds missing setLineWidth
+      };
+    }
+    return doc;
+  }
+
+  function tkCreateJsPdfDoc() {
+    const ctor =
+      (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF :
+      (window.jsPDF ? window.jsPDF : null);
+    if (!ctor) throw new Error('jsPDF not loaded');
+    return tkEnsurePdfCompat(new ctor({ unit: 'pt', format: 'letter' }));
+  }
+
   async function generateDarkPDF(yourJSON, partnerJSON) {
     await ensureAutoTable();
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    const doc = tkCreateJsPdfDoc();
 
     const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
@@ -1582,7 +1598,7 @@
       doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
 
       doc.setDrawColor(0, 255, 255);
-      doc.setLineWidth(1);
+      if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
       doc.line(ML, 72, W - MR, 72);
     }
     paint();
@@ -1717,7 +1733,7 @@
           // Draw pole (subtle gray)
           const prevStroke = doc.getDrawColor();
           doc.setDrawColor(180,180,190);
-          doc.setLineWidth(1);
+          if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
           doc.line(poleX, poleTop, poleX, poleBottom);
 
           // Try to draw a FILLED triangular pennant using jsPDF.lines (stable across builds)
