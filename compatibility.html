@@ -1687,13 +1687,13 @@
     const hasB = B.length > 0;
 
     let y = BODY_START_Y;
-    const cat = (t) => {
+    function cat(label) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
+      doc.setFontSize(16);
       doc.setTextColor(255, 255, 255);
-      doc.text(t, CX, y, { align: 'center' });
+      doc.text(String(label), CX, y, { align: 'center' });
       y += 12;
-    };
+    }
 
     function buildAB(Arows, Brows) {
       const key = (r) => `${r.Role}|${r.Item}`.toLowerCase();
