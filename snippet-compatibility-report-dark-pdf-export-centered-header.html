@@ -1,27 +1,28 @@
 <!-- Drop-in: centered header + snug table with AutoTable v3/v4 compatibility -->
+<!-- 1) Self-hosted jsPDF + autoTable (place these BEFORE the final script) -->
+<script src="/assets/js/vendor/jspdf.umd.min.js?v=1"></script>
+<script src="/assets/js/vendor/jspdf.plugin.autotable.min.js?v=1"></script>
+
+<!-- 2) LAST script on the page: force our generator -->
 <script>
-/**
- * TalkKink PDF — force our handler, center header, start table under it.
- * Drop this as the LAST script on the page.
- */
 (function () {
-  // 1) Resolve jsPDF (v1 or v2)
+  // ---- guard: make sure libs are present ----
   const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-  if (!JsPDF) { console.error('[compat] jsPDF not found'); alert('PDF engine missing'); return; }
+  if (!JsPDF) { console.error('[compat] jsPDF missing'); alert('PDF engine missing'); return; }
 
-  // 2) Get button and nuke any old handlers by cloning the node
-  const BTN_IDs = ['#downloadPdfBtn', '#downloadPDF', '#tkDownloadPdf']; // try common IDs
+  // Try common button ids; adjust if yours differs
+  const ids = ['#downloadPdfBtn', '#downloadPDF', '#tkDownloadPdf'];
   let btn = null;
-  for (const id of BTN_IDs) { btn = document.querySelector(id); if (btn) break; }
-  if (!btn) { console.error('[compat] Download button not found'); alert('Download button not found'); return; }
+  for (const sel of ids) { const el = document.querySelector(sel); if (el) { btn = el; break; } }
+  if (!btn) { console.error('[compat] Download button not found'); return; }
 
-  const fresh = btn.cloneNode(true);
-  btn.parentNode.replaceChild(fresh, btn);
-  btn = fresh;
+  // ---- remove ALL existing click listeners by cloning the node ----
+  const clone = btn.cloneNode(true);
+  btn.parentNode.replaceChild(clone, btn);
+  btn = clone;
 
   console.log('[compat] Bound new PDF generator to', btn);
 
-  // 3) Tokens / layout
   const TOK = {
     margins: { top: 60, left: 64, right: 64, bottom: 60 },
     cyan: [0, 255, 255],
@@ -29,94 +30,90 @@
     section: 'Behavioral Play'
   };
 
-  const headerCenterX = (doc) => doc.internal.pageSize.getWidth() / 2;
+  function headerCenterX(doc){ return doc.internal.pageSize.getWidth() / 2; }
 
-  function drawHeader(doc) {
+  function drawHeader(doc){
     const w = doc.internal.pageSize.getWidth();
     const cx = headerCenterX(doc);
 
-    // (debug) backdrop bar so you can SEE the header area is being drawn
+    // backdrop to prove header is drawn
     doc.setFillColor(8, 12, 14);
     doc.rect(TOK.margins.left, 40, w - TOK.margins.left - TOK.margins.right, 110, 'F');
 
-    // Title
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(28);
-    doc.text(TOK.title, cx, 70, { align: 'center' });
+    doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.setFontSize(28);
+    doc.text(TOK.title, cx, 70, {align:'center'});
 
-    // Timestamp
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(175, 210, 255);
-    doc.setFontSize(9);
-    doc.text('Generated: ' + new Date().toLocaleString(), cx, 90, { align: 'center' });
+    doc.setFont('helvetica','normal'); doc.setTextColor(175,210,255); doc.setFontSize(9);
+    doc.text('Generated: ' + new Date().toLocaleString(), cx, 90, {align:'center'});
 
-    // Divider
     if (doc.setLineWidth) doc.setLineWidth(1);
     doc.setDrawColor(...TOK.cyan);
     doc.line(TOK.margins.left, 102, w - TOK.margins.right, 102);
 
-    // Section
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.text(TOK.section, cx, 125, { align: 'center' });
+    doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.setFontSize(22);
+    doc.text(TOK.section, cx, 125, {align:'center'});
 
-    return 142; // startY for the table
+    return 142; // y where the table must start
   }
 
-  // 4) Rows (use your real builder if available)
-  async function buildRows() {
+  async function buildRows(){
+    // Prefer your app’s builder if present
     if (typeof window.buildCompatibilityRows === 'function') {
-      return await window.buildCompatibilityRows();
+      try { return await window.buildCompatibilityRows(); } catch(e){ console.warn(e); }
     }
-    // Fallback: infer from window.QUESTIONS + window.answers Map
-    const rows = [];
+    // Fallback: QUESTIONS + answers(Map)
     try {
       const Q = window.QUESTIONS || [];
       const A = window.answers instanceof Map ? window.answers : null;
       if (Q.length && A) {
-        for (const q of Q) {
-          const a = A.get(q.id);
-          // [Item, Partner A, Match, Flag, Partner B]
-          rows.push([q.text || q.label || '', String(a?.a ?? ''), (a?.match ?? 0) + '%', '▶', String(a?.b ?? '')]);
-        }
-        return rows;
+        return Q.map(q => {
+          const a = A.get(q.id) || {};
+          return [
+            q.text || q.label || '',
+            String(a.a ?? ''),
+            (a.match != null ? a.match : 0) + '%',
+            '▶',
+            String(a.b ?? '')
+          ];
+        });
       }
-    } catch {}
-    console.warn('[compat] No live data found; rows empty');
-    return rows;
+    } catch(e){ console.warn('[compat] row build fallback', e); }
+    return []; // empty ok; proves header still centers
   }
 
-  btn.addEventListener('click', async (e) => {
-    e.preventDefault();
+  btn.addEventListener('click', async (ev) => {
+    ev.preventDefault();
     console.log('[compat] PDF click -> generator running');
 
-    const doc = new JsPDF({ unit: 'pt', format: 'letter' });
-
-    if (typeof doc.autoTable !== 'function') {
-      console.error('[compat] AutoTable not on doc (plugin not loaded before this script).');
-      alert('PDF table plugin unavailable');
-      return;
+    if (typeof JsPDF.prototype.autoTable !== 'function') {
+      console.error('[compat] autoTable missing on doc (plugin not loaded in time)');
+      alert('PDF table plugin unavailable'); return;
     }
 
+    const doc = new JsPDF({ unit:'pt', format:'letter' });
     const startY = drawHeader(doc);
     const body = await buildRows();
 
-    // Build the table under our header
     doc.autoTable({
-      head: [['Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
+      head: [['Item','Partner A','Match','Flag','Partner B']],
       body,
       startY,
       margin: TOK.margins,
       styles:     { textColor:[255,255,255], fillColor:[10,10,12], lineColor:[34,34,42], lineWidth:0.25, valign:'middle' },
       headStyles: { textColor:[0,255,255],   fillColor:[0,0,0],    lineColor:[34,34,42], halign:'left' },
-      didDrawPage(data) {
-        if (data.pageNumber > 1) drawHeader(doc);
-      }
+      didDrawPage(data){ if (data.pageNumber > 1) drawHeader(doc); }
     });
 
     doc.save('compatibility-pretty-dark.pdf');
   });
+
+  // Expose a quick console test so you can bypass the button if needed:
+  window.__tk_pdf_test__ = function(){
+    const doc = new JsPDF({unit:'pt',format:'letter'});
+    const y = drawHeader(doc);
+    doc.autoTable({ head:[['Item']], body:[['Header centered OK']], startY:y, margin: TOK.margins });
+    doc.save('test-header.pdf');
+    console.log('[compat] test PDF saved');
+  };
 })();
 </script>
