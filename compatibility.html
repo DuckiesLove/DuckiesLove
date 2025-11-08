@@ -597,81 +597,91 @@ console.info('%c[TK] PDF patch %s loaded @ %s', 'color:#0ff', TK_VER, new Date()
 /* 1) Hard disable any leftover demo/fallbacks (optional) */
 window.TK_DISABLE_PDF_DEMO = true;
 
-/* 2) Layout helpers: content box + true center for headings */
-function tkLayout(doc){
-  const W  = doc.internal.pageSize.getWidth();
-  const H  = doc.internal.pageSize.getHeight();
-  const CONTENT_W = Math.min(680, W - 96);
-  const ML = (W - CONTENT_W) / 2;
-  const MR = ML;
-  const CX = ML + CONTENT_W/2;   // CENTER over the TABLE, not the whole page
-  return {W,H,CONTENT_W,ML,MR,CX};
-}
-
-/* 3) Header draw that we will call from autoTable.didDrawPage */
-function tkDrawHeader(doc){
-  const L = tkLayout(doc);
-  // Title
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold'); doc.setFontSize(22);
-  doc.text('TalkKink Compatibility', L.CX, 56, {align:'center'});
-
-  // Timestamp (smaller)
-  doc.setFont('helvetica','normal'); doc.setFontSize(8);
-  doc.setTextColor(170,200,255);
-  doc.text('Generated: ' + new Date().toLocaleString(), L.CX, 70, {align:'center'});
-
-  // Cyan underline across CONTENT width only
-  doc.setDrawColor(0,255,255);
-  if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
-  doc.line(L.ML, 78, L.ML + L.CONTENT_W, 78);
-}
-
-/* 4) Centered section header helper */
-function tkSectionTitle(doc, y, label){
-  const L = tkLayout(doc);
-  doc.setFont('helvetica','bold'); doc.setFontSize(18);
-  doc.setTextColor(255,255,255);
-  doc.text(String(label), L.CX, y, {align:'center'});
-  return y + 14;
-}
-
-/* 5) Single public API your generator should call. This *replaces* any old paint()/cat(). */
-window.tkCenteredSectionTable = async function tkCenteredSectionTable(doc, {title, startY=96, table}){
-  const L = tkLayout(doc);
-  console.info('[TK] using tkCenteredSectionTable %s | content center=%d', TK_VER, L.CX);
-
-  // Always draw header and section title based on content center
-  tkDrawHeader(doc);
-  const y = tkSectionTitle(doc, startY, title || 'Section');
-
-  // Force table to the content box; redraw header on each page.
-  doc.autoTable({
-    startY: y,
-    tableWidth: L.CONTENT_W,
-    margin: { left: L.ML, right: L.MR },
-    ...table,
-    didDrawPage(data){
-      tkDrawHeader(doc);
-      table && typeof table.didDrawPage === 'function' && table.didDrawPage(data);
+/* 2) DROP-IN header + centered table helper */
+(() => {
+  // 0) Kill any legacy painters so nothing overwrites the header again.
+  ['paint', 'cat', 'drawHeader', 'centerHeader'].forEach((n) => {
+    if (typeof window[n] === 'function') {
+      console.warn('[compat] disabling legacy %s()', n);
+      window[n] = function () {}; // no-op
     }
   });
-  return doc.lastAutoTable.finalY || y;
-};
 
-/* 6) INTEGRATION GUARD — log & nuke older painters so we know who’s drawing */
-(function killOldPainters(){
-  const kill = ['paint','cat','centerHeader','drawHeader']; // common names we used earlier
-  kill.forEach(k=>{
-    if (typeof window[k] === 'function'){
-      console.warn('[TK] Deactivating legacy %s() so new header can take over.', k);
-      window[k] = function(){ /* no-op */ };
+  // 1) Content layout (center over the TABLE — not full page)
+  function layout(doc) {
+    const W = doc.internal.pageSize.getWidth();
+    const CONTENT_W = Math.min(680, W - 96);
+    const ML = (W - CONTENT_W) / 2;
+    const CX = ML + CONTENT_W / 2;
+    return { W, CONTENT_W, ML, CX };
+  }
+
+  // 2) Header+Section (single source of truth)
+  function drawHeader(doc) {
+    const L = layout(doc);
+    // Title
+    doc.setTextColor(240, 240, 240);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(24);
+    doc.text('TalkKink Compatibility', L.CX, 56, { align: 'center' });
+    // Timestamp (smaller)
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(160, 200, 255);
+    doc.text('Generated: ' + new Date().toLocaleString(), L.CX, 70, { align: 'center' });
+    // Cyan rule exactly across CONTENT width
+    doc.setDrawColor(0, 255, 255);
+    if (doc.setLineWidth) doc.setLineWidth(1);
+    doc.line(L.ML, 78, L.ML + L.CONTENT_W, 78);
+  }
+
+  function drawSectionTitle(doc, label, startY) {
+    const L = layout(doc);
+    const y = typeof startY === 'number' ? startY : 96;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text(String(label), L.CX, y, { align: 'center' });
+    return y + 12; // next y for table start
+  }
+
+  // 3) Public helper your click handler should call.
+  //    This renders header once per page and locks table to the content box.
+  window.tkRenderCenteredTable = function tkRenderCenteredTable(doc, { title, startY = 96, table } = {}) {
+    const L = layout(doc);
+    console.info('[TK] using tkRenderCenteredTable %s | content center=%d', TK_VER, L.CX);
+
+    drawHeader(doc);
+    const headingY = drawSectionTitle(doc, title || 'Section', startY);
+
+    const extraDidDraw = table && typeof table.didDrawPage === 'function' ? table.didDrawPage : null;
+    const tableOptions = {
+      startY: headingY,
+      margin: { left: L.ML, right: L.ML },
+      tableWidth: L.CONTENT_W,
+      ...table
+    };
+
+    tableOptions.didDrawPage = (data) => {
+      drawHeader(doc);
+      if (extraDidDraw) extraDidDraw(data);
+    };
+
+    if (typeof doc.autoTable === 'function') {
+      doc.autoTable(tableOptions);
+    } else if (window.jspdf && typeof window.jspdf.autoTable === 'function') {
+      window.jspdf.autoTable(doc, tableOptions);
+    } else {
+      throw new Error('autoTable plugin missing from jsPDF instance');
     }
-  });
+
+    const finalY = doc.lastAutoTable && doc.lastAutoTable.finalY;
+    return Number.isFinite(finalY) ? finalY : tableOptions.startY;
+  };
 })();
 
-/* 7) QUICK SELF-TEST: if you click Download and still don’t see the cyan log above the table:
-     - Your click handler is NOT calling tkCenteredSectionTable().
+/* QUICK SELF-TEST: if you click Download and still don’t see the cyan log above the table:
+     - Your click handler is NOT calling tkRenderCenteredTable().
      - OR the browser is serving an old bundle.
    To confirm cache: Open DevTools → Network → check the JS file that contains this block.
    It must show status 200 (not disk cache) and include TK_VER in the response via “Find”. */
@@ -1688,9 +1698,9 @@ window.tkCenteredSectionTable = async function tkCenteredSectionTable(doc, {titl
     const YELLOW = [255, 210, 70];
     const RED = [255, 86, 86];
 
-    const centerSectionTable = window.tkCenteredSectionTable;
+    const centerSectionTable = window.tkRenderCenteredTable;
     if (typeof centerSectionTable !== 'function') {
-      throw new Error('tkCenteredSectionTable helper unavailable');
+      throw new Error('tkRenderCenteredTable helper unavailable');
     }
 
     const base = {
