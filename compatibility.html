@@ -590,14 +590,14 @@
   <!-- TK: Page-centered header helper -->
   <script>
   (() => {
-    const FS = { title: 28, stamp: 8, section: 20 };
-    const Y = { title: 56, stamp: 70, rule: 78, section: 96, tableTop: 110 };
+    const FS = { title: 28, stamp: 9, section: 20 };
+    const Y = { title: 64, stamp: 80, rule: 88, section: 114, tableTop: 132 };
     const CYAN = [0, 255, 255];
     const RULE_W = 1;
-    const PAGE_RULE_MARGIN = { left: 64, right: 64 };
+    const PAGE_RULE_MARGIN = { left: 72, right: 72 };
 
     const NULL_FN = () => {};
-    ['paint', 'cat', 'drawHeader', 'centerHeader', 'tkCenteredHeaderAndTable', 'tkPageCenteredHeaderAndTable']
+    ['paint', 'cat', 'drawHeader', 'centerHeader', 'drawHeaderCenteredToPage', 'tkHeaderOverTable', 'tkCenteredHeaderAndTable', 'tkPageCenteredHeaderAndTable']
       .forEach((name) => {
         if (typeof window[name] === 'function') window[name] = NULL_FN;
       });
@@ -619,8 +619,8 @@
     function tableBox(doc, tableOpts = {}) {
       const width = pageWidth(doc);
       const margin = tableOpts.margin || {};
-      const ml = Number.isFinite(margin.left) ? margin.left : 54;
-      const mr = Number.isFinite(margin.right) ? margin.right : 54;
+      const ml = Number.isFinite(margin.left) ? margin.left : 72;
+      const mr = Number.isFinite(margin.right) ? margin.right : 72;
 
       let tw = tableOpts.tableWidth;
       if (!Number.isFinite(tw)) {
@@ -631,6 +631,16 @@
     }
 
     function resolveHeaderCenters(doc, alignTarget, tableOpts = {}, tableData) {
+      const cx = pageCenter(doc);
+      const width = pageWidth(doc);
+      const ruleMarginL = Number.isFinite(PAGE_RULE_MARGIN.left) ? PAGE_RULE_MARGIN.left : 72;
+      const ruleMarginR = Number.isFinite(PAGE_RULE_MARGIN.right) ? PAGE_RULE_MARGIN.right : 72;
+      const base = {
+        cx,
+        ruleL: Math.max(0, ruleMarginL),
+        ruleR: Math.max(Math.max(0, ruleMarginL), width - ruleMarginR)
+      };
+
       if (alignTarget === 'table') {
         const table = tableData?.table;
         const startX = Number.isFinite(table?.startX)
@@ -638,24 +648,20 @@
           : Number.isFinite(table?.x)
             ? table.x
             : null;
-        const width = Number.isFinite(table?.width)
+        const tw = Number.isFinite(table?.width)
           ? table.width
           : Number.isFinite(table?.finalWidth)
             ? table.finalWidth
             : null;
-        if (startX != null && width != null) {
-          return { cx: startX + width / 2, ruleL: startX, ruleR: startX + width };
+        if (startX != null && tw != null) {
+          base.tableCx = startX + tw / 2;
+        } else {
+          const box = tableBox(doc, tableOpts);
+          base.tableCx = box.cx;
         }
-        const box = tableBox(doc, tableOpts);
-        return { cx: box.cx, ruleL: box.ml, ruleR: box.ml + box.tw };
       }
 
-      const cx = pageCenter(doc);
-      return {
-        cx,
-        ruleL: PAGE_RULE_MARGIN.left,
-        ruleR: pageWidth(doc) - PAGE_RULE_MARGIN.right
-      };
+      return base;
     }
 
     function drawPageHeader(doc, centers, sectionTitle, sectionBaseline, options = {}) {
@@ -771,6 +777,11 @@
     };
 
     window.tkPageCenteredHeaderAndTable = window.tkCenteredHeaderAndTable = window.tkHeaderAndTable;
+    window.drawHeaderCenteredToPage = function drawHeaderCenteredToPage(doc, sectionTitle = 'Behavioral Play') {
+      if (!doc) return;
+      const centers = resolveHeaderCenters(doc, 'page');
+      drawPageHeader(doc, centers, sectionTitle, undefined, { drawBackground: false });
+    };
   })();
   </script>
 
