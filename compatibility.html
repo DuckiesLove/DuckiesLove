@@ -587,88 +587,94 @@
 
   </main>
 
-  <!-- CODEX: FORCE-CENTER title, timestamp, and section headers over the TABLE block.
-       Drop this in compatibility.html and REPLACE your current header + category code with it.
-       It also guards against “old paint() still running” by moving all drawing into the
-       autoTable didDrawPage hook so it runs once per page and ONLY from this code. -->
+  <!-- ONE BOX FOR CODEX — drop near the bottom of compatibility.html, AFTER jsPDF + autotable. -->
 
   <script>
-    (function TKCenterHeader() {
-      // 1) Single source of truth for layout (content box + center)
-      function layoutFor(doc) {
-        const W = doc.internal.pageSize.getWidth();
-        const H = doc.internal.pageSize.getHeight();
-        const CONTENT_W = Math.min(680, W - 96); // keep your chosen content width
-        const ML = (W - CONTENT_W) / 2; // left margin so table is centered
-        const MR = ML;
-        const CX = ML + CONTENT_W / 2; // <-- CENTER of content block
-        return { W, H, CONTENT_W, ML, MR, CX };
-      }
+/* 0) Bump this whenever you deploy so the browser/CDN can’t serve stale JS */
+const TK_VER = 'compat-2025-11-08-ctr-001';
+console.info('%c[TK] PDF patch %s loaded @ %s', 'color:#0ff', TK_VER, new Date().toISOString());
 
-      // 2) Draw header (uses content center, not page center)
-      function drawHeader(doc) {
-        const L = layoutFor(doc);
-        // Ensure dark background on every page before drawing header chrome
-        doc.setFillColor(10, 10, 12);
-        doc.rect(0, 0, L.W, L.H, 'F');
-        // bg is already dark; we only add header chrome:
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.text('TalkKink Compatibility', L.CX, 56, { align: 'center' });
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(170, 200, 255);
-        doc.text('Generated: ' + new Date().toLocaleString(), L.CX, 70, { align: 'center' });
+/* 1) Hard disable any leftover demo/fallbacks (optional) */
+window.TK_DISABLE_PDF_DEMO = true;
 
-        doc.setDrawColor(0, 255, 255);
-        if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
-        doc.line(L.ML, 78, L.ML + L.CONTENT_W, 78); // underline only across content width
-      }
+/* 2) Layout helpers: content box + true center for headings */
+function tkLayout(doc){
+  const W  = doc.internal.pageSize.getWidth();
+  const H  = doc.internal.pageSize.getHeight();
+  const CONTENT_W = Math.min(680, W - 96);
+  const ML = (W - CONTENT_W) / 2;
+  const MR = ML;
+  const CX = ML + CONTENT_W/2;   // CENTER over the TABLE, not the whole page
+  return {W,H,CONTENT_W,ML,MR,CX};
+}
 
-      // 3) Section title helper (centered on content)
-      function sectionTitle(doc, y, label) {
-        const L = layoutFor(doc);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.setTextColor(255, 255, 255);
-        doc.text(String(label), L.CX, y, { align: 'center' });
-        return y + 14;
-      }
+/* 3) Header draw that we will call from autoTable.didDrawPage */
+function tkDrawHeader(doc){
+  const L = tkLayout(doc);
+  // Title
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(22);
+  doc.text('TalkKink Compatibility', L.CX, 56, {align:'center'});
 
-      // 4) PUBLIC hook to start a centered section + table
-      //    Use this instead of any old paint()/cat() you had.
-      window.tkCenteredSectionTable = function tkCenteredSectionTable(doc, opts) {
-        const L = layoutFor(doc);
-        // a) draw header on this page (and all subsequent pages done in didDrawPage)
-        drawHeader(doc);
+  // Timestamp (smaller)
+  doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.setTextColor(170,200,255);
+  doc.text('Generated: ' + new Date().toLocaleString(), L.CX, 70, {align:'center'});
 
-        // b) section header
-        let y = opts?.startY ?? 96;
-        y = sectionTitle(doc, y, opts?.title || 'Section');
+  // Cyan underline across CONTENT width only
+  doc.setDrawColor(0,255,255);
+  if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
+  doc.line(L.ML, 78, L.ML + L.CONTENT_W, 78);
+}
 
-        // c) your autoTable call, but forced to content width/margins
-        const providedTable = opts?.table || {};
-        const { didDrawPage: providedDidDrawPage, ...restTable } = providedTable;
-        doc.autoTable({
-          ...restTable, // your head/body/styles
-          startY: restTable.startY ?? y,
-          tableWidth: L.CONTENT_W,
-          margin: { left: L.ML, right: L.MR },
-          didDrawPage: (data) => {
-            drawHeader(doc); // ensure header alignment on every page
-            if (typeof providedDidDrawPage === 'function') providedDidDrawPage(data);
-          }
-        });
-        return doc.lastAutoTable?.finalY || y;
-      };
+/* 4) Centered section header helper */
+function tkSectionTitle(doc, y, label){
+  const L = tkLayout(doc);
+  doc.setFont('helvetica','bold'); doc.setFontSize(18);
+  doc.setTextColor(255,255,255);
+  doc.text(String(label), L.CX, y, {align:'center'});
+  return y + 14;
+}
 
-      // 5) OPTIONAL: migrate legacy W/2 calls automatically (defensive).
-      //    If any old code still calls doc.text(..., W/2, ...), it won’t center
-      //    on the content block. Search & replace them in your file:
-      //      W/2  -> layoutFor(doc).CX
-      //    or remove the old paint()/cat() entirely and use tkCenteredSectionTable.
-    })();
+/* 5) Single public API your generator should call. This *replaces* any old paint()/cat(). */
+window.tkCenteredSectionTable = async function tkCenteredSectionTable(doc, {title, startY=96, table}){
+  const L = tkLayout(doc);
+  console.info('[TK] using tkCenteredSectionTable %s | content center=%d', TK_VER, L.CX);
+
+  // Always draw header and section title based on content center
+  tkDrawHeader(doc);
+  const y = tkSectionTitle(doc, startY, title || 'Section');
+
+  // Force table to the content box; redraw header on each page.
+  doc.autoTable({
+    startY: y,
+    tableWidth: L.CONTENT_W,
+    margin: { left: L.ML, right: L.MR },
+    ...table,
+    didDrawPage(data){
+      tkDrawHeader(doc);
+      table && typeof table.didDrawPage === 'function' && table.didDrawPage(data);
+    }
+  });
+  return doc.lastAutoTable.finalY || y;
+};
+
+/* 6) INTEGRATION GUARD — log & nuke older painters so we know who’s drawing */
+(function killOldPainters(){
+  const kill = ['paint','cat','centerHeader','drawHeader']; // common names we used earlier
+  kill.forEach(k=>{
+    if (typeof window[k] === 'function'){
+      console.warn('[TK] Deactivating legacy %s() so new header can take over.', k);
+      window[k] = function(){ /* no-op */ };
+    }
+  });
+})();
+
+/* 7) QUICK SELF-TEST: if you click Download and still don’t see the cyan log above the table:
+     - Your click handler is NOT calling tkCenteredSectionTable().
+     - OR the browser is serving an old bundle.
+   To confirm cache: Open DevTools → Network → check the JS file that contains this block.
+   It must show status 200 (not disk cache) and include TK_VER in the response via “Find”. */
   </script>
 
   <script>
@@ -1709,11 +1715,11 @@
     };
 
     let nextSectionStart = SECTION_TITLE_START;
-    const addSection = (title, tableOverrides = {}) => {
+    const addSection = async (title, tableOverrides = {}) => {
       const { startY: tableStartOverride, ...restOverrides } = tableOverrides;
       const tableStart =
         tableStartOverride == null ? nextSectionStart + TABLE_OFFSET : tableStartOverride;
-      const finalY = centerSectionTable(doc, {
+      const finalY = await centerSectionTable(doc, {
         title,
         startY: nextSectionStart,
         table: {
@@ -1722,8 +1728,9 @@
           startY: tableStart
         }
       });
-      nextSectionStart = (finalY ?? (nextSectionStart + TABLE_OFFSET)) + SECTION_GAP;
-      return finalY;
+      const numericFinal = Number.isFinite(finalY) ? finalY : nextSectionStart + TABLE_OFFSET;
+      nextSectionStart = numericFinal + SECTION_GAP;
+      return numericFinal;
     };
 
     const rowsFrom = (json) => {
@@ -1857,7 +1864,7 @@
 
         const itemWidth = CONTENT_W - (70 + 60 + 50 + 70);
 
-        addSection(c, {
+        await addSection(c, {
           ...flagShapeHook('flag'),
           columns: [
             { header: 'Item', dataKey: 'item' },
@@ -1881,7 +1888,7 @@
       const who = hasA ? 'Partner A' : 'Partner';
       const cats = [...new Set(rows.map((r) => r.Category))];
       for (const c of cats) {
-        addSection(`${c} — ${who}`, {
+        await addSection(`${c} — ${who}`, {
           head: [['Item', 'Score']],
           body: rows
             .filter((r) => r.Category === c)
