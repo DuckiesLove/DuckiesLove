@@ -1,114 +1,122 @@
-<!-- Drop-in: page-centered header + snug table; AutoTable v3–v4 compatible -->
+<!-- Drop-in: centered header + snug table with AutoTable v3/v4 compatibility -->
 <script>
 (function () {
-  // ---- jsPDF + AutoTable detection ----
-  const JS = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-  if (!JS) { console.warn('[compat] jsPDF missing'); return; }
-  const hasAT =
-    !!(JS.API && JS.API.autoTable) ||
-    !!(window.jspdf?.jsPDF?.API?.autoTable) ||
-    !!(window.jsPDF?.API?.autoTable);
-  if (!hasAT) { console.warn('[compat] AutoTable missing'); return; }
+  // --------- Resolve jsPDF & AutoTable (v1/v2 + AT v3/v4) ----------
+  const jsPDFCtor =
+    (window.jspdf && window.jspdf.jsPDF) || // v2+
+    window.jsPDF;                            // v1 global
+  if (!jsPDFCtor) { console.warn('[compat] jsPDF not found'); return; }
 
-  // ---- Style tokens ----
+  // We'll call autoTable on the *doc* instance so v3/v4 both work.
+  function hasAutoTable(doc) { return !!(doc && typeof doc.autoTable === 'function'); }
+
+  // --------- Style tokens ----------
   const TOK = {
-    cyan: [0,255,255],
-    white: [255,255,255],
-    stamp: [170,210,255],
-    margins: { left: 72, right: 72 },       // keep in sync with AutoTable margins
+    pageMargins: { top: 60, left: 72, right: 72, bottom: 60 }, // letter-friendly
+    cyan: [0, 255, 255],
+    white: [255, 255, 255],
+    stamp: [175, 210, 255],
     title: 'TalkKink Compatibility',
     section: 'Behavioral Play'
   };
 
-  // Centering mode: 'page' or 'table'
-  const CENTER_MODE = 'page'; // change to 'table' if you want center of table area
+  // Center in page OR in table area
+  const CENTER_MODE = 'page'; // change to 'table' if you prefer
 
-  function centerX(doc) {
-    const PW = doc.internal.pageSize.getWidth();
-    if (CENTER_MODE === 'table') {
-      const w = PW - TOK.margins.left - TOK.margins.right;
-      return TOK.margins.left + w / 2;
-    }
-    return PW / 2; // page center
+  function pageCenterX(doc) { return doc.internal.pageSize.getWidth() / 2; }
+  function tableAreaCenterX(doc) {
+    const w = doc.internal.pageSize.getWidth() - TOK.pageMargins.left - TOK.pageMargins.right;
+    return TOK.pageMargins.left + w / 2;
   }
+  function headerCenterX(doc) { return CENTER_MODE === 'table' ? tableAreaCenterX(doc) : pageCenterX(doc); }
 
-  // Draw the header; return the y where table should start
+  // Draws header and returns startY for the table
   function drawHeader(doc) {
-    const CX = centerX(doc);
+    const cx = headerCenterX(doc);
+    const pw = doc.internal.pageSize.getWidth();
 
-    doc.setFont('helvetica','bold');
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
     doc.setTextColor(...TOK.white);
-    doc.text(TOK.title, CX, 64, { align: 'center' });
+    doc.text(TOK.title, cx, 64, { align: 'center' });
 
-    doc.setFont('helvetica','normal');
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...TOK.stamp);
-    doc.text('Generated: ' + new Date().toLocaleString(), CX, 82, { align: 'center' });
+    doc.text('Generated: ' + new Date().toLocaleString(), cx, 82, { align: 'center' });
 
     // divider
     doc.setDrawColor(...TOK.cyan);
-    doc.setLineWidth?.(1);
-    doc.line(TOK.margins.left, 94, doc.internal.pageSize.getWidth() - TOK.margins.right, 94);
+    if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
+    doc.line(TOK.pageMargins.left, 94, pw - TOK.pageMargins.right, 94);
 
     // section
-    doc.setFont('helvetica','bold');
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
     doc.setTextColor(...TOK.white);
-    doc.text(TOK.section, CX, 120, { align: 'center' });
+    doc.text(TOK.section, cx, 120, { align: 'center' });
 
-    // where the table should start
-    return 138;
+    return 138; // table starts here
   }
 
-  // Build your rows. Replace with your real builder.
-  async function getRows() {
+  // --------- ROWS (stub) ----------
+  async function buildCompatibilityRows() {
+    // Use your real builder here. We keep a stub so the PDF still works.
     if (typeof window.buildCompatibilityRows === 'function') {
       return await window.buildCompatibilityRows();
     }
-    return []; // fallback
+    // Empty body if your builder is elsewhere
+    return [];
   }
 
-  // Main generator (exported)
-  window.generateDarkPDF = async function () {
-    const doc = new JS({ unit: 'pt', format: 'letter' });
-    const rows = await getRows();
+  // --------- Main generator ----------
+  async function generateDarkPDF() {
+    const doc = new jsPDFCtor({ unit: 'pt', format: 'letter' });
 
-    // Always draw header BEFORE table on page 1
+    if (!hasAutoTable(doc)) {
+      console.error('[compat] AutoTable not found on doc. Make sure the AutoTable plugin loads BEFORE this script.');
+      alert('Sorry—PDF table plugin not available.');
+      return;
+    }
+
+    // Always draw header BEFORE the table on page 1
     const startY = drawHeader(doc);
 
-    // Use whichever AutoTable binding exists
-    const autoTable =
-      (JS.API && JS.API.autoTable) ||
-      (window.jspdf?.jsPDF?.API?.autoTable) ||
-      (window.jsPDF?.API?.autoTable);
+    const bodyRows = await buildCompatibilityRows();
 
-    autoTable.call(doc, {
+    doc.autoTable({
       head: [['Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
-      body: rows,
-      startY, // <- puts table right below header on page 1 (v3/v4 supported)
-      margin: { top: 60, left: TOK.margins.left, right: TOK.margins.right, bottom: 60 },
+      body: bodyRows,
+      startY, // force start under header
+      margin: TOK.pageMargins,
       styles:     { textColor:[255,255,255], fillColor:[8,8,10], lineColor:[32,32,40], lineWidth:0.25, valign:'middle' },
       headStyles: { textColor:[0,255,255],   fillColor:[0,0,0],  lineColor:[32,32,40], halign:'left' },
-      // Header on subsequent pages
-      didDrawPage: function (data) {
-        if ((data.pageNumber || doc.internal.getNumberOfPages()) > 1) {
-          drawHeader(data.doc || doc);
+      didDrawPage(data) {
+        // Draw header on subsequent pages too
+        if (doc.internal.getNumberOfPages() > 1 && data.pageNumber > 1) {
+          drawHeader(doc);
         }
-      },
+      }
     });
 
     doc.save('compatibility-pretty-dark.pdf');
-  };
-
-  // Wire button once; remove other older handlers/snippets
-  const btn = document.querySelector('#downloadPdfBtn');
-  if (btn) {
-    btn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      try { await window.generateDarkPDF(); }
-      catch (err) { console.error(err); alert('Sorry—could not generate the PDF.'); }
-    }, { once: false });
   }
+
+  // --------- Kill old handlers and bind ours ----------
+  const btn = document.querySelector('#downloadPdfBtn');
+  if (!btn) { console.warn('[compat] #downloadPdfBtn not found'); return; }
+
+  // Replace node to drop all prior listeners (clean slate)
+  const fresh = btn.cloneNode(true);
+  btn.parentNode.replaceChild(fresh, btn);
+
+  fresh.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try { await generateDarkPDF(); }
+    catch (err) {
+      console.error(err);
+      alert('Sorry—could not generate the PDF.');
+    }
+  });
 })();
 </script>
