@@ -105,6 +105,43 @@
       width: min(680px, 90vw);
     }
   </style>
+  <style id="compat-print-full-bleed">
+    @page {
+      size: auto;
+      margin: 0;
+    }
+
+    @media print {
+      html,
+      body {
+        margin: 0 !important;
+        background: #000;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      body {
+        min-height: 100vh;
+      }
+
+      .compat-page,
+      .compat-wrapper,
+      #compatRoot,
+      main,
+      .page,
+      .container {
+        max-width: none !important;
+        width: 100vw !important;
+        padding: 24px 32px !important;
+        box-sizing: border-box;
+        margin: 0 auto !important;
+      }
+
+      table.compat {
+        width: 100%;
+      }
+    }
+  </style>
 
   <script>
     (function () {
