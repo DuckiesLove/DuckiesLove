@@ -208,34 +208,33 @@
     const CONTENT_W = Math.min(680, W - 96);
     const ML = (W - CONTENT_W) / 2;
     const MR = ML;
-    const CENTER_X = ML + CONTENT_W / 2;
+    // Center X of the CONTENT block (use this for title, timestamp, section headings)
+    const CX = ML + CONTENT_W / 2;
     const TITLE_Y = 46;
     const HEADER_RULE_Y = TITLE_Y + 28;
     const BODY_START_Y = HEADER_RULE_Y + 24;
 
     function paint() {
-      // page bg
+      // page background
       doc.setFillColor(10, 10, 12);
       doc.rect(0, 0, W, H, 'F');
 
-      // title
+      // Title (centered on CONTENT, not full page)
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.text('Talk Kink — Compatibility', CENTER_X, TITLE_Y, { align: 'center' });
+      doc.setFontSize(20);
+      doc.text('TalkKink Compatibility', CX, 50, { align: 'center' });
 
-      // timestamp (SMALLER)
+      // Timestamp (smaller, centered on CONTENT)
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setTextColor(170, 200, 255);
-      doc.text('Generated: ' + new Date().toLocaleString(), CENTER_X, TITLE_Y + 18, {
-        align: 'center'
-      });
+      doc.text('Generated: ' + new Date().toLocaleString(), CX, 64, { align: 'center' });
 
-      // cyan rule
+      // Cyan rule under header, exactly width of CONTENT block
       doc.setDrawColor(0, 255, 255);
-      doc.setLineWidth(1);
-      doc.line(ML, HEADER_RULE_Y, W - MR, HEADER_RULE_Y);
+      if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
+      doc.line(ML, 72, ML + CONTENT_W, 72);
     }
     paint();
 
@@ -278,8 +277,8 @@
     const cat = (t) => {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
-      doc.setTextColor(WHITE);
-      doc.text(t, CENTER_X, y, { align: 'center' });
+      doc.setTextColor(255, 255, 255);
+      doc.text(t, CX, y, { align: 'center' });
       y += 12;
     };
 
