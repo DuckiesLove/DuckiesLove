@@ -1,163 +1,114 @@
 <!-- Drop-in: page-centered header + snug table; AutoTable v3–v4 compatible -->
 <script>
 (function () {
-  const JSPDF_CTORS = [
-    () => window.jspdf?.jsPDF,
-    () => (typeof window.jsPDF === 'function' ? window.jsPDF : null),
-  ];
-  const getJsPdfCtor = () => JSPDF_CTORS.map(fn => {
-    try { return fn(); } catch { return null; }
-  }).find(Boolean);
+  // ---- jsPDF + AutoTable detection ----
+  const JS = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!JS) { console.warn('[compat] jsPDF missing'); return; }
+  const hasAT =
+    !!(JS.API && JS.API.autoTable) ||
+    !!(window.jspdf?.jsPDF?.API?.autoTable) ||
+    !!(window.jsPDF?.API?.autoTable);
+  if (!hasAT) { console.warn('[compat] AutoTable missing'); return; }
 
-  const getAutoTable = () => {
-    const ctor = getJsPdfCtor();
-    if (ctor?.API?.autoTable) return ctor.API.autoTable;
-    if (window.jspdf?.autoTable) return window.jspdf.autoTable;
-    if (window.jsPDF?.API?.autoTable) return window.jsPDF.API.autoTable;
-    return null;
-  };
-
-  const JsPDF = getJsPdfCtor();
-  const autoTableGlobal = getAutoTable();
-
-  if (!JsPDF || !autoTableGlobal) {
-    console.warn('[compat] jsPDF or AutoTable missing');
-    return;
-  }
-
-  const THEME = {
-    cyan: [0, 255, 255],
-    white: [255, 255, 255],
-    stamp: [170, 210, 255],
+  // ---- Style tokens ----
+  const TOK = {
+    cyan: [0,255,255],
+    white: [255,255,255],
+    stamp: [170,210,255],
+    margins: { left: 72, right: 72 },       // keep in sync with AutoTable margins
     title: 'TalkKink Compatibility',
-    section: 'Behavioral Play',
-    topRuleY: 92,
-    sectionY: 118,
-    tableTopMargin: 136,
+    section: 'Behavioral Play'
   };
 
-  function drawCenteredHeader(doc) {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const cx = pageWidth / 2;
+  // Centering mode: 'page' or 'table'
+  const CENTER_MODE = 'page'; // change to 'table' if you want center of table area
 
-    doc.setFont('helvetica', 'bold');
+  function centerX(doc) {
+    const PW = doc.internal.pageSize.getWidth();
+    if (CENTER_MODE === 'table') {
+      const w = PW - TOK.margins.left - TOK.margins.right;
+      return TOK.margins.left + w / 2;
+    }
+    return PW / 2; // page center
+  }
+
+  // Draw the header; return the y where table should start
+  function drawHeader(doc) {
+    const CX = centerX(doc);
+
+    doc.setFont('helvetica','bold');
     doc.setFontSize(28);
-    doc.setTextColor(...THEME.white);
-    doc.text(THEME.title, cx, 64, { align: 'center' });
+    doc.setTextColor(...TOK.white);
+    doc.text(TOK.title, CX, 64, { align: 'center' });
 
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('helvetica','normal');
     doc.setFontSize(9);
-    doc.setTextColor(...THEME.stamp);
-    doc.text('Generated: ' + new Date().toLocaleString(), cx, 82, { align: 'center' });
+    doc.setTextColor(...TOK.stamp);
+    doc.text('Generated: ' + new Date().toLocaleString(), CX, 82, { align: 'center' });
 
-    doc.setDrawColor(...THEME.cyan);
-    if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
-    doc.line(72, THEME.topRuleY, pageWidth - 72, THEME.topRuleY);
+    // divider
+    doc.setDrawColor(...TOK.cyan);
+    doc.setLineWidth?.(1);
+    doc.line(TOK.margins.left, 94, doc.internal.pageSize.getWidth() - TOK.margins.right, 94);
 
-    doc.setFont('helvetica', 'bold');
+    // section
+    doc.setFont('helvetica','bold');
     doc.setFontSize(22);
-    doc.setTextColor(...THEME.white);
-    doc.text(THEME.section, cx, THEME.sectionY, { align: 'center' });
+    doc.setTextColor(...TOK.white);
+    doc.text(TOK.section, CX, 120, { align: 'center' });
+
+    // where the table should start
+    return 138;
   }
 
-  function callAutoTable(doc, options) {
-    if (typeof doc.autoTable === 'function') {
-      return doc.autoTable(options);
+  // Build your rows. Replace with your real builder.
+  async function getRows() {
+    if (typeof window.buildCompatibilityRows === 'function') {
+      return await window.buildCompatibilityRows();
     }
-    if (typeof autoTableGlobal === 'function') {
-      if (autoTableGlobal.length >= 2) {
-        return autoTableGlobal.call(doc, doc, options);
-      }
-      return autoTableGlobal.call(doc, options);
-    }
-    throw new Error('AutoTable plugin unavailable');
+    return []; // fallback
   }
 
-  function normalizeRow(row) {
-    if (!row) return null;
-    if (Array.isArray(row)) {
-      const [item, a, match, flag, b] = row;
-      return [item ?? '', a ?? '', match ?? '', flag ?? '', b ?? ''];
-    }
-    if (typeof row === 'object') {
-      const item = row.Item ?? row.item ?? row.Category ?? row.category ?? row.label ?? row.name ?? '';
-      const a = row['Partner A'] ?? row.partnerA ?? row.PartnerA ?? row.a ?? row.A ?? '';
-      const match = row.Match ?? row.match ?? row.MatchPercent ?? row.percent ?? row.percentage ?? '';
-      const flag = row.Flag ?? row.flag ?? row.note ?? '';
-      const b = row['Partner B'] ?? row.partnerB ?? row.PartnerB ?? row.b ?? row.B ?? '';
-      return [item ?? '', a ?? '', match ?? '', flag ?? '', b ?? ''];
-    }
-    return null;
-  }
+  // Main generator (exported)
+  window.generateDarkPDF = async function () {
+    const doc = new JS({ unit: 'pt', format: 'letter' });
+    const rows = await getRows();
 
-  function extractRowsFromDom() {
-    const table = document.querySelector('#compatibilityTable') ||
-      document.querySelector('.results-table.compat') ||
-      document.querySelector('table');
-    if (!table) return [];
-    const candidates = table.querySelectorAll('tbody tr');
-    const rows = [];
-    const trs = candidates.length ? candidates : table.querySelectorAll('tr');
-    trs.forEach((tr) => {
-      const cells = Array.from(tr.querySelectorAll('td'));
-      if (!cells.length) return;
-      const texts = cells.map(td => td.textContent.trim());
-      if (!texts.some(Boolean)) return;
-      while (texts.length < 5) texts.push('');
-      rows.push(texts.slice(0, 5));
-    });
-    return rows;
-  }
+    // Always draw header BEFORE table on page 1
+    const startY = drawHeader(doc);
 
-  async function resolveRows() {
-    try {
-      if (typeof window.buildCompatibilityRows === 'function') {
-        const built = await window.buildCompatibilityRows();
-        if (Array.isArray(built) && built.length) {
-          const normalized = built.map(normalizeRow).filter(Boolean);
-          if (normalized.length) return normalized;
-        }
-      }
-    } catch (err) {
-      console.warn('[compat] buildCompatibilityRows() failed:', err);
-    }
-    return extractRowsFromDom();
-  }
+    // Use whichever AutoTable binding exists
+    const autoTable =
+      (JS.API && JS.API.autoTable) ||
+      (window.jspdf?.jsPDF?.API?.autoTable) ||
+      (window.jsPDF?.API?.autoTable);
 
-  window.generateDarkPDF = function generateDarkPDF(rows) {
-    const data = Array.isArray(rows) ? rows.map(normalizeRow).filter(Boolean) : [];
-    if (!data.length) {
-      console.warn('[compat] No rows provided for PDF');
-    }
-    const doc = new JsPDF({ unit: 'pt', format: 'letter' });
-    const margin = { top: THEME.tableTopMargin, left: 72, right: 72, bottom: 60 };
-    callAutoTable(doc, {
+    autoTable.call(doc, {
       head: [['Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
-      body: data,
-      margin,
-      tableWidth: 'auto',
-      styles: { textColor: [255, 255, 255], fillColor: [8, 8, 10], lineColor: [32, 32, 40], lineWidth: 0.25, valign: 'middle' },
-      headStyles: { textColor: [0, 255, 255], fillColor: [0, 0, 0], lineColor: [32, 32, 40], halign: 'left' },
-      didDrawPage(details) {
-        const docRef = details?.doc || doc;
-        drawCenteredHeader(docRef);
+      body: rows,
+      startY, // <- puts table right below header on page 1 (v3/v4 supported)
+      margin: { top: 60, left: TOK.margins.left, right: TOK.margins.right, bottom: 60 },
+      styles:     { textColor:[255,255,255], fillColor:[8,8,10], lineColor:[32,32,40], lineWidth:0.25, valign:'middle' },
+      headStyles: { textColor:[0,255,255],   fillColor:[0,0,0],  lineColor:[32,32,40], halign:'left' },
+      // Header on subsequent pages
+      didDrawPage: function (data) {
+        if ((data.pageNumber || doc.internal.getNumberOfPages()) > 1) {
+          drawHeader(data.doc || doc);
+        }
       },
     });
+
     doc.save('compatibility-pretty-dark.pdf');
   };
 
-  document.querySelector('#downloadPdfBtn')?.addEventListener('click', async (event) => {
-    event.preventDefault();
-    try {
-      const rows = await resolveRows();
-      if (!rows.length) {
-        console.warn('[compat] No rows found for export.');
-      }
-      window.generateDarkPDF(rows);
-    } catch (err) {
-      console.error('[compat] PDF generation failed:', err);
-      alert('Sorry—could not generate the PDF.');
-    }
-  });
+  // Wire button once; remove other older handlers/snippets
+  const btn = document.querySelector('#downloadPdfBtn');
+  if (btn) {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try { await window.generateDarkPDF(); }
+      catch (err) { console.error(err); alert('Sorry—could not generate the PDF.'); }
+    }, { once: false });
+  }
 })();
 </script>
