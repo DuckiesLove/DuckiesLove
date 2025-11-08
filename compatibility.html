@@ -1589,6 +1589,9 @@
     const ML = (W - CONTENT_W) / 2;
     const MR = ML;
     const CENTER_X = ML + CONTENT_W / 2;
+    const TITLE_Y = 46;
+    const HEADER_RULE_Y = TITLE_Y + 28;
+    const BODY_START_Y = HEADER_RULE_Y + 24;
 
     function paint() {
       doc.setFillColor(10, 10, 12);
@@ -1596,17 +1599,19 @@
 
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.text('TalkKink Compatibility', CENTER_X, 50, { align: 'center' });
+      doc.setFontSize(22);
+      doc.text('Talk Kink — Compatibility', CENTER_X, TITLE_Y, { align: 'center' });
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setTextColor(170, 200, 255);
-      doc.text('Generated: ' + new Date().toLocaleString(), CENTER_X, 64, { align: 'center' });
+      doc.text('Generated: ' + new Date().toLocaleString(), CENTER_X, TITLE_Y + 18, {
+        align: 'center'
+      });
 
       doc.setDrawColor(0, 255, 255);
       if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
-      doc.line(ML, 72, W - MR, 72);
+      doc.line(ML, HEADER_RULE_Y, W - MR, HEADER_RULE_Y);
     }
     paint();
 
@@ -1678,7 +1683,7 @@
     const hasA = A.length > 0;
     const hasB = B.length > 0;
 
-    let y = 96;
+    let y = BODY_START_Y;
     const cat = (t) => {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
@@ -1806,10 +1811,10 @@
         });
 
         y = doc.lastAutoTable.finalY + 18;
-        if (y > H - 72) {
+        if (y > H - HEADER_RULE_Y) {
           doc.addPage();
           paint();
-          y = 96;
+          y = BODY_START_Y;
         }
       }
     } else {
@@ -1831,10 +1836,10 @@
           }
         });
         y = doc.lastAutoTable.finalY + 18;
-        if (y > H - 72) {
+        if (y > H - HEADER_RULE_Y) {
           doc.addPage();
           paint();
-          y = 96;
+          y = BODY_START_Y;
         }
       }
     }
