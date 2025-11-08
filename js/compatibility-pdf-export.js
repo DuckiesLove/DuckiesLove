@@ -149,12 +149,14 @@
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
-    doc.text("Talk Kink — Compatibility", 24, 36);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const titleY = 40;
+    doc.text("Talk Kink — Compatibility", pageWidth / 2, titleY, { align: "center" });
+
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     const ts = new Date().toLocaleString();
-    const w = doc.internal.pageSize.getWidth();
-    doc.text(ts, w - 24, 24, { align: "right" });
+    doc.text(ts, pageWidth / 2, titleY + 18, { align: "center" });
 
     const data = tableToData(table, labelMap);
 
@@ -165,7 +167,7 @@
         body: data.body,
         theme: "plain",
         margin: 0,           // NO margins
-        startY: 52,          // leave a small space for the title line
+        startY: titleY + 28, // leave space for the centered header + timestamp
         styles: {
           fillColor: [0, 0, 0],
           textColor: [255, 255, 255],
@@ -196,21 +198,21 @@
           doc.setTextColor(255, 255, 255);
           doc.setFont("helvetica", "bold");
           doc.setFontSize(22);
-          doc.text("Talk Kink — Compatibility", 24, 36);
+          const pw = doc.internal.pageSize.getWidth();
+          doc.text("Talk Kink — Compatibility", pw / 2, titleY, { align: "center" });
           doc.setFontSize(10);
           doc.setFont("helvetica", "normal");
           const ts2 = new Date().toLocaleString();
-          const w2 = doc.internal.pageSize.getWidth();
-          doc.text(ts2, w2 - 24, 24, { align: "right" });
+          doc.text(ts2, pw / 2, titleY + 18, { align: "center" });
         }
       });
     } else {
       // Minimal fallback (no AutoTable): draw a simple text grid
-      const left = 24, top = 56, lh = 16, colGap = 12;
-      const colWidths = [w * 0.55, 80, 100, 80];
+      const left = 24, top = titleY + 28, lh = 16, colGap = 12;
+      const colWidths = [pageWidth * 0.55, 80, 100, 80];
 
       doc.setFont("helvetica", "bold"); doc.setFontSize(11);
-      doc.text(data.head[0] || "Category", left, top);
+      doc.text(data.head[0] || "Category", pageWidth / 2, top, { align: "center" });
       let x = left + colWidths[0] + colGap;
       for (let i = 1; i < data.head.length; i++) {
         doc.text(String(data.head[i]), x, top);
@@ -229,7 +231,17 @@
         if (y > doc.internal.pageSize.getHeight() - 24) {
           doc.addPage();
           fillBlackBackground(doc);
-          y = 36;
+          doc.setTextColor(255, 255, 255);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(22);
+          const pw2 = doc.internal.pageSize.getWidth();
+          doc.text("Talk Kink — Compatibility", pw2 / 2, titleY, { align: "center" });
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
+          doc.text(new Date().toLocaleString(), pw2 / 2, titleY + 18, { align: "center" });
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          y = top + 10;
         }
       }
     }
