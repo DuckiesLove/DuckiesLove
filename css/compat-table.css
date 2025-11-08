@@ -33,6 +33,7 @@ table.compat thead th.match,
 table.compat thead th.flag,
 table.compat thead th.pb {
   text-align: left;
+  white-space: nowrap;
 }
 
 /* Category title row */
