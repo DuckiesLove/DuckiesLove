@@ -208,6 +208,10 @@
     const CONTENT_W = Math.min(680, W - 96);
     const ML = (W - CONTENT_W) / 2;
     const MR = ML;
+    const CENTER_X = ML + CONTENT_W / 2;
+    const TITLE_Y = 46;
+    const HEADER_RULE_Y = TITLE_Y + 28;
+    const BODY_START_Y = HEADER_RULE_Y + 24;
 
     function paint() {
       // page bg
@@ -217,19 +221,21 @@
       // title
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.text('TalkKink Compatibility', W / 2, 50, { align: 'center' });
+      doc.setFontSize(22);
+      doc.text('Talk Kink — Compatibility', CENTER_X, TITLE_Y, { align: 'center' });
 
       // timestamp (SMALLER)
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setTextColor(170, 200, 255);
-      doc.text('Generated: ' + new Date().toLocaleString(), W / 2, 64, { align: 'center' });
+      doc.text('Generated: ' + new Date().toLocaleString(), CENTER_X, TITLE_Y + 18, {
+        align: 'center'
+      });
 
       // cyan rule
       doc.setDrawColor(0, 255, 255);
       doc.setLineWidth(1);
-      doc.line(ML, 72, W - MR, 72);
+      doc.line(ML, HEADER_RULE_Y, W - MR, HEADER_RULE_Y);
     }
     paint();
 
@@ -268,12 +274,12 @@
     const hasA = A.length > 0;
     const hasB = B.length > 0;
 
-    let y = 96;
+    let y = BODY_START_Y;
     const cat = (t) => {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
       doc.setTextColor(WHITE);
-      doc.text(t, W / 2, y, { align: 'center' });
+      doc.text(t, CENTER_X, y, { align: 'center' });
       y += 12;
     };
 
@@ -308,10 +314,10 @@
           }
         });
         y = doc.lastAutoTable.finalY + 18;
-        if (y > H - 72) {
+        if (y > H - HEADER_RULE_Y) {
           doc.addPage();
           paint();
-          y = 96;
+          y = BODY_START_Y;
         }
       }
     } else {
@@ -339,10 +345,10 @@
           }
         });
         y = doc.lastAutoTable.finalY + 18;
-        if (y > H - 72) {
+        if (y > H - HEADER_RULE_Y) {
           doc.addPage();
           paint();
-          y = 96;
+          y = BODY_START_Y;
         }
       }
     }
