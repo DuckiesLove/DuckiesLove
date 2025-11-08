@@ -587,87 +587,106 @@
 
   </main>
 
-  <!-- CODEX: FORCE-CENTER title, timestamp, and section headers over the TABLE block.
-       Drop this in compatibility.html and REPLACE your current header + category code with it.
-       It also guards against “old paint() still running” by moving all drawing into the
-       autoTable didDrawPage hook so it runs once per page and ONLY from this code. -->
+  <!-- CENTER HEADER/TIMESTAMP/SECTION TO THE TABLE BELOW
+  Paste AFTER jsPDF + jspdf-autotable are loaded, and call tkCenteredHeaderAndTable(...)
+  instead of any old paint()/cat(). This computes the center using the same margin/width
+  you pass to autoTable, so the texts align perfectly over the table. -->
 
   <script>
-    (function TKCenterHeader() {
-      // 1) Single source of truth for layout (content box + center)
-      function layoutFor(doc) {
-        const W = doc.internal.pageSize.getWidth();
-        const H = doc.internal.pageSize.getHeight();
-        const CONTENT_W = Math.min(680, W - 96); // keep your chosen content width
-        const ML = (W - CONTENT_W) / 2; // left margin so table is centered
-        const MR = ML;
-        const CX = ML + CONTENT_W / 2; // <-- CENTER of content block
-        return { W, H, CONTENT_W, ML, MR, CX };
+    (() => {
+      // Disable any legacy painters so nothing re-draws on top
+      ['paint', 'cat', 'drawHeader', 'centerHeader'].forEach((name) => {
+        if (typeof window[name] === 'function') window[name] = function () {};
+      });
+
+      // Compute content box and center based on the *table options* you provide
+      function tableLayoutFromOpts(doc, tableOpts = {}) {
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = tableOpts.margin || {};
+
+        const defaultWidth = Math.min(680, pageW - 96);
+        const ml = Number.isFinite(margin.left) ? margin.left : (pageW - defaultWidth) / 2;
+        const mr = Number.isFinite(margin.right) ? margin.right : ml;
+
+        let tw = tableOpts.tableWidth;
+        if (!Number.isFinite(tw)) tw = Math.min(defaultWidth, pageW - (ml + mr));
+
+        const cx = ml + tw / 2;
+        return { pageW, pageH, ml, mr, tw, cx };
       }
 
-      // 2) Draw header (uses content center, not page center)
-      function drawHeader(doc) {
-        const L = layoutFor(doc);
-        // Ensure dark background on every page before drawing header chrome
+      function drawHeader(doc, cx) {
         doc.setFillColor(10, 10, 12);
-        doc.rect(0, 0, L.W, L.H, 'F');
-        // bg is already dark; we only add header chrome:
-        doc.setTextColor(255, 255, 255);
+        doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
+
+        // Title
+        doc.setTextColor(240, 240, 240);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.text('TalkKink Compatibility', L.CX, 56, { align: 'center' });
+        doc.setFontSize(24);
+        doc.text('TalkKink Compatibility', cx, 56, { align: 'center' });
+
+        // Timestamp (smaller)
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(170, 200, 255);
-        doc.text('Generated: ' + new Date().toLocaleString(), L.CX, 70, { align: 'center' });
-
-        doc.setDrawColor(0, 255, 255);
-        if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
-        doc.line(L.ML, 78, L.ML + L.CONTENT_W, 78); // underline only across content width
+        doc.setTextColor(160, 200, 255);
+        doc.text('Generated: ' + new Date().toLocaleString(), cx, 70, { align: 'center' });
       }
 
-      // 3) Section title helper (centered on content)
-      function sectionTitle(doc, y, label) {
-        const L = layoutFor(doc);
+      function drawRule(doc, ml, tw) {
+        doc.setDrawColor(0, 255, 255);
+        if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
+        doc.line(ml, 78, ml + tw, 78);
+      }
+
+      function drawSection(doc, cx, label, y) {
+        const baseline = Number.isFinite(y) ? y : 96;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(18);
         doc.setTextColor(255, 255, 255);
-        doc.text(String(label), L.CX, y, { align: 'center' });
-        return y + 14;
+        doc.text(String(label), cx, baseline, { align: 'center' });
+        return baseline + 12;
       }
 
-      // 4) PUBLIC hook to start a centered section + table
-      //    Use this instead of any old paint()/cat() you had.
-      window.tkCenteredSectionTable = function tkCenteredSectionTable(doc, opts) {
-        const L = layoutFor(doc);
-        // a) draw header on this page (and all subsequent pages done in didDrawPage)
-        drawHeader(doc);
+      // Public: render header + section centered to the table, then the table
+      window.tkCenteredHeaderAndTable = function (doc, options = {}) {
+        const tableOpts = options.table || {};
+        const layout = tableLayoutFromOpts(doc, tableOpts);
+        const sectionTitle = options.sectionTitle ?? options.title ?? 'Section';
 
-        // b) section header
-        let y = opts?.startY ?? 96;
-        y = sectionTitle(doc, y, opts?.title || 'Section');
+        drawHeader(doc, layout.cx);
+        drawRule(doc, layout.ml, layout.tw);
+        const startY = drawSection(doc, layout.cx, sectionTitle, options.startY);
 
-        // c) your autoTable call, but forced to content width/margins
-        const providedTable = opts?.table || {};
-        const { didDrawPage: providedDidDrawPage, ...restTable } = providedTable;
+        const {
+          didDrawPage: providedDidDrawPage,
+          margin: providedMargin = {},
+          tableWidth,
+          startY: providedStartY,
+          ...restTable
+        } = tableOpts;
+
+        const mergedMargin = { ...providedMargin };
+        if (!Number.isFinite(mergedMargin.left)) mergedMargin.left = layout.ml;
+        if (!Number.isFinite(mergedMargin.right)) mergedMargin.right = layout.mr;
+
+        const finalTableWidth = Number.isFinite(tableWidth) ? tableWidth : layout.tw;
+        const autoTableStart = Number.isFinite(providedStartY) ? providedStartY : startY;
+
         doc.autoTable({
-          ...restTable, // your head/body/styles
-          startY: restTable.startY ?? y,
-          tableWidth: L.CONTENT_W,
-          margin: { left: L.ML, right: L.MR },
+          ...restTable,
+          startY: autoTableStart,
+          margin: mergedMargin,
+          tableWidth: finalTableWidth,
           didDrawPage: (data) => {
-            drawHeader(doc); // ensure header alignment on every page
+            drawHeader(doc, layout.cx);
+            drawRule(doc, layout.ml, layout.tw);
             if (typeof providedDidDrawPage === 'function') providedDidDrawPage(data);
           }
         });
-        return doc.lastAutoTable?.finalY || y;
-      };
 
-      // 5) OPTIONAL: migrate legacy W/2 calls automatically (defensive).
-      //    If any old code still calls doc.text(..., W/2, ...), it won’t center
-      //    on the content block. Search & replace them in your file:
-      //      W/2  -> layoutFor(doc).CX
-      //    or remove the old paint()/cat() entirely and use tkCenteredSectionTable.
+        return doc.lastAutoTable?.finalY ?? startY;
+      };
     })();
   </script>
 
@@ -1682,9 +1701,9 @@
     const YELLOW = [255, 210, 70];
     const RED = [255, 86, 86];
 
-    const centerSectionTable = window.tkCenteredSectionTable;
+    const centerSectionTable = window.tkCenteredHeaderAndTable;
     if (typeof centerSectionTable !== 'function') {
-      throw new Error('tkCenteredSectionTable helper unavailable');
+      throw new Error('tkCenteredHeaderAndTable helper unavailable');
     }
 
     const base = {
@@ -1714,7 +1733,7 @@
       const tableStart =
         tableStartOverride == null ? nextSectionStart + TABLE_OFFSET : tableStartOverride;
       const finalY = centerSectionTable(doc, {
-        title,
+        sectionTitle: title,
         startY: nextSectionStart,
         table: {
           ...base,
