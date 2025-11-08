@@ -43,6 +43,7 @@ table.compat thead th.pb {
   border-top: none;
   border-bottom: none;
   padding: 14px 12px !important;
+  text-align: center;
 }
 
 /* Keep each category block together */
