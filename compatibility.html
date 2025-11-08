@@ -630,8 +630,22 @@
       return { width, ml, mr, tw, cx: ml + tw / 2 };
     }
 
-    function resolveHeaderCenters(doc, alignTarget, tableOpts = {}) {
+    function resolveHeaderCenters(doc, alignTarget, tableOpts = {}, tableData) {
       if (alignTarget === 'table') {
+        const table = tableData?.table;
+        const startX = Number.isFinite(table?.startX)
+          ? table.startX
+          : Number.isFinite(table?.x)
+            ? table.x
+            : null;
+        const width = Number.isFinite(table?.width)
+          ? table.width
+          : Number.isFinite(table?.finalWidth)
+            ? table.finalWidth
+            : null;
+        if (startX != null && width != null) {
+          return { cx: startX + width / 2, ruleL: startX, ruleR: startX + width };
+        }
         const box = tableBox(doc, tableOpts);
         return { cx: box.cx, ruleL: box.ml, ruleR: box.ml + box.tw };
       }
@@ -644,31 +658,46 @@
       };
     }
 
-    function drawPageHeader(doc, centers, sectionTitle, sectionBaseline) {
+    function drawPageHeader(doc, centers, sectionTitle, sectionBaseline, options = {}) {
+      const {
+        drawBackground = true,
+        drawText = true,
+        drawRule = true,
+        drawSection = true
+      } = options;
+
       const PW = pageWidth(doc);
       const PH = pageHeight(doc);
-      doc.setFillColor(10, 10, 12);
-      doc.rect(0, 0, PW, PH, 'F');
+      if (drawBackground) {
+        doc.setFillColor(10, 10, 12);
+        doc.rect(0, 0, PW, PH, 'F');
+      }
 
-      doc.setTextColor(240, 240, 240);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(FS.title);
-      doc.text('TalkKink Compatibility', centers.cx, Y.title, { align: 'center' });
+      if (drawText) {
+        doc.setTextColor(240, 240, 240);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(FS.title);
+        doc.text('TalkKink Compatibility', centers.cx, Y.title, { align: 'center' });
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(FS.stamp);
-      doc.setTextColor(160, 200, 255);
-      doc.text('Generated: ' + new Date().toLocaleString(), centers.cx, Y.stamp, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FS.stamp);
+        doc.setTextColor(160, 200, 255);
+        doc.text('Generated: ' + new Date().toLocaleString(), centers.cx, Y.stamp, { align: 'center' });
+      }
 
-      doc.setDrawColor(...CYAN);
-      if (typeof doc.setLineWidth === 'function') doc.setLineWidth(RULE_W);
-      doc.line(centers.ruleL, Y.rule, centers.ruleR, Y.rule);
+      if (drawRule) {
+        doc.setDrawColor(...CYAN);
+        if (typeof doc.setLineWidth === 'function') doc.setLineWidth(RULE_W);
+        doc.line(centers.ruleL, Y.rule, centers.ruleR, Y.rule);
+      }
 
-      const sectionY = Number.isFinite(sectionBaseline) ? sectionBaseline : Y.section;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(FS.section);
-      doc.setTextColor(255, 255, 255);
-      doc.text(String(sectionTitle || 'Behavioral Play'), centers.cx, sectionY, { align: 'center' });
+      if (drawSection) {
+        const sectionY = Number.isFinite(sectionBaseline) ? sectionBaseline : Y.section;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(FS.section);
+        doc.setTextColor(255, 255, 255);
+        doc.text(String(sectionTitle || 'Behavioral Play'), centers.cx, sectionY, { align: 'center' });
+      }
     }
 
     function isPlainObject(value) {
@@ -698,6 +727,7 @@
       }
 
       const rawAlignTarget = alignTarget || tableOpts.headerAlignTarget || 'page';
+      const providedWillDrawPage = tableOpts.willDrawPage;
       const providedDidDrawPage = tableOpts.didDrawPage;
       const explicitStartY = tableOpts.startY;
 
@@ -712,19 +742,27 @@
       delete tableOpts.alignTarget;
       delete tableOpts.headerAlignTarget;
       delete tableOpts.sectionY;
+      delete tableOpts.willDrawPage;
+      delete tableOpts.didDrawPage;
 
-      const paintHeader = () => {
-        const centers = resolveHeaderCenters(doc, rawAlignTarget, tableOpts);
-        drawPageHeader(doc, centers, sectionTitle, headerBaseline);
+      const paintHeader = (data, options = {}) => {
+        const centers = resolveHeaderCenters(doc, rawAlignTarget, tableOpts, data);
+        drawPageHeader(doc, centers, sectionTitle, headerBaseline, options);
       };
-
-      paintHeader();
 
       doc.autoTable({
         ...tableOpts,
         startY: resolvedStartY,
+        willDrawPage: (data) => {
+          paintHeader(rawAlignTarget === 'table' ? data : null, {
+            drawText: false,
+            drawRule: false,
+            drawSection: false
+          });
+          if (typeof providedWillDrawPage === 'function') providedWillDrawPage(data);
+        },
         didDrawPage: (data) => {
-          paintHeader();
+          paintHeader(data, { drawBackground: false });
           if (typeof providedDidDrawPage === 'function') providedDidDrawPage(data);
         }
       });
