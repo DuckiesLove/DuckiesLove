@@ -1590,31 +1590,30 @@
     const MR = ML;
     // Center X of the CONTENT block (use this for title, timestamp, section headings)
     const CX = ML + CONTENT_W / 2;
-    const TITLE_Y = 46;
-    const HEADER_RULE_Y = TITLE_Y + 28;
-    const BODY_START_Y = HEADER_RULE_Y + 24;
+    const HEADER_RULE_Y = 78;
+    const BODY_START_Y = 108;
 
     function paint() {
-      // page background
+      // page bg
       doc.setFillColor(10, 10, 12);
       doc.rect(0, 0, W, H, 'F');
 
-      // Title (centered on CONTENT, not full page)
+      // Title (centered on CONTENT)
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.text('TalkKink Compatibility', CX, 50, { align: 'center' });
+      doc.setFontSize(22);
+      doc.text('TalkKink Compatibility', CX, 56, { align: 'center' });
 
-      // Timestamp (smaller, centered on CONTENT)
+      // Timestamp (smaller)
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setTextColor(170, 200, 255);
-      doc.text('Generated: ' + new Date().toLocaleString(), CX, 64, { align: 'center' });
+      doc.text('Generated: ' + new Date().toLocaleString(), CX, 70, { align: 'center' });
 
-      // Cyan rule under header, exactly width of CONTENT block
+      // Underline across CONTENT width
       doc.setDrawColor(0, 255, 255);
       if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
-      doc.line(ML, 72, ML + CONTENT_W, 72);
+      doc.line(ML, 78, ML + CONTENT_W, 78);
     }
     paint();
 
@@ -1689,10 +1688,10 @@
     let y = BODY_START_Y;
     function cat(label) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
+      doc.setFontSize(18);
       doc.setTextColor(255, 255, 255);
       doc.text(String(label), CX, y, { align: 'center' });
-      y += 12;
+      y += 14;
     }
 
     function buildAB(Arows, Brows) {
