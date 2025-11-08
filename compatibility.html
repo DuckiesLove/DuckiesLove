@@ -587,107 +587,130 @@
 
   </main>
 
-  <!-- CENTER HEADER/TIMESTAMP/SECTION TO THE TABLE BELOW
-  Paste AFTER jsPDF + jspdf-autotable are loaded, and call tkCenteredHeaderAndTable(...)
-  instead of any old paint()/cat(). This computes the center using the same margin/width
-  you pass to autoTable, so the texts align perfectly over the table. -->
-
+  <!-- TK: Header + Section CENTERED TO PAGE (not the table) -->
   <script>
-    (() => {
-      // Disable any legacy painters so nothing re-draws on top
-      ['paint', 'cat', 'drawHeader', 'centerHeader'].forEach((name) => {
-        if (typeof window[name] === 'function') window[name] = function () {};
-      });
+  (() => {
+    // ------- TUNING KNOBS (page-centered) -------
+    const TITLE_FS = 28;      // title font-size
+    const STAMP_FS = 8;       // timestamp font-size
+    const SEC_FS   = 20;      // section title font-size
+    const Y_TITLE  = 56;      // title baseline Y
+    const Y_STAMP  = 70;      // timestamp baseline Y
+    const Y_RULE   = 78;      // underline Y
+    const RULE_W   = 1;       // underline thickness (pt)
+    const Y_SEC    = 96;      // section title Y
+    const TABLE_TOP= 110;     // table startY
+    const PAGE_ML  = 64;      // left page margin for underline
+    const PAGE_MR  = 64;      // right page margin for underline
+    const CYAN     = [0,255,255];
 
-      // Compute content box and center based on the *table options* you provide
-      function tableLayoutFromOpts(doc, tableOpts = {}) {
-        const pageW = doc.internal.pageSize.getWidth();
-        const pageH = doc.internal.pageSize.getHeight();
-        const margin = tableOpts.margin || {};
+    // Guard: prevent any legacy painters from overwriting
+    ['paint','cat','drawHeader','centerHeader','tkCenteredHeaderAndTable','tkPageCenteredHeaderAndTable'].forEach((name)=>{
+      if (typeof window[name] === 'function') window[name] = function(){};
+    });
 
-        const defaultWidth = Math.min(680, pageW - 96);
-        const ml = Number.isFinite(margin.left) ? margin.left : (pageW - defaultWidth) / 2;
-        const mr = Number.isFinite(margin.right) ? margin.right : ml;
+    function pageCenter(doc){
+      return doc.internal.pageSize.getWidth() / 2;
+    }
 
-        let tw = tableOpts.tableWidth;
-        if (!Number.isFinite(tw)) tw = Math.min(defaultWidth, pageW - (ml + mr));
+    function pageUnderlineBounds(doc){
+      const width = doc.internal.pageSize.getWidth();
+      return { x1: PAGE_ML, x2: width - PAGE_MR };
+    }
 
-        const cx = ml + tw / 2;
-        return { pageW, pageH, ml, mr, tw, cx };
+    function tableLayoutFromOpts(doc, tableOpts = {}) {
+      const pageW = doc.internal.pageSize.getWidth();
+      const margin = tableOpts.margin || {};
+      const defaultWidth = Math.min(680, pageW - 96);
+      const ml = Number.isFinite(margin.left) ? margin.left : (pageW - defaultWidth) / 2;
+      const mr = Number.isFinite(margin.right) ? margin.right : ml;
+      let tw = tableOpts.tableWidth;
+      if (!Number.isFinite(tw)) tw = Math.min(defaultWidth, pageW - (ml + mr));
+      return { pageW, ml, mr, tw };
+    }
+
+    function drawPageCenteredHeader(doc){
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      doc.setFillColor(10, 10, 12);
+      doc.rect(0, 0, pageW, pageH, 'F');
+
+      const cx = pageCenter(doc);
+
+      doc.setTextColor(240, 240, 240);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(TITLE_FS);
+      doc.text('TalkKink Compatibility', cx, Y_TITLE, { align: 'center' });
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(STAMP_FS);
+      doc.setTextColor(160, 200, 255);
+      doc.text('Generated: ' + new Date().toLocaleString(), cx, Y_STAMP, { align: 'center' });
+
+      const { x1, x2 } = pageUnderlineBounds(doc);
+      doc.setDrawColor(...CYAN);
+      if (typeof doc.setLineWidth === 'function') doc.setLineWidth(RULE_W);
+      doc.line(x1, Y_RULE, x2, Y_RULE);
+    }
+
+    function drawPageCenteredSection(doc, label, baseline){
+      const cx = pageCenter(doc);
+      const y = Number.isFinite(baseline) ? baseline : Y_SEC;
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(SEC_FS);
+      doc.setTextColor(255, 255, 255);
+      doc.text(String(label || 'Section'), cx, y, { align: 'center' });
+      return y;
+    }
+
+    window.tkPageCenteredHeaderAndTable = function(doc, options = {}){
+      if (!doc || typeof doc.autoTable !== 'function') {
+        throw new Error('autoTable is required before calling tkPageCenteredHeaderAndTable');
       }
 
-      function drawHeader(doc, cx) {
-        doc.setFillColor(10, 10, 12);
-        doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
+      const sectionTitle = options.sectionTitle ?? options.title ?? 'Behavioral Play';
+      const sectionBaseline = Number.isFinite(options.startY) ? options.startY : Y_SEC;
+      const tableOpts = options.table || {};
 
-        // Title
-        doc.setTextColor(240, 240, 240);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(24);
-        doc.text('TalkKink Compatibility', cx, 56, { align: 'center' });
+      const layout = tableLayoutFromOpts(doc, tableOpts);
+      const {
+        didDrawPage: providedDidDrawPage,
+        margin: providedMargin = {},
+        startY: providedStartY,
+        tableWidth,
+        ...restTable
+      } = tableOpts;
 
-        // Timestamp (smaller)
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(160, 200, 255);
-        doc.text('Generated: ' + new Date().toLocaleString(), cx, 70, { align: 'center' });
-      }
+      const mergedMargin = { ...providedMargin };
+      if (!Number.isFinite(mergedMargin.left)) mergedMargin.left = layout.ml;
+      if (!Number.isFinite(mergedMargin.right)) mergedMargin.right = layout.mr;
 
-      function drawRule(doc, ml, tw) {
-        doc.setDrawColor(0, 255, 255);
-        if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
-        doc.line(ml, 78, ml + tw, 78);
-      }
+      const finalTableWidth = Number.isFinite(tableWidth) ? tableWidth : layout.tw;
+      const tableStart = Number.isFinite(providedStartY)
+        ? providedStartY
+        : Math.max(TABLE_TOP, sectionBaseline + 12);
 
-      function drawSection(doc, cx, label, y) {
-        const baseline = Number.isFinite(y) ? y : 96;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.setTextColor(255, 255, 255);
-        doc.text(String(label), cx, baseline, { align: 'center' });
-        return baseline + 12;
-      }
+      drawPageCenteredHeader(doc);
+      drawPageCenteredSection(doc, sectionTitle, sectionBaseline);
 
-      // Public: render header + section centered to the table, then the table
-      window.tkCenteredHeaderAndTable = function (doc, options = {}) {
-        const tableOpts = options.table || {};
-        const layout = tableLayoutFromOpts(doc, tableOpts);
-        const sectionTitle = options.sectionTitle ?? options.title ?? 'Section';
-
-        drawHeader(doc, layout.cx);
-        drawRule(doc, layout.ml, layout.tw);
-        const startY = drawSection(doc, layout.cx, sectionTitle, options.startY);
-
-        const {
-          didDrawPage: providedDidDrawPage,
-          margin: providedMargin = {},
-          tableWidth,
-          startY: providedStartY,
-          ...restTable
-        } = tableOpts;
-
-        const mergedMargin = { ...providedMargin };
-        if (!Number.isFinite(mergedMargin.left)) mergedMargin.left = layout.ml;
-        if (!Number.isFinite(mergedMargin.right)) mergedMargin.right = layout.mr;
-
-        const finalTableWidth = Number.isFinite(tableWidth) ? tableWidth : layout.tw;
-        const autoTableStart = Number.isFinite(providedStartY) ? providedStartY : startY;
-
-        doc.autoTable({
-          ...restTable,
-          startY: autoTableStart,
-          margin: mergedMargin,
-          tableWidth: finalTableWidth,
-          didDrawPage: (data) => {
-            drawHeader(doc, layout.cx);
-            drawRule(doc, layout.ml, layout.tw);
-            if (typeof providedDidDrawPage === 'function') providedDidDrawPage(data);
-          }
-        });
-
-        return doc.lastAutoTable?.finalY ?? startY;
+      const tableArgs = {
+        ...restTable,
+        startY: tableStart,
+        tableWidth: finalTableWidth,
+        didDrawPage: (data) => {
+          drawPageCenteredHeader(doc);
+          if (typeof providedDidDrawPage === 'function') providedDidDrawPage(data);
+        }
       };
-    })();
+
+      tableArgs.margin = mergedMargin;
+
+      doc.autoTable(tableArgs);
+      return doc.lastAutoTable?.finalY ?? tableStart;
+    };
+
+    window.tkCenteredHeaderAndTable = window.tkPageCenteredHeaderAndTable;
+  })();
   </script>
 
   <script>
@@ -1701,9 +1724,10 @@
     const YELLOW = [255, 210, 70];
     const RED = [255, 86, 86];
 
-    const centerSectionTable = window.tkCenteredHeaderAndTable;
+    const centerSectionTable =
+      window.tkPageCenteredHeaderAndTable || window.tkCenteredHeaderAndTable;
     if (typeof centerSectionTable !== 'function') {
-      throw new Error('tkCenteredHeaderAndTable helper unavailable');
+      throw new Error('tkPageCenteredHeaderAndTable helper unavailable');
     }
 
     const base = {
