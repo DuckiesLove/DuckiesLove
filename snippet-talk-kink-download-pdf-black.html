@@ -5,6 +5,120 @@
   <title>TalkKink — Download PDF (Black Theme)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 
+  <script>
+  ;(() => {
+    /***** 1) OPTIONAL: kill demo fallback entirely (keeps buttons from exporting stale PDFs) *****/
+    // If the snippet checks a flag before using its hard-coded demo, set it here:
+    window.TK_DISABLE_PDF_DEMO = true; // the snippet should prefer real data when present anyway
+
+    /***** 2) Helper: publish the globals the snippet needs *****/
+    function publishToExporter(questions, answersMap) {
+      if (!Array.isArray(questions) || !(answersMap instanceof Map)) {
+        console.error('[pdf-bridge] Invalid data. Need questions:Array and answers:Map');
+        return;
+      }
+      window.QUESTIONS = questions;
+      window.answers   = answersMap;
+
+      // Let late listeners (including the snippet) know data is ready/updated
+      try {
+        window.dispatchEvent(new CustomEvent('tk-export-data-ready', {
+          detail: { count: questions.length, answered: answersMap.size }
+        }));
+      } catch {}
+      console.info('[pdf-bridge] Export data published:', { q: questions.length, a: answersMap.size });
+    }
+
+    /***** 3) Adapters — convert your existing sources to {QUESTIONS, answers Map} *****/
+
+    // 3a) From live FORM state (edit this to your form’s structures)
+    function collectFromForm() {
+      // EXAMPLE shape — replace with your real form model if you use one
+      // Return { questions: [{id,label}], answers: Map }
+      const q = [];                   // e.g., gather from DOM or app state
+      const a = new Map();            // e.g., new Map([['q1', 4], ['q2', 1], ...])
+      // TODO: fill q/a based on your app’s live data
+      return (q.length && a.size) ? { questions: q, answers: a } : null;
+    }
+
+    // 3b) From uploaded JSON (yourJSON / partnerJSON).
+    // Supports a couple of common shapes; tweak if your schema differs.
+    function collectFromUploadedJSON() {
+      const sources = [window.yourJSON, window.partnerJSON].filter(Boolean);
+      if (!sources.length) return null;
+
+      // Build a unique list of questions (order preserved by first appearance)
+      const qMap = new Map(); // id -> {id,label,...}
+      const answers = new Map();
+
+      for (const src of sources) {
+        // Accept shapes like:
+        //   src.questions = [{id, label, ...}]
+        //   src.items     = [{id, label, ...}]
+        //   src.answers   = { id: score, ... } OR [{id, score}] OR Map
+        const items = Array.isArray(src.questions) ? src.questions
+                    : Array.isArray(src.items)     ? src.items
+                    : [];
+
+        for (const it of items) {
+          if (!it || !it.id) continue;
+          if (!qMap.has(it.id)) qMap.set(it.id, { id: it.id, label: it.label || it.text || String(it.id) });
+        }
+
+        const rawAns = src.answers ?? src.response ?? src.scores;
+        if (rawAns instanceof Map) {
+          for (const [id, val] of rawAns) if (id) answers.set(String(id), Number(val));
+        } else if (Array.isArray(rawAns)) {
+          for (const row of rawAns) if (row && row.id != null) answers.set(String(row.id), Number(row.score ?? row.value ?? row.answer));
+        } else if (rawAns && typeof rawAns === 'object') {
+          for (const id of Object.keys(rawAns)) answers.set(String(id), Number(rawAns[id]));
+        }
+      }
+
+      if (!qMap.size || !answers.size) return null;
+      return { questions: Array.from(qMap.values()), answers };
+    }
+
+    /***** 4) Selection logic — prefer live form, then uploaded JSON *****/
+    function resolveData() {
+      return (
+        collectFromForm() ||
+        collectFromUploadedJSON()
+      );
+    }
+
+    /***** 5) Initial publish (runs before the snippet if you include this ABOVE it) *****/
+    const found = resolveData();
+    if (found) publishToExporter(found.questions, found.answers);
+
+    /***** 6) Keep it fresh — whenever your app state changes, republish *****/
+    // If you have your own events, hook them here and call publishToExporter(...)
+    // Example: after uploads finish
+    window.addEventListener('tk-uploads-changed', () => {
+      const latest = resolveData();
+      if (latest) publishToExporter(latest.questions, latest.answers);
+    });
+
+    // Example: after form save
+    window.addEventListener('tk-form-saved', () => {
+      const latest = collectFromForm();
+      if (latest) publishToExporter(latest.questions, latest.answers);
+    });
+
+    /***** 7) Safety: expose a manual way to push data from anywhere in your app *****/
+    window.tkPushPdfData = (questions, answersLike) => {
+      const map = answersLike instanceof Map
+        ? answersLike
+        : new Map(
+            Array.isArray(answersLike)
+              ? answersLike.map(([id,val]) => [String(id), Number(val)])
+              : Object.entries(answersLike || {}).map(([id,val]) => [String(id), Number(val)])
+          );
+      publishToExporter(questions, map);
+    };
+  })();
+  </script>
+
   <!-- jsPDF + AutoTable (client-side) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
