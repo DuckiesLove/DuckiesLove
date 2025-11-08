@@ -587,137 +587,149 @@
 
   </main>
 
-  <!-- TK: Header + Section CENTERED TO PAGE (not the table) -->
+  <!-- TK: Page-centered header helper -->
   <script>
   (() => {
-    // -------------------- TUNING --------------------
-    const FS = {
-      title: 28,
-      stamp: 8,
-      section: 20
-    };
-    const Y = {
-      title: 56,
-      stamp: 70,
-      rule:  78,
-      section: 96,
-      tableTop: 110
-    };
-    const PAGE_RULE_MARGIN = { left: 64, right: 64 }; // only used when alignTarget:'page'
-    const CYAN = [0,255,255];
+    const FS = { title: 28, stamp: 8, section: 20 };
+    const Y = { title: 56, stamp: 70, rule: 78, section: 96, tableTop: 110 };
+    const CYAN = [0, 255, 255];
     const RULE_W = 1;
+    const PAGE_RULE_MARGIN = { left: 64, right: 64 };
 
-    // Disable any older painters so they don't overwrite
-    ['paint','cat','drawHeader','centerHeader','tkCenteredHeaderAndTable','tkPageCenteredHeaderAndTable']
-      .forEach(n => { if (typeof window[n] === 'function') window[n] = function(){}; });
+    const NULL_FN = () => {};
+    ['paint', 'cat', 'drawHeader', 'centerHeader', 'tkCenteredHeaderAndTable', 'tkPageCenteredHeaderAndTable']
+      .forEach((name) => {
+        if (typeof window[name] === 'function') window[name] = NULL_FN;
+      });
 
-    // Helpers
-    function pageWidth(doc){
+    function pageWidth(doc) {
       const size = doc.internal.pageSize;
       return typeof size.getWidth === 'function' ? size.getWidth() : size.width;
     }
-    function pageHeight(doc){
+
+    function pageHeight(doc) {
       const size = doc.internal.pageSize;
       return typeof size.getHeight === 'function' ? size.getHeight() : size.height;
     }
-    function pageCenter(doc){ return pageWidth(doc)/2; }
 
-    function tableBox(doc, tableOpts) {
-      const W = pageWidth(doc);
-      const m  = (tableOpts && tableOpts.margin) || {};
-      const ml = Number.isFinite(m.left) ? m.left : 48;
-      const mr = Number.isFinite(m.right) ? m.right : 48;
+    function pageCenter(doc) {
+      return pageWidth(doc) / 2;
+    }
 
-      let tw = (tableOpts && tableOpts.tableWidth);
+    function tableBox(doc, tableOpts = {}) {
+      const width = pageWidth(doc);
+      const margin = tableOpts.margin || {};
+      const ml = Number.isFinite(margin.left) ? margin.left : 54;
+      const mr = Number.isFinite(margin.right) ? margin.right : 54;
+
+      let tw = tableOpts.tableWidth;
       if (!Number.isFinite(tw)) {
-        // 'auto' or undefined — pick a sane width that respects margins
-        tw = Math.min(680, W - (ml + mr));
+        tw = Math.min(680, width - (ml + mr));
       }
-      const cx = ml + tw/2;
-      return { W, ml, mr, tw, cx };
+
+      return { width, ml, mr, tw, cx: ml + tw / 2 };
     }
 
-    function headerCenters(doc, alignTarget, tableOpts){
+    function resolveHeaderCenters(doc, alignTarget, tableOpts = {}) {
       if (alignTarget === 'table') {
-        const b = tableBox(doc, tableOpts);
-        const x1 = b.ml;
-        const x2 = b.ml + b.tw;
-        return { cx: b.cx, ruleL: x1, ruleR: x2 };
+        const box = tableBox(doc, tableOpts);
+        return { cx: box.cx, ruleL: box.ml, ruleR: box.ml + box.tw };
       }
-      // default: page-centered
+
       const cx = pageCenter(doc);
-      const x1 = PAGE_RULE_MARGIN.left;
-      const x2 = pageWidth(doc) - PAGE_RULE_MARGIN.right;
-      return { cx, ruleL: x1, ruleR: x2 };
+      return {
+        cx,
+        ruleL: PAGE_RULE_MARGIN.left,
+        ruleR: pageWidth(doc) - PAGE_RULE_MARGIN.right
+      };
     }
 
-    function drawHeader(doc, centers, sectionLabel, sectionBaseline){
-      // Page background
+    function drawPageHeader(doc, centers, sectionTitle, sectionBaseline) {
       const PW = pageWidth(doc);
       const PH = pageHeight(doc);
-      doc.setFillColor(10,10,12);
-      doc.rect(0,0,PW,PH,'F');
+      doc.setFillColor(10, 10, 12);
+      doc.rect(0, 0, PW, PH, 'F');
 
-      // Title
-      doc.setTextColor(240,240,240);
-      doc.setFont('helvetica','bold');   doc.setFontSize(FS.title);
-      doc.text('TalkKink Compatibility', centers.cx, Y.title, { align:'center' });
+      doc.setTextColor(240, 240, 240);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(FS.title);
+      doc.text('TalkKink Compatibility', centers.cx, Y.title, { align: 'center' });
 
-      // Timestamp (small)
-      doc.setFont('helvetica','normal'); doc.setFontSize(FS.stamp);
-      doc.setTextColor(160,200,255);
-      doc.text('Generated: ' + new Date().toLocaleString(), centers.cx, Y.stamp, { align:'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(FS.stamp);
+      doc.setTextColor(160, 200, 255);
+      doc.text('Generated: ' + new Date().toLocaleString(), centers.cx, Y.stamp, { align: 'center' });
 
-      // Rule aligned to the same target
       doc.setDrawColor(...CYAN);
-      if (doc.setLineWidth) doc.setLineWidth(RULE_W);
+      if (typeof doc.setLineWidth === 'function') doc.setLineWidth(RULE_W);
       doc.line(centers.ruleL, Y.rule, centers.ruleR, Y.rule);
 
-      // Section header
-      doc.setFont('helvetica','bold');   doc.setFontSize(FS.section);
-      doc.setTextColor(255,255,255);
       const sectionY = Number.isFinite(sectionBaseline) ? sectionBaseline : Y.section;
-      doc.text(String(sectionLabel || 'Behavioral Play'), centers.cx, sectionY, { align:'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(FS.section);
+      doc.setTextColor(255, 255, 255);
+      doc.text(String(sectionTitle || 'Behavioral Play'), centers.cx, sectionY, { align: 'center' });
     }
 
-    /**
-     * Public entry
-     * @param {jsPDF} doc
-     * @param {{
-     *   alignTarget?: 'page'|'table',
-     *   sectionTitle?: string,
-     *   table: import('jspdf-autotable').UserOptions
-     * }} opts
-     */
-    window.tkHeaderAndTable = function(doc, opts){
+    function isPlainObject(value) {
+      return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    window.tkHeaderAndTable = function tkHeaderAndTable(doc, sectionOrOpts, maybeTableOpts) {
       if (!doc || typeof doc.autoTable !== 'function') {
         throw new Error('autoTable is required before calling tkHeaderAndTable');
       }
 
-      const alignTarget = (opts && opts.alignTarget) || 'page'; // 'page' or 'table'
-      const sectionBaseline = Number.isFinite(opts?.startY) ? opts.startY : Y.section;
-      const tableOptions = opts?.table || {};
-      const providedDidDrawPage = tableOptions.didDrawPage;
-      const startY = Number.isFinite(tableOptions.startY) ? tableOptions.startY : Y.tableTop;
+      const legacySignature = maybeTableOpts === undefined && isPlainObject(sectionOrOpts);
 
-      const centers = headerCenters(doc, alignTarget, tableOptions);
+      let sectionTitle = legacySignature ? sectionOrOpts.sectionTitle : sectionOrOpts;
+      let alignTarget = legacySignature ? sectionOrOpts.alignTarget : undefined;
+      let sectionBaseline = legacySignature ? sectionOrOpts.startY : undefined;
+      let tableOpts = legacySignature ? sectionOrOpts.table || {} : maybeTableOpts || {};
 
-      // Draw first page header
-      drawHeader(doc, centers, opts?.sectionTitle, sectionBaseline);
+      tableOpts = { ...tableOpts };
 
-      // Render table; repaint header for each page
-      const tOpts = {
-        ...tableOptions,
-        startY,
+      if (sectionTitle == null && legacySignature) sectionTitle = sectionOrOpts.section;
+      if (alignTarget == null && typeof tableOpts.alignTarget === 'string') {
+        alignTarget = tableOpts.alignTarget;
+      }
+      if (sectionBaseline == null && Number.isFinite(tableOpts.sectionY)) {
+        sectionBaseline = tableOpts.sectionY;
+      }
+
+      const rawAlignTarget = alignTarget || tableOpts.headerAlignTarget || 'page';
+      const providedDidDrawPage = tableOpts.didDrawPage;
+      const explicitStartY = tableOpts.startY;
+
+      const headerBaseline = Number.isFinite(sectionBaseline)
+        ? sectionBaseline
+        : Number.isFinite(tableOpts.sectionY)
+          ? tableOpts.sectionY
+          : Y.section;
+
+      const resolvedStartY = Number.isFinite(explicitStartY) ? explicitStartY : Y.tableTop;
+
+      delete tableOpts.alignTarget;
+      delete tableOpts.headerAlignTarget;
+      delete tableOpts.sectionY;
+
+      const paintHeader = () => {
+        const centers = resolveHeaderCenters(doc, rawAlignTarget, tableOpts);
+        drawPageHeader(doc, centers, sectionTitle, headerBaseline);
+      };
+
+      paintHeader();
+
+      doc.autoTable({
+        ...tableOpts,
+        startY: resolvedStartY,
         didDrawPage: (data) => {
-          // recompute centers each page (in case margins differ per page)
-          const c = headerCenters(doc, alignTarget, tableOptions);
-          drawHeader(doc, c, opts?.sectionTitle, sectionBaseline);
+          paintHeader();
           if (typeof providedDidDrawPage === 'function') providedDidDrawPage(data);
         }
-      };
-      doc.autoTable(tOpts);
-      return doc.lastAutoTable?.finalY ?? startY;
+      });
+
+      return doc.lastAutoTable?.finalY ?? resolvedStartY;
     };
 
     window.tkPageCenteredHeaderAndTable = window.tkCenteredHeaderAndTable = window.tkHeaderAndTable;
@@ -1735,10 +1747,10 @@
     const YELLOW = [255, 210, 70];
     const RED = [255, 86, 86];
 
-    const centerSectionTable =
-      window.tkPageCenteredHeaderAndTable || window.tkCenteredHeaderAndTable;
-    if (typeof centerSectionTable !== 'function') {
-      throw new Error('tkPageCenteredHeaderAndTable helper unavailable');
+    const renderSection =
+      window.tkHeaderAndTable || window.tkPageCenteredHeaderAndTable || window.tkCenteredHeaderAndTable;
+    if (typeof renderSection !== 'function') {
+      throw new Error('tkHeaderAndTable helper unavailable');
     }
 
     const base = {
@@ -1767,16 +1779,13 @@
       const { startY: tableStartOverride, ...restOverrides } = tableOverrides;
       const tableStart =
         tableStartOverride == null ? nextSectionStart + TABLE_OFFSET : tableStartOverride;
-      const finalY = centerSectionTable(doc, {
-        sectionTitle: title,
-        startY: nextSectionStart,
-        table: {
-          ...base,
-          ...restOverrides,
-          startY: tableStart
-        }
+      const finalY = renderSection(doc, title, {
+        ...base,
+        ...restOverrides,
+        startY: tableStart,
+        sectionY: nextSectionStart
       });
-      nextSectionStart = (finalY ?? (nextSectionStart + TABLE_OFFSET)) + SECTION_GAP;
+      nextSectionStart = (finalY ?? tableStart) + SECTION_GAP;
       return finalY;
     };
 
