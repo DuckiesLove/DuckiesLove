@@ -48,14 +48,21 @@ export function drawMatchBar(
 }
 
 // Render the category header at the provided coordinates
-function renderCategoryHeader(doc, x, y, category, textColor = [255, 255, 255]) {
+function renderCategoryHeader(
+  doc,
+  x,
+  y,
+  category,
+  textColor = [255, 255, 255],
+  align = 'left'
+) {
   doc.setFontSize(13);
   if (Array.isArray(textColor)) {
     doc.setTextColor(...textColor);
   } else {
     doc.setTextColor(textColor);
   }
-  doc.text(category, x, y);
+  doc.text(category, x, y, { align });
   doc.setFontSize(9);
 }
 
@@ -216,9 +223,10 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   const rowSpacing = 12;
   const sectionHeight = headerSpacing + columnSpacing + items.length * rowSpacing;
 
-  const rectX = (startX ?? colLabel) - paddingLeft;
+  const innerStartX = startX ?? colLabel;
+  const usedWidth = width ?? Math.max(colB, colFlag, colBar + barWidth) - innerStartX;
+  const rectX = innerStartX - paddingLeft;
   const rectY = startY - paddingTop;
-  const usedWidth = width ?? Math.max(colB, colFlag, colBar + barWidth) - (startX ?? colLabel);
   const rectWidth = Math.max(0, usedWidth + paddingLeft + paddingRight);
   const rectHeight = Math.max(0, sectionHeight + paddingTop + paddingBottom);
 
@@ -238,7 +246,8 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
     }
   }
 
-  renderCategoryHeader(doc, colLabel, startY, categoryLabel, textColor);
+  const sectionCenterX = innerStartX + usedWidth / 2;
+  renderCategoryHeader(doc, sectionCenterX, startY, categoryLabel, textColor, 'center');
 
   let currentY = startY + headerSpacing;
 
