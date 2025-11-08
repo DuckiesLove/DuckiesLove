@@ -1,71 +1,88 @@
-<!-- Self-hosted libs (put these just before the final script) -->
-<script src="/assets/js/vendor/jspdf.umd.min.js?v=2"></script>
-<script src="/assets/js/vendor/jspdf.plugin.autotable.min.js?v=2"></script>
+<!-- Keep these just above the final script; update paths if needed -->
+<script src="/assets/js/vendor/jspdf.umd.min.js?v=3"></script>
+<script src="/assets/js/vendor/jspdf.plugin.autotable.min.js?v=3"></script>
 
-<!-- FINAL script: replaces any previous PDF click logic and centers header + table -->
 <script>
-(function () {
-  const jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-  if (!jsPDF) { console.error('[compat] jsPDF missing'); return; }
+/* ========== TalkKink PDF: centered header + centered table ========== */
+(function attachTKPdf() {
+  // --- Diagnostics helper
+  const log = (...a)=>console.log('[compat][pdf]', ...a);
+  const err = (...a)=>console.error('[compat][pdf]', ...a);
 
-  // Find the download button and strip any old listeners by cloning
-  const BTN_SEL = ['#downloadPdfBtn', '#downloadPDF', '#tkDownloadPdf'];
-  let btn = null;
-  for (const s of BTN_SEL) { const el = document.querySelector(s); if (el) { btn = el; break; } }
-  if (!btn) { console.error('[compat] Download button not found'); return; }
+  // --- Verify libs
+  const jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!jsPDF) { err('jsPDF missing'); return; }
+  if (typeof (jsPDF.prototype || {}).autoTable !== 'function') {
+    err('autoTable plugin missing'); return;
+  }
+  log('libs ok');
+
+  // --- Find the Download button robustly
+  function findDownloadButton(){
+    const guesses = ['#downloadPdfBtn', '#downloadPDF', '#tkDownloadPdf', 'button[data-action="download-pdf"]'];
+    for (const sel of guesses){
+      const el = document.querySelector(sel);
+      if (el) return {el, via: sel};
+    }
+    // Fallback: search by visible text
+    const cands = Array.from(document.querySelectorAll('button, a[role="button"], .btn'));
+    const hit = cands.find(b => /download\s*pdf/i.test(b.textContent || ''));
+    if (hit) return {el: hit, via: 'text:Download PDF'};
+    return {el:null, via:'none'};
+  }
+  let {el:btn, via} = findDownloadButton();
+  if (!btn) { err('Download button not found'); return; }
+  log('button located via', via);
+
+  // --- Remove any previous listeners by cloning the node
   const clone = btn.cloneNode(true);
   btn.parentNode.replaceChild(clone, btn);
   btn = clone;
 
-  console.log('[compat] Bound new PDF generator to', btn);
+  // --- Public rebinder for you (run in console if needed)
+  window.forcePdfBind = () => { attachTKPdf(); log('re-bound via window.forcePdfBind()'); };
 
-  // Theme tokens
+  // --- Theme tokens
   const TOK = {
-    page: { unit: 'pt', format: 'letter' },
-    cyan: [0, 255, 255],
-    bodyFill: [10, 10, 12],
-    grid: [34, 34, 42],
+    cyan: [0,255,255],
+    bodyFill: [10,10,12],
+    grid: [34,34,42],
     margins: { top: 56, right: 56, bottom: 60, left: 56 },
     title: 'TalkKink Compatibility',
     section: 'Behavioral Play'
   };
 
-  function centerX(doc){ return doc.internal.pageSize.getWidth() / 2; }
+  const pageUnit = 'pt', pageFormat = 'letter';
 
-  // Draw centered header and return the Y where the table must start
-  function drawHeader(doc) {
-    const cx = centerX(doc);
-    const w  = doc.internal.pageSize.getWidth();
+  function cx(doc){ return doc.internal.pageSize.getWidth() / 2; }
 
+  function drawHeader(doc){
+    const w = doc.internal.pageSize.getWidth();
     // Title
     doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.setFontSize(28);
-    doc.text(TOK.title, cx, 70, { align: 'center' });
-
+    doc.text(TOK.title, cx(doc), 70, {align:'center'});
     // Timestamp
     doc.setFont('helvetica','normal'); doc.setTextColor(175,210,255); doc.setFontSize(10);
-    doc.text('Generated: ' + new Date().toLocaleString(), cx, 88, { align: 'center' });
-
-    // Cyan rule
+    doc.text('Generated: ' + new Date().toLocaleString(), cx(doc), 88, {align:'center'});
+    // Rule
     if (doc.setLineWidth) doc.setLineWidth(1);
     doc.setDrawColor(...TOK.cyan);
     doc.line(TOK.margins.left, 100, w - TOK.margins.right, 100);
-
     // Section
     doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.setFontSize(22);
-    doc.text(TOK.section, cx, 124, { align: 'center' });
-
-    return 140; // startY for table
+    doc.text(TOK.section, cx(doc), 124, {align:'center'});
+    return 140;
   }
 
-  // Build body rows (use your live data if present)
-  async function buildRows() {
+  // Build rows from live data if available; otherwise small fallback
+  async function buildRows(){
     if (typeof window.buildCompatibilityRows === 'function') {
-      try { return await window.buildCompatibilityRows(); } catch {}
+      try { const r = await window.buildCompatibilityRows(); if (Array.isArray(r) && r.length) { log('rows from buildCompatibilityRows()', r.length); return r; } } catch(e){ err('buildCompatibilityRows error', e); }
     }
     const Q = Array.isArray(window.QUESTIONS) ? window.QUESTIONS : [];
     const A = window.answers instanceof Map ? window.answers : null;
-    if (Q.length && A) {
-      return Q.map(q => {
+    if (Q.length && A){
+      const rows = Q.map(q => {
         const a = A.get(q.id) || {};
         return [
           q.text || q.label || '',
@@ -75,33 +92,27 @@
           String(a.b ?? '')
         ];
       });
+      log('rows from QUESTIONS/answers', rows.length);
+      return rows;
     }
-    // Minimal fallback so the button still works
-    return [
-      ['Sample item', '3', '100%', '▶', '3']
-    ];
+    log('using minimal fallback rows');
+    return [['Sample item', '3', '100%', '▶', '3']];
   }
 
-  // Fixed column widths so we can perfectly center the table
-  // Total width = 360 + 70 + 70 + 50 + 70 = 620 pt
-  const COL_WIDTHS = { 0: 360, 1: 70, 2: 70, 3: 50, 4: 70 };
-  function centeredMargin(doc) {
-    const total = Object.values(COL_WIDTHS).reduce((a,b)=>a+b,0);
+  // Fixed column widths => exact table width => true centering
+  const COLW = {0: 360, 1: 70, 2: 70, 3: 50, 4: 70}; // total = 620 pt
+  function centeredMargin(doc){
+    const total = Object.values(COLW).reduce((a,b)=>a+b,0);
     const pageW = doc.internal.pageSize.getWidth();
-    const left  = Math.max(TOK.margins.left, (pageW - total)/2);
+    const left = Math.max(TOK.margins.left, (pageW - total)/2);
     return { top: TOK.margins.top, right: TOK.margins.right, bottom: TOK.margins.bottom, left };
   }
 
-  btn.addEventListener('click', async (e) => {
-    e.preventDefault();
-
-    if (typeof jsPDF.prototype.autoTable !== 'function') {
-      console.error('[compat] autoTable plugin missing'); alert('PDF plugin unavailable'); return;
-    }
-
-    const doc = new jsPDF(TOK.page);
+  async function onDownloadClick(ev){
+    ev.preventDefault();
+    const doc = new jsPDF({unit: pageUnit, format: pageFormat});
     const startY = drawHeader(doc);
-    const body   = await buildRows();
+    const body = await buildRows();
 
     doc.autoTable({
       head: [['Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
@@ -111,16 +122,20 @@
       styles:     { fillColor: TOK.bodyFill, textColor:[255,255,255], lineColor: TOK.grid, lineWidth: 0.25, valign:'middle' },
       headStyles: { fillColor:[0,0,0],        textColor: TOK.cyan,     lineColor: TOK.grid, fontStyle:'bold' },
       columnStyles: {
-        0: { cellWidth: COL_WIDTHS[0], halign:'left'  },
-        1: { cellWidth: COL_WIDTHS[1], halign:'center'},
-        2: { cellWidth: COL_WIDTHS[2], halign:'center'},
-        3: { cellWidth: COL_WIDTHS[3], halign:'center'},
-        4: { cellWidth: COL_WIDTHS[4], halign:'center'},
+        0: { cellWidth: COLW[0], halign:'left'  },
+        1: { cellWidth: COLW[1], halign:'center'},
+        2: { cellWidth: COLW[2], halign:'center'},
+        3: { cellWidth: COLW[3], halign:'center'},
+        4: { cellWidth: COLW[4], halign:'center'}
       },
-      didDrawPage(data) { if (data.pageNumber > 1) drawHeader(doc); }
+      didDrawPage(data){ if (data.pageNumber > 1) drawHeader(doc); }
     });
 
     doc.save('compatibility-pretty-dark.pdf');
-  });
+    log('PDF saved');
+  }
+
+  btn.addEventListener('click', onDownloadClick);
+  log('Bound new PDF generator →', btn);
 })();
 </script>
