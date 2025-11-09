@@ -627,11 +627,12 @@
   <!-- TK: Page-centered header helper -->
   <script>
   (() => {
-    const FS = { title: 28, stamp: 9, section: 20 };
-    const Y = { title: 64, stamp: 80, rule: 88, section: 114, tableTop: 132 };
+    const FS = { title: 26, stamp: 9, section: 18 };
+    const Y = { title: 64, stamp: 82, rule: 92, section: 118, tableTop: 136 };
     const CYAN = [0, 255, 255];
     const RULE_W = 1;
     const PAGE_RULE_MARGIN = { left: 72, right: 72 };
+    const TIMESTAMP = new Date().toLocaleString();
 
     const NULL_FN = () => {};
     ['paint', 'cat', 'drawHeader', 'centerHeader', 'drawHeaderCenteredToPage', 'tkHeaderOverTable', 'tkCenteredHeaderAndTable', 'tkPageCenteredHeaderAndTable']
@@ -717,15 +718,15 @@
       }
 
       if (drawText) {
-        doc.setTextColor(240, 240, 240);
+        doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(FS.title);
-        doc.text('TalkKink Compatibility', centers.cx, Y.title, { align: 'center' });
+        doc.text('TalkKink — Partner Survey (Clean Report)', centers.cx, Y.title, { align: 'center' });
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(FS.stamp);
-        doc.setTextColor(160, 200, 255);
-        doc.text('Generated: ' + new Date().toLocaleString(), centers.cx, Y.stamp, { align: 'center' });
+        doc.setTextColor(170, 210, 255);
+        doc.text('Generated: ' + TIMESTAMP, centers.cx, Y.stamp, { align: 'center' });
       }
 
       if (drawRule) {
@@ -739,7 +740,8 @@
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(FS.section);
         doc.setTextColor(255, 255, 255);
-        doc.text(String(sectionTitle || 'Behavioral Play'), centers.cx, sectionY, { align: 'center' });
+        const sectionLabel = sectionTitle != null ? String(sectionTitle) : 'Partner Upload Snapshot';
+        doc.text(sectionLabel, centers.cx, sectionY, { align: 'center' });
       }
     }
 
