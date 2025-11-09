@@ -49,29 +49,49 @@
     grid: [34,34,42],
     margins: { top: 56, right: 56, bottom: 60, left: 56 },
     title: 'TalkKink Compatibility',
-    section: 'Behavioral Play'
+    section: 'Behavioral Play',
+    timestamp: [160,220,220]
   };
 
+  const DEFAULT_COLW = [360, 70, 70, 50, 70];
   const pageUnit = 'pt', pageFormat = 'letter';
 
-  function cx(doc){ return doc.internal.pageSize.getWidth() / 2; }
+  function computeTableMargin(doc, baseMargin = TOK.margins, colw = DEFAULT_COLW){
+    const total = colw.reduce((a,b)=>a+b,0);
+    const pageW = doc.internal.pageSize.getWidth();
+    const left = Math.max(baseMargin.left, (pageW - total) / 2);
+    return { ...baseMargin, left };
+  }
 
-  function drawHeader(doc){
-    const w = doc.internal.pageSize.getWidth();
-    // Title
-    doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.setFontSize(28);
-    doc.text(TOK.title, cx(doc), 70, {align:'center'});
-    // Timestamp
-    doc.setFont('helvetica','normal'); doc.setTextColor(175,210,255); doc.setFontSize(10);
-    doc.text('Generated: ' + new Date().toLocaleString(), cx(doc), 88, {align:'center'});
-    // Rule
-    if (doc.setLineWidth) doc.setLineWidth(1);
-    doc.setDrawColor(...TOK.cyan);
-    doc.line(TOK.margins.left, 100, w - TOK.margins.right, 100);
-    // Section
-    doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.setFontSize(22);
-    doc.text(TOK.section, cx(doc), 124, {align:'center'});
-    return 140;
+  function drawCenteredHeaderToTable(doc, opts = {}){
+    const margin = opts.margin || TOK.margins;
+    const colw = opts.COLW || DEFAULT_COLW;
+    const tableLeft = margin.left;
+    const tableWidth = colw.reduce((a,b)=>a+b,0);
+    const centerX = tableLeft + tableWidth / 2;
+
+    const titleY = opts.titleY ?? 84;
+    const timeY  = opts.timeY  ?? 100;
+    const catY   = opts.catY   ?? 126;
+    const timeStamp = opts.timestamp || new Date().toLocaleString();
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(28);
+    doc.setTextColor(255,255,255);
+    doc.text(TOK.title, centerX, titleY, { align: 'center' });
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+    doc.setTextColor(...TOK.timestamp);
+    doc.text(`Generated: ${timeStamp}`, centerX, timeY, { align: 'center' });
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(22);
+    doc.setTextColor(255,255,255);
+    doc.text(TOK.section, centerX, catY, { align: 'center' });
+
+    const gap = opts.afterCategoryGap ?? 14;
+    return { startY: opts.startY ?? (catY + gap) };
   }
 
   // Build rows from live data if available; otherwise small fallback
@@ -100,25 +120,22 @@
   }
 
   // Fixed column widths => exact table width => true centering
-  const COLW = {0: 360, 1: 70, 2: 70, 3: 50, 4: 70}; // total = 620 pt
-  function centeredMargin(doc){
-    const total = Object.values(COLW).reduce((a,b)=>a+b,0);
-    const pageW = doc.internal.pageSize.getWidth();
-    const left = Math.max(TOK.margins.left, (pageW - total)/2);
-    return { top: TOK.margins.top, right: TOK.margins.right, bottom: TOK.margins.bottom, left };
-  }
+  const COLW = DEFAULT_COLW;
 
   async function onDownloadClick(ev){
     ev.preventDefault();
     const doc = new jsPDF({unit: pageUnit, format: pageFormat});
-    const startY = drawHeader(doc);
+    const margin = computeTableMargin(doc, TOK.margins, COLW);
+    const generatedStamp = new Date().toLocaleString();
+    const headerConfig = { margin, COLW, titleY: 84, timeY: 100, catY: 126, timestamp: generatedStamp };
+    const { startY } = drawCenteredHeaderToTable(doc, headerConfig);
     const body = await buildRows();
 
     doc.autoTable({
       head: [['Item', 'Partner A', 'Match', 'Flag', 'Partner B']],
       body,
       startY,
-      margin: centeredMargin(doc),
+      margin,
       styles:     { fillColor: TOK.bodyFill, textColor:[255,255,255], lineColor: TOK.grid, lineWidth: 0.25, valign:'middle' },
       headStyles: { fillColor:[0,0,0],        textColor: TOK.cyan,     lineColor: TOK.grid, fontStyle:'bold' },
       columnStyles: {
@@ -128,7 +145,7 @@
         3: { cellWidth: COLW[3], halign:'center'},
         4: { cellWidth: COLW[4], halign:'center'}
       },
-      didDrawPage(data){ if (data.pageNumber > 1) drawHeader(doc); }
+      didDrawPage(data){ if (data.pageNumber > 1) drawCenteredHeaderToTable(doc, headerConfig); }
     });
 
     doc.save('compatibility-pretty-dark.pdf');
