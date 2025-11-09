@@ -48,9 +48,9 @@ try {
 
 /* ---- 3) Minimal standalone PDF exporter (jsPDF via CDN) ---- */
 (function () {
-  const margin = { top: 188, right: 56, bottom: 60, left: 56 };
-  const colW = [250, 80, 70, 40, 60];
-  const soloColW = [360, 140];
+  const TK_MARGIN = { top: 56, right: 56, bottom: 60, left: 56 };
+  const TK_COL_W = [360, 90, 90, 60, 90];
+  const TK_SOLO_COL_W = [360, 140];
   const SELF_KEYS = ['talkkink:survey', 'talkkink:mine', 'tk_compat.self'];
   const PARTNER_KEYS = ['talkkink:partner', 'tk_compat.partner'];
 
@@ -122,16 +122,16 @@ try {
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
   }
 
-  function tableCenterX(widths = colW) {
-    const widthList = Array.isArray(widths) && widths.length ? widths : colW;
-    const tableWidth = widthList.reduce((acc, value) => acc + value, 0);
-    return margin.left + tableWidth / 2;
+  function tkTableCenterX(doc, widths = TK_COL_W) {
+    const list = Array.isArray(widths) && widths.length ? widths : TK_COL_W;
+    const tableWidth = list.reduce((acc, value) => acc + value, 0);
+    return TK_MARGIN.left + tableWidth / 2;
   }
 
-  function drawHeader(doc, sectionTitle, options = {}) {
-    const widths = options.widths || colW;
-    const timestamp = options.timestamp || new Date().toLocaleString();
-    const cx = tableCenterX(widths);
+  function tkDrawHeader(doc, sectionTitle, options = {}) {
+    const widths = options.widths || TK_COL_W;
+    const timestamp = options.timestamp ?? new Date().toLocaleString();
+    const cx = tkTableCenterX(doc, widths);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
@@ -149,14 +149,14 @@ try {
     doc.text(sectionTitle, cx, 126, { align: 'center' });
   }
 
-  function flagColor(pct) {
+  function tkFlagColor(pct) {
     if (pct >= 85) return [0, 200, 140];
     if (pct >= 50) return [230, 200, 40];
     return [230, 60, 60];
   }
 
-  function drawFlag(doc, x, y, pct) {
-    const color = flagColor(pct);
+  function tkDrawFlag(doc, x, y, pct) {
+    const color = tkFlagColor(pct);
     doc.setFillColor(...color);
     doc.triangle(x, y - 6, x, y + 6, x + 14, y, 'F');
   }
@@ -255,9 +255,11 @@ try {
     });
   }
 
-  function renderCategoryTable(doc, rows, startY = 188, opts = {}) {
+  function tkRenderCategoryTable(doc, rows, startY = 140, opts = {}) {
     const includePartner = Boolean(opts.showPartner);
-    const widths = opts.widths || (includePartner ? colW : soloColW);
+    const widths = opts.widths || (includePartner ? TK_COL_W : TK_SOLO_COL_W);
+    const baseMargin = opts.margin || TK_MARGIN;
+    const margin = { ...baseMargin, top: Math.max(baseMargin.top ?? 0, 140) };
     const stats = opts.stats || null;
     const infoLines = [];
     if (Array.isArray(opts.metaLines)) {
@@ -273,22 +275,21 @@ try {
       }
     }
 
-    let pageIndex = 0;
-    let tableStartY = Number.isFinite(startY) ? startY : 188;
-    if (infoLines.length) {
-      const requiredGap = infoLines.length * 14 + 12;
-      const availableGap = tableStartY - 130;
-      if (requiredGap > availableGap) {
-        tableStartY = 130 + requiredGap;
-      }
+    const headerBaseline = 126;
+    const lineSpacing = 14;
+    const infoGap = infoLines.length ? infoLines.length * lineSpacing + 12 : 0;
+    let tableStartY = Number.isFinite(startY) ? startY : 140;
+    if (infoGap) {
+      const minStart = headerBaseline + infoGap + 10;
+      if (tableStartY < minStart) tableStartY = minStart;
     }
-    const infoStartY = opts.infoStartY != null
-      ? opts.infoStartY
-      : tableStartY - 12 - Math.max(0, infoLines.length - 1) * 14;
+    const infoStartY = infoGap ? (tableStartY - infoGap + lineSpacing) : null;
 
     if (typeof doc.autoTable !== 'function') {
       throw new Error('autoTable plugin not available');
     }
+
+    let pageIndex = 0;
 
     doc.autoTable({
       head: includePartner
@@ -296,7 +297,7 @@ try {
         : [['Item', 'Rating']],
       body: rows,
       startY: tableStartY,
-      margin: opts.margin || margin,
+      margin,
       styles: {
         fillColor: [10, 10, 12],
         textColor: [255, 255, 255],
@@ -323,15 +324,19 @@ try {
             1: { cellWidth: widths[1], halign: 'center' }
           },
       willDrawPage: () => {
-        preparePage(doc);
-        const sectionTitle = pageIndex === 0 ? opts.sectionTitle || '' : `${opts.sectionTitle || ''} (cont.)`;
-        drawHeader(doc, sectionTitle, { widths, timestamp: opts.timestamp });
-        if (pageIndex === 0 && infoLines.length) {
+        const isFirstPage = pageIndex === 0;
+        if (!isFirstPage || !opts.skipFirstHeader) {
+          preparePage(doc);
+          const sectionTitle = isFirstPage ? opts.sectionTitle || '' : `${opts.sectionTitle || ''} (cont.)`;
+          tkDrawHeader(doc, sectionTitle, { widths, timestamp: opts.timestamp });
+        }
+        if (isFirstPage && infoLines.length) {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(11);
           doc.setTextColor(170, 220, 255);
+          const baseY = infoStartY ?? tableStartY;
           infoLines.forEach((line, idx) => {
-            doc.text(line, margin.left, infoStartY + idx * 14);
+            doc.text(line, margin.left, baseY + idx * lineSpacing);
           });
         }
         pageIndex += 1;
@@ -344,7 +349,7 @@ try {
           if (!Number.isFinite(pct)) return;
           const x = data.cell.x + 6;
           const y = data.cell.y + data.cell.height / 2;
-          drawFlag(doc, x, y, pct);
+          tkDrawFlag(doc, x, y, pct);
         }
       }
     });
@@ -429,14 +434,20 @@ try {
         }
       }
 
-      renderCategoryTable(doc, tableRows, 188, {
+      const widths = includePartner ? TK_COL_W : TK_SOLO_COL_W;
+
+      preparePage(doc);
+      tkDrawHeader(doc, category, { widths, timestamp: headerTimestamp });
+
+      tkRenderCategoryTable(doc, tableRows, 140, {
         showPartner: includePartner,
         sectionTitle: category,
-        widths: includePartner ? colW : soloColW,
-        margin,
+        widths,
+        margin: TK_MARGIN,
         stats,
         metaLines,
-        timestamp: headerTimestamp
+        timestamp: headerTimestamp,
+        skipFirstHeader: true
       });
     });
 
