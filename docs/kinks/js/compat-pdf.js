@@ -171,7 +171,8 @@ function plan(width, height){
 
 async function renderTile(root, width, sliceCssHeight, yOffset, scale, html2canvasFn){
   return await html2canvasFn(root, {
-    backgroundColor:'#ffffff',
+    // Force a black canvas background so the export has no white margins.
+    backgroundColor:'#000000',
     scale,
     useCORS:true,
     allowTaint:true,
@@ -221,7 +222,8 @@ export async function downloadCompatibilityPDF(){
 
     if (slices <= 1){
       const canvas = await html2canvasFn(clone, {
-        backgroundColor:'#ffffff', scale, useCORS:true, allowTaint:true,
+        // Force a black canvas background so the export has no white margins.
+        backgroundColor:'#000000', scale, useCORS:true, allowTaint:true,
         scrollX:0, scrollY:0, windowWidth:width
       });
       const img = canvas.toDataURL('image/png');
