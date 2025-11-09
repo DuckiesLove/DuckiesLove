@@ -122,9 +122,25 @@
   // Fixed column widths => exact table width => true centering
   const COLW = DEFAULT_COLW;
 
+  function paintPage(doc){
+    const page = doc.internal.pageSize;
+    const width = page.getWidth();
+    const height = page.getHeight();
+    doc.setFillColor(...TOK.bodyFill);
+    doc.rect(0, 0, width, height, 'F');
+    doc.setTextColor(255,255,255);
+  }
+
   async function onDownloadClick(ev){
     ev.preventDefault();
     const doc = new jsPDF({unit: pageUnit, format: pageFormat});
+    const originalAddPage = doc.addPage.bind(doc);
+    doc.addPage = function patchedAddPage(...args){
+      const result = originalAddPage(...args);
+      paintPage(this);
+      return result;
+    };
+    paintPage(doc);
     const margin = computeTableMargin(doc, TOK.margins, COLW);
     const generatedStamp = new Date().toLocaleString();
     const headerConfig = { margin, COLW, titleY: 84, timeY: 100, catY: 126, timestamp: generatedStamp };
