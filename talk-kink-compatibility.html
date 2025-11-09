@@ -48,15 +48,14 @@ try {
 
 /* ---- 3) Minimal standalone PDF exporter (jsPDF via CDN) ---- */
 (function () {
-  const PAGE = { w: 612, h: 792 };
-  const MARGIN = { t: 48, r: 40, b: 54, l: 40 };
-  const LINE = 16;
-  const COL_GAP = 18;
+  const margin = { top: 188, right: 56, bottom: 60, left: 56 };
+  const colW = [250, 80, 70, 40, 60];
+  const soloColW = [360, 140];
   const SELF_KEYS = ['talkkink:survey', 'talkkink:mine', 'tk_compat.self'];
   const PARTNER_KEYS = ['talkkink:partner', 'tk_compat.partner'];
 
-  const nowStamp = () => {
-    const d = new Date();
+  const nowStamp = (value) => {
+    const d = value instanceof Date ? value : new Date(value || Date.now());
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
@@ -87,7 +86,10 @@ try {
       id: row.id ?? row.prompt ?? row.text ?? row.title ?? `item-${idx}`,
       prompt: row.prompt ?? row.text ?? row.title ?? row.label ?? row.question ?? row.id ?? '',
       category: row.category ?? row.categoryId ?? row.cat ?? row.section ?? 'Other',
-      rating: normalizeRating(row.rating ?? row.score ?? row.value ?? row.answer ?? 0),
+      rating:
+        row.rating == null && row.score == null && row.value == null && row.answer == null
+          ? null
+          : normalizeRating(row.rating ?? row.score ?? row.value ?? row.answer),
       index: row.index ?? row.order ?? row.position ?? idx
     }));
   }
@@ -107,102 +109,254 @@ try {
   const summarize = (survey) => {
     const counts = [0, 0, 0, 0, 0, 0];
     normalizeRows(survey).forEach(row => {
+      if (row.rating == null) return;
       counts[row.rating] += 1;
     });
     return counts;
   };
 
-  function addWrapText(doc, text, x, y, maxW, lh) {
-    const words = String(text || '').split(/\s+/);
-    let line = '';
-    let cy = y;
-    const width = (t) => doc.getTextWidth(t);
-    words.forEach(word => {
-      const test = line ? `${line} ${word}` : word;
-      if (width(test) > maxW) {
-        if (line) {
-          doc.text(line, x, cy);
-          cy += lh;
-        }
-        line = word;
+  function preparePage(doc) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  }
+
+  function tableCenterX(widths = colW) {
+    const widthList = Array.isArray(widths) && widths.length ? widths : colW;
+    const tableWidth = widthList.reduce((acc, value) => acc + value, 0);
+    return margin.left + tableWidth / 2;
+  }
+
+  function drawHeader(doc, sectionTitle, options = {}) {
+    const widths = options.widths || colW;
+    const timestamp = options.timestamp || new Date().toLocaleString();
+    const cx = tableCenterX(widths);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(28);
+    doc.setTextColor(255, 255, 255);
+    doc.text('TalkKink Compatibility', cx, 84, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(160, 220, 220);
+    doc.text(`Generated: ${timestamp}`, cx, 100, { align: 'center' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.text(sectionTitle, cx, 126, { align: 'center' });
+  }
+
+  function flagColor(pct) {
+    if (pct >= 85) return [0, 200, 140];
+    if (pct >= 50) return [230, 200, 40];
+    return [230, 60, 60];
+  }
+
+  function drawFlag(doc, x, y, pct) {
+    const color = flagColor(pct);
+    doc.setFillColor(...color);
+    doc.triangle(x, y - 6, x, y + 6, x + 14, y, 'F');
+  }
+
+  const safeScore = (value) => {
+    if (value == null) return null;
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return Math.max(0, Math.min(5, num));
+  };
+
+  const computeMatch = (a, b) => {
+    const aNorm = safeScore(a);
+    const bNorm = safeScore(b);
+    if (aNorm == null || bNorm == null) return null;
+    const diff = Math.min(5, Math.abs(aNorm - bNorm));
+    return Math.round(100 - diff * 20);
+  };
+
+  const formatScore = (value) => {
+    const score = safeScore(value);
+    return score == null ? '—' : `${score}/5`;
+  };
+
+  const formatMatchLabel = (a, b) => {
+    const match = computeMatch(a, b);
+    return match == null ? '—' : `${match}%`;
+  };
+
+  function mergeCategoryEntries(mineRows = [], partnerRows = []) {
+    const map = new Map();
+    mineRows.forEach((row, idx) => {
+      const key = row.id ?? `mine-${idx}`;
+      map.set(key, {
+        prompt: row.prompt || row.id || '',
+        mine: row.rating,
+        partner: null,
+        index: row.index ?? idx
+      });
+    });
+    partnerRows.forEach((row, idx) => {
+      const key = row.id ?? `partner-${idx}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.partner = row.rating;
+        if (!existing.prompt && row.prompt) existing.prompt = row.prompt;
+        const candidate = row.index ?? idx;
+        existing.index = Math.min(existing.index ?? candidate, candidate);
       } else {
-        line = test;
+        map.set(key, {
+          prompt: row.prompt || row.id || '',
+          mine: null,
+          partner: row.rating,
+          index: row.index ?? idx
+        });
       }
     });
-    if (line) {
-      doc.text(line, x, cy);
-      cy += lh;
+    return Array.from(map.values()).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  }
+
+  function computeCategoryStats(entries = [], includePartner = false) {
+    const total = entries.length;
+    const mineAnswered = entries.reduce((acc, entry) => acc + (entry.mine != null ? 1 : 0), 0);
+    const partnerAnswered = includePartner
+      ? entries.reduce((acc, entry) => acc + (entry.partner != null ? 1 : 0), 0)
+      : 0;
+    const minePercent = total ? Math.round((mineAnswered / total) * 100) : 0;
+    const partnerPercent = includePartner && total ? Math.round((partnerAnswered / total) * 100) : 0;
+    const matches = includePartner
+      ? entries.map(entry => computeMatch(entry.mine, entry.partner)).filter(val => val != null)
+      : [];
+    const avgMatch = matches.length ? Math.round(matches.reduce((sum, val) => sum + val, 0) / matches.length) : null;
+    return { total, mineAnswered, partnerAnswered, minePercent, partnerPercent, avgMatch };
+  }
+
+  const formatSummaryLine = (counts) => counts.map((count, rating) => `${rating}: ${count}`).join('    ');
+
+  function buildTableRows(entries, includePartner) {
+    if (!entries.length) {
+      if (includePartner) {
+        return [['No responses recorded', '—', '—', '', '—']];
+      }
+      return [['No responses recorded', '—']];
     }
-    return cy;
+    return entries.map(entry => {
+      if (includePartner) {
+        return [
+          entry.prompt || '',
+          formatScore(entry.mine),
+          formatMatchLabel(entry.mine, entry.partner),
+          '',
+          formatScore(entry.partner)
+        ];
+      }
+      return [entry.prompt || '', formatScore(entry.mine)];
+    });
   }
 
-  function header(doc, title, subtitle) {
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(32);
-    doc.text(title, PAGE.w / 2, MARGIN.t, { align: 'center', baseline: 'top' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(12);
-    doc.text(subtitle, PAGE.w / 2, MARGIN.t + 28, { align: 'center', baseline: 'top' });
-    return MARGIN.t + 42;
+  function renderCategoryTable(doc, rows, startY = 188, opts = {}) {
+    const includePartner = Boolean(opts.showPartner);
+    const widths = opts.widths || (includePartner ? colW : soloColW);
+    const stats = opts.stats || null;
+    const infoLines = [];
+    if (Array.isArray(opts.metaLines)) {
+      opts.metaLines.filter(Boolean).forEach(line => infoLines.push(line));
+    }
+    if (stats) {
+      if (includePartner) {
+        infoLines.push(`Mine answered ${stats.mineAnswered}/${stats.total} (${stats.minePercent}%)`);
+        infoLines.push(`Partner answered ${stats.partnerAnswered}/${stats.total} (${stats.partnerPercent}%)`);
+        if (stats.avgMatch != null) infoLines.push(`Average match ${stats.avgMatch}%`);
+      } else {
+        infoLines.push(`Answered ${stats.mineAnswered}/${stats.total} (${stats.minePercent}%)`);
+      }
+    }
+
+    let pageIndex = 0;
+    let tableStartY = Number.isFinite(startY) ? startY : 188;
+    if (infoLines.length) {
+      const requiredGap = infoLines.length * 14 + 12;
+      const availableGap = tableStartY - 130;
+      if (requiredGap > availableGap) {
+        tableStartY = 130 + requiredGap;
+      }
+    }
+    const infoStartY = opts.infoStartY != null
+      ? opts.infoStartY
+      : tableStartY - 12 - Math.max(0, infoLines.length - 1) * 14;
+
+    if (typeof doc.autoTable !== 'function') {
+      throw new Error('autoTable plugin not available');
+    }
+
+    doc.autoTable({
+      head: includePartner
+        ? [['Item', 'Partner A', 'Match', 'Flag', 'Partner B']]
+        : [['Item', 'Rating']],
+      body: rows,
+      startY: tableStartY,
+      margin: opts.margin || margin,
+      styles: {
+        fillColor: [10, 10, 12],
+        textColor: [255, 255, 255],
+        lineColor: [34, 34, 42],
+        lineWidth: 0.25,
+        valign: 'middle'
+      },
+      headStyles: {
+        fillColor: [0, 0, 0],
+        textColor: [0, 255, 255],
+        lineColor: [34, 34, 42],
+        fontStyle: 'bold'
+      },
+      columnStyles: includePartner
+        ? {
+            0: { cellWidth: widths[0], halign: 'left' },
+            1: { cellWidth: widths[1], halign: 'center' },
+            2: { cellWidth: widths[2], halign: 'center' },
+            3: { cellWidth: widths[3], halign: 'center' },
+            4: { cellWidth: widths[4], halign: 'center' }
+          }
+        : {
+            0: { cellWidth: widths[0], halign: 'left' },
+            1: { cellWidth: widths[1], halign: 'center' }
+          },
+      willDrawPage: () => {
+        preparePage(doc);
+        const sectionTitle = pageIndex === 0 ? opts.sectionTitle || '' : `${opts.sectionTitle || ''} (cont.)`;
+        drawHeader(doc, sectionTitle, { widths, timestamp: opts.timestamp });
+        if (pageIndex === 0 && infoLines.length) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(11);
+          doc.setTextColor(170, 220, 255);
+          infoLines.forEach((line, idx) => {
+            doc.text(line, margin.left, infoStartY + idx * 14);
+          });
+        }
+        pageIndex += 1;
+      },
+      didDrawCell: (data) => {
+        if (!includePartner) return;
+        if (data.section === 'body' && data.column.index === 3) {
+          const raw = data.row.raw;
+          const pct = Number(String(raw?.[2] ?? '').replace('%', ''));
+          if (!Number.isFinite(pct)) return;
+          const x = data.cell.x + 6;
+          const y = data.cell.y + data.cell.height / 2;
+          drawFlag(doc, x, y, pct);
+        }
+      }
+    });
   }
 
-  function addFooter(doc, page, total) {
+  function addFooter(doc, page, total, stamp) {
+    const width = doc.internal.pageSize.getWidth();
+    const height = doc.internal.pageSize.getHeight();
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(180, 180, 180);
-    doc.text(`TalkKink • ${nowStamp()} • Page ${page}/${total}`, PAGE.w / 2, PAGE.h - MARGIN.b + 24, { align: 'center', baseline: 'bottom' });
-  }
-
-  function block(doc, cat, items, startY) {
-    let cy = startY + 6;
-    const x = MARGIN.l;
-    const maxW = PAGE.w - MARGIN.l - MARGIN.r;
-    if (cat) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.setTextColor(255, 255, 255);
-      cy = addWrapText(doc, cat, x, cy, maxW, LINE);
-    }
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(220, 220, 220);
-    for (const row of items) {
-      const chip = ` [${row.rating}] `;
-      const bullet = '• ';
-      const headW = doc.getTextWidth(bullet + chip);
-      doc.text(bullet, x, cy);
-      doc.setTextColor(140, 230, 255);
-      doc.text(chip, x + doc.getTextWidth(bullet), cy);
-      doc.setTextColor(220, 220, 220);
-      const px = x + headW + 2;
-      cy = addWrapText(doc, row.prompt || row.id, px, cy, maxW - headW - 4, LINE - 2) - 4;
-      cy += 4;
-      if (cy > PAGE.h - MARGIN.b - 40) {
-        doc.addPage('letter', 'portrait');
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-        cy = MARGIN.t;
-      }
-    }
-    doc.setDrawColor(60, 120, 140);
-    doc.line(MARGIN.l, cy, PAGE.w - MARGIN.r, cy);
-    return cy + 10;
-  }
-
-  function summary(doc, survey, label, startY) {
-    const counts = summarize(survey);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`${label} — Rating Summary`, MARGIN.l, startY);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(200, 200, 200);
-    doc.text(counts.map((count, rating) => `${rating}: ${count}`).join('    '), MARGIN.l, startY + LINE);
-    return startY + LINE * 2;
+    doc.text(`TalkKink • ${stamp} • Page ${page}/${total}`, width / 2, height - 28, { align: 'center' });
   }
 
   function pickSources(opts = {}) {
@@ -229,98 +383,70 @@ try {
   async function buildPdf({ mine, partner, filename }) {
     const jsPDF = await loadJsPDF();
     const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
-    const title = partner ? 'TalkKink Compatibility Report' : 'TalkKink Survey Export';
-    const mineCats = mine?.meta?.selectedCategories?.join(', ') || 'All Categories';
-    const partnerCats = partner?.meta?.selectedCategories?.join(', ') || 'All Categories';
-    const subtitle = partner
-      ? `Exported ${nowStamp()} • Mine: ${mineCats} • Partner: ${partnerCats}`
-      : `Exported ${nowStamp()} • Selected: ${mineCats}`;
+    const includePartner = Boolean(partner);
+    const createdAt = new Date();
+    const headerTimestamp = createdAt.toLocaleString();
+    const footerStamp = nowStamp(createdAt);
 
-    let y = header(doc, title, subtitle);
-    if (partner) {
-      y = summary(doc, mine, 'Mine', y);
-      y = summary(doc, partner, 'Partner', y) + 6;
-    } else {
-      y = summary(doc, mine, 'Summary', y) + 6;
-    }
+    const mineCats = mine?.meta?.selectedCategories?.join(', ') || 'All Categories';
+    const partnerCats = includePartner
+      ? partner?.meta?.selectedCategories?.join(', ') || 'All Categories'
+      : null;
 
     const mineMap = groupByCategory(mine);
-    const partnerMap = partner ? groupByCategory(partner) : null;
-
-    for (const [cat, items] of mineMap.entries()) {
-      if (y > PAGE.h - MARGIN.b - 120) {
-        doc.addPage('letter', 'portrait');
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-        y = MARGIN.t;
-      }
-
-      if (partner && partnerMap) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.setTextColor(255, 255, 255);
-        y = addWrapText(doc, cat, MARGIN.l, y, PAGE.w - MARGIN.l - MARGIN.r, LINE) + 2;
-
-        const colW = (PAGE.w - MARGIN.l - MARGIN.r - COL_GAP) / 2;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('Mine', MARGIN.l, y);
-        const yL = block(doc, '', items, y + LINE - LINE);
-
-        let yR = y;
-        let xR = MARGIN.l + colW + COL_GAP;
-        if (yR + 40 > PAGE.h - MARGIN.b) {
-          doc.addPage('letter', 'portrait');
-          doc.setFillColor(0, 0, 0);
-          doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-          yR = MARGIN.t;
-        }
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('Partner', xR, yR);
-        yR += LINE;
-
-        (function drawRight() {
-          let cy = yR + 6;
-          const maxW = colW;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          doc.setTextColor(220, 220, 220);
-          for (const row of partnerMap.get(cat) || []) {
-            const chip = ` [${row.rating}] `;
-            const bullet = '• ';
-            const headW = doc.getTextWidth(bullet + chip);
-            doc.text(bullet, xR, cy);
-            doc.setTextColor(140, 230, 255);
-            doc.text(chip, xR + doc.getTextWidth(bullet), cy);
-            doc.setTextColor(220, 220, 220);
-            const px = xR + headW + 2;
-            cy = addWrapText(doc, row.prompt || row.id, px, cy, maxW - headW - 4, LINE - 2) - 4;
-            cy += 4;
-            if (cy > PAGE.h - MARGIN.b - 40) {
-              doc.addPage('letter', 'portrait');
-              doc.setFillColor(0, 0, 0);
-              doc.rect(0, 0, PAGE.w, PAGE.h, 'F');
-              cy = MARGIN.t;
-            }
-          }
-          doc.setDrawColor(60, 120, 140);
-          doc.line(xR, cy, xR + maxW, cy);
-          yR = cy + 12;
-        })();
-
-        y = Math.max(yL, yR) + 10;
-      } else {
-        y = block(doc, cat, items, y);
-      }
+    const partnerMap = includePartner ? groupByCategory(partner) : new Map();
+    const categories = [];
+    mineMap.forEach((_, cat) => { categories.push(cat); });
+    if (includePartner) {
+      partnerMap.forEach((_, cat) => { if (!mineMap.has(cat)) categories.push(cat); });
     }
+    if (!categories.length) categories.push('Responses');
+
+    const mineSummary = formatSummaryLine(summarize(mine));
+    const partnerSummary = includePartner ? formatSummaryLine(summarize(partner)) : null;
+
+    categories.forEach((category, index) => {
+      if (index > 0) {
+        doc.addPage('letter', 'portrait');
+      }
+
+      const mineRows = mineMap.get(category) || [];
+      const partnerRows = includePartner ? partnerMap.get(category) || [] : [];
+      const entries = mergeCategoryEntries(mineRows, partnerRows);
+      const stats = computeCategoryStats(entries, includePartner);
+      const tableRows = buildTableRows(entries, includePartner);
+
+      const metaLines = [];
+      if (index === 0) {
+        if (includePartner) {
+          metaLines.push(`Mine categories: ${mineCats}`);
+          metaLines.push(`Partner categories: ${partnerCats}`);
+          if (mineSummary) metaLines.push(`Mine ratings • ${mineSummary}`);
+          if (partnerSummary) metaLines.push(`Partner ratings • ${partnerSummary}`);
+        } else {
+          metaLines.push(`Selected categories: ${mineCats}`);
+          if (mineSummary) metaLines.push(`Rating summary • ${mineSummary}`);
+        }
+      }
+
+      renderCategoryTable(doc, tableRows, 188, {
+        showPartner: includePartner,
+        sectionTitle: category,
+        widths: includePartner ? colW : soloColW,
+        margin,
+        stats,
+        metaLines,
+        timestamp: headerTimestamp
+      });
+    });
 
     const total = doc.internal.getNumberOfPages();
     for (let i = 1; i <= total; i += 1) {
       doc.setPage(i);
-      addFooter(doc, i, total);
+      addFooter(doc, i, total, footerStamp);
     }
-    doc.save(filename || (partner ? 'talkkink-compatibility-results.pdf' : 'talkkink-survey-results.pdf'));
+
+    doc.save(filename || (includePartner ? 'talkkink-compatibility-results.pdf' : 'talkkink-survey-results.pdf'));
   }
 
   window.TKPDF = window.TKPDF || {};
