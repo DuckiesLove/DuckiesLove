@@ -9,10 +9,10 @@ table.compat {
   background: #000;
 }
 
-table.compat col.label   { width: 52%; }
+table.compat col.label   { width: 56%; }
 table.compat col.pa      { width: 12%; }
-table.compat col.match   { width: 8%; }
-table.compat col.flag    { width: 8%; }
+table.compat col.match   { width: 16%; }
+table.compat col.flag    { width: 4%; }
 table.compat col.pb      { width: 12%; }
 
 table.compat th,
@@ -67,6 +67,11 @@ td.pb {
 /* The flag cell */
 .flag-cell { text-align: left; }
 .flag-cell .red-flag { color: #ff4d4f; }
+
+/* Center the flag glyph so it visually aligns with the numbers */
+td.flag {
+  text-align: center;
+}
 
 button#tk-missing-pill:focus {
   outline: none;
