@@ -213,7 +213,7 @@ async function main() {
   // Title + first page
   paintBg();
   doc.setFontSize(28);
-  doc.text(TITLE, pageW / 2, 48, { align: "center" });
+  doc.text(TITLE, MARGIN_LR, 48);
 
   const x0 = MARGIN_LR;
   let y = TOP_Y;
@@ -223,7 +223,7 @@ async function main() {
       doc.addPage();
       paintBg();
       doc.setFontSize(28);
-      doc.text(TITLE, pageW / 2, 48, { align: "center" });
+      doc.text(TITLE, MARGIN_LR, 48);
       y = TOP_Y;
       drawHeader();
     }
