@@ -13,11 +13,14 @@ export function applyCompatLayoutAndFlags(root = document.getElementById('pdf-co
   #pdf-container table.compat td { padding:10px 12px; vertical-align:top; word-break:break-word; }
 
   /* Even column widths: [Label | A | Match | Flag | B] */
-  #pdf-container table.compat col.label { width:52%; }
+  #pdf-container table.compat col.label { width:56%; }
   #pdf-container table.compat col.pa    { width:12%; }
-  #pdf-container table.compat col.match { width:8%;  }
-  #pdf-container table.compat col.flag  { width:8%;  }
+  #pdf-container table.compat col.match { width:16%; }
+  #pdf-container table.compat col.flag  { width:4%;  }
   #pdf-container table.compat col.pb    { width:12%; }
+
+  /* Center the flag glyph */
+  #pdf-container table.compat td.flag { text-align:center; }
 
   /* Remove the "Kink" header label cell text */
   #pdf-container table.compat thead th:first-child { color:transparent; }
@@ -46,11 +49,11 @@ export function applyCompatLayoutAndFlags(root = document.getElementById('pdf-co
     if (!t.querySelector('colgroup')) {
       const cg = document.createElement('colgroup');
       cg.innerHTML = `
-        <col class="label">
-        <col class="pa">
-        <col class="match">
-        <col class="flag">
-        <col class="pb">
+        <col class="label" style="width:56%">
+        <col class="pa"    style="width:12%">
+        <col class="match" style="width:16%">
+        <col class="flag"  style="width:4%">
+        <col class="pb"    style="width:12%">
       `;
       t.insertBefore(cg, t.firstChild);
     }
