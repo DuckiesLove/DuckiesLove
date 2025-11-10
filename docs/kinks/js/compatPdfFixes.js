@@ -7,17 +7,23 @@ export function applyCompatLayoutAndFlags(root = document.getElementById('pdf-co
     style.id = 'compat-pdf-fixes';
     style.textContent = `
   /* Dark theme + reliable widths */
-  #pdf-container { background:#000; color:#fff; }
-  #pdf-container table.compat { width:100%; table-layout:fixed; border-collapse:collapse; color:#fff; background:#000; }
+  #pdf-container { background:#0b0c10; color:#fff; }
+  #pdf-container table.compat { width:100%; table-layout:fixed; border-collapse:separate; color:#fff; background:#000; }
   #pdf-container table.compat th,
   #pdf-container table.compat td { padding:10px 12px; vertical-align:top; word-break:break-word; }
 
   /* Even column widths: [Label | A | Match | Flag | B] */
-  #pdf-container table.compat col.label { width:52%; }
-  #pdf-container table.compat col.pa    { width:12%; }
-  #pdf-container table.compat col.match { width:8%;  }
-  #pdf-container table.compat col.flag  { width:8%;  }
-  #pdf-container table.compat col.pb    { width:12%; }
+  #pdf-container table.compat col.label { width:56%; }
+  #pdf-container table.compat col.a,
+  #pdf-container table.compat col.pa { width:12%; }
+  #pdf-container table.compat col.match { width:16%; }
+  #pdf-container table.compat col.flag { width:4%;  }
+  #pdf-container table.compat col.b,
+  #pdf-container table.compat col.pb { width:12%; }
+
+  /* Center the flag glyph */
+  #pdf-container table.compat td.flag,
+  #pdf-container table.compat th.flag { text-align:center; padding-left:4px; padding-right:4px; }
 
   /* Remove the "Kink" header label cell text */
   #pdf-container table.compat thead th:first-child { color:transparent; }
@@ -46,11 +52,11 @@ export function applyCompatLayoutAndFlags(root = document.getElementById('pdf-co
     if (!t.querySelector('colgroup')) {
       const cg = document.createElement('colgroup');
       cg.innerHTML = `
-        <col class="label">
-        <col class="pa">
-        <col class="match">
-        <col class="flag">
-        <col class="pb">
+        <col class="label" style="width:56%">
+        <col class="a pa" style="width:12%">
+        <col class="match" style="width:16%">
+        <col class="flag" style="width:4%">
+        <col class="b pb" style="width:12%">
       `;
       t.insertBefore(cg, t.firstChild);
     }
@@ -113,10 +119,10 @@ export function applyCompatLayoutAndFlags(root = document.getElementById('pdf-co
     }
   });
 
-  // 4) Ensure container is full-width with light background
+  // 4) Ensure container is full-width with a dark background
   Object.assign(root.style, {
-    backgroundColor: '#fff',
-    color: '#000',
+    backgroundColor: '#0b0c10',
+    color: '#fff',
     width: '100%',
     maxWidth: '100%',
     margin: '0',
