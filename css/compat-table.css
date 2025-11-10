@@ -1,19 +1,49 @@
 /* Compatibility table styles */
 
+html,
+body {
+  margin: 0;
+  background: #0b0c10;
+}
+
+.compat-page,
+.compat-wrap,
+.compat-wrapper,
+.compat-container,
+#compatRoot {
+  max-width: none !important;
+  width: 100vw;
+  padding-left: 16px;
+  padding-right: 16px;
+  box-sizing: border-box;
+}
+
 /* Left column (labels) and even spacing for the rest */
-table.compat {
+table.compat,
+.compat-table {
   width: 100%;
   table-layout: fixed;
-  border-collapse: collapse;
+  border-collapse: separate;
   color: #fff;
   background: #000;
 }
 
-table.compat col.label   { width: 56%; }
-table.compat col.pa      { width: 12%; }
-table.compat col.match   { width: 16%; }
-table.compat col.flag    { width: 4%; }
-table.compat col.pb      { width: 12%; }
+table.compat col.label,
+.compat-table col.label { width: 56%; }
+
+table.compat col.a,
+table.compat col.pa,
+.compat-table col.a { width: 12%; }
+
+table.compat col.match,
+.compat-table col.match { width: 16%; }
+
+table.compat col.flag,
+.compat-table col.flag { width: 4%; }
+
+table.compat col.b,
+table.compat col.pb,
+.compat-table col.b { width: 12%; }
 
 table.compat th,
 table.compat td {
@@ -69,8 +99,11 @@ td.pb {
 .flag-cell .red-flag { color: #ff4d4f; }
 
 /* Center the flag glyph so it visually aligns with the numbers */
-td.flag {
+td.flag,
+th.flag {
   text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 button#tk-missing-pill:focus {

@@ -219,6 +219,14 @@ export async function downloadCompatibilityPDF(){
 
     const pdf = new jsPDFCtor({ unit:'pt', format:'letter', orientation:'portrait' });
     const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+
+    const paintPageBackground = () => {
+      if (typeof pdf.setFillColor === 'function' && typeof pdf.rect === 'function') {
+        pdf.setFillColor(10, 10, 12);
+        pdf.rect(0, 0, pageW, pageH, 'F');
+      }
+    };
 
     if (slices <= 1){
       const canvas = await html2canvasFn(clone, {
@@ -228,6 +236,7 @@ export async function downloadCompatibilityPDF(){
       });
       const img = canvas.toDataURL('image/png');
       const ratio = canvas.height / canvas.width;
+      paintPageBackground();
       pdf.addImage(img, 'PNG', 0, 0, pageW, pageW * ratio);
     } else {
       const cssSliceH = Math.ceil(targetSlicePx / scale);
@@ -238,7 +247,10 @@ export async function downloadCompatibilityPDF(){
         const canvas = await renderTile(clone, width, sliceH, y, scale, html2canvasFn);
         const img = canvas.toDataURL('image/png');
         const ratio = canvas.height / canvas.width;
-        if (i>0) pdf.addPage();
+        if (i>0) {
+          pdf.addPage();
+        }
+        paintPageBackground();
         pdf.addImage(img, 'PNG', 0, 0, pageW, pageW * ratio);
         y += sliceH;
       }
