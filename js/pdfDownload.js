@@ -24,6 +24,8 @@ const DEFAULT_COLUMNS = [
   { header: 'Partner B', dataKey: 'b', align: 'center' },
 ];
 
+const DEFAULT_CATEGORY = 'Compatibility';
+
 function getDocument(){
   return typeof document === 'undefined' ? null : document;
 }
@@ -215,6 +217,19 @@ function clampScore(n){
   if (n < 0) return 0;
   if (n > 5) return 5;
   return Math.round(n);
+}
+
+function ensureObject(value){
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
 }
 
 function extractRows(table){
@@ -421,6 +436,157 @@ function normalizeCategoryInput(cat){
   return { category: cat.category || cat.name || 'Compatibility', items };
 }
 
+function normalizeSideLabel(side){
+  if (!side) return '';
+  const clean = String(side).trim();
+  if (!clean || clean.toLowerCase() === 'general') return '';
+  return ` (${clean.replace(/[_-]+/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())})`;
+}
+
+function extractSurveyEntries(rawSurvey){
+  const survey = ensureObject(rawSurvey);
+  if (!survey) return [];
+
+  const entries = new Map();
+
+  const addEntry = ({ category, id, label, score, side }) => {
+    if (score == null && score !== 0) return;
+    const catName = category ? String(category) : DEFAULT_CATEGORY;
+    const keyBase = id != null ? String(id) : String(label || '');
+    const key = side ? `${keyBase}::${side}` : keyBase;
+    const mapKey = `${catName}||${key}`;
+    if (!mapKey.trim()) return;
+    const displayLabel = (label ? String(label) : keyBase) + normalizeSideLabel(side);
+    if (!entries.has(mapKey)) {
+      entries.set(mapKey, { category: catName, key, label: displayLabel, score });
+      return;
+    }
+    const existing = entries.get(mapKey);
+    if (existing.score == null && score != null) existing.score = score;
+    if (!existing.label && displayLabel) existing.label = displayLabel;
+  };
+
+  const fromAnswersArray = Array.isArray(survey.answers) ? survey.answers : null;
+  if (fromAnswersArray) {
+    fromAnswersArray.forEach((ans) => {
+      if (!ans || typeof ans !== 'object') return;
+      const rawScore = ans.score ?? ans.value ?? ans.rating ?? ans.answer ?? ans.response;
+      const score = parseScoreValue(rawScore);
+      const category = ans.category ?? ans.categoryName ?? ans.categoryId ?? ans.section ?? ans.group;
+      const id = ans.kinkId ?? ans.id ?? ans.key ?? ans.questionId ?? ans.promptId ?? ans.code;
+      const label = ans.title ?? ans.prompt ?? ans.question ?? ans.label ?? ans.name ?? ans.kink ?? ans.text ?? id;
+      const side = ans.side ?? ans.channel ?? ans.role ?? ans.position ?? ans.context;
+      addEntry({ category, id, label, score, side });
+    });
+  }
+
+  const fromResponses = Array.isArray(survey.responses) ? survey.responses : null;
+  if (fromResponses) {
+    fromResponses.forEach((row, idx) => {
+      if (!row || typeof row !== 'object') return;
+      const rawScore = row.score ?? row.value ?? row.rating ?? row.answer ?? row.response ?? row.selected;
+      const score = parseScoreValue(rawScore);
+      const category = row.category ?? row.section ?? row.group ?? row.categoryId;
+      const id = row.id ?? row.kinkId ?? row.key ?? row.promptId ?? idx;
+      const label = row.prompt ?? row.text ?? row.title ?? row.label ?? row.name ?? id;
+      const side = row.side ?? row.channel ?? row.role ?? row.position ?? row.context;
+      addEntry({ category, id, label, score, side });
+    });
+  }
+
+  const itemsArray = Array.isArray(survey.items) ? survey.items : null;
+  if (itemsArray) {
+    itemsArray.forEach((item, idx) => {
+      if (!item || typeof item !== 'object') return;
+      const rawScore = item.score ?? item.value ?? item.rating ?? item.answer ?? item.response;
+      const score = parseScoreValue(rawScore);
+      const category = item.category ?? item.section ?? item.group ?? item.categoryId;
+      const id = item.id ?? item.kinkId ?? item.key ?? idx;
+      const label = item.title ?? item.prompt ?? item.text ?? item.label ?? item.name ?? id;
+      const side = item.side ?? item.channel ?? item.role ?? item.position ?? item.context;
+      addEntry({ category, id, label, score, side });
+    });
+  }
+
+  const answersObj = survey.answers && typeof survey.answers === 'object' && !Array.isArray(survey.answers)
+    ? survey.answers
+    : null;
+  if (answersObj) {
+    Object.entries(answersObj).forEach(([id, rawScore]) => {
+      const score = parseScoreValue(rawScore);
+      addEntry({ category: DEFAULT_CATEGORY, id, label: id, score, side: null });
+    });
+  }
+
+  const byKink = survey.byKinkId || survey.byKink;
+  if (byKink && typeof byKink === 'object') {
+    Object.entries(byKink).forEach(([id, value]) => {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const baseLabel = value.title ?? value.name ?? value.label ?? id;
+        const category = value.category ?? value.categoryName ?? value.categoryId ?? value.section;
+        Object.entries(value).forEach(([side, rawScore]) => {
+          if (side == null) return;
+          if (/^(title|name|label|category|categoryId|categoryName|section|meta)$/i.test(side)) return;
+          const score = parseScoreValue(rawScore);
+          addEntry({ category, id: `${id}::${side}`, label: baseLabel, score, side });
+        });
+      } else {
+        const score = parseScoreValue(value);
+        addEntry({ category: DEFAULT_CATEGORY, id, label: id, score, side: null });
+      }
+    });
+  }
+
+  return Array.from(entries.values());
+}
+
+function buildCategoriesFromSurveys(partnerAInput, partnerBInput){
+  const aEntries = extractSurveyEntries(partnerAInput);
+  const bEntries = extractSurveyEntries(partnerBInput);
+
+  if (!aEntries.length && !bEntries.length) return [];
+
+  const categories = new Map();
+
+  const applyEntries = (list, sideKey) => {
+    list.forEach((entry) => {
+      const catName = entry.category || DEFAULT_CATEGORY;
+      let bucket = categories.get(catName);
+      if (!bucket) {
+        bucket = { category: catName, items: [], index: new Map() };
+        categories.set(catName, bucket);
+      }
+      const itemKey = entry.key || entry.label || String(bucket.items.length);
+      let item = bucket.index.get(itemKey);
+      if (!item) {
+        item = { label: entry.label || itemKey, partnerA: null, partnerB: null };
+        bucket.index.set(itemKey, item);
+        bucket.items.push(item);
+      } else if (!item.label && entry.label) {
+        item.label = entry.label;
+      }
+      if (entry.score != null) {
+        item[sideKey] = entry.score;
+      }
+    });
+  };
+
+  applyEntries(aEntries, 'partnerA');
+  applyEntries(bEntries, 'partnerB');
+
+  const result = Array.from(categories.values())
+    .map((cat) => {
+      const items = cat.items
+        .filter((item) => !(item.partnerA == null && item.partnerB == null))
+        .sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { sensitivity: 'base' }));
+      return items.length ? { category: cat.category, items } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.category || '').localeCompare(String(b.category || ''), undefined, { sensitivity: 'base' }));
+
+  return result;
+}
+
 function getHistoryData(options){
   if (options && Array.isArray(options.history)) {
     return options.history;
@@ -460,14 +626,19 @@ export async function downloadCompatibilityPDF(...args){
     const columnDefs = normalizeColumns(columns);
     pdfCategories = buildCategoriesFromProvidedRows(rows, columnDefs);
   } else {
-    const table = findTable();
-    if (!table) {
-      console.warn('[pdf] No data rows found to export.');
-      disableButtonsForNoData();
-      return;
+    const fromSurveys = buildCategoriesFromSurveys(options.partnerA, options.partnerB);
+    if (fromSurveys.length) {
+      pdfCategories = fromSurveys;
+    } else {
+      const table = findTable();
+      if (!table) {
+        console.warn('[pdf] No data rows found to export.');
+        disableButtonsForNoData();
+        return;
+      }
+      const extracted = extractRows(table);
+      pdfCategories = buildCategoriesFromExtractedRows(extracted);
     }
-    const extracted = extractRows(table);
-    pdfCategories = buildCategoriesFromExtractedRows(extracted);
   }
 
   if (!pdfCategories.length) {
