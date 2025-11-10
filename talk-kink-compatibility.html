@@ -66,7 +66,7 @@ try {
     return fallback;
   };
 
-  const DEFAULT_MARGIN = { top: 40, right: 36, bottom: 38, left: 36 };
+  const DEFAULT_MARGIN = { top: 54, right: 56, bottom: 46, left: 56 };
   const DEFAULT_COL_W = [56, 12, 16, 4, 12];
   const DEFAULT_SOLO_COL_W = [72, 28];
   const DEFAULT_BG = [10, 10, 12];
@@ -247,17 +247,21 @@ try {
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
   }
 
-  function tkTableCenterX(doc, widths, marginOverride) {
-    const list = Array.isArray(widths) && widths.length ? widths : ACTIVE_PDF_CONFIG.colW;
-    const margin = marginOverride || ACTIVE_PDF_CONFIG.margins;
-    const tableWidth = list.reduce((acc, value) => acc + value, 0);
-    return (margin.left ?? 0) + tableWidth / 2;
-  }
-
   function tkDrawHeader(doc, sectionTitle, options = {}) {
     const widths = options.widths || ACTIVE_PDF_CONFIG.colW;
     const timestamp = options.timestamp ?? new Date().toLocaleString();
-    const cx = tkTableCenterX(doc, widths, options.margin);
+    const margin = options.margin || ACTIVE_PDF_CONFIG.margins;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const leftX = Number(margin?.left ?? 0);
+    const maxRight = pageWidth - Number(margin?.right ?? 0);
+    const widthSum = Array.isArray(widths)
+      ? widths.reduce((acc, value) => acc + (Number(value) || 0), 0)
+      : 0;
+    const requestedWidth = Number.isFinite(options.tableWidth) ? options.tableWidth : widthSum;
+    const printableWidth = Math.max(0, maxRight - leftX);
+    const effectiveWidth = Math.max(0, Math.min(printableWidth, requestedWidth || printableWidth));
+    const rightX = leftX + effectiveWidth;
+    const cx = leftX + effectiveWidth / 2;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
@@ -268,6 +272,11 @@ try {
     doc.setFontSize(11);
     doc.setTextColor(160, 220, 220);
     doc.text(`Generated: ${timestamp}`, cx, 92, { align: 'center' });
+
+    const ruleY = options.ruleY ?? 104;
+    doc.setDrawColor(0, 255, 255);
+    if (typeof doc.setLineWidth === 'function') doc.setLineWidth(0.75);
+    doc.line(leftX, ruleY, rightX, ruleY);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
@@ -393,6 +402,13 @@ try {
       margin,
       doc.internal.pageSize.getWidth()
     );
+    const printableWidth = Math.max(
+      0,
+      doc.internal.pageSize.getWidth() - Number(margin.left ?? 0) - Number(margin.right ?? 0)
+    );
+    const tableWidth = Array.isArray(widths)
+      ? widths.reduce((acc, value) => acc + (Number(value) || 0), 0)
+      : printableWidth;
     const stats = opts.stats || null;
     const infoLines = [];
     if (Array.isArray(opts.metaLines)) {
@@ -435,6 +451,7 @@ try {
       body: rows,
       startY: tableStartY,
       margin,
+      tableWidth: tableWidth || printableWidth,
       styles: {
         fillColor: pageBg,
         textColor: [255, 255, 255],
@@ -465,7 +482,12 @@ try {
         preparePage(doc);
         if (showHeader && (!isFirstPage || !opts.skipFirstHeader)) {
           const sectionTitle = isFirstPage ? opts.sectionTitle || '' : `${opts.sectionTitle || ''} (cont.)`;
-          tkDrawHeader(doc, sectionTitle, { widths, timestamp: opts.timestamp, margin });
+          tkDrawHeader(doc, sectionTitle, {
+            widths,
+            timestamp: opts.timestamp,
+            margin,
+            tableWidth: tableWidth || printableWidth
+          });
         }
         if (isFirstPage && infoLines.length) {
           doc.setFont('helvetica', 'normal');
