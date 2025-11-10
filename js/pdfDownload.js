@@ -1,4 +1,15 @@
 import { savePDF as savePdfDownload } from './talkKinkDownload.js';
+import { loadJsPDF } from './loadJsPDF.js';
+
+let pdfSaver = savePdfDownload;
+
+export function __setPdfSaverForTests(fn) {
+  pdfSaver = typeof fn === 'function' ? fn : savePdfDownload;
+}
+
+export function __resetPdfSaverForTests() {
+  pdfSaver = savePdfDownload;
+}
 
 'use strict';
 
@@ -12,23 +23,6 @@ const DEFAULT_COLUMNS = [
   { header: 'Match %', dataKey: 'pct', align: 'center' },
   { header: 'Partner B', dataKey: 'b', align: 'center' },
 ];
-
-function canUseTalkKinkDownload(){
-  try {
-    const doc = getDocument();
-    const win = getWindow();
-    if (!doc || !win) return false;
-    if (typeof win.URL === 'undefined' || typeof win.URL.createObjectURL !== 'function') return false;
-    if (typeof doc.createElement !== 'function') return false;
-    const anchor = doc.createElement('a');
-    if (!anchor || typeof anchor.click !== 'function') return false;
-    anchor.remove?.();
-    if (!doc.body && !doc.documentElement && !doc.head) return false;
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
 
 function getDocument(){
   return typeof document === 'undefined' ? null : document;
@@ -199,24 +193,6 @@ function normalizeColumns(columns){
   });
 }
 
-function normalizeProvidedRows(rows, columns){
-  if (!Array.isArray(rows)) return [];
-  return rows.map(raw => {
-    if (Array.isArray(raw)) {
-      return raw.map(val => (val == null || val === '' ? '—' : String(val)));
-    }
-    if (!raw || typeof raw !== 'object') {
-      return columns.map(() => '—');
-    }
-    return columns.map(col => {
-      const key = col.dataKey;
-      const hasKey = key != null && Object.prototype.hasOwnProperty.call(raw, key);
-      const value = hasKey ? raw[key] : raw[col.header];
-      return value == null || value === '' ? '—' : String(value);
-    });
-  });
-}
-
 function findTable(){
   const doc = getDocument();
   if (!doc || typeof doc.querySelector !== 'function') return null;
@@ -239,18 +215,6 @@ function clampScore(n){
   if (n < 0) return 0;
   if (n > 5) return 5;
   return Math.round(n);
-}
-
-function toScore(value){
-  if (value == null) return 0;
-  if (typeof value === 'number' && Number.isFinite(value)) return clampScore(value);
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) return 0;
-    const num = Number(trimmed.replace(/[^\d.-]/g, ''));
-    if (Number.isFinite(num)) return clampScore(num);
-  }
-  return 0;
 }
 
 function extractRows(table){
@@ -301,45 +265,6 @@ function extractRows(table){
   return rows;
 }
 
-function buildBodyFromRows(extracted, columnCount){
-  return extracted.map(row => {
-    if (row.type === 'header') {
-      return [{
-        content: row.category,
-        colSpan: columnCount,
-        styles: { fontStyle: 'bold', halign: 'left' },
-      }];
-    }
-    return [row.category, row.A, row.pct, row.B].map(val => (val == null || val === '' ? '—' : String(val)));
-  });
-}
-
-function getJsPDFConstructor(){
-  const win = getWindow();
-  if (win?.jspdf?.jsPDF) return win.jspdf.jsPDF;
-  if (win?.jsPDF) return win.jsPDF;
-  return null;
-}
-
-function getAutoTableExecutor(doc){
-  if (doc && typeof doc.autoTable === 'function') {
-    return opts => doc.autoTable(opts);
-  }
-  const win = getWindow();
-  if (win?.jspdf?.autoTable) {
-    return opts => win.jspdf.autoTable(doc, opts);
-  }
-  const api = win?.jspdf?.jsPDF?.API;
-  if (api && typeof api.autoTable === 'function') {
-    return opts => api.autoTable.call(doc, opts);
-  }
-  const legacyApi = win?.jsPDF?.API;
-  if (legacyApi && typeof legacyApi.autoTable === 'function') {
-    return opts => legacyApi.autoTable.call(doc, opts);
-  }
-  return null;
-}
-
 function parseOptions(args){
   if (!args.length) return {};
   if (args.length === 1 && isPlainObject(args[0])) return args[0] || {};
@@ -349,33 +274,191 @@ function parseOptions(args){
   return opts;
 }
 
+function parseScoreValue(value){
+  if (value == null) return null;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? clampScore(value) : null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '—' || trimmed.toLowerCase() === 'n/a') return null;
+    const num = Number(trimmed.replace(/[^\d.-]/g, ''));
+    return Number.isFinite(num) ? clampScore(num) : null;
+  }
+  return null;
+}
+
+function parseMatchValue(value){
+  if (value == null) return null;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return null;
+    return Math.max(0, Math.min(100, Math.round(value)));
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '—' || trimmed.toLowerCase() === 'n/a') return null;
+    const num = Number(trimmed.replace(/[^\d.-]/g, ''));
+    if (!Number.isFinite(num)) return null;
+    return Math.max(0, Math.min(100, Math.round(num)));
+  }
+  return null;
+}
+
+function normalizeProvidedRow(row, columns){
+  if (Array.isArray(row)) return row;
+  if (!row || typeof row !== 'object') return columns.map(() => '—');
+  return columns.map(col => {
+    const key = col.dataKey;
+    if (key != null && Object.prototype.hasOwnProperty.call(row, key)) {
+      return row[key];
+    }
+    if (col.header && Object.prototype.hasOwnProperty.call(row, col.header)) {
+      return row[col.header];
+    }
+    if (col.label && Object.prototype.hasOwnProperty.call(row, col.label)) {
+      return row[col.label];
+    }
+    return '—';
+  });
+}
+
+function resolveColumnIndex(columns, matcher, fallback){
+  const idx = columns.findIndex(col => matcher((col.header || '').toLowerCase()));
+  return idx >= 0 ? idx : fallback;
+}
+
+function buildCategoriesFromProvidedRows(rows, columns){
+  if (!Array.isArray(rows) || !rows.length) return [];
+  const arrays = rows.map(row => normalizeProvidedRow(row, columns));
+  if (!arrays.length) return [];
+
+  const labelIdx = resolveColumnIndex(columns, text => /category|item|kink|name/.test(text), 0);
+  const aIdx = resolveColumnIndex(columns, text => /partner\s*a/.test(text), Math.min(1, arrays[0].length - 1));
+  const bIdx = resolveColumnIndex(columns, text => /partner\s*b/.test(text), arrays[0].length - 1);
+  const matchIdx = resolveColumnIndex(columns, text => /match/.test(text), -1);
+
+  const category = { category: 'Compatibility', items: [] };
+  arrays.forEach(values => {
+    const label = values[labelIdx] ?? '';
+    const aScore = parseScoreValue(values[aIdx]);
+    const bScore = parseScoreValue(values[bIdx]);
+    const match = matchIdx >= 0 ? parseMatchValue(values[matchIdx]) : null;
+
+    if (!label && aScore == null && bScore == null) {
+      return;
+    }
+
+    category.items.push({
+      label: String(label || ''),
+      partnerA: aScore,
+      partnerB: bScore,
+      match: match ?? undefined,
+    });
+  });
+
+  return category.items.length ? [category] : [];
+}
+
+function buildCategoriesFromExtractedRows(extracted){
+  if (!Array.isArray(extracted) || !extracted.length) return [];
+  const categories = [];
+  let current = null;
+
+  const startCategory = label => {
+    const name = label && label !== '—' ? String(label) : 'Compatibility';
+    current = { category: name, items: [] };
+    categories.push(current);
+  };
+
+  extracted.forEach(row => {
+    if (row.type === 'header') {
+      startCategory(row.category);
+      return;
+    }
+
+    if (!current) {
+      startCategory('Compatibility');
+    }
+
+    const aScore = parseScoreValue(row.A);
+    const bScore = parseScoreValue(row.B);
+    const match = parseMatchValue(row.pct);
+
+    current.items.push({
+      label: String(row.category || ''),
+      partnerA: aScore,
+      partnerB: bScore,
+      match: match ?? undefined,
+    });
+  });
+
+  return categories.filter(cat => cat.items.length);
+}
+
+function normalizeCategoryInput(cat){
+  if (!cat || typeof cat !== 'object') return null;
+  const rawItems = Array.isArray(cat.items) ? cat.items : [];
+  const items = rawItems
+    .map(item => {
+      if (!item || typeof item !== 'object') return null;
+      const label = item.label || item.name || '';
+      const partnerA = parseScoreValue(item.partnerA ?? item.a ?? item.scoreA);
+      const partnerB = parseScoreValue(item.partnerB ?? item.b ?? item.scoreB);
+      const match = parseMatchValue(item.match);
+      if (!label && partnerA == null && partnerB == null) {
+        return null;
+      }
+      return {
+        label: String(label || ''),
+        partnerA,
+        partnerB,
+        match: match ?? undefined,
+      };
+    })
+    .filter(Boolean);
+
+  if (!items.length) return null;
+  return { category: cat.category || cat.name || 'Compatibility', items };
+}
+
+function getHistoryData(options){
+  if (options && Array.isArray(options.history)) {
+    return options.history;
+  }
+  const win = getWindow();
+  if (win && Array.isArray(win.compatibilityHistory)) {
+    return win.compatibilityHistory;
+  }
+  return [];
+}
+
+async function ensureJsPdfReady(){
+  try {
+    await loadJsPDF();
+  } catch (error) {
+    console.error('jsPDF failed to load', error);
+    throw error;
+  }
+}
+
 export async function downloadCompatibilityPDF(...args){
   const options = parseOptions(args);
   const {
     filename = 'compatibility-report.pdf',
-    orientation = 'landscape',
-    format = 'a4',
     columns,
     rows,
+    categories,
   } = options;
 
-  const columnDefs = normalizeColumns(columns);
-  const tableHead = [columnDefs.map(col => col.header || '')];
-  const columnStyles = {};
-  columnDefs.forEach((col, idx) => {
-    columnStyles[idx] = { halign: col.align || (idx === 0 ? 'left' : 'center') };
-    if (typeof col.cellWidth === 'number') {
-      columnStyles[idx].cellWidth = col.cellWidth;
-    }
-  });
+  let pdfCategories = [];
 
-  let body = [];
-  if (Array.isArray(rows) && rows.length) {
-    body = normalizeProvidedRows(rows, columnDefs);
-    if (!body.length) {
-      console.warn('[pdf] No data rows provided to export.');
-      return;
-    }
+  if (Array.isArray(categories) && categories.length) {
+    pdfCategories = categories
+      .map(normalizeCategoryInput)
+      .filter(Boolean);
+  } else if (Array.isArray(rows) && rows.length) {
+    const columnDefs = normalizeColumns(columns);
+    pdfCategories = buildCategoriesFromProvidedRows(rows, columnDefs);
   } else {
     const table = findTable();
     if (!table) {
@@ -384,57 +467,37 @@ export async function downloadCompatibilityPDF(...args){
       return;
     }
     const extracted = extractRows(table);
-    if (!extracted.length) {
-      console.warn('[pdf] No data rows found to export.');
-      disableButtonsForNoData();
-      return;
+    pdfCategories = buildCategoriesFromExtractedRows(extracted);
+  }
+
+  if (!pdfCategories.length) {
+    console.warn('[pdf] No data rows found to export.');
+    disableButtonsForNoData();
+    return;
+  }
+
+  await ensureJsPdfReady();
+
+  const { generateCompatibilityPDF } = await import('./compatibilityPdf.js');
+
+  const history = getHistoryData(options);
+  const data = { categories: pdfCategories, history };
+
+  const saveHook = async (doc, name) => {
+    if (typeof pdfSaver === 'function') {
+      try {
+        await pdfSaver(doc, name);
+        return;
+      } catch (error) {
+        console.error('[pdf] download helper failed, falling back to jsPDF.save()', error);
+      }
     }
-    body = buildBodyFromRows(extracted, columnDefs.length);
-  }
-
-  const JsPDF = getJsPDFConstructor();
-  if (!JsPDF) {
-    console.error('jsPDF failed to load');
-    return;
-  }
-
-  const doc = new JsPDF({ orientation, unit: 'pt', format });
-  const execAutoTable = getAutoTableExecutor(doc);
-  if (!execAutoTable) {
-    console.error('jsPDF-AutoTable plugin is required.');
-    return;
-  }
-
-  const tableOptions = {
-    head: tableHead,
-    body,
-    columnStyles,
-    styles: {
-      fontSize: 11,
-      cellPadding: 8,
-      halign: 'center',
-      valign: 'middle',
-    },
-    headStyles: {
-      fontStyle: 'bold',
-    },
+    if (typeof doc.save === 'function') {
+      doc.save(name);
+    }
   };
 
-  execAutoTable(tableOptions);
-
-  let saved = false;
-  if (canUseTalkKinkDownload()) {
-    try {
-      await savePdfDownload(doc, filename);
-      saved = true;
-    } catch (error) {
-      console.error('[pdf] download helper failed, falling back to jsPDF.save()', error);
-    }
-  }
-
-  if (!saved && typeof doc.save === 'function') {
-    doc.save(filename);
-  }
+  await generateCompatibilityPDF(data, { filename, saveHook });
 }
 
 export function bindPdfButton(){

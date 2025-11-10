@@ -2,7 +2,7 @@ import { buildLayout, getMatchPercentage, renderCategorySection } from './compat
 import { shortenLabel } from './labelShortener.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
-export async function generateCompatibilityPDF(data = { categories: [] }) {
+export async function generateCompatibilityPDF(data = { categories: [] }, options = {}) {
   if (DEBUG) {
     console.log('PDF function triggered');
   }
@@ -15,6 +15,12 @@ export async function generateCompatibilityPDF(data = { categories: [] }) {
     throw new Error('jsPDF failed to load');
   }
   const doc = new jsPDFCtor({ orientation: 'landscape' });
+
+  const {
+    filename = 'compatibility_report.pdf',
+    save = true,
+    saveHook = null,
+  } = options || {};
 
   const config = {
     margin: 10,
@@ -144,7 +150,15 @@ export async function generateCompatibilityPDF(data = { categories: [] }) {
     }
   }
 
-  await doc.save('compatibility_report.pdf');
+  if (save !== false) {
+    if (typeof saveHook === 'function') {
+      await saveHook(doc, filename);
+    } else if (typeof doc.save === 'function') {
+      await doc.save(filename);
+    }
+  }
+
+  return doc;
 }
 
 if (typeof document !== 'undefined') {

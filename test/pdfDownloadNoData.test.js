@@ -7,6 +7,7 @@ test('warns and aborts when both partners have no data', async () => {
     document: globalThis.document,
     console: globalThis.console,
   };
+  let mod;
   try {
     let warnMsg = '';
     let jsPdfCalled = false;
@@ -42,13 +43,14 @@ test('warns and aborts when both partners have no data', async () => {
       createElement: () => ({ setAttribute: () => {}, textContent: '', appendChild: () => {}, style: {} }),
     };
 
-    const mod = await import('../js/pdfDownload.js?no-data-test');
+    mod = await import('../js/pdfDownload.js?no-data-test');
     await mod.downloadCompatibilityPDF();
 
     assert.strictEqual(jsPdfCalled, false);
     assert.match(warnMsg, /no data rows/i);
     assert.strictEqual(disabledState, true);
   } finally {
+    if (mod?.__resetPdfSaverForTests) mod.__resetPdfSaverForTests();
     if (originalGlobals.window) globalThis.window = originalGlobals.window; else delete globalThis.window;
     if (originalGlobals.document) globalThis.document = originalGlobals.document; else delete globalThis.document;
     if (originalGlobals.console) globalThis.console = originalGlobals.console; else delete globalThis.console;
