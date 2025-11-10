@@ -28,6 +28,7 @@ table.compat,
   background: #000;
 }
 
+/* Tight Flag column + centered icon; give label more room */
 table.compat col.label,
 .compat-table col.label { width: 56%; }
 
@@ -44,6 +45,16 @@ table.compat col.flag,
 table.compat col.b,
 table.compat col.pb,
 .compat-table col.b { width: 12%; }
+
+/* If you inject a <colgroup> in HTML, it should mirror the same widths:
+<colgroup class="compat-cols">
+  <col class="label"  style="width:56%">
+  <col class="a"      style="width:12%">
+  <col class="match"  style="width:16%">
+  <col class="flag"   style="width:4%">
+  <col class="b"      style="width:12%">
+</colgroup>
+*/
 
 table.compat th,
 table.compat td {
@@ -89,7 +100,6 @@ td.label { text-align: left; }
 /* Partner A / Match / Flag / Partner B cells */
 td.pa,
 td.match,
-td.flag,
 td.pb {
   text-align: left;
 }
@@ -97,6 +107,8 @@ td.pb {
 /* The flag cell */
 .flag-cell { text-align: left; }
 .flag-cell .red-flag { color: #ff4d4f; }
+
+.compat-table td.flag { text-align: center; }
 
 /* Center the flag glyph so it visually aligns with the numbers */
 td.flag,
