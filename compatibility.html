@@ -184,7 +184,7 @@
       selfInput: '#yourFile',
       partnerInput: '#partnerFile',
       guardPdf: false,
-      autoInit: true
+      autoInit: false
     };
   </script>
   <script defer src="/js/tk-compat-upload-glue.js"></script>
@@ -1025,6 +1025,9 @@
   window.__TK_FAST_UPLOADS__ = true;
   window.__TK_ALLOW_SINGLE_PDF__ = true;
 
+  const LS_SELF_KEY = 'tk_compat.mine';
+  const LS_PARTNER_KEY = 'tk_compat.partner';
+
   // ---------- STATE ----------
   let yourBlob = null;
   let partnerBlob = null;
@@ -1051,9 +1054,22 @@
     if (which === 'self') {
       yourBlob = null;
       yourJSON = null;
+      window.talkkinkMine = null;
+      window.talkkinkSurvey = null;
+      try {
+        localStorage.removeItem(LS_SELF_KEY);
+      } catch (err) {
+        console.warn('[compat] unable to clear self cache', err);
+      }
     } else {
       partnerBlob = null;
       partnerJSON = null;
+      window.talkkinkPartner = null;
+      try {
+        localStorage.removeItem(LS_PARTNER_KEY);
+      } catch (err) {
+        console.warn('[compat] unable to clear partner cache', err);
+      }
     }
     if (resetStatus) setStatus(which, '', '');
   }
@@ -1104,6 +1120,22 @@
   }
 
   const allowSingle = () => Boolean(window.__TK_ALLOW_SINGLE_PDF__ || document.body?.dataset?.allowSinglePdf === 'true');
+
+  function setDownloadButton(btn) {
+    if (btn === downloadBtn) return;
+
+    if (downloadBtn) {
+      downloadBtn.removeEventListener('click', handleDownloadClick, true);
+    }
+
+    downloadBtn = btn || null;
+
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', handleDownloadClick, true);
+    }
+
+    updateDownloadState();
+  }
 
   function updateDownloadState() {
     if (!downloadBtn) return;
@@ -1489,9 +1521,19 @@
       yourJSON = json;
       window.talkkinkMine = json;
       window.talkkinkSurvey = json;
+      try {
+        localStorage.setItem(LS_SELF_KEY, JSON.stringify(json));
+      } catch (err) {
+        console.warn('[compat] unable to persist self survey', err);
+      }
     } else {
       partnerJSON = json;
       window.talkkinkPartner = json;
+      try {
+        localStorage.setItem(LS_PARTNER_KEY, JSON.stringify(json));
+      } catch (err) {
+        console.warn('[compat] unable to persist partner survey', err);
+      }
     }
 
     dispatch('compat:json-ready', {
@@ -2141,7 +2183,6 @@
 
     yourBtn = $('#yourBtn');
     partnerBtn = $('#partnerBtn');
-    downloadBtn = $('#downloadBtn');
     yourInput = $('#yourFile');
     partnerInput = $('#partnerFile');
     yourStatus = $('#yourStatus');
@@ -2150,9 +2191,15 @@
     statusEls.self = yourStatus;
     statusEls.partner = partnerStatus;
 
-    if (!yourInput || !partnerInput || !downloadBtn) {
-      console.error('[compat] Required elements missing (#yourFile, #partnerFile, #downloadBtn).');
+    setDownloadButton($('#downloadBtn'));
+
+    if (!yourInput || !partnerInput) {
+      console.error('[compat] Required elements missing (#yourFile, #partnerFile).');
       return;
+    }
+
+    if (!downloadBtn) {
+      console.warn('[compat] Download button missing (#downloadBtn) — PDF export disabled.');
     }
 
     if (yourBtn) {
@@ -2170,9 +2217,16 @@
     }
 
     document.addEventListener('change', handleFileSelection, true);
-    downloadBtn.addEventListener('click', handleDownloadClick, true);
 
-    updateDownloadState();
+    if (document.body) {
+      const watchDownload = new MutationObserver(() => {
+        const btn = $('#downloadBtn');
+        if (btn !== downloadBtn) setDownloadButton(btn);
+      });
+      watchDownload.observe(document.body, { childList: true, subtree: true });
+      setTimeout(() => watchDownload.disconnect(), 4000);
+    }
+
     bindDomOnce.bound = true;
   }
 
