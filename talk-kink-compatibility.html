@@ -48,9 +48,49 @@ try {
 
 /* ---- 3) Minimal standalone PDF exporter (jsPDF via CDN) ---- */
 (function () {
-  const TK_MARGIN = { top: 56, right: 56, bottom: 60, left: 56 };
-  const TK_COL_W = [360, 90, 90, 60, 90];
-  const TK_SOLO_COL_W = [360, 140];
+  const readRuntime = (key, fallback) => {
+    if (typeof window !== 'undefined' && key in window) {
+      try {
+        return JSON.parse(JSON.stringify(window[key]));
+      } catch (_) {
+        return window[key];
+      }
+    }
+    return fallback;
+  };
+
+  const DEFAULT_MARGIN = { top: 46, right: 36, bottom: 40, left: 36 };
+  const DEFAULT_COL_W = [360, 90, 90, 60, 90];
+  const DEFAULT_SOLO_COL_W = [360, 140];
+  const DEFAULT_BG = [10, 10, 12];
+
+  let ACTIVE_PDF_CONFIG = {
+    margins: { ...DEFAULT_MARGIN },
+    colW: [...DEFAULT_COL_W],
+    soloColW: [...DEFAULT_SOLO_COL_W],
+    background: [...DEFAULT_BG]
+  };
+
+  const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
+  const toArray = (value, fallback, minLength) => {
+    if (Array.isArray(value) && value.length >= minLength) return [...value];
+    return [...fallback];
+  };
+
+  function resolvePdfConfig() {
+    const runtimeRoot = readRuntime('TKPDF', {});
+    const marginOverride = readRuntime('__TKPDF__MARGINS__', null) ?? runtimeRoot.__MARGINS;
+    const colOverride = runtimeRoot.__COLW || readRuntime('__TKPDF__COLW__', null) || readRuntime('COLW', null);
+    const soloOverride = runtimeRoot.__SOLO_COLW || readRuntime('__TKPDF__SOLO_COLW__', null);
+    const bgOverride = readRuntime('__TKPDF__BG__', null) ?? runtimeRoot.__BG;
+
+    return {
+      margins: { ...DEFAULT_MARGIN, ...(isObject(marginOverride) ? marginOverride : {}) },
+      colW: toArray(colOverride, DEFAULT_COL_W, 5),
+      soloColW: toArray(soloOverride, DEFAULT_SOLO_COL_W, 2),
+      background: toArray(bgOverride, DEFAULT_BG, 3)
+    };
+  }
   const SELF_KEYS = ['talkkink:survey', 'talkkink:mine', 'tk_compat.self'];
   const PARTNER_KEYS = ['talkkink:partner', 'tk_compat.partner'];
 
@@ -118,20 +158,22 @@ try {
   function preparePage(doc) {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    doc.setFillColor(0, 0, 0);
+    const [r = 0, g = 0, b = 0] = ACTIVE_PDF_CONFIG.background;
+    doc.setFillColor(r, g, b);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
   }
 
-  function tkTableCenterX(doc, widths = TK_COL_W) {
-    const list = Array.isArray(widths) && widths.length ? widths : TK_COL_W;
+  function tkTableCenterX(doc, widths, marginOverride) {
+    const list = Array.isArray(widths) && widths.length ? widths : ACTIVE_PDF_CONFIG.colW;
+    const margin = marginOverride || ACTIVE_PDF_CONFIG.margins;
     const tableWidth = list.reduce((acc, value) => acc + value, 0);
-    return TK_MARGIN.left + tableWidth / 2;
+    return (margin.left ?? 0) + tableWidth / 2;
   }
 
   function tkDrawHeader(doc, sectionTitle, options = {}) {
-    const widths = options.widths || TK_COL_W;
+    const widths = options.widths || ACTIVE_PDF_CONFIG.colW;
     const timestamp = options.timestamp ?? new Date().toLocaleString();
-    const cx = tkTableCenterX(doc, widths);
+    const cx = tkTableCenterX(doc, widths, options.margin);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
@@ -257,8 +299,8 @@ try {
 
   function tkRenderCategoryTable(doc, rows, startY = 140, opts = {}) {
     const includePartner = Boolean(opts.showPartner);
-    const widths = opts.widths || (includePartner ? TK_COL_W : TK_SOLO_COL_W);
-    const baseMargin = opts.margin || TK_MARGIN;
+    const widths = opts.widths || (includePartner ? ACTIVE_PDF_CONFIG.colW : ACTIVE_PDF_CONFIG.soloColW);
+    const baseMargin = opts.margin || ACTIVE_PDF_CONFIG.margins;
     const margin = { ...baseMargin, top: Math.max(baseMargin.top ?? 0, 140) };
     const stats = opts.stats || null;
     const infoLines = [];
@@ -291,6 +333,9 @@ try {
 
     let pageIndex = 0;
 
+    const [bgR = 10, bgG = 10, bgB = 12] = ACTIVE_PDF_CONFIG.background;
+    const pageBg = [bgR, bgG, bgB];
+
     doc.autoTable({
       head: includePartner
         ? [['Item', 'Partner A', 'Match', 'Flag', 'Partner B']]
@@ -299,7 +344,7 @@ try {
       startY: tableStartY,
       margin,
       styles: {
-        fillColor: [10, 10, 12],
+        fillColor: pageBg,
         textColor: [255, 255, 255],
         lineColor: [34, 34, 42],
         lineWidth: 0.25,
@@ -328,7 +373,7 @@ try {
         if (!isFirstPage || !opts.skipFirstHeader) {
           preparePage(doc);
           const sectionTitle = isFirstPage ? opts.sectionTitle || '' : `${opts.sectionTitle || ''} (cont.)`;
-          tkDrawHeader(doc, sectionTitle, { widths, timestamp: opts.timestamp });
+          tkDrawHeader(doc, sectionTitle, { widths, timestamp: opts.timestamp, margin });
         }
         if (isFirstPage && infoLines.length) {
           doc.setFont('helvetica', 'normal');
@@ -388,6 +433,7 @@ try {
   async function buildPdf({ mine, partner, filename }) {
     const jsPDF = await loadJsPDF();
     const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
+    ACTIVE_PDF_CONFIG = resolvePdfConfig();
     const includePartner = Boolean(partner);
     const createdAt = new Date();
     const headerTimestamp = createdAt.toLocaleString();
@@ -434,16 +480,16 @@ try {
         }
       }
 
-      const widths = includePartner ? TK_COL_W : TK_SOLO_COL_W;
+      const widths = includePartner ? ACTIVE_PDF_CONFIG.colW : ACTIVE_PDF_CONFIG.soloColW;
 
       preparePage(doc);
-      tkDrawHeader(doc, category, { widths, timestamp: headerTimestamp });
+      tkDrawHeader(doc, category, { widths, timestamp: headerTimestamp, margin: ACTIVE_PDF_CONFIG.margins });
 
       tkRenderCategoryTable(doc, tableRows, 140, {
         showPartner: includePartner,
         sectionTitle: category,
         widths,
-        margin: TK_MARGIN,
+        margin: ACTIVE_PDF_CONFIG.margins,
         stats,
         metaLines,
         timestamp: headerTimestamp,
