@@ -59,16 +59,18 @@ try {
     return fallback;
   };
 
-  const DEFAULT_MARGIN = { top: 46, right: 36, bottom: 40, left: 36 };
-  const DEFAULT_COL_W = [360, 90, 90, 60, 90];
-  const DEFAULT_SOLO_COL_W = [360, 140];
+  const DEFAULT_MARGIN = { top: 40, right: 36, bottom: 38, left: 36 };
+  const DEFAULT_COL_W = [56, 12, 16, 4, 12];
+  const DEFAULT_SOLO_COL_W = [72, 28];
   const DEFAULT_BG = [10, 10, 12];
+  const DEFAULT_SHOW_HEADER = true;
 
   let ACTIVE_PDF_CONFIG = {
     margins: { ...DEFAULT_MARGIN },
     colW: [...DEFAULT_COL_W],
     soloColW: [...DEFAULT_SOLO_COL_W],
-    background: [...DEFAULT_BG]
+    background: [...DEFAULT_BG],
+    showHeader: DEFAULT_SHOW_HEADER
   };
 
   const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
@@ -77,18 +79,58 @@ try {
     return [...fallback];
   };
 
+  function normalizeWidthsForPage(widths, margin, pageWidth) {
+    if (!Array.isArray(widths) || !widths.length) return widths;
+    const numeric = widths.map((value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : 0;
+    });
+    if (!numeric.some((value) => value > 0)) return numeric;
+
+    const sum = numeric.reduce((acc, value) => acc + value, 0);
+    const max = Math.max(...numeric);
+    const left = Number(margin?.left) || 0;
+    const right = Number(margin?.right) || 0;
+    const tableWidth = Math.max(0, pageWidth - left - right);
+    if (tableWidth === 0) return numeric;
+
+    const asPercentages = sum > 0 && Math.abs(sum - 100) <= 0.5;
+    const asFractions = max > 0 && max <= 1 && sum <= 1.0001;
+    if (!asPercentages && !asFractions) return numeric;
+
+    const normalizeBySum = asPercentages || asFractions;
+    const divisor = normalizeBySum ? (sum || 1) : 1;
+    return numeric.map((value) => {
+      const ratio = normalizeBySum ? value / divisor : value;
+      return tableWidth * ratio;
+    });
+  }
+
   function resolvePdfConfig() {
     const runtimeRoot = readRuntime('TKPDF', {});
     const marginOverride = readRuntime('__TKPDF__MARGINS__', null) ?? runtimeRoot.__MARGINS;
     const colOverride = runtimeRoot.__COLW || readRuntime('__TKPDF__COLW__', null) || readRuntime('COLW', null);
     const soloOverride = runtimeRoot.__SOLO_COLW || readRuntime('__TKPDF__SOLO_COLW__', null);
     const bgOverride = readRuntime('__TKPDF__BG__', null) ?? runtimeRoot.__BG;
+    const showHeaderOverride = readRuntime('__TKPDF__SHOW_HEADER__', undefined);
+    const globalShowHeader = readRuntime('SHOW_HEADER', undefined);
+    const runtimeShowHeader = runtimeRoot.__SHOW_HEADER ?? runtimeRoot.SHOW_HEADER ?? runtimeRoot.showHeader;
+
+    let showHeader = DEFAULT_SHOW_HEADER;
+    const showCandidate =
+      showHeaderOverride !== undefined
+        ? showHeaderOverride
+        : (globalShowHeader !== undefined ? globalShowHeader : runtimeShowHeader);
+    if (showCandidate !== undefined) {
+      showHeader = Boolean(showCandidate);
+    }
 
     return {
       margins: { ...DEFAULT_MARGIN, ...(isObject(marginOverride) ? marginOverride : {}) },
       colW: toArray(colOverride, DEFAULT_COL_W, 5),
       soloColW: toArray(soloOverride, DEFAULT_SOLO_COL_W, 2),
-      background: toArray(bgOverride, DEFAULT_BG, 3)
+      background: toArray(bgOverride, DEFAULT_BG, 3),
+      showHeader
     };
   }
   const SELF_KEYS = ['talkkink:survey', 'talkkink:mine', 'tk_compat.self'];
@@ -178,17 +220,17 @@ try {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
     doc.setTextColor(255, 255, 255);
-    doc.text('TalkKink Compatibility', cx, 84, { align: 'center' });
+    doc.text('TalkKink Compatibility', cx, 72, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
     doc.setTextColor(160, 220, 220);
-    doc.text(`Generated: ${timestamp}`, cx, 100, { align: 'center' });
+    doc.text(`Generated: ${timestamp}`, cx, 92, { align: 'center' });
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
     doc.setTextColor(255, 255, 255);
-    doc.text(sectionTitle, cx, 126, { align: 'center' });
+    doc.text(sectionTitle, cx, 120, { align: 'center' });
   }
 
   function tkFlagColor(pct) {
@@ -299,9 +341,16 @@ try {
 
   function tkRenderCategoryTable(doc, rows, startY = 140, opts = {}) {
     const includePartner = Boolean(opts.showPartner);
-    const widths = opts.widths || (includePartner ? ACTIVE_PDF_CONFIG.colW : ACTIVE_PDF_CONFIG.soloColW);
+    const showHeader = opts.showHeader ?? ACTIVE_PDF_CONFIG.showHeader;
     const baseMargin = opts.margin || ACTIVE_PDF_CONFIG.margins;
-    const margin = { ...baseMargin, top: Math.max(baseMargin.top ?? 0, 140) };
+    const margin = { ...baseMargin };
+    const baseTop = Number(baseMargin.top ?? 0) || 0;
+    margin.top = showHeader ? Math.max(baseTop, 136) : baseTop;
+    const widths = normalizeWidthsForPage(
+      opts.widths || (includePartner ? ACTIVE_PDF_CONFIG.colW : ACTIVE_PDF_CONFIG.soloColW),
+      margin,
+      doc.internal.pageSize.getWidth()
+    );
     const stats = opts.stats || null;
     const infoLines = [];
     if (Array.isArray(opts.metaLines)) {
@@ -317,10 +366,11 @@ try {
       }
     }
 
-    const headerBaseline = 126;
+    const headerBaseline = showHeader ? 120 : margin.top;
     const lineSpacing = 14;
     const infoGap = infoLines.length ? infoLines.length * lineSpacing + 12 : 0;
-    let tableStartY = Number.isFinite(startY) ? startY : 140;
+    let tableStartY = Number.isFinite(startY) ? startY : margin.top;
+    if (tableStartY < margin.top) tableStartY = margin.top;
     if (infoGap) {
       const minStart = headerBaseline + infoGap + 10;
       if (tableStartY < minStart) tableStartY = minStart;
@@ -370,8 +420,8 @@ try {
           },
       willDrawPage: () => {
         const isFirstPage = pageIndex === 0;
-        if (!isFirstPage || !opts.skipFirstHeader) {
-          preparePage(doc);
+        preparePage(doc);
+        if (showHeader && (!isFirstPage || !opts.skipFirstHeader)) {
           const sectionTitle = isFirstPage ? opts.sectionTitle || '' : `${opts.sectionTitle || ''} (cont.)`;
           tkDrawHeader(doc, sectionTitle, { widths, timestamp: opts.timestamp, margin });
         }
@@ -434,6 +484,17 @@ try {
     const jsPDF = await loadJsPDF();
     const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
     ACTIVE_PDF_CONFIG = resolvePdfConfig();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    ACTIVE_PDF_CONFIG.colW = normalizeWidthsForPage(
+      ACTIVE_PDF_CONFIG.colW,
+      ACTIVE_PDF_CONFIG.margins,
+      pageWidth
+    );
+    ACTIVE_PDF_CONFIG.soloColW = normalizeWidthsForPage(
+      ACTIVE_PDF_CONFIG.soloColW,
+      ACTIVE_PDF_CONFIG.margins,
+      pageWidth
+    );
     const includePartner = Boolean(partner);
     const createdAt = new Date();
     const headerTimestamp = createdAt.toLocaleString();
@@ -483,9 +544,13 @@ try {
       const widths = includePartner ? ACTIVE_PDF_CONFIG.colW : ACTIVE_PDF_CONFIG.soloColW;
 
       preparePage(doc);
-      tkDrawHeader(doc, category, { widths, timestamp: headerTimestamp, margin: ACTIVE_PDF_CONFIG.margins });
+      if (ACTIVE_PDF_CONFIG.showHeader) {
+        tkDrawHeader(doc, category, { widths, timestamp: headerTimestamp, margin: ACTIVE_PDF_CONFIG.margins });
+      }
 
-      tkRenderCategoryTable(doc, tableRows, 140, {
+      const initialStartY = ACTIVE_PDF_CONFIG.showHeader ? 140 : ACTIVE_PDF_CONFIG.margins.top;
+
+      tkRenderCategoryTable(doc, tableRows, initialStartY, {
         showPartner: includePartner,
         sectionTitle: category,
         widths,
@@ -493,7 +558,8 @@ try {
         stats,
         metaLines,
         timestamp: headerTimestamp,
-        skipFirstHeader: true
+        skipFirstHeader: ACTIVE_PDF_CONFIG.showHeader,
+        showHeader: ACTIVE_PDF_CONFIG.showHeader
       });
     });
 
