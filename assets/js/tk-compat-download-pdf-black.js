@@ -138,8 +138,21 @@
         textColor: colors.TEXT,
         lineColor: colors.LINES,
         lineWidth: 0.6,
+        tableLineColor: colors.LINES,
+        tableLineWidth: 0.6,
         fontSize: 11,
         cellPadding: { top: 6, right: 8, bottom: 6, left: 8 }
+      },
+      bodyStyles: {
+        fillColor: colors.BLACK,
+        textColor: colors.TEXT,
+        lineColor: colors.LINES,
+        lineWidth: 0.6
+      },
+      alternateRowStyles: {
+        fillColor: colors.BLACK,
+        textColor: colors.TEXT,
+        lineColor: colors.LINES
       },
       headStyles: {
         fillColor: colors.BLACK,
@@ -151,6 +164,16 @@
       margin: { left: 40, right: 40 },
       willDrawPage: (data) => {
         paint(data?.settings?.userStyles?.chapterTitle || '');
+      },
+      didParseCell: (data) => {
+        if (data.cell.section === 'head') {
+          data.cell.styles.fillColor = colors.BLACK;
+          data.cell.styles.textColor = colors.CYAN;
+        } else if (data.cell.section === 'body') {
+          data.cell.styles.fillColor = colors.BLACK;
+          data.cell.styles.textColor = colors.TEXT;
+        }
+        data.cell.styles.lineColor = colors.LINES;
       }
     };
 
