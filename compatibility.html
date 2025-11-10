@@ -1751,6 +1751,60 @@
   const FLAG_YELLOW = [255, 210, 70];
   const FLAG_RED = [255, 86, 86];
 
+  const FLAG_ICON_BY_COLOR = new Map([
+    [FLAG_GREEN.join(','), '▲'],
+    [FLAG_YELLOW.join(','), '▶'],
+    [FLAG_RED.join(','), '▼']
+  ]);
+
+  function buildTkpdfSections(selfJson, partnerJson) {
+    const rowsA = rowsFromTalkKink(selfJson);
+    const rowsB = rowsFromTalkKink(partnerJson);
+
+    const categories = Array.from(
+      new Set([...rowsA, ...rowsB].map((row) => row.Category || 'Survey'))
+    ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+    const sections = [];
+
+    categories.forEach((category) => {
+      const body = buildComparisonBody(
+        rowsA.filter((row) => row.Category === category),
+        rowsB.filter((row) => row.Category === category)
+      );
+
+      if (!body.length) return;
+
+      const rows = body.map((entry) => {
+        const matchText = entry.matchText;
+        let matchValue = '';
+        if (typeof matchText === 'number' && Number.isFinite(matchText)) {
+          matchValue = matchText;
+        } else if (typeof matchText === 'string') {
+          const numeric = parseInt(matchText.replace(/[^0-9-]/g, ''), 10);
+          matchValue = Number.isFinite(numeric) ? numeric : matchText.trim();
+        }
+
+        const colorKey = Array.isArray(entry.flagColor) ? entry.flagColor.join(',') : null;
+        const flagIcon = colorKey ? FLAG_ICON_BY_COLOR.get(colorKey) || '▶' : '';
+
+        return {
+          label: entry.item || '',
+          a: entry.aScore ?? '',
+          matchPct: matchValue,
+          flagIcon,
+          b: entry.bScore ?? ''
+        };
+      });
+
+      if (rows.length) {
+        sections.push({ category, rows });
+      }
+    });
+
+    return sections;
+  }
+
   function wrapText(text, maxWidth, fontSize = 10) {
     const raw = String(text ?? '').trim();
     if (!raw) return [''];
@@ -2062,6 +2116,16 @@
       if (!yourJSON && !partnerJSON) {
         alert('Load at least one survey first (yours or partner).');
         console.warn('[compat] No survey loaded; aborting PDF.');
+        return;
+      }
+
+      if (window.TKPDF && typeof window.TKPDF.download === 'function') {
+        const sections = buildTkpdfSections(yourJSON, partnerJSON);
+        if (!sections.length) {
+          alert('Sorry—could not find any survey rows to export.');
+          return;
+        }
+        await window.TKPDF.download({ mine: sections });
         return;
       }
 
