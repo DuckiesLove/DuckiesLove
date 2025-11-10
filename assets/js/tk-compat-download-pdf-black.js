@@ -149,7 +149,7 @@
         fontStyle: 'bold'
       },
       margin: { left: 40, right: 40 },
-      didDrawPage: (data) => {
+      willDrawPage: (data) => {
         paint(data?.settings?.userStyles?.chapterTitle || '');
       }
     };
@@ -171,6 +171,7 @@
     for (const [cat, items] of ordered) {
       if (y > pageH - 120) {
         doc.addPage();
+        paint(cat || 'Other');
         y = 80;
       }
       doc.setTextColor(...colors.CYAN);
