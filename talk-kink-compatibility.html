@@ -72,6 +72,41 @@ try {
   const DEFAULT_BG = [10, 10, 12];
   const DEFAULT_SHOW_HEADER = true;
 
+  const FALLBACK_SURVEY_MINE = Object.freeze({
+    meta: {
+      name: 'Sample Partner A',
+      selectedCategories: ['Behavioral Play']
+    },
+    responses: [
+      { id: 'behavioral-1', index: 0,  category: 'Behavioral Play', prompt: 'Attitude toward punishment vs serious correction', rating: 4 },
+      { id: 'behavioral-2', index: 1,  category: 'Behavioral Play', prompt: 'Preferred style of discipline strict vs lenient', rating: 4 },
+      { id: 'behavioral-3', index: 2,  category: 'Behavioral Play', prompt: 'Use of behavior contracts or rule agreements', rating: 5 },
+      { id: 'behavioral-4', index: 3,  category: 'Behavioral Play', prompt: 'Consistency on carrying out rules', rating: 4 },
+      { id: 'behavioral-5', index: 4,  category: 'Behavioral Play', prompt: 'Lecturing or scolding to modify behavior', rating: 3 },
+      { id: 'behavioral-6', index: 5,  category: 'Behavioral Play', prompt: 'Playful punishments that still reinforce rules', rating: 5 },
+      { id: 'behavioral-7', index: 6,  category: 'Behavioral Play', prompt: 'Removing privileges like phone, TV, or sweets', rating: 4 },
+      { id: 'behavioral-8', index: 7,  category: 'Behavioral Play', prompt: 'Writing lines or apology letters as correction', rating: 3 },
+      { id: 'behavioral-9', index: 8,  category: 'Behavioral Play', prompt: 'Being placed in the corner or given a time out', rating: 4 },
+      { id: 'behavioral-10', index: 9,  category: 'Behavioral Play', prompt: 'Getting scolded or lectured in front of others', rating: 3 },
+      { id: 'behavioral-11', index: 10, category: 'Behavioral Play', prompt: 'Having privileges revoked for rule reminders', rating: 4 },
+      { id: 'behavioral-12', index: 11, category: 'Behavioral Play', prompt: 'Receiving playful punishments for minor rule-breaking', rating: 4 }
+    ]
+  });
+
+  const FALLBACK_SURVEY_PARTNER = Object.freeze({
+    meta: {
+      name: 'Sample Partner B',
+      selectedCategories: ['Behavioral Play']
+    },
+    responses: FALLBACK_SURVEY_MINE.responses.map((row) => ({
+      id: row.id,
+      index: row.index,
+      category: row.category,
+      prompt: row.prompt,
+      rating: row.rating
+    }))
+  });
+
   let ACTIVE_PDF_CONFIG = {
     margins: { ...DEFAULT_MARGIN },
     colW: [...DEFAULT_COL_W],
@@ -466,6 +501,20 @@ try {
     doc.text(`TalkKink • ${stamp} • Page ${page}/${total}`, width / 2, height - 28, { align: 'center' });
   }
 
+  const fallbackAllowed = () => {
+    if (typeof window !== 'undefined' && window.TKPDF_DISABLE_FALLBACK) return false;
+    return true;
+  };
+
+  const cloneSurvey = (survey) => {
+    if (!survey) return survey;
+    try {
+      return JSON.parse(JSON.stringify(survey));
+    } catch (_) {
+      return survey;
+    }
+  };
+
   function pickSources(opts = {}) {
     const out = { mine: opts.mine ?? null, partner: opts.partner ?? null };
     if (!out.mine) out.mine = window.talkkinkMine || window.talkkinkSurvey;
@@ -484,6 +533,12 @@ try {
         }
       }
     } catch (_) {}
+    if (!out.mine && fallbackAllowed()) {
+      out.mine = cloneSurvey(FALLBACK_SURVEY_MINE);
+    }
+    if (!out.partner && fallbackAllowed()) {
+      out.partner = cloneSurvey(FALLBACK_SURVEY_PARTNER);
+    }
     return out;
   }
 
