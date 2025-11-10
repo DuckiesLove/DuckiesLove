@@ -1,12 +1,15 @@
-/* assets/js/compatPdf.js — clean, single-run exporter
+/* assets/js/compatPdf.js — single-run TalkKink PDF exporter
    - No white boxes (solid dark body fill)
-   - Centered title, timestamp, and category
-   - Tight 4% Flag column, full-width table
-   - Debounced/guarded to prevent double runs
+   - Title / timestamp / category centered
+   - Tight 4% Flag column
+   - FULL double-load protection:
+       * singleton guard
+       * button rebind via cloneNode (wipes old listeners)
+       * debounced runner (queued = ignored)
 */
 (() => {
-  // ---- Singleton guard: prevent multiple exporters/bindings ----
-  if (window.__TKPDF_SINGLETON__) { return; }
+  // ---- Singleton guard: if an older copy already ran, stop here
+  if (window.__TKPDF_SINGLETON__) return;
   window.__TKPDF_SINGLETON__ = true;
 
   const CDN_JSPDF   = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js";
@@ -14,70 +17,65 @@
 
   // Theme (dark)
   const THEME = {
-    pageBg: [10,10,12],
-    rule:   [0,255,255],
+    pageBg:   [10,10,12],
+    rule:     [0,255,255],
     bodyFill: [10,10,12],
     bodyText: [235,235,235],
-    grid: [34,34,42],
+    grid:     [34,34,42],
     headFill: [0,0,0],
     headText: [0,255,255],
   };
 
-  // Tight margins = no big white bands
+  // Tight margins so the table fills the page visually
   const MARGINS = { left: 56, right: 56, top: 54, bottom: 46 };
 
-  // Column widths (% of table width): label, A, match, flag (tight), B
+  // Column widths (%): label, A, match, flag, B
   const COLW = [56, 12, 16, 4, 12];
 
-  // ---- Loader --------------------------------------------------------------
+  // ================= loader =================
   async function loadJsPDF() {
     if (window.jspdf?.jsPDF && window.jspdf?.jsPDF?.prototype?.autoTable) return window.jspdf.jsPDF;
-    if (!window.jspdf?.jsPDF) await injectScript(CDN_JSPDF);
-    if (!window.jspdf?.jsPDF?.prototype?.autoTable) await injectScript(CDN_AUTOTBL);
+    if (!window.jspdf?.jsPDF) await inject(CDN_JSPDF);
+    if (!window.jspdf?.jsPDF?.prototype?.autoTable) await inject(CDN_AUTOTBL);
     return window.jspdf.jsPDF;
   }
-  function injectScript(src) {
+  function inject(src) {
     return new Promise((res, rej) => {
       const s = document.createElement("script");
-      s.src = src;
-      s.onload = res;
-      s.onerror = () => rej(new Error("Failed to load " + src));
+      s.src = src; s.onload = res; s.onerror = () => rej(new Error("Failed to load "+src));
       document.head.appendChild(s);
     });
   }
 
-  // ---- Data pick & normalize ----------------------------------------------
+  // ================= data =================
   function pickSources(opts = {}) {
-    const ls = (k) => { try { return JSON.parse(localStorage.getItem(k)||"null"); } catch { return null; } };
+    const ls = (k)=>{ try { return JSON.parse(localStorage.getItem(k)||"null"); } catch { return null; } };
     const mine    = opts.mine    ?? window.talkkinkMine    ?? window.talkkinkSurvey ?? ls("talkkink:mine") ?? ls("talkkink:survey") ?? ls("tk_compat.mine");
     const partner = opts.partner ?? window.talkkinkPartner ?? ls("talkkink:partner") ?? ls("tk_compat.partner");
     return { mine, partner };
   }
-
-  // Expect: [{category, rows:[{label,a,matchPct,flagIcon,b}]}]
+  // Expect normalized: [{category, rows:[{label,a,matchPct,flagIcon,b}]}]
   function normalize(payload) {
     if (!payload) return [{ category: "Survey", rows: [] }];
     if (Array.isArray(payload) && payload.length && payload[0]?.rows) return payload;
 
     if (Array.isArray(payload)) {
-      const byCat = new Map();
+      const map = new Map();
       for (const r of payload) {
         const cat = r.category || "Survey";
-        if (!byCat.has(cat)) byCat.set(cat, []);
-        byCat.get(cat).push({
-          label: r.label ?? r.item ?? "",
-          a: r.a ?? r.partnerA ?? r.A ?? "",
+        if (!map.has(cat)) map.set(cat, []);
+        map.get(cat).push({
+          label:    r.label ?? r.item ?? "",
+          a:        r.a ?? r.partnerA ?? r.A ?? "",
           matchPct: r.matchPct ?? r.match ?? "",
           flagIcon: r.flagIcon ?? "▶",
-          b: r.b ?? r.partnerB ?? r.B ?? ""
+          b:        r.b ?? r.partnerB ?? r.B ?? ""
         });
       }
-      return [...byCat.entries()].map(([category, rows]) => ({ category, rows }));
+      return [...map.entries()].map(([category, rows]) => ({ category, rows }));
     }
     return [{ category: "Survey", rows: [] }];
   }
-
-  // Merge rows for same category by label (A from mine, B from partner)
   function rowsFromTwo(sec, partnerAll) {
     const partnerSec = partnerAll?.find(s => s.category === sec.category);
     const mapB = new Map((partnerSec?.rows ?? []).map(r => [r.label, r]));
@@ -88,14 +86,17 @@
     });
   }
 
-  // ---- PDF builder (no white boxes) ---------------------------------------
+  // ================= pdf =================
   async function buildPdf(opts = {}) {
     const jsPDF = await loadJsPDF();
     const doc   = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
 
-    // Solid dark page background
-    doc.setFillColor(...THEME.pageBg);
-    doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
+    // Paint background dark on every page
+    function paintBg() {
+      doc.setFillColor(...THEME.pageBg);
+      doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
+    }
+    paintBg();
 
     const pageW  = doc.internal.pageSize.getWidth();
     const leftX  = MARGINS.left;
@@ -117,17 +118,15 @@
     doc.setDrawColor(...THEME.rule); doc.setLineWidth(0.75);
     doc.line(leftX, y, rightX, y); y += 16;
 
-    // Data
     const { mine, partner } = pickSources(opts);
     const A = normalize(mine);
     const B = partner ? normalize(partner) : null;
 
-    // Column styles (percent widths)
     const colStyles = (([c0,c1,c2,c3,c4]) => ({
       0: { cellWidth: `${c0}%`, halign: 'left'   },
       1: { cellWidth: `${c1}%`, halign: 'center' },
       2: { cellWidth: `${c2}%`, halign: 'center' },
-      3: { cellWidth: `${c3}%`, halign: 'center' }, // tight flag
+      3: { cellWidth: `${c3}%`, halign: 'center' }, // tight Flag
       4: { cellWidth: `${c4}%`, halign: 'center' },
     }))(COLW);
 
@@ -137,7 +136,7 @@
       doc.text(sec.category || 'Survey', center, y, { align: 'center' });
       y += 12;
 
-      // Solid body fill: kill zebra/white boxes via didParseCell
+      // NO zebra: force dark body fill for every cell
       doc.autoTable({
         head: [['Item','Partner A','Match','Flag','Partner B']],
         body: rowsFromTwo(sec, B),
@@ -159,53 +158,74 @@
           lineColor: THEME.grid,
           fontStyle: 'bold'
         },
-        // Force every body cell to dark fill — no alternate (white) rows:
-        alternateRowStyles: { fillColor: THEME.bodyFill, textColor: THEME.bodyText },
         columnStyles: colStyles,
-        didParseCell: (data) => {
-          if (data.section === 'body') {
-            data.cell.styles.fillColor = THEME.bodyFill;
-            data.cell.styles.textColor = THEME.bodyText;
+        alternateRowStyles: { fillColor: THEME.bodyFill, textColor: THEME.bodyText },
+        didParseCell: (d) => {
+          if (d.section === 'body') {
+            d.cell.styles.fillColor = THEME.bodyFill;
+            d.cell.styles.textColor = THEME.bodyText;
           }
         }
       });
 
       y = doc.lastAutoTable.finalY + 24;
       if (y > doc.internal.pageSize.getHeight() - (MARGINS.bottom + 120)) {
-        doc.addPage();
-        // redraw dark bg on new page
-        doc.setFillColor(...THEME.pageBg);
-        doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
-        y = MARGINS.top;
+        doc.addPage(); paintBg(); y = MARGINS.top;
       }
     }
 
     doc.save('talkkink-compatibility-results.pdf');
   }
 
-  // ---- Public API + safe binding (no double run) --------------------------
+  // ================= run guard (stops double execution) =================
   let running = false;
-  async function runOnce(opts={}) {
-    if (running) return;
+  let inFlight = null;
+
+  async function runOnce(opts = {}) {
+    if (running) return inFlight;           // ignore second trigger
     running = true;
-    try { await buildPdf(opts); }
-    finally { running = false; }
+    inFlight = (async () => {
+      try   { await buildPdf(opts); }
+      finally { running = false; inFlight = null; }
+    })();
+    return inFlight;
   }
 
+  // Expose public API
   window.TKPDF = {
     download: (opts={}) => runOnce(opts),
     __COLW__: COLW,
     __MARGINS__: MARGINS
   };
 
-  function bindUI() {
-    if (window.__TKPDF_BOUND__) return; // do not double-bind
+  // ================= binding (wipe old listeners first) =================
+  function rebindDownloadButton() {
+    if (window.__TKPDF_BOUND__) return;    // don’t bind twice
     window.__TKPDF_BOUND__ = true;
-    const btn = document.querySelector('#downloadPdfBtn, #btnDownloadPdf')
-           || [...document.querySelectorAll('button, a')].find(el => /download pdf/i.test(el.textContent));
-    if (btn) btn.addEventListener('click', (e) => { e.preventDefault?.(); runOnce(); });
+
+    // Find the button by id or text
+    const findBtn = () =>
+      document.querySelector('#downloadPdfBtn, #btnDownloadPdf') ||
+      [...document.querySelectorAll('button, a')].find(el => /download pdf/i.test(el.textContent));
+
+    const btn = findBtn();
+    if (!btn) return;
+
+    // Clone node to strip any existing handlers (this kills the “double load”)
+    const clone = btn.cloneNode(true);
+    btn.replaceWith(clone);
+
+    // Now bind exactly one handler
+    clone.addEventListener('click', (e) => {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      runOnce();
+    }, { passive: true });
   }
-  (document.readyState === 'loading')
-    ? document.addEventListener('DOMContentLoaded', bindUI)
-    : bindUI();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', rebindDownloadButton, { once: true });
+  } else {
+    rebindDownloadButton();
+  }
 })();
