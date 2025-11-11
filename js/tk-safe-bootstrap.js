@@ -42,13 +42,88 @@
   }
   function loadScript(src) {
     return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        if (existing.dataset.tkLoaded) return resolve();
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener(
+          "error",
+          () => reject(new Error("Failed to load " + src)),
+          { once: true }
+        );
+        return;
+      }
       const s = document.createElement("script");
       s.src = src; s.async = true; s.defer = true;
-      s.onload = resolve;
-      s.onerror = () => reject(new Error("Failed to load " + src));
+      s.dataset.tkLoaded = "pending";
+      s.onload = () => {
+        s.dataset.tkLoaded = "true";
+        resolve();
+      };
+      s.onerror = () => {
+        s.dataset.tkLoaded = "error";
+        reject(new Error("Failed to load " + src));
+      };
       document.head.appendChild(s);
     });
+  }
+  const scriptDir = (() => {
+    try {
+      const current = document.currentScript;
+      if (current && current.src) return new URL("./", current.src);
+    } catch (_) {}
+    return new URL("./", window.location.href);
+  })();
+  const pageDir = new URL("./", window.location.href);
+  const toHref = (base, relative) => {
+    try {
+      return new URL(relative, base).href;
+    } catch (_) {
+      return relative;
+    }
+  };
+  const uniq = (sources) => {
+    const seen = new Set();
+    return sources.filter((src) => {
+      if (!src || seen.has(src)) return false;
+      seen.add(src);
+      return true;
+    });
+  };
+
+  const JSPDF_SOURCES = uniq([
+    toHref(scriptDir, "vendor/jspdf.umd.min.js"),
+    toHref(scriptDir, "../vendor/jspdf.umd.min.js"),
+    toHref(scriptDir, "../assets/js/vendor/jspdf.umd.min.js"),
+    toHref(pageDir, "js/vendor/jspdf.umd.min.js"),
+    toHref(pageDir, "assets/js/vendor/jspdf.umd.min.js"),
+    toHref(pageDir, "../js/vendor/jspdf.umd.min.js"),
+    toHref(pageDir, "../assets/js/vendor/jspdf.umd.min.js"),
+    "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+  ]);
+
+  const AUTOTABLE_SOURCES = uniq([
+    toHref(scriptDir, "vendor/jspdf.plugin.autotable.min.js"),
+    toHref(scriptDir, "../vendor/jspdf.plugin.autotable.min.js"),
+    toHref(scriptDir, "../assets/js/vendor/jspdf.plugin.autotable.min.js"),
+    toHref(pageDir, "js/vendor/jspdf.plugin.autotable.min.js"),
+    toHref(pageDir, "assets/js/vendor/jspdf.plugin.autotable.min.js"),
+    toHref(pageDir, "../js/vendor/jspdf.plugin.autotable.min.js"),
+    toHref(pageDir, "../assets/js/vendor/jspdf.plugin.autotable.min.js"),
+    "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js",
+  ]);
+
+  async function loadFromSources(check, sources, label) {
+    if (check()) return;
+    for (const src of sources) {
+      if (check()) break;
+      try {
+        await loadScript(src);
+        if (check()) return;
+      } catch (err) {
+        console.warn(`[TK-SAFE] Failed to load ${label} from`, src, err);
+      }
+    }
   }
   function idle(fn) {
     // yield back to the browser to keep UI responsive
@@ -58,7 +133,13 @@
   /* E. LAZY LOADERS FOR HEAVY LIBS (loaded only on click) */
   async function ensureJsPDF() {
     if (!(window.jspdf && window.jspdf.jsPDF)) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      await loadFromSources(() => window.jspdf && window.jspdf.jsPDF, JSPDF_SOURCES, "jsPDF");
+    }
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      throw new Error("jsPDF failed to load.");
+    }
+    if (window.jspdf && window.jspdf.jsPDF && !window.jsPDF) {
+      window.jsPDF = window.jspdf.jsPDF;
     }
   }
   async function ensureAutoTable() {
@@ -67,7 +148,19 @@
     const hasAT = (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)
                || (window.jspdf && window.jspdf.autoTable);
     if (!hasAT) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+      await loadFromSources(
+        () => {
+          const ref = (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)
+                   || (window.jspdf && window.jspdf.autoTable);
+          return Boolean(ref);
+        },
+        AUTOTABLE_SOURCES,
+        "jsPDF-AutoTable"
+      );
+    }
+    if (!(window.jspdf && window.jspdf.autoTable) &&
+        !(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)) {
+      throw new Error("jsPDF-AutoTable failed to load.");
     }
   }
 

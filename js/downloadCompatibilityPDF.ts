@@ -169,18 +169,106 @@ function requestConsent(): Promise<boolean> {
 
 const loadScript = (src: string): Promise<void> =>
   new Promise((resolve, reject) => {
-    if (document.querySelector<HTMLScriptElement>(`script[src="${src}"]`)) return resolve();
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.tkLoaded) return resolve();
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Failed to load " + src)),
+        { once: true }
+      );
+      return;
+    }
     const s = document.createElement("script");
     s.src = src;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load " + src));
+    s.async = true;
+    s.dataset.tkLoaded = "pending";
+    s.onload = () => {
+      s.dataset.tkLoaded = "true";
+      resolve();
+    };
+    s.onerror = () => {
+      s.dataset.tkLoaded = "error";
+      reject(new Error("Failed to load " + src));
+    };
     document.head.appendChild(s);
   });
+
+const scriptDir: URL = (() => {
+  try {
+    const current = document.currentScript as HTMLScriptElement | null;
+    if (current?.src) return new URL("./", current.src);
+  } catch (_err) {}
+  return new URL("./", window.location.href);
+})();
+const pageDir = new URL("./", window.location.href);
+const toHref = (base: URL, relative: string): string => {
+  try {
+    return new URL(relative, base).href;
+  } catch (_err) {
+    return relative;
+  }
+};
+const uniq = (sources: string[]): string[] => {
+  const seen = new Set<string>();
+  return sources.filter((src) => {
+    if (!src || seen.has(src)) return false;
+    seen.add(src);
+    return true;
+  });
+};
+
+const JSPDF_SOURCES = uniq([
+  toHref(scriptDir, "vendor/jspdf.umd.min.js"),
+  toHref(scriptDir, "../vendor/jspdf.umd.min.js"),
+  toHref(scriptDir, "../assets/js/vendor/jspdf.umd.min.js"),
+  toHref(pageDir, "js/vendor/jspdf.umd.min.js"),
+  toHref(pageDir, "assets/js/vendor/jspdf.umd.min.js"),
+  toHref(pageDir, "../js/vendor/jspdf.umd.min.js"),
+  toHref(pageDir, "../assets/js/vendor/jspdf.umd.min.js"),
+  "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js",
+]);
+
+const AUTOTABLE_SOURCES = uniq([
+  toHref(scriptDir, "vendor/jspdf.plugin.autotable.min.js"),
+  toHref(scriptDir, "../vendor/jspdf.plugin.autotable.min.js"),
+  toHref(scriptDir, "../assets/js/vendor/jspdf.plugin.autotable.min.js"),
+  toHref(pageDir, "js/vendor/jspdf.plugin.autotable.min.js"),
+  toHref(pageDir, "assets/js/vendor/jspdf.plugin.autotable.min.js"),
+  toHref(pageDir, "../js/vendor/jspdf.plugin.autotable.min.js"),
+  toHref(pageDir, "../assets/js/vendor/jspdf.plugin.autotable.min.js"),
+  "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js",
+]);
+
+async function ensureFromSources(
+  predicate: () => boolean,
+  sources: string[],
+  label: string
+): Promise<void> {
+  if (predicate()) return;
+  for (const src of sources) {
+    if (predicate()) break;
+    try {
+      await loadScript(src);
+      if (predicate()) return;
+    } catch (err) {
+      console.warn(`[downloadCompatibilityPDF] Failed to load ${label} from`, src, err);
+    }
+  }
+}
 
 async function ensureLibs(): Promise<void> {
   const hasJsPDF = () => Boolean((window as any).jspdf?.jsPDF || (window as any).jsPDF);
   if (!hasJsPDF()) {
-    await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js");
+    await ensureFromSources(hasJsPDF, JSPDF_SOURCES, "jsPDF");
+  }
+  if (!hasJsPDF()) {
+    throw new Error("jsPDF failed to load.");
+  }
+
+  if ((window as any).jspdf?.jsPDF && !(window as any).jsPDF) {
+    (window as any).jsPDF = (window as any).jspdf.jsPDF;
   }
 
   const hasAutoTable = () =>
@@ -190,9 +278,10 @@ async function ensureLibs(): Promise<void> {
         (window as any).jsPDF?.API?.autoTable
     );
   if (!hasAutoTable()) {
-    await loadScript(
-      "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"
-    );
+    await ensureFromSources(hasAutoTable, AUTOTABLE_SOURCES, "jsPDF-AutoTable");
+  }
+  if (!hasAutoTable()) {
+    throw new Error("jsPDF-AutoTable failed to load.");
   }
 }
 
