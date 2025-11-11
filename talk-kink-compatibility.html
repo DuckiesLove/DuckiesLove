@@ -1,1024 +1,329 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>TalkKink Compatibility</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Your existing CSS / theme links stay as-is -->
-  <style>
-    /* keep your site styles; the following are only fallbacks */
-    html, body {
-      margin: 0;
-      padding: 0;
-      min-height: 100%;
-      background: #000;
-      color: #fff;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    }
-    .cta { display:block; width:420px; margin:18px auto; padding:18px 22px; text-align:center;
-           border:2px solid rgba(0,255,255,.5); border-radius:14px; background:rgba(0,20,25,.35);
-           box-shadow:0 0 18px rgba(0,200,255,.15) inset, 0 0 30px rgba(0,200,255,.2);
-           color:#fff; text-decoration:none; font-weight:700; letter-spacing:.2px; }
-    h1 { text-align:center; margin:48px 0 28px; font-size:52px; text-shadow:0 0 18px rgba(0,255,255,.35); }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TalkKink Compatibility</title>
+<style>
+  :root{
+    --bg:#0e0f11;            /* page background */
+    --panel:#0b0c0d;         /* table banding base */
+    --row:#111315;           /* row color */
+    --row-alt:#0f1012;       /* zebra */
+    --ink:#e6feff;           /* main text */
+    --ink-dim:#b8dfe0;
+    --accent:#00e7ff;        /* teal glow */
+    --grid:#23292d;          /* table lines */
+  }
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+  }
+  .page{
+    max-width:1120px;
+    margin:28px auto 48px;
+    padding:0 16px;
+  }
+
+  /* Centered, outlined headings (like before) */
+  .title, .subtitle, .section {
+    text-align:center;
+    margin:0;
+  }
+  .title{
+    font-size:56px; line-height:1.05; font-weight:800; letter-spacing:.5px;
+    color:var(--accent);
+    /* outline with soft glow */
+    text-shadow:
+      0 0 0 var(--bg),
+      0 0 18px rgba(0,231,255,.35),
+      0 0 40px rgba(0,231,255,.25);
+    -webkit-font-smoothing:antialiased;
+  }
+  .subtitle{
+    margin-top:10px; font-size:20px; color:var(--ink-dim);
+  }
+  .hr { height:3px; background:var(--accent); margin:18px auto 14px; max-width:92%; opacity:.85; }
+
+  .section{
+    font-size:44px; font-weight:800; color:var(--accent); margin:12px 0 10px;
+    text-shadow:
+      0 0 0 var(--bg),
+      0 0 14px rgba(0,231,255,.25),
+      0 0 28px rgba(0,231,255,.18);
+  }
+
+  /* Table fills the page, no white boxes */
+  .compat{
+    width:100%; border-collapse:separate; border-spacing:0;
+    background:transparent; table-layout:fixed;
+  }
+  .compat col.label   { width:56%; }
+  .compat col.a       { width:12%; }
+  .compat col.match   { width:16%; }
+  .compat col.flag    { width:4%; }    /* tighter flag column */
+  .compat col.b       { width:12%; }
+
+  .compat thead th{
+    position:sticky; top:0; z-index:1;
+    background:#0f1215;
+    color:var(--accent); font-weight:800; font-size:20px; padding:14px 12px;
+    border-bottom:1px solid var(--grid);
+    text-align:center;
+    /* give the header the outlined look, too */
+    text-shadow:
+      0 0 0 var(--bg),
+      0 0 12px rgba(0,231,255,.22);
+  }
+  .compat thead th:first-child{ text-align:left; }
+
+  .compat tbody td{
+    padding:14px 12px; font-size:19px; line-height:1.3; color:var(--ink);
+    border-bottom:1px solid #151a1e; background:var(--row);
+  }
+  .compat tbody tr:nth-child(2n) td{ background:var(--row-alt); }
+  .compat tbody td.label{ color:var(--ink); }
+  .compat tbody td.num, .compat tbody td.match, .compat tbody td.flag{
+    text-align:center; white-space:nowrap;
+  }
+  .compat tbody td.flag{
+    text-align:center; letter-spacing:.5px; color:var(--ink-dim);
+  }
+
+  /* Download button */
+  .bar { display:flex; gap:12px; justify-content:center; margin:18px 0 6px; }
+  .btn {
+    appearance:none; border:none; border-radius:12px; padding:10px 16px;
+    background:#0f1d22; color:var(--ink); font-weight:700; cursor:pointer;
+    box-shadow:0 0 0 1px rgba(0,231,255,.25), 0 6px 20px rgba(0,231,255,.12) inset;
+  }
+  .btn:hover{ box-shadow:0 0 0 1px rgba(0,231,255,.5), 0 0 18px rgba(0,231,255,.18) inset; }
+
+  /* make sure the whole sheet breathes to edges on small screens */
+  @media (max-width:880px){
+    .title{ font-size:44px; }
+    .section{ font-size:34px; }
+    .compat thead th, .compat tbody td{ font-size:18px; }
+    .compat col.label{ width:54%; }
+    .compat col.match{ width:17%; }
+  }
+</style>
 </head>
 <body>
-  <h1>TalkKink Compatibility</h1>
-
-  <!-- Your real buttons can keep existing markup / classes; IDs are optional -->
-  <button id="uploadMineBtn" class="cta">Upload Your Survey</button>
-  <button id="uploadPartnerBtn" class="cta">Upload Partner’s Survey</button>
-  <button id="downloadPdfBtn" class="cta">Download PDF</button>
-  <a href="/KinkSurveyPage/" class="cta">← Back</a>
-
-  <!-- ====== Standalone logic: remove theme-globals.js and pdfDownload.js includes ====== -->
-  <script>
-/* ---- 1) Remove the two problematic scripts if they’re on the page ---- */
-(function killBadIncludes(){
-  const sel = 'script[src*="theme-globals.js"],script[src*="pdfDownload.js"]';
-  document.querySelectorAll(sel).forEach(node => {
-    try {
-      node.parentNode?.removeChild(node);
-    } catch (_) {
-      /* ignore */
-    }
-  });
-})();
-
-/* ---- 2) Null-guard for the “dock margin” style error ---- */
-try {
-  const dock = document.querySelector('[data-dock-margin]') ||
-               document.getElementById('dock-margin') ||
-               document.querySelector('.dock-margin');
-  if (dock && dock.style) dock.style.margin = '';
-} catch (_) {}
-
-/* ---- 3) Minimal standalone PDF exporter (jsPDF via CDN) ---- */
-(function () {
-  const readRuntime = (key, fallback) => {
-    if (typeof window !== 'undefined' && key in window) {
-      try {
-        return JSON.parse(JSON.stringify(window[key]));
-      } catch (_) {
-        return window[key];
-      }
-    }
-    return fallback;
-  };
-
-  const DEFAULT_MARGIN = { top: 40, right: 36, bottom: 38, left: 36 };
-  const DEFAULT_COL_W = [56, 12, 16, 4, 12];
-  const DEFAULT_SOLO_COL_W = [72, 28];
-  const DEFAULT_BG = [10, 10, 12];
-  const DEFAULT_SHOW_HEADER = true;
-
-  const FALLBACK_SURVEY_MINE = Object.freeze({
-    meta: {
-      name: 'Sample Partner A',
-      selectedCategories: ['Behavioral Play']
-    },
-    responses: [
-      { id: 'behavioral-1', index: 0,  category: 'Behavioral Play', prompt: 'Attitude toward punishment vs serious correction', rating: 4 },
-      { id: 'behavioral-2', index: 1,  category: 'Behavioral Play', prompt: 'Preferred style of discipline strict vs lenient', rating: 4 },
-      { id: 'behavioral-3', index: 2,  category: 'Behavioral Play', prompt: 'Use of behavior contracts or rule agreements', rating: 5 },
-      { id: 'behavioral-4', index: 3,  category: 'Behavioral Play', prompt: 'Consistency on carrying out rules', rating: 4 },
-      { id: 'behavioral-5', index: 4,  category: 'Behavioral Play', prompt: 'Lecturing or scolding to modify behavior', rating: 3 },
-      { id: 'behavioral-6', index: 5,  category: 'Behavioral Play', prompt: 'Playful punishments that still reinforce rules', rating: 5 },
-      { id: 'behavioral-7', index: 6,  category: 'Behavioral Play', prompt: 'Removing privileges like phone, TV, or sweets', rating: 4 },
-      { id: 'behavioral-8', index: 7,  category: 'Behavioral Play', prompt: 'Writing lines or apology letters as correction', rating: 3 },
-      { id: 'behavioral-9', index: 8,  category: 'Behavioral Play', prompt: 'Being placed in the corner or given a time out', rating: 4 },
-      { id: 'behavioral-10', index: 9,  category: 'Behavioral Play', prompt: 'Getting scolded or lectured in front of others', rating: 3 },
-      { id: 'behavioral-11', index: 10, category: 'Behavioral Play', prompt: 'Having privileges revoked for rule reminders', rating: 4 },
-      { id: 'behavioral-12', index: 11, category: 'Behavioral Play', prompt: 'Receiving playful punishments for minor rule-breaking', rating: 4 }
-    ]
-  });
-
-  const FALLBACK_SURVEY_PARTNER = Object.freeze({
-    meta: {
-      name: 'Sample Partner B',
-      selectedCategories: ['Behavioral Play']
-    },
-    responses: FALLBACK_SURVEY_MINE.responses.map((row) => ({
-      id: row.id,
-      index: row.index,
-      category: row.category,
-      prompt: row.prompt,
-      rating: row.rating
-    }))
-  });
-
-  let ACTIVE_PDF_CONFIG = {
-    margins: { ...DEFAULT_MARGIN },
-    colW: [...DEFAULT_COL_W],
-    soloColW: [...DEFAULT_SOLO_COL_W],
-    background: [...DEFAULT_BG],
-    showHeader: DEFAULT_SHOW_HEADER
-  };
-
-  const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
-  const toArray = (value, fallback, minLength) => {
-    if (Array.isArray(value) && value.length >= minLength) return [...value];
-    return [...fallback];
-  };
-
-  function normalizeWidthsForPage(widths, margin, pageWidth) {
-    if (!Array.isArray(widths) || !widths.length) return widths;
-    const numeric = widths.map((value) => {
-      const num = Number(value);
-      return Number.isFinite(num) ? num : 0;
-    });
-    if (!numeric.some((value) => value > 0)) return numeric;
-
-    const sum = numeric.reduce((acc, value) => acc + value, 0);
-    const max = Math.max(...numeric);
-    const left = Number(margin?.left) || 0;
-    const right = Number(margin?.right) || 0;
-    const tableWidth = Math.max(0, pageWidth - left - right);
-    if (tableWidth === 0) return numeric;
-
-    const asPercentages = sum > 0 && Math.abs(sum - 100) <= 0.5;
-    const asFractions = max > 0 && max <= 1 && sum <= 1.0001;
-    if (!asPercentages && !asFractions) return numeric;
-
-    const normalizeBySum = asPercentages || asFractions;
-    const divisor = normalizeBySum ? (sum || 1) : 1;
-    return numeric.map((value) => {
-      const ratio = normalizeBySum ? value / divisor : value;
-      return tableWidth * ratio;
-    });
-  }
-
-  function resolvePdfConfig() {
-    const runtimeRoot = readRuntime('TKPDF', {});
-    const marginOverride = readRuntime('__TKPDF__MARGINS__', null) ?? runtimeRoot.__MARGINS;
-    const colOverride = runtimeRoot.__COLW || readRuntime('__TKPDF__COLW__', null) || readRuntime('COLW', null);
-    const soloOverride = runtimeRoot.__SOLO_COLW || readRuntime('__TKPDF__SOLO_COLW__', null);
-    const bgOverride = readRuntime('__TKPDF__BG__', null) ?? runtimeRoot.__BG;
-    const showHeaderOverride = readRuntime('__TKPDF__SHOW_HEADER__', undefined);
-    const globalShowHeader = readRuntime('SHOW_HEADER', undefined);
-    const runtimeShowHeader = runtimeRoot.__SHOW_HEADER ?? runtimeRoot.SHOW_HEADER ?? runtimeRoot.showHeader;
-
-    let showHeader = DEFAULT_SHOW_HEADER;
-    const showCandidate =
-      showHeaderOverride !== undefined
-        ? showHeaderOverride
-        : (globalShowHeader !== undefined ? globalShowHeader : runtimeShowHeader);
-    if (showCandidate !== undefined) {
-      showHeader = Boolean(showCandidate);
-    }
-
-    return {
-      margins: { ...DEFAULT_MARGIN, ...(isObject(marginOverride) ? marginOverride : {}) },
-      colW: toArray(colOverride, DEFAULT_COL_W, 5),
-      soloColW: toArray(soloOverride, DEFAULT_SOLO_COL_W, 2),
-      background: toArray(bgOverride, DEFAULT_BG, 3),
-      showHeader
-    };
-  }
-  const SELF_KEYS = ['talkkink:survey', 'talkkink:mine', 'tk_compat.self'];
-  const PARTNER_KEYS = ['talkkink:partner', 'tk_compat.partner'];
-
-  const nowStamp = (value) => {
-    const d = value instanceof Date ? value : new Date(value || Date.now());
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-
-  async function loadJsPDF() {
-    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
-    await new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
-      s.async = true;
-      s.onload = res;
-      s.onerror = () => rej(new Error('jsPDF load failed'));
-      document.head.appendChild(s);
-    });
-    if (!(window.jspdf?.jsPDF)) throw new Error('jsPDF init failed');
-    return window.jspdf.jsPDF;
-  }
-
-  function normalizeRating(value) {
-    const num = Number(value);
-    if (!Number.isFinite(num)) return 0;
-    return Math.max(0, Math.min(5, Math.round(num)));
-  }
-
-  function normalizeRows(survey) {
-    const rows = Array.isArray(survey?.responses) ? survey.responses : [];
-    return rows.map((row, idx) => ({
-      id: row.id ?? row.prompt ?? row.text ?? row.title ?? `item-${idx}`,
-      prompt: row.prompt ?? row.text ?? row.title ?? row.label ?? row.question ?? row.id ?? '',
-      category: row.category ?? row.categoryId ?? row.cat ?? row.section ?? 'Other',
-      rating:
-        row.rating == null && row.score == null && row.value == null && row.answer == null
-          ? null
-          : normalizeRating(row.rating ?? row.score ?? row.value ?? row.answer),
-      index: row.index ?? row.order ?? row.position ?? idx
-    }));
-  }
-
-  const groupByCategory = (survey) => {
-    const grouped = new Map();
-    normalizeRows(survey).forEach(row => {
-      if (!grouped.has(row.category)) grouped.set(row.category, []);
-      grouped.get(row.category).push(row);
-    });
-    for (const list of grouped.values()) {
-      list.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-    }
-    return grouped;
-  };
-
-  const summarize = (survey) => {
-    const counts = [0, 0, 0, 0, 0, 0];
-    normalizeRows(survey).forEach(row => {
-      if (row.rating == null) return;
-      counts[row.rating] += 1;
-    });
-    return counts;
-  };
-
-  function preparePage(doc) {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const [r = 0, g = 0, b = 0] = ACTIVE_PDF_CONFIG.background;
-    doc.setFillColor(r, g, b);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
-  }
-
-  function tkTableCenterX(doc, widths, marginOverride) {
-    const list = Array.isArray(widths) && widths.length ? widths : ACTIVE_PDF_CONFIG.colW;
-    const margin = marginOverride || ACTIVE_PDF_CONFIG.margins;
-    const tableWidth = list.reduce((acc, value) => acc + value, 0);
-    return (margin.left ?? 0) + tableWidth / 2;
-  }
-
-  function tkDrawHeader(doc, sectionTitle, options = {}) {
-    const widths = options.widths || ACTIVE_PDF_CONFIG.colW;
-    const timestamp = options.timestamp ?? new Date().toLocaleString();
-    const cx = tkTableCenterX(doc, widths, options.margin);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(28);
-    doc.setTextColor(255, 255, 255);
-    doc.text('TalkKink Compatibility', cx, 72, { align: 'center' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(160, 220, 220);
-    doc.text(`Generated: ${timestamp}`, cx, 92, { align: 'center' });
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(255, 255, 255);
-    doc.text(sectionTitle, cx, 120, { align: 'center' });
-  }
-
-  function tkFlagColor(pct) {
-    if (pct >= 85) return [0, 200, 140];
-    if (pct >= 50) return [230, 200, 40];
-    return [230, 60, 60];
-  }
-
-  function tkDrawFlag(doc, x, y, pct) {
-    const color = tkFlagColor(pct);
-    doc.setFillColor(...color);
-    doc.triangle(x, y - 6, x, y + 6, x + 14, y, 'F');
-  }
-
-  const safeScore = (value) => {
-    if (value == null) return null;
-    const num = Number(value);
-    if (!Number.isFinite(num)) return null;
-    return Math.max(0, Math.min(5, num));
-  };
-
-  const computeMatch = (a, b) => {
-    const aNorm = safeScore(a);
-    const bNorm = safeScore(b);
-    if (aNorm == null || bNorm == null) return null;
-    const diff = Math.min(5, Math.abs(aNorm - bNorm));
-    return Math.round(100 - diff * 20);
-  };
-
-  const formatScore = (value) => {
-    const score = safeScore(value);
-    return score == null ? '—' : `${score}/5`;
-  };
-
-  const formatMatchLabel = (a, b) => {
-    const match = computeMatch(a, b);
-    return match == null ? '—' : `${match}%`;
-  };
-
-  function mergeCategoryEntries(mineRows = [], partnerRows = []) {
-    const map = new Map();
-    mineRows.forEach((row, idx) => {
-      const key = row.id ?? `mine-${idx}`;
-      map.set(key, {
-        prompt: row.prompt || row.id || '',
-        mine: row.rating,
-        partner: null,
-        index: row.index ?? idx
-      });
-    });
-    partnerRows.forEach((row, idx) => {
-      const key = row.id ?? `partner-${idx}`;
-      const existing = map.get(key);
-      if (existing) {
-        existing.partner = row.rating;
-        if (!existing.prompt && row.prompt) existing.prompt = row.prompt;
-        const candidate = row.index ?? idx;
-        existing.index = Math.min(existing.index ?? candidate, candidate);
-      } else {
-        map.set(key, {
-          prompt: row.prompt || row.id || '',
-          mine: null,
-          partner: row.rating,
-          index: row.index ?? idx
-        });
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-  }
-
-  function computeCategoryStats(entries = [], includePartner = false) {
-    const total = entries.length;
-    const mineAnswered = entries.reduce((acc, entry) => acc + (entry.mine != null ? 1 : 0), 0);
-    const partnerAnswered = includePartner
-      ? entries.reduce((acc, entry) => acc + (entry.partner != null ? 1 : 0), 0)
-      : 0;
-    const minePercent = total ? Math.round((mineAnswered / total) * 100) : 0;
-    const partnerPercent = includePartner && total ? Math.round((partnerAnswered / total) * 100) : 0;
-    const matches = includePartner
-      ? entries.map(entry => computeMatch(entry.mine, entry.partner)).filter(val => val != null)
-      : [];
-    const avgMatch = matches.length ? Math.round(matches.reduce((sum, val) => sum + val, 0) / matches.length) : null;
-    return { total, mineAnswered, partnerAnswered, minePercent, partnerPercent, avgMatch };
-  }
-
-  const formatSummaryLine = (counts) => counts.map((count, rating) => `${rating}: ${count}`).join('    ');
-
-  function buildTableRows(entries, includePartner) {
-    if (!entries.length) {
-      if (includePartner) {
-        return [['No responses recorded', '—', '—', '', '—']];
-      }
-      return [['No responses recorded', '—']];
-    }
-    return entries.map(entry => {
-      if (includePartner) {
-        return [
-          entry.prompt || '',
-          formatScore(entry.mine),
-          formatMatchLabel(entry.mine, entry.partner),
-          '',
-          formatScore(entry.partner)
-        ];
-      }
-      return [entry.prompt || '', formatScore(entry.mine)];
-    });
-  }
-
-  function tkRenderCategoryTable(doc, rows, startY = 140, opts = {}) {
-    const includePartner = Boolean(opts.showPartner);
-    const showHeader = opts.showHeader ?? ACTIVE_PDF_CONFIG.showHeader;
-    const baseMargin = opts.margin || ACTIVE_PDF_CONFIG.margins;
-    const margin = { ...baseMargin };
-    const baseTop = Number(baseMargin.top ?? 0) || 0;
-    margin.top = showHeader ? Math.max(baseTop, 136) : baseTop;
-    const widths = normalizeWidthsForPage(
-      opts.widths || (includePartner ? ACTIVE_PDF_CONFIG.colW : ACTIVE_PDF_CONFIG.soloColW),
-      margin,
-      doc.internal.pageSize.getWidth()
-    );
-    const stats = opts.stats || null;
-    const infoLines = [];
-    if (Array.isArray(opts.metaLines)) {
-      opts.metaLines.filter(Boolean).forEach(line => infoLines.push(line));
-    }
-    if (stats) {
-      if (includePartner) {
-        infoLines.push(`Mine answered ${stats.mineAnswered}/${stats.total} (${stats.minePercent}%)`);
-        infoLines.push(`Partner answered ${stats.partnerAnswered}/${stats.total} (${stats.partnerPercent}%)`);
-        if (stats.avgMatch != null) infoLines.push(`Average match ${stats.avgMatch}%`);
-      } else {
-        infoLines.push(`Answered ${stats.mineAnswered}/${stats.total} (${stats.minePercent}%)`);
-      }
-    }
-
-    const headerBaseline = showHeader ? 120 : margin.top;
-    const lineSpacing = 14;
-    const infoGap = infoLines.length ? infoLines.length * lineSpacing + 12 : 0;
-    let tableStartY = Number.isFinite(startY) ? startY : margin.top;
-    if (tableStartY < margin.top) tableStartY = margin.top;
-    if (infoGap) {
-      const minStart = headerBaseline + infoGap + 10;
-      if (tableStartY < minStart) tableStartY = minStart;
-    }
-    const infoStartY = infoGap ? (tableStartY - infoGap + lineSpacing) : null;
-
-    if (typeof doc.autoTable !== 'function') {
-      throw new Error('autoTable plugin not available');
-    }
-
-    let pageIndex = 0;
-
-    const [bgR = 10, bgG = 10, bgB = 12] = ACTIVE_PDF_CONFIG.background;
-    const pageBg = [bgR, bgG, bgB];
-
-    doc.autoTable({
-      head: includePartner
-        ? [['Item', 'Partner A', 'Match', 'Flag', 'Partner B']]
-        : [['Item', 'Rating']],
-      body: rows,
-      startY: tableStartY,
-      margin,
-      styles: {
-        fillColor: pageBg,
-        textColor: [255, 255, 255],
-        lineColor: [34, 34, 42],
-        lineWidth: 0.25,
-        valign: 'middle'
-      },
-      headStyles: {
-        fillColor: [0, 0, 0],
-        textColor: [0, 255, 255],
-        lineColor: [34, 34, 42],
-        fontStyle: 'bold'
-      },
-      columnStyles: includePartner
-        ? {
-            0: { cellWidth: widths[0], halign: 'left' },
-            1: { cellWidth: widths[1], halign: 'center' },
-            2: { cellWidth: widths[2], halign: 'center' },
-            3: { cellWidth: widths[3], halign: 'center' },
-            4: { cellWidth: widths[4], halign: 'center' }
-          }
-        : {
-            0: { cellWidth: widths[0], halign: 'left' },
-            1: { cellWidth: widths[1], halign: 'center' }
-          },
-      willDrawPage: () => {
-        const isFirstPage = pageIndex === 0;
-        preparePage(doc);
-        if (showHeader && (!isFirstPage || !opts.skipFirstHeader)) {
-          const sectionTitle = isFirstPage ? opts.sectionTitle || '' : `${opts.sectionTitle || ''} (cont.)`;
-          tkDrawHeader(doc, sectionTitle, { widths, timestamp: opts.timestamp, margin });
-        }
-        if (isFirstPage && infoLines.length) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          doc.setTextColor(170, 220, 255);
-          const baseY = infoStartY ?? tableStartY;
-          infoLines.forEach((line, idx) => {
-            doc.text(line, margin.left, baseY + idx * lineSpacing);
-          });
-        }
-        pageIndex += 1;
-      },
-      didDrawCell: (data) => {
-        if (!includePartner) return;
-        if (data.section === 'body' && data.column.index === 3) {
-          const raw = data.row.raw;
-          const pct = Number(String(raw?.[2] ?? '').replace('%', ''));
-          if (!Number.isFinite(pct)) return;
-          const x = data.cell.x + 6;
-          const y = data.cell.y + data.cell.height / 2;
-          tkDrawFlag(doc, x, y, pct);
-        }
-      }
-    });
-  }
-
-  function addFooter(doc, page, total, stamp) {
-    const width = doc.internal.pageSize.getWidth();
-    const height = doc.internal.pageSize.getHeight();
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(180, 180, 180);
-    doc.text(`TalkKink • ${stamp} • Page ${page}/${total}`, width / 2, height - 28, { align: 'center' });
-  }
-
-  const fallbackAllowed = () => {
-    if (typeof window !== 'undefined' && window.TKPDF_DISABLE_FALLBACK) return false;
-    return true;
-  };
-
-  const cloneSurvey = (survey) => {
-    if (!survey) return survey;
-    try {
-      return JSON.parse(JSON.stringify(survey));
-    } catch (_) {
-      return survey;
-    }
-  };
-
-  function pickSources(opts = {}) {
-    const out = { mine: opts.mine ?? null, partner: opts.partner ?? null };
-    if (!out.mine) out.mine = window.talkkinkMine || window.talkkinkSurvey;
-    if (!out.partner) out.partner = window.talkkinkPartner;
-    try {
-      if (!out.mine) {
-        for (const key of SELF_KEYS) {
-          const value = localStorage.getItem(key);
-          if (value) { out.mine = JSON.parse(value); break; }
-        }
-      }
-      if (!out.partner) {
-        for (const key of PARTNER_KEYS) {
-          const value = localStorage.getItem(key);
-          if (value) { out.partner = JSON.parse(value); break; }
-        }
-      }
-    } catch (_) {}
-    if (!out.mine && fallbackAllowed()) {
-      out.mine = cloneSurvey(FALLBACK_SURVEY_MINE);
-    }
-    if (!out.partner && fallbackAllowed()) {
-      out.partner = cloneSurvey(FALLBACK_SURVEY_PARTNER);
-    }
-    return out;
-  }
-
-  async function buildPdf({ mine, partner, filename }) {
-    const jsPDF = await loadJsPDF();
-    const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
-    ACTIVE_PDF_CONFIG = resolvePdfConfig();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    ACTIVE_PDF_CONFIG.colW = normalizeWidthsForPage(
-      ACTIVE_PDF_CONFIG.colW,
-      ACTIVE_PDF_CONFIG.margins,
-      pageWidth
-    );
-    ACTIVE_PDF_CONFIG.soloColW = normalizeWidthsForPage(
-      ACTIVE_PDF_CONFIG.soloColW,
-      ACTIVE_PDF_CONFIG.margins,
-      pageWidth
-    );
-    const includePartner = Boolean(partner);
-    const createdAt = new Date();
-    const headerTimestamp = createdAt.toLocaleString();
-    const footerStamp = nowStamp(createdAt);
-
-    const mineCats = mine?.meta?.selectedCategories?.join(', ') || 'All Categories';
-    const partnerCats = includePartner
-      ? partner?.meta?.selectedCategories?.join(', ') || 'All Categories'
-      : null;
-
-    const mineMap = groupByCategory(mine);
-    const partnerMap = includePartner ? groupByCategory(partner) : new Map();
-    const categories = [];
-    mineMap.forEach((_, cat) => { categories.push(cat); });
-    if (includePartner) {
-      partnerMap.forEach((_, cat) => { if (!mineMap.has(cat)) categories.push(cat); });
-    }
-    if (!categories.length) categories.push('Responses');
-
-    const mineSummary = formatSummaryLine(summarize(mine));
-    const partnerSummary = includePartner ? formatSummaryLine(summarize(partner)) : null;
-
-    categories.forEach((category, index) => {
-      if (index > 0) {
-        doc.addPage('letter', 'portrait');
-      }
-
-      const mineRows = mineMap.get(category) || [];
-      const partnerRows = includePartner ? partnerMap.get(category) || [] : [];
-      const entries = mergeCategoryEntries(mineRows, partnerRows);
-      const stats = computeCategoryStats(entries, includePartner);
-      const tableRows = buildTableRows(entries, includePartner);
-
-      const metaLines = [];
-      if (index === 0) {
-        if (includePartner) {
-          metaLines.push(`Mine categories: ${mineCats}`);
-          metaLines.push(`Partner categories: ${partnerCats}`);
-          if (mineSummary) metaLines.push(`Mine ratings • ${mineSummary}`);
-          if (partnerSummary) metaLines.push(`Partner ratings • ${partnerSummary}`);
-        } else {
-          metaLines.push(`Selected categories: ${mineCats}`);
-          if (mineSummary) metaLines.push(`Rating summary • ${mineSummary}`);
-        }
-      }
-
-      const widths = includePartner ? ACTIVE_PDF_CONFIG.colW : ACTIVE_PDF_CONFIG.soloColW;
-
-      preparePage(doc);
-      if (ACTIVE_PDF_CONFIG.showHeader) {
-        tkDrawHeader(doc, category, { widths, timestamp: headerTimestamp, margin: ACTIVE_PDF_CONFIG.margins });
-      }
-
-      const initialStartY = ACTIVE_PDF_CONFIG.showHeader ? 140 : ACTIVE_PDF_CONFIG.margins.top;
-
-      tkRenderCategoryTable(doc, tableRows, initialStartY, {
-        showPartner: includePartner,
-        sectionTitle: category,
-        widths,
-        margin: ACTIVE_PDF_CONFIG.margins,
-        stats,
-        metaLines,
-        timestamp: headerTimestamp,
-        skipFirstHeader: ACTIVE_PDF_CONFIG.showHeader,
-        showHeader: ACTIVE_PDF_CONFIG.showHeader
-      });
-    });
-
-    const total = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= total; i += 1) {
-      doc.setPage(i);
-      addFooter(doc, i, total, footerStamp);
-    }
-
-    doc.save(filename || (includePartner ? 'talkkink-compatibility-results.pdf' : 'talkkink-survey-results.pdf'));
-  }
-
-  window.TKPDF = window.TKPDF || {};
-  window.TKPDF.download = (opts = {}) => {
-    const { mine, partner } = pickSources(opts);
-    if (!mine) {
-      alert('Export unavailable: no survey data found.');
-      return;
-    }
-    buildPdf({ mine, partner, filename: opts.filename }).catch(err => {
-      console.error(err);
-      alert('Export failed.');
-    });
-  };
-
-  function attachUpload(btn, key, input) {
-    if (!btn && !input) return;
-    let fileInput = input || null;
-    const created = !fileInput;
-    if (!fileInput) {
-      fileInput = document.createElement('input');
-      fileInput.type = 'file';
-      fileInput.accept = 'application/json';
-      fileInput.style.display = 'none';
-      document.body.appendChild(fileInput);
-    } else if (!fileInput.accept) {
-      fileInput.accept = 'application/json';
-    }
-
-    if (key === 'talkkink:partner' && fileInput) {
-      fileInput.setAttribute('data-partner-upload', '');
-      if (!fileInput.id) fileInput.id = 'partnerFile';
-    }
-
-    const isLabelForInput = Boolean(btn && fileInput && btn.tagName === 'LABEL' && btn.htmlFor && fileInput.id && btn.htmlFor === fileInput.id);
-    if (btn && !isLabelForInput && btn !== fileInput) {
-      btn.addEventListener('click', () => fileInput.click());
-    }
-
-    fileInput.addEventListener('change', async () => {
-      const file = fileInput.files?.[0];
-      if (!file) return;
-      try {
-        const text = await file.text();
-        const json = JSON.parse(text);
-        localStorage.setItem(key, text);
-        if (key === 'talkkink:mine') {
-          window.talkkinkMine = json;
-          window.talkkinkSurvey = json;
-        }
-        if (key === 'talkkink:partner') {
-          window.talkkinkPartner = json;
-        }
-        alert('Uploaded ✓');
-      } catch (err) {
-        console.error(err);
-        alert('Invalid file — expected TalkKink JSON export.');
-      }
-      if (created) {
-        fileInput.value = '';
-      }
-    });
-  }
-
-  function findBtn(txt) {
-    const needle = (txt || '').toLowerCase();
-    return Array.from(document.querySelectorAll('button,a,[role="button"]')).find(el => (el.textContent || '').toLowerCase().includes(needle));
-  }
-
-  function bindUI() {
-    const mineBtn = document.getElementById('uploadMineBtn') || findBtn('upload your survey');
-    const partnerBtn = document.getElementById('uploadPartnerBtn') || findBtn('upload partner');
-    const dlBtn = document.getElementById('downloadPdfBtn') || document.getElementById('btnDownloadPdf') || findBtn('download pdf');
-    const mineInput = document.getElementById('fileA') || document.querySelector('[data-upload-input="mine"]');
-    const partnerInput = document.getElementById('fileB') || document.querySelector('[data-upload-input="partner"]');
-    attachUpload(mineBtn, 'talkkink:mine', mineInput);
-    attachUpload(partnerBtn, 'talkkink:partner', partnerInput);
-    if (dlBtn) {
-      dlBtn.addEventListener('click', () => window.TKPDF.download());
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindUI);
-  } else {
-    bindUI();
-  }
-})();
-  </script>
-<!-- ======================= CODEX DROP-IN: Partner Upload Consent + Clean PDF ======================= -->
-<!-- Our upload buttons are defined above; this drop-in only contributes the consent UI + PDF helper. -->
-<style>
-  .tk-consent-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:9999}
-  .tk-consent-modal{width:min(560px,92vw);background:#0b0b0c;color:#e9e9ef;border:1px solid #2a2a35;border-radius:16px;padding:18px 18px 14px;box-shadow:0 12px 40px rgba(0,0,0,.6);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-  .tk-consent-modal h3{margin:0 0 6px 0;font-size:18px}
-  .tk-consent-modal p{margin:6px 0 10px}
-  .tk-consent-row{display:flex;gap:10px;align-items:flex-start;margin:10px 0 16px}
-  .tk-consent-row input[type="checkbox"]{margin-top:2px;transform:scale(1.05)}
-  .tk-consent-actions{display:flex;gap:10px;justify-content:flex-end}
-  .tk-btn{padding:10px 14px;border-radius:12px;border:1px solid #3b3b49;background:#18181c;color:#fafafc;cursor:pointer}
-  .tk-btn.primary{background:#2b64ff;border-color:#2b64ff}
-  .tk-btn:disabled{opacity:.6;cursor:not-allowed}
-  .tk-consent-small{opacity:.8}
-  /* tiny consent banner after success */
-  .tk-consent-banner{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#0e2810;color:#d7f8dd;border:1px solid #2e6b33;border-radius:10px;padding:8px 12px;display:none;z-index:10000}
-</style>
-
-<div id="tk-consent" class="tk-consent-backdrop" aria-hidden="true">
-  <div role="dialog" aria-modal="true" aria-labelledby="tk-consent-title" class="tk-consent-modal">
-    <h3 id="tk-consent-title">Confirm Partner Consent</h3>
-    <p>Before importing a partner’s survey, confirm you have their explicit consent to upload and compare their responses here.</p>
-    <div class="tk-consent-row">
-      <input id="tk-consent-checkbox" type="checkbox" />
-      <label for="tk-consent-checkbox">
-        I have my partner’s explicit permission to upload and process their survey responses on this site.
-      </label>
-    </div>
-    <p class="tk-consent-small">If you do not have consent, click <b>Cancel</b>. You can delete uploaded data at any time.</p>
-    <div class="tk-consent-actions">
-      <button class="tk-btn" data-action="cancel">Cancel</button>
-      <button class="tk-btn primary" data-action="continue" disabled>Continue</button>
-    </div>
+  <div class="page" id="app">
+    <h1 class="title">TalkKink Compatibility</h1>
+    <p class="subtitle" id="ts">Generated: —</p>
+    <div class="hr"></div>
+    <h2 class="section">Behavioral Play</h2>
+
+    <div class="bar"><button id="downloadPdfBtn" class="btn">Download PDF</button></div>
+
+    <table class="compat" id="compatTable" aria-label="Compatibility table">
+      <colgroup>
+        <col class="label"><!-- Item -->
+        <col class="a">    <!-- Partner A -->
+        <col class="match"><!-- Match -->
+        <col class="flag"><!-- Flag -->
+        <col class="b">    <!-- Partner B -->
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Partner A</th>
+          <th>Match</th>
+          <th>Flag</th>
+          <th>Partner B</th>
+        </tr>
+      </thead>
+      <tbody id="compatBody"><!-- rows injected --></tbody>
+    </table>
   </div>
-</div>
-
-<div id="tk-consent-banner" class="tk-consent-banner">✔ Partner consent confirmed. Processing file…</div>
-
-<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
 
 <script>
-/* =============================== Partner Consent Gate =============================== */
-(function () {
-  const $ = (s, r=document) => r.querySelector(s);
+/* ──────────────────────────────────────────────────────────────────────────
+   One-time bootstrap (prevents “double loading”)
+────────────────────────────────────────────────────────────────────────── */
+(() => {
+  if (window.__TK_ONE_TIME_INIT__) return;  // hard lock
+  window.__TK_ONE_TIME_INIT__ = true;
 
-  // Public API: await window.tkConfirmPartnerConsent()
-  async function tkConfirmPartnerConsent() {
-    const root = $("#tk-consent");
-    if (!root) return true; // fail-open if modal missing
+  /* Timestamp */
+  const ts = new Date();
+  document.getElementById('ts').textContent =
+    'Generated: ' + ts.toLocaleString();
 
-    const checkbox = $("#tk-consent-checkbox", root);
-    const btnContinue = root.querySelector('[data-action="continue"]');
-    const btnCancel   = root.querySelector('[data-action="cancel"]');
+  /* Demo source (will be replaced if live globals/localStorage exist) */
+  const FALLBACK = [
+    ['Giving: Assigning corner time or time-outs',      0, '100%', '▫²', 0],
+    ['General: Attitude toward funishment vs serious correction', 3, '100%', '▫²', 3],
+    ['Receiving: Being placed in the corner or given a time-out', 5, '100%', '▫²', 5],
+    ['Receiving: Getting scolded or lectured for correction',     5, '100%', '▫²', 5],
+    ['Receiving: Having privileges revoked (phone, TV)',          3, '100%', '▫²', 3],
+    ['Giving: Lecturing or scolding to modify behavior',          4, '100%', '▫²', 4],
+    ['Giving: Playful punishments that still reinforce rules',    3, '100%', '▫²', 3],
+    ['General: Preferred style of discipline (strict vs lenient)',4, '100%', '▫²', 4],
+    ['Receiving: Receiving playful \'funishments\' for minor rule-breaking',2, '100%', '▫²', 2],
+    ['Giving: Removing privileges (phone, TV, sweets)',           2, '100%', '▫²', 2],
+    ['General: Use of behavior contracts or rule agreements',     2, '100%', '▫²', 2],
+  ];
 
-    // reset state
-    checkbox.checked = false; btnContinue.disabled = true;
-
-    const done = (()=>{ let resolve; const p=new Promise(r=>resolve=r); return {promise:p, resolve}; })();
-    const onCheck = () => { btnContinue.disabled = !checkbox.checked; };
-    const onCancel = () => cleanup(false);
-    const onContinue = () => cleanup(true);
-
-    checkbox.addEventListener('change', onCheck);
-    btnCancel.addEventListener('click', onCancel);
-    btnContinue.addEventListener('click', onContinue);
-
-    show(root);
-
-    function cleanup(val){
-      hide(root);
-      checkbox.removeEventListener('change', onCheck);
-      btnCancel.removeEventListener('click', onCancel);
-      btnContinue.removeEventListener('click', onContinue);
-      done.resolve(val);
-    }
-    return done.promise;
-  }
-  window.tkConfirmPartnerConsent = tkConfirmPartnerConsent;
-
-  const input = document.querySelector('input[data-partner-upload]') || document.querySelector('#partnerFile');
-
-  if (input) {
-    input.addEventListener('change', async (ev) => {
-      const file = ev.target?.files?.[0];
-      if (!file) return;
-
-      const ok = await tkConfirmPartnerConsent();
-      if (!ok) { ev.target.value = ''; return; }
-
-      flashConsentBanner();
-
-      try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        const rows = extractRowsFromTalkKinkJSON(data); // {Category, Item, Role, Score}
-        await generateCleanPartnerPDF(rows, data?.meta);
-      } catch (err) {
-        console.error('[talkkink] partner file processing error:', err);
-        alert('Sorry—could not read that file. Is it a valid TalkKink survey JSON?');
-      } finally {
-        ev.target.value = '';
+  /* Source resolution: use live globals if present, else localStorage, else fallback */
+  function pickRows(){
+    try{
+      if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length){
+        return window.talkkinkCompatRows;
       }
-    });
-  }
-
-  function show(el){ el.style.display='flex'; el.setAttribute('aria-hidden','false'); }
-  function hide(el){ el.style.display='none'; el.setAttribute('aria-hidden','true'); }
-  function flashConsentBanner() {
-    const b = document.getElementById('tk-consent-banner'); if (!b) return;
-    b.style.display='block'; setTimeout(()=>{ b.style.display='none'; }, 2500);
-  }
-
-  function extractRowsFromTalkKinkJSON(data){
-    const map = data?.answersById || {};
-    const rows = [];
-    for (const [id, score] of Object.entries(map)) {
-      const parts = id.split('-');
-      const role  = parts[parts.length - 1];                     // giving | receiving | general
-      const category = (parts[0] + ' ' + parts[1]).replace(/\b\w/g, m=>m.toUpperCase());
-      const item = parts.slice(2, -1).join(' ')
-        .replace(/\bTv\b/gi, 'TV')
-        .replace(/\s+/g,' ')
-        .trim();
-      rows.push({ Category: category, Item: capFirst(item), Role: capFirst(role), Score: Number(score) });
-    }
-    rows.sort((a,b)=> a.Category.localeCompare(b.Category) || a.Role.localeCompare(b.Role) || a.Item.localeCompare(b.Item));
-    return rows;
-  }
-  function capFirst(s){ return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
-
-  async function generateCleanPartnerPDF(rows, meta){
-    const { jsPDF } = window.jspdf || {};
-    if (!jsPDF || !docAutoTableAvailable()) {
-      alert('Sorry—PDF engine not available.');
-      return;
-    }
-
-    const doc = new jsPDF({ unit:'pt', format:'letter' });
-    const timestamp = new Date().toLocaleString();
-    const layout = createHeaderLayout(doc, { meta, timestamp });
-    const grouped = buildGroupedRows(rows);
-    const headerRenderer = () => drawHeaderCenteredToPage(doc, layout);
-
-    if (!grouped.body.length) {
-      headerRenderer();
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(12);
-      doc.setTextColor(220, 220, 230);
-      doc.text('No survey responses found in this file.', doc.internal.pageSize.getWidth() / 2, layout.startY + 28, { align: 'center' });
-      doc.save('partner-survey-clean.pdf');
-      return;
-    }
-
-    doc.autoTable({
-      columns: grouped.columns,
-      body: grouped.body,
-      margin: { left: layout.marginX, right: layout.marginX },
-      startY: layout.startY,
-      tableWidth: 'auto',
-      styles: {
-        font: 'helvetica',
-        fontSize: 10,
-        textColor: [255, 255, 255],
-        fillColor: [8, 8, 10],
-        lineColor: [32, 32, 40],
-        lineWidth: 0.25,
-        cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
-        valign: 'middle'
-      },
-      headStyles: {
-        fontStyle: 'bold',
-        fontSize: 11,
-        fillColor: [0, 0, 0],
-        textColor: [0, 255, 255],
-        lineColor: [32, 32, 40],
-        lineWidth: 0.4,
-        halign: 'left'
-      },
-      alternateRowStyles: { fillColor: [14, 14, 20] },
-      columnStyles: {
-        Role: { cellWidth: 96 },
-        Item: { cellWidth: 'auto' },
-        Score: { cellWidth: 60, halign: 'center' }
-      },
-      didDrawPage: headerRenderer,
-      didParseCell(data) {
-        if (data.section !== 'body') return;
-        const raw = data.row.raw;
-        if (raw && raw.__type === 'category') {
-          if (data.column.index === 0) {
-            data.cell.colSpan = grouped.columns.length;
-            data.cell.text = [raw.label];
-            data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.fillColor = [20, 20, 28];
-            data.cell.styles.textColor = [0, 255, 255];
-            data.cell.styles.halign = 'center';
-            data.cell.styles.cellPadding = { top: 8, right: 6, bottom: 8, left: 6 };
-          } else {
-            data.cell.text = [];
-          }
-        }
+      const fromLS = localStorage.getItem('talkkink:compatRows');
+      if (fromLS){
+        const rows = JSON.parse(fromLS);
+        if (Array.isArray(rows) && rows.length) return rows;
       }
-    });
-
-    doc.save('partner-survey-clean.pdf');
+    }catch{}
+    return FALLBACK;
   }
 
-  function docAutoTableAvailable() {
-    return !!(
-      (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && typeof window.jspdf.jsPDF.API.autoTable === 'function') ||
-      (window.jsPDF && window.jsPDF.API && typeof window.jsPDF.API.autoTable === 'function')
-    );
+  /* Render into DOM (single-run; we clear body first to avoid doubles) */
+  const TBODY = document.getElementById('compatBody');
+  function renderTable(rows){
+    TBODY.replaceChildren(); // clear any old render
+    for (const r of rows){
+      const [label, a, match, flag, b] = r;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="label">${label}</td>
+        <td class="num">${a}</td>
+        <td class="match">${match}</td>
+        <td class="flag">${flag}</td>
+        <td class="num">${b}</td>
+      `;
+      TBODY.appendChild(tr);
+    }
   }
 
-  function createHeaderLayout(doc, { meta, timestamp }) {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const centerX = pageWidth / 2;
-    const marginX = 72;
-    const detailText = Array.isArray(meta?.categories) && meta.categories.length
-      ? `Categories in file: ${meta.categories.join(', ')}`
-      : '';
-    const detailLines = detailText ? doc.splitTextToSize(detailText, pageWidth - marginX * 2) : [];
-    const detailStartY = 134;
-    const startY = detailLines.length ? detailStartY + detailLines.length * 12 + 18 : 136;
+  const ROWS = pickRows();
+  renderTable(ROWS);
 
-    return {
-      centerX,
-      marginX,
-      timestamp,
-      detailLines,
-      startY,
-      draw(docInstance) {
-        const doc = docInstance;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(26);
-        doc.setTextColor(255, 255, 255);
-        doc.text('TalkKink — Partner Survey (Clean Report)', centerX, 64, { align: 'center' });
+  /* ───────────────────────────────────────────────────────────────────────
+     PDF EXPORT
+     - Loads local vendor files first to dodge “Tracking Prevention blocked…”
+     - Falls back to jsDelivr only if allowed in the browser
+     - Keeps centered headings and gives them a crisp “outlined” look.
+  ─────────────────────────────────────────────────────────────────────── */
+  async function loadJsPDF(){
+    if (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable) return;
 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(170, 210, 255);
-        doc.text(`Generated: ${timestamp}`, centerX, 82, { align: 'center' });
-
-        doc.setDrawColor(0, 255, 255);
-        if (doc.setLineWidth) doc.setLineWidth(1);
-        doc.line(marginX, 92, pageWidth - marginX, 92);
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.setTextColor(255, 255, 255);
-        doc.text('Partner Upload Snapshot', centerX, 118, { align: 'center' });
-
-        if (detailLines.length) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(10);
-          doc.setTextColor(210, 230, 255);
-          detailLines.forEach((line, idx) => {
-            doc.text(line, centerX, detailStartY + idx * 12, { align: 'center' });
-          });
-        }
-      }
-    };
-  }
-
-  function drawHeaderCenteredToPage(doc, layout) {
-    layout.draw(doc);
-  }
-
-  function buildGroupedRows(rows = []) {
-    const body = [];
-    const columns = [
-      { header: 'Role', dataKey: 'Role' },
-      { header: 'Item', dataKey: 'Item' },
-      { header: 'Score', dataKey: 'Score' }
+    // prefer local copies to avoid third-party storage blocking
+    const localScripts = [
+      '/vendor/jspdf.umd.min.js',
+      '/vendor/jspdf.plugin.autotable.min.js'
+    ];
+    const cdnScripts = [
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'
     ];
 
-    const map = new Map();
-    (Array.isArray(rows) ? rows : []).forEach(row => {
-      const key = row?.Category || 'Other';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(row);
-    });
-
-    for (const [category, list] of map.entries()) {
-      body.push({ __type: 'category', label: category, Role: category, Item: '', Score: '' });
-      list.forEach(item => {
-        body.push({
-          __type: 'entry',
-          Role: item?.Role ?? '',
-          Item: item?.Item ?? '',
-          Score: item?.Score != null ? String(item.Score) : ''
-        });
+    async function inject(src){
+      await new Promise((resolve,reject)=>{
+        const s = document.createElement('script');
+        s.src = src; s.async = true; s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
       });
     }
 
-    return { columns, body };
+    // try local
+    try { for (const s of localScripts) await inject(s); }
+    catch(e){ /* ignore; will try CDN */ }
+
+    // if still not available, try CDN (may be blocked by Tracking Prevention)
+    if (!(window.jspdf && window.jspdf.jsPDF)){
+      try { for (const s of cdnScripts) await inject(s); }
+      catch(e){ /* final failure handled below */ }
+    }
+
+    if (!(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable)){
+      throw new Error('jsPDF/AutoTable not available. Host local copies in /vendor or allow the CDN.');
+    }
   }
+
+  function outlineTextPDF(doc, text, x, y, main=[0,231,255], stroke=[0,0,0]){
+    // crude “stroke” by stamping black offsets around the text
+    const offsets = [[0.35,0],[ -0.35,0],[0,0.35],[0,-0.35]];
+    doc.setTextColor(...stroke);
+    offsets.forEach(([dx,dy])=>doc.text(text, x+dx, y+dy, {align:'center'}));
+    doc.setTextColor(...main);
+    doc.text(text, x, y, {align:'center'});
+  }
+
+  async function downloadPDF(){
+    await loadJsPDF();
+    const { jsPDF } = window.jspdf;
+
+    const doc = new jsPDF({ unit:'pt', format:'a4', compress:true });
+    const pageW = doc.internal.pageSize.getWidth();
+
+    /* margins tuned to use the page (shrinks empty bands) */
+    const M = { top: 40, left: 36, right: 36, bottom: 42 };
+
+    // Background fill (dark)
+    doc.setFillColor(16,18,19);
+    doc.rect(0,0,pageW,doc.internal.pageSize.getHeight(),'F');
+
+    // Title + timestamp (centered + outlined)
+    doc.setFont('helvetica','bold'); doc.setFontSize(34);
+    outlineTextPDF(doc, 'TalkKink Compatibility', pageW/2, M.top+8);
+    doc.setFont('helvetica','normal'); doc.setFontSize(11);
+    doc.setTextColor(184,223,224);
+    doc.text(
+      'Generated: ' + new Date().toLocaleString(),
+      pageW/2, M.top + 28, {align:'center'}
+    );
+
+    // Section heading
+    doc.setFont('helvetica','bold'); doc.setFontSize(24);
+    outlineTextPDF(doc, 'Behavioral Play', pageW/2, M.top + 62);
+
+    // Column widths (percent -> points)
+    const COLW = [0.56, 0.12, 0.16, 0.04, 0.12].map(p => (pageW - M.left - M.right) * p);
+
+    // Build rows for AutoTable
+    const head = [['Item','Partner A','Match','Flag','Partner B']];
+    const body = ROWS.map(r => [r[0], String(r[1]), r[2], r[3], String(r[4])]);
+
+    doc.autoTable({
+      startY: M.top + 80,
+      head, body,
+      theme:'plain',
+      margin: { left: M.left, right: M.right },
+      tableWidth: pageW - M.left - M.right,
+      styles: {
+        font:'helvetica', fontSize:11, cellPadding:6,
+        textColor:[230,254,255], fillColor:[17,19,21], lineColor:[35,41,45], lineWidth:0.7
+      },
+      headStyles: {
+        font:'helvetica', fontStyle:'bold', fontSize:12,
+        textColor:[0,231,255], fillColor:[16,18,21]
+      },
+      columnStyles: {
+        0:{ cellWidth:COLW[0], halign:'left'   },
+        1:{ cellWidth:COLW[1], halign:'center' },
+        2:{ cellWidth:COLW[2], halign:'center' },
+        3:{ cellWidth:COLW[3], halign:'center' }, // tight Flag
+        4:{ cellWidth:COLW[4], halign:'center' }
+      },
+      didParseCell(data){
+        // zebra
+        if (data.section === 'body'){
+          const even = data.row.index % 2 === 0;
+          data.cell.styles.fillColor = even ? [17,19,21] : [15,16,18];
+        }
+      }
+    });
+
+    doc.save('talkkink-compatibility.pdf');
+  }
+
+  document.getElementById('downloadPdfBtn')?.addEventListener('click', downloadPDF, { once:false });
 })();
 </script>
 </body>
