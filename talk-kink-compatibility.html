@@ -59,10 +59,10 @@
     width:100%; border-collapse:separate; border-spacing:0;
     background:transparent; table-layout:fixed;
   }
-  .compat col.label   { width:56%; }
+  .compat col.label   { width:53%; }
   .compat col.a       { width:12%; }
   .compat col.match   { width:16%; }
-  .compat col.flag    { width:4%; }    /* tighter flag column */
+  .compat col.flag    { width:7%; }    /* give "Flag" breathing room */
   .compat col.b       { width:12%; }
 
   .compat thead th{
@@ -105,8 +105,9 @@
     .title{ font-size:44px; }
     .section{ font-size:34px; }
     .compat thead th, .compat tbody td{ font-size:18px; }
-    .compat col.label{ width:54%; }
+    .compat col.label{ width:51%; }
     .compat col.match{ width:17%; }
+    .compat col.flag { width:8%; }
   }
 </style>
 </head>
@@ -284,7 +285,7 @@
     outlineTextPDF(doc, 'Behavioral Play', pageW/2, M.top + 62);
 
     // Column widths (percent -> points)
-    const COLW = [0.56, 0.12, 0.16, 0.04, 0.12].map(p => (pageW - M.left - M.right) * p);
+    const COLW = [0.53, 0.12, 0.16, 0.07, 0.12].map(p => (pageW - M.left - M.right) * p);
 
     // Build rows for AutoTable
     const head = [['Item','Partner A','Match','Flag','Partner B']];
