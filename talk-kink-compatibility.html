@@ -155,7 +155,23 @@
     'Generated: ' + ts.toLocaleString();
 
   /* Demo source (will be replaced if live globals/localStorage exist) */
-  const FALLBACK = [
+  const TK_COMPAT_CACHE_VERSION = 'v3'; // bump when schema or fallback changes
+  const LS_VERSION_KEY = 'talkkink:compatRows:ver';
+
+  const noCache = /(^|[?&])nocache(=1|&|$)/.test(location.search);
+  const storedVer = localStorage.getItem(LS_VERSION_KEY);
+
+  if (noCache || storedVer !== TK_COMPAT_CACHE_VERSION){
+    delete window.talkkinkCompatRows;
+    ['talkkink:compatRows','talkkink:survey','talkkink:mine','talkkink:partner']
+      .forEach(k => localStorage.removeItem(k));
+    Object.keys(localStorage).forEach(k => {
+      if (/^tk_compat\./.test(k)) localStorage.removeItem(k);
+    });
+    localStorage.setItem(LS_VERSION_KEY, TK_COMPAT_CACHE_VERSION);
+  }
+
+  const HARD_CODED_COMPAT_ROWS = [
     ['Giving: Assigning corner time or time-outs',      0, '100%', '▫²', 0],
     ['General: Attitude toward funishment vs serious correction', 3, '100%', '▫²', 3],
     ['Receiving: Being placed in the corner or given a time-out', 5, '100%', '▫²', 5],
@@ -171,17 +187,14 @@
 
   /* Source resolution: use live globals if present, else localStorage, else fallback */
   function pickRows(){
+    if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length){
+      return window.talkkinkCompatRows;
+    }
     try{
-      if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length){
-        return window.talkkinkCompatRows;
-      }
-      const fromLS = localStorage.getItem('talkkink:compatRows');
-      if (fromLS){
-        const rows = JSON.parse(fromLS);
-        if (Array.isArray(rows) && rows.length) return rows;
-      }
+      const cached = JSON.parse(localStorage.getItem('talkkink:compatRows') || 'null');
+      if (Array.isArray(cached) && cached.length) return cached;
     }catch{}
-    return FALLBACK;
+    return HARD_CODED_COMPAT_ROWS;
   }
 
   /* Render into DOM (single-run; we clear body first to avoid doubles) */
