@@ -171,18 +171,21 @@
     localStorage.setItem(LS_VERSION_KEY, TK_COMPAT_CACHE_VERSION);
   }
 
+  const FLAG_GLYPH = '▶';
   const HARD_CODED_COMPAT_ROWS = [
-    ['Giving: Assigning corner time or time-outs',      0, '100%', '▫²', 0],
-    ['General: Attitude toward funishment vs serious correction', 3, '100%', '▫²', 3],
-    ['Receiving: Being placed in the corner or given a time-out', 5, '100%', '▫²', 5],
-    ['Receiving: Getting scolded or lectured for correction',     5, '100%', '▫²', 5],
-    ['Receiving: Having privileges revoked (phone, TV)',          3, '100%', '▫²', 3],
-    ['Giving: Lecturing or scolding to modify behavior',          4, '100%', '▫²', 4],
-    ['Giving: Playful punishments that still reinforce rules',    3, '100%', '▫²', 3],
-    ['General: Preferred style of discipline (strict vs lenient)',4, '100%', '▫²', 4],
-    ['Receiving: Receiving playful \'funishments\' for minor rule-breaking',2, '100%', '▫²', 2],
-    ['Giving: Removing privileges (phone, TV, sweets)',           2, '100%', '▫²', 2],
-    ['General: Use of behavior contracts or rule agreements',     2, '100%', '▫²', 2],
+    ['Giving: Assigning corner time or time-outs', 0, '100%', FLAG_GLYPH, 0],
+    ['General: Attitude toward funishment vs serious correction', 3, '100%', FLAG_GLYPH, 3],
+    ['Receiving: Being placed in the corner or given a time-out', 5, '100%', FLAG_GLYPH, 5],
+    ['Receiving: Getting scolded or lectured for correction', 5, '100%', FLAG_GLYPH, 5],
+    ['Receiving: Having privileges revoked (phone, TV)', 3, '100%', FLAG_GLYPH, 3],
+    ['Giving: Lecturing or scolding to modify behavior', 4, '100%', FLAG_GLYPH, 4],
+    ['Giving: Playful punishments that still reinforce rules', 3, '100%', FLAG_GLYPH, 3],
+    ['General: Preferred style of discipline (strict vs lenient)', 4, '100%', FLAG_GLYPH, 4],
+    ['Receiving: Receiving playful \'f\' punishments for minor rule-breaking', 2, '100%', FLAG_GLYPH, 2],
+    ['Giving: Removing privileges (phone, TV, sweets)', 2, '100%', FLAG_GLYPH, 2],
+    ['General: Use of behavior contracts or rule agreements', 2, '100%', FLAG_GLYPH, 2],
+    ['Giving: Writing lines or apology letters as correction', 1, '100%', FLAG_GLYPH, 1],
+    ['Receiving: Writing lines or apology letters when misbehaving', 4, '100%', FLAG_GLYPH, 4],
   ];
 
   /* Source resolution: use live globals if present, else localStorage, else fallback */
