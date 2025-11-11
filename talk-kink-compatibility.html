@@ -351,6 +351,95 @@
 
   document.getElementById('downloadPdfBtn')?.addEventListener('click', downloadPDF, { once:false });
 })();
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Defensive renderer hot-fix
+   - prevents duplicate renders/tables
+   - cleans up stray thead copies
+   - normalises flag glyphs & column sizing
+────────────────────────────────────────────────────────────────────────── */
+(() => {
+  const HOTFIX_LOCK = '__TK_COMPAT_RENDER_LOCK__';
+  if (window[HOTFIX_LOCK]) return;
+  window[HOTFIX_LOCK] = true;
+
+  const table = document.getElementById('compatTable');
+  if (!table) return;
+
+  const FLAG_GLYPH = '▶';
+  const parser = new DOMParser();
+
+  function decodeEntities(value){
+    if (!value || !value.includes('&')) return value;
+    let current = value;
+    let previous;
+    do {
+      previous = current;
+      current = parser.parseFromString(previous, 'text/html').documentElement
+        .textContent;
+    } while (current !== previous && current.includes('&'));
+    return current.replace(/&+†/g, '†');
+  }
+
+  function purgeDuplicateTables(){
+    const allTables = Array.from(document.querySelectorAll('table.compat'));
+    const keep = allTables.find(t => t.id === 'compatTable') || allTables[0];
+    allTables.forEach(t => {
+      if (t !== keep) t.remove();
+    });
+    return keep;
+  }
+
+  function ensureSingleThead(tbl){
+    const theads = Array.from(tbl.querySelectorAll('thead'));
+    theads.slice(1).forEach(t => t.remove());
+    const head = theads[0];
+    if (!head) return;
+    if (!head.querySelector('tr')) head.remove();
+  }
+
+  function retuneLayout(tbl){
+    tbl.style.width = '100%';
+    tbl.style.tableLayout = 'fixed';
+
+    const flagCol = tbl.querySelector('col.flag');
+    if (flagCol) flagCol.style.width = '6%';
+
+    const headCells = tbl.querySelectorAll('thead th');
+    headCells.forEach((th, idx) => {
+      th.style.textAlign = idx === 0 ? 'left' : 'center';
+      th.style.borderBottom = '1px solid var(--grid)';
+      th.style.textShadow = '0 0 0 var(--bg), 0 0 12px rgba(0,231,255,.22)';
+    });
+  }
+
+  function normaliseCells(tbl){
+    const rows = tbl.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      cells.forEach((cell, idx) => {
+        const decoded = decodeEntities(cell.textContent.trim());
+        if (idx === 3){
+          let glyph = decoded.replace(/&+/g, '').trim();
+          if (!glyph || glyph === '†') glyph = FLAG_GLYPH;
+          cell.textContent = glyph;
+          cell.style.textAlign = 'center';
+          cell.style.letterSpacing = '.5px';
+        }else{
+          cell.textContent = decoded;
+        }
+        cell.style.background = '';
+      });
+    });
+  }
+
+  const activeTable = purgeDuplicateTables() || table;
+  if (!activeTable) return;
+
+  ensureSingleThead(activeTable);
+  retuneLayout(activeTable);
+  normaliseCells(activeTable);
+})();
 </script>
 </body>
 </html>
