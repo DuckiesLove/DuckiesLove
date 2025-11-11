@@ -96,27 +96,55 @@
       doc.setFillColor(...THEME.pageBg);
       doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
     }
-    paintBg();
-
     const pageW  = doc.internal.pageSize.getWidth();
+    const pageH  = doc.internal.pageSize.getHeight();
     const leftX  = MARGINS.left;
     const rightX = pageW - MARGINS.right;
     const center = pageW / 2;
+    const topY   = 52;
+    const tableWidth = pageW - (MARGINS.left + MARGINS.right);
+    const generatedStamp = `Generated: ${new Date().toLocaleString()}`;
 
-    // Title + timestamp centered
-    let y = MARGINS.top;
-    doc.setTextColor(255);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(28);
-    doc.text('TalkKink Compatibility', center, y, { align: 'center' });
+    function drawOutlinedText(docRef, txt, x, y, opts = {}) {
+      const {
+        align = 'left',
+        size = 28,
+        fill = [255, 255, 255],
+        stroke = [0, 255, 255],
+        width = 0.9,
+        font = 'helvetica',
+        style = 'bold'
+      } = opts;
 
-    y += 14;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(180);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, center, y, { align: 'center' });
-    y += 10;
+      docRef.setFont(font, style);
+      docRef.setFontSize(size);
 
-    // Cyan rule
-    doc.setDrawColor(...THEME.rule); doc.setLineWidth(0.75);
-    doc.line(leftX, y, rightX, y); y += 16;
+      docRef.setDrawColor(...stroke);
+      docRef.setLineWidth(width);
+      docRef.text(txt, x, y, { align, renderingMode: 'stroke' });
+
+      docRef.setTextColor(...fill);
+      docRef.text(txt, x, y, { align, renderingMode: 'fill' });
+    }
+
+    function paintPageChrome() {
+      paintBg();
+      drawOutlinedText(doc, 'TalkKink Compatibility', center, topY, {
+        align: 'center',
+        size: 36,
+        width: 1.2
+      });
+      drawOutlinedText(doc, generatedStamp, center, topY + 18, {
+        align: 'center',
+        size: 12,
+        width: 0.6,
+        style: 'normal'
+      });
+    }
+
+    paintPageChrome();
+
+    let y = topY + 50;
 
     const { mine, partner } = pickSources(opts);
     const A = normalize(mine);
@@ -130,19 +158,39 @@
       4: { cellWidth: `${c4}%`, halign: 'center' },
     }))(COLW);
 
-    for (const sec of A) {
-      // Category centered
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(255);
-      doc.text(sec.category || 'Survey', center, y, { align: 'center' });
-      y += 12;
+    const originalAddPage = doc.addPage;
+    doc.addPage = function patchedAddPage(...args) {
+      const result = originalAddPage.apply(this, args);
+      paintPageChrome();
+      y = topY + 50;
+      return result;
+    };
 
-      // NO zebra: force dark body fill for every cell
-      doc.autoTable({
-        head: [['Item','Partner A','Match','Flag','Partner B']],
-        body: rowsFromTwo(sec, B),
-        startY: y,
-        margin: { top: 0, left: MARGINS.left, right: MARGINS.right, bottom: 0 },
-        tableWidth: (rightX - leftX),
+    try {
+      for (const sec of A) {
+        if (y > pageH - (MARGINS.bottom + 120)) {
+          doc.addPage();
+        }
+
+        const sectionTitle = sec.category || 'Survey';
+        drawOutlinedText(doc, sectionTitle, center, y, {
+          align: 'center',
+          size: 28,
+          width: 1.0
+        });
+
+        doc.setDrawColor(...THEME.rule);
+        doc.setLineWidth(0.75);
+        doc.line(leftX, y + 6, rightX, y + 6);
+
+        const tableStartY = y + 16;
+
+        doc.autoTable({
+          head: [['Item','Partner A','Match','Flag','Partner B']],
+          body: rowsFromTwo(sec, B),
+          startY: tableStartY,
+          margin: { top: topY + 66, left: MARGINS.left, right: MARGINS.right, bottom: 0 },
+          tableWidth,
         styles: {
           fillColor: THEME.bodyFill,
           textColor: THEME.bodyText,
@@ -150,13 +198,21 @@
           lineWidth: 0.25,
           valign: 'middle',
           font: 'helvetica',
-          fontSize: 12
+          fontSize: 12,
+          cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
+          overflow: 'linebreak',
+          lineHeight: 1.2
         },
         headStyles: {
           fillColor: THEME.headFill,
           textColor: THEME.headText,
           lineColor: THEME.grid,
-          fontStyle: 'bold'
+          fontStyle: 'bold',
+          halign: 'center',
+          cellPadding: { top: 8, bottom: 8 },
+          minCellHeight: 20,
+          overflow: 'hidden',
+          wordBreak: 'keepAll'
         },
         columnStyles: colStyles,
         alternateRowStyles: { fillColor: THEME.bodyFill, textColor: THEME.bodyText },
@@ -165,13 +221,31 @@
             d.cell.styles.fillColor = THEME.bodyFill;
             d.cell.styles.textColor = THEME.bodyText;
           }
-        }
-      });
+        },
+        didDrawCell: (data) => {
+          if (data.section === 'head') {
+            const rawText = Array.isArray(data.cell.text)
+              ? data.cell.text.join(' ')
+              : String(data.cell.text || '');
+            const txt = rawText.trim();
+            if (!txt) return;
 
-      y = doc.lastAutoTable.finalY + 24;
-      if (y > doc.internal.pageSize.getHeight() - (MARGINS.bottom + 120)) {
-        doc.addPage(); paintBg(); y = MARGINS.top;
+            const tx = data.cell.textPos?.x ?? (data.cell.x + 4);
+            const ty = data.cell.textPos?.y ?? (data.cell.y + data.cell.height / 2 + 3);
+
+            drawOutlinedText(doc, txt, tx, ty, {
+              align: 'left',
+              size: 12,
+              width: 0.55
+            });
+          }
+        }
+        });
+
+        y = doc.lastAutoTable.finalY + 24;
       }
+    } finally {
+      doc.addPage = originalAddPage;
     }
 
     doc.save('talkkink-compatibility-results.pdf');
