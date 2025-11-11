@@ -267,55 +267,60 @@
           startY: tableStartY,
           margin: { top: topY + 66, left: MARGINS.left, right: MARGINS.right, bottom: 0 },
           tableWidth,
-        styles: {
-          fillColor: THEME.bodyFill,
-          textColor: THEME.bodyText,
-          lineColor: THEME.grid,
-          lineWidth: 0.25,
-          valign: 'middle',
-          font: 'helvetica',
-          fontSize: 12,
-          cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
-          overflow: 'linebreak',
-          lineHeight: 1.2
-        },
-        headStyles: {
-          fillColor: THEME.headFill,
-          textColor: THEME.headText,
-          lineColor: THEME.grid,
-          fontStyle: 'bold',
-          halign: 'center',
-          cellPadding: { top: 8, bottom: 8 },
-          minCellHeight: 20,
-          overflow: 'hidden',
-          wordBreak: 'keepAll'
-        },
-        columnStyles: colStyles,
-        alternateRowStyles: { fillColor: THEME.bodyFill, textColor: THEME.bodyText },
-        didParseCell: (d) => {
-          if (d.section === 'body') {
-            d.cell.styles.fillColor = THEME.bodyFill;
-            d.cell.styles.textColor = THEME.bodyText;
-          }
-        },
-        didDrawCell: (data) => {
-          if (data.section === 'head') {
-            const rawText = Array.isArray(data.cell.text)
-              ? data.cell.text.join(' ')
-              : String(data.cell.text || '');
-            const txt = rawText.trim();
-            if (!txt) return;
+          styles: {
+            fillColor: THEME.bodyFill,
+            textColor: THEME.bodyText,
+            lineColor: THEME.grid,
+            lineWidth: 0.25,
+            valign: 'middle',
+            font: 'helvetica',
+            fontSize: 12,
+            cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
+            overflow: 'linebreak',
+            lineHeight: 1.2
+          },
+          headStyles: {
+            fillColor: THEME.headFill,
+            textColor: THEME.headText,
+            lineColor: THEME.grid,
+            fontStyle: 'bold',
+            halign: 'center',
+            cellPadding: { top: 8, bottom: 8 },
+            minCellHeight: 20,
+            overflow: 'hidden',
+            wordBreak: 'keepAll'
+          },
+          columnStyles: colStyles,
+          alternateRowStyles: { fillColor: THEME.bodyFill, textColor: THEME.bodyText },
+          didParseCell: (d) => {
+            if (d.section === 'head') {
+              const original = Array.isArray(d.cell.text)
+                ? d.cell.text.join(' ')
+                : String(d.cell.text || '');
+              d.cell.__tkOriginalText = original;
+              // Blank the built-in header text so we can draw the outlined version once.
+              d.cell.text = [''];
+            } else if (d.section === 'body') {
+              d.cell.styles.fillColor = THEME.bodyFill;
+              d.cell.styles.textColor = THEME.bodyText;
+            }
+          },
+          didDrawCell: (data) => {
+            if (data.section === 'head') {
+              const rawText = data.cell.__tkOriginalText ?? data.cell.raw ?? '';
+              const txt = String(rawText).trim();
+              if (!txt) return;
 
-            const tx = data.cell.textPos?.x ?? (data.cell.x + 4);
-            const ty = data.cell.textPos?.y ?? (data.cell.y + data.cell.height / 2 + 3);
+              const tx = data.cell.textPos?.x ?? (data.cell.x + 4);
+              const ty = data.cell.textPos?.y ?? (data.cell.y + data.cell.height / 2 + 3);
 
-            drawOutlinedText(doc, txt, tx, ty, {
-              align: 'left',
-              size: 12,
-              width: 0.55
-            });
+              drawOutlinedText(doc, txt, tx, ty, {
+                align: 'left',
+                size: 12,
+                width: 0.55
+              });
+            }
           }
-        }
         });
 
         y = doc.lastAutoTable.finalY + 24;
