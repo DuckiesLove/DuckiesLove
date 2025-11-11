@@ -116,136 +116,252 @@
 </div>
 
 <script>
-;(() => {
-  // --------- ONE-TIME GUARD (prevents double binding / double render)
-  if (window.__TKPDF_BOUND__) return; window.__TKPDF_BOUND__ = true;
-
-  // --------- Centered timestamp
-  const ts = new Date().toLocaleString();
+(() => {
   const tsEl = document.getElementById('tk-ts');
-  if (tsEl) tsEl.textContent = `Generated: ${ts}`;
+  if (tsEl) tsEl.textContent = `Generated: ${new Date().toLocaleString()}`;
+})();
+</script>
+<script>
+(() => {
+  /* =========================================================
+     TalkKink — Simple Compatibility PDF (classic layout)
+     Kills old generator, installs window.TKPDF.download(opts)
+     Matches the screenshot: 5 columns, slim Flag, outlined titles
+     ========================================================= */
 
-  // --------- jsPDF loader (UMD) + autotable
-  async function loadJsPDF(){
-    if (window.jspdf?.jsPDF && window.jspdf?.autoTable) return window.jspdf.jsPDF;
-    const add = (src) => new Promise((resolve,reject)=>{
+  // 0) Hard-kill old bindings & APIs
+  const killOld = (sel) => {
+    const btn = document.querySelector(sel);
+    if (!btn) return;
+    const clone = btn.cloneNode(true);
+    btn.parentNode.replaceChild(clone, btn);
+  };
+  killOld('#downloadPdfBtn');
+  killOld('#btnDownloadPdf');
+  delete (window.TKPDF);
+
+  // 1) Constants (colors roughly matching your UI)
+  const THEME = {
+    bg: [10,10,12],
+    fg: [233,238,240],
+    cyan: [48,231,231],
+    grid: [255,255,255, 0.08],
+    grid2: [255,255,255, 0.14],
+    zebra: [255,255,255, 0.03],
+    headerLine: [255,255,255, 0.14],
+  };
+  const PAGE = { mTop: 22, mLeft: 14, mRight: 14, mBottom: 18 };
+
+  // 2) Lazy-load jsPDF + AutoTable (no localStorage usage; avoid tracking-prevention issues)
+  let _lib;
+  async function loadJsPDF() {
+    if (_lib) return _lib;
+    const load = (src) => new Promise((res, rej) => {
       const s = document.createElement('script');
-      s.src = src; s.crossOrigin = 'anonymous'; s.referrerPolicy='no-referrer';
-      s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
+      s.src = src + (src.includes('?') ? '&' : '?') + 'tk=' + Date.now();
+      s.async = true;
+      s.onload = res;
+      s.onerror = () => rej(new Error('Failed to load: ' + src));
+      document.head.appendChild(s);
     });
-    // core then plugin
-    if (!window.jspdf?.jsPDF)
-      await add('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-    if (!window.jspdf?.autoTable)
-      await add('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
-    return window.jspdf.jsPDF;
+    await load('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+    await load('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js');
+    _lib = window.jspdf || window.jsPDF || window.jspdf_umd || window.jspdfUmd || window.jspdfumd;
+    // Normalize to UMD handle
+    if (_lib && _lib.jsPDF) _lib = _lib;
+    else if (window.jspdf && window.jspdf.jsPDF) _lib = window.jspdf;
+    else throw new Error('jsPDF not available after load');
+    return _lib;
   }
 
-  // --------- Outline/glow text helper for the PDF titles
-  function glowText(doc, txt, x, y, opts={}){
-    const { glowRGB=[20,227,233], ink=[0,0,0], r=0.55 } = opts;
-    doc.setTextColor(...ink);
-    const offs = [[-r,0],[r,0],[0,-r],[0,r],[-r,-r],[r,-r],[-r,r],[r,r]];
-    offs.forEach(([dx,dy]) => doc.text(txt, x+dx, y+dy, {align:'center'}));
-    doc.setTextColor(...glowRGB);
-    doc.text(txt, x, y, {align:'center'});
-  }
-
-  // --------- Build the PDF (single pass; no duplicate headers)
-  async function downloadPdf(){
-    const jsPDF = await loadJsPDF();
-    const doc = new jsPDF({unit:'pt', format:'letter'}); // 612 x 792
-    const W = doc.internal.pageSize.getWidth();
-    const M = { top: 64, right: 40, bottom: 56, left: 40 };
-    const CYAN = [20,227,233];
-
-    // dark background (optional)
-    doc.setFillColor(10,10,12); doc.rect(0,0,W,doc.internal.pageSize.getHeight(),'F');
-
-    // Title + timestamp (outlined / centered)
-    doc.setFont('helvetica','bold'); doc.setFontSize(34);
-    glowText(doc, 'TalkKink Compatibility', W/2, M.top, { glowRGB: CYAN, r:.8 });
-    doc.setFont('helvetica','normal'); doc.setFontSize(12);
-    doc.setTextColor(183,255,255);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, W/2, M.top+18, {align:'center'});
-
-    // Section header
-    doc.setFont('helvetica','bold'); doc.setFontSize(26);
-    glowText(doc, 'Behavioral Play', W/2, M.top+56, { glowRGB: CYAN, r:.7 });
-
-    // Table data: pull from the live DOM to ensure it matches what you see.
+  // 3) Source selection
+  //    - Prefer a live table on the page (exactly as user sees).
+  //    - Else fallback to any in-memory rows (talkkinkCompatRows).
+  //    - Else last-resort demo shape so the exporter never crashes.
+  function scrapeLiveTable() {
+    const tbl = document.querySelector('table');
+    if (!tbl) return null;
+    // Expect head: Item, Partner A, Match, Flag, Partner B
     const rows = [];
-    document.querySelectorAll('#compatTable tbody tr').forEach(tr=>{
-      const cells = [...tr.children].map(td=>td.textContent.trim());
-      if (cells.length) rows.push(cells);
+    const get = (cell) => (cell?.innerText || cell?.textContent || '').replace(/\s+/g,' ').trim();
+    tbl.querySelectorAll('tbody tr').forEach(tr => {
+      const tds = Array.from(tr.children).filter(el => el.matches('td,th'));
+      if (!tds.length) return;
+      const item = get(tds[0]);
+      const a    = get(tds[1]);
+      const match= get(tds[2]);
+      let   flag = get(tds[3]);
+      const b    = get(tds[4]);
+      // Clean weird “&&†” etc.
+      if (!flag || /&|†|gt;|lt;|[A-Za-z%]+/.test(flag)) flag = '▶';
+      rows.push([item, a, match, flag, b]);
     });
+    return rows.length ? rows : null;
+  }
 
+  function pickRows() {
+    // 1) Live table first
+    const live = scrapeLiveTable();
+    if (live) return live;
+
+    // 2) Global memory
+    if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+      return window.talkkinkCompatRows.map(r => {
+        const [item,a,match,flag,b] = r;
+        return [String(item||''), String(a??''), String(match??''), (flag? '▶':'▶'), String(b??'')];
+      });
+    }
+
+    // 3) Last-resort sample (shouldn’t trigger in your flow)
+    return [
+      ['Sample item', '3', '100%', '▶', '3'],
+      ['Another sample', '4', '100%', '▶', '4'],
+    ];
+  }
+
+  // 4) Outlined/glow text helper (shadow + main)
+  function drawGlowText(doc, text, x, y, size, mainRGB, glowRGB) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(size);
+    // Soft “glow” (draw a few blurred offsets)
+    doc.setTextColor(glowRGB[0], glowRGB[1], glowRGB[2]);
+    const offsets = [[0.6,0.6],[-0.6,0.6],[0.6,-0.6],[-0.6,-0.6]];
+    offsets.forEach(o => doc.text(text, x+o[0], y+o[1], { baseline: 'alphabetic', renderingMode: 'fill' }));
+    // Main text
+    doc.setTextColor(mainRGB[0], mainRGB[1], mainRGB[2]);
+    doc.text(text, x, y, { baseline: 'alphabetic' });
+  }
+
+  // 5) Build the PDF
+  async function buildPdf(filename = 'talkkink-compatibility-results.pdf') {
+    const data = pickRows();
+    const { jsPDF } = await loadJsPDF();
+
+    const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true }); // 612x792
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    // Background
+    doc.setFillColor(...THEME.bg);
+    doc.rect(0,0,pageW,pageH,'F');
+
+    // Title block
+    const title = 'TalkKink Compatibility';
+    const generated = `Generated: ${new Date().toLocaleString()}`;
+    const h1Y = PAGE.mTop + 36;
+    drawGlowText(doc, title, pageW/2, h1Y, 44, THEME.fg, THEME.cyan);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.setTextColor(180, 235, 235);
+    doc.text(generated, pageW/2, h1Y + 20, { align: 'center' });
+
+    // Cyan divider
+    doc.setDrawColor(...THEME.cyan);
+    doc.setLineWidth(2);
+    doc.line(PAGE.mLeft, h1Y + 28, pageW - PAGE.mRight, h1Y + 28);
+
+    // Section heading
+    const secY = h1Y + 70;
+    drawGlowText(doc, 'Behavioral Play', pageW/2, secY, 36, THEME.fg, THEME.cyan);
+
+    // Table
     const head = [['Item','Partner A','Match','Flag','Partner B']];
+    const body = data;
 
-    // Column widths in % (tight flag, more label) – matches CSS colgroup
-    const COLW = [0.56, 0.12, 0.16, 0.04, 0.12]; // sums to 1.0
-    const tableWidth = W - (M.left + M.right);
+    // Column widths (percent of printable width)
+    const totalW = pageW - PAGE.mLeft - PAGE.mRight;
+    const colW = [0.58, 0.12, 0.12, 0.06, 0.12].map(p => Math.floor(totalW * p));
 
     doc.autoTable({
-      head, body: rows,
-      startY: M.top + 76,
-      theme:'grid',
-      styles:{
-        font:'helvetica', fontSize:11, textColor:[247,247,247],
-        fillColor:[12,12,13], lineColor:[60,66,72], lineWidth:.4,
-        cellPadding: 6
+      head,
+      body,
+      startY: secY + 18,
+      margin: { top: PAGE.mTop, left: PAGE.mLeft, right: PAGE.mRight, bottom: PAGE.mBottom },
+      tableWidth: totalW,
+      styles: {
+        fillColor: null,
+        textColor: THEME.fg,
+        lineColor: THEME.grid,
+        lineWidth: 0.6,
+        font: 'helvetica',
+        fontSize: 12,
+        cellPadding: { top: 6, right: 6, bottom: 6, left: 8 },
+        halign: 'left',
+        valign: 'middle'
       },
-      headStyles:{
-        fillColor:[15,18,20], textColor: CYAN, fontStyle:'bold', lineColor:[60,66,72]
-      },
-      alternateRowStyles:{ fillColor:[20,22,25] },
-      willDrawCell: data => {
-        // prevent duplicate header injection – nothing to do here for UMD,
-        // but we keep hook in case future plugins try to re-add rows.
+      headStyles: {
+        fillColor: null,
+        textColor: THEME.cyan,
+        fontStyle: 'bold',
+        lineColor: THEME.headerLine,
+        lineWidth: 1.2,
+        halign: 'left'
       },
       columnStyles: {
-        0:{ cellWidth: tableWidth * COLW[0], halign:'left'  },
-        1:{ cellWidth: tableWidth * COLW[1], halign:'center'},
-        2:{ cellWidth: tableWidth * COLW[2], halign:'center'},
-        3:{ cellWidth: tableWidth * COLW[3], halign:'center'},
-        4:{ cellWidth: tableWidth * COLW[4], halign:'center'},
+        0: { cellWidth: colW[0], halign: 'left'  },
+        1: { cellWidth: colW[1], halign: 'center'},
+        2: { cellWidth: colW[2], halign: 'center'},
+        3: { cellWidth: colW[3], halign: 'center'},
+        4: { cellWidth: colW[4], halign: 'center'},
       },
-      didDrawPage: (data)=>{
-        // page footer (optional)
-        const p = `${doc.internal.getNumberOfPages()}`;
-        doc.setFont('helvetica','normal'); doc.setFontSize(10);
-        doc.setTextColor(160,200,200);
-        doc.text(`Page ${p}`, W - M.right, doc.internal.pageSize.getHeight() - 26, {align:'right'});
+      alternateRowStyles: { fillColor: THEME.zebra },
+      didParseCell: (hook) => {
+        // Normalize Flag column visuals
+        if (hook.section === 'body' && hook.column.index === 3) {
+          const txt = (hook.cell.raw || '').toString().trim();
+          if (!txt || /&|†|gt;|lt;|[A-Za-z%]+/.test(txt)) hook.cell.text = ['▶'];
+          else hook.cell.text = [txt];
+        }
+      },
+      willDrawCell: (hook) => {
+        // Draw triangle icon for Flag (optional: we already print '▶'; this makes it sturdier)
+        if (hook.section === 'body' && hook.column.index === 3) {
+          const { x, y, height, width } = hook.cell;
+          const pad = 8;
+          const cx = x + width/2 - 4; // little left for isosceles look
+          const cy = y + height/2;
+          doc.setFillColor(48,231,231);
+          doc.setDrawColor(48,231,231);
+          doc.triangle(cx-6, cy-6, cx-6, cy+6, cx+8, cy, 'F');
+          hook.cell.text = ['']; // hide text; we drew the icon
+        }
+      },
+      didDrawPage: (data) => {
+        // Footer page numbers (optional)
+        const str = `Page ${doc.internal.getNumberOfPages()}`;
+        doc.setFontSize(9); doc.setTextColor(180, 235, 235);
+        doc.text(str, pageW - PAGE.mRight, pageH - 10, { align: 'right' });
       }
     });
 
-    doc.save('talkkink-compatibility-results.pdf');
+    doc.save(filename);
   }
 
-  // --------- Bind button ONCE (prevents double export)
-  const btn = document.getElementById('downloadPdfBtn');
-  if (btn && !btn.__bound){
-    btn.addEventListener('click', downloadPdf, { once:false, passive:true });
-    btn.__bound = true;
-  }
-
-  // --------- DOM safety: if upstream helper tries to add a duplicate header row, remove it.
-  (function dedupeHeaders(){
-    const thead = document.querySelector('#compatTable thead');
-    if (!thead) return;
-    const rows = thead.querySelectorAll('tr');
-    if (rows.length > 1){
-      for (let i=1;i<rows.length;i++) rows[i].remove();
+  // 6) Expose the public API and bind the click
+  window.TKPDF = {
+    download: async (opts = {}) => {
+      try {
+        await buildPdf(opts.filename || 'talkkink-compatibility-results.pdf');
+      } catch (e) {
+        console.error('[TKPDF] Export failed:', e);
+        alert('PDF export failed. See console for details.');
+      }
     }
-  })();
+  };
 
-  // --------- Optional: tighten flag icons on the live page (if you use ▶ etc.)
-  document.querySelectorAll('#compatTable td.flag').forEach(td=>{
-    td.style.letterSpacing = '0';
-  });
+  // 7) One clear, single binding (no double load)
+  const bind = (sel) => {
+    const btn = document.querySelector(sel);
+    if (!btn) return false;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.TKPDF.download();
+    }, { once: false });
+    return true;
+  };
+  bind('#downloadPdfBtn') || bind('#btnDownloadPdf');
 
-  // Expose a minimal API if you want to trigger programmatically
-  window.TKPDF = { download: downloadPdf };
+  console.log('[TKPDF] Classic exporter installed (old generator disabled).');
 })();
 </script>
 </body>
