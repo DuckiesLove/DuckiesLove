@@ -69,6 +69,206 @@
       setTimeout(() => observer.disconnect(), 4000);
     })();
   </script>
+
+  <script>
+    /* === TalkKink Compatibility — one-shot render + flag/entity fix + layout cleanup === */
+    (function () {
+      if (window.__TK_FIX_LOCK__) return;
+      window.__TK_FIX_LOCK__ = true;
+
+      const TABLE_SELECTOR = "table.compat-table, table#compatibility, table[data-compat], table#compatTable";
+
+      function findTables() {
+        return Array.from(document.querySelectorAll(TABLE_SELECTOR));
+      }
+
+      function dedupeTables() {
+        const tables = findTables();
+        if (tables.length > 1) {
+          tables.slice(1).forEach((t) => t.remove());
+        }
+        return tables[0] || null;
+      }
+
+      function dedupeThead(tbl) {
+        if (!tbl) return;
+        const theads = tbl.querySelectorAll("thead");
+        if (theads.length > 1) {
+          theads.forEach((th, i) => {
+            if (i) th.remove();
+          });
+        }
+        const thead = tbl.querySelector("thead");
+        if (!thead) return;
+        const rows = thead.querySelectorAll("tr");
+        if (rows.length > 1) {
+          rows.forEach((tr, i) => {
+            if (i) tr.remove();
+          });
+        }
+
+        const want = ["Item", "Partner A", "Match", "Flag", "Partner B"];
+        const ths = thead.querySelectorAll("th");
+        want.forEach((label, i) => {
+          if (!ths[i]) return;
+          ths[i].textContent = label;
+          ths[i].classList.add("compat-th");
+          ths[i].classList.add("center");
+          if (i === 0) ths[i].classList.remove("center");
+          if (label === "Flag") ths[i].classList.add("flag");
+        });
+      }
+
+      function ensureColgroup(tbl) {
+        if (!tbl) return;
+        if (!tbl.querySelector("colgroup")) {
+          const cg = document.createElement("colgroup");
+          const classes = ["col-0", "col-1", "col-2", "col-3", "col-4"];
+          classes.forEach((cls) => {
+            const col = document.createElement("col");
+            col.className = cls;
+            cg.appendChild(col);
+          });
+          tbl.prepend(cg);
+        }
+      }
+
+      function tagBodyCells(tbl) {
+        if (!tbl) return;
+        tbl.querySelectorAll("tbody td").forEach((td, idx) => {
+          td.classList.add("compat-td");
+          if (idx === 3) td.classList.add("flag");
+          else td.classList.remove("flag");
+          if (idx > 0) td.classList.add("center");
+          else td.classList.remove("center");
+        });
+      }
+
+      function fixFlags(tbl) {
+        if (!tbl) return;
+        const glyph = "▶";
+        const flagCells = tbl.querySelectorAll("tbody td:nth-child(4), tbody td.flag");
+        flagCells.forEach((td) => {
+          const raw = (td.textContent || "").trim();
+          if (!raw || /&/.test(raw) || /†/.test(raw) || raw.length > 2) {
+            td.textContent = glyph;
+          }
+          td.classList.add("flag");
+          td.classList.add("compat-td");
+          td.classList.add("center");
+        });
+      }
+
+      function injectStyles() {
+        if (document.getElementById("tk-compat-hotfix-css")) return;
+        const ACCENT = "#30E7E7";
+        const css = `
+      body{ background:#0b0b0c; }
+      .compat-wrap{ max-width:1200px; margin:24px auto 48px; padding:0 16px; }
+      .compat-title, .compat-section{
+        color:${ACCENT}; text-align:center;
+        text-shadow:0 1px 0 #000,0 -1px 0 #000,1px 0 0 #000,-1px 0 0 #000;
+      }
+      .compat-title{ font-size:56px; margin:0 0 4px; }
+      .compat-sub{ text-align:center; color:${ACCENT}; opacity:.85; margin:2px 0 10px; }
+      .compat-section{ font-size:42px; margin:8px 0 16px; }
+      .compat-rule{ height:3px; background:${ACCENT}; width:90%; margin:10px auto 16px; opacity:.9; }
+
+      table.compat-table{ width:100%; table-layout:fixed; border-collapse:collapse; background:transparent; }
+      table.compat-table thead{ position:relative; z-index:0; background:transparent; }
+      table.compat-table colgroup col.col-0{ width:56%; }
+      table.compat-table colgroup col.col-1{ width:12%; }
+      table.compat-table colgroup col.col-2{ width:16%; }
+      table.compat-table colgroup col.col-3{ width:4%; }
+      table.compat-table colgroup col.col-4{ width:12%; }
+
+      .compat-th, .compat-td{
+        padding:12px 10px; color:#e9eef0; border-bottom:1px solid rgba(255,255,255,.06);
+        white-space:normal; background:transparent; vertical-align:middle; overflow:hidden; text-overflow:ellipsis;
+      }
+      .compat-th{
+        color:${ACCENT}; font-weight:700; text-align:left;
+        text-shadow:0 1px 0 #000,0 -1px 0 #000,1px 0 0 #000,-1px 0 0 #000;
+        border-bottom:2px solid rgba(255,255,255,.12);
+      }
+      .compat-td.center, .compat-th.center{ text-align:center; }
+      .compat-td.flag, .compat-th.flag{ text-align:center; }
+      .compat-table tbody tr:nth-child(even) .compat-td{ background:rgba(255,255,255,.03); }
+      .compat-table tbody tr:nth-child(odd)  .compat-td{ background:transparent; }
+    `;
+        const style = document.createElement("style");
+        style.id = "tk-compat-hotfix-css";
+        style.textContent = css;
+        document.head.appendChild(style);
+      }
+
+      function remountClean(table) {
+        const target = table || findTables()[0];
+        if (!target) return null;
+
+        let wrap = document.querySelector(".compat-wrap");
+        if (!wrap) {
+          wrap = document.createElement("div");
+          wrap.className = "compat-wrap";
+          wrap.innerHTML = `
+        <h1 class="compat-title">TalkKink Compatibility</h1>
+        <div class="compat-sub">Generated: ${new Date().toLocaleString()}</div>
+        <div class="compat-rule"></div>
+        <div class="compat-section">Behavioral Play</div>
+        <div class="compat-rule"></div>
+      `;
+          if (document.body) {
+            document.body.prepend(wrap);
+          }
+        }
+        if (!wrap) return target;
+        target.classList.add("compat-table");
+        if (target.parentElement !== wrap) wrap.appendChild(target);
+        return target;
+      }
+
+      function decorate(table) {
+        if (!table) return;
+        ensureColgroup(table);
+        dedupeThead(table);
+        fixFlags(table);
+        tagBodyCells(table);
+      }
+
+      function run() {
+        injectStyles();
+        const table = remountClean(dedupeTables());
+        if (table) {
+          decorate(table);
+          return true;
+        }
+        return false;
+      }
+
+      function waitForTable() {
+        const observer = new MutationObserver(() => {
+          if (run()) {
+            observer.disconnect();
+          }
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        setTimeout(() => observer.disconnect(), 6000);
+      }
+
+      const init = () => {
+        if (!run()) waitForTable();
+      };
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init, { once: true });
+      } else {
+        init();
+      }
+
+      // optional: clear stale caches that might re-inject the old table
+      // localStorage.removeItem('talkkink:compatRows'); window.talkkinkCompatRows = [];
+    })();
+  </script>
   <!-- COMPAT PAGE: recentre layout + neutralize any dock margin -->
   <style id="compat-centering">
     :root {
