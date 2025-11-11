@@ -18,64 +18,80 @@ body {
   box-sizing: border-box;
 }
 
-/* Left column (labels) and even spacing for the rest */
+/* === TalkKink compat table: stable columns & overflow control === */
 table.compat,
 .compat-table {
-  width: 100%;
   table-layout: fixed;
-  border-collapse: separate;
+  width: 100%;
+  border-collapse: collapse;
   color: #fff;
   background: #000;
 }
 
-/* Tight Flag column + centered icon; give label more room */
-table.compat col.label,
-.compat-table col.label { width: 56%; }
-
-table.compat col.a,
-table.compat col.pa,
-.compat-table col.a { width: 12%; }
-
-table.compat col.match,
-.compat-table col.match { width: 16%; }
-
-table.compat col.flag,
-.compat-table col.flag { width: 4%; }
-
-table.compat col.b,
-table.compat col.pb,
-.compat-table col.b { width: 12%; }
-
-/* If you inject a <colgroup> in HTML, it should mirror the same widths:
-<colgroup class="compat-cols">
-  <col class="label"  style="width:56%">
-  <col class="a"      style="width:12%">
-  <col class="match"  style="width:16%">
-  <col class="flag"   style="width:4%">
-  <col class="b"      style="width:12%">
-</colgroup>
-*/
+table.compat colgroup col.label,
+.compat-table colgroup col.label { width: 56%; }
+table.compat colgroup col.a,
+table.compat colgroup col.pa,
+.compat-table colgroup col.a { width: 12%; }
+table.compat colgroup col.match,
+.compat-table colgroup col.match { width: 16%; }
+table.compat colgroup col.flag,
+.compat-table colgroup col.flag { width: 4%; }
+table.compat colgroup col.b,
+table.compat colgroup col.pb,
+.compat-table colgroup col.b { width: 12%; }
 
 table.compat th,
-table.compat td {
-  padding: 10px 12px;
-  vertical-align: top;
+table.compat td,
+.compat-table th,
+.compat-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
   word-break: break-word;
+  padding: 8px 10px;
+  vertical-align: top;
 }
 
-/* Header row: blank label column */
-table.compat thead th {
+table.compat thead th,
+.compat-table thead th {
+  white-space: nowrap;
   font-weight: 700;
   border-bottom: 2px solid #333;
 }
-table.compat thead th.label {}
-table.compat thead th.pa,
-table.compat thead th.match,
-table.compat thead th.flag,
-table.compat thead th.pb {
-  text-align: left;
-  white-space: nowrap;
-}
+
+/* center numeric columns, keep label left */
+table.compat th.a,
+table.compat td.a,
+table.compat th.pa,
+table.compat td.pa,
+table.compat th.match,
+table.compat td.match,
+table.compat th.flag,
+table.compat td.flag,
+table.compat th.b,
+table.compat td.b,
+table.compat th.pb,
+table.compat td.pb,
+.compat-table th.a,
+.compat-table td.a,
+.compat-table th.match,
+.compat-table td.match,
+.compat-table th.flag,
+.compat-table td.flag,
+.compat-table th.b,
+.compat-table td.b { text-align: center; }
+table.compat th.label,
+table.compat td.label,
+.compat-table th.label,
+.compat-table td.label { text-align: left; }
+
+/* dark rows only (no accidental white stripes) */
+table.compat thead th,
+.compat-table thead th { background:#0c0c0e; color:#39e6df; }
+table.compat tbody tr,
+.compat-table tbody tr { background:#111214; }
+table.compat tbody tr:nth-child(even),
+.compat-table tbody tr:nth-child(even) { background:#0f1012; }
 
 /* Category title row */
 .category-title {
@@ -101,7 +117,7 @@ td.label { text-align: left; }
 td.pa,
 td.match,
 td.pb {
-  text-align: left;
+  text-align: center;
 }
 
 /* The flag cell */
