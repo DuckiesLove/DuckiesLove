@@ -12,8 +12,46 @@
   if (window.__TKPDF_SINGLETON__) return;
   window.__TKPDF_SINGLETON__ = true;
 
-  const CDN_JSPDF   = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js";
-  const CDN_AUTOTBL = "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js";
+  const scriptDir = (() => {
+    try {
+      const current = document.currentScript;
+      if (current && current.src) return new URL("./", current.src);
+    } catch (_) {}
+    return new URL("./", window.location.href);
+  })();
+  const pageDir = new URL("./", window.location.href);
+  const toHref = (base, path) => {
+    try {
+      return new URL(path, base).href;
+    } catch (_) {
+      return path;
+    }
+  };
+  const uniq = (list) => {
+    const seen = new Set();
+    return list.filter((item) => {
+      if (!item || seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+  };
+
+  const JSPDF_SOURCES = uniq([
+    toHref(scriptDir, "vendor/jspdf.umd.min.js"),
+    toHref(scriptDir, "../vendor/jspdf.umd.min.js"),
+    toHref(scriptDir, "../../js/vendor/jspdf.umd.min.js"),
+    toHref(pageDir, "js/vendor/jspdf.umd.min.js"),
+    toHref(pageDir, "../js/vendor/jspdf.umd.min.js"),
+    "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+  ]);
+  const AUTOTABLE_SOURCES = uniq([
+    toHref(scriptDir, "vendor/jspdf.plugin.autotable.min.js"),
+    toHref(scriptDir, "../vendor/jspdf.plugin.autotable.min.js"),
+    toHref(scriptDir, "../../js/vendor/jspdf.plugin.autotable.min.js"),
+    toHref(pageDir, "js/vendor/jspdf.plugin.autotable.min.js"),
+    toHref(pageDir, "../js/vendor/jspdf.plugin.autotable.min.js"),
+    "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js",
+  ]);
 
   // Theme (dark)
   const THEME = {
@@ -33,18 +71,56 @@
   const COLW = [56, 12, 16, 4, 12];
 
   // ================= loader =================
-  async function loadJsPDF() {
-    if (window.jspdf?.jsPDF && window.jspdf?.jsPDF?.prototype?.autoTable) return window.jspdf.jsPDF;
-    if (!window.jspdf?.jsPDF) await inject(CDN_JSPDF);
-    if (!window.jspdf?.jsPDF?.prototype?.autoTable) await inject(CDN_AUTOTBL);
-    return window.jspdf.jsPDF;
-  }
   function inject(src) {
     return new Promise((res, rej) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        if (existing.dataset.tkLoaded) return res();
+        existing.addEventListener("load", () => res(), { once: true });
+        existing.addEventListener("error", () => rej(new Error("Failed to load " + src)), {
+          once: true,
+        });
+        return;
+      }
       const s = document.createElement("script");
-      s.src = src; s.onload = res; s.onerror = () => rej(new Error("Failed to load "+src));
+      s.src = src;
+      s.async = true;
+      s.dataset.tkLoaded = "pending";
+      s.onload = () => {
+        s.dataset.tkLoaded = "true";
+        res();
+      };
+      s.onerror = () => {
+        s.dataset.tkLoaded = "error";
+        rej(new Error("Failed to load " + src));
+      };
       document.head.appendChild(s);
     });
+  }
+
+  async function ensureFromSources(check, sources, label) {
+    if (check()) return;
+    for (const src of sources) {
+      if (check()) break;
+      try {
+        await inject(src);
+        if (check()) return;
+      } catch (err) {
+        console.warn(`[compat-pdf] Failed to load ${label} from`, src, err);
+      }
+    }
+    if (!check()) {
+      const tried = sources.join(", ");
+      throw new Error(`${label} failed to load. Tried: ${tried}`);
+    }
+  }
+
+  async function loadJsPDF() {
+    const hasJsPDF = () => Boolean(window.jspdf?.jsPDF);
+    const hasAutoTable = () => Boolean(window.jspdf?.jsPDF?.prototype?.autoTable);
+    await ensureFromSources(hasJsPDF, JSPDF_SOURCES, "jsPDF");
+    await ensureFromSources(hasAutoTable, AUTOTABLE_SOURCES, "jsPDF-AutoTable");
+    return window.jspdf.jsPDF;
   }
 
   // ================= data =================
