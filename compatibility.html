@@ -913,65 +913,49 @@
     window.ksvParseSurveyJsonText = ksvParseSurveyJsonText;
   </script>
 
-  <!-- Local-first jsPDF + autoTable loader (with CDN fallback) -->
+  <!-- LOCAL-ONLY jsPDF + autoTable loader (no CDN fallbacks) -->
   <script>
-  /* ------- tiny utility ------- */
-  function tkLoadScript(src) {
-    return new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = src;
-      s.async = true;
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
-
-  /* ------- robust loader: local → CDN fallbacks ------- */
+  // LOCAL-ONLY loader to avoid Edge "Tracking Prevention" warnings.
+  // Place files at /vendor/jspdf.umd.min.js and /vendor/jspdf.plugin.autotable.min.js
   async function tkLoadPdfLibs() {
-    const localJsPDF = '/assets/js/vendor/jspdf.umd.min.js?v=2.5.1';
-    const localATable = '/assets/js/vendor/jspdf.plugin.autotable.min.js?v=3.8.2';
+    const hasPdf = () =>
+      Boolean(
+        window.jspdf?.jsPDF?.API?.autoTable ||
+        window.jsPDF?.API?.autoTable ||
+        (window.jspdf?.jsPDF && window.jspdf?.jsPDF?.API?.autoTable)
+      );
 
-    const cdnJsPDFa = 'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js';
-    const cdnJsPDFb = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
-    const cdnATablea = 'https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
-    const cdnATableb = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
+    if (!hasPdf()) {
+      const inject = (src) =>
+        new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.async = true;
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
 
-    if (!(window.jspdf?.jsPDF || window.jsPDF)) {
-      try {
-        await tkLoadScript(localJsPDF);
-      } catch (_) {
-        try {
-          await tkLoadScript(cdnJsPDFa);
-        } catch {
-          await tkLoadScript(cdnJsPDFb);
-        }
+      await inject('/vendor/jspdf.umd.min.js');
+
+      if (!window.jsPDF && window.jspdf?.jsPDF) {
+        window.jsPDF = window.jspdf.jsPDF;
       }
-    }
 
-    if (!window.jsPDF && window.jspdf?.jsPDF) {
-      window.jsPDF = window.jspdf.jsPDF;
-    }
-
-    if (!(window.jspdf?.jsPDF || window.jsPDF)) {
-      throw new Error('jsPDF failed to load');
-    }
-
-    if (!window.jspdf_autotable) {
-      try {
-        await tkLoadScript(localATable);
-      } catch (_) {
-        try {
-          await tkLoadScript(cdnATablea);
-        } catch {
-          await tkLoadScript(cdnATableb);
-        }
-      }
+      await inject('/vendor/jspdf.plugin.autotable.min.js');
     }
 
     const ctor = window.jspdf?.jsPDF || window.jsPDF;
     if (!ctor) {
-      throw new Error('jsPDF constructor unavailable');
+      throw new Error('Local jsPDF/AutoTable not found. Make sure both files exist in /vendor/.');
+    }
+
+    if (!ctor.API?.autoTable && typeof window.jspdf_autotable === 'function') {
+      try {
+        window.jspdf_autotable(ctor);
+      } catch (err) {
+        console.warn('[compat] Unable to bind autoTable API', err);
+      }
     }
 
     const testDoc = new ctor({ unit: 'pt', format: 'letter' });
@@ -982,8 +966,9 @@
         console.warn('[compat] Unable to attach autoTable during preload', err);
       }
     }
+
     if (typeof testDoc.autoTable !== 'function') {
-      throw new Error('jsPDF autoTable plugin unavailable');
+      throw new Error('Local jsPDF/AutoTable not found. Make sure both files exist in /vendor/.');
     }
 
     window.tkGetJsPDF = () => ctor;
@@ -1001,6 +986,10 @@
       }
       return doc;
     };
+
+    if (typeof window.jsPDF !== 'function' && typeof ctor === 'function') {
+      window.jsPDF = ctor;
+    }
   }
 
   window.tkLoadPdfLibs = tkLoadPdfLibs;
