@@ -191,13 +191,22 @@
     for (const r of rows){
       const [label, a, match, flag, b] = r;
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td class="label">${label}</td>
-        <td class="num">${a}</td>
-        <td class="match">${match}</td>
-        <td class="flag">${flag}</td>
-        <td class="num">${b}</td>
-      `;
+
+      const cells = [
+        ['label', label],
+        ['num',   a],
+        ['match', match],
+        ['flag',  flag],
+        ['num',   b],
+      ];
+
+      for (const [cls, value] of cells){
+        const td = document.createElement('td');
+        td.className = cls;
+        td.textContent = value ?? '';
+        tr.appendChild(td);
+      }
+
       TBODY.appendChild(tr);
     }
   }
