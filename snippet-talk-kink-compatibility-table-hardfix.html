@@ -1,0 +1,120 @@
+<!-- ===== TALK KINK: compatibility table hard reset (single table, five columns) ===== -->
+<script>
+(() => {
+  // 0) Nuke stale cached rows so nothing re-injects after reload
+  try {
+    Object.keys(localStorage).forEach(k => {
+      if (/^talkkink:|^tk_compat/i.test(k)) localStorage.removeItem(k);
+    });
+  } catch (e) {}
+  // also disable any global snapshot
+  window.talkkinkCompatRows = [];
+
+  // 1) Find all candidate tables (be aggressive)
+  const tables = Array.from(document.querySelectorAll('table'))
+    .filter(t => t.querySelector('th,td'));
+
+  // If there are multiple, keep the widest (most columns * rows) and remove others
+  const scored = tables.map(t => {
+    const rows = t.tBodies[0]?.rows?.length || 0;
+    const cols = t.tHead?.rows?.[0]?.cells?.length || t.tBodies[0]?.rows?.[0]?.cells?.length || 0;
+    return { t, score: rows * cols };
+  }).sort((a,b)=>b.score-a.score);
+
+  if (!scored.length) return;
+  const main = scored[0].t;
+  scored.slice(1).forEach(({t}) => t.remove()); // delete duplicates
+
+  // 2) Reset any layout that could cause overlay/stacking
+  const resetCSS = `
+    table, thead, tbody, tr, th, td { position: static !important; }
+    thead, tbody { display: table-header-group !important; }
+    tbody { display: table-row-group !important; }
+    th, td { line-height: 1.32 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    table { table-layout: fixed !important; border-collapse: collapse !important; width: 100% !important; }
+    body { background:#0b0b0c !important; }
+    /* skin */
+    thead th {
+      color:#30E7E7 !important; font-weight:700 !important; padding:12px 10px !important; text-align:left !important;
+      text-shadow:0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000 !important;
+      border-bottom:2px solid rgba(255,255,255,.14) !important; background:transparent !important;
+    }
+    tbody td {
+      color:#E9EEF0 !important; padding:12px 10px !important; border-bottom:1px solid rgba(255,255,255,.06) !important;
+      background:transparent !important;
+    }
+    tbody tr:nth-child(even) td { background:rgba(255,255,255,.03) !important; }
+    .tk-center { text-align:center !important; }
+  `;
+  let style = document.getElementById('tk-compat-hardfix-css');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'tk-compat-hardfix-css';
+    style.textContent = resetCSS;
+    document.head.appendChild(style);
+  }
+
+  // 3) Ensure there is exactly one thead, rebuild headers to 5 canonical columns
+  Array.from(main.querySelectorAll('thead')).forEach((th, i) => { if (i) th.remove(); });
+  let thead = main.querySelector('thead');
+  if (!thead) { thead = document.createElement('thead'); main.prepend(thead); }
+  const HEADS = ['Item','Partner A','Match','Flag','Partner B'];
+  thead.innerHTML = `<tr>${HEADS.map(h=>`<th>${h}</th>`).join('')}</tr>`;
+
+  // 4) Install a fresh colgroup for correct widths
+  const widths = [56, 12, 16, 4, 12]; // Item, A, Match, Flag, B
+  main.querySelector('colgroup')?.remove();
+  const cg = document.createElement('colgroup');
+  widths.forEach(w => { const c = document.createElement('col'); c.style.width = w + '%'; cg.appendChild(c); });
+  main.prepend(cg);
+
+  // 5) Normalize body rows to exactly 5 tds and clean the Flag column
+  const FLAG_GLYPH = '▶';
+  const tb = main.tBodies[0] || main.createTBody();
+  Array.from(tb.rows).forEach(tr => {
+    // drop TH headers accidentally placed in body
+    Array.from(tr.querySelectorAll('th')).forEach(th => {
+      const td = document.createElement('td'); td.textContent = th.textContent; th.replaceWith(td);
+    });
+
+    // force exactly 5 TDs
+    let tds = Array.from(tr.querySelectorAll('td'));
+    if (tds.length > 5) tds.slice(5).forEach(td => td.remove());
+    while ((tds = Array.from(tr.querySelectorAll('td'))).length < 5) tr.appendChild(document.createElement('td'));
+
+    // Clean and align columns
+    // 0: Item (trim newlines/spaces)
+    tds[0].textContent = (tds[0].textContent || '').replace(/\s+/g,' ').trim();
+
+    // 1,2,4 numeric -> center
+    [1,2,4].forEach(i => tds[i]?.classList.add('tk-center'));
+
+    // 3: Flag -> normalize to ▶ if junky
+    const raw = (tds[3].textContent || '').trim();
+    if (!raw || /&|&&|†|gt;|lt;|%|[A-Za-z]/.test(raw) || raw.length > 2) {
+      tds[3].textContent = FLAG_GLYPH;
+    } else {
+      tds[3].textContent = raw;
+    }
+    tds[3].classList.add('tk-center');
+  });
+
+  // 6) Remove any second “Flag” column if it somehow exists (defensive)
+  // Detect by more than 5 cells in header or body
+  const bodyHasExtra = Array.from(tb.rows).some(r => r.cells.length > 5);
+  if (bodyHasExtra) {
+    // remove columns beyond index 4 in every row
+    Array.from(tb.rows).forEach(r => {
+      while (r.cells.length > 5) r.deleteCell(5); // keep first five
+    });
+  }
+
+  // 7) Final pass: ensure no wrapping header duplication (sometimes inner DIVs got injected)
+  Array.from(thead.querySelectorAll('th')).forEach((th,i)=>{
+    th.innerHTML = HEADS[i]; // strip any nested spans or duplicates
+  });
+
+  console.log('[compat] hardfix applied: one table, five columns, flags cleaned.');
+})();
+</script>
+<!-- ===== END TALK KINK HARD RESET ===== -->
