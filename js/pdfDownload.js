@@ -719,8 +719,11 @@ export function bindPdfButton(){
   updateState();
 }
 
+const winRef = getWindow();
+const shouldAutoBind = !(winRef && winRef.__TK_PDF_SKIP_AUTO_BIND__);
+
 const docRef = getDocument();
-if (docRef) {
+if (docRef && shouldAutoBind) {
   if (typeof docRef.addEventListener === 'function') {
     if (docRef.readyState === 'loading') {
       docRef.addEventListener('DOMContentLoaded', bindPdfButton, { once: true });
@@ -732,7 +735,6 @@ if (docRef) {
   }
 }
 
-const winRef = getWindow();
 if (winRef) {
   winRef.downloadCompatibilityPDF = downloadCompatibilityPDF;
 }
