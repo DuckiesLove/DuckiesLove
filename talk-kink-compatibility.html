@@ -273,12 +273,16 @@
   }
 
   function outlineTextPDF(doc, text, x, y, main=[0,231,255], stroke=[0,0,0]){
-    // crude “stroke” by stamping black offsets around the text
-    const offsets = [[0.35,0],[ -0.35,0],[0,0.35],[0,-0.35]];
-    doc.setTextColor(...stroke);
-    offsets.forEach(([dx,dy])=>doc.text(text, x+dx, y+dy, {align:'center'}));
+    const baseOpts = { align:'center', renderingMode:'fillThenStroke' };
+    doc.setLineWidth(1);
+    doc.setDrawColor(...stroke);
     doc.setTextColor(...main);
-    doc.text(text, x, y, {align:'center'});
+    try{
+      doc.text(text, x, y, baseOpts);
+    }catch(err){
+      // Older jsPDF builds might not understand fillThenStroke; fall back to fill only.
+      doc.text(text, x, y, { align:'center' });
+    }
   }
 
   async function downloadPDF(){
