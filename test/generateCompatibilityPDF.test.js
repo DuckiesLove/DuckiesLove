@@ -19,6 +19,7 @@ test('generates PDF with score columns and percent', async () => {
     setTextColor() {}
     setFontSize() {}
     text(...args) { textCalls.push(args); }
+    splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
     addPage() {}
     save() {}
   }
@@ -41,18 +42,19 @@ test('generates PDF with score columns and percent', async () => {
 
   await generateCompatibilityPDF(data);
 
+  const flattened = textCalls.flatMap(call => (Array.isArray(call[0]) ? call[0] : [call[0]]));
   assert.ok(rectCalls.length > 0);
-  assert.ok(textCalls.some(c => c[0] === 'Kink Compatibility Report'));
-  assert.ok(textCalls.some(c => c[0] === 'Star'));
-  assert.ok(textCalls.some(c => c[0] === 'Yellow'));
-  assert.ok(textCalls.some(c => c[0] === 'Red'));
-  assert.ok(textCalls.some(c => c[0] === 'Partner A'));
-  assert.ok(textCalls.some(c => c[0] === 'Partner B'));
-  assert.ok(textCalls.some(c => c[0] === 'Flag'));
+  assert.ok(flattened.includes('Kink Compatibility Report'));
+  assert.ok(flattened.includes('Star'));
+  assert.ok(flattened.includes('Yellow'));
+  assert.ok(flattened.includes('Red'));
+  assert.ok(flattened.includes('Partner A'));
+  assert.ok(flattened.includes('Partner B'));
+  assert.ok(flattened.includes('Flag'));
   // Indicators for various match scenarios
-  assert.ok(textCalls.some(c => c[0] === '⭐'));
-  assert.ok(textCalls.some(c => c[0] === '🟨'));
-  assert.ok(textCalls.some(c => c[0] === '🚩'));
+  assert.ok(flattened.includes('⭐'));
+  assert.ok(flattened.includes('🟨'));
+  assert.ok(flattened.includes('🚩'));
 });
 
 test('shows N/A bar when scores missing', async () => {
@@ -71,6 +73,7 @@ test('shows N/A bar when scores missing', async () => {
     setTextColor() {}
     setFontSize() {}
     text(...args) { textCalls.push(args); }
+    splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
     addPage() {}
     save() {}
   }
@@ -89,9 +92,10 @@ test('shows N/A bar when scores missing', async () => {
 
   await generateCompatibilityPDF(data);
 
-  assert.ok(textCalls.some(c => c[0] === 'N/A'));
-  assert.ok(!textCalls.some(c => /\d+%/.test(c[0])));
-  assert.ok(!textCalls.some(c => c[0] === '⭐' || c[0] === '🚩'));
+  const flattened = textCalls.flatMap(call => (Array.isArray(call[0]) ? call[0] : [call[0]]));
+  assert.ok(flattened.includes('N/A'));
+  assert.ok(!flattened.some(text => /\d+%/.test(text)));
+  assert.ok(!flattened.some(text => text === '⭐' || text === '🚩'));
 });
 
 // New test to verify history section rendering
@@ -109,6 +113,7 @@ test('renders compatibility history section when history data present', async ()
     setTextColor() {}
     setFontSize() {}
     text(...args) { textCalls.push(args); }
+    splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
     addPage() {}
     save() {}
   }
@@ -119,7 +124,8 @@ test('renders compatibility history section when history data present', async ()
     history: [{ score: 85, date: '2024-01-01T00:00:00Z' }]
   };
   await generateCompatibilityPDF(data);
-  assert.ok(textCalls.some(c => c[0] === 'Compatibility History'));
+  const flattened = textCalls.flatMap(call => (Array.isArray(call[0]) ? call[0] : [call[0]]));
+  assert.ok(flattened.includes('Compatibility History'));
 });
 
 test('allows custom background and text colors', async () => {
@@ -136,6 +142,7 @@ test('allows custom background and text colors', async () => {
     setTextColor(color) { textColorCalls.push(color); }
     setFontSize() {}
     text() {}
+    splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
     addPage() {}
     save() {}
   }

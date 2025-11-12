@@ -65,8 +65,8 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
     backgroundColor: null,
   };
 
-  const sectionBaseHeight = 13 + 10; // header + column titles
-  const rowHeight = 12;
+  const sectionBaseHeight = layout.headerHeight + layout.columnHeaderGap;
+  const rowHeight = layout.rowHeight;
 
   for (const category of categories) {
     const rawItems = Array.isArray(category.items) ? category.items : [];

@@ -24,6 +24,7 @@ test('generates landscape compatibility PDF with combined scores', async () => {
     rect() {}
     addPage() {}
     text(...args) { textCalls.push(args); }
+    splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
     save() {}
   }
 
@@ -43,9 +44,10 @@ test('generates landscape compatibility PDF with combined scores', async () => {
   await generateCompatibilityPDFLandscape(data);
 
   assert.strictEqual(options.orientation, 'landscape');
-  assert.ok(textCalls.some(c => c[0] === 'Kink Compatibility Report'));
-  assert.ok(textCalls.some(c => c[0] === 'Kink'));
-  assert.ok(textCalls.some(c => c[0] === 'Combined Score'));
-  assert.ok(textCalls.some(c => c[0] === 'Bondage'));
-  assert.ok(textCalls.some(c => c[0] === '4'));
+  const flattened = textCalls.flatMap(call => (Array.isArray(call[0]) ? call[0] : [call[0]]));
+  assert.ok(flattened.includes('Kink Compatibility Report'));
+  assert.ok(flattened.includes('Kink'));
+  assert.ok(flattened.includes('Combined Score'));
+  assert.ok(flattened.includes('Bondage'));
+  assert.ok(flattened.includes('4'));
 });

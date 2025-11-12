@@ -17,6 +17,7 @@ test('renders zero scores for both partners', async () => {
     rect() {}
     addPage() {}
     text(...args) { textCalls.push(args); }
+    splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
     save() {}
   }
 
@@ -37,7 +38,7 @@ test('renders zero scores for both partners', async () => {
   await generateCompatibilityPDF(data);
 
   // Ensure zeros are printed and no N/A appears
-  const texts = textCalls.map(c => c[0]);
+  const texts = textCalls.flatMap(call => (Array.isArray(call[0]) ? call[0] : [call[0]]));
   assert.ok(texts.includes('0'));
   assert.ok(!texts.includes('N/A'));
 });

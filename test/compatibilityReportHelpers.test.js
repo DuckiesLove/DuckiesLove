@@ -22,7 +22,8 @@ function createDocMock() {
     setLineWidth: record('setLineWidth'),
     setTextColor: record('setTextColor'),
     setFontSize: record('setFontSize'),
-    text: record('text')
+    text: record('text'),
+    splitTextToSize: (value) => (Array.isArray(value) ? value : [value])
   };
 }
 
@@ -71,11 +72,15 @@ test('renderCategorySection renders each item and returns final y', () => {
   const usableWidth = doc.internal.pageSize.getWidth() - margin * 2;
   const layout = buildLayout(margin, usableWidth);
   const endY = renderCategorySection(doc, 'MyCat', items, layout, 20);
-  assert.strictEqual(endY, 20 + 23 + 12 * items.length);
-  const texts = doc.calls.filter(c => c[0] === 'text').map(c => c[1][0]);
+  const expectedEndY = 20 + layout.headerHeight + layout.columnHeaderGap + layout.rowHeight * items.length;
+  assert.strictEqual(endY, expectedEndY);
+  const texts = doc.calls
+    .filter(c => c[0] === 'text')
+    .flatMap(c => Array.isArray(c[1][0]) ? c[1][0] : [c[1][0]]);
   assert(texts.includes('MyCat'));
   assert(texts.includes('First'));
   assert(texts.includes('Second'));
+  assert(texts.includes('Item'));
   assert(texts.includes('Partner A'));
   assert(texts.includes('Match'));
   assert(texts.includes('Flag'));

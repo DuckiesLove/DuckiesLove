@@ -20,7 +20,11 @@ test('extractRows normalizes category labels', async () => {
       setDrawColor() {}
       setLineWidth() {}
       setFont() {}
-      text(text) { textCalls.push(String(text)); }
+      text(content) {
+        const values = Array.isArray(content) ? content : [content];
+        values.forEach((value) => textCalls.push(String(value)));
+      }
+      splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
       addPage() {}
       save() {}
     }
