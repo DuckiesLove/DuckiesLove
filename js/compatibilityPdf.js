@@ -1,6 +1,195 @@
-import { buildLayout, getMatchPercentage, renderCategorySection } from './compatibilityReportHelpers.js';
+import * as helperModule from './compatibilityReportHelpers.js';
 import { shortenLabel } from './labelShortener.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+
+const FALLBACK_ROW_HEIGHT = 11;
+const FALLBACK_HEADER_HEIGHT = 10;
+const FALLBACK_COLUMN_GAP = 6;
+
+const warnedHelpers = new Set();
+const warnMissingHelper = (name) => {
+  if (warnedHelpers.has(name)) return;
+  warnedHelpers.add(name);
+  console.warn(`[compat-pdf] Missing helper "${name}". Using fallback implementation.`);
+};
+
+const fallbackHelpers = (() => {
+  const normalizeScore = (val) => {
+    if (val === null || val === undefined) return null;
+    const num = Number(val);
+    if (Number.isNaN(num)) return null;
+    return Math.min(5, Math.max(0, num));
+  };
+
+  const getMatchPercentage = (a, b) => {
+    const aNorm = normalizeScore(a);
+    const bNorm = normalizeScore(b);
+    if (aNorm == null || bNorm == null) return null;
+    const diff = Math.min(5, Math.abs(aNorm - bNorm));
+    return Math.round(100 - diff * 20);
+  };
+
+  const getFlag = (a, b, match) => {
+    if (a == null || b == null) return '';
+    if (match == null) return '';
+    if (match >= 90) return '⭐';
+    if ((a === 5 && b < 5) || (b === 5 && a < 5)) return '🟨';
+    if (match < 30) return '🚩';
+    return '';
+  };
+
+  const toColorArray = (color, fallback = [255, 255, 255]) => {
+    if (Array.isArray(color) && color.length === 3) return color;
+    if (typeof color === 'string') {
+      const trimmed = color.trim();
+      if (/^#?[0-9a-fA-F]{6}$/.test(trimmed)) {
+        const hex = trimmed.replace('#', '');
+        return [
+          parseInt(hex.slice(0, 2), 16),
+          parseInt(hex.slice(2, 4), 16),
+          parseInt(hex.slice(4, 6), 16),
+        ];
+      }
+    }
+    return fallback;
+  };
+
+  const buildLayout = (startX = 10, usableWidth = 260) => {
+    const width = Math.max(usableWidth, 160);
+    const labelWidth = Math.max(width * 0.44, 70);
+    const remaining = Math.max(width - labelWidth, 60);
+    const partnerWidth = Math.max(remaining * 0.25, 24);
+    const matchWidth = Math.max(remaining * 0.35, 36);
+    const flagWidth = Math.max(remaining - partnerWidth * 2 - matchWidth, 12);
+
+    const colLabel = startX;
+    const colAStart = colLabel + labelWidth;
+    const colACenter = colAStart + partnerWidth / 2;
+    const colBarStart = colAStart + partnerWidth;
+    const colBarCenter = colBarStart + matchWidth / 2;
+    const colBStart = colBarStart + matchWidth;
+    const colBCenter = colBStart + partnerWidth / 2;
+    const colFlagStart = colBStart + partnerWidth;
+    const colFlag = colFlagStart + flagWidth / 2;
+
+    return {
+      startX,
+      width,
+      colLabel,
+      colA: colACenter,
+      colBar: colBarCenter,
+      colB: colBCenter,
+      colFlag,
+      matchWidth,
+      labelWidth,
+      rowHeight: FALLBACK_ROW_HEIGHT,
+      headerHeight: FALLBACK_HEADER_HEIGHT,
+      columnHeaderGap: FALLBACK_COLUMN_GAP,
+    };
+  };
+
+  const formatScore = (value) => {
+    if (value === null || value === undefined || value === 'N/A') return 'N/A';
+    return String(value);
+  };
+
+  const renderCategorySection = (doc, categoryLabel, items, layout, startY, options = {}) => {
+    const {
+      textColor = [255, 255, 255],
+      borderColor = [96, 96, 96],
+      borderWidth = 0.6,
+      paddingTop = 6,
+      paddingRight = 8,
+      paddingBottom = 6,
+      paddingLeft = 8,
+      backgroundColor = null,
+    } = options;
+
+    const blockHeight = layout.headerHeight + layout.columnHeaderGap + items.length * layout.rowHeight;
+    const rectX = layout.startX - paddingLeft;
+    const rectY = startY - paddingTop;
+    const rectWidth = layout.width + paddingLeft + paddingRight;
+    const rectHeight = blockHeight + paddingTop + paddingBottom;
+
+    const bgColor = backgroundColor ? toColorArray(backgroundColor, null) : null;
+    if (bgColor) {
+      doc.setFillColor(...bgColor);
+      doc.rect(rectX, rectY, rectWidth, rectHeight, 'F');
+    }
+    if (borderWidth > 0) {
+      doc.setDrawColor(...toColorArray(borderColor));
+      doc.setLineWidth(borderWidth);
+      doc.rect(rectX, rectY, rectWidth, rectHeight, 'S');
+      doc.setLineWidth(0);
+    }
+
+    const headerX = layout.startX + layout.width / 2;
+    doc.setFontSize(13);
+    doc.setTextColor(...toColorArray(textColor));
+    doc.text(categoryLabel, headerX, startY, { align: 'center' });
+
+    let currentY = startY + layout.headerHeight;
+    doc.setFontSize(9);
+    doc.text('Item', layout.colLabel, currentY);
+    doc.text('Partner A', layout.colA, currentY, { align: 'center' });
+    doc.text('Match', layout.colBar, currentY, { align: 'center' });
+    doc.text('Partner B', layout.colB, currentY, { align: 'center' });
+    doc.text('Flag', layout.colFlag, currentY, { align: 'center' });
+
+    currentY += layout.columnHeaderGap;
+    const labelWidth = layout.labelWidth || 60;
+
+    items.forEach((item) => {
+      const lines = typeof doc.splitTextToSize === 'function'
+        ? doc.splitTextToSize(item.label || '', labelWidth)
+        : [item.label || ''];
+      doc.text(lines, layout.colLabel, currentY);
+
+      doc.text(formatScore(item.partnerA), layout.colA, currentY, { align: 'center' });
+      const match = item.match ?? getMatchPercentage(item.partnerA, item.partnerB);
+      doc.text(match != null ? `${match}%` : 'N/A', layout.colBar, currentY, { align: 'center' });
+      doc.text(formatScore(item.partnerB), layout.colB, currentY, { align: 'center' });
+      doc.text(getFlag(item.partnerA, item.partnerB, match), layout.colFlag, currentY, { align: 'center' });
+      currentY += layout.rowHeight;
+    });
+
+    return currentY;
+  };
+
+  return { buildLayout, getMatchPercentage, renderCategorySection };
+})();
+
+function resolveHelperFunctions() {
+  const globalHelpers =
+    typeof window !== 'undefined' && window.compatibilityReportHelpers
+      ? window.compatibilityReportHelpers
+      : null;
+  const resolved = {};
+  ['buildLayout', 'getMatchPercentage', 'renderCategorySection'].forEach((name) => {
+    const fromModule = helperModule && typeof helperModule[name] === 'function' ? helperModule[name] : null;
+    const fromGlobal = globalHelpers && typeof globalHelpers[name] === 'function' ? globalHelpers[name] : null;
+    if (fromModule) {
+      resolved[name] = fromModule;
+      return;
+    }
+    if (fromGlobal) {
+      resolved[name] = fromGlobal;
+      return;
+    }
+    warnMissingHelper(name);
+    resolved[name] = fallbackHelpers[name];
+  });
+  if (typeof window !== 'undefined') {
+    window.compatibilityReportHelpers = {
+      buildLayout: resolved.buildLayout,
+      getMatchPercentage: resolved.getMatchPercentage,
+      renderCategorySection: resolved.renderCategorySection,
+    };
+  }
+  return resolved;
+}
+
+const { buildLayout, getMatchPercentage, renderCategorySection } = resolveHelperFunctions();
 
 export async function generateCompatibilityPDF(data = { categories: [] }, options = {}) {
   if (DEBUG) {
