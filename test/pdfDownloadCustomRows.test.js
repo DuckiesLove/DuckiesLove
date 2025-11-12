@@ -31,7 +31,12 @@ test('downloadCompatibilityPDF uses provided rows and columns', async () => {
       setFont() {}
       setFontSize() {}
       addPage() { return this; }
-      text(text, ...rest) { textCalls.push(String(text)); return rest; }
+      text(content, ...rest) {
+        const values = Array.isArray(content) ? content : [content];
+        values.forEach((value) => textCalls.push(String(value)));
+        return rest;
+      }
+      splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
       save(name) { savedName = name; }
     }
 

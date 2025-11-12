@@ -30,10 +30,12 @@ test('downloadCompatibilityPDF builds data from survey inputs', async () => {
     setFont() {}
     setFontSize() {}
     addPage() { return this; }
-    text(text) {
-      textCalls.push(String(text));
+    text(content) {
+      const values = Array.isArray(content) ? content : [content];
+      values.forEach((value) => textCalls.push(String(value)));
       return this;
     }
+    splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
     save(name) {
       savedName = name;
     }

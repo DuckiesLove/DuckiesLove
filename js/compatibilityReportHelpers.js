@@ -1,5 +1,17 @@
 // ---- Compatibility Report Rendering Helpers ----
 
+const PX_TO_MM = 0.2645833333;
+const LABEL_MAX_WIDTH_PX = 130;
+const ROW_MIN_HEIGHT_PX = 28;
+const MATCH_BAR_HEIGHT_PX = 12;
+const MIN_MATCH_WIDTH_PX = 80;
+const MIN_PARTNER_WIDTH_PX = 36;
+const MIN_FLAG_WIDTH_PX = 20;
+const DEFAULT_FONT_SIZE = 10;
+const DEFAULT_LINE_HEIGHT = 1.2;
+
+const pxToMm = (px) => px * PX_TO_MM;
+
 // Determine the font color used for the match percentage
 function getFontColor(percentage) {
   if (percentage === null || percentage === undefined) return [255, 255, 255];
@@ -35,9 +47,12 @@ export function drawMatchBar(
   doc.rect(x, y, width, height, 'F');
 
   // Label centered inside the bar
-  doc.setFontSize(7);
+  doc.setFontSize(Math.max(6, Math.min(8, height / pxToMm(1.5))));
   doc.setTextColor(...textColor);
-  doc.text(label, x + width / 2, y + height / 2 + 1.8, { align: 'center' });
+  doc.text(label, x + width / 2, y + height / 2, {
+    align: 'center',
+    baseline: 'middle',
+  });
 
   // Reset text color for subsequent drawing
   if (Array.isArray(resetColor)) {
@@ -68,25 +83,96 @@ function renderCategoryHeader(
 
 // Column layout setup using full width
 export function buildLayout(startX, usableWidth) {
+  const minPartner = pxToMm(MIN_PARTNER_WIDTH_PX);
+  const minMatch = pxToMm(MIN_MATCH_WIDTH_PX);
+  const minFlag = pxToMm(MIN_FLAG_WIDTH_PX);
+  const minOtherTotal = minPartner * 2 + minMatch + minFlag;
+
+  let labelMaxWidth = Math.min(pxToMm(LABEL_MAX_WIDTH_PX), usableWidth * 0.33);
+  if (labelMaxWidth < pxToMm(60)) {
+    labelMaxWidth = Math.min(pxToMm(LABEL_MAX_WIDTH_PX), Math.max(pxToMm(60), usableWidth * 0.25));
+  }
+
+  let remainingWidth = Math.max(usableWidth - labelMaxWidth, 0);
+  if (remainingWidth < minOtherTotal) {
+    const needed = minOtherTotal - remainingWidth;
+    const minLabel = pxToMm(48);
+    labelMaxWidth = Math.max(minLabel, labelMaxWidth - needed);
+    remainingWidth = Math.max(minOtherTotal, usableWidth - labelMaxWidth);
+  }
+
+  const weightPartner = 1;
+  const weightMatch = 2.4;
+  const weightFlag = 0.6;
+  const totalWeight = weightPartner * 2 + weightMatch + weightFlag;
+  const unit = totalWeight > 0 ? remainingWidth / totalWeight : 0;
+
+  let partnerWidth = Math.max(minPartner, unit * weightPartner);
+  let matchWidth = Math.max(minMatch, unit * weightMatch);
+  let flagWidth = Math.max(minFlag, unit * weightFlag);
+
+  let usedOther = partnerWidth * 2 + matchWidth + flagWidth;
+  if (usedOther > remainingWidth) {
+    const over = usedOther - remainingWidth;
+    const adjustable = (partnerWidth - minPartner) * 2 + (matchWidth - minMatch) + (flagWidth - minFlag);
+    if (adjustable > 0) {
+      const ratio = over / adjustable;
+      partnerWidth -= (partnerWidth - minPartner) * ratio;
+      matchWidth -= (matchWidth - minMatch) * ratio;
+      flagWidth -= (flagWidth - minFlag) * ratio;
+      usedOther = partnerWidth * 2 + matchWidth + flagWidth;
+    }
+    if (usedOther > remainingWidth) {
+      matchWidth = Math.max(minMatch, matchWidth - (usedOther - remainingWidth));
+    }
+  }
+
   const colLabel = startX;
-  const colA = startX + usableWidth * 0.45;
-  const barWidth = usableWidth * 0.15;
-  const colBar = startX + usableWidth * 0.6;
-  const colFlag = colBar + barWidth + usableWidth * 0.02;
-  const colB = startX + usableWidth * 0.85;
-  const barHeight = 9;
-  const endX = startX + usableWidth;
+  const colLabelRight = colLabel + labelMaxWidth;
+
+  const colAStart = colLabelRight;
+  const colACenter = colAStart + partnerWidth / 2;
+
+  const colBar = colAStart + partnerWidth;
+  const colBarCenter = colBar + matchWidth / 2;
+
+  const colBStart = colBar + matchWidth;
+  const colBCenter = colBStart + partnerWidth / 2;
+
+  const colFlagStart = colBStart + partnerWidth;
+  const colFlag = colFlagStart + flagWidth / 2;
+
+  const rowHeight = Math.max(pxToMm(ROW_MIN_HEIGHT_PX), 8);
+  const barHeight = Math.min(rowHeight - pxToMm(6), pxToMm(MATCH_BAR_HEIGHT_PX));
+  const barPadding = matchWidth > 0 ? Math.min(matchWidth / 6, pxToMm(6)) : 0;
+  const barWidth = Math.max(matchWidth - barPadding * 2, 0);
+
   return {
     colLabel,
-    colA,
+    colLabelRight,
+    colA: colACenter,
+    colAStart,
     colBar,
+    colBarCenter,
     colFlag,
-    colB,
+    colFlagStart,
+    colB: colBCenter,
+    colBStart,
     barWidth,
     barHeight,
+    barPadding,
     startX,
     width: usableWidth,
-    endX,
+    endX: startX + usableWidth,
+    labelMaxWidth,
+    partnerWidth,
+    matchWidth,
+    flagWidth,
+    rowHeight,
+    headerHeight: Math.max(pxToMm(20), rowHeight * 0.85),
+    columnHeaderGap: Math.max(pxToMm(12), rowHeight * 0.6),
+    fontSize: DEFAULT_FONT_SIZE,
+    lineHeight: DEFAULT_LINE_HEIGHT,
   };
 }
 
@@ -114,27 +200,64 @@ export function getMatchPercentage(a, b) {
 }
 
 // Helper: draw one row of the kink table
-function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = [255, 255, 255]) {
-  const { colLabel, colA, colBar, colFlag, colB, barWidth, barHeight } = layout;
+function drawKinkRow(doc, layout, rowTop, label, aScore, bScore, match, textColor = [255, 255, 255]) {
+  const {
+    colLabel,
+    labelMaxWidth,
+    colA,
+    colBar,
+    colFlag,
+    colB,
+    barWidth,
+    barHeight,
+    barPadding,
+    rowHeight,
+    fontSize,
+    lineHeight,
+  } = layout;
   const aNorm = normalizeScore(aScore);
   const bNorm = normalizeScore(bScore);
+  const centerY = rowTop + rowHeight / 2;
 
   if (Array.isArray(textColor)) {
     doc.setTextColor(...textColor);
   } else {
     doc.setTextColor(textColor);
   }
-  doc.setFontSize(8);
-  doc.text(label, colLabel, y, {
-    width: colA - colLabel - 5,
+
+  doc.setFontSize(fontSize);
+  const lineHeightMm = fontSize * lineHeight * 0.352778;
+  let lines = Array.isArray(label) ? label : doc.splitTextToSize(label, labelMaxWidth);
+  if (lines.length > 2) {
+    const combined = lines.slice(0, 2);
+    if (lines.length > 2) {
+      const last = combined.pop();
+      combined.push(`${last.replace(/…?$/, '').trim()}…`);
+    }
+    lines = combined;
+  }
+  const textBlockHeight = lineHeightMm * (lines.length - 1);
+  const firstLineY = centerY - textBlockHeight / 2 + (lines.length === 1 ? fontSize * 0.352778 / 2.5 : 0);
+  doc.text(lines, colLabel, firstLineY, {
     align: 'left',
+    lineHeightFactor: lineHeight,
   });
 
+  const format = (value) => formatScore(value);
+
   if (aNorm == null || bNorm == null) {
-    doc.text('N/A', colA, y, { align: 'left' });
-    drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, null, textColor);
-    doc.text('N/A', colFlag, y, { align: 'center' });
-    doc.text('N/A', colB, y, { align: 'left' });
+    doc.text('N/A', colA, centerY, { align: 'center', baseline: 'middle' });
+    drawMatchBar(
+      doc,
+      colBar + barPadding,
+      rowTop + (rowHeight - barHeight) / 2,
+      barWidth,
+      barHeight,
+      null,
+      textColor
+    );
+    doc.text('N/A', colFlag, centerY, { align: 'center', baseline: 'middle' });
+    doc.text('N/A', colB, centerY, { align: 'center', baseline: 'middle' });
     return;
   }
 
@@ -142,10 +265,18 @@ function drawKinkRow(doc, layout, y, label, aScore, bScore, match, textColor = [
     match !== undefined && match !== null ? match : getMatchPercentage(aNorm, bNorm);
   const flag = getFlagIcon(aNorm, bNorm, resolvedMatch);
 
-  doc.text(formatScore(aNorm), colA, y, { align: 'left' });
-  drawMatchBar(doc, colBar, y - barHeight + 2.5, barWidth, barHeight, resolvedMatch, textColor);
-  doc.text(flag, colFlag, y, { align: 'center' });
-  doc.text(formatScore(bNorm), colB, y, { align: 'left' });
+  doc.text(format(aNorm), colA, centerY, { align: 'center', baseline: 'middle' });
+  drawMatchBar(
+    doc,
+    colBar + barPadding,
+    rowTop + (rowHeight - barHeight) / 2,
+    barWidth,
+    barHeight,
+    resolvedMatch,
+    textColor
+  );
+  doc.text(flag, colFlag, centerY, { align: 'center', baseline: 'middle' });
+  doc.text(format(bNorm), colB, centerY, { align: 'center', baseline: 'middle' });
 }
 
 // Render an entire category section including column headers
@@ -217,14 +348,22 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
     };
   })();
 
-  const { colLabel, colA, colBar, colFlag, colB, barWidth, startX, width } = layout;
-  const headerSpacing = 13;
-  const columnSpacing = 10;
-  const rowSpacing = 12;
-  const sectionHeight = headerSpacing + columnSpacing + items.length * rowSpacing;
+  const {
+    colLabel,
+    colA,
+    colBar,
+    colFlag,
+    colB,
+    startX,
+    width,
+    rowHeight,
+    headerHeight,
+    columnHeaderGap,
+  } = layout;
+  const sectionHeight = headerHeight + columnHeaderGap + items.length * rowHeight;
 
   const innerStartX = startX ?? colLabel;
-  const usedWidth = width ?? Math.max(colB, colFlag, colBar + barWidth) - innerStartX;
+  const usedWidth = width ?? Math.max(colB, colFlag, colBar + layout.matchWidth) - innerStartX;
   const rectX = innerStartX - paddingLeft;
   const rectY = startY - paddingTop;
   const rectWidth = Math.max(0, usedWidth + paddingLeft + paddingRight);
@@ -249,7 +388,7 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   const sectionCenterX = innerStartX + usedWidth / 2;
   renderCategoryHeader(doc, sectionCenterX, startY, categoryLabel, textColor, 'center');
 
-  let currentY = startY + headerSpacing;
+  let currentY = startY + headerHeight;
 
   // Column titles
   doc.setFontSize(9);
@@ -258,16 +397,17 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   } else {
     doc.setTextColor(textColor);
   }
-  doc.text('Partner A', colA, currentY);
-  doc.text('Match', colBar + barWidth / 2, currentY, { align: 'center' });
-  doc.text('Flag', colFlag, currentY);
-  doc.text('Partner B', colB, currentY);
+  doc.text('Item', colLabel, currentY, { align: 'left' });
+  doc.text('Partner A', colA, currentY, { align: 'center' });
+  doc.text('Match', colBar + layout.matchWidth / 2, currentY, { align: 'center' });
+  doc.text('Partner B', colB, currentY, { align: 'center' });
+  doc.text('Flag', colFlag, currentY, { align: 'center' });
 
-  currentY += columnSpacing;
+  currentY += columnHeaderGap;
 
   for (const item of items) {
     drawKinkRow(doc, layout, currentY, item.label, item.partnerA, item.partnerB, item.match, textColor);
-    currentY += rowSpacing;
+    currentY += rowHeight;
   }
 
   return currentY;

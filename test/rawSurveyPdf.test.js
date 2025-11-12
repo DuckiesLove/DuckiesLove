@@ -12,7 +12,8 @@ function createDoc() {
     setFont() {},
     addPage() {},
     internal: { pageSize: { getHeight: () => 200, getWidth: () => 200 } },
-    text(...args) { textCalls.push(args); }
+    text(...args) { textCalls.push(args); },
+    splitTextToSize(value) { return Array.isArray(value) ? value : [value]; }
   };
   return { doc, textCalls };
 }
@@ -23,7 +24,7 @@ test('renders categories, scores, matches and flags', async () => {
   const partnerA = { Cat: { Item1: 5, Item2: 4 } };
   const partnerB = { Cat: { Item1: 5, Item2: 3 } };
   generateCompatibilityPDF(partnerA, partnerB, doc);
-  const texts = textCalls.map(c => c[0]);
+  const texts = textCalls.flatMap(call => (Array.isArray(call[0]) ? call[0] : [call[0]]));
   assert.ok(texts.includes('Cat'));
   assert.ok(texts.includes('Item1'));
   assert.ok(texts.includes('5'));
@@ -38,6 +39,6 @@ test('handles missing scores as N/A', async () => {
   const partnerA = { Cat: { Item1: 5 } };
   const partnerB = { Cat: {} };
   generateCompatibilityPDF(partnerA, partnerB, doc);
-  const texts = textCalls.map(c => c[0]);
+  const texts = textCalls.flatMap(call => (Array.isArray(call[0]) ? call[0] : [call[0]]));
   assert.ok(texts.includes('N/A'));
 });

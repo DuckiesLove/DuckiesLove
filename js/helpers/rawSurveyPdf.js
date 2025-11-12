@@ -5,13 +5,9 @@
 
 import { buildLayout } from '../compatibilityReportHelpers.js';
 import { getFlagEmoji } from '../matchFlag.js';
+import { shortenLabel } from '../labelShortener.js';
 
 // ---- Helper functions ----
-
-function shortenLabel(label = '') {
-  if (label.length <= 40) return label;
-  return label.slice(0, 40);
-}
 
 function formatScore(value) {
   return typeof value === 'number' ? String(value) : 'N/A';

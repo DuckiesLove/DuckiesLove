@@ -23,6 +23,7 @@ test('warns and aborts when both partners have no data', async () => {
           setTextColor(){}
           setFontSize(){}
           text(){}
+          splitTextToSize(value){ return Array.isArray(value) ? value : [value]; }
           autoTable(){}
           save(){}
         },
