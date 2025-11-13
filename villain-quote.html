@@ -91,9 +91,38 @@
 
   /* E. LAZY LOADERS FOR HEAVY LIBS (loaded only on click) */
   async function ensureJsPDF() {
-    if (!(window.jspdf && window.jspdf.jsPDF)) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    // Already present?
+    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    if (window.jsPDF) return window.jsPDF; // legacy global some sites still use
+
+    // If the script tag exists but hasn’t finished loading, wait for it:
+    const tag = document.querySelector('script[data-lib="jspdf"]');
+    if (tag && !tag.dataset.loaded) {
+      await new Promise((resolve, reject) => {
+        tag.addEventListener('load', () => { tag.dataset.loaded = '1'; resolve(); }, { once: true });
+        tag.addEventListener('error', () => reject(new Error('Failed to fetch jsPDF script')), { once: true });
+      });
     }
+
+    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    if (window.jsPDF) return window.jsPDF;
+
+    // As a last resort, inject dynamically (in case the tag wasn’t added)
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.crossOrigin = 'anonymous';
+      s.referrerPolicy = 'no-referrer';
+      s.dataset.lib = 'jspdf';
+      s.onload = () => { s.dataset.loaded = '1'; resolve(); };
+      s.onerror = () => reject(new Error('Failed to fetch jsPDF script'));
+      document.head.appendChild(s);
+    });
+
+    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    if (window.jsPDF) return window.jsPDF;
+
+    throw new Error('jsPDF failed to load');
   }
   async function ensureAutoTable() {
     // Only after jsPDF UMD maps window.jspdf.jsPDF
