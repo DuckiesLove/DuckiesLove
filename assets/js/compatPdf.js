@@ -450,3 +450,102 @@
     init();
   }
 })();
+
+/* ========= TALK KINK PDF: CDN-ONLY OVERRIDE (kills /vendor 404s) ========= */
+/* Drop this at the bottom of compatPdf.js (or include after it on the page). */
+
+(function () {
+  const CDN = {
+    JSPDF: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    AUTOTABLE: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+  };
+
+  // 1) Kill any old local-first loaders so they cannot request /vendor/...
+  window.tkLoadPdfLibs = undefined;
+  window.ensurePdfLibs = undefined;
+
+  // 2) Simple CDN injector
+  function inject(src, key) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[data-lib="${key}"]`);
+      if (existing && existing.dataset.loaded === '1') return resolve();
+
+      if (existing) {
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error(`load fail ${src}`)), { once: true });
+      } else {
+        const s = document.createElement('script');
+        s.src = src;
+        s.defer = true;
+        s.crossOrigin = 'anonymous';
+        s.referrerPolicy = 'no-referrer';
+        s.dataset.lib = key;
+        s.onload = () => { s.dataset.loaded = '1'; resolve(); };
+        s.onerror = () => reject(new Error(`load fail ${src}`));
+        document.head.appendChild(s);
+      }
+    });
+  }
+
+  const jsPdfPresent = () => !!(window.jspdf && window.jspdf.jsPDF) || !!window.jsPDF;
+  const autoTablePresent = () => {
+    const api = (window.jspdf?.jsPDF?.API) || (window.jsPDF?.API);
+    return !!(api && (api.autoTable || api.__autoTable__));
+  };
+
+  // 3) New ensurePdfLibs that ONLY uses CDN
+  async function ensurePdfLibsCDN() {
+    if (!jsPdfPresent()) await inject(CDN.JSPDF, 'jspdf');
+    if (!jsPdfPresent()) throw new Error('jsPDF not available');
+
+    if (!autoTablePresent()) await inject(CDN.AUTOTABLE, 'jspdf-autotable');
+    if (!autoTablePresent()) throw new Error('autoTable not available');
+
+    return (window.jspdf?.jsPDF) || window.jsPDF;
+  }
+
+  // 4) Replace any click handlers that depended on the old ensurePdfLibs
+  //    Keep your existing generateCompatibilityPDF(rows) function.
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('#downloadPdfBtn');
+    if (!btn) return;
+    e.preventDefault();
+
+    try {
+      await ensurePdfLibsCDN(); // guarantee libs from CDN
+      const rows = window.talkkinkCompatRows || [];
+      if (!rows.length) {
+        alert('Upload both surveys first.');
+        return;
+      }
+      if (window.TKCompatPDF?.download) {
+        await window.TKCompatPDF.download(rows);
+      } else if (window.generateCompatibilityPDF) {
+        await window.generateCompatibilityPDF(rows);
+      } else {
+        console.warn('[compat-pdf] No generator found. Define TKCompatPDF.download or generateCompatibilityPDF(rows).');
+      }
+    } catch (err) {
+      console.error('[compat-pdf] PDF generation failed', err);
+      alert('PDF could not be generated. See console for details.');
+    }
+  });
+
+  // 5) Optional: enable button once libs load (prevents greyed-out state)
+  (async () => {
+    const btn = document.querySelector('#downloadPdfBtn');
+    if (!btn) return;
+    btn.disabled = true;
+    try {
+      await ensurePdfLibsCDN();
+      btn.disabled = false;
+      btn.title = 'Download your compatibility PDF';
+    } catch (e) {
+      btn.disabled = true;
+      btn.title = 'PDF unavailable (library load failed)';
+    }
+  })();
+
+  // Expose, in case other code wants to call it
+  window.ensurePdfLibsCDN = ensurePdfLibsCDN;
+})();
