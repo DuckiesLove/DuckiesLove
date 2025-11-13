@@ -204,6 +204,9 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
     throw new Error('jsPDF failed to load');
   }
   const doc = new jsPDFCtor({ orientation: 'landscape' });
+  if (typeof doc.setLineWidth !== 'function') {
+    doc.setLineWidth = function noopSetLineWidth() {};
+  }
 
   const {
     filename = 'compatibility_report.pdf',
