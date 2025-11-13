@@ -1,0 +1,198 @@
+<!-- TalkKink Compatibility PDF Export (CDN-only)
+     Paste this block near the end of your page. It auto-enables the
+     #downloadPdfBtn button once both survey uploads are present, and
+     renders the legacy five-column table layout. -->
+<button id="downloadPdfBtn" disabled>Download Compatibility Report</button>
+
+<script>
+/* ================== TalkKink PDF (CDN-only, no local 404s) ================== */
+/* Title centered, table left-aligned (legacy look). No kill-switch. */
+
+(function () {
+  const CDN = {
+    jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    autotable: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+  };
+  const SELECTORS = { downloadBtn: '#downloadPdfBtn' };
+
+  const COLS = [
+    { key: 'item',  header: 'Item',      w: 240 },
+    { key: 'a',     header: 'Partner A', w:  80 },
+    { key: 'match', header: 'Match',     w:  90 },
+    { key: 'b',     header: 'Partner B', w:  90 },
+    { key: 'flag',  header: 'Flag',      w:  60 },
+  ];
+
+  let libsReady = false;
+  let cachedRows = [];
+
+  function injectScript(src, dataKey) {
+    return new Promise((resolve, reject) => {
+      const existing = dataKey ? document.querySelector(`script[data-lib="${dataKey}"]`) : null;
+      if (existing && existing.dataset.loaded === '1') return resolve();
+      if (existing) {
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = src;
+      s.defer = true;
+      s.crossOrigin = 'anonymous';
+      s.referrerPolicy = 'no-referrer';
+      if (dataKey) s.dataset.lib = dataKey;
+      s.onload = () => { if (dataKey) s.dataset.loaded = '1'; resolve(); };
+      s.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(s);
+    });
+  }
+
+  const jsPdfPresent = () => !!(window.jspdf && window.jspdf.jsPDF) || !!window.jsPDF;
+  const autoTablePresent = () => {
+    const api = (window.jspdf?.jsPDF?.API) || (window.jsPDF?.API);
+    return !!(api && (api.autoTable || api.__autoTable__));
+  };
+
+  async function ensurePdfLibs() {
+    if (!jsPdfPresent()) await injectScript(CDN.jspdf, 'jspdf');
+    if (!jsPdfPresent()) throw new Error('jsPDF not available');
+
+    if (!autoTablePresent()) await injectScript(CDN.autotable, 'jspdf-autotable');
+    if (!autoTablePresent()) throw new Error('autoTable not available');
+
+    // smoke test
+    const jsPDF = (window.jspdf?.jsPDF) || window.jsPDF;
+    const doc = new jsPDF({ unit: 'pt' });
+    if (!doc) throw new Error('jsPDF constructor failed');
+
+    libsReady = true;
+    return jsPDF;
+  }
+
+  function centerText(doc, text, y, size, style) {
+    doc.setFont('helvetica', style || 'bold');
+    doc.setFontSize(size || 12);
+    const w = doc.internal.pageSize.getWidth();
+    const tw = doc.getTextWidth(text);
+    doc.text(text, (w - tw) / 2, y);
+  }
+
+  function renderWithAutoTable(doc, rows) {
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(0,0,0);
+    doc.rect(0,0,pageW,pageH,'F');
+    doc.setTextColor(255,255,255);
+
+    centerText(doc, 'TalkKink Compatibility Report', 70, 32, 'bold');
+    centerText(doc, 'Compatibility Overview', 110, 18, 'bold');
+
+    const columns = COLS.map((c, i) => ({ header: c.header, dataKey: String(i) }));
+    const body = rows.map(r => ({
+      0: r.item ?? '',
+      1: String(r.a ?? ''),
+      2: String(r.match ?? ''),
+      3: String(r.b ?? ''),
+      4: String(r.flag ?? ''),
+    }));
+
+    doc.autoTable({
+      columns,
+      body,
+      startY: 140,
+      margin: { left: 40, right: 40 },
+      styles: {
+        font: 'helvetica',
+        fontSize: 11,
+        halign: 'left',          // body left-aligned
+        valign: 'middle',
+        cellPadding: 3,
+        textColor: [255,255,255],
+        fillColor: [0,0,0],
+        lineColor: [160,160,160],
+        lineWidth: 0.5,
+      },
+      headStyles: {
+        halign: 'center',        // header centered
+        fontStyle: 'bold',
+        textColor: [255,255,255],
+        fillColor: [0,0,0],
+        lineColor: [160,160,160],
+        lineWidth: 0.75,
+      },
+      columnStyles: {
+        0: { cellWidth: COLS[0].w, halign: 'left' },
+        1: { cellWidth: COLS[1].w, halign: 'left' },
+        2: { cellWidth: COLS[2].w, halign: 'left' },
+        3: { cellWidth: COLS[3].w, halign: 'left' },
+        4: { cellWidth: COLS[4].w, halign: 'left' },
+      },
+      theme: 'grid',
+      overflow: 'linebreak',
+      didParseCell: (d) => { if (d.section === 'body') d.cell.styles.halign = 'left'; },
+      didDrawPage: () => {
+        doc.setTextColor(255,255,255);
+        doc.setFont('helvetica','normal');
+      }
+    });
+  }
+
+  async function generateCompatibilityPDF(rows) {
+    const jsPDF = (window.jspdf?.jsPDF) || window.jsPDF;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+    renderWithAutoTable(doc, rows);
+    doc.save('compatibility.pdf');
+  }
+
+  function rowsReady() {
+    const arr = Array.isArray(cachedRows) ? cachedRows : (Array.isArray(window.talkkinkCompatRows) ? window.talkkinkCompatRows : []);
+    return arr && arr.length > 0;
+  }
+  function getBtn(){ return document.querySelector(SELECTORS.downloadBtn); }
+  function setBtnState() {
+    const btn = getBtn(); if (!btn) return;
+    const ready = libsReady && rowsReady();
+    btn.disabled = !ready;
+    btn.title = ready ? 'Download your compatibility PDF' : 'Upload both surveys to enable PDF';
+  }
+
+  function wireButton() {
+    const btn = getBtn();
+    if (!btn) return;
+    btn.disabled = true;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!libsReady || !rowsReady()) return;
+      const rows = cachedRows.length ? cachedRows : (window.talkkinkCompatRows || []);
+      await generateCompatibilityPDF(rows);
+    });
+  }
+
+  // Public hook for your comparison code
+  window.TKCompatPDF = {
+    notifyRowsUpdated(rows) {
+      cachedRows = Array.isArray(rows) ? rows : [];
+      setBtnState();
+    }
+  };
+
+  async function init() {
+    wireButton();
+    try {
+      await ensurePdfLibs();
+    } catch (e) {
+      console.error('[compat-pdf] libs failed to load', e);
+    }
+    if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+      cachedRows = window.talkkinkCompatRows.slice();
+    }
+    setBtnState();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+})();
+</script>
