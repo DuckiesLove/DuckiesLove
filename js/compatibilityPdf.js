@@ -2,6 +2,14 @@ import * as helperModule from './compatibilityReportHelpers.js';
 import { shortenLabel } from './labelShortener.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
+export function downloadCompatibilityPDF(doc, filename = 'TalkKink-Compatibility.pdf') {
+  if (!doc || typeof doc.save !== 'function') {
+    console.error('[pdf] downloadCompatibilityPDF expected a jsPDF instance');
+    return;
+  }
+  doc.save(filename);
+}
+
 const FALLBACK_ROW_HEIGHT = 11;
 const FALLBACK_HEADER_HEIGHT = 10;
 const FALLBACK_COLUMN_GAP = 6;
@@ -149,7 +157,10 @@ const fallbackHelpers = (() => {
       const match = item.match ?? getMatchPercentage(item.partnerA, item.partnerB);
       doc.text(match != null ? `${match}%` : 'N/A', layout.colBar, currentY, { align: 'center' });
       doc.text(formatScore(item.partnerB), layout.colB, currentY, { align: 'center' });
-      doc.text(getFlag(item.partnerA, item.partnerB, match), layout.colFlag, currentY, { align: 'center' });
+      const flagText = item.flag != null && item.flag !== ''
+        ? String(item.flag)
+        : getFlag(item.partnerA, item.partnerB, match);
+      doc.text(flagText, layout.colFlag, currentY, { align: 'center' });
       currentY += layout.rowHeight;
     });
 
@@ -191,18 +202,175 @@ function resolveHelperFunctions() {
 
 const { buildLayout, getMatchPercentage, renderCategorySection } = resolveHelperFunctions();
 
+function parseCompatRowsFromState() {
+  try {
+    if (typeof window !== 'undefined' && Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+      return window.talkkinkCompatRows;
+    }
+  } catch (error) {
+    console.warn('[compat-pdf] Failed reading window.talkkinkCompatRows', error);
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('talkkink:compatRows');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('[compat-pdf] Failed reading cached compatibility rows', error);
+  }
+
+  return [];
+}
+
+function normalizeScoreValue(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const num = Number(String(value).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(num) ? num : null;
+}
+
+function normalizeMatchValue(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const match = String(value).trim();
+  if (!match) return null;
+  const cleaned = match.endsWith('%') ? match.slice(0, -1) : match;
+  const num = Number(cleaned.replace(/[^\d.-]/g, ''));
+  return Number.isFinite(num) ? num : null;
+}
+
+export async function renderCompatibilityReport(doc, rows = []) {
+  if (!doc || typeof doc.text !== 'function') return;
+
+  const pageWidth = doc.internal?.pageSize?.getWidth ? doc.internal.pageSize.getWidth() : 612;
+  const pageHeight = doc.internal?.pageSize?.getHeight ? doc.internal.pageSize.getHeight() : 792;
+
+  const marginX = 40;
+  const marginTop = 60;
+  const footerMargin = 48;
+
+  const layout = buildLayout(marginX, pageWidth - marginX * 2);
+  const sectionBaseHeight = layout.headerHeight + layout.columnHeaderGap;
+  const rowHeight = layout.rowHeight;
+
+  const sectionStyle = {
+    textColor: [255, 255, 255],
+    borderColor: [100, 100, 100],
+    borderWidth: 0.8,
+    paddingTop: 12,
+    paddingRight: 16,
+    paddingBottom: 12,
+    paddingLeft: 16,
+    backgroundColor: null,
+  };
+
+  const maxContentY = pageHeight - footerMargin;
+
+  const drawBackground = () => {
+    if (typeof doc.setFillColor === 'function' && typeof doc.rect === 'function') {
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    }
+    if (typeof doc.setTextColor === 'function') {
+      doc.setTextColor(255, 255, 255);
+    }
+  };
+
+  const titleY = marginTop;
+  drawBackground();
+  if (typeof doc.setFont === 'function') doc.setFont('helvetica', 'bold');
+  if (typeof doc.setFontSize === 'function') doc.setFontSize(20);
+  doc.text('TalkKink Compatibility Report', pageWidth / 2, titleY, { align: 'center' });
+
+  if (typeof doc.setFont === 'function') doc.setFont('helvetica', 'normal');
+  if (typeof doc.setFontSize === 'function') doc.setFontSize(12);
+
+  let y = titleY + 28;
+  let index = 0;
+
+  const formattedRows = rows.map((row) => {
+    const [label, partnerA, match, flag, partnerB] = Array.isArray(row) ? row : [];
+    const normalizedMatch = normalizeMatchValue(match);
+    return {
+      label: shortenLabel(label || ''),
+      partnerA: normalizeScoreValue(partnerA),
+      partnerB: normalizeScoreValue(partnerB),
+      match: normalizedMatch,
+      flag: flag ?? '',
+    };
+  });
+
+  while (index < formattedRows.length) {
+    const remainingItems = formattedRows.slice(index);
+    const availableSpace = maxContentY - (y + sectionStyle.paddingTop + sectionStyle.paddingBottom);
+    let maxRows = Math.floor((availableSpace - sectionBaseHeight) / rowHeight);
+
+    if (!Number.isFinite(maxRows) || maxRows < 1) {
+      doc.addPage();
+      drawBackground();
+      if (typeof doc.setFont === 'function') doc.setFont('helvetica', 'normal');
+      if (typeof doc.setFontSize === 'function') doc.setFontSize(12);
+      y = marginTop;
+      continue;
+    }
+
+    const chunk = remainingItems.slice(0, Math.max(1, maxRows));
+    const sectionLabel = index === 0 ? 'Compatibility Overview' : 'Compatibility Overview (cont.)';
+
+    const endY = renderCategorySection(doc, sectionLabel, chunk, layout, y, sectionStyle);
+    y = endY + sectionStyle.paddingBottom + 10;
+    index += chunk.length;
+  }
+}
+
 export async function generateCompatibilityPDF(data = { categories: [] }, options = {}) {
   if (DEBUG) {
     console.log('PDF function triggered');
   }
 
+  const stateRows = parseCompatRowsFromState();
+  const hasExplicitCategories = Array.isArray(data?.categories) && data.categories.length > 0;
+
+  if (!hasExplicitCategories && (!Array.isArray(stateRows) || stateRows.length === 0)) {
+    console.error('[compat-pdf] No compatibility rows found – cannot build PDF');
+    if (typeof alert === 'function') {
+      alert(
+        'I could not find any compatibility data to include in the PDF. ' +
+        'Please make sure both surveys are uploaded and comparison has been run.'
+      );
+    }
+    return null;
+  }
+
   const jsPDFCtor =
-    (window.jspdf && window.jspdf.jsPDF) ||
-    (window.jsPDF && window.jsPDF.jsPDF) ||
-    window.jsPDF;
+    (typeof window !== 'undefined' && window.jspdf && window.jspdf.jsPDF) ||
+    (typeof window !== 'undefined' && window.jsPDF && window.jsPDF.jsPDF) ||
+    (typeof window !== 'undefined' && window.jsPDF) ||
+    null;
+
   if (!jsPDFCtor) {
     throw new Error('jsPDF failed to load');
   }
+
+  if (!hasExplicitCategories) {
+    const doc = new jsPDFCtor({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+    if (typeof doc.setLineWidth !== 'function') {
+      doc.setLineWidth = function noopSetLineWidth() {};
+    }
+
+    await renderCompatibilityReport(doc, stateRows);
+
+    const filename = options?.filename || 'TalkKink-Compatibility.pdf';
+    downloadCompatibilityPDF(doc, filename);
+    return doc;
+  }
+
   const doc = new jsPDFCtor({ orientation: 'landscape' });
   if (typeof doc.setLineWidth !== 'function') {
     doc.setLineWidth = function noopSetLineWidth() {};
@@ -211,7 +379,6 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
   const {
     filename = 'compatibility_report.pdf',
     save = true,
-    saveHook = null,
   } = options || {};
 
   const config = {
@@ -228,10 +395,10 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
   const layout = buildLayout(startX, usableWidth);
 
   const drawBackground = () => {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageWidthInner = doc.internal.pageSize.getWidth();
+    const pageHeightInner = doc.internal.pageSize.getHeight();
     doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    doc.rect(0, 0, pageWidthInner, pageHeightInner, 'F');
     doc.setTextColor(255, 255, 255);
   };
 
@@ -309,6 +476,7 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
           partnerA: aScoreRaw,
           partnerB: bScoreRaw,
           match: matchPercent,
+          flag: item.flag ?? '',
         };
       });
 
@@ -343,17 +511,13 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
   }
 
   if (save !== false) {
-    if (typeof saveHook === 'function') {
-      await saveHook(doc, filename);
-    } else if (typeof doc.save === 'function') {
-      await doc.save(filename);
-    }
+    downloadCompatibilityPDF(doc, filename);
   }
 
   return doc;
 }
 
-if (typeof document !== 'undefined') {
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
   document.addEventListener('DOMContentLoaded', () => {
     const downloadBtn = document.getElementById('downloadBtn');
 

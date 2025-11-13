@@ -1,14 +1,13 @@
-import { savePDF as savePdfDownload } from './talkKinkDownload.js';
 import { loadJsPDF } from './loadJsPDF.js';
 
-let pdfSaver = savePdfDownload;
+let pdfSaver = null;
 
 export function __setPdfSaverForTests(fn) {
-  pdfSaver = typeof fn === 'function' ? fn : savePdfDownload;
+  pdfSaver = typeof fn === 'function' ? fn : null;
 }
 
 export function __resetPdfSaverForTests() {
-  pdfSaver = savePdfDownload;
+  pdfSaver = null;
 }
 
 'use strict';
@@ -654,21 +653,15 @@ export async function downloadCompatibilityPDF(...args){
   const history = getHistoryData(options);
   const data = { categories: pdfCategories, history };
 
-  const saveHook = async (doc, name) => {
-    if (typeof pdfSaver === 'function') {
-      try {
-        await pdfSaver(doc, name);
-        return;
-      } catch (error) {
-        console.error('[pdf] download helper failed, falling back to jsPDF.save()', error);
-      }
-    }
-    if (typeof doc.save === 'function') {
-      doc.save(name);
-    }
-  };
+  const doc = await generateCompatibilityPDF(data, { filename });
 
-  await generateCompatibilityPDF(data, { filename, saveHook });
+  if (typeof pdfSaver === 'function') {
+    try {
+      await pdfSaver(doc, filename);
+    } catch (error) {
+      console.error('[pdf] custom pdfSaver hook failed', error);
+    }
+  }
 }
 
 export function bindPdfButton(){
