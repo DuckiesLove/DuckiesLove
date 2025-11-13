@@ -1,6 +1,12 @@
 let cachedJsPDF = null;
 let pendingLoad = null;
 
+const CDN_SOURCES = [
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+  'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
+];
+
 function getGlobalCandidates() {
   const ordered = [];
   if (typeof globalThis !== 'undefined' && globalThis.window) {
@@ -18,6 +24,13 @@ function getGlobalCandidates() {
     seen.add(candidate);
     return true;
   });
+}
+
+function getDocument() {
+  if (typeof document !== 'undefined' && document) return document;
+  if (typeof window !== 'undefined' && window && window.document) return window.document;
+  if (typeof globalThis !== 'undefined' && globalThis.document) return globalThis.document;
+  return null;
 }
 
 function extractCtor(target) {
@@ -45,12 +58,22 @@ function assignAliases(scope, ctor) {
     if (typeof target.jsPDF !== 'function') {
       target.jsPDF = ctor;
     }
+    if (!target.jspdf) {
+      target.jspdf = { jsPDF: ctor };
+    } else if (typeof target.jspdf === 'object' && !target.jspdf.jsPDF) {
+      target.jspdf.jsPDF = ctor;
+    }
   }
   if (typeof globalThis.window === 'undefined' || globalThis.window == null) {
     globalThis.window = scope || globalThis;
   }
   if (typeof globalThis.jsPDF !== 'function') {
     globalThis.jsPDF = ctor;
+  }
+  if (!globalThis.jspdf || typeof globalThis.jspdf !== 'object') {
+    globalThis.jspdf = { jsPDF: ctor };
+  } else if (!globalThis.jspdf.jsPDF) {
+    globalThis.jspdf.jsPDF = ctor;
   }
 }
 
@@ -64,9 +87,52 @@ function findExistingJsPDF() {
   return { ctor: null, scope: null };
 }
 
-async function importFrom(rel) {
-  const url = new URL(rel, import.meta.url);
-  await import(/* @vite-ignore */ url.href);
+function getScriptByKey(doc, key) {
+  if (!doc || typeof doc.querySelector !== 'function') return null;
+  if (!key) return null;
+  try {
+    return doc.querySelector(`script[data-lib="${key}"]`);
+  } catch (_) {
+    return null;
+  }
+}
+
+function injectScript(src, key) {
+  const doc = getDocument();
+  if (!doc || typeof doc.createElement !== 'function' || !doc.head) {
+    throw new Error('No document available for jsPDF injection');
+  }
+
+  const existing = getScriptByKey(doc, key) || (doc.querySelector ? doc.querySelector(`script[src="${src}"]`) : null);
+  if (existing) {
+    if (existing.dataset && existing.dataset.loaded === '1') {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      existing.addEventListener?.('load', () => {
+        if (existing.dataset) existing.dataset.loaded = '1';
+        resolve();
+      }, { once: true });
+      existing.addEventListener?.('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+    });
+  }
+
+  const script = doc.createElement('script');
+  script.src = src;
+  script.defer = true;
+  script.async = true;
+  script.crossOrigin = 'anonymous';
+  script.referrerPolicy = 'no-referrer';
+  if (key && script.dataset) script.dataset.lib = key;
+
+  return new Promise((resolve, reject) => {
+    script.onload = () => {
+      if (key && script.dataset) script.dataset.loaded = '1';
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    doc.head.appendChild(script);
+  });
 }
 
 async function loadJsPDFInternal() {
@@ -76,16 +142,10 @@ async function loadJsPDFInternal() {
     return existingCtor;
   }
 
-  const sources = [
-    './vendor/jspdf.umd.min.js',
-    '../vendor/jspdf.umd.min.js',
-    '../assets/js/vendor/jspdf.umd.min.js',
-  ];
-
   let lastError = null;
-  for (const rel of sources) {
+  for (const src of CDN_SOURCES) {
     try {
-      await importFrom(rel);
+      await injectScript(src, 'jspdf');
     } catch (error) {
       lastError = error;
       continue;
@@ -104,7 +164,7 @@ async function loadJsPDFInternal() {
     return finalCtor;
   }
 
-  const error = new Error('jsPDF failed to load');
+  const error = new Error('jsPDF failed to load from CDN');
   if (lastError) {
     error.cause = lastError;
   }
@@ -137,8 +197,7 @@ export async function ensureJsPDF() {
 }
 
 /**
- * Load the locally bundled jsPDF library. The vendor file is included in the
- * repository so no network access is required.
+ * Load jsPDF from a CDN (falling back across mirrors).
  */
 export async function loadJsPDF() {
   return ensureJsPDF();
