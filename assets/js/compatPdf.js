@@ -9,9 +9,29 @@
   // Config
   // ------------------------------
   const PDF_LAYOUT = 'legacy-left'; // 'legacy-left' | 'centered' (we want legacy-left)
+  const LOCAL = {
+    jspdf: [
+      '/vendor/jspdf.umd.min.js',
+      '/js/vendor/jspdf.umd.min.js',
+      '/assets/js/vendor/jspdf.umd.min.js',
+    ],
+    autotable: [
+      '/vendor/jspdf.plugin.autotable.min.js',
+      '/js/vendor/jspdf.plugin.autotable.min.js',
+      '/assets/js/vendor/jspdf.plugin.autotable.min.js',
+    ],
+  };
   const CDN = {
-    jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-    autotable: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+    jspdf: [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
+    ],
+    autotable: [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
+      'https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
+    ],
   };
   const SELECTORS = {
     downloadBtn: '#downloadPdfBtn', // change if your button has a different id
@@ -46,36 +66,98 @@
       s.crossOrigin = 'anonymous';
       s.referrerPolicy = 'no-referrer';
       if (dataKey) s.dataset.lib = dataKey;
+      s.defer = true;
       s.onload = () => { if (dataKey) s.dataset.loaded = '1'; resolve(); };
-      s.onerror = () => reject(new Error(`Failed to load ${src}`));
+      s.onerror = () => {
+        // Remove failed tag so fallbacks can insert their own script element.
+        try { s.remove(); } catch (_) {}
+        reject(new Error(`Failed to load ${src}`));
+      };
       document.head.appendChild(s);
     });
   }
 
+  function jsPdfPresent() {
+    return !!(window.jspdf && window.jspdf.jsPDF) || !!window.jsPDF;
+  }
+
+  function autoTablePresent(jsPDF) {
+    const api =
+      (jsPDF && jsPDF.API && (jsPDF.API.autoTable || jsPDF.API.__autoTable__)) ||
+      (window.jsPDF && window.jsPDF.API && (window.jsPDF.API.autoTable || window.jsPDF.API.__autoTable__)) ||
+      (window.jspdf && window.jspdf.autoTable);
+    return !!api;
+  }
+
+  async function loadWithFallback(sources, dataKey) {
+    let lastError = null;
+    for (const src of sources) {
+      try {
+        await injectScriptOnce(src, dataKey);
+        return;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    if (lastError) throw lastError;
+  }
+
   async function ensureJsPDF() {
-    // UMD v2 exposes window.jspdf.jsPDF
-    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
-    // Legacy global
-    if (window.jsPDF) return window.jsPDF;
+    if (jsPdfPresent()) {
+      return window.jspdf?.jsPDF || window.jsPDF;
+    }
 
-    // Try loading UMD from CDN
-    await injectScriptOnce(CDN.jspdf, 'jspdf');
-    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
-    if (window.jsPDF) return window.jsPDF;
+    const attempts = [...LOCAL.jspdf, ...CDN.jspdf];
+    try {
+      await loadWithFallback(attempts, 'jspdf');
+    } catch (err) {
+      throw new Error(`jsPDF failed to load: ${err?.message || err}`);
+    }
 
-    throw new Error('jsPDF failed to load');
+    if (!jsPdfPresent()) {
+      throw new Error('jsPDF not available after local/CDN attempts');
+    }
+
+    return window.jspdf?.jsPDF || window.jsPDF;
   }
 
   async function ensureAutoTable(jsPDF) {
     // autoTable augments the jsPDF prototype; check presence
-    const hasAutoTable =
-      !!(jsPDF && (jsPDF.API && (jsPDF.API.autoTable || jsPDF.API?.__autoTable__)));
-    if (hasAutoTable) return true;
+    if (autoTablePresent(jsPDF)) return true;
 
-    // Load plugin
-    await injectScriptOnce(CDN.autotable, 'jspdf-autotable');
+    const attempts = [...LOCAL.autotable, ...CDN.autotable];
+    try {
+      await loadWithFallback(attempts, 'jspdf-autotable');
+    } catch (err) {
+      throw new Error(`autoTable failed to load: ${err?.message || err}`);
+    }
 
-    return !!(jsPDF && (jsPDF.API && (jsPDF.API.autoTable || jsPDF.API?.__autoTable__)));
+    return autoTablePresent(jsPDF);
+  }
+
+  let libsReadyPromise = null;
+
+  function ensurePdfLibsReady() {
+    if (!libsReadyPromise) {
+      libsReadyPromise = (async () => {
+        const jsPDF = await ensureJsPDF();
+        const hasAutoTable = await ensureAutoTable(jsPDF).catch(() => false);
+
+        try {
+          const doc = new jsPDF();
+          if (!doc) throw new Error('constructor returned undefined');
+        } catch (err) {
+          throw new Error(`jsPDF constructor test failed: ${err?.message || err}`);
+        }
+
+        return { jsPDF, hasAutoTable };
+      })().catch(err => {
+        libsReadyPromise = null;
+        throw err;
+      });
+    }
+
+    return libsReadyPromise;
   }
 
   // ------------------------------
@@ -230,7 +312,7 @@
   // Public: generate + download
   // ------------------------------
   async function generateCompatibilityPDF(rows) {
-    const jsPDF = await ensureJsPDF();
+    const { jsPDF, hasAutoTable } = await ensurePdfLibsReady();
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
 
     // Choose the left-aligned legacy look
@@ -238,7 +320,7 @@
       // (Optional: add centered logic if you ever need it again)
     }
 
-    const hasAT = await ensureAutoTable(jsPDF).catch(() => false);
+    const hasAT = hasAutoTable;
     if (hasAT) {
       renderWithAutoTable(doc, rows);
     } else {
@@ -259,16 +341,22 @@
     // Disable until libs are ready
     btn.disabled = true;
 
-    Promise.all([ensureJsPDF().then(() => true).catch(() => false)])
-      .then(() => { btn.disabled = false; })
-      .catch(() => {
+    ensurePdfLibsReady()
+      .then(() => {
+        btn.disabled = false;
+      })
+      .catch(err => {
+        console.error('[compat-pdf] PDF libs unavailable', err);
         btn.disabled = true;
-        btn.title = 'PDF temporarily unavailable';
+        btn.title = 'PDF temporarily unavailable (libs failed to load)';
       });
 
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       try {
+        // Ensure libs ready (caches after first pass)
+        await ensurePdfLibsReady();
+
         // You likely already have your processed rows ready.
         // Example stub (replace with your real rows):
         const rows = window.talkkinkCompatRows || [
@@ -286,6 +374,7 @@
   // Expose a direct API too (so you can call from elsewhere)
   window.TKCompatPDF = {
     download: generateCompatibilityPDF,
+    ensureLibs: ensurePdfLibsReady,
   };
 
   // Auto-init when DOM ready (safe if button not present)
