@@ -1105,6 +1105,29 @@
 
   const statusEls = { self: null, partner: null };
 
+  const STATUS_SELECTORS = {
+    self: '#yourStatus, [data-compat-status="self"]',
+    partner: '#partnerStatus, [data-compat-status="partner"]'
+  };
+
+  function resolveStatusEl(which) {
+    const key = which === 'partner' ? 'partner' : 'self';
+    let el = statusEls[key];
+    if (el && el.isConnected) return el;
+
+    const selector = STATUS_SELECTORS[key];
+    if (selector) {
+      el = document.querySelector(selector);
+      if (el) {
+        statusEls[key] = el;
+        return el;
+      }
+    }
+
+    statusEls[key] = null;
+    return null;
+  }
+
   window.__TK_FAST_UPLOADS__ = true;
   window.__TK_ALLOW_SINGLE_PDF__ = true;
 
@@ -1120,7 +1143,7 @@
 
   // ---------- HELPERS ----------
   function setStatus(which, message, state = 'info') {
-    const el = statusEls[which];
+    const el = resolveStatusEl(which);
     if (!el) return;
     if (!message) {
       el.hidden = true;
