@@ -1,201 +1,298 @@
+/**
+ * TalkKink Compatibility PDF — legacy-left layout (title centered, table left-aligned)
+ * Drop this whole file in as compatPdf.js (or paste into your existing file).
+ * It defensively loads jsPDF + autoTable if missing, then renders the old-good layout.
+ */
+
 (() => {
-  if (window.__TK_ASSET_COMPAT_PDF__) return;
-  window.__TK_ASSET_COMPAT_PDF__ = true;
-
-  const scriptDir = (() => {
-    try {
-      const current = document.currentScript;
-      if (current && current.src) return new URL('./', current.src);
-    } catch (_) {
-      /* ignore */
-    }
-    return new URL('./', window.location.href);
-  })();
-
-  const moduleUrl = new URL('../../js/compatibilityPdf.js', scriptDir).href;
-
-  let generatorPromise = null;
-  async function loadGenerator() {
-    if (!generatorPromise) {
-      generatorPromise = import(moduleUrl)
-        .then((mod) => {
-          const fn = mod?.generateCompatibilityPDF || mod?.default;
-          if (typeof fn !== 'function') {
-            throw new Error('generateCompatibilityPDF is unavailable after loading compatibilityPdf.js');
-          }
-          return fn;
-        })
-        .catch((error) => {
-          console.error('[compat-pdf] Failed to load compatibilityPdf.js', error);
-          throw error;
-        });
-    }
-    return generatorPromise;
-  }
-
-  async function runGenerator(opts = {}) {
-    const generate = await loadGenerator();
-    return generate(undefined, opts);
-  }
-
-  const JSPDF_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-  const scriptLoadCache = new Map();
-
-  const getJsPDFCtor = () =>
-    window.jspdf?.jsPDF ||
-    window.jsPDF?.jsPDF ||
-    window.jsPDF ||
-    null;
-
-  const waitForScript = (script) => new Promise((resolve, reject) => {
-    if (!script) {
-      resolve();
-      return;
-    }
-
-    const state = script.readyState;
-    if (state === 'loaded' || state === 'complete') {
-      resolve();
-      return;
-    }
-
-    const cleanup = () => {
-      script.removeEventListener('load', onLoad);
-      script.removeEventListener('error', onError);
-    };
-
-    function onLoad() {
-      cleanup();
-      resolve();
-    }
-
-    function onError(event) {
-      cleanup();
-      const reason = event?.message ? new Error(event.message) : new Error('Failed to load script');
-      reject(reason);
-    }
-
-    script.addEventListener('load', onLoad, { once: true });
-    script.addEventListener('error', onError, { once: true });
-  });
-
-  const loadScript = (src) => {
-    if (!src) return Promise.reject(new Error('Script src missing'));
-
-    if (scriptLoadCache.has(src)) {
-      return scriptLoadCache.get(src);
-    }
-
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      const promise = waitForScript(existing);
-      scriptLoadCache.set(src, promise);
-      return promise;
-    }
-
-    const promise = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = src;
-      script.async = true;
-      script.defer = true;
-      script.addEventListener('load', () => resolve(), { once: true });
-      script.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
-      document.head.appendChild(script);
-    });
-
-    scriptLoadCache.set(src, promise);
-    return promise;
+  // ------------------------------
+  // Config
+  // ------------------------------
+  const PDF_LAYOUT = 'legacy-left'; // 'legacy-left' | 'centered' (we want legacy-left)
+  const CDN = {
+    jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    autotable: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
   };
+  const SELECTORS = {
+    downloadBtn: '#downloadPdfBtn', // change if your button has a different id
+  };
+
+  // Column model (letter landscape)
+  const COLS = [
+    { key: 'item',  header: 'Item',      w: 240 },
+    { key: 'a',     header: 'Partner A', w:  80 },
+    { key: 'match', header: 'Match',     w:  90 },
+    { key: 'b',     header: 'Partner B', w:  90 },
+    { key: 'flag',  header: 'Flag',      w:  60 },
+  ];
+
+  // ------------------------------
+  // Script loaders (defensive)
+  // ------------------------------
+  function injectScriptOnce(src, dataKey) {
+    return new Promise((resolve, reject) => {
+      // Already present?
+      if (dataKey) {
+        const existing = document.querySelector(`script[data-lib="${dataKey}"]`);
+        if (existing && existing.dataset.loaded === '1') return resolve();
+        if (existing) {
+          existing.addEventListener('load', () => resolve(), { once: true });
+          existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+          return;
+        }
+      }
+      const s = document.createElement('script');
+      s.src = src;
+      s.crossOrigin = 'anonymous';
+      s.referrerPolicy = 'no-referrer';
+      if (dataKey) s.dataset.lib = dataKey;
+      s.onload = () => { if (dataKey) s.dataset.loaded = '1'; resolve(); };
+      s.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(s);
+    });
+  }
 
   async function ensureJsPDF() {
-    const ctor = getJsPDFCtor();
-    if (ctor) return ctor;
+    // UMD v2 exposes window.jspdf.jsPDF
+    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    // Legacy global
+    if (window.jsPDF) return window.jsPDF;
 
-    if (typeof window.tkLoadPdfLibs === 'function') {
-      try {
-        await window.tkLoadPdfLibs();
-      } catch (error) {
-        console.warn('[compat-pdf] tkLoadPdfLibs failed to load jsPDF', error);
-      }
-    }
+    // Try loading UMD from CDN
+    await injectScriptOnce(CDN.jspdf, 'jspdf');
+    if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    if (window.jsPDF) return window.jsPDF;
 
-    let loadedCtor = getJsPDFCtor();
-    if (loadedCtor) return loadedCtor;
-
-    const taggedScript = document.querySelector('script[data-lib="jspdf"]');
-    if (taggedScript) {
-      try {
-        await waitForScript(taggedScript);
-      } catch (error) {
-        console.warn('[compat-pdf] Failed waiting for existing jsPDF script', error);
-      }
-    }
-
-    loadedCtor = getJsPDFCtor();
-    if (loadedCtor) return loadedCtor;
-
-    await loadScript(JSPDF_CDN);
-
-    loadedCtor = getJsPDFCtor();
-    if (!loadedCtor) {
-      throw new Error('jsPDF not available');
-    }
-
-    return loadedCtor;
+    throw new Error('jsPDF failed to load');
   }
 
-  const handlePdfError = (err) => {
-    console.error('[compat-pdf] Failed to generate compatibility PDF', err);
-    alert('Could not generate the compatibility PDF. Check the console for details.');
-  };
+  async function ensureAutoTable(jsPDF) {
+    // autoTable augments the jsPDF prototype; check presence
+    const hasAutoTable =
+      !!(jsPDF && (jsPDF.API && (jsPDF.API.autoTable || jsPDF.API?.__autoTable__)));
+    if (hasAutoTable) return true;
 
-  window.TKPDF = {
-    download: async (opts = {}) => {
-      try {
-        await ensureJsPDF();
-        return await runGenerator(opts);
-      } catch (err) {
-        handlePdfError(err);
-        return null;
-      }
-    },
-    generateFromStorage: async () => {
-      try {
-        await ensureJsPDF();
-        return await runGenerator();
-      } catch (err) {
-        handlePdfError(err);
-        return null;
-      }
-    },
-  };
+    // Load plugin
+    await injectScriptOnce(CDN.autotable, 'jspdf-autotable');
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.querySelector('#downloadPdfBtn, #downloadBtn, [data-download-pdf]');
-    if (!btn) {
-      console.error('[compat-pdf] Download button not found');
-      return;
+    return !!(jsPDF && (jsPDF.API && (jsPDF.API.autoTable || jsPDF.API?.__autoTable__)));
+  }
+
+  // ------------------------------
+  // Helpers
+  // ------------------------------
+  function mm(v) { return v; } // using 'pt' by default; keep as identity
+
+  function truncateToWidth(doc, text, width) {
+    if (!text) return '';
+    if (doc.getTextWidth(String(text)) <= width) return String(text);
+    const ell = '…';
+    let s = String(text);
+    while (s.length && doc.getTextWidth(s + ell) > width) s = s.slice(0, -1);
+    return s + ell;
+  }
+
+  function centerText(doc, text, y, fontSize = 12, font = ['helvetica', 'bold']) {
+    const [fam, style] = font;
+    doc.setFont(fam, style);
+    doc.setFontSize(fontSize);
+    const pageW = doc.internal.pageSize.getWidth();
+    const tw = doc.getTextWidth(text);
+    doc.text(text, (pageW - tw) / 2, y);
+  }
+
+  // ------------------------------
+  // Renderer (autoTable version — preferred)
+  // ------------------------------
+  function renderWithAutoTable(doc, rows) {
+    // Page background (dark mode like your screenshot)
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    doc.setTextColor(255, 255, 255);
+
+    // Title (centered)
+    centerText(doc, 'TalkKink Compatibility Report', 70, 32, ['helvetica', 'bold']);
+
+    // Subtitle (centered)
+    centerText(doc, 'Compatibility Overview', 110, 18, ['helvetica', 'bold']);
+
+    // Prepare data for autoTable
+    const columns = COLS.map((c, idx) => ({
+      header: c.header,
+      dataKey: String(idx),
+    }));
+    const body = rows.map(r => ([
+      r.item ?? '',
+      String(r.a ?? ''),
+      String(r.match ?? ''),
+      String(r.b ?? ''),
+      String(r.flag ?? ''),
+    ]));
+
+    // Left align body; center the head; fixed widths to match legacy
+    doc.autoTable({
+      columns,
+      body,
+      startY: 140,
+      margin: { left: 40, right: 40 },
+      styles: {
+        font: 'helvetica',
+        fontSize: 11,
+        halign: 'left',           // BODY LEFT
+        valign: 'middle',
+        cellPadding: 3,
+        textColor: [255, 255, 255],
+        fillColor: [0, 0, 0],
+        lineColor: [160, 160, 160],
+        lineWidth: 0.5,
+      },
+      headStyles: {
+        halign: 'center',         // HEAD CENTER
+        fontStyle: 'bold',
+        textColor: [255, 255, 255],
+        fillColor: [0, 0, 0],
+        lineColor: [160, 160, 160],
+        lineWidth: 0.75,
+      },
+      columnStyles: {
+        0: { cellWidth: COLS[0].w, halign: 'left' },
+        1: { cellWidth: COLS[1].w, halign: 'left' },
+        2: { cellWidth: COLS[2].w, halign: 'left' },
+        3: { cellWidth: COLS[3].w, halign: 'left' },
+        4: { cellWidth: COLS[4].w, halign: 'left' },
+      },
+      theme: 'grid',
+      overflow: 'linebreak',      // wrap long items rather than expanding cells
+      didParseCell: (data) => {
+        // Ensure legacy-left: if some global default tries to center, we override
+        if (data.section === 'body') data.cell.styles.halign = 'left';
+      },
+      didDrawPage: () => {
+        // Ensure fonts/colors persist after headers
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'normal');
+      },
+    });
+  }
+
+  // ------------------------------
+  // Renderer (fallback if autoTable missing)
+  // ------------------------------
+  function renderFallback(doc, rows) {
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const marginL = 40;
+    const startY = 140;
+
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    doc.setTextColor(255, 255, 255);
+
+    centerText(doc, 'TalkKink Compatibility Report', 70, 32, ['helvetica', 'bold']);
+    centerText(doc, 'Compatibility Overview', 110, 18, ['helvetica', 'bold']);
+
+    // Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    let x = marginL;
+    const headers = COLS.map(c => c.header);
+    headers.forEach((h, i) => {
+      doc.text(h, x, startY);
+      x += COLS[i].w;
+    });
+
+    // Body
+    doc.setFont('helvetica', 'normal');
+    let y = startY + 18;
+    rows.forEach(r => {
+      x = marginL;
+      const vals = [r.item ?? '', String(r.a ?? ''), String(r.match ?? ''), String(r.b ?? ''), String(r.flag ?? '')];
+      vals.forEach((v, i) => {
+        const txt = truncateToWidth(doc, v, COLS[i].w - 6);
+        doc.text(txt, x, y);
+        x += COLS[i].w;
+      });
+      y += 16;
+    });
+
+    // Border around table
+    const tableW = COLS.reduce((sum, c) => sum + c.w, 0);
+    const rowsCount = rows.length;
+    const tableH = (rowsCount + 2) * 16; // rough height
+    doc.setDrawColor(160, 160, 160);
+    doc.setLineWidth(0.75);
+    doc.rect(marginL - 6, startY - 26, tableW + 12, Math.max(60, tableH), 'S');
+  }
+
+  // ------------------------------
+  // Public: generate + download
+  // ------------------------------
+  async function generateCompatibilityPDF(rows) {
+    const jsPDF = await ensureJsPDF();
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+
+    // Choose the left-aligned legacy look
+    if (PDF_LAYOUT !== 'legacy-left') {
+      // (Optional: add centered logic if you ever need it again)
     }
 
-    const restoreState = !btn.disabled;
+    const hasAT = await ensureAutoTable(jsPDF).catch(() => false);
+    if (hasAT) {
+      renderWithAutoTable(doc, rows);
+    } else {
+      // Fallback table drawing if autoTable couldn't be loaded
+      renderFallback(doc, rows);
+    }
+
+    doc.save('compatibility.pdf');
+  }
+
+  // ------------------------------
+  // Wire up button (optional)
+  // ------------------------------
+  function setupButton() {
+    const btn = document.querySelector(SELECTORS.downloadBtn);
+    if (!btn) return;
+
+    // Disable until libs are ready
     btn.disabled = true;
 
-    ensureJsPDF()
-      .then(() => {
-        if (restoreState) btn.disabled = false;
-      })
-      .catch((err) => {
-        console.error('[compat-pdf] jsPDF not available', err);
+    Promise.all([ensureJsPDF().then(() => true).catch(() => false)])
+      .then(() => { btn.disabled = false; })
+      .catch(() => {
+        btn.disabled = true;
         btn.title = 'PDF temporarily unavailable';
       });
 
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
       try {
-        await ensureJsPDF();
-        await runGenerator();
+        // You likely already have your processed rows ready.
+        // Example stub (replace with your real rows):
+        const rows = window.talkkinkCompatRows || [
+          { item: 'Giving: General', a: 0, match: '100%', b: 0, flag: '+P' },
+          { item: 'Receiving: Service', a: 5, match: '100%', b: 5, flag: '+P' },
+          // ...etc
+        ];
+        await generateCompatibilityPDF(rows);
       } catch (err) {
-        handlePdfError(err);
+        console.error('[compat-pdf] Failed to generate compatibility PDF', err);
       }
     });
-  });
+  }
+
+  // Expose a direct API too (so you can call from elsewhere)
+  window.TKCompatPDF = {
+    download: generateCompatibilityPDF,
+  };
+
+  // Auto-init when DOM ready (safe if button not present)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupButton, { once: true });
+  } else {
+    setupButton();
+  }
 })();
+
