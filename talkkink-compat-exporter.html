@@ -149,6 +149,9 @@
   } catch(e) {}
   // Also neutralize any old globals
   window.talkkinkCompatRows = undefined;
+  if (window.TKCompatPDF && typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
+    window.TKCompatPDF.notifyRowsUpdated([]);
+  }
 
   // 2) Theme + page constants
   const THEME = {
