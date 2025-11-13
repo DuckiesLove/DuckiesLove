@@ -169,9 +169,10 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
-    const downloadButton = document.querySelector('#downloadBtn');
+    const downloadButton = document.getElementById('downloadBtn');
+
     if (!downloadButton) {
-      console.warn('[compat] Download button missing (#downloadBtn) — PDF export disabled.');
+      console.error('[compat-pdf] Download button not found (#downloadBtn). Cannot attach PDF handler.');
       return;
     }
 
@@ -179,7 +180,8 @@
       try {
         await generateCompatibilityPdf();
       } catch (err) {
-        handlePdfError(err);
+        console.error('[compat-pdf] Failed to generate compatibility PDF', err);
+        alert('Could not generate the compatibility PDF. Check the console for details.');
       }
     });
   });

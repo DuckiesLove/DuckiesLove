@@ -351,28 +351,16 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
 }
 
 if (typeof document !== 'undefined') {
-  const attachHandler = () => {
-    const button = document.getElementById('downloadPdfBtn');
-    if (button) {
-      button.addEventListener('click', async () => {
-        try {
-          if (typeof window.showSpinner === 'function') window.showSpinner();
-          await generateCompatibilityPDF(window.compatibilityData);
-        } finally {
-          if (typeof window.hideSpinner === 'function') window.hideSpinner();
-        }
-      });
-    } else {
-      console.error('Download button not found');
-    }
-  };
+  document.addEventListener('DOMContentLoaded', () => {
+    const downloadBtn = document.getElementById('downloadBtn');
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachHandler);
-  } else {
-    // DOM already parsed when script loaded
-    attachHandler();
-  }
+    if (!downloadBtn) {
+      console.error('[compat] Download button not found (#downloadBtn) — PDF export disabled.');
+      return;
+    }
+
+    console.info('[compat] Download button found (#downloadBtn). PDF export enabled.');
+  });
 }
 
 export async function generateCompatibilityPDFLandscape(data) {
