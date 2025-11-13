@@ -1,5 +1,6 @@
 import * as helperModule from './compatibilityReportHelpers.js';
 import { shortenLabel } from './labelShortener.js';
+import { ensureJsPDF } from './loadJsPDF.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
 const FALLBACK_ROW_HEIGHT = 11;
@@ -196,13 +197,7 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
     console.log('PDF function triggered');
   }
 
-  const jsPDFCtor =
-    (window.jspdf && window.jspdf.jsPDF) ||
-    (window.jsPDF && window.jsPDF.jsPDF) ||
-    window.jsPDF;
-  if (!jsPDFCtor) {
-    throw new Error('jsPDF failed to load');
-  }
+  const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor({ orientation: 'landscape' });
 
   const {
@@ -377,13 +372,7 @@ if (typeof document !== 'undefined') {
 
 export async function generateCompatibilityPDFLandscape(data) {
   const categories = Array.isArray(data) ? data : data?.categories || [];
-  const jsPDFCtor =
-    (window.jspdf && window.jspdf.jsPDF) ||
-    (window.jsPDF && window.jsPDF.jsPDF) ||
-    window.jsPDF;
-  if (!jsPDFCtor) {
-    throw new Error('jsPDF failed to load');
-  }
+  const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const getPageMetrics = () => ({
     width: doc.internal.pageSize.getWidth(),

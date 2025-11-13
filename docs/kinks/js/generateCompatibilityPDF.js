@@ -1,5 +1,6 @@
 import { renderCategorySection, buildLayout } from './compatibilityReportHelpers.js';
 import { shortenLabel } from './labelShortener.js';
+import { ensureJsPDF } from './loadJsPDF.js';
 
 // Default PDF layout settings
 const defaultPdfStyles = {
@@ -30,20 +31,14 @@ function getHistoryIcon(score) {
   return '🔴';
 }
 
-export function generateCompatibilityPDF(compatibilityData, styleOptions = {}) {
+export async function generateCompatibilityPDF(compatibilityData, styleOptions = {}) {
   const pdfStyles = { ...defaultPdfStyles, ...styleOptions };
 
   const categories = Array.isArray(compatibilityData)
     ? compatibilityData
     : compatibilityData?.categories || [];
   const history = Array.isArray(compatibilityData) ? [] : compatibilityData?.history || [];
-  const jsPDFCtor =
-    (window.jspdf && window.jspdf.jsPDF) ||
-    (window.jsPDF && window.jsPDF.jsPDF) ||
-    window.jsPDF;
-  if (!jsPDFCtor) {
-    throw new Error('jsPDF failed to load');
-  }
+  const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
   const pageWidth = doc.internal.pageSize.getWidth();
