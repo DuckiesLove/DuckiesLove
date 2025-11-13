@@ -2430,7 +2430,15 @@
       setTimeout(() => mo.disconnect(), 3000);
     })();
   </script>
-<!-- Add this near the end of <body> so it can auto-bind the Download button -->
+<!-- Load jsPDF v2 UMD (exposes window.jspdf.jsPDF) -->
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+  crossorigin="anonymous"
+  referrerpolicy="no-referrer"
+  data-lib="jspdf"
+></script>
+
+<!-- Your code that uses jsPDF should come AFTER -->
 <script src="assets/js/compatPdf.js?v=clean-reset-1" defer></script>
 </body>
 
