@@ -77,6 +77,9 @@
         localStorage.removeItem('talkkink:compatRows');
       } catch (e) {}
       window.talkkinkCompatRows = [];
+      if (window.TKCompatPDF && typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
+        window.TKCompatPDF.notifyRowsUpdated([]);
+      }
 
       /* 1) find a single compatibility table; delete extras */
       const all = Array.from(document.querySelectorAll('table.compat-table, table#compatibility, table[data-compat]'));
@@ -1995,6 +1998,9 @@
 
     if (exportedRows.length) {
       window.talkkinkCompatRows = exportedRows;
+      if (window.TKCompatPDF && typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
+        window.TKCompatPDF.notifyRowsUpdated(exportedRows);
+      }
       try {
         localStorage.setItem('talkkink:compatRows', JSON.stringify(exportedRows));
       } catch (error) {
@@ -2003,6 +2009,9 @@
       console.info('[comparison] Saved compatibility rows for PDF:', exportedRows.length);
     } else {
       window.talkkinkCompatRows = [];
+      if (window.TKCompatPDF && typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
+        window.TKCompatPDF.notifyRowsUpdated([]);
+      }
       try {
         localStorage.removeItem('talkkink:compatRows');
       } catch (error) {

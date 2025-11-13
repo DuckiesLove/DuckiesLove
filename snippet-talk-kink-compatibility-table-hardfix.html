@@ -9,6 +9,9 @@
   } catch (e) {}
   // also disable any global snapshot
   window.talkkinkCompatRows = [];
+  if (window.TKCompatPDF && typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
+    window.TKCompatPDF.notifyRowsUpdated([]);
+  }
 
   // 1) Find all candidate tables (be aggressive)
   const tables = Array.from(document.querySelectorAll('table'))
