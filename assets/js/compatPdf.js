@@ -118,18 +118,16 @@
   const allowSinglePartner = () =>
     Boolean(window.__TK_ALLOW_SINGLE_PDF__ || document.body?.dataset?.allowSinglePdf === 'true');
 
-  async function runDownload(opts = {}) {
+  async function generateCompatibilityPdf(opts = {}) {
     if (activeDownload) return activeDownload;
 
     const { mine, partner } = pickSources(opts);
     if (!mine && !partner) {
-      alert('Upload at least one survey before downloading the compatibility PDF.');
-      return null;
+      throw new Error('Upload at least one survey before downloading the compatibility PDF.');
     }
 
     if (!allowSinglePartner() && !(mine && partner)) {
-      alert('Upload both surveys before downloading the compatibility PDF.');
-      return null;
+      throw new Error('Upload both surveys before downloading the compatibility PDF.');
     }
 
     const filename = deriveFilename(mine, partner, opts.filename);
@@ -138,9 +136,6 @@
       try {
         const download = await loadDownloader();
         await download(mine, partner, { filename });
-      } catch (error) {
-        console.error('[compat-pdf] Failed to generate compatibility PDF', error);
-        alert('Could not generate the compatibility PDF. Check the console for details.');
       } finally {
         activeDownload = null;
       }
@@ -149,42 +144,47 @@
     return activeDownload;
   }
 
-  window.TKPDF = {
-    download: (opts = {}) => runDownload(opts),
-    generateFromStorage: () => runDownload(),
+  const handlePdfError = (err) => {
+    console.error('[compat-pdf] Failed to generate compatibility PDF', err);
+    alert('Could not generate the compatibility PDF. Check the console for details.');
   };
 
-  function rebindDownloadButton() {
-    if (window.__TKPDF_BOUND__) return;
-    window.__TKPDF_BOUND__ = true;
+  window.TKPDF = {
+    download: async (opts = {}) => {
+      try {
+        return await generateCompatibilityPdf(opts);
+      } catch (err) {
+        handlePdfError(err);
+        return null;
+      }
+    },
+    generateFromStorage: async () => {
+      try {
+        return await generateCompatibilityPdf();
+      } catch (err) {
+        handlePdfError(err);
+        return null;
+      }
+    },
+  };
 
-    const findBtn = () =>
-      document.querySelector('#downloadPdfBtn, #btnDownloadPdf, #downloadBtn') ||
-      [...document.querySelectorAll('button, a')].find((el) => /download pdf/i.test(el.textContent || ''));
+  document.addEventListener('DOMContentLoaded', () => {
+    const downloadButton = document.querySelector('#compat-download-btn');
 
-    const btn = findBtn();
-    if (!btn) {
-      console.warn('[compat-pdf] download button not found');
+    if (!downloadButton) {
+      console.error(
+        '[compat-pdf] Download button not found. ' +
+          'Make sure there is a <button id="compat-download-btn">Download PDF</button> on the page.'
+      );
       return;
     }
 
-    const clone = btn.cloneNode(true);
-    btn.replaceWith(clone);
-
-    clone.addEventListener(
-      'click',
-      (event) => {
-        event.preventDefault?.();
-        event.stopPropagation?.();
-        runDownload();
-      },
-      { passive: true }
-    );
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', rebindDownloadButton, { once: true });
-  } else {
-    rebindDownloadButton();
-  }
+    downloadButton.addEventListener('click', async () => {
+      try {
+        await generateCompatibilityPdf();
+      } catch (err) {
+        handlePdfError(err);
+      }
+    });
+  });
 })();
