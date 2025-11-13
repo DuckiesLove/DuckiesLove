@@ -169,13 +169,9 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
-    const downloadButton = document.querySelector('#compat-download-btn');
-
+    const downloadButton = document.querySelector('#downloadBtn');
     if (!downloadButton) {
-      console.error(
-        '[compat-pdf] Download button not found. ' +
-          'Make sure there is a <button id="compat-download-btn">Download PDF</button> on the page.'
-      );
+      console.warn('[compat] Download button missing (#downloadBtn) — PDF export disabled.');
       return;
     }
 
