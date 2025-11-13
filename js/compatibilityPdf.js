@@ -1,5 +1,6 @@
 import * as helperModule from './compatibilityReportHelpers.js';
 import { shortenLabel } from './labelShortener.js';
+import { ensureJsPDF } from './loadJsPDF.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
 export function downloadCompatibilityPDF(doc, filename = 'TalkKink-Compatibility.pdf') {
@@ -348,15 +349,7 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
     return null;
   }
 
-  const jsPDFCtor =
-    (typeof window !== 'undefined' && window.jspdf && window.jspdf.jsPDF) ||
-    (typeof window !== 'undefined' && window.jsPDF && window.jsPDF.jsPDF) ||
-    (typeof window !== 'undefined' && window.jsPDF) ||
-    null;
-
-  if (!jsPDFCtor) {
-    throw new Error('jsPDF failed to load');
-  }
+  const jsPDFCtor = await ensureJsPDF();
 
   if (!hasExplicitCategories) {
     const doc = new jsPDFCtor({ orientation: 'portrait', unit: 'pt', format: 'letter' });
@@ -532,13 +525,7 @@ if (typeof document !== 'undefined' && typeof document.addEventListener === 'fun
 
 export async function generateCompatibilityPDFLandscape(data) {
   const categories = Array.isArray(data) ? data : data?.categories || [];
-  const jsPDFCtor =
-    (window.jspdf && window.jspdf.jsPDF) ||
-    (window.jsPDF && window.jsPDF.jsPDF) ||
-    window.jsPDF;
-  if (!jsPDFCtor) {
-    throw new Error('jsPDF failed to load');
-  }
+  const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const getPageMetrics = () => ({
     width: doc.internal.pageSize.getWidth(),

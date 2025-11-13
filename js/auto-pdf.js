@@ -52,7 +52,7 @@ async function generatePDF(data) {
       throw new Error('jsPDF failed to load');
     }
     const { generateCompatibilityPDF } = await import('./compatibilityPdf.js');
-    generateCompatibilityPDF(data);
+    await generateCompatibilityPDF(data);
   } catch (err) {
     console.error(err);
     throw err;
