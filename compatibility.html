@@ -1011,6 +1011,7 @@
   <script>
   // LOCAL-ONLY loader to avoid Edge "Tracking Prevention" warnings.
   // Place files at /vendor/jspdf.umd.min.js and /vendor/jspdf.plugin.autotable.min.js
+  // (or the fallback /js/vendor/ copies used in local development)
   async function tkLoadPdfLibs() {
     const hasPdf = () =>
       Boolean(
@@ -1025,23 +1026,40 @@
           const s = document.createElement('script');
           s.src = src;
           s.async = true;
-          s.onload = resolve;
-          s.onerror = reject;
+          s.onload = () => resolve(src);
+          s.onerror = () => reject(new Error(src));
           document.head.appendChild(s);
         });
 
-      await inject('/vendor/jspdf.umd.min.js');
+      const tryInject = async (candidates) => {
+        let lastError = null;
+        for (const path of candidates) {
+          try {
+            return await inject(path);
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        if (lastError) throw lastError;
+        throw new Error('No script sources provided');
+      };
+
+      await tryInject(['/vendor/jspdf.umd.min.js', '/js/vendor/jspdf.umd.min.js', '/assets/js/vendor/jspdf.umd.min.js']);
 
       if (!window.jsPDF && window.jspdf?.jsPDF) {
         window.jsPDF = window.jspdf.jsPDF;
       }
 
-      await inject('/vendor/jspdf.plugin.autotable.min.js');
+      await tryInject([
+        '/vendor/jspdf.plugin.autotable.min.js',
+        '/js/vendor/jspdf.plugin.autotable.min.js',
+        '/assets/js/vendor/jspdf.plugin.autotable.min.js'
+      ]);
     }
 
     const ctor = window.jspdf?.jsPDF || window.jsPDF;
     if (!ctor) {
-      throw new Error('Local jsPDF/AutoTable not found. Make sure both files exist in /vendor/.');
+      throw new Error('Local jsPDF/AutoTable not found. Make sure the files exist in /vendor/ or /js/vendor/.');
     }
 
     if (!ctor.API?.autoTable && typeof window.jspdf_autotable === 'function') {
@@ -1062,7 +1080,7 @@
     }
 
     if (typeof testDoc.autoTable !== 'function') {
-      throw new Error('Local jsPDF/AutoTable not found. Make sure both files exist in /vendor/.');
+      throw new Error('Local jsPDF/AutoTable not found. Make sure the files exist in /vendor/ or /js/vendor/.');
     }
 
     window.tkGetJsPDF = () => ctor;
