@@ -1933,6 +1933,8 @@
 
     const sections = [];
 
+    const exportedRows = [];
+
     categories.forEach((category) => {
       const body = buildComparisonBody(
         rowsA.filter((row) => row.Category === category),
@@ -1965,8 +1967,34 @@
 
       if (rows.length) {
         sections.push({ category, rows });
+        rows.forEach((row) => {
+          exportedRows.push([
+            row.label,
+            row.a,
+            row.matchPct,
+            row.flagIcon,
+            row.b,
+          ]);
+        });
       }
     });
+
+    if (exportedRows.length) {
+      window.talkkinkCompatRows = exportedRows;
+      try {
+        localStorage.setItem('talkkink:compatRows', JSON.stringify(exportedRows));
+      } catch (error) {
+        console.warn('[comparison] Failed to write compat rows to localStorage', error);
+      }
+      console.info('[comparison] Saved compatibility rows for PDF:', exportedRows.length);
+    } else {
+      window.talkkinkCompatRows = [];
+      try {
+        localStorage.removeItem('talkkink:compatRows');
+      } catch (error) {
+        console.warn('[comparison] Failed to clear compat rows from localStorage', error);
+      }
+    }
 
     return sections;
   }
