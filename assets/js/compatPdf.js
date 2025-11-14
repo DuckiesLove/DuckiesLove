@@ -177,66 +177,256 @@
     return out + ell;
   }
 
-  function renderWithAutoTable(doc, rows) {
+  const TK_ACCENT = [0, 214, 199];
+
+  function safeString(val) {
+    if (val == null) return '';
+    const str = String(val).trim();
+    return (str === 'null' || str === 'undefined') ? '' : str;
+  }
+
+  function coerceScore(val) {
+    if (val == null || (typeof val === 'string' && !val.trim())) return null;
+    if (typeof val === 'number' && Number.isFinite(val)) return val;
+    const parsed = Number(String(val).replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function clampPercent(value) {
+    if (!Number.isFinite(value)) return null;
+    return Math.max(0, Math.min(100, value));
+  }
+
+  function computeMatchPercent(rawMatch, aScore, bScore) {
+    const direct = clampPercent(coerceScore(rawMatch));
+    if (direct != null) return Math.round(direct);
+    if (Number.isFinite(aScore) && Number.isFinite(bScore)) {
+      const pct = 100 - (Math.abs(aScore - bScore) / 5) * 100;
+      return Math.round(Math.max(0, Math.min(100, pct)));
+    }
+    return null;
+  }
+
+  function normalizeCompatRow(row) {
+    let item;
+    let aRaw;
+    let bRaw;
+    let matchRaw;
+
+    if (Array.isArray(row)) {
+      [item, aRaw, matchRaw, , bRaw] = row;
+    } else if (row && typeof row === 'object') {
+      item = row.item ?? row.label ?? row.category ?? '';
+      aRaw = row.a ?? row.partnerA ?? row.aScore ?? row.scoreA;
+      bRaw = row.b ?? row.partnerB ?? row.bScore ?? row.scoreB;
+      matchRaw =
+        row.matchPercent ??
+        row.matchPct ??
+        row.match ??
+        row.matchText ??
+        row.matchValue ??
+        '';
+    }
+
+    const aScore = coerceScore(aRaw);
+    const bScore = coerceScore(bRaw);
+    const matchPercent = computeMatchPercent(matchRaw, aScore, bScore);
+    const matchDisplay = matchPercent != null ? `${matchPercent}%` : safeString(matchRaw);
+    const status = tk_flagStatus(aScore, bScore, matchPercent);
+
+    return {
+      item: safeString(item),
+      a: aScore != null ? String(aScore) : safeString(aRaw),
+      match: matchDisplay,
+      flag: status,
+      b: bScore != null ? String(bScore) : safeString(bRaw),
+      matchPercent,
+      aScore,
+      bScore,
+    };
+  }
+
+  function tk_drawHeader(doc, title, generatedAt, accent = TK_ACCENT) {
     const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, pageW, pageH, 'F');
+
     doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(36);
+    const tW = doc.getTextWidth(title);
+    doc.text(title, (pageW - tW) / 2, 80);
 
-    centerText(doc, 'TalkKink Compatibility Report', 70, 32, ['helvetica', 'bold']);
-    centerText(doc, 'Compatibility Overview', 110, 18, ['helvetica', 'bold']);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    const sub = `Generated: ${generatedAt}`;
+    const sW = doc.getTextWidth(sub);
+    doc.text(sub, (pageW - sW) / 2, 104);
 
-    const columns = CFG.columns.map((c, idx) => ({ header: c.header, dataKey: String(idx) }));
-    const body = rows.map(r => ([
-      r.item ?? r.label ?? '',
-      String(r.a ?? r.partnerA ?? ''),
-      String(r.match ?? r.matchPct ?? r.matchText ?? ''),
-      String(r.b ?? r.partnerB ?? ''),
-      String(r.flag ?? r.flagIcon ?? ''),
-    ]));
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(2.2);
+    const pad = 84;
+    doc.line(pad, 118, pageW - pad, 118);
+
+    return 118 + 22;
+  }
+
+  function tk_flagStatus(a, b, matchPercent) {
+    const aNum = Number.isFinite(a) ? a : null;
+    const bNum = Number.isFinite(b) ? b : null;
+    const pct = Number.isFinite(matchPercent) ? matchPercent : null;
+    if (pct != null && pct >= 90) return 'star';
+    if (pct != null && pct <= 30) return 'red';
+    if (aNum == null || bNum == null) return '';
+    const oneIsFive = aNum === 5 || bNum === 5;
+    const diff = Math.abs(aNum - bNum);
+    if (oneIsFive && diff >= 1) return 'warn';
+    return '';
+  }
+
+  function tk_drawFlagMarker(doc, data, status) {
+    const { x, y, height, width } = data.cell;
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    const r = Math.min(width, height) * 0.22;
+
+    const setFill = (rgb) => doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+
+    if (status === 'star') {
+      setFill(TK_ACCENT);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0);
+
+      const spikes = 5;
+      const outerR = r * 1.15;
+      const innerR = r * 0.5;
+      let rot = Math.PI / 2 * 3;
+      const step = Math.PI / spikes;
+
+      doc.beginPath();
+      doc.moveTo(cx, cy - outerR);
+      for (let i = 0; i < spikes; i++) {
+        doc.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR);
+        rot += step;
+        doc.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR);
+        rot += step;
+      }
+      doc.lineTo(cx, cy - outerR);
+      if (typeof doc.closePath === 'function') doc.closePath();
+      doc.fill();
+      return;
+    }
+
+    if (status === 'warn') {
+      setFill([255, 204, 0]);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0);
+      doc.beginPath();
+      doc.moveTo(cx, cy - r);
+      doc.lineTo(cx + r, cy);
+      doc.lineTo(cx, cy + r);
+      doc.lineTo(cx - r, cy);
+      doc.lineTo(cx, cy - r);
+      if (typeof doc.closePath === 'function') doc.closePath();
+      doc.fill();
+      return;
+    }
+
+    if (status === 'red') {
+      setFill([255, 66, 66]);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0);
+      doc.circle(cx, cy, r, 'F');
+    }
+  }
+
+  function tk_renderSectionTable(doc, sectionTitle, rows, startY) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    const pageW = doc.internal.pageSize.getWidth();
+    const stW = doc.getTextWidth(sectionTitle);
+    doc.text(sectionTitle, (pageW - stW) / 2, startY);
+
+    const body = rows.map((r) => ({
+      item: r.item,
+      a: r.a,
+      match: r.match,
+      flag: r.flag,
+      b: r.b,
+    }));
+
+    const columns = [
+      { header: 'Item', dataKey: 'item' },
+      { header: 'Partner A', dataKey: 'a' },
+      { header: 'Match', dataKey: 'match' },
+      { header: 'Flag', dataKey: 'flag' },
+      { header: 'Partner B', dataKey: 'b' },
+    ];
 
     doc.autoTable({
       columns,
       body,
-      startY: 140,
-      margin: { left: 40, right: 40 },
+      startY: startY + 20,
+      margin: { left: 84, right: 84 },
       styles: {
         font: 'helvetica',
-        fontSize: 11,
+        fontSize: 12,
         halign: 'left',
         valign: 'middle',
-        cellPadding: 3,
-        textColor: [255, 255, 255],
-        fillColor: [0, 0, 0],
-        lineColor: [160, 160, 160],
-        lineWidth: 0.5,
+        cellPadding: 5,
+        textColor: [230, 230, 230],
+        fillColor: [24, 24, 26],
+        lineColor: [50, 50, 55],
+        lineWidth: 0.6,
       },
       headStyles: {
-        halign: 'center',
         fontStyle: 'bold',
-        textColor: [255, 255, 255],
-        fillColor: [0, 0, 0],
-        lineColor: [160, 160, 160],
-        lineWidth: 0.75,
+        textColor: [0, 255, 245],
+        fillColor: [30, 30, 34],
+        halign: 'left',
+        lineColor: [50, 50, 55],
+        lineWidth: 0.8,
       },
       columnStyles: {
-        0: { cellWidth: CFG.columns[0].w, halign: 'left' },
-        1: { cellWidth: CFG.columns[1].w, halign: 'left' },
-        2: { cellWidth: CFG.columns[2].w, halign: 'left' },
-        3: { cellWidth: CFG.columns[3].w, halign: 'left' },
-        4: { cellWidth: CFG.columns[4].w, halign: 'left' },
+        item: { cellWidth: 360, halign: 'left' },
+        a: { cellWidth: 80, halign: 'left' },
+        match: { cellWidth: 80, halign: 'left' },
+        flag: { cellWidth: 60, halign: 'center' },
+        b: { cellWidth: 80, halign: 'left' },
       },
       theme: 'grid',
       overflow: 'linebreak',
       didParseCell: (data) => {
-        if (data.section === 'body') data.cell.styles.halign = 'left';
+        if (data.section === 'body' && data.column.dataKey === 'flag') {
+          data.cell.text = '';
+        }
       },
-      didDrawPage: () => {
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'normal');
+      didDrawCell: (data) => {
+        if (data.section === 'body' && data.column.dataKey === 'flag') {
+          const status = data.row?.raw?.flag;
+          if (status) tk_drawFlagMarker(doc, data, status);
+        }
       },
     });
+  }
+
+  function renderWithAutoTable(doc, rows) {
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(18, 19, 20);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    doc.setTextColor(255, 255, 255);
+
+    const normalizedRows = rows
+      .map(normalizeCompatRow)
+      .filter((r) => r.item || r.a || r.b || r.match);
+    const headerY = tk_drawHeader(
+      doc,
+      'TalkKink Compatibility Report',
+      new Date().toLocaleString(),
+      TK_ACCENT,
+    );
+
+    tk_renderSectionTable(doc, 'Compatibility Overview', normalizedRows, headerY);
   }
 
   function renderFallback(doc, rows) {
