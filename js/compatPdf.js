@@ -7,9 +7,68 @@
   if (!btn) return;
 
   // Centralized constants so layout is predictable
-  const COLW = [56,12,16,4,12]; // label, A, match, flag, B (must sum ~100)
+  const COLW = { item:56, partnerA:12, match:16, flag:4, partnerB:12 }; // must sum ~100
   const BG   = [10,10,12];      // dark page background
   const MARG = {top: 56, right: 36, bottom: 40, left: 36}; // title space + tight page
+
+  const FLAG_RGB = {
+    green: [24, 214, 154],
+    yellow: [255, 204, 0],
+    red: [255, 66, 66],
+  };
+
+  function parseHexColor(hex){
+    if (!hex) return null;
+    const clean = String(hex).trim().replace(/^#/, '');
+    if (clean.length !== 6) return null;
+    const r = parseInt(clean.slice(0,2), 16);
+    const g = parseInt(clean.slice(2,4), 16);
+    const b = parseInt(clean.slice(4,6), 16);
+    if ([r,g,b].some(n=>Number.isNaN(n))) return null;
+    return [r,g,b];
+  }
+
+  function extractFlagMeta(td){
+    if (!td) return { text:'▶', color:null };
+
+    const rawText = (td.textContent || '').trim();
+    const dot = td.querySelector?.('.flag-dot');
+
+    if (!dot){
+      return { text: rawText || '▶', color:null };
+    }
+
+    const status = dot.dataset?.flagStatus || td.dataset?.flagStatus || '';
+    const emoji = dot.dataset?.flagEmoji || rawText || '';
+    const hasColor = dot.dataset?.hasColor === 'true';
+
+    let color = null;
+    if (hasColor){
+      const cssColor = dot.style?.getPropertyValue?.('--flag-color') || '';
+      color = parseHexColor(cssColor) || parseHexColor(dot.dataset?.flagColor) || parseHexColor(td.dataset?.flagColor) || null;
+    }
+    if (!color && status && FLAG_RGB[status]){
+      color = FLAG_RGB[status];
+    }
+
+    if (!color){
+      return { text: emoji || rawText || '▶', color:null };
+    }
+
+    return { text: '', color, status, emoji };
+  }
+
+  function drawFlagSquare(doc, cell, color){
+    if (!Array.isArray(color) || color.length !== 3) return;
+    const [r,g,b] = color.map(n=>Math.max(0, Math.min(255, Number(n) || 0)));
+    const { x, y, height, width } = cell;
+    const size = Math.min(width, height) * 0.45;
+    const sx = x + (width - size) / 2;
+    const sy = y + (height - size) / 2;
+    doc.setFillColor(r,g,b);
+    doc.setLineWidth(0);
+    doc.rect(sx, sy, size, size, 'F');
+  }
 
   // Draw outlined text (stroke + fill) for title/subtitle
   function drawOutlined(doc, text, x, y, opts={}, strokeWidth=0.6){
@@ -44,18 +103,27 @@
     if (!table) throw new Error('No table.compat found');
 
     const rows = [...table.tBodies[0].rows].map(tr=>{
-      const tds = [...tr.cells].slice(0,5); // enforce 5 cols
-      const vals = tds.map((td,i)=>{
-        let txt = (td.textContent||'').trim();
-        if (i===3) txt = '▶'; // normalize flag
-        return txt;
-      });
-      return vals;
+      const tds = [...tr.cells];
+      const flagMeta = extractFlagMeta(tds[3]);
+      return {
+        item: (tds[0]?.textContent || '').trim(),
+        partnerA: (tds[1]?.textContent || '').trim(),
+        match: (tds[2]?.textContent || '').trim(),
+        flag: flagMeta.text,
+        partnerB: (tds[4]?.textContent || '').trim(),
+        __flagColor: flagMeta.color
+      };
     });
 
     doc.autoTable({
       startY: 180,
-      head: [['Item','Partner A','Match','Flag','Partner B']],
+      columns: [
+        { header: 'Item', dataKey: 'item' },
+        { header: 'Partner A', dataKey: 'partnerA' },
+        { header: 'Match', dataKey: 'match' },
+        { header: 'Flag', dataKey: 'flag' },
+        { header: 'Partner B', dataKey: 'partnerB' },
+      ],
       body: rows,
       margin: MARG,
       styles: {
@@ -76,15 +144,24 @@
         valign: 'middle'
       },
       columnStyles: {
-        0: { cellWidth: `${COLW[0]}%`, halign:'left'   },
-        1: { cellWidth: `${COLW[1]}%`, halign:'center' },
-        2: { cellWidth: `${COLW[2]}%`, halign:'center' },
-        3: { cellWidth: `${COLW[3]}%`, halign:'center' }, // tight flag
-        4: { cellWidth: `${COLW[4]}%`, halign:'center' }
+        item: { cellWidth: `${COLW.item}%`, halign:'left'   },
+        partnerA: { cellWidth: `${COLW.partnerA}%`, halign:'center' },
+        match: { cellWidth: `${COLW.match}%`, halign:'center' },
+        flag: { cellWidth: `${COLW.flag}%`, halign:'center' },
+        partnerB: { cellWidth: `${COLW.partnerB}%`, halign:'center' }
       },
       didParseCell: (d)=>{
         // Force a single-line header, allow body to wrap
         if (d.section === 'head') d.cell.styles.minCellHeight = 20;
+        if (d.section === 'body' && d.column.dataKey === 'flag' && Array.isArray(d.row.raw?.__flagColor)) {
+          d.cell.text = [];
+        }
+      },
+      didDrawCell: (d)=>{
+        if (d.section === 'body' && d.column.dataKey === 'flag') {
+          const color = d.row.raw?.__flagColor;
+          if (Array.isArray(color)) drawFlagSquare(doc, d.cell, color);
+        }
       }
     });
 
