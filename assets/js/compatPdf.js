@@ -270,71 +270,34 @@
   }
 
   function tk_flagStatus(a, b, matchPercent) {
-    const pct = Number.isFinite(matchPercent) ? matchPercent : Number(matchPercent);
-    if (Number.isFinite(pct) && pct >= 90) return 'star';
-    if (Number.isFinite(pct) && pct <= 30) return 'red';
+    if (matchPercent >= 90) return 'green';
+    if (matchPercent <= 30) return 'red';
 
-    const aNum = Number.isFinite(a) ? a : Number(a);
-    const bNum = Number.isFinite(b) ? b : Number(b);
-    if (!Number.isFinite(aNum) || !Number.isFinite(bNum)) return '';
-
-    const oneIsFive = aNum === 5 || bNum === 5;
-    if (oneIsFive && Math.abs(aNum - bNum) >= 1) return 'warn';
+    const oneIsFive = a === 5 || b === 5;
+    if (oneIsFive && Math.abs(a - b) >= 1) return 'yellow';
     return '';
   }
 
   function tk_drawFlagMarker(doc, data, status) {
     if (!status) return;
-
     const { x, y, height, width } = data.cell;
-    const cx = x + width / 2;
-    const cy = y + height / 2;
-    const r = Math.min(width, height) * 0.22;
 
-    const fill = (r, g, b) => doc.setFillColor(r, g, b);
+    const size = Math.min(width, height) * 0.45;
+    const sx = x + (width - size) / 2;
+    const sy = y + (height - size) / 2;
 
-    if (status === 'star') {
-      fill(...TK_ACCENT);
-      doc.setLineWidth(0);
+    const colors = {
+      green: [24, 214, 154],
+      yellow: [255, 204, 0],
+      red: [255, 66, 66],
+    };
+    const rgb = colors[status];
+    if (!rgb) return;
 
-      const spikes = 5;
-      const outerR = r * 1.15;
-      const innerR = r * 0.5;
-      let rot = Math.PI * 1.5;
-      const step = Math.PI / spikes;
-
-      doc.beginPath();
-      doc.moveTo(cx, cy - outerR);
-      for (let i = 0; i < spikes; i++) {
-        doc.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR);
-        rot += step;
-        doc.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR);
-        rot += step;
-      }
-      doc.lineTo(cx, cy - outerR);
-      if (typeof doc.closePath === 'function') doc.closePath();
-      doc.fill();
-      return;
-    }
-
-    if (status === 'warn') {
-      fill(255, 204, 0);
-      doc.setLineWidth(0);
-      doc.beginPath();
-      doc.moveTo(cx, cy - r);
-      doc.lineTo(cx + r, cy);
-      doc.lineTo(cx, cy + r);
-      doc.lineTo(cx - r, cy);
-      if (typeof doc.closePath === 'function') doc.closePath();
-      doc.fill();
-      return;
-    }
-
-    if (status === 'red') {
-      fill(255, 66, 66);
-      doc.setLineWidth(0);
-      doc.circle(cx, cy, r, 'F');
-    }
+    doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0);
+    doc.rect(sx, sy, size, size, 'F');
   }
 
   function tk_renderSectionTable(doc, sectionTitle, rows, startY) {
