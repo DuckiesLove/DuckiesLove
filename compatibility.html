@@ -111,16 +111,30 @@
       });
 
       /* 4) fix FLAG column content to a real glyph and center it */
-      const FLAG_GLYPH = '🟨';
-      const VALID_FLAGS = new Set(['🟩', '🟨', '🟥']);
+      const DEFAULT_FLAG = '🟨';
+      const FLAG_META = {
+        '🟩': { tone: 'green', label: 'High match' },
+        '🟨': { tone: 'yellow', label: 'Partial match' },
+        '🟥': { tone: 'red', label: 'Mismatch' }
+      };
+      const VALID_FLAGS = new Set(Object.keys(FLAG_META));
       rows.forEach(tr => {
         const tds = tr.querySelectorAll('td');
         if (tds[3]) {
           const raw = (tds[3].textContent || '').trim();
-          if (!raw || /&|†|gt;|lt;/.test(raw) || !VALID_FLAGS.has(raw)) {
-            tds[3].textContent = FLAG_GLYPH;
-          }
+          const glyph = !raw || /&|†|gt;|lt;/.test(raw) || !VALID_FLAGS.has(raw) ? DEFAULT_FLAG : raw;
+          const meta = FLAG_META[glyph] || null;
+          tds[3].textContent = glyph;
           tds[3].classList.add('tk-flag');
+          if (meta) {
+            tds[3].dataset.tkFlag = meta.tone;
+            tds[3].setAttribute('aria-label', meta.label);
+            tds[3].title = meta.label;
+          } else {
+            tds[3].removeAttribute('data-tk-flag');
+            tds[3].removeAttribute('aria-label');
+            tds[3].removeAttribute('title');
+          }
         }
         // center numeric cols
         if (tds[1]) tds[1].classList.add('tk-center');
@@ -158,7 +172,24 @@
         }
         tbody tr:nth-child(even) td{ background:rgba(255,255,255,.03); }
         .tk-center{ text-align:center; }
-        .tk-flag{ text-align:center; }
+        .tk-flag{
+          text-align:center;
+          position:relative;
+          font-size:0;
+          line-height:1;
+        }
+        .tk-flag::after{
+          content:'';
+          display:inline-block;
+          width:14px;
+          height:14px;
+          border-radius:4px;
+          background:#6b7280;
+          box-shadow:0 0 0 1px rgba(255,255,255,.38);
+        }
+        .tk-flag[data-tk-flag="green"]::after{ background:#22c55e; box-shadow:0 0 0 1px rgba(34,197,94,.65); }
+        .tk-flag[data-tk-flag="yellow"]::after{ background:#eab308; box-shadow:0 0 0 1px rgba(234,179,8,.65); }
+        .tk-flag[data-tk-flag="red"]::after{ background:#f87171; box-shadow:0 0 0 1px rgba(248,113,113,.65); }
       `;
       let style = document.getElementById('tk-compat-fix-css');
       if (!style) {
@@ -1149,6 +1180,7 @@
   let yourBtn = null;
   let partnerBtn = null;
   let downloadBtn = null;
+  let pdfInFlight = false;
   let yourInput = null;
   let partnerInput = null;
   let yourStatus = null;
@@ -2308,6 +2340,11 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     event.stopPropagation();
+    if (pdfInFlight) {
+      console.info('[compat] Ignoring duplicate PDF request while one is in progress.');
+      return;
+    }
+    pdfInFlight = true;
     try {
       await Promise.all([parseAndCache('self'), parseAndCache('partner')]);
 
@@ -2331,6 +2368,8 @@
     } catch (error) {
       console.error('[compat] PDF generation failed:', error);
       alert('Sorry—could not generate the PDF.');
+    } finally {
+      pdfInFlight = false;
     }
   }
 
