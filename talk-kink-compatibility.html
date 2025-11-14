@@ -91,6 +91,60 @@
     text-align:center; letter-spacing:.5px; color:var(--ink-dim);
   }
 
+  .compat tbody td.flag{
+    position:relative;
+  }
+
+  .flag-dot{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:20px;
+    height:20px;
+    border-radius:6px;
+    background:var(--flag-color, rgba(255,255,255,0.08));
+    box-shadow:
+      0 0 0 1px rgba(0,231,255,.35),
+      0 0 16px rgba(0,231,255,.18);
+    font-size:16px;
+    line-height:1;
+    color:var(--ink);
+    transition:transform .15s ease, box-shadow .2s ease;
+  }
+
+  .flag-dot[data-has-color="true"]{
+    color:transparent;
+    text-shadow:none;
+  }
+
+  .flag-dot[data-flag-status="green"]{ --flag-color:#18d69a; }
+  .flag-dot[data-flag-status="yellow"]{ --flag-color:#ffcc00; }
+  .flag-dot[data-flag-status="red"]{ --flag-color:#ff4242; }
+
+  .flag-dot:hover{
+    transform:scale(1.05);
+    box-shadow:
+      0 0 0 1px rgba(0,231,255,.6),
+      0 0 22px rgba(0,231,255,.25);
+  }
+
+  .flag-dot:focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:2px;
+  }
+
+  .sr-only{
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip:rect(0, 0, 0, 0);
+    white-space:nowrap;
+    border:0;
+  }
+
   /* Download button */
   .bar { display:flex; gap:12px; justify-content:center; margin:18px 0 6px; }
   .btn {
@@ -142,9 +196,22 @@
   </div>
 
 <script>
-const TK_FLAG_GREEN  = "🟩";
-const TK_FLAG_YELLOW = "🟨";
-const TK_FLAG_RED    = "🟥";
+const FLAG_META = {
+  green:  { emoji: "🟩", label: "High match", color: "#18d69a" },
+  yellow: { emoji: "🟨", label: "Needs discussion", color: "#ffcc00" },
+  red:    { emoji: "🟥", label: "Conflict", color: "#ff4242" }
+};
+
+const FLAG_EMOJI_TO_STATUS = Object.fromEntries(
+  Object.entries(FLAG_META).map(([status, meta]) => [meta.emoji, status])
+);
+
+Object.assign(FLAG_EMOJI_TO_STATUS, {
+  "🟢": "green",
+  "🟡": "yellow",
+  "🔴": "red",
+  "🟠": "yellow"
+});
 
 function tkFlagFromScores(matchPct, aScore, bScore) {
   if (
@@ -160,7 +227,7 @@ function tkFlagFromScores(matchPct, aScore, bScore) {
     (aScore <= 1 && bScore >= 4) ||
     (bScore <= 1 && aScore >= 4)
   ) {
-    return TK_FLAG_RED;
+    return FLAG_META.red.emoji;
   }
 
   if (
@@ -168,19 +235,81 @@ function tkFlagFromScores(matchPct, aScore, bScore) {
     (aScore === 5 && bScore <= 3) ||
     (bScore === 5 && aScore <= 3)
   ) {
-    return TK_FLAG_YELLOW;
+    return FLAG_META.yellow.emoji;
   }
 
   if (matchPct >= 80) {
-    return TK_FLAG_GREEN;
+    return FLAG_META.green.emoji;
   }
 
   return "";
 }
 
-function tkGetFlagSquare(row) {
-  if (!row) return "";
-  if (row.hasData === false) return "";
+function tkNormalizeFlagStatus(value) {
+  if (value == null) return null;
+  if (typeof value === "number") {
+    if (value >= 80) return "green";
+    if (value >= 50) return "yellow";
+    return "red";
+  }
+
+  const str = String(value).trim();
+  if (!str) return null;
+
+  if (FLAG_EMOJI_TO_STATUS[str]) return FLAG_EMOJI_TO_STATUS[str];
+
+  const lower = str.toLowerCase();
+  if (FLAG_META[lower]) return lower;
+  if (/perfect|great|strong|aligned|excellent/.test(lower)) return "green";
+  if (/warn|caution|mixed|medium|maybe/.test(lower)) return "yellow";
+  if (/conflict|bad|low|danger|problem|issue|concern|poor/.test(lower)) return "red";
+
+  return null;
+}
+
+function tkParseFlagColor(color) {
+  if (!color) return null;
+  if (Array.isArray(color)) {
+    const [r, g, b] = color.map((n) => Math.max(0, Math.min(255, Number(n) || 0)));
+    return `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+  }
+
+  const str = String(color).trim();
+  if (!str) return null;
+
+  const hexMatch = str.match(/^#?([0-9a-f]{6})$/i);
+  if (hexMatch) return `#${hexMatch[1].toLowerCase()}`;
+
+  const rgbMatch = str.match(/rgb\s*\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  if (rgbMatch) {
+    return `#${[rgbMatch[1], rgbMatch[2], rgbMatch[3]]
+      .map((part) => Math.max(0, Math.min(255, Number(part) || 0)).toString(16).padStart(2, "0"))
+      .join("")}`;
+  }
+
+  return null;
+}
+
+function tkGuessStatusFromColor(hex) {
+  if (!hex) return null;
+  const value = hex.replace("#", "");
+  if (value.length !== 6) return null;
+
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+
+  if (r > 210 && g < 140) return "red";
+  if (r > 210 && g > 170 && b < 140) return "yellow";
+  if (g > 170 && b > 110 && r < 150) return "green";
+
+  return null;
+}
+
+function tkResolveFlagInfo(row = {}) {
+  if (row.hasData === false) {
+    return { emoji: "", status: null, color: null, matchPct: null, aScore: null, bScore: null };
+  }
 
   const matchPct = Number.isFinite(row.matchPct)
     ? row.matchPct
@@ -194,7 +323,48 @@ function tkGetFlagSquare(row) {
     ? row.bScore
     : tkParseScore(row.bDisplay ?? row.b ?? row.partnerB);
 
-  return tkFlagFromScores(matchPct, aScore, bScore);
+  const rawFlag = row.flagEmoji ?? row.flagGlyph ?? row.flagRaw ?? row.flag ?? row.flagText ?? null;
+  let status =
+    tkNormalizeFlagStatus(row.flagStatus) ||
+    tkNormalizeFlagStatus(rawFlag) ||
+    tkNormalizeFlagStatus(row.flagLabel) ||
+    null;
+
+  let color =
+    tkParseFlagColor(row.flagColor) ||
+    tkParseFlagColor(row.flagColour) ||
+    tkParseFlagColor(row.flagRGB) ||
+    tkParseFlagColor(row.flagRgb) ||
+    tkParseFlagColor(row.flagHex) ||
+    null;
+
+  if (!status && color) {
+    status = tkGuessStatusFromColor(color);
+  }
+
+  let emoji = typeof rawFlag === "string" ? rawFlag.trim() : "";
+
+  if (!status || !emoji || !FLAG_EMOJI_TO_STATUS[emoji]) {
+    const computedEmoji = tkFlagFromScores(matchPct, aScore, bScore);
+    if (computedEmoji) {
+      if (!emoji) emoji = computedEmoji;
+      if (!status) status = tkNormalizeFlagStatus(computedEmoji);
+    }
+  }
+
+  if (status && (!emoji || !FLAG_EMOJI_TO_STATUS[emoji])) {
+    emoji = FLAG_META[status]?.emoji || emoji;
+  }
+
+  if (status && !color) {
+    color = FLAG_META[status]?.color || null;
+  }
+
+  return { emoji: emoji || "", status: status || null, color, matchPct, aScore, bScore };
+}
+
+function tkGetFlagSquare(row) {
+  return tkResolveFlagInfo(row).emoji;
 }
 
 function tkCoerceNumber(value) {
@@ -259,6 +429,10 @@ function tkNormalizeCompatRow(entry) {
   let bRaw;
   let matchRaw;
   let hasData;
+  let flagRaw;
+  let flagStatus;
+  let flagColor;
+  let flagHex;
 
   if (Array.isArray(entry)) {
     [label, aRaw, matchRaw, , bRaw] = entry;
@@ -269,6 +443,10 @@ function tkNormalizeCompatRow(entry) {
     bRaw = entry.bScore ?? entry.b ?? entry.partnerB ?? entry.bValue ?? entry.b_score;
     matchRaw = entry.matchPct ?? entry.match ?? entry.matchValue ?? entry.matchPercent ?? entry.matchPercentage ?? entry.matchScore;
     hasData = typeof entry.hasData === "boolean" ? entry.hasData : undefined;
+    flagRaw = entry.flag ?? entry.flagGlyph ?? entry.flagEmoji ?? entry.flagText ?? entry.flagDisplay ?? null;
+    flagStatus = entry.flagStatus ?? entry.flagLabel ?? entry.flagName ?? null;
+    flagColor = entry.flagColor ?? entry.flagColour ?? entry.flagRGB ?? entry.flagRgb ?? null;
+    flagHex = entry.flagHex ?? entry.flagColourHex ?? null;
   } else {
     return null;
   }
@@ -292,6 +470,10 @@ function tkNormalizeCompatRow(entry) {
     bDisplay: tkFormatScoreDisplay(bRaw ?? bScore),
     matchDisplay: tkFormatMatchDisplay(matchRaw, matchPct),
     hasData,
+    flagRaw,
+    flagStatus,
+    flagColor,
+    flagHex,
   };
 }
 
@@ -313,7 +495,13 @@ function tkBuildCompatRow(row) {
     ? normalized.bScore
     : tkParseScore(normalized.bDisplay);
 
-  const flag = tkFlagFromScores(matchPct, aScore, bScore);
+  const flagInfo = tkResolveFlagInfo({
+    ...normalized,
+    matchPct,
+    aScore,
+    bScore,
+  });
+  const flag = flagInfo.emoji;
 
   const label = normalized.labelShort || normalized.label || "";
   const matchText = normalized.matchDisplay ||
@@ -340,7 +528,9 @@ const TK_PDF_TITLE = "Talk Kink Compatibility Survey";
 if (typeof window !== 'undefined') {
   window.tkFlagFromScores = tkFlagFromScores;
   window.tkGetFlagSquare = tkGetFlagSquare;
+  window.tkResolveFlagInfo = tkResolveFlagInfo;
   window.tkBuildCompatRow = tkBuildCompatRow;
+  window.tkRenderFlagCell = tkRenderFlagCell;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -402,6 +592,55 @@ if (typeof window !== 'undefined') {
 
   /* Render into DOM (single-run; we clear body first to avoid doubles) */
   const TBODY = document.getElementById('compatBody');
+  const FLAG_LABEL_FALLBACK = {
+    green: 'High match',
+    yellow: 'Needs discussion',
+    red: 'Conflict',
+  };
+
+  function tkDescribeFlag(info) {
+    if (!info || !info.status) return 'No flag';
+    const base = FLAG_META[info.status]?.label || FLAG_LABEL_FALLBACK[info.status] || 'Flagged item';
+    if (Number.isFinite(info.matchPct)) {
+      return `${base} (${tkFormatPercent(info.matchPct)})`;
+    }
+    return base;
+  }
+
+  function tkRenderFlagCell(td, info) {
+    td.textContent = '';
+    td.dataset.flagStatus = info?.status || '';
+
+    if (!info || (!info.status && !info.emoji)) {
+      if (info?.emoji) td.textContent = info.emoji;
+      return;
+    }
+
+    const span = document.createElement('span');
+    span.className = 'flag-dot';
+    if (info.status) span.dataset.flagStatus = info.status;
+    if (info.color) {
+      span.style.setProperty('--flag-color', info.color);
+      span.dataset.hasColor = 'true';
+    } else {
+      span.dataset.hasColor = info.status ? 'true' : 'false';
+    }
+
+    const description = tkDescribeFlag(info);
+    span.setAttribute('role', 'img');
+    span.setAttribute('aria-label', description);
+    span.textContent = info.emoji || '';
+
+    if (info.status) {
+      const sr = document.createElement('span');
+      sr.className = 'sr-only';
+      sr.textContent = description;
+      span.appendChild(sr);
+    }
+
+    td.appendChild(span);
+  }
+
   function renderTable(rows){
     TBODY.replaceChildren();
     const toText = (value) => (value === undefined || value === null ? '' : String(value));
@@ -409,20 +648,24 @@ if (typeof window !== 'undefined') {
     for (const row of rows){
       if (!row) continue;
       const tr = document.createElement('tr');
-      const flag = tkGetFlagSquare(row);
+      const flagInfo = tkResolveFlagInfo(row);
       const matchText = row.matchDisplay || tkFormatMatchDisplay(row.matchRaw, row.matchPct);
       const cells = [
         ['label', row.label],
         ['num',   row.aDisplay ?? (Number.isFinite(row.aScore) ? String(row.aScore) : '')],
         ['match', matchText],
-        ['flag',  flag],
+        ['flag',  flagInfo],
         ['num',   row.bDisplay ?? (Number.isFinite(row.bScore) ? String(row.bScore) : '')],
       ];
 
       for (const [cls, value] of cells){
         const td = document.createElement('td');
         td.className = cls;
-        td.textContent = toText(value);
+        if (cls === 'flag') {
+          tkRenderFlagCell(td, value);
+        } else {
+          td.textContent = toText(value);
+        }
         tr.appendChild(td);
       }
 
@@ -690,21 +933,30 @@ if (document.readyState === 'loading') {
       const aScore = tkParseScore(decodedCells[1]);
       const bScore = tkParseScore(decodedCells[4]);
       const matchPct = tkParseMatchPercent(decodedCells[2]);
+      const flagCell = cells[3];
+      const rawFlagText = decodedCells[3];
       const rowData = {
         aScore,
         bScore,
         matchPct,
+        flagRaw: rawFlagText,
+        flagStatus: flagCell?.dataset?.flagStatus || rawFlagText,
         hasData: Number.isFinite(aScore) || Number.isFinite(bScore),
       };
-      const computedFlag = tkGetFlagSquare(rowData);
+      const flagInfo = tkResolveFlagInfo(rowData);
 
       cells.forEach((cell, idx) => {
         const decoded = decodedCells[idx] ?? '';
         if (idx === 3){
-          const glyph = computedFlag || decoded.replace(/&+/g, '').trim();
-          cell.textContent = glyph;
-          cell.style.textAlign = 'center';
-          cell.style.letterSpacing = '.5px';
+          cell.classList.add('flag');
+          if (typeof window.tkRenderFlagCell === 'function') {
+            window.tkRenderFlagCell(cell, flagInfo);
+          } else {
+            const fallback = (flagInfo && flagInfo.emoji) || decoded.replace(/&+/g, '').trim();
+            cell.textContent = fallback;
+            cell.style.textAlign = 'center';
+            cell.style.letterSpacing = '.5px';
+          }
         }else{
           cell.textContent = decoded;
         }
