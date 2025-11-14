@@ -459,93 +459,86 @@
     JSPDF: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     AUTOTABLE: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
   };
+  const DL_BTN = '#downloadBtn, #downloadPdfBtn, [data-download-pdf]';
 
-  // 1) Kill any old local-first loaders so they cannot request /vendor/...
-  window.tkLoadPdfLibs = undefined;
-  window.ensurePdfLibs = undefined;
-
-  // 2) Simple CDN injector
   function inject(src, key) {
     return new Promise((resolve, reject) => {
-      const existing = document.querySelector(`script[data-lib="${key}"]`);
+      const existing = key ? document.querySelector(`script[data-lib="${key}"]`) : null;
       if (existing && existing.dataset.loaded === '1') return resolve();
-
       if (existing) {
         existing.addEventListener('load', () => resolve(), { once: true });
-        existing.addEventListener('error', () => reject(new Error(`load fail ${src}`)), { once: true });
-      } else {
-        const s = document.createElement('script');
-        s.src = src;
-        s.defer = true;
-        s.crossOrigin = 'anonymous';
-        s.referrerPolicy = 'no-referrer';
-        s.dataset.lib = key;
-        s.onload = () => { s.dataset.loaded = '1'; resolve(); };
-        s.onerror = () => reject(new Error(`load fail ${src}`));
-        document.head.appendChild(s);
+        existing.addEventListener('error', () => reject(new Error('load fail ' + src)), { once: true });
+        return;
       }
+      const s = document.createElement('script');
+      s.src = src; s.defer = true; s.crossOrigin = 'anonymous'; s.referrerPolicy = 'no-referrer';
+      if (key) s.dataset.lib = key;
+      s.onload  = () => { if (key) s.dataset.loaded = '1'; resolve(); };
+      s.onerror = () => reject(new Error('load fail ' + src));
+      document.head.appendChild(s);
     });
   }
 
-  const jsPdfPresent = () => !!(window.jspdf && window.jspdf.jsPDF) || !!window.jsPDF;
-  const autoTablePresent = () => {
+  const hasJsPDF     = () => !!(window.jspdf?.jsPDF) || !!window.jsPDF;
+  const hasAutoTable = () => {
     const api = (window.jspdf?.jsPDF?.API) || (window.jsPDF?.API);
     return !!(api && (api.autoTable || api.__autoTable__));
   };
 
-  // 3) New ensurePdfLibs that ONLY uses CDN
-  async function ensurePdfLibsCDN() {
-    if (!jsPdfPresent()) await inject(CDN.JSPDF, 'jspdf');
-    if (!jsPdfPresent()) throw new Error('jsPDF not available');
+  async function loadFromCDN() {
+    if (!hasJsPDF()) await inject(CDN.JSPDF, 'jspdf');
+    // Bridge UMD -> legacy global so older code works
+    if (!window.jsPDF && window.jspdf?.jsPDF) window.jsPDF = window.jspdf.jsPDF;
 
-    if (!autoTablePresent()) await inject(CDN.AUTOTABLE, 'jspdf-autotable');
-    if (!autoTablePresent()) throw new Error('autoTable not available');
+    if (!hasAutoTable()) await inject(CDN.AUTOTABLE, 'jspdf-autotable');
 
-    return (window.jspdf?.jsPDF) || window.jsPDF;
+    // Ensure plugin is visible on both constructors
+    const ctor   = window.jspdf?.jsPDF;
+    const legacy = window.jsPDF;
+    const at = (legacy?.API?.autoTable) || (ctor?.API?.autoTable);
+    if (at) {
+      if (ctor)   { ctor.API   = ctor.API   || {}; ctor.API.autoTable   = at; }
+      if (legacy) { legacy.API = legacy.API || {}; legacy.API.autoTable = at; }
+    }
+
+    if (!hasJsPDF())     throw new Error('jsPDF not available');
+    if (!hasAutoTable()) throw new Error('autoTable not available');
+
+    return window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
   }
 
-  // 4) Replace any click handlers that depended on the old ensurePdfLibs
-  //    Keep your existing generateCompatibilityPDF(rows) function.
-  document.addEventListener('click', async (e) => {
-    const btn = e.target.closest('#downloadPdfBtn');
+  // ---- HARD OVERRIDES: your old functions will now resolve to CDN loader
+  window.tkLoadPdfLibs    = async () => ({ jsPDF: await loadFromCDN() });
+  window.ensurePdfLibs    = async () =>      loadFromCDN();
+  window.ensureAutoTable  = async () => true;
+
+  // ---- Optional: enable the button once libs are ready
+  function setBtnState(ready) {
+    const btn = document.querySelector(DL_BTN);
     if (!btn) return;
-    e.preventDefault();
+    btn.disabled = !ready;
+    btn.title = ready ? 'Download your compatibility PDF' : 'Loading PDF libraries…';
+  }
 
-    try {
-      await ensurePdfLibsCDN(); // guarantee libs from CDN
-      const rows = window.talkkinkCompatRows || [];
-      if (!rows.length) {
-        alert('Upload both surveys first.');
-        return;
-      }
-      if (window.TKCompatPDF?.download) {
-        await window.TKCompatPDF.download(rows);
-      } else if (window.generateCompatibilityPDF) {
-        await window.generateCompatibilityPDF(rows);
-      } else {
-        console.warn('[compat-pdf] No generator found. Define TKCompatPDF.download or generateCompatibilityPDF(rows).');
-      }
-    } catch (err) {
-      console.error('[compat-pdf] PDF generation failed', err);
-      alert('PDF could not be generated. See console for details.');
-    }
-  });
-
-  // 5) Optional: enable button once libs load (prevents greyed-out state)
   (async () => {
-    const btn = document.querySelector('#downloadPdfBtn');
-    if (!btn) return;
-    btn.disabled = true;
     try {
-      await ensurePdfLibsCDN();
-      btn.disabled = false;
-      btn.title = 'Download your compatibility PDF';
-    } catch (e) {
-      btn.disabled = true;
-      btn.title = 'PDF unavailable (library load failed)';
+      setBtnState(false);
+      await loadFromCDN();
+      setBtnState(true);
+      console.info('[compat-pdf] CDN libs ready');
+    } catch (err) {
+      console.error('[compat-pdf] Loader error:', err);
+      setBtnState(false);
     }
   })();
 
-  // Expose, in case other code wants to call it
-  window.ensurePdfLibsCDN = ensurePdfLibsCDN;
+  // Safety: if any code still tries to add /vendor/jspdf.plugin.autotable.min.js, rewrite it to CDN.
+  const VENDOR_AT_RE = /\/vendor\/jspdf\.plugin\.autotable\.min\.js(?:\?.*)?$/i;
+  const origAppend = HTMLHeadElement.prototype.appendChild;
+  HTMLHeadElement.prototype.appendChild = function (node) {
+    if (node && node.tagName === 'SCRIPT' && VENDOR_AT_RE.test(node.src)) {
+      node.src = CDN.AUTOTABLE;
+    }
+    return origAppend.apply(this, arguments);
+  };
 })();
