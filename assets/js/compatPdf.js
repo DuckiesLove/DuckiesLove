@@ -367,6 +367,7 @@
         b: { cellWidth: 80, halign: 'center' },
       },
       theme: 'grid',
+      tableWidth: 'wrap',
       overflow: 'linebreak',
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.dataKey === 'flag') {
@@ -394,12 +395,12 @@
       .filter((r) => r.item || r.a || r.b || r.match);
     const headerY = tk_drawHeader(
       doc,
-      'TalkKink Compatibility Report',
+      'Talk Kink Compatibility Survey',
       new Date().toLocaleString(),
       TK_ACCENT,
     );
 
-    tk_renderSectionTable(doc, 'Compatibility Overview', normalizedRows, headerY);
+    tk_renderSectionTable(doc, 'Behavioral Play', normalizedRows, headerY);
   }
 
   function renderFallback(doc, rows) {
@@ -412,8 +413,8 @@
     doc.rect(0, 0, pageW, pageH, 'F');
     doc.setTextColor(255, 255, 255);
 
-    centerText(doc, 'TalkKink Compatibility Report', 70, 32, ['helvetica', 'bold']);
-    centerText(doc, 'Compatibility Overview', 110, 18, ['helvetica', 'bold']);
+    centerText(doc, 'Talk Kink Compatibility Survey', 70, 32, ['helvetica', 'bold']);
+    centerText(doc, 'Behavioral Play', 110, 18, ['helvetica', 'bold']);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
@@ -432,7 +433,11 @@
         String(r.a ?? r.partnerA ?? ''),
         String(r.match ?? r.matchPct ?? r.matchText ?? ''),
         String(r.b ?? r.partnerB ?? ''),
-        String(r.flag ?? r.flagIcon ?? ''),
+        tk_flagStatus(
+          coerceScore(r.a ?? r.partnerA),
+          coerceScore(r.b ?? r.partnerB),
+          coerceScore(r.matchPercent ?? r.match ?? r.matchPct),
+        ),
       ];
       values.forEach((val, i) => {
         const txt = truncateToWidth(doc, val, CFG.columns[i].w - 6);
@@ -465,7 +470,7 @@
       renderFallback(doc, payload);
     }
 
-    doc.save('compatibility.pdf');
+    doc.save('talkkink-compatibility.pdf');
   }
 
   function getBtn() {
@@ -523,8 +528,8 @@
 
   function demoRows() {
     return [
-      { item: 'Giving: General', a: 3, match: '100%', b: 3, flag: '+P' },
-      { item: 'Receiving: Service', a: 5, match: '100%', b: 5, flag: '⭐' },
+      { item: 'Giving: General', a: 3, match: '100%', b: 3, flag: 'green' },
+      { item: 'Receiving: Service', a: 5, match: '100%', b: 5, flag: 'green' },
       { item: 'Rituals', a: 4, match: '100%', b: 4, flag: '' },
     ];
   }
@@ -533,10 +538,19 @@
     const btn = getBtn();
     if (!btn) return;
 
+    // Avoid double-binding, and capture phase so we can block old handlers.
+    if (btn.dataset.tkCompatPdfWired === '1') return;
+    btn.dataset.tkCompatPdfWired = '1';
+
     btn.addEventListener('click', async (e) => {
       const force = e.altKey === true;
-      if (btn.disabled && !force) return;
+
+      // Block any other click handlers on this button (old scripts)
       e.preventDefault();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if (e.stopPropagation) e.stopPropagation();
+
+      if (btn.disabled && !force) return;
 
       try {
         if (!libsReady) await ensurePdfLibsReady();
@@ -556,7 +570,7 @@
         setButtonState();
         alert('PDF could not be generated. See console for details.');
       }
-    });
+    }, { passive: false, capture: true });
   }
 
   async function generateFromStorage() {
