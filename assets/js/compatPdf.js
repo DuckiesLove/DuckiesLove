@@ -238,8 +238,9 @@
       item: safeString(item),
       a: aScore != null ? String(aScore) : safeString(aRaw),
       match: matchDisplay,
-      flag: status,
+      flag: status,   // keep real flag for drawing the square
       b: bScore != null ? String(bScore) : safeString(bRaw),
+      flagText: '',   // this is what the table column actually uses (stays empty)
       matchPercent,
       aScore,
       bScore,
@@ -317,12 +318,14 @@
       const matchVal = Number.isFinite(matchNum)
         ? `${Math.round(matchNum)}%`
         : safeString(row.match);
+
       return {
         item: safeString(row.item),
         a: aVal,
         match: matchVal,
-        flag: tk_flagStatus(aNum, bNum, matchNum),
+        flag: tk_flagStatus(aNum, bNum, matchNum), // used only for color
         b: bVal,
+        flagText: '', // displayed text for the "Flag" column (kept empty)
       };
     });
 
@@ -330,7 +333,7 @@
       { header: 'Item', dataKey: 'item' },
       { header: 'Partner A', dataKey: 'a' },
       { header: 'Match', dataKey: 'match' },
-      { header: 'Flag', dataKey: 'flag' },
+      { header: 'Flag', dataKey: 'flagText' },   // no text, only square
       { header: 'Partner B', dataKey: 'b' },
     ];
 
@@ -363,21 +366,22 @@
         item: { cellWidth: 320, halign: 'left' },
         a: { cellWidth: 80, halign: 'center' },
         match: { cellWidth: 80, halign: 'center' },
-        flag: { cellWidth: 60, halign: 'center' },
+        flagText: { cellWidth: 60, halign: 'center' },  // width for square column
         b: { cellWidth: 80, halign: 'center' },
       },
       theme: 'grid',
-      tableWidth: 'wrap',
       overflow: 'linebreak',
       didParseCell: (data) => {
-        if (data.section === 'body' && data.column.dataKey === 'flag') {
+        if (data.section === 'body' && data.column.dataKey === 'flagText') {
+          // no text, just the colored square
           data.cell.text = [];
-          data.cell.styles.textColor = [25, 25, 28];
         }
       },
       didDrawCell: (data) => {
-        if (data.section === 'body' && data.column.dataKey === 'flag') {
-          tk_drawFlagSquare(doc, data.cell, data.row?.raw?.flag);
+        if (data.section === 'body' && data.column.dataKey === 'flagText') {
+          // color is stored on the raw row under .flag
+          const color = data.row?.raw?.flag;
+          if (color) tk_drawFlagSquare(doc, data.cell, color);
         }
       },
     });
@@ -400,7 +404,7 @@
       TK_ACCENT,
     );
 
-    tk_renderSectionTable(doc, 'Behavioral Play', normalizedRows, headerY);
+    tk_renderSectionTable(doc, 'Compatibility Overview', normalizedRows, headerY);
   }
 
   function renderFallback(doc, rows) {
@@ -414,7 +418,7 @@
     doc.setTextColor(255, 255, 255);
 
     centerText(doc, 'Talk Kink Compatibility Survey', 70, 32, ['helvetica', 'bold']);
-    centerText(doc, 'Behavioral Play', 110, 18, ['helvetica', 'bold']);
+    centerText(doc, 'Compatibility Overview', 110, 18, ['helvetica', 'bold']);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
@@ -433,11 +437,7 @@
         String(r.a ?? r.partnerA ?? ''),
         String(r.match ?? r.matchPct ?? r.matchText ?? ''),
         String(r.b ?? r.partnerB ?? ''),
-        tk_flagStatus(
-          coerceScore(r.a ?? r.partnerA),
-          coerceScore(r.b ?? r.partnerB),
-          coerceScore(r.matchPercent ?? r.match ?? r.matchPct),
-        ),
+        String(r.flag ?? r.flagIcon ?? ''),
       ];
       values.forEach((val, i) => {
         const txt = truncateToWidth(doc, val, CFG.columns[i].w - 6);
@@ -470,7 +470,7 @@
       renderFallback(doc, payload);
     }
 
-    doc.save('talkkink-compatibility.pdf');
+    doc.save('compatibility.pdf');
   }
 
   function getBtn() {
@@ -538,19 +538,10 @@
     const btn = getBtn();
     if (!btn) return;
 
-    // Avoid double-binding, and capture phase so we can block old handlers.
-    if (btn.dataset.tkCompatPdfWired === '1') return;
-    btn.dataset.tkCompatPdfWired = '1';
-
     btn.addEventListener('click', async (e) => {
       const force = e.altKey === true;
-
-      // Block any other click handlers on this button (old scripts)
-      e.preventDefault();
-      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-      if (e.stopPropagation) e.stopPropagation();
-
       if (btn.disabled && !force) return;
+      e.preventDefault();
 
       try {
         if (!libsReady) await ensurePdfLibsReady();
@@ -570,7 +561,7 @@
         setButtonState();
         alert('PDF could not be generated. See console for details.');
       }
-    }, { passive: false, capture: true });
+    });
   }
 
   async function generateFromStorage() {
