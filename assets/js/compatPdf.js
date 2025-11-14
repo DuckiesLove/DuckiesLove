@@ -262,11 +262,11 @@
     doc.text(sub, (pageW - sW) / 2, 104);
 
     doc.setDrawColor(...accent);
-    doc.setLineWidth(2.2);
+    doc.setLineWidth(2.5);
     const pad = 84;
     doc.line(pad, 118, pageW - pad, 118);
 
-    return 118 + 32;
+    return 118 + 36;
   }
 
   function tk_flagStatus(a, b, matchPercent) {
@@ -342,16 +342,27 @@
     doc.setFontSize(24);
     doc.setTextColor(255, 255, 255);
     const pageW = doc.internal.pageSize.getWidth();
-    const stW = doc.getTextWidth(sectionTitle);
-    doc.text(sectionTitle, (pageW - stW) / 2, startY);
+    const titleW = doc.getTextWidth(sectionTitle);
+    doc.text(sectionTitle, (pageW - titleW) / 2, startY);
 
-    const body = rows.map((r) => ({
-      item: r.item,
-      a: r.a,
-      match: r.match,
-      flag: r.flag,
-      b: r.b,
-    }));
+    const body = rows.map((r) => {
+      const coerce = (val) => {
+        const num = Number(val);
+        return Number.isFinite(num) ? num : null;
+      };
+      const aNum = coerce(r.a);
+      const bNum = coerce(r.b);
+      const mNum = coerce(r.matchPercent);
+      const matchDisplay =
+        Number.isFinite(mNum) && mNum != null ? `${Math.round(mNum)}%` : r.match;
+      return {
+        item: r.item,
+        a: aNum != null ? String(aNum) : r.a,
+        match: matchDisplay,
+        flag: tk_flagStatus(aNum, bNum, mNum),
+        b: bNum != null ? String(bNum) : r.b,
+      };
+    });
 
     const columns = [
       { header: 'Item', dataKey: 'item' },
@@ -364,45 +375,47 @@
     doc.autoTable({
       columns,
       body,
-      startY: startY + 20,
-      margin: { left: 84, right: 84 },
+      startY: startY + 24,
+      margin: { left: 70, right: 70 },
       styles: {
         font: 'helvetica',
         fontSize: 12,
         halign: 'left',
         valign: 'middle',
-        minCellHeight: 18,
-        cellPadding: 5,
+        minCellHeight: 20,
+        cellPadding: { top: 5, bottom: 5, left: 6, right: 6 },
         textColor: [230, 230, 230],
-        fillColor: [24, 24, 26],
-        lineColor: [40, 40, 45],
-        lineWidth: 0.8,
+        fillColor: [25, 25, 28],
+        lineColor: [30, 255, 255],
+        lineWidth: 1.2,
       },
       headStyles: {
         fontStyle: 'bold',
         textColor: [0, 255, 245],
         fillColor: [28, 28, 32],
-        halign: 'left',
         lineColor: [40, 40, 45],
-        lineWidth: 0.9,
+        lineWidth: 1.4,
+        halign: 'center',
       },
       columnStyles: {
         item: { cellWidth: 320, halign: 'left' },
-        a: { cellWidth: 80, halign: 'left' },
-        match: { cellWidth: 80, halign: 'left' },
+        a: { cellWidth: 80, halign: 'center' },
+        match: { cellWidth: 80, halign: 'center' },
         flag: { cellWidth: 60, halign: 'center' },
-        b: { cellWidth: 80, halign: 'left' },
+        b: { cellWidth: 80, halign: 'center' },
       },
       theme: 'grid',
       overflow: 'linebreak',
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.dataKey === 'flag') {
           data.cell.text = [];
+          data.cell.styles.textColor = [25, 25, 28];
         }
       },
       didDrawCell: (data) => {
         if (data.section === 'body' && data.column.dataKey === 'flag') {
-          tk_drawFlagMarker(doc, data, data.row?.raw?.flag);
+          const flag = data.row?.raw?.flag;
+          if (flag) tk_drawFlagMarker(doc, data, flag);
         }
       },
     });
