@@ -111,12 +111,15 @@
       });
 
       /* 4) fix FLAG column content to a real glyph and center it */
-      const FLAG_GLYPH = '▶';
+      const FLAG_GLYPH = '🟨';
+      const VALID_FLAGS = new Set(['🟩', '🟨', '🟥']);
       rows.forEach(tr => {
         const tds = tr.querySelectorAll('td');
         if (tds[3]) {
           const raw = (tds[3].textContent || '').trim();
-          if (!raw || /&|†|gt;|lt;/.test(raw) || raw.length > 2) tds[3].textContent = FLAG_GLYPH;
+          if (!raw || /&|†|gt;|lt;/.test(raw) || !VALID_FLAGS.has(raw)) {
+            tds[3].textContent = FLAG_GLYPH;
+          }
           tds[3].classList.add('tk-flag');
         }
         // center numeric cols
@@ -818,7 +821,7 @@
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(FS.title);
-        doc.text('TalkKink — Partner Survey (Clean Report)', centers.cx, Y.title, { align: 'center' });
+        doc.text('Talk Kink Compatibility Survey', centers.cx, Y.title, { align: 'center' });
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(FS.stamp);
@@ -1285,6 +1288,17 @@
     downloadBtn = btn || null;
 
     if (downloadBtn) {
+      try {
+        downloadBtn.removeAttribute('data-download-pdf');
+      } catch (_) {
+        /* ignore */
+      }
+      downloadBtn.dataset.tkCompatExport = 'solo';
+      try {
+        downloadBtn.onclick = null;
+      } catch (_) {
+        /* ignore */
+      }
       downloadBtn.addEventListener('click', handleDownloadClick, true);
     }
 
@@ -1442,6 +1456,34 @@
     const str = String(value || '').replace(/\s+/g, ' ').trim();
     return str || fallback;
   }
+
+  const FLAG_SQUARES = Object.freeze({
+    green: '🟩',
+    yellow: '🟨',
+    red: '🟥'
+  });
+
+  function tkFlagFromScores(aScore, bScore) {
+    const parse = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
+
+    const a = parse(aScore);
+    const b = parse(bScore);
+    if (a == null || b == null) {
+      return { flag: '', pct: null };
+    }
+
+    const pct = Math.max(0, Math.min(100, Math.round((1 - Math.abs(a - b) / 5) * 100)));
+    let flag = FLAG_SQUARES.red;
+    if (pct >= 85) flag = FLAG_SQUARES.green;
+    else if (pct >= 50) flag = FLAG_SQUARES.yellow;
+
+    return { flag, pct };
+  }
+
+  window.tkFlagFromScores = tkFlagFromScores;
 
   function normalizeCompatPayload(raw, which) {
     if (!raw) return raw;
@@ -1625,20 +1667,22 @@
       const bScore = Number.isFinite(b?.Score) ? b.Score : '';
 
       let matchText = '';
-      let flagColor = null;
+      let matchPct = null;
+      let flagIcon = '';
       if (a && b) {
-        const diff = Math.abs(a.Score - b.Score);
-        const pct = Math.max(0, Math.min(100, Math.round((1 - diff / 5) * 100)));
-        matchText = `${pct}%`;
-        if (pct > 85) flagColor = FLAG_GREEN;
-        else if (pct >= 50) flagColor = FLAG_YELLOW;
-        else flagColor = FLAG_RED;
+        const { flag, pct } = tkFlagFromScores(a.Score, b.Score);
+        if (pct != null) {
+          matchPct = pct;
+          matchText = `${pct}%`;
+        }
+        flagIcon = flag;
       }
       body.push({
         item,
         aScore: String(aScore),
         matchText,
-        flagColor,
+        matchPct,
+        flagIcon,
         bScore: String(bScore)
       });
     }
@@ -1943,16 +1987,6 @@
     }
   }
 
-  const FLAG_GREEN = [0, 200, 140];
-  const FLAG_YELLOW = [255, 210, 70];
-  const FLAG_RED = [255, 86, 86];
-
-  const FLAG_ICON_BY_COLOR = new Map([
-    [FLAG_GREEN.join(','), '▲'],
-    [FLAG_YELLOW.join(','), '▶'],
-    [FLAG_RED.join(','), '▼']
-  ]);
-
   function buildTkpdfSections(selfJson, partnerJson) {
     const rowsA = rowsFromTalkKink(selfJson);
     const rowsB = rowsFromTalkKink(partnerJson);
@@ -1974,17 +2008,17 @@
       if (!body.length) return;
 
       const rows = body.map((entry) => {
-        const matchText = entry.matchText;
         let matchValue = '';
-        if (typeof matchText === 'number' && Number.isFinite(matchText)) {
-          matchValue = matchText;
-        } else if (typeof matchText === 'string') {
-          const numeric = parseInt(matchText.replace(/[^0-9-]/g, ''), 10);
-          matchValue = Number.isFinite(numeric) ? numeric : matchText.trim();
+        if (Number.isFinite(entry.matchPct)) {
+          matchValue = entry.matchPct;
+        } else if (typeof entry.matchText === 'number' && Number.isFinite(entry.matchText)) {
+          matchValue = entry.matchText;
+        } else if (typeof entry.matchText === 'string') {
+          const numeric = parseInt(entry.matchText.replace(/[^0-9-]/g, ''), 10);
+          matchValue = Number.isFinite(numeric) ? numeric : entry.matchText.trim();
         }
 
-        const colorKey = Array.isArray(entry.flagColor) ? entry.flagColor.join(',') : null;
-        const flagIcon = colorKey ? FLAG_ICON_BY_COLOR.get(colorKey) || '▶' : '';
+        const flagIcon = entry.flagIcon || '';
 
         return {
           label: entry.item || '',
@@ -2115,9 +2149,6 @@
     const BODY2 = [13, 13, 17];
     const GRID = [30, 30, 38];
     const WHITE = [255, 255, 255];
-    const GREEN = [0, 200, 140];
-    const YELLOW = [255, 210, 70];
-    const RED = [255, 86, 86];
 
     const renderSection =
       window.tkHeaderAndTable || window.tkPageCenteredHeaderAndTable || window.tkCenteredHeaderAndTable;
@@ -2208,78 +2239,16 @@
         const aS = Number.isFinite(a?.Score) ? a.Score : null;
         const bS = Number.isFinite(b?.Score) ? b.Score : null;
 
-        let pct = null;
-        let color = null;
-        if (aS != null && bS != null) {
-          pct = Math.round((1 - Math.abs(aS - bS) / 5) * 100);
-          if (pct > 85) color = GREEN;
-          else if (pct >= 50) color = YELLOW;
-          else color = RED;
-        }
+        const { flag, pct } = tkFlagFromScores(aS, bS);
+
         return {
           item,
           a: aS == null ? '' : String(aS),
-          match: pct == null ? '' : pct + '%',
-          flag: '',
-          _flagColor: color,
+          match: pct == null ? '' : `${pct}%`,
+          flag,
           b: bS == null ? '' : String(bS)
         };
       });
-    }
-
-    function flagShapeHook(flagKey){
-      return {
-        didDrawCell(data){
-          if (data.section !== 'body' || data.column.dataKey !== flagKey) return;
-
-          const color = data.row?.raw?._flagColor;
-          if (!color) return;
-
-          const { x, y, height } = data.cell;
-          const poleX = x + 10;
-          const poleTop = y + 6;
-          const poleBottom = y + height - 6;
-
-          // Pennant geometry
-          const px = poleX + 1;     // pennant start (slightly right of pole)
-          const h  = 10;            // pennant height
-          const w  = 14;            // pennant width
-          const py = (poleTop + poleBottom)/2 - h/2;
-
-          // Draw pole (subtle gray)
-          const prevStroke = doc.getDrawColor();
-          doc.setDrawColor(180,180,190);
-          if (typeof doc.setLineWidth === 'function') doc.setLineWidth(1);
-          doc.line(poleX, poleTop, poleX, poleBottom);
-
-          // Try to draw a FILLED triangular pennant using jsPDF.lines (stable across builds)
-          const prevFill = doc.getFillColor();
-          try {
-            doc.setFillColor(color[0], color[1], color[2]);
-            doc.setDrawColor(color[0], color[1], color[2]);
-            // Path: (px,py) -> (px+w, py+h/2) -> (px, py+h) -> close
-            // Signature: lines(segments, startX, startY, scale=1, style='F', closed=true)
-            doc.lines(
-              [
-                [ w,   h/2],   // to (px+w, py+h/2)
-                [-w,   h/2]    // to (px,   py+h)
-              ],
-              px, py,
-              1,              // scale (NUMBER, not array) — prevents crash
-              'F',            // fill
-              true            // closed path
-            );
-          } catch (e) {
-            // Fallback: draw a colored dot so PDF still generates
-            const cx = px + 6, cy = py + h/2, r = 4;
-            doc.setFillColor(color[0], color[1], color[2]);
-            doc.circle(cx, cy, r, 'F');
-          } finally {
-            doc.setFillColor(prevFill);
-            doc.setDrawColor(prevStroke);
-          }
-        }
-      };
     }
 
     if (hasA && hasB) {
@@ -2293,7 +2262,6 @@
         const itemWidth = CONTENT_W - (70 + 60 + 50 + 70);
 
         addSection(c, {
-          ...flagShapeHook('flag'),
           columns: [
             { header: 'Item', dataKey: 'item' },
             { header: 'Partner A', dataKey: 'a' },
@@ -2306,7 +2274,7 @@
             item: { cellWidth: itemWidth },
             a: { cellWidth: 70, halign: 'center' },
             match: { cellWidth: 60, halign: 'center' },
-            flag: { cellWidth: 50, halign: 'left' },
+            flag: { cellWidth: 50, halign: 'center' },
             b: { cellWidth: 70, halign: 'center' }
           }
         });
