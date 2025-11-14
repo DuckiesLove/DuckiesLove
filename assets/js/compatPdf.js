@@ -266,39 +266,41 @@
     const pad = 84;
     doc.line(pad, 118, pageW - pad, 118);
 
-    return 118 + 22;
+    return 118 + 32;
   }
 
   function tk_flagStatus(a, b, matchPercent) {
-    const aNum = Number.isFinite(a) ? a : null;
-    const bNum = Number.isFinite(b) ? b : null;
-    const pct = Number.isFinite(matchPercent) ? matchPercent : null;
-    if (pct != null && pct >= 90) return 'star';
-    if (pct != null && pct <= 30) return 'red';
-    if (aNum == null || bNum == null) return '';
+    const pct = Number.isFinite(matchPercent) ? matchPercent : Number(matchPercent);
+    if (Number.isFinite(pct) && pct >= 90) return 'star';
+    if (Number.isFinite(pct) && pct <= 30) return 'red';
+
+    const aNum = Number.isFinite(a) ? a : Number(a);
+    const bNum = Number.isFinite(b) ? b : Number(b);
+    if (!Number.isFinite(aNum) || !Number.isFinite(bNum)) return '';
+
     const oneIsFive = aNum === 5 || bNum === 5;
-    const diff = Math.abs(aNum - bNum);
-    if (oneIsFive && diff >= 1) return 'warn';
+    if (oneIsFive && Math.abs(aNum - bNum) >= 1) return 'warn';
     return '';
   }
 
   function tk_drawFlagMarker(doc, data, status) {
+    if (!status) return;
+
     const { x, y, height, width } = data.cell;
     const cx = x + width / 2;
     const cy = y + height / 2;
     const r = Math.min(width, height) * 0.22;
 
-    const setFill = (rgb) => doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+    const fill = (r, g, b) => doc.setFillColor(r, g, b);
 
     if (status === 'star') {
-      setFill(TK_ACCENT);
-      doc.setDrawColor(0, 0, 0);
+      fill(...TK_ACCENT);
       doc.setLineWidth(0);
 
       const spikes = 5;
       const outerR = r * 1.15;
       const innerR = r * 0.5;
-      let rot = Math.PI / 2 * 3;
+      let rot = Math.PI * 1.5;
       const step = Math.PI / spikes;
 
       doc.beginPath();
@@ -316,23 +318,20 @@
     }
 
     if (status === 'warn') {
-      setFill([255, 204, 0]);
-      doc.setDrawColor(0, 0, 0);
+      fill(255, 204, 0);
       doc.setLineWidth(0);
       doc.beginPath();
       doc.moveTo(cx, cy - r);
       doc.lineTo(cx + r, cy);
       doc.lineTo(cx, cy + r);
       doc.lineTo(cx - r, cy);
-      doc.lineTo(cx, cy - r);
       if (typeof doc.closePath === 'function') doc.closePath();
       doc.fill();
       return;
     }
 
     if (status === 'red') {
-      setFill([255, 66, 66]);
-      doc.setDrawColor(0, 0, 0);
+      fill(255, 66, 66);
       doc.setLineWidth(0);
       doc.circle(cx, cy, r, 'F');
     }
@@ -372,22 +371,23 @@
         fontSize: 12,
         halign: 'left',
         valign: 'middle',
+        minCellHeight: 18,
         cellPadding: 5,
         textColor: [230, 230, 230],
         fillColor: [24, 24, 26],
-        lineColor: [50, 50, 55],
-        lineWidth: 0.6,
+        lineColor: [40, 40, 45],
+        lineWidth: 0.8,
       },
       headStyles: {
         fontStyle: 'bold',
         textColor: [0, 255, 245],
-        fillColor: [30, 30, 34],
+        fillColor: [28, 28, 32],
         halign: 'left',
-        lineColor: [50, 50, 55],
-        lineWidth: 0.8,
+        lineColor: [40, 40, 45],
+        lineWidth: 0.9,
       },
       columnStyles: {
-        item: { cellWidth: 360, halign: 'left' },
+        item: { cellWidth: 320, halign: 'left' },
         a: { cellWidth: 80, halign: 'left' },
         match: { cellWidth: 80, halign: 'left' },
         flag: { cellWidth: 60, halign: 'center' },
@@ -397,13 +397,12 @@
       overflow: 'linebreak',
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.dataKey === 'flag') {
-          data.cell.text = '';
+          data.cell.text = [];
         }
       },
       didDrawCell: (data) => {
         if (data.section === 'body' && data.column.dataKey === 'flag') {
-          const status = data.row?.raw?.flag;
-          if (status) tk_drawFlagMarker(doc, data, status);
+          tk_drawFlagMarker(doc, data, data.row?.raw?.flag);
         }
       },
     });
