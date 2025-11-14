@@ -109,6 +109,93 @@
     };
   </script>
   <script defer src="/js/tk-compat-upload-glue.js"></script>
+<!-- ===== FIX: Preload from CDN in the right order + kill local /vendor loader ===== -->
+<!-- 1) jsPDF UMD -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer" data-lib="jspdf"></script>
+
+<!-- 2) Bridge to legacy global BEFORE loading the plugin -->
+<script>
+  if (!window.jsPDF && window.jspdf && window.jspdf.jsPDF) {
+    window.jsPDF = window.jspdf.jsPDF;
+  }
+</script>
+
+<!-- 3) autoTable UMD (attaches to jsPDF.API when window.jsPDF exists) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer" data-lib="jspdf-autotable"></script>
+
+<!-- 4) Make sure autoTable is visible on BOTH namespaces + NO-OP old local loaders -->
+<script>
+  (function () {
+    const CDN_AUTOTABLE = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
+
+    function syncAutoTable() {
+      const ctor = window.jspdf && window.jspdf.jsPDF;
+      const legacy = window.jsPDF;
+      const at = (legacy && legacy.API && legacy.API.autoTable) ||
+                 (ctor && ctor.API && ctor.API.autoTable);
+      if (at) {
+        if (ctor)  { ctor.API  = ctor.API  || {}; ctor.API.autoTable  = at; }
+        if (legacy){ legacy.API= legacy.API|| {}; legacy.API.autoTable= at; }
+      }
+      return Boolean(at);
+    }
+
+    function getCtor() {
+      return (window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null;
+    }
+
+    syncAutoTable();
+
+    window.tkLoadPdfLibs = async () => {
+      const ctor = getCtor();
+      if (!ctor) throw new Error('jsPDF not available');
+      syncAutoTable();
+      return ctor;
+    };
+
+    window.ensurePdfLibs = async () => {
+      const ctor = await window.tkLoadPdfLibs();
+      syncAutoTable();
+      return ctor;
+    };
+
+    window.ensureAutoTable = async () => {
+      if (!syncAutoTable()) {
+        throw new Error('autoTable plugin not attached');
+      }
+      return true;
+    };
+
+    if (!window.__TK_VENDOR_PATCHED__) {
+      window.__TK_VENDOR_PATCHED__ = true;
+      const VENDOR_RE = /\/vendor\/jspdf\.plugin\.autotable\.min\.js(?:\?.*)?$/i;
+      const docProto = window.Document && window.Document.prototype;
+      if (docProto && typeof docProto.appendChild === 'function') {
+        const origDocAppend = docProto.appendChild;
+        docProto.appendChild = function (node) {
+          if (node && node.tagName === 'SCRIPT' && VENDOR_RE.test(node.src)) {
+            node.src = CDN_AUTOTABLE;
+          }
+          return origDocAppend.apply(this, arguments);
+        };
+      }
+      const headProto = window.HTMLHeadElement && window.HTMLHeadElement.prototype;
+      if (headProto && typeof headProto.appendChild === 'function') {
+        const origHeadAppend = headProto.appendChild;
+        headProto.appendChild = function (node) {
+          if (node && node.tagName === 'SCRIPT' && VENDOR_RE.test(node.src)) {
+            node.src = CDN_AUTOTABLE;
+          }
+          return origHeadAppend.apply(this, arguments);
+        };
+      }
+    }
+  })();
+</script>
+
+<!-- 5) NOW load your existing PDF code (which used to try /vendor/*) -->
 <!-- ✅ 1) Add this *once* near the end of every page that was freezing (before </body>) -->
 <script>
 /* ---------- TalkKink Safe Bootstrap (drop-in) ---------- */
@@ -209,7 +296,7 @@
     const hasAT = (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)
                || (window.jspdf && window.jspdf.autoTable);
     if (!hasAT) {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js");
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js");
     }
   }
 
@@ -320,9 +407,6 @@
 </div>
 
 <div id="tk-consent-banner" class="tk-consent-banner">✔ Partner consent confirmed. Processing file…</div>
-
-<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
 
 <script>
 (function () {
