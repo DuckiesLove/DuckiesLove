@@ -118,7 +118,7 @@
     <div class="hr"></div>
     <h2 class="section">Behavioral Play</h2>
 
-    <div class="bar"><button id="downloadPdfBtn" class="btn">Download PDF</button></div>
+    <div class="bar"><button id="downloadBtn" class="btn">Download PDF</button></div>
 
     <table class="compat" id="compatTable" aria-label="Compatibility table">
       <colgroup>
@@ -142,33 +142,59 @@
   </div>
 
 <script>
-const TK_FLAG_GREEN = "🟩";
+const TK_FLAG_GREEN  = "🟩";
 const TK_FLAG_YELLOW = "🟨";
-const TK_FLAG_RED = "🟥";
+const TK_FLAG_RED    = "🟥";
 
-function tkGetFlagSquare(row) {
-  if (!row || !row.hasData) return "";
+function tkFlagFromScores(matchPct, aScore, bScore) {
+  if (
+    matchPct == null ||
+    aScore == null ||
+    bScore == null
+  ) return "";
 
-  const match = typeof row.matchPct === "number" ? row.matchPct : 0;
-  const a = row.aScore;
-  const b = row.bScore;
-  if (a == null || b == null) return "";
+  const diff = Math.abs(aScore - bScore);
 
-  const diff = Math.abs(a - b);
-
-  if (match <= 30 || (a <= 1 && b >= 4) || (b <= 1 && a >= 4)) {
+  if (
+    matchPct <= 30 ||
+    (aScore <= 1 && bScore >= 4) ||
+    (bScore <= 1 && aScore >= 4)
+  ) {
     return TK_FLAG_RED;
   }
 
-  if (diff >= 3 || (a === 5 && b <= 3) || (b === 5 && a <= 3)) {
+  if (
+    diff >= 3 ||
+    (aScore === 5 && bScore <= 3) ||
+    (bScore === 5 && aScore <= 3)
+  ) {
     return TK_FLAG_YELLOW;
   }
 
-  if (match >= 80) {
+  if (matchPct >= 80) {
     return TK_FLAG_GREEN;
   }
 
   return "";
+}
+
+function tkGetFlagSquare(row) {
+  if (!row) return "";
+  if (row.hasData === false) return "";
+
+  const matchPct = Number.isFinite(row.matchPct)
+    ? row.matchPct
+    : tkParseMatchPercent(row.matchRaw);
+
+  const aScore = Number.isFinite(row.aScore)
+    ? row.aScore
+    : tkParseScore(row.aDisplay ?? row.a ?? row.partnerA);
+
+  const bScore = Number.isFinite(row.bScore)
+    ? row.bScore
+    : tkParseScore(row.bDisplay ?? row.b ?? row.partnerB);
+
+  return tkFlagFromScores(matchPct, aScore, bScore);
 }
 
 function tkCoerceNumber(value) {
@@ -269,10 +295,52 @@ function tkNormalizeCompatRow(entry) {
   };
 }
 
+function tkBuildCompatRow(row) {
+  const normalized = tkNormalizeCompatRow(row);
+  if (!normalized) {
+    return ["", "", "0%", "", ""];
+  }
+
+  const matchPct = Number.isFinite(normalized.matchPct)
+    ? normalized.matchPct
+    : tkParseMatchPercent(normalized.matchRaw);
+
+  const aScore = Number.isFinite(normalized.aScore)
+    ? normalized.aScore
+    : tkParseScore(normalized.aDisplay);
+
+  const bScore = Number.isFinite(normalized.bScore)
+    ? normalized.bScore
+    : tkParseScore(normalized.bDisplay);
+
+  const flag = tkFlagFromScores(matchPct, aScore, bScore);
+
+  const label = normalized.labelShort || normalized.label || "";
+  const matchText = normalized.matchDisplay ||
+    (Number.isFinite(matchPct) ? tkFormatPercent(matchPct) : "0%");
+
+  const toCell = (value) => (
+    value === undefined || value === null ? "" : String(value)
+  );
+
+  const partnerA = normalized.aDisplay ?? (Number.isFinite(normalized.aScore) ? normalized.aScore : "");
+  const partnerB = normalized.bDisplay ?? (Number.isFinite(normalized.bScore) ? normalized.bScore : "");
+
+  return [
+    toCell(label),
+    toCell(partnerA),
+    toCell(matchText || (Number.isFinite(matchPct) ? tkFormatPercent(matchPct) : "0%")),
+    toCell(flag),
+    toCell(partnerB)
+  ];
+}
+
 const TK_PDF_TITLE = "Talk Kink Compatibility Survey";
 
 if (typeof window !== 'undefined') {
+  window.tkFlagFromScores = tkFlagFromScores;
   window.tkGetFlagSquare = tkGetFlagSquare;
+  window.tkBuildCompatRow = tkBuildCompatRow;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -363,109 +431,194 @@ if (typeof window !== 'undefined') {
   }
 
   const compatRows = pickRows().map(tkNormalizeCompatRow).filter(Boolean);
+  window.__tkCompatNormalizedRows = compatRows;
   renderTable(compatRows);
+})();
 
-  /* ───────────────────────────────────────────────────────────────────────
-     PDF EXPORT
-     - Loads local vendor files first to dodge “Tracking Prevention blocked…”
-     - Falls back to jsDelivr only if allowed in the browser
-     - Keeps centered headings and gives them a crisp “outlined” look.
-  ─────────────────────────────────────────────────────────────────────── */
-  async function loadJsPDF(){
-    if (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable) return;
+let tkJsPdfLoadPromise = null;
 
-    // prefer local copies to avoid third-party storage blocking
-    const localScripts = [
-      '/vendor/jspdf.umd.min.js',
-      '/vendor/jspdf.plugin.autotable.min.js'
-    ];
-    const cdnScripts = [
-      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
-      'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'
-    ];
+function tkIsJsPdfReady() {
+  return !!(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable);
+}
 
-    async function inject(src){
-      await new Promise((resolve,reject)=>{
-        const s = document.createElement('script');
-        s.src = src; s.async = true; s.onload = resolve; s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
-
-    // try local
-    try { for (const s of localScripts) await inject(s); }
-    catch(e){ /* ignore; will try CDN */ }
-
-    // if still not available, try CDN (may be blocked by Tracking Prevention)
-    if (!(window.jspdf && window.jspdf.jsPDF)){
-      try { for (const s of cdnScripts) await inject(s); }
-      catch(e){ /* final failure handled below */ }
-    }
-
-    if (!(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable)){
-      throw new Error('jsPDF/AutoTable not available. Host local copies in /vendor or allow the CDN.');
-    }
+async function tkEnsureJsPDF() {
+  if (tkIsJsPdfReady()) return;
+  if (tkJsPdfLoadPromise) {
+    await tkJsPdfLoadPromise;
+    return;
   }
 
-  async function TKPDF_export(){
-    await loadJsPDF();
-    const { jsPDF } = window.jspdf;
+  const localScripts = [
+    '/vendor/jspdf.umd.min.js',
+    '/vendor/jspdf.plugin.autotable.min.js'
+  ];
+  const cdnScripts = [
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'
+  ];
 
+  const inject = (src) => new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = (err) => reject(err || new Error('Failed to load ' + src));
+    document.head.appendChild(script);
+  });
+
+  tkJsPdfLoadPromise = (async () => {
+    for (const src of localScripts) {
+      try {
+        await inject(src);
+      } catch (err) {
+        console.warn('[TK] Failed to load local jsPDF asset:', src, err);
+      }
+    }
+
+    if (!tkIsJsPdfReady()) {
+      for (const src of cdnScripts) {
+        try {
+          await inject(src);
+        } catch (err) {
+          console.warn('[TK] Failed to load CDN jsPDF asset:', src, err);
+        }
+        if (tkIsJsPdfReady()) break;
+      }
+    }
+
+    if (!tkIsJsPdfReady()) {
+      throw new Error('jsPDF/AutoTable not available. Host local copies in /vendor or allow the CDN.');
+    }
+  })();
+
+  try {
+    await tkJsPdfLoadPromise;
+  } catch (err) {
+    tkJsPdfLoadPromise = null;
+    throw err;
+  }
+}
+
+function tkCollectCompatRowsForPdf() {
+  let source = [];
+  if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+    source = window.talkkinkCompatRows;
+  } else if (Array.isArray(window.__tkCompatNormalizedRows)) {
+    source = window.__tkCompatNormalizedRows;
+  }
+  return source.map(tkNormalizeCompatRow).filter(Boolean);
+}
+
+async function TKPDF_exportCompatibilitySingle() {
+  try {
+    await tkEnsureJsPDF();
+  } catch (err) {
+    console.error('jsPDF not loaded – make sure jsPDF UMD is included before this file.', err);
+    alert('PDF library not loaded; cannot export.');
+    return;
+  }
+
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
+    console.error('jsPDF not loaded – make sure jsPDF UMD is included before this file.');
+    alert('PDF library not loaded; cannot export.');
+    return;
+  }
+  if (!window.jspdf.jsPDF.API.autoTable) {
+    console.error('autoTable plugin not loaded.');
+    alert('autoTable plugin not loaded; cannot export.');
+    return;
+  }
+
+  try {
+    const { jsPDF } = window.jspdf;
     const doc = new jsPDF('landscape', 'pt', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(26);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(28);
     doc.text(TK_PDF_TITLE, pageWidth / 2, 60, { align: 'center' });
 
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    const generatedAt = new Date().toLocaleString();
-    doc.text(`Generated: ${generatedAt}`, pageWidth / 2, 82, { align: 'center' });
+    doc.setFontSize(13);
+    doc.setFont('Helvetica', 'normal');
+    doc.text('Generated: ' + new Date().toLocaleString(), pageWidth / 2, 82, { align: 'center' });
 
-    const bodyRows = compatRows.map((row) => {
-      const flag = tkGetFlagSquare(row);
-      const matchText = row.matchDisplay || tkFormatMatchDisplay(row.matchRaw, row.matchPct);
-      return [
-        row.labelShort || row.label,
-        row.aDisplay ?? (Number.isFinite(row.aScore) ? String(row.aScore) : ''),
-        matchText,
-        flag,
-        row.bDisplay ?? (Number.isFinite(row.bScore) ? String(row.bScore) : ''),
-      ].map((value) => (value === undefined || value === null ? '' : String(value)));
-    });
+    const compatRows = tkCollectCompatRowsForPdf();
+    const body = compatRows.map(tkBuildCompatRow);
 
     doc.autoTable({
       head: [["Item", "Partner A", "Match", "Flag", "Partner B"]],
-      body: bodyRows,
+      body,
       startY: 110,
       styles: {
         font: 'helvetica',
         fontSize: 10,
+        textColor: [255, 255, 255],
+        fillColor: [16, 16, 16]
       },
       headStyles: {
         fillColor: [0, 255, 255],
         textColor: [0, 0, 0],
-        halign: 'center',
+        halign: 'center'
       },
       columnStyles: {
         0: { cellWidth: 260 },
-        1: { halign: 'center', cellWidth: 60 },
-        2: { halign: 'center', cellWidth: 70 },
-        3: { halign: 'center', cellWidth: 50 },
-        4: { halign: 'center', cellWidth: 60 },
+        1: { cellWidth: 70, halign: 'center' },
+        2: { cellWidth: 70, halign: 'center' },
+        3: { cellWidth: 50, halign: 'center' },
+        4: { cellWidth: 70, halign: 'center' }
       },
+      theme: 'grid',
+      didDrawPage: function () {
+        doc.setFillColor(16, 16, 16);
+        doc.rect(0, 0, pageWidth, doc.internal.pageSize.getHeight(), 'F');
+      }
     });
 
     doc.save('TalkKink-Compatibility-Report.pdf');
+  } catch (err) {
+    console.error('[TKPDF] Failed to export compatibility report.', err);
+    alert('PDF export failed. See console for details.');
+  }
+}
+
+function tkBindCompatibilityDownload() {
+  const btn = document.getElementById('downloadBtn') || document.getElementById('downloadPdfBtn');
+  if (!btn) {
+    console.warn('[TK] downloadBtn not found for compatibility export.');
+    return;
   }
 
-  document.getElementById('downloadPdfBtn')?.addEventListener('click', TKPDF_export, { once:false });
+  btn.onclick = null;
 
-  if (typeof window !== 'undefined') {
-    window.TKPDF_export = TKPDF_export;
+  const parent = btn.parentNode;
+  if (!parent) {
+    console.warn('[TK] download button has no parent node; cannot rebind.');
+    return;
   }
-})();
+
+  const clone = btn.cloneNode(true);
+  parent.replaceChild(clone, btn);
+
+  clone.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    TKPDF_exportCompatibilitySingle();
+  });
+
+  console.log('[TK] Bound single compatibility PDF exporter to #downloadBtn');
+}
+
+if (typeof window !== 'undefined') {
+  window.TKPDF_exportCompatibilitySingle = TKPDF_exportCompatibilitySingle;
+  window.TKPDF_export = TKPDF_exportCompatibilitySingle;
+  window.tkBindCompatibilityDownload = tkBindCompatibilityDownload;
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', tkBindCompatibilityDownload, { once: true });
+} else {
+  tkBindCompatibilityDownload();
+}
 
 /* ──────────────────────────────────────────────────────────────────────────
    Defensive renderer hot-fix
