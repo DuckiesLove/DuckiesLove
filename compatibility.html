@@ -2457,15 +2457,42 @@
       setTimeout(() => mo.disconnect(), 3000);
     })();
   </script>
-<!-- Load jsPDF v2 UMD (exposes window.jspdf.jsPDF) -->
-<script
-  src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
-  crossorigin="anonymous"
-  referrerpolicy="no-referrer"
-  data-lib="jspdf"
-></script>
+<!-- === PRELOAD jsPDF + autoTable (CDN) AND BRIDGE NAMESPACES === -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer" data-lib="jspdf"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer" data-lib="jspdf-autotable"></script>
 
-<!-- Your code that uses jsPDF should come AFTER -->
+<script>
+  // Alias UMD ctor to legacy global so old code passes presence checks
+  if (window.jspdf && window.jspdf.jsPDF && !window.jsPDF) {
+    window.jsPDF = window.jspdf.jsPDF;
+  }
+
+  // Make sure autoTable is visible on BOTH namespaces (some code checks either)
+  const _jCtor = window.jspdf && window.jspdf.jsPDF;
+  const _legacyCtor = window.jsPDF;
+  const _autoTable =
+    (_jCtor && _jCtor.API && _jCtor.API.autoTable) ||
+    (_legacyCtor && _legacyCtor.API && _legacyCtor.API.autoTable);
+
+  if (_autoTable) {
+    if (_jCtor && (!_jCtor.API || !_jCtor.API.autoTable)) {
+      window.jspdf.jsPDF.API = window.jspdf.jsPDF.API || {};
+      window.jspdf.jsPDF.API.autoTable = _autoTable;
+    }
+    if (_legacyCtor && (!_legacyCtor.API || !_legacyCtor.API.autoTable)) {
+      window.jsPDF.API = window.jsPDF.API || {};
+      window.jsPDF.API.autoTable = _autoTable;
+    }
+  }
+
+  // Hard-override any old local-loader hooks so they DON'T fetch /vendor/*
+  window.tkLoadPdfLibs  = window.tkLoadPdfLibs  || (async () => (window.jspdf?.jsPDF) || window.jsPDF);
+  window.ensurePdfLibs  = window.ensurePdfLibs  || (async () => (window.jspdf?.jsPDF) || window.jsPDF);
+  window.ensureAutoTable = window.ensureAutoTable || (async () => true);
+</script>
+<!-- NOW load your existing compatPdf.js which used to request /vendor/* -->
 <script src="assets/js/compatPdf.js?v=clean-reset-1" defer></script>
 </body>
 
