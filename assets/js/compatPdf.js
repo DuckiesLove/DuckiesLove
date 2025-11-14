@@ -270,32 +270,32 @@
   }
 
   function tk_flagStatus(a, b, matchPercent) {
-    if (matchPercent >= 90) return 'green';
-    if (matchPercent <= 30) return 'red';
+    if (Number.isFinite(matchPercent)) {
+      if (matchPercent >= 90) return 'green';
+      if (matchPercent <= 30) return 'red';
+    }
 
     const oneIsFive = a === 5 || b === 5;
-    if (oneIsFive && Math.abs(a - b) >= 1) return 'yellow';
+    if (oneIsFive && Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) >= 1)
+      return 'yellow';
     return '';
   }
 
-  function tk_drawFlagMarker(doc, data, status) {
-    if (!status) return;
-    const { x, y, height, width } = data.cell;
-
+  function tk_drawFlagSquare(doc, cell, color) {
+    if (!color) return;
+    const { x, y, height, width } = cell;
     const size = Math.min(width, height) * 0.45;
     const sx = x + (width - size) / 2;
     const sy = y + (height - size) / 2;
-
-    const colors = {
+    const palette = {
       green: [24, 214, 154],
       yellow: [255, 204, 0],
       red: [255, 66, 66],
     };
-    const rgb = colors[status];
+    const rgb = palette[color];
     if (!rgb) return;
 
     doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-    doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0);
     doc.rect(sx, sy, size, size, 'F');
   }
@@ -308,22 +308,21 @@
     const titleW = doc.getTextWidth(sectionTitle);
     doc.text(sectionTitle, (pageW - titleW) / 2, startY);
 
-    const body = rows.map((r) => {
-      const coerce = (val) => {
-        const num = Number(val);
-        return Number.isFinite(num) ? num : null;
-      };
-      const aNum = coerce(r.a);
-      const bNum = coerce(r.b);
-      const mNum = coerce(r.matchPercent);
-      const matchDisplay =
-        Number.isFinite(mNum) && mNum != null ? `${Math.round(mNum)}%` : r.match;
+    const body = rows.map((row) => {
+      const aNum = Number(row.aScore ?? row.a);
+      const bNum = Number(row.bScore ?? row.b);
+      const matchNum = Number(row.matchPercent);
+      const aVal = Number.isFinite(aNum) ? String(aNum) : safeString(row.a);
+      const bVal = Number.isFinite(bNum) ? String(bNum) : safeString(row.b);
+      const matchVal = Number.isFinite(matchNum)
+        ? `${Math.round(matchNum)}%`
+        : safeString(row.match);
       return {
-        item: r.item,
-        a: aNum != null ? String(aNum) : r.a,
-        match: matchDisplay,
-        flag: tk_flagStatus(aNum, bNum, mNum),
-        b: bNum != null ? String(bNum) : r.b,
+        item: safeString(row.item),
+        a: aVal,
+        match: matchVal,
+        flag: tk_flagStatus(aNum, bNum, matchNum),
+        b: bVal,
       };
     });
 
@@ -349,7 +348,7 @@
         cellPadding: { top: 5, bottom: 5, left: 6, right: 6 },
         textColor: [230, 230, 230],
         fillColor: [25, 25, 28],
-        lineColor: [30, 255, 255],
+        lineColor: [40, 40, 45],
         lineWidth: 1.2,
       },
       headStyles: {
@@ -377,8 +376,7 @@
       },
       didDrawCell: (data) => {
         if (data.section === 'body' && data.column.dataKey === 'flag') {
-          const flag = data.row?.raw?.flag;
-          if (flag) tk_drawFlagMarker(doc, data, flag);
+          tk_drawFlagSquare(doc, data.cell, data.row?.raw?.flag);
         }
       },
     });
