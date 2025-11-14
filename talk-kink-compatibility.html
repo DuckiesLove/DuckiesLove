@@ -142,6 +142,139 @@
   </div>
 
 <script>
+const TK_FLAG_GREEN = "🟩";
+const TK_FLAG_YELLOW = "🟨";
+const TK_FLAG_RED = "🟥";
+
+function tkGetFlagSquare(row) {
+  if (!row || !row.hasData) return "";
+
+  const match = typeof row.matchPct === "number" ? row.matchPct : 0;
+  const a = row.aScore;
+  const b = row.bScore;
+  if (a == null || b == null) return "";
+
+  const diff = Math.abs(a - b);
+
+  if (match <= 30 || (a <= 1 && b >= 4) || (b <= 1 && a >= 4)) {
+    return TK_FLAG_RED;
+  }
+
+  if (diff >= 3 || (a === 5 && b <= 3) || (b === 5 && a <= 3)) {
+    return TK_FLAG_YELLOW;
+  }
+
+  if (match >= 80) {
+    return TK_FLAG_GREEN;
+  }
+
+  return "";
+}
+
+function tkCoerceNumber(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const direct = Number(trimmed);
+  if (Number.isFinite(direct)) return direct;
+  const numeric = Number(trimmed.replace(/[^0-9.+-]/g, ""));
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function tkParseScore(value) {
+  const num = tkCoerceNumber(value);
+  if (num == null) return null;
+  if (!Number.isFinite(num)) return null;
+  return Math.max(0, Math.min(5, num));
+}
+
+function tkParseMatchPercent(value) {
+  const num = tkCoerceNumber(value);
+  if (num == null) return null;
+  if (!Number.isFinite(num)) return null;
+  return Math.max(0, Math.min(100, num));
+}
+
+function tkFormatPercent(value) {
+  if (!Number.isFinite(value)) return "";
+  const clamped = Math.max(0, Math.min(100, value));
+  const rounded = Number.isInteger(clamped) ? clamped : Number(clamped.toFixed(1));
+  return `${rounded}%`;
+}
+
+function tkFormatScoreDisplay(value) {
+  if (value === null || value === undefined) return "";
+  const str = String(value).trim();
+  return str;
+}
+
+function tkFormatMatchDisplay(raw, parsed) {
+  if (raw !== undefined && raw !== null) {
+    const rawStr = String(raw).trim();
+    if (rawStr) {
+      if (/%/.test(rawStr)) return rawStr;
+      const numeric = tkCoerceNumber(rawStr);
+      if (Number.isFinite(numeric)) return tkFormatPercent(numeric);
+      if (Number.isFinite(parsed)) return tkFormatPercent(parsed);
+      return rawStr;
+    }
+  }
+  if (Number.isFinite(parsed)) return tkFormatPercent(parsed);
+  return "";
+}
+
+function tkNormalizeCompatRow(entry) {
+  if (!entry) return null;
+
+  let label;
+  let labelShort;
+  let aRaw;
+  let bRaw;
+  let matchRaw;
+  let hasData;
+
+  if (Array.isArray(entry)) {
+    [label, aRaw, matchRaw, , bRaw] = entry;
+  } else if (typeof entry === "object") {
+    label = entry.label ?? entry.item ?? entry.title ?? "";
+    labelShort = entry.labelShort ?? entry.shortLabel ?? entry.short ?? null;
+    aRaw = entry.aScore ?? entry.a ?? entry.partnerA ?? entry.aValue ?? entry.a_score;
+    bRaw = entry.bScore ?? entry.b ?? entry.partnerB ?? entry.bValue ?? entry.b_score;
+    matchRaw = entry.matchPct ?? entry.match ?? entry.matchValue ?? entry.matchPercent ?? entry.matchPercentage ?? entry.matchScore;
+    hasData = typeof entry.hasData === "boolean" ? entry.hasData : undefined;
+  } else {
+    return null;
+  }
+
+  const aScore = tkParseScore(aRaw);
+  const bScore = tkParseScore(bRaw);
+  const matchPct = tkParseMatchPercent(matchRaw);
+
+  if (typeof hasData !== "boolean") {
+    hasData = Number.isFinite(aScore) || Number.isFinite(bScore);
+  }
+
+  return {
+    label: label ?? "",
+    labelShort: labelShort || null,
+    aScore,
+    bScore,
+    matchPct,
+    matchRaw,
+    aDisplay: tkFormatScoreDisplay(aRaw ?? aScore),
+    bDisplay: tkFormatScoreDisplay(bRaw ?? bScore),
+    matchDisplay: tkFormatMatchDisplay(matchRaw, matchPct),
+    hasData,
+  };
+}
+
+const TK_PDF_TITLE = "Talk Kink Compatibility Survey";
+
+if (typeof window !== 'undefined') {
+  window.tkGetFlagSquare = tkGetFlagSquare;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    One-time bootstrap (prevents “double loading”)
 ────────────────────────────────────────────────────────────────────────── */
@@ -171,21 +304,20 @@
     localStorage.setItem(LS_VERSION_KEY, TK_COMPAT_CACHE_VERSION);
   }
 
-  const FLAG_GLYPH = '▶';
   const HARD_CODED_COMPAT_ROWS = [
-    ['Giving: Assigning corner time or time-outs', 0, '100%', FLAG_GLYPH, 0],
-    ['General: Attitude toward funishment vs serious correction', 3, '100%', FLAG_GLYPH, 3],
-    ['Receiving: Being placed in the corner or given a time-out', 5, '100%', FLAG_GLYPH, 5],
-    ['Receiving: Getting scolded or lectured for correction', 5, '100%', FLAG_GLYPH, 5],
-    ['Receiving: Having privileges revoked (phone, TV)', 3, '100%', FLAG_GLYPH, 3],
-    ['Giving: Lecturing or scolding to modify behavior', 4, '100%', FLAG_GLYPH, 4],
-    ['Giving: Playful punishments that still reinforce rules', 3, '100%', FLAG_GLYPH, 3],
-    ['General: Preferred style of discipline (strict vs lenient)', 4, '100%', FLAG_GLYPH, 4],
-    ['Receiving: Playful \'f\' punishments for minor rule-breaking', 2, '100%', FLAG_GLYPH, 2],
-    ['Giving: Removing privileges (phone, TV, sweets)', 2, '100%', FLAG_GLYPH, 2],
-    ['General: Use of behavior contracts or rule agreements', 2, '100%', FLAG_GLYPH, 2],
-    ['Giving: Writing lines or apology letters as correction', 1, '100%', FLAG_GLYPH, 1],
-    ['Receiving: Writing lines or apology letters when misbehaving', 4, '100%', FLAG_GLYPH, 4],
+    ['Giving: Assigning corner time or time-outs', 0, 100, '', 0],
+    ['General: Attitude toward funishment vs serious correction', 3, 100, '', 3],
+    ['Receiving: Being placed in the corner or given a time-out', 5, 100, '', 5],
+    ['Receiving: Getting scolded or lectured for correction', 5, 100, '', 5],
+    ['Receiving: Having privileges revoked (phone, TV)', 3, 100, '', 3],
+    ['Giving: Lecturing or scolding to modify behavior', 4, 100, '', 4],
+    ['Giving: Playful punishments that still reinforce rules', 3, 100, '', 3],
+    ['General: Preferred style of discipline (strict vs lenient)', 4, 100, '', 4],
+    ['Receiving: Playful \"f\" punishments for minor rule-breaking', 2, 100, '', 2],
+    ['Giving: Removing privileges (phone, TV, sweets)', 2, 100, '', 2],
+    ['General: Use of behavior contracts or rule agreements', 2, 100, '', 2],
+    ['Giving: Writing lines or apology letters as correction', 1, 100, '', 1],
+    ['Receiving: Writing lines or apology letters when misbehaving', 4, 100, '', 4],
   ];
 
   /* Source resolution: use live globals if present, else localStorage, else fallback */
@@ -203,23 +335,26 @@
   /* Render into DOM (single-run; we clear body first to avoid doubles) */
   const TBODY = document.getElementById('compatBody');
   function renderTable(rows){
-    TBODY.replaceChildren(); // clear any old render
-    for (const r of rows){
-      const [label, a, match, flag, b] = r;
-      const tr = document.createElement('tr');
+    TBODY.replaceChildren();
+    const toText = (value) => (value === undefined || value === null ? '' : String(value));
 
+    for (const row of rows){
+      if (!row) continue;
+      const tr = document.createElement('tr');
+      const flag = tkGetFlagSquare(row);
+      const matchText = row.matchDisplay || tkFormatMatchDisplay(row.matchRaw, row.matchPct);
       const cells = [
-        ['label', label],
-        ['num',   a],
-        ['match', match],
+        ['label', row.label],
+        ['num',   row.aDisplay ?? (Number.isFinite(row.aScore) ? String(row.aScore) : '')],
+        ['match', matchText],
         ['flag',  flag],
-        ['num',   b],
+        ['num',   row.bDisplay ?? (Number.isFinite(row.bScore) ? String(row.bScore) : '')],
       ];
 
       for (const [cls, value] of cells){
         const td = document.createElement('td');
         td.className = cls;
-        td.textContent = value ?? '';
+        td.textContent = toText(value);
         tr.appendChild(td);
       }
 
@@ -227,8 +362,8 @@
     }
   }
 
-  const ROWS = pickRows();
-  renderTable(ROWS);
+  const compatRows = pickRows().map(tkNormalizeCompatRow).filter(Boolean);
+  renderTable(compatRows);
 
   /* ───────────────────────────────────────────────────────────────────────
      PDF EXPORT
@@ -272,88 +407,64 @@
     }
   }
 
-  function outlineTextPDF(doc, text, x, y, main=[0,231,255], stroke=[0,0,0]){
-    const baseOpts = { align:'center', renderingMode:'fillThenStroke' };
-    doc.setLineWidth(1);
-    doc.setDrawColor(...stroke);
-    doc.setTextColor(...main);
-    try{
-      doc.text(text, x, y, baseOpts);
-    }catch(err){
-      // Older jsPDF builds might not understand fillThenStroke; fall back to fill only.
-      doc.text(text, x, y, { align:'center' });
-    }
-  }
-
-  async function downloadPDF(){
+  async function TKPDF_export(){
     await loadJsPDF();
     const { jsPDF } = window.jspdf;
 
-    const doc = new jsPDF({ unit:'pt', format:'a4', compress:true });
-    const pageW = doc.internal.pageSize.getWidth();
+    const doc = new jsPDF('landscape', 'pt', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
 
-    /* margins tuned to use the page (shrinks empty bands) */
-    const M = { top: 40, left: 36, right: 36, bottom: 42 };
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(26);
+    doc.text(TK_PDF_TITLE, pageWidth / 2, 60, { align: 'center' });
 
-    // Background fill (dark)
-    doc.setFillColor(16,18,19);
-    doc.rect(0,0,pageW,doc.internal.pageSize.getHeight(),'F');
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    const generatedAt = new Date().toLocaleString();
+    doc.text(`Generated: ${generatedAt}`, pageWidth / 2, 82, { align: 'center' });
 
-    // Title + timestamp (centered + outlined)
-    doc.setFont('helvetica','bold'); doc.setFontSize(34);
-    outlineTextPDF(doc, 'TalkKink Compatibility', pageW/2, M.top+8);
-    doc.setFont('helvetica','normal'); doc.setFontSize(11);
-    doc.setTextColor(184,223,224);
-    doc.text(
-      'Generated: ' + new Date().toLocaleString(),
-      pageW/2, M.top + 28, {align:'center'}
-    );
-
-    // Section heading
-    doc.setFont('helvetica','bold'); doc.setFontSize(24);
-    outlineTextPDF(doc, 'Behavioral Play', pageW/2, M.top + 62);
-
-    // Column widths (percent -> points)
-    const COLW = [0.53, 0.12, 0.16, 0.07, 0.12].map(p => (pageW - M.left - M.right) * p);
-
-    // Build rows for AutoTable
-    const head = [['Item','Partner A','Match','Flag','Partner B']];
-    const body = ROWS.map(r => [r[0], String(r[1]), r[2], r[3], String(r[4])]);
-
-    doc.autoTable({
-      startY: M.top + 80,
-      head, body,
-      theme:'plain',
-      margin: { left: M.left, right: M.right },
-      tableWidth: pageW - M.left - M.right,
-      styles: {
-        font:'helvetica', fontSize:11, cellPadding:6,
-        textColor:[230,254,255], fillColor:[17,19,21], lineColor:[35,41,45], lineWidth:0.7
-      },
-      headStyles: {
-        font:'helvetica', fontStyle:'bold', fontSize:12,
-        textColor:[0,231,255], fillColor:[16,18,21]
-      },
-      columnStyles: {
-        0:{ cellWidth:COLW[0], halign:'left'   },
-        1:{ cellWidth:COLW[1], halign:'center' },
-        2:{ cellWidth:COLW[2], halign:'center' },
-        3:{ cellWidth:COLW[3], halign:'center' }, // tight Flag
-        4:{ cellWidth:COLW[4], halign:'center' }
-      },
-      didParseCell(data){
-        // zebra
-        if (data.section === 'body'){
-          const even = data.row.index % 2 === 0;
-          data.cell.styles.fillColor = even ? [17,19,21] : [15,16,18];
-        }
-      }
+    const bodyRows = compatRows.map((row) => {
+      const flag = tkGetFlagSquare(row);
+      const matchText = row.matchDisplay || tkFormatMatchDisplay(row.matchRaw, row.matchPct);
+      return [
+        row.labelShort || row.label,
+        row.aDisplay ?? (Number.isFinite(row.aScore) ? String(row.aScore) : ''),
+        matchText,
+        flag,
+        row.bDisplay ?? (Number.isFinite(row.bScore) ? String(row.bScore) : ''),
+      ].map((value) => (value === undefined || value === null ? '' : String(value)));
     });
 
-    doc.save('talkkink-compatibility.pdf');
+    doc.autoTable({
+      head: [["Item", "Partner A", "Match", "Flag", "Partner B"]],
+      body: bodyRows,
+      startY: 110,
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+      },
+      headStyles: {
+        fillColor: [0, 255, 255],
+        textColor: [0, 0, 0],
+        halign: 'center',
+      },
+      columnStyles: {
+        0: { cellWidth: 260 },
+        1: { halign: 'center', cellWidth: 60 },
+        2: { halign: 'center', cellWidth: 70 },
+        3: { halign: 'center', cellWidth: 50 },
+        4: { halign: 'center', cellWidth: 60 },
+      },
+    });
+
+    doc.save('TalkKink-Compatibility-Report.pdf');
   }
 
-  document.getElementById('downloadPdfBtn')?.addEventListener('click', downloadPDF, { once:false });
+  document.getElementById('downloadPdfBtn')?.addEventListener('click', TKPDF_export, { once:false });
+
+  if (typeof window !== 'undefined') {
+    window.TKPDF_export = TKPDF_export;
+  }
 })();
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -370,7 +481,6 @@
   const table = document.getElementById('compatTable');
   if (!table) return;
 
-  const FLAG_GLYPH = '▶';
   const parser = new DOMParser();
 
   function decodeEntities(value){
@@ -421,11 +531,24 @@
     const rows = tbl.querySelectorAll('tbody tr');
     rows.forEach(row => {
       const cells = row.querySelectorAll('td');
+      if (!cells.length) return;
+
+      const decodedCells = Array.from(cells, cell => decodeEntities(cell.textContent.trim()));
+      const aScore = tkParseScore(decodedCells[1]);
+      const bScore = tkParseScore(decodedCells[4]);
+      const matchPct = tkParseMatchPercent(decodedCells[2]);
+      const rowData = {
+        aScore,
+        bScore,
+        matchPct,
+        hasData: Number.isFinite(aScore) || Number.isFinite(bScore),
+      };
+      const computedFlag = tkGetFlagSquare(rowData);
+
       cells.forEach((cell, idx) => {
-        const decoded = decodeEntities(cell.textContent.trim());
+        const decoded = decodedCells[idx] ?? '';
         if (idx === 3){
-          let glyph = decoded.replace(/&+/g, '').trim();
-          if (!glyph || glyph === '†') glyph = FLAG_GLYPH;
+          const glyph = computedFlag || decoded.replace(/&+/g, '').trim();
           cell.textContent = glyph;
           cell.style.textAlign = 'center';
           cell.style.letterSpacing = '.5px';
