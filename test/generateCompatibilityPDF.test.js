@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { TK_FLAG_GREEN, TK_FLAG_YELLOW, TK_FLAG_RED } from '../js/matchFlag.js';
 
 // Test that PDF generator renders scores and match percentage
 
@@ -52,9 +53,9 @@ test('generates PDF with score columns and percent', async () => {
   assert.ok(flattened.includes('Partner B'));
   assert.ok(flattened.includes('Flag'));
   // Indicators for various match scenarios
-  assert.ok(flattened.includes('⭐'));
-  assert.ok(flattened.includes('🟨'));
-  assert.ok(flattened.includes('🚩'));
+  assert.ok(flattened.includes(TK_FLAG_GREEN));
+  assert.ok(flattened.includes(TK_FLAG_YELLOW));
+  assert.ok(flattened.includes(TK_FLAG_RED));
 });
 
 test('shows N/A bar when scores missing', async () => {

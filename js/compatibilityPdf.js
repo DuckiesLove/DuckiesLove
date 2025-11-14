@@ -1,4 +1,5 @@
 import * as helperModule from './compatibilityReportHelpers.js';
+import { getFlagSymbol } from './matchFlag.js';
 import { shortenLabel } from './labelShortener.js';
 import { ensureJsPDF } from './loadJsPDF.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
@@ -39,12 +40,13 @@ const fallbackHelpers = (() => {
   };
 
   const getFlag = (a, b, match) => {
-    if (a == null || b == null) return '';
-    if (match == null) return '';
-    if (match >= 90) return '⭐';
-    if ((a === 5 && b < 5) || (b === 5 && a < 5)) return '🟨';
-    if (match < 30) return '🚩';
-    return '';
+    if (a == null || b == null || match == null) return '';
+    return getFlagSymbol({
+      hasData: true,
+      matchPct: match,
+      aScore: a,
+      bScore: b,
+    });
   };
 
   const toColorArray = (color, fallback = [255, 255, 255]) => {
