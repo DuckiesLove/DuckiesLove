@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { TK_FLAG_GREEN } from '../js/matchFlag.js';
 
 function createDoc() {
   const textCalls = [];
@@ -29,7 +30,7 @@ test('renders categories, scores, matches and flags', async () => {
   assert.ok(texts.includes('Item1'));
   assert.ok(texts.includes('5'));
   assert.ok(texts.includes('100%'));
-  assert.ok(texts.includes('⭐'));
+  assert.ok(texts.includes(TK_FLAG_GREEN));
   assert.ok(texts.includes('80%'));
 });
 

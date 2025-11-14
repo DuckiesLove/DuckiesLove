@@ -4,7 +4,7 @@
 // Uses shared layout builder and category renderer for consistent formatting
 
 import { buildLayout } from '../compatibilityReportHelpers.js';
-import { getFlagEmoji } from '../matchFlag.js';
+import { getFlagSymbol } from '../matchFlag.js';
 import { shortenLabel } from '../labelShortener.js';
 
 // ---- Helper functions ----
@@ -28,8 +28,13 @@ function calculateMatch(aStr, bStr) {
 function getMatchFlag(aStr, bStr, match) {
   const a = parseScore(aStr);
   const b = parseScore(bStr);
-  if (a == null || b == null || match == null) return 'N/A';
-  return getFlagEmoji(match, a, b) || '';
+  if (a == null || b == null || match == null) return '';
+  return getFlagSymbol({
+    hasData: true,
+    matchPct: match,
+    aScore: a,
+    bScore: b,
+  });
 }
 
 function drawMatchBar(doc, layout, y, match, theme) {

@@ -1,5 +1,6 @@
 // ---- Compatibility Report Rendering Helpers ----
 
+import { getFlagSymbol } from './matchFlag.js';
 const PX_TO_MM = 0.2645833333;
 const LABEL_MAX_WIDTH_PX = 130;
 const ROW_MIN_HEIGHT_PX = 28;
@@ -22,12 +23,13 @@ function getFontColor(percentage) {
 
 // Flag logic
 function getFlagIcon(a, b, match) {
-  if (a == null || b == null) return 'N/A';
-  if (match === null || match === undefined) return 'N/A';
-  if (match >= 90) return '⭐';
-  if ((a === 5 && b < 5) || (b === 5 && a < 5)) return '🟨';
-  if (match < 30) return '🚩';
-  return '';
+  if (a == null || b == null || match == null) return '';
+  return getFlagSymbol({
+    hasData: true,
+    matchPct: match,
+    aScore: a,
+    bScore: b,
+  });
 }
 
 // Draw the colored match bar with percentage label (or N/A)
