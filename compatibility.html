@@ -1121,7 +1121,11 @@
     }
   }
 
-  window.tkLoadPdfLibs = tkLoadPdfLibs;
+  if (typeof window.tkLoadPdfLibs !== 'function') {
+    window.tkLoadPdfLibs = tkLoadPdfLibs;
+  } else {
+    window.tkLoadPdfLibsFallback = tkLoadPdfLibs;
+  }
   </script>
 
   <!-- CODEX: Resilient dark PDF exporter (dual-CDN, guarded parsing, consent, diagnostics) -->
