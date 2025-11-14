@@ -1028,64 +1028,66 @@
 
   <!-- 4) Make sure autoTable is visible on BOTH namespaces + NO-OP old local loaders -->
   <script>
+    /* === FINAL HOTFIX: Replace broken PDF loader with CDN-only version === */
+
     (function () {
-      const CDN_AUTOTABLE = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
+      const CDN = {
+        JSPDF: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+        AUTOTABLE: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+      };
+      const DL_BTN = '#downloadBtn, #downloadPdfBtn, [data-download-pdf]';
 
-      function syncAutoTable() {
-        const ctor = window.jspdf && window.jspdf.jsPDF;
+      function inject(src, key) {
+        return new Promise((resolve, reject) => {
+          const existing = key ? document.querySelector(`script[data-lib="${key}"]`) : null;
+          if (existing && existing.dataset.loaded === '1') return resolve();
+          if (existing) {
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error('load fail ' + src)), { once: true });
+            return;
+          }
+          const s = document.createElement('script');
+          s.src = src; s.defer = true; s.crossOrigin = 'anonymous'; s.referrerPolicy = 'no-referrer';
+          if (key) s.dataset.lib = key;
+          s.onload  = () => { if (key) s.dataset.loaded = '1'; resolve(); };
+          s.onerror = () => reject(new Error('load fail ' + src));
+          document.head.appendChild(s);
+        });
+      }
+
+      const hasJsPDF     = () => !!(window.jspdf?.jsPDF) || !!window.jsPDF;
+      const hasAutoTable = () => {
+        const api = (window.jspdf?.jsPDF?.API) || (window.jsPDF?.API);
+        return !!(api && (api.autoTable || api.__autoTable__));
+      };
+
+      async function loadFromCDN() {
+        if (!hasJsPDF()) await inject(CDN.JSPDF, 'jspdf');
+        if (!window.jsPDF && window.jspdf?.jsPDF) window.jsPDF = window.jspdf.jsPDF;
+
+        if (!hasAutoTable()) await inject(CDN.AUTOTABLE, 'jspdf-autotable');
+
+        const ctor   = window.jspdf?.jsPDF;
         const legacy = window.jsPDF;
-        const at = (legacy && legacy.API && legacy.API.autoTable) ||
-                   (ctor && ctor.API && ctor.API.autoTable);
+        const at = (legacy?.API?.autoTable) || (ctor?.API?.autoTable);
         if (at) {
-          if (ctor)  { ctor.API  = ctor.API  || {}; ctor.API.autoTable  = at; }
-          if (legacy){ legacy.API= legacy.API|| {}; legacy.API.autoTable= at; }
+          if (ctor)   { ctor.API   = ctor.API   || {}; ctor.API.autoTable   = at; }
+          if (legacy) { legacy.API = legacy.API || {}; legacy.API.autoTable = at; }
         }
-        return Boolean(at);
+
+        if (!hasJsPDF())     throw new Error('jsPDF not available');
+        if (!hasAutoTable()) throw new Error('autoTable not available');
+
+        return window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
       }
 
-      function getCtor() {
-        return (window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null;
-      }
+      window.tkLoadPdfLibs    = async () => ({ jsPDF: await loadFromCDN() });
+      window.ensurePdfLibs    = async () =>      loadFromCDN();
+      window.ensureAutoTable  = async () => true;
 
-      function ensureDocAutoTable(doc) {
-        if (!doc) return;
-        if (typeof doc.autoTable === 'function') return;
-        const ctor = getCtor();
-        const api = (ctor && ctor.API) || (window.jsPDF && window.jsPDF.API) || (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API);
-        const at = api && api.autoTable;
-        if (typeof at === 'function') {
-          doc.autoTable = function (...args) {
-            return at.apply(this, args);
-          };
-        }
-      }
-
-      syncAutoTable();
-
-      window.tkLoadPdfLibs = async () => {
-        const ctor = getCtor();
-        if (!ctor) throw new Error('jsPDF not available');
-        syncAutoTable();
-        return ctor;
-      };
-
-      window.ensurePdfLibs = async () => {
-        const ctor = await window.tkLoadPdfLibs();
-        syncAutoTable();
-        return ctor;
-      };
-
-      window.ensureAutoTable = async () => {
-        if (!syncAutoTable()) {
-          throw new Error('autoTable plugin not attached');
-        }
-        return true;
-      };
-
-      window.tkGetJsPDF = () => getCtor();
-
+      window.tkGetJsPDF = () => window.jsPDF || (window.jspdf && window.jspdf.jsPDF) || null;
       window.tkMakeDoc = () => {
-        const ctor = getCtor();
+        const ctor = window.tkGetJsPDF();
         if (typeof ctor !== 'function') {
           throw new Error('jsPDF constructor unavailable');
         }
@@ -1093,34 +1095,43 @@
         if (typeof doc.setLineWidth !== 'function') {
           doc.setLineWidth = function () {};
         }
-        ensureDocAutoTable(doc);
+        const api = ctor.API || window.jsPDF?.API || window.jspdf?.jsPDF?.API;
+        const at = api && (api.autoTable || api.__autoTable__);
+        if (typeof at === 'function' && typeof doc.autoTable !== 'function') {
+          doc.autoTable = function (...args) {
+            return at.apply(this, args);
+          };
+        }
         return doc;
       };
 
-      if (!window.__TK_VENDOR_PATCHED__) {
-        window.__TK_VENDOR_PATCHED__ = true;
-        const VENDOR_RE = /\/vendor\/jspdf\.plugin\.autotable\.min\.js(?:\?.*)?$/i;
-        const docProto = window.Document && window.Document.prototype;
-        if (docProto && typeof docProto.appendChild === 'function') {
-          const origDocAppend = docProto.appendChild;
-          docProto.appendChild = function (node) {
-            if (node && node.tagName === 'SCRIPT' && VENDOR_RE.test(node.src)) {
-              node.src = CDN_AUTOTABLE;
-            }
-            return origDocAppend.apply(this, arguments);
-          };
-        }
-        const headProto = window.HTMLHeadElement && window.HTMLHeadElement.prototype;
-        if (headProto && typeof headProto.appendChild === 'function') {
-          const origHeadAppend = headProto.appendChild;
-          headProto.appendChild = function (node) {
-            if (node && node.tagName === 'SCRIPT' && VENDOR_RE.test(node.src)) {
-              node.src = CDN_AUTOTABLE;
-            }
-            return origHeadAppend.apply(this, arguments);
-          };
-        }
+      function setBtnState(ready) {
+        const btn = document.querySelector(DL_BTN);
+        if (!btn) return;
+        btn.disabled = !ready;
+        btn.title = ready ? 'Download your compatibility PDF' : 'Loading PDF libraries…';
       }
+
+      (async () => {
+        try {
+          setBtnState(false);
+          await loadFromCDN();
+          setBtnState(true);
+          console.info('[compat-pdf] CDN libs ready');
+        } catch (err) {
+          console.error('[compat-pdf] Loader error:', err);
+          setBtnState(false);
+        }
+      })();
+
+      const VENDOR_AT_RE = /\/vendor\/jspdf\.plugin\.autotable\.min\.js(?:\?.*)?$/i;
+      const origAppend = HTMLHeadElement.prototype.appendChild;
+      HTMLHeadElement.prototype.appendChild = function (node) {
+        if (node && node.tagName === 'SCRIPT' && VENDOR_AT_RE.test(node.src)) {
+          node.src = CDN.AUTOTABLE;
+        }
+        return origAppend.apply(this, arguments);
+      };
     })();
   </script>
 
@@ -2461,35 +2472,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"
         crossorigin="anonymous" referrerpolicy="no-referrer" data-lib="jspdf-autotable"></script>
 
-<script>
-  // Alias UMD ctor to legacy global so old code passes presence checks
-  if (window.jspdf && window.jspdf.jsPDF && !window.jsPDF) {
-    window.jsPDF = window.jspdf.jsPDF;
-  }
-
-  // Make sure autoTable is visible on BOTH namespaces (some code checks either)
-  const _jCtor = window.jspdf && window.jspdf.jsPDF;
-  const _legacyCtor = window.jsPDF;
-  const _autoTable =
-    (_jCtor && _jCtor.API && _jCtor.API.autoTable) ||
-    (_legacyCtor && _legacyCtor.API && _legacyCtor.API.autoTable);
-
-  if (_autoTable) {
-    if (_jCtor && (!_jCtor.API || !_jCtor.API.autoTable)) {
-      window.jspdf.jsPDF.API = window.jspdf.jsPDF.API || {};
-      window.jspdf.jsPDF.API.autoTable = _autoTable;
-    }
-    if (_legacyCtor && (!_legacyCtor.API || !_legacyCtor.API.autoTable)) {
-      window.jsPDF.API = window.jsPDF.API || {};
-      window.jsPDF.API.autoTable = _autoTable;
-    }
-  }
-
-  // Hard-override any old local-loader hooks so they DON'T fetch /vendor/*
-  window.tkLoadPdfLibs  = window.tkLoadPdfLibs  || (async () => (window.jspdf?.jsPDF) || window.jsPDF);
-  window.ensurePdfLibs  = window.ensurePdfLibs  || (async () => (window.jspdf?.jsPDF) || window.jsPDF);
-  window.ensureAutoTable = window.ensureAutoTable || (async () => true);
-</script>
 <!-- NOW load your existing compatPdf.js which used to request /vendor/* -->
 <script src="assets/js/compatPdf.js?v=clean-reset-1" defer></script>
 </body>
