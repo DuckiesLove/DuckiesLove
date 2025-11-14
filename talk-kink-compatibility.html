@@ -610,35 +610,60 @@ if (typeof window !== 'undefined') {
   function tkRenderFlagCell(td, info) {
     td.textContent = '';
     td.dataset.flagStatus = info?.status || '';
+    td.removeAttribute('title');
 
-    if (!info || (!info.status && !info.emoji)) {
-      if (info?.emoji) td.textContent = info.emoji;
-      return;
-    }
+    if (!info) return;
 
     const span = document.createElement('span');
     span.className = 'flag-dot';
-    if (info.status) span.dataset.flagStatus = info.status;
-    if (info.color) {
-      span.style.setProperty('--flag-color', info.color);
-      span.dataset.hasColor = 'true';
-    } else {
-      span.dataset.hasColor = info.status ? 'true' : 'false';
-    }
-
-    const description = tkDescribeFlag(info);
-    span.setAttribute('role', 'img');
-    span.setAttribute('aria-label', description);
-    span.textContent = info.emoji || '';
 
     if (info.status) {
+      span.dataset.flagStatus = info.status;
+    }
+
+    const resolvedColor = info.color || (info.status ? FLAG_META[info.status]?.color : null) || null;
+    if (resolvedColor) {
+      span.style.setProperty('--flag-color', resolvedColor);
+    }
+    span.dataset.hasColor = resolvedColor ? 'true' : 'false';
+    span.dataset.flagEmoji = info.emoji || '';
+
+    const description = tkDescribeFlag(info);
+    const hasAccessibleLabel = Boolean(description || info.emoji);
+    span.setAttribute('role', hasAccessibleLabel ? 'img' : 'presentation');
+    if (description) {
+      span.setAttribute('aria-label', description);
+      span.title = description;
+      td.title = description;
+    } else if (info.emoji) {
+      span.setAttribute('aria-label', info.emoji);
+      td.title = info.emoji;
+    } else {
+      span.removeAttribute('aria-label');
+      td.removeAttribute('title');
+    }
+
+    const hasColor = span.dataset.hasColor === 'true';
+
+    if (hasColor) {
+      const sr = document.createElement('span');
+      sr.className = 'sr-only';
+      sr.textContent = description || info.emoji || '';
+      span.appendChild(sr);
+    } else if (info.emoji) {
+      span.textContent = info.emoji;
+    }
+
+    if (!span.childNodes.length && !span.textContent && description) {
       const sr = document.createElement('span');
       sr.className = 'sr-only';
       sr.textContent = description;
       span.appendChild(sr);
     }
 
-    td.appendChild(span);
+    if (span.childNodes.length || span.textContent) {
+      td.appendChild(span);
+    }
   }
 
   function renderTable(rows){
