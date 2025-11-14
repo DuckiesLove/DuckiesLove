@@ -1214,8 +1214,8 @@
   window.__TK_FAST_UPLOADS__ = true;
   window.__TK_ALLOW_SINGLE_PDF__ = true;
 
-  const LS_SELF_KEY = 'tk_compat.mine';
-  const LS_PARTNER_KEY = 'tk_compat.partner';
+  const LS_SELF_KEYS = Object.freeze(['tk_compat.self', 'tk_compat.mine', 'talkkink:mine', 'talkkink:survey']);
+  const LS_PARTNER_KEYS = Object.freeze(['tk_compat.partner', 'talkkink:partner']);
 
   // ---------- STATE ----------
   let yourBlob = null;
@@ -1239,26 +1239,34 @@
     el.dataset.state = state;
   }
 
+  function touchStorage(keys, value) {
+    if (!Array.isArray(keys) || !keys.length) return;
+    keys.forEach((key) => {
+      if (!key) return;
+      try {
+        if (value == null) {
+          localStorage.removeItem(key);
+        } else {
+          localStorage.setItem(key, value);
+        }
+      } catch (err) {
+        console.warn('[compat] unable to update storage', key, err);
+      }
+    });
+  }
+
   function resetSelection(which, { resetStatus = true } = {}) {
     if (which === 'self') {
       yourBlob = null;
       yourJSON = null;
       window.talkkinkMine = null;
       window.talkkinkSurvey = null;
-      try {
-        localStorage.removeItem(LS_SELF_KEY);
-      } catch (err) {
-        console.warn('[compat] unable to clear self cache', err);
-      }
+      touchStorage(LS_SELF_KEYS, null);
     } else {
       partnerBlob = null;
       partnerJSON = null;
       window.talkkinkPartner = null;
-      try {
-        localStorage.removeItem(LS_PARTNER_KEY);
-      } catch (err) {
-        console.warn('[compat] unable to clear partner cache', err);
-      }
+      touchStorage(LS_PARTNER_KEYS, null);
     }
     if (resetStatus) setStatus(which, '', '');
   }
@@ -1751,18 +1759,26 @@
       yourJSON = json;
       window.talkkinkMine = json;
       window.talkkinkSurvey = json;
+      let serialized = null;
       try {
-        localStorage.setItem(LS_SELF_KEY, JSON.stringify(json));
+        serialized = JSON.stringify(json);
       } catch (err) {
-        console.warn('[compat] unable to persist self survey', err);
+        console.warn('[compat] unable to serialize self survey', err);
+      }
+      if (serialized) {
+        touchStorage(LS_SELF_KEYS, serialized);
       }
     } else {
       partnerJSON = json;
       window.talkkinkPartner = json;
+      let serialized = null;
       try {
-        localStorage.setItem(LS_PARTNER_KEY, JSON.stringify(json));
+        serialized = JSON.stringify(json);
       } catch (err) {
-        console.warn('[compat] unable to persist partner survey', err);
+        console.warn('[compat] unable to serialize partner survey', err);
+      }
+      if (serialized) {
+        touchStorage(LS_PARTNER_KEYS, serialized);
       }
     }
 
