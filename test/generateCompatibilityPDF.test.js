@@ -1,18 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { TK_FLAG_GREEN, TK_FLAG_YELLOW, TK_FLAG_RED } from '../js/matchFlag.js';
-
 // Test that PDF generator renders scores and match percentage
 
 test('generates PDF with score columns and percent', async () => {
   const rectCalls = [];
   const textCalls = [];
+  const fillCalls = [];
 
   class JsPDFMock {
     constructor() {
       this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
     }
-    setFillColor() {}
+    setFillColor(...args) { fillCalls.push(args); }
     setFont() {}
     setDrawColor() {}
     setLineWidth() {}
@@ -52,10 +51,16 @@ test('generates PDF with score columns and percent', async () => {
   assert.ok(flattened.includes('Partner A'));
   assert.ok(flattened.includes('Partner B'));
   assert.ok(flattened.includes('Flag'));
-  // Indicators for various match scenarios
-  assert.ok(flattened.includes(TK_FLAG_GREEN));
-  assert.ok(flattened.includes(TK_FLAG_YELLOW));
-  assert.ok(flattened.includes(TK_FLAG_RED));
+  // Indicators for various match scenarios now rendered as colored squares
+  const paletteCalls = fillCalls
+    .map(args => Array.from(args))
+    .filter(args => args.length === 3);
+  const hasGreen = paletteCalls.some(([r, g, b]) => r === 24 && g === 214 && b === 154);
+  const hasYellow = paletteCalls.some(([r, g, b]) => r === 255 && g === 204 && b === 0);
+  const hasRed = paletteCalls.some(([r, g, b]) => r === 255 && g === 66 && b === 66);
+  assert.ok(hasGreen, 'expected green flag square fill color');
+  assert.ok(hasYellow, 'expected yellow flag square fill color');
+  assert.ok(hasRed, 'expected red flag square fill color');
 });
 
 test('shows N/A bar when scores missing', async () => {

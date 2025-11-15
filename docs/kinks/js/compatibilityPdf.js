@@ -1,8 +1,30 @@
 import * as helperModule from './compatibilityReportHelpers.js';
-import { getFlagSymbol } from './matchFlag.js';
+import { getFlagColor } from './matchFlag.js';
 import { shortenLabel } from './labelShortener.js';
 import { ensureJsPDF } from './loadJsPDF.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+
+function drawFlagSquare(doc, cellX, cellY, cellWidth, cellHeight, colorName) {
+  if (!colorName) return; // empty flag, draw nothing
+
+  // how big the square should be, relative to the cell
+  const size = Math.min(cellWidth, cellHeight) * 0.55;
+  const sx   = cellX + (cellWidth  - size) / 2;  // center horizontally
+  const sy   = cellY + (cellHeight - size) / 2;  // center vertically
+
+  const palette = {
+    green:  [24, 214, 154],
+    yellow: [255, 204, 0],
+    red:    [255, 66, 66],
+  };
+
+  const rgb = palette[colorName];
+  if (!rgb) return;
+
+  doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+  doc.setLineWidth(0);
+  doc.rect(sx, sy, size, size, 'F');
+}
 
 const FALLBACK_ROW_HEIGHT = 11;
 const FALLBACK_HEADER_HEIGHT = 10;
@@ -33,12 +55,7 @@ const fallbackHelpers = (() => {
 
   const getFlag = (a, b, match) => {
     if (a == null || b == null || match == null) return '';
-    return getFlagSymbol({
-      hasData: true,
-      matchPct: match,
-      aScore: a,
-      bScore: b,
-    });
+    return getFlagColor(match, a, b);
   };
 
   const toColorArray = (color, fallback = [255, 255, 255]) => {
@@ -83,6 +100,8 @@ const fallbackHelpers = (() => {
       colBar: colBarCenter,
       colB: colBCenter,
       colFlag,
+      colFlagStart,
+      flagWidth,
       matchWidth,
       labelWidth,
       rowHeight: FALLBACK_ROW_HEIGHT,
@@ -152,7 +171,36 @@ const fallbackHelpers = (() => {
       const match = item.match ?? getMatchPercentage(item.partnerA, item.partnerB);
       doc.text(match != null ? `${match}%` : 'N/A', layout.colBar, currentY, { align: 'center' });
       doc.text(formatScore(item.partnerB), layout.colB, currentY, { align: 'center' });
-      doc.text(getFlag(item.partnerA, item.partnerB, match), layout.colFlag, currentY, { align: 'center' });
+      const explicitFlag = item.flag;
+      let flagColor = '';
+      if (explicitFlag != null && explicitFlag !== '') {
+        if (typeof explicitFlag === 'string') {
+          const trimmed = explicitFlag.trim().toLowerCase();
+          if (['green', 'yellow', 'red'].includes(trimmed)) {
+            flagColor = trimmed;
+          } else if (trimmed === '🟩') {
+            flagColor = 'green';
+          } else if (trimmed === '🟨') {
+            flagColor = 'yellow';
+          } else if (trimmed === '🟥') {
+            flagColor = 'red';
+          }
+        }
+      }
+      if (!flagColor) {
+        flagColor = getFlag(item.partnerA, item.partnerB, match);
+      }
+
+      const rowHeight = layout.rowHeight ?? FALLBACK_ROW_HEIGHT;
+      const flagCellWidth = layout.flagWidth ?? 12;
+      const flagCellX = (layout.colFlagStart ?? (layout.colFlag - flagCellWidth / 2));
+      const flagCellY = currentY - rowHeight;
+
+      // clear any old flag text:
+      doc.setTextColor(255, 255, 255);
+      // DO NOT call doc.text for the flag at all
+
+      drawFlagSquare(doc, flagCellX, flagCellY, flagCellWidth, rowHeight, flagColor);
       currentY += layout.rowHeight;
     });
 
