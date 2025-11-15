@@ -67,14 +67,11 @@
   }
   table.compat tr:nth-child(odd) td{background: rgba(255,255,255,.035)}
   table.compat .num{ text-align:center; font-variant-numeric: tabular-nums }
-  table.compat .flag{ text-align:center }
   table.compat .label{ word-break: break-word }
 
-  /* Tighten the Flag column (4%), gift space to the label */
-  table.compat colgroup col.label{ width: 56% }
+  table.compat colgroup col.label{ width: 64% }
   table.compat colgroup col.pa{ width: 12% }
-  table.compat colgroup col.match{ width: 16% }
-  table.compat colgroup col.flag{ width: 4% }
+  table.compat colgroup col.match{ width: 12% }
   table.compat colgroup col.pb{ width: 12% }
 
   /* Remove accidental duplicate header row if an upstream script injects again */
@@ -100,11 +97,11 @@
   <!-- Your compatibility table; the colgroup keeps widths in sync with PDF -->
   <table class="compat" id="compatTable">
     <colgroup>
-      <col class="label"><col class="pa"><col class="match"><col class="flag"><col class="pb">
+      <col class="label"><col class="pa"><col class="match"><col class="pb">
     </colgroup>
     <thead>
       <tr>
-        <th>Item</th><th>Partner A</th><th>Match</th><th>Flag</th><th>Partner B</th>
+        <th>Item</th><th>Partner A</th><th>Match</th><th>Partner B</th>
       </tr>
     </thead>
     <tbody id="compatBody"><!-- rows injected by your app; leave empty in template --></tbody>
@@ -123,196 +120,319 @@
 </script>
 <script>
 (() => {
-  /* =========================================================
-     TalkKink — Classic Compatibility PDF (clean 5-column)
-     - Nukes previous exporter + click handlers
-     - Clears cached rows so fallback actually takes effect
-     - Ignores the live table unless you enable it explicitly
-     - Renders: Item | Partner A | Match | Flag | Partner B
-     - Flag is a drawn triangle (no "&&†")
-     ========================================================= */
-
-  // 0) Kill any previous handlers and API
-  const kill = (sel) => {
-    const el = document.querySelector(sel);
-    if (!el) return;
-    const clone = el.cloneNode(true);
-    el.parentNode.replaceChild(clone, el);
+  const CFG = {
+    pdfKillSwitch: false,
+    selectors: { downloadBtn: '#downloadPdfBtn' },
+    columns: [
+      { key: 'item',  header: 'Item',      w: 320 },
+      { key: 'a',     header: 'Partner A', w: 80  },
+      { key: 'match', header: 'Match',     w: 80  },
+      { key: 'b',     header: 'Partner B', w: 80  },
+    ],
+    cdn: {
+      jspdf: [
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+        'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      ],
+      autotable: [
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+        'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
+      ],
+    },
   };
-  ['#downloadPdfBtn', '#btnDownloadPdf'].forEach(kill);
-  delete window.TKPDF;
 
-  // 1) Purge stale caches that override your changes
-  try {
-    ['talkkink:compatRows','tk_compat.rows','tk_compat_rows','talkkink:survey','talkkink:mine','talkkink:partner']
-      .forEach(k => localStorage.removeItem(k));
-  } catch(e) {}
-  // Also neutralize any old globals
-  window.talkkinkCompatRows = undefined;
-  if (window.TKCompatPDF && typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
-    window.TKCompatPDF.notifyRowsUpdated([]);
-  }
+  let libsReady = false;
+  let rowsReady = false;
+  let cachedRows = [];
+  let libsPromise = null;
 
-  // 2) Theme + page constants
-  const THEME = {
-    bg: [10,10,12],
-    fg: [233,238,240],
-    cyan: [48,231,231],
-    grid: [255,255,255, 0.10],
-    zebra: [255,255,255, 0.035],
-    headerLine: [255,255,255, 0.16],
-  };
-  const PAGE = { mTop: 24, mLeft: 18, mRight: 18, mBottom: 18 };
+  /* ---------------------- Loader Helpers ---------------------- */
 
-  // 3) Load jsPDF + AutoTable (fresh, no storage)
-  let _lib;
-  function loadJsPDF(){
-    if (_lib) return Promise.resolve(_lib);
-    const load = src => new Promise((res, rej) => {
+  function loadScript(src, key) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[data-lib="${key}"]`);
+      if (existing?.dataset.loaded === '1') return resolve();
+      if (existing) {
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        return;
+      }
       const s = document.createElement('script');
-      s.src = src + (src.includes('?')?'&':'?') + 'tk=' + Date.now();
-      s.async = true; s.onload = res; s.onerror = () => rej(new Error('Failed '+src));
+      s.src = src;
+      s.defer = true;
+      s.crossOrigin = 'anonymous';
+      if (key) s.dataset.lib = key;
+      s.onload = () => { if (key) s.dataset.loaded = '1'; resolve(); };
+      s.onerror = reject;
       document.head.appendChild(s);
     });
-    return load('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js')
-      .then(()=>load('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js'))
-      .then(()=>{ _lib = window.jspdf || window.jsPDF || window.jspdf_umd; if(!_lib||!_lib.jsPDF) throw new Error('jsPDF missing'); return _lib;});
   }
 
-  // 4) Data source — FORCE a clean dataset (no live scrape)
-  //    If you want to use your own rows, set window.talkkinkCompatRows to an array of:
-  //    [item, partnerA, match%, flag(boolean or symbol), partnerB]
-  function pickRows() {
-    if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
-      return window.talkkinkCompatRows.map(([item,a,m,f,b]) => [
-        String(item||''), String(a??''), String(m||'100%'), (f ? '▶' : '▶'), String(b??'')
-      ]);
+  const hasJsPDF = () => !!window.jspdf?.jsPDF || !!window.jsPDF;
+
+  const hasAutoTable = () => {
+    const api = window.jspdf?.jsPDF?.API || window.jsPDF?.API;
+    return !!(api?.autoTable || api?.__autoTable__);
+  };
+
+  async function loadPDFLibs() {
+    if (libsPromise) return libsPromise;
+    libsPromise = (async () => {
+      if (!hasJsPDF()) {
+        for (const src of CFG.cdn.jspdf) {
+          try { await loadScript(src, 'jspdf'); break; } catch {}
+        }
+      }
+      if (!window.jsPDF && window.jspdf?.jsPDF) window.jsPDF = window.jspdf.jsPDF;
+
+      if (!hasAutoTable()) {
+        for (const src of CFG.cdn.autotable) {
+          try { await loadScript(src, 'autotable'); break; } catch {}
+        }
+      }
+      if (!hasJsPDF()) throw new Error('jsPDF not available');
+      if (!hasAutoTable()) throw new Error('autoTable not available');
+
+      libsReady = true;
+      setButtonState();
+      return window.jsPDF;
+    })();
+    return libsPromise;
+  }
+
+  /* ---------------------- Helpers ---------------------- */
+
+  const TK_ACCENT = [0, 214, 199];
+
+  const safe = v =>
+    v == null || v === 'null' || v === 'undefined' ? '' : String(v);
+
+  const coerceNum = v => {
+    if (v == null || v === '') return null;
+    const n = Number(String(v).replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  function computeMatch(a, b, raw) {
+    const direct = coerceNum(raw);
+    if (direct != null) return Math.min(Math.max(direct, 0), 100);
+    if (a != null && b != null) {
+      const diff = Math.abs(a - b);
+      return Math.round(100 - (diff / 5) * 100);
     }
-    // Fallback to what’s visibly in your screenshot (structure-only demo).
-    // Replace/extend these lines with your real rows if you want them baked in:
-    return [
-      ['Attitude toward funishment vs serious correction', '3', '100%', '▶', '3'],
-      ['Preferred style of discipline strict vs lenient',     '4', '100%', '▶', '4'],
-      ['Use of behavior contracts or rule agreements',        '2', '100%', '▶', '2'],
-      ['Assigning corner time or time outs',                  '0', '100%', '▶', '0'],
-      ['Lecturing or scolding to modify behavior',            '4', '100%', '▶', '4'],
-      ['Playful punishments that still reinforce rules',      '3', '100%', '▶', '3'],
-      ['Removing privileges phone TV sweets',                 '2', '100%', '▶', '2'],
-      ['Writing lines or apology letters as correction',      '1', '100%', '▶', '1'],
-      ['Being placed in the corner or given a time out',      '5', '100%', '▶', '5'],
-      ['Getting scolded or lectured for correction',          '5', '100%', '▶', '5'],
-      ['Having privileges revoked phone TV',                  '3', '100%', '▶', '3'],
-      ['Receiving playful funishments for minor rule',        '2', '100%', '▶', '2'],
-      ['Writing lines or apology letters when misbehaving',   '4', '100%', '▶', '4'],
-    ];
+    return null;
   }
 
-  // 5) Glow text helper for outlined headings
-  function glow(doc, txt, x, y, size, main, glow) {
-    doc.setFont('helvetica','bold'); doc.setFontSize(size);
-    doc.setTextColor(glow[0], glow[1], glow[2]);
-    [[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]].forEach(([dx,dy])=>{
-      doc.text(txt, x+dx, y+dy, { baseline:'alphabetic', align:'center' });
-    });
-    doc.setTextColor(main[0], main[1], main[2]);
-    doc.text(txt, x, y, { baseline:'alphabetic', align:'center' });
+  function normalizeRow(r) {
+    let item, aRaw, bRaw, matchRaw;
+
+    if (Array.isArray(r)) {
+      if (r.length >= 5) {
+        [item, aRaw, matchRaw, , bRaw] = r;
+      } else {
+        [item, aRaw, matchRaw, bRaw] = r;
+      }
+    } else {
+      item = r.item ?? r.label ?? '';
+      aRaw = r.a ?? r.partnerA ?? null;
+      bRaw = r.b ?? r.partnerB ?? null;
+      matchRaw = r.matchPercent ?? r.match ?? null;
+    }
+
+    const a = coerceNum(aRaw);
+    const b = coerceNum(bRaw);
+    const pct = computeMatch(a, b, matchRaw);
+
+    return {
+      item: safe(item),
+      a: a != null ? String(a) : safe(aRaw),
+      b: b != null ? String(b) : safe(bRaw),
+      match: pct != null ? pct + '%' : safe(matchRaw),
+      aNum: a,
+      bNum: b,
+      pct,
+    };
   }
 
-  // 6) Build the PDF (single, clean)
-  async function buildPdf(filename='talkkink-compatibility-results.pdf'){
-    const { jsPDF } = await loadJsPDF();
-    const rows = pickRows();
+  function header(doc, title, y) {
+    const pageW = doc.internal.pageSize.getWidth();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(36);
+    doc.setTextColor(255, 255, 255);
 
-    const doc = new jsPDF({ unit:'pt', format:'letter', compress:true });
-    const W = doc.internal.pageSize.getWidth();
-    const H = doc.internal.pageSize.getHeight();
+    const w = doc.getTextWidth(title);
+    doc.text(title, (pageW - w) / 2, y);
 
-    // Background
-    doc.setFillColor(...THEME.bg); doc.rect(0,0,W,H,'F');
+    doc.setFontSize(12);
+    const sub = 'Generated: ' + new Date().toLocaleString();
+    const w2 = doc.getTextWidth(sub);
+    doc.text(sub, (pageW - w2) / 2, y + 20);
 
-    // Title + timestamp
-    const y1 = PAGE.mTop + 38;
-    glow(doc,'TalkKink Compatibility', W/2, y1, 46, THEME.fg, THEME.cyan);
-    doc.setFont('helvetica','normal'); doc.setFontSize(12);
-    doc.setTextColor(180,235,235);
-    doc.text('Generated: ' + new Date().toLocaleString(), W/2, y1+22, { align:'center' });
+    doc.setDrawColor(...TK_ACCENT);
+    doc.setLineWidth(2.5);
+    doc.line(80, y + 34, pageW - 80, y + 34);
 
-    // Divider
-    doc.setDrawColor(...THEME.cyan); doc.setLineWidth(2);
-    doc.line(PAGE.mLeft, y1+30, W-PAGE.mRight, y1+30);
+    return y + 60;
+  }
 
-    // Section
-    const y2 = y1 + 74;
-    glow(doc,'Behavioral Play', W/2, y2, 36, THEME.fg, THEME.cyan);
+  function renderSection(doc, title, rows, startY) {
+    const pageW = doc.internal.pageSize.getWidth();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
 
-    // Table columns — slim Flag
-    const totalW = W - PAGE.mLeft - PAGE.mRight;
-    const colW = [0.58,0.12,0.12,0.06,0.12].map(p => Math.floor(totalW*p));
+    const tw = doc.getTextWidth(title);
+    doc.text(title, (pageW - tw) / 2, startY);
 
-    // Render
+    const tableRows = rows.map(r => ({
+      item: r.item,
+      a: r.a,
+      match: r.match,
+      b: r.b,
+    }));
+
+    const columnStyles = Object.fromEntries(
+      CFG.columns.map((col, idx) => [idx, {
+        cellWidth: col.w,
+        halign: idx === 0 ? 'left' : 'center',
+      }])
+    );
+
     doc.autoTable({
-      head: [['Item','Partner A','Match','Flag','Partner B']],
-      body: rows,
-      startY: y2 + 20,
-      margin: { top: PAGE.mTop, left: PAGE.mLeft, right: PAGE.mRight, bottom: PAGE.mBottom },
-      tableWidth: totalW,
+      startY: startY + 26,
+      margin: { left: 70, right: 70 },
+      head: [CFG.columns.map(c => c.header)],
+      body: tableRows.map(r => [r.item, r.a, r.match, r.b]),
+      theme: 'grid',
       styles: {
-        font: 'helvetica', fontSize: 12,
-        textColor: THEME.fg,
-        lineColor: THEME.grid, lineWidth: 0.6,
-        cellPadding: { top:6,right:6,bottom:6,left:8 },
-        halign: 'left', valign: 'middle'
+        font: 'helvetica',
+        fontSize: 12,
+        textColor: [230, 230, 230],
+        fillColor: [25, 25, 28],
+        lineColor: [40, 40, 45],
+        lineWidth: 1.2,
+        halign: 'left',
       },
       headStyles: {
-        fillColor: null,
-        textColor: THEME.cyan,
         fontStyle: 'bold',
-        lineColor: THEME.headerLine,
-        lineWidth: 1.2,
-        halign: 'left'
+        textColor: [0, 255, 245],
+        fillColor: [28, 28, 32],
+        halign: 'center',
       },
-      alternateRowStyles: { fillColor: THEME.zebra },
-      columnStyles: {
-        0:{ cellWidth: colW[0], halign:'left'   },
-        1:{ cellWidth: colW[1], halign:'center' },
-        2:{ cellWidth: colW[2], halign:'center' },
-        3:{ cellWidth: colW[3], halign:'center' },
-        4:{ cellWidth: colW[4], halign:'center' },
-      },
-      didParseCell: (h) => {
-        // Force clean Flag symbol (no "&&†")
-        if (h.section==='body' && h.column.index===3) h.cell.text = ['▶'];
-      },
-      willDrawCell: (h) => {
-        // Draw triangle icon instead of text
-        if (h.section==='body' && h.column.index===3) {
-          const { x,y,width,height } = h.cell;
-          const cx = x + width/2 - 4;
-          const cy = y + height/2;
-          const c  = THEME.cyan;
-          doc.setFillColor(c[0],c[1],c[2]); doc.setDrawColor(c[0],c[1],c[2]);
-          doc.triangle(cx-6, cy-6, cx-6, cy+6, cx+9, cy, 'F');
-          h.cell.text = [''];
-        }
+      columnStyles,
+    });
+  }
+
+  /* ---------------------- PDF Generator ---------------------- */
+
+  async function generatePDF(rows) {
+    if (!rows?.length) throw new Error('No rows to export');
+
+    await loadPDFLibs();
+    const jsPDF = window.jsPDF;
+
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'pt',
+      format: 'letter',
+    });
+
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    doc.setFillColor(18, 19, 20);
+    doc.rect(0, 0, pageW, pageH, 'F');
+
+    const normalized = rows.map(normalizeRow);
+
+    const y = header(doc, 'Talk Kink Compatibility Survey', 70);
+    renderSection(doc, 'Behavioral Play', normalized, y);
+
+    doc.save('TalkKink-compatibility.pdf');
+  }
+
+  /* ---------------------- State & Button ---------------------- */
+
+  function getBtn() { return document.querySelector(CFG.selectors.downloadBtn); }
+
+  function extractRowsFromTable() {
+    const body = document.querySelector('#compatBody');
+    if (!body) return [];
+    const rows = [];
+    body.querySelectorAll('tr').forEach(tr => {
+      const cells = Array.from(tr.children, td => safe(td?.textContent).trim());
+      if (cells.length >= 4) {
+        rows.push(cells.slice(0, 4));
+      }
+    });
+    return rows;
+  }
+
+  function computeRows() {
+    if (cachedRows?.length) return cachedRows;
+    if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+      cachedRows = window.talkkinkCompatRows.slice();
+    } else {
+      cachedRows = extractRowsFromTable();
+    }
+    return cachedRows;
+  }
+
+  function setButtonState() {
+    const btn = getBtn();
+    if (!btn) return;
+    rowsReady = computeRows().length > 0;
+    const enabled = libsReady && rowsReady && !CFG.pdfKillSwitch;
+    btn.disabled = !enabled;
+  }
+
+  window.TKCompatPDF = {
+    notifyRowsUpdated(rows) {
+      if (Array.isArray(rows)) {
+        cachedRows = rows.slice();
+        window.talkkinkCompatRows = rows.slice();
+      } else {
+        cachedRows = [];
+        window.talkkinkCompatRows = undefined;
+      }
+      setButtonState();
+    },
+    setKillSwitch(disabled) {
+      CFG.pdfKillSwitch = !!disabled;
+      setButtonState();
+    },
+  };
+
+  function init() {
+    const btn = getBtn();
+    if (btn) btn.disabled = true;
+
+    if (Array.isArray(window.talkkinkCompatRows))
+      cachedRows = window.talkkinkCompatRows.slice();
+    else
+      cachedRows = extractRowsFromTable();
+
+    setButtonState();
+
+    btn?.addEventListener('click', async e => {
+      e.preventDefault();
+      try {
+        const rows = computeRows();
+        if (!rows.length) return alert('Upload both surveys first.');
+        await generatePDF(rows);
+      } catch (err) {
+        console.error(err);
+        alert('PDF error — see console');
       }
     });
 
-    doc.save(filename);
+    loadPDFLibs().catch(err => console.error(err));
   }
 
-  // 7) Public API + single binding (no double loads)
-  window.TKPDF = {
-    download: () => buildPdf().catch(e => { console.error('[TKPDF]', e); alert('PDF export failed. See console.'); })
-  };
-  const bind = sel => {
-    const b = document.querySelector(sel);
-    if (!b) return false;
-    b.addEventListener('click', e => { e.preventDefault(); window.TKPDF.download(); });
-    return true;
-  };
-  bind('#downloadPdfBtn') || bind('#btnDownloadPdf');
+  document.readyState === 'loading'
+    ? document.addEventListener('DOMContentLoaded', init, { once: true })
+    : init();
 
-  console.log('[TKPDF] Clean classic exporter installed. Old generator removed, caches cleared.');
 })();
 </script>
 </body>
