@@ -1,6 +1,8 @@
 /**
- * TalkKink Compatibility PDF — legacy-left layout (title centered, table left-aligned)
- * Defensive loader that auto-enables the download button when the table rows + libs are ready.
+ * Talk Kink Compatibility Survey PDF
+ * - Dark theme
+ * - Header centered, table left-aligned
+ * - Flag column uses green / yellow / red squares
  */
 
 (() => {
@@ -8,11 +10,11 @@
     pdfKillSwitch: false,
     selectors: { downloadBtn: '#downloadPdfBtn' },
     columns: [
-      { key: 'item', header: 'Item', w: 240 },
-      { key: 'a', header: 'Partner A', w: 80 },
-      { key: 'match', header: 'Match', w: 90 },
-      { key: 'b', header: 'Partner B', w: 90 },
-      { key: 'flag', header: 'Flag', w: 60 },
+      { key: 'item', header: 'Item', w: 260 },
+      { key: 'a', header: 'Partner A', w: 70 },
+      { key: 'match', header: 'Match', w: 80 },
+      { key: 'flag', header: 'Flag', w: 50 },
+      { key: 'b', header: 'Partner B', w: 70 },
     ],
     local: {
       jspdf: [
@@ -238,9 +240,8 @@
       item: safeString(item),
       a: aScore != null ? String(aScore) : safeString(aRaw),
       match: matchDisplay,
-      flag: status,   // keep real flag for drawing the square
+      flag: status,
       b: bScore != null ? String(bScore) : safeString(bRaw),
-      flagText: '',   // this is what the table column actually uses (stays empty)
       matchPercent,
       aScore,
       bScore,
@@ -271,23 +272,26 @@
   }
 
   function tk_flagStatus(a, b, matchPercent) {
-    if (Number.isFinite(matchPercent)) {
-      if (matchPercent >= 90) return 'green';
-      if (matchPercent <= 30) return 'red';
-    }
+    // High compatibility
+    if (Number.isFinite(matchPercent) && matchPercent >= 90) return 'green';
+    // Very low compatibility
+    if (Number.isFinite(matchPercent) && matchPercent <= 30) return 'red';
 
+    // “One is a 5 and the other isn’t” soft warning
     const oneIsFive = a === 5 || b === 5;
     if (oneIsFive && Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) >= 1)
       return 'yellow';
+
     return '';
   }
 
   function tk_drawFlagSquare(doc, cell, color) {
     if (!color) return;
     const { x, y, height, width } = cell;
-    const size = Math.min(width, height) * 0.45;
+    const size = Math.min(width, height) * 0.55;
     const sx = x + (width - size) / 2;
     const sy = y + (height - size) / 2;
+
     const palette = {
       green: [24, 214, 154],
       yellow: [255, 204, 0],
@@ -302,6 +306,7 @@
   }
 
   function tk_renderSectionTable(doc, sectionTitle, rows, startY) {
+    // Section heading (e.g., Behavioral Play)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(24);
     doc.setTextColor(255, 255, 255);
@@ -323,9 +328,8 @@
         item: safeString(row.item),
         a: aVal,
         match: matchVal,
-        flag: tk_flagStatus(aNum, bNum, matchNum), // used only for color
+        flag: tk_flagStatus(aNum, bNum, matchNum),
         b: bVal,
-        flagText: '', // displayed text for the "Flag" column (kept empty)
       };
     });
 
@@ -333,7 +337,7 @@
       { header: 'Item', dataKey: 'item' },
       { header: 'Partner A', dataKey: 'a' },
       { header: 'Match', dataKey: 'match' },
-      { header: 'Flag', dataKey: 'flagText' },   // no text, only square
+      { header: 'Flag', dataKey: 'flag' },
       { header: 'Partner B', dataKey: 'b' },
     ];
 
@@ -352,7 +356,7 @@
         textColor: [230, 230, 230],
         fillColor: [25, 25, 28],
         lineColor: [40, 40, 45],
-        lineWidth: 1.2,
+        lineWidth: 1.0,
       },
       headStyles: {
         fontStyle: 'bold',
@@ -364,24 +368,27 @@
       },
       columnStyles: {
         item: { cellWidth: 320, halign: 'left' },
-        a: { cellWidth: 80, halign: 'center' },
+        a: { cellWidth: 70, halign: 'center' },
         match: { cellWidth: 80, halign: 'center' },
-        flagText: { cellWidth: 60, halign: 'center' },  // width for square column
-        b: { cellWidth: 80, halign: 'center' },
+        flag: { cellWidth: 50, halign: 'center' },
+        b: { cellWidth: 70, halign: 'center' },
       },
       theme: 'grid',
       overflow: 'linebreak',
+
+      // Remove any flag text – we draw colored squares instead
       didParseCell: (data) => {
-        if (data.section === 'body' && data.column.dataKey === 'flagText') {
-          // no text, just the colored square
+        if (data.section === 'body' && data.column.dataKey === 'flag') {
           data.cell.text = [];
+          data.cell.styles.textColor = [25, 25, 28];
         }
       },
+
+      // Draw green / yellow / red squares in the Flag column
       didDrawCell: (data) => {
-        if (data.section === 'body' && data.column.dataKey === 'flagText') {
-          // color is stored on the raw row under .flag
+        if (data.section === 'body' && data.column.dataKey === 'flag') {
           const color = data.row?.raw?.flag;
-          if (color) tk_drawFlagSquare(doc, data.cell, color);
+          tk_drawFlagSquare(doc, data.cell, color);
         }
       },
     });
@@ -404,7 +411,7 @@
       TK_ACCENT,
     );
 
-    tk_renderSectionTable(doc, 'Compatibility Overview', normalizedRows, headerY);
+    tk_renderSectionTable(doc, 'Behavioral Play', normalizedRows, headerY);
   }
 
   function renderFallback(doc, rows) {
@@ -418,7 +425,7 @@
     doc.setTextColor(255, 255, 255);
 
     centerText(doc, 'Talk Kink Compatibility Survey', 70, 32, ['helvetica', 'bold']);
-    centerText(doc, 'Compatibility Overview', 110, 18, ['helvetica', 'bold']);
+    centerText(doc, 'Behavioral Play', 110, 18, ['helvetica', 'bold']);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
@@ -436,8 +443,8 @@
         r.item ?? r.label ?? '',
         String(r.a ?? r.partnerA ?? ''),
         String(r.match ?? r.matchPct ?? r.matchText ?? ''),
+        '', // no flag text in fallback
         String(r.b ?? r.partnerB ?? ''),
-        String(r.flag ?? r.flagIcon ?? ''),
       ];
       values.forEach((val, i) => {
         const txt = truncateToWidth(doc, val, CFG.columns[i].w - 6);
@@ -619,8 +626,9 @@
   }
 })();
 
-/* ========= TALK KINK PDF: CDN-ONLY OVERRIDE (kills /vendor 404s) ========= */
-/* Drop this at the bottom of compatPdf.js (or include after it on the page). */
+/* ========= TALK KINK PDF: CDN-ONLY OVERRIDE ========= */
+/* If anything still tries to load /vendor versions, rewrite to CDN,
+   and make sure jsPDF + autoTable are available globally. */
 
 (function () {
   const CDN = {
@@ -655,7 +663,7 @@
 
   async function loadFromCDN() {
     if (!hasJsPDF()) await inject(CDN.JSPDF, 'jspdf');
-    // Bridge UMD -> legacy global so older code works
+    // Bridge UMD -> legacy global
     if (!window.jsPDF && window.jspdf?.jsPDF) window.jsPDF = window.jspdf.jsPDF;
 
     if (!hasAutoTable()) await inject(CDN.AUTOTABLE, 'jspdf-autotable');
@@ -675,12 +683,11 @@
     return window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
   }
 
-  // ---- HARD OVERRIDES: your old functions will now resolve to CDN loader
-  window.tkLoadPdfLibs    = async () => ({ jsPDF: await loadFromCDN() });
-  window.ensurePdfLibs    = async () =>      loadFromCDN();
-  window.ensureAutoTable  = async () => true;
+  // Hard overrides for any old loaders that might still be referenced
+  window.tkLoadPdfLibs   = async () => ({ jsPDF: await loadFromCDN() });
+  window.ensurePdfLibs   = async () =>      loadFromCDN();
+  window.ensureAutoTable = async () => true;
 
-  // ---- Optional: enable the button once libs are ready
   function setBtnState(ready) {
     const btn = document.querySelector(DL_BTN);
     if (!btn) return;
