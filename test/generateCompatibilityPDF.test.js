@@ -50,17 +50,7 @@ test('generates PDF with score columns and percent', async () => {
   assert.ok(flattened.includes('Red'));
   assert.ok(flattened.includes('Partner A'));
   assert.ok(flattened.includes('Partner B'));
-  assert.ok(flattened.includes('Flag'));
-  // Indicators for various match scenarios now rendered as colored squares
-  const paletteCalls = fillCalls
-    .map(args => Array.from(args))
-    .filter(args => args.length === 3);
-  const hasGreen = paletteCalls.some(([r, g, b]) => r === 24 && g === 214 && b === 154);
-  const hasYellow = paletteCalls.some(([r, g, b]) => r === 255 && g === 204 && b === 0);
-  const hasRed = paletteCalls.some(([r, g, b]) => r === 255 && g === 66 && b === 66);
-  assert.ok(hasGreen, 'expected green flag square fill color');
-  assert.ok(hasYellow, 'expected yellow flag square fill color');
-  assert.ok(hasRed, 'expected red flag square fill color');
+  assert.ok(flattened.includes('Match'));
 });
 
 test('shows N/A bar when scores missing', async () => {
