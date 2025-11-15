@@ -16,6 +16,7 @@
     yellow: [255, 204, 0],
     red: [255, 66, 66],
   };
+  const HIDE_FLAG_STATUSES = new Set(['none','off','hide','hidden','blank','disabled']);
 
   function parseHexColor(hex){
     if (!hex) return null;
@@ -33,12 +34,23 @@
 
     const rawText = (td.textContent || '').trim();
     const dot = td.querySelector?.('.flag-dot');
+    const cellStatus = (td.dataset?.flagStatus || '').trim().toLowerCase();
+    const hasExplicitStatus = typeof td.hasAttribute === 'function' ? td.hasAttribute('data-flag-status') : false;
+    const hideFlag =
+      HIDE_FLAG_STATUSES.has(cellStatus) ||
+      td.dataset?.flagHide === '1' || td.dataset?.flagHide === 'true' ||
+      td.dataset?.flagHidden === 'true' || td.dataset?.flagDisabled === 'true' ||
+      (!dot && !rawText && hasExplicitStatus && !cellStatus);
+
+    if (hideFlag){
+      return { text: '', color:null, status: cellStatus };
+    }
 
     if (!dot){
       return { text: rawText || '▶', color:null };
     }
 
-    const status = dot.dataset?.flagStatus || td.dataset?.flagStatus || '';
+    const status = dot.dataset?.flagStatus || cellStatus || '';
     const emoji = dot.dataset?.flagEmoji || rawText || '';
     const hasColor = dot.dataset?.hasColor === 'true';
 
