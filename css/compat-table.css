@@ -35,11 +35,11 @@ table.compat colgroup col.pa,
 .compat-table colgroup col.a { width: 12%; }
 table.compat colgroup col.match,
 .compat-table colgroup col.match { width: 16%; }
-table.compat colgroup col.flag,
-.compat-table colgroup col.flag { width: 4%; }
 table.compat colgroup col.b,
 table.compat colgroup col.pb,
-.compat-table colgroup col.b { width: 12%; }
+.compat-table colgroup col.b { width: 10%; }
+table.compat colgroup col.pc,
+.compat-table colgroup col.pc { width: 10%; }
 
 table.compat th,
 table.compat td,
@@ -66,20 +66,20 @@ table.compat th.pa,
 table.compat td.pa,
 table.compat th.match,
 table.compat td.match,
-table.compat th.flag,
-table.compat td.flag,
 table.compat th.b,
 table.compat td.b,
 table.compat th.pb,
 table.compat td.pb,
+table.compat th.pc,
+table.compat td.pc,
 .compat-table th.a,
 .compat-table td.a,
 .compat-table th.match,
 .compat-table td.match,
-.compat-table th.flag,
-.compat-table td.flag,
 .compat-table th.b,
-.compat-table td.b { text-align: center; }
+.compat-table td.b,
+.compat-table th.pc,
+.compat-table td.pc { text-align: center; }
 table.compat th.label,
 table.compat td.label,
 .compat-table th.label,
@@ -113,25 +113,12 @@ table.compat tbody tr:nth-child(even),
 /* Label column */
 td.label { text-align: left; }
 
-/* Partner A / Match / Flag / Partner B cells */
+/* Partner A / Match / Partner B / Partner C cells */
 td.pa,
 td.match,
-td.pb {
+td.pb,
+td.pc {
   text-align: center;
-}
-
-/* The flag cell */
-.flag-cell { text-align: left; }
-.flag-cell .red-flag { color: #ff4d4f; }
-
-.compat-table td.flag { text-align: center; }
-
-/* Center the flag glyph so it visually aligns with the numbers */
-td.flag,
-th.flag {
-  text-align: center;
-  padding-left: 4px;
-  padding-right: 4px;
 }
 
 button#tk-missing-pill:focus {
