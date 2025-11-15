@@ -1,7 +1,6 @@
 /**
- * Talk Kink Compatibility Survey PDF
- * - Dark theme
- * - Header centered, table left-aligned
+ * TalkKink Compatibility PDF — dark layout, NO Flag column
+ * Columns: Item | Partner A | Match | Partner B
  */
 
 (() => {
@@ -9,10 +8,10 @@
     pdfKillSwitch: false,
     selectors: { downloadBtn: '#downloadPdfBtn' },
     columns: [
-      { key: 'item', header: 'Item', w: 310 },
-      { key: 'a', header: 'Partner A', w: 70 },
-      { key: 'match', header: 'Match', w: 80 },
-      { key: 'b', header: 'Partner B', w: 70 },
+      { key: 'item', header: 'Item', w: 260 },
+      { key: 'a', header: 'Partner A', w: 80 },
+      { key: 'match', header: 'Match', w: 90 },
+      { key: 'b', header: 'Partner B', w: 80 },
     ],
     local: {
       jspdf: [
@@ -47,6 +46,8 @@
   let rowsReady = false;
   let cachedRows = [];
   let enablingErrored = false;
+
+  /* ---------- SCRIPT LOADER HELPERS ---------- */
 
   function injectScriptOnce(src, dataKey) {
     return new Promise((resolve, reject) => {
@@ -158,6 +159,8 @@
     return libsReadyPromise;
   }
 
+  /* ---------- TEXT HELPERS ---------- */
+
   function centerText(doc, text, y, fontSize = 12, font = ['helvetica', 'bold']) {
     const [fam, style] = font;
     doc.setFont(fam, style);
@@ -214,6 +217,7 @@
     let matchRaw;
 
     if (Array.isArray(row)) {
+      // Old array shape: [item, a, match, flag, b]
       [item, aRaw, matchRaw, , bRaw] = row;
     } else if (row && typeof row === 'object') {
       item = row.item ?? row.label ?? row.category ?? '';
@@ -232,6 +236,7 @@
     const bScore = coerceScore(bRaw);
     const matchPercent = computeMatchPercent(matchRaw, aScore, bScore);
     const matchDisplay = matchPercent != null ? `${matchPercent}%` : safeString(matchRaw);
+
     return {
       item: safeString(item),
       a: aScore != null ? String(aScore) : safeString(aRaw),
@@ -242,6 +247,8 @@
       bScore,
     };
   }
+
+  /* ---------- HEADER + TABLE RENDER ---------- */
 
   function tk_drawHeader(doc, title, generatedAt, accent = TK_ACCENT) {
     const pageW = doc.internal.pageSize.getWidth();
@@ -267,7 +274,6 @@
   }
 
   function tk_renderSectionTable(doc, sectionTitle, rows, startY) {
-    // Section heading (e.g., Behavioral Play)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(24);
     doc.setTextColor(255, 255, 255);
@@ -284,7 +290,6 @@
       const matchVal = Number.isFinite(matchNum)
         ? `${Math.round(matchNum)}%`
         : safeString(row.match);
-
       return {
         item: safeString(row.item),
         a: aVal,
@@ -315,7 +320,7 @@
         textColor: [230, 230, 230],
         fillColor: [25, 25, 28],
         lineColor: [40, 40, 45],
-        lineWidth: 1.0,
+        lineWidth: 1.2,
       },
       headStyles: {
         fontStyle: 'bold',
@@ -326,10 +331,10 @@
         halign: 'center',
       },
       columnStyles: {
-        item: { cellWidth: 320, halign: 'left' },
-        a: { cellWidth: 70, halign: 'center' },
+        item: { cellWidth: 340, halign: 'left' },
+        a: { cellWidth: 80, halign: 'center' },
         match: { cellWidth: 80, halign: 'center' },
-        b: { cellWidth: 70, halign: 'center' },
+        b: { cellWidth: 80, halign: 'center' },
       },
       theme: 'grid',
       overflow: 'linebreak',
@@ -402,6 +407,8 @@
     doc.rect(marginL - 6, startY - 26, tableW + 12, tableH, 'S');
   }
 
+  /* ---------- MAIN GENERATION ---------- */
+
   async function generateCompatibilityPDF(rows) {
     const data = Array.isArray(rows) ? rows : [];
     const payload = data.length ? data : computeRowsArray();
@@ -420,6 +427,8 @@
 
     doc.save('compatibility.pdf');
   }
+
+  /* ---------- STATE + BUTTON WIRING ---------- */
 
   function getBtn() {
     return document.querySelector(CFG.selectors.downloadBtn);
@@ -486,6 +495,9 @@
     const btn = getBtn();
     if (!btn) return;
 
+    // Strip any inline onclick from the legacy generator
+    btn.removeAttribute('onclick');
+
     btn.addEventListener('click', async (e) => {
       const force = e.altKey === true;
       if (btn.disabled && !force) return;
@@ -538,6 +550,8 @@
     });
   }
 
+  /* ---------- PUBLIC API ---------- */
+
   window.TKCompatPDF = {
     notifyRowsUpdated(rows) {
       setCachedRows(Array.isArray(rows) ? rows : []);
@@ -567,16 +581,13 @@
   }
 })();
 
-/* ========= TALK KINK PDF: CDN-ONLY OVERRIDE ========= */
-/* If anything still tries to load /vendor versions, rewrite to CDN,
-   and make sure jsPDF + autoTable are available globally. */
+/* ========= TALK KINK PDF: CDN-ONLY OVERRIDE (unchanged, but safe) ========= */
 
 (function () {
   const CDN = {
     JSPDF: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     AUTOTABLE: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
   };
-  const DL_BTN = '#downloadBtn, #downloadPdfBtn, [data-download-pdf]';
 
   function inject(src, key) {
     return new Promise((resolve, reject) => {
@@ -604,12 +615,10 @@
 
   async function loadFromCDN() {
     if (!hasJsPDF()) await inject(CDN.JSPDF, 'jspdf');
-    // Bridge UMD -> legacy global
     if (!window.jsPDF && window.jspdf?.jsPDF) window.jsPDF = window.jspdf.jsPDF;
 
     if (!hasAutoTable()) await inject(CDN.AUTOTABLE, 'jspdf-autotable');
 
-    // Ensure plugin is visible on both constructors
     const ctor   = window.jspdf?.jsPDF;
     const legacy = window.jsPDF;
     const at = (legacy?.API?.autoTable) || (ctor?.API?.autoTable);
@@ -624,31 +633,28 @@
     return window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
   }
 
-  // Hard overrides for any old loaders that might still be referenced
-  window.tkLoadPdfLibs   = async () => ({ jsPDF: await loadFromCDN() });
-  window.ensurePdfLibs   = async () =>      loadFromCDN();
-  window.ensureAutoTable = async () => true;
-
-  function setBtnState(ready) {
-    const btn = document.querySelector(DL_BTN);
-    if (!btn) return;
-    btn.disabled = !ready;
-    btn.title = ready ? 'Download your compatibility PDF' : 'Loading PDF libraries…';
-  }
+  window.tkLoadPdfLibs    = async () => ({ jsPDF: await loadFromCDN() });
+  window.ensurePdfLibs    = async () =>      loadFromCDN();
+  window.ensureAutoTable  = async () => true;
 
   (async () => {
     try {
-      setBtnState(false);
+      const btn = document.querySelector('#downloadBtn, #downloadPdfBtn, [data-download-pdf]');
+      if (btn) {
+        btn.disabled = true;
+        btn.title = 'Loading PDF libraries…';
+      }
       await loadFromCDN();
-      setBtnState(true);
+      if (btn) {
+        btn.disabled = false;
+        btn.title = 'Download your compatibility PDF';
+      }
       console.info('[compat-pdf] CDN libs ready');
     } catch (err) {
       console.error('[compat-pdf] Loader error:', err);
-      setBtnState(false);
     }
   })();
 
-  // Safety: if any code still tries to add /vendor/jspdf.plugin.autotable.min.js, rewrite it to CDN.
   const VENDOR_AT_RE = /\/vendor\/jspdf\.plugin\.autotable\.min\.js(?:\?.*)?$/i;
   const origAppend = HTMLHeadElement.prototype.appendChild;
   HTMLHeadElement.prototype.appendChild = function (node) {
