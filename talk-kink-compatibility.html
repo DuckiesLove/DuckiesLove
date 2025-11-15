@@ -96,19 +96,29 @@
   }
 
   .flag-dot{
+    --flag-square-size:18px;
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    width:20px;
-    height:20px;
+    width:26px;
+    height:26px;
+    border-radius:8px;
+    position:relative;
+    color:var(--ink);
+    font-size:14px;
+    line-height:1;
+  }
+
+  .flag-dot::after{
+    content:"";
+    display:block;
+    width:var(--flag-square-size);
+    height:var(--flag-square-size);
     border-radius:6px;
-    background:var(--flag-color, rgba(255,255,255,0.08));
+    background:var(--flag-color, rgba(255,255,255,0.12));
     box-shadow:
       0 0 0 1px rgba(0,231,255,.35),
       0 0 16px rgba(0,231,255,.18);
-    font-size:16px;
-    line-height:1;
-    color:var(--ink);
     transition:transform .15s ease, box-shadow .2s ease;
   }
 
@@ -121,7 +131,7 @@
   .flag-dot[data-flag-status="yellow"]{ --flag-color:#ffcc00; }
   .flag-dot[data-flag-status="red"]{ --flag-color:#ff4242; }
 
-  .flag-dot:hover{
+  .flag-dot:hover::after{
     transform:scale(1.05);
     box-shadow:
       0 0 0 1px rgba(0,231,255,.6),
@@ -650,8 +660,18 @@ if (typeof window !== 'undefined') {
       sr.className = 'sr-only';
       sr.textContent = description || info.emoji || '';
       span.appendChild(sr);
-    } else if (info.emoji) {
-      span.textContent = info.emoji;
+    } else {
+      let fallbackLabel = '–';
+      if (info.status) {
+        const statusKey = String(info.status).toLowerCase();
+        const mapped = { green: 'G', yellow: 'Y', red: 'R' }[statusKey];
+        if (mapped) {
+          fallbackLabel = mapped;
+        } else if (statusKey) {
+          fallbackLabel = statusKey.charAt(0).toUpperCase();
+        }
+      }
+      span.textContent = fallbackLabel;
     }
 
     if (!span.childNodes.length && !span.textContent && description) {
