@@ -4,6 +4,7 @@ import {
   TK_FLAG_GREEN,
   TK_FLAG_YELLOW,
   TK_FLAG_RED,
+  getFlagColor,
   getFlagSymbol,
   calculateCategoryMatch,
   getMatchColor,
@@ -21,28 +22,23 @@ test('returns empty string when row is missing data', () => {
   );
 });
 
-test('returns red square for severe mismatch', () => {
-  const rowLowMatch = { hasData: true, matchPct: 20, aScore: 2, bScore: 2 };
-  const rowOpposite = { hasData: true, matchPct: 55, aScore: 0, bScore: 5 };
-  assert.strictEqual(getFlagSymbol(rowLowMatch), TK_FLAG_RED);
-  assert.strictEqual(getFlagSymbol(rowOpposite), TK_FLAG_RED);
+test('getFlagColor returns expected palette', () => {
+  assert.strictEqual(getFlagColor(95, 5, 5), 'green');
+  assert.strictEqual(getFlagColor(20, 2, 2), 'red');
+  assert.strictEqual(getFlagColor(65, 5, 3), 'yellow');
+  assert.strictEqual(getFlagColor(55, 0, 5), 'yellow');
+  assert.strictEqual(getFlagColor(70, 3, 2), '');
 });
 
-test('returns yellow square for caution cases', () => {
-  const rowLargeDiff = { hasData: true, matchPct: 50, aScore: 5, bScore: 2 };
-  const rowHighLow = { hasData: true, matchPct: 65, aScore: 2, bScore: 5 };
-  assert.strictEqual(getFlagSymbol(rowLargeDiff), TK_FLAG_YELLOW);
-  assert.strictEqual(getFlagSymbol(rowHighLow), TK_FLAG_YELLOW);
-});
-
-test('returns green square for strong alignment', () => {
-  const row = { hasData: true, matchPct: 90, aScore: 4, bScore: 4 };
-  assert.strictEqual(getFlagSymbol(row), TK_FLAG_GREEN);
-});
-
-test('returns empty string when no conditions are met', () => {
-  const row = { hasData: true, matchPct: 70, aScore: 3, bScore: 2 };
-  assert.strictEqual(getFlagSymbol(row), '');
+test('getFlagSymbol maps colors to emoji squares', () => {
+  const redRow = { hasData: true, matchPct: 15, aScore: 2, bScore: 2 };
+  const yellowRow = { hasData: true, matchPct: 65, aScore: 5, bScore: 3 };
+  const greenRow = { hasData: true, matchPct: 95, aScore: 4, bScore: 4 };
+  const neutralRow = { hasData: true, matchPct: 70, aScore: 3, bScore: 2 };
+  assert.strictEqual(getFlagSymbol(redRow), TK_FLAG_RED);
+  assert.strictEqual(getFlagSymbol(yellowRow), TK_FLAG_YELLOW);
+  assert.strictEqual(getFlagSymbol(greenRow), TK_FLAG_GREEN);
+  assert.strictEqual(getFlagSymbol(neutralRow), '');
 });
 
 test('calculateCategoryMatch returns 0 for empty data', () => {

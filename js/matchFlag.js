@@ -2,6 +2,28 @@ export const TK_FLAG_GREEN = '🟩';
 export const TK_FLAG_YELLOW = '🟨';
 export const TK_FLAG_RED = '🟥';
 
+export function getFlagColor(matchPercent, aScore, bScore) {
+  // normalize to numbers
+  const m = Number(matchPercent);
+  const a = Number(aScore);
+  const b = Number(bScore);
+
+  // High match → green
+  if (Number.isFinite(m) && m >= 90) return 'green';
+
+  // Very low match → red
+  if (Number.isFinite(m) && m <= 30) return 'red';
+
+  // One partner is a 5 and the other is lower → yellow soft warning
+  const oneIsFive = a === 5 || b === 5;
+  if (oneIsFive && Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) >= 1) {
+    return 'yellow';
+  }
+
+  // No flag
+  return '';
+}
+
 // Determine the TalkKink flag square for a given survey row
 export function getFlagSymbol(row) {
   if (!row || !row.hasData) return '';
@@ -12,28 +34,10 @@ export function getFlagSymbol(row) {
 
   if (a == null || b == null) return '';
 
-  const diff = Math.abs(a - b);
-
-  if (
-    match <= 30 ||
-    (a <= 1 && b >= 4) ||
-    (b <= 1 && a >= 4)
-  ) {
-    return TK_FLAG_RED;
-  }
-
-  if (
-    diff >= 3 ||
-    (a === 5 && b <= 3) ||
-    (b === 5 && a <= 3)
-  ) {
-    return TK_FLAG_YELLOW;
-  }
-
-  if (match >= 80) {
-    return TK_FLAG_GREEN;
-  }
-
+  const color = getFlagColor(match, a, b);
+  if (color === 'green') return TK_FLAG_GREEN;
+  if (color === 'yellow') return TK_FLAG_YELLOW;
+  if (color === 'red') return TK_FLAG_RED;
   return '';
 }
 

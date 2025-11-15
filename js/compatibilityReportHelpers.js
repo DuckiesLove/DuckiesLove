@@ -1,6 +1,6 @@
 // ---- Compatibility Report Rendering Helpers ----
 
-import { getFlagSymbol } from './matchFlag.js';
+import { getFlagColor } from './matchFlag.js';
 const PX_TO_MM = 0.2645833333;
 const LABEL_MAX_WIDTH_PX = 130;
 const ROW_MIN_HEIGHT_PX = 28;
@@ -21,15 +21,37 @@ function getFontColor(percentage) {
   return [255, 0, 0];
 }
 
-// Flag logic
-function getFlagIcon(a, b, match) {
-  if (a == null || b == null || match == null) return '';
-  return getFlagSymbol({
-    hasData: true,
-    matchPct: match,
-    aScore: a,
-    bScore: b,
-  });
+function drawFlagSquare(doc, cellX, cellY, cellWidth, cellHeight, colorName) {
+  if (!colorName) return;
+
+  const size = Math.min(cellWidth, cellHeight) * 0.55;
+  const sx = cellX + (cellWidth - size) / 2;
+  const sy = cellY + (cellHeight - size) / 2;
+
+  const palette = {
+    green: [24, 214, 154],
+    yellow: [255, 204, 0],
+    red: [255, 66, 66],
+  };
+
+  const rgb = palette[colorName];
+  if (!rgb) return;
+
+  doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+  doc.setLineWidth(0);
+  doc.rect(sx, sy, size, size, 'F');
+}
+
+function coerceFlagColor(value) {
+  if (value == null || value === '') return '';
+  if (typeof value === 'string') {
+    const trimmed = value.trim().toLowerCase();
+    if (['green', 'yellow', 'red'].includes(trimmed)) return trimmed;
+    if (trimmed === '🟩') return 'green';
+    if (trimmed === '🟨') return 'yellow';
+    if (trimmed === '🟥') return 'red';
+  }
+  return '';
 }
 
 // Draw the colored match bar with percentage label (or N/A)
@@ -202,17 +224,29 @@ export function getMatchPercentage(a, b) {
 }
 
 // Helper: draw one row of the kink table
-function drawKinkRow(doc, layout, rowTop, label, aScore, bScore, match, textColor = [255, 255, 255]) {
+function drawKinkRow(
+  doc,
+  layout,
+  rowTop,
+  label,
+  aScore,
+  bScore,
+  match,
+  textColor = [255, 255, 255],
+  flagOverride = ''
+) {
   const {
     colLabel,
     labelMaxWidth,
     colA,
     colBar,
     colFlag,
+    colFlagStart,
     colB,
     barWidth,
     barHeight,
     barPadding,
+    flagWidth,
     rowHeight,
     fontSize,
     lineHeight,
@@ -247,6 +281,12 @@ function drawKinkRow(doc, layout, rowTop, label, aScore, bScore, match, textColo
 
   const format = (value) => formatScore(value);
 
+  const cellWidth = flagWidth ?? Math.max((colFlag - (colFlagStart ?? colFlag)) * 2, 0);
+  const flagCellWidth = cellWidth > 0 ? cellWidth : barWidth;
+  const flagCellX = colFlagStart ?? (colFlag - flagCellWidth / 2);
+  const flagCellY = rowTop;
+  const flagCellHeight = rowHeight;
+
   if (aNorm == null || bNorm == null) {
     doc.text('N/A', colA, centerY, { align: 'center', baseline: 'middle' });
     drawMatchBar(
@@ -258,14 +298,20 @@ function drawKinkRow(doc, layout, rowTop, label, aScore, bScore, match, textColo
       null,
       textColor
     );
-    doc.text('N/A', colFlag, centerY, { align: 'center', baseline: 'middle' });
     doc.text('N/A', colB, centerY, { align: 'center', baseline: 'middle' });
+    if (Array.isArray(textColor)) {
+      doc.setTextColor(...textColor);
+    } else {
+      doc.setTextColor(textColor);
+    }
+    drawFlagSquare(doc, flagCellX, flagCellY, flagCellWidth, flagCellHeight, '');
     return;
   }
 
   const resolvedMatch =
     match !== undefined && match !== null ? match : getMatchPercentage(aNorm, bNorm);
-  const flag = getFlagIcon(aNorm, bNorm, resolvedMatch);
+  const explicitFlag = coerceFlagColor(flagOverride);
+  const flagColor = explicitFlag || getFlagColor(resolvedMatch, aNorm, bNorm);
 
   doc.text(format(aNorm), colA, centerY, { align: 'center', baseline: 'middle' });
   drawMatchBar(
@@ -277,7 +323,12 @@ function drawKinkRow(doc, layout, rowTop, label, aScore, bScore, match, textColo
     resolvedMatch,
     textColor
   );
-  doc.text(flag, colFlag, centerY, { align: 'center', baseline: 'middle' });
+  if (Array.isArray(textColor)) {
+    doc.setTextColor(...textColor);
+  } else {
+    doc.setTextColor(textColor);
+  }
+  drawFlagSquare(doc, flagCellX, flagCellY, flagCellWidth, flagCellHeight, flagColor);
   doc.text(format(bNorm), colB, centerY, { align: 'center', baseline: 'middle' });
 }
 
@@ -408,7 +459,18 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   currentY += columnHeaderGap;
 
   for (const item of items) {
-    drawKinkRow(doc, layout, currentY, item.label, item.partnerA, item.partnerB, item.match, textColor);
+    const flagOverride = coerceFlagColor(item.flag);
+    drawKinkRow(
+      doc,
+      layout,
+      currentY,
+      item.label,
+      item.partnerA,
+      item.partnerB,
+      item.match,
+      textColor,
+      flagOverride
+    );
     currentY += rowHeight;
   }
 
