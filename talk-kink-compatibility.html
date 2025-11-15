@@ -955,6 +955,113 @@ if (document.readyState === 'loading') {
   retuneLayout(activeTable);
   normaliseCells(activeTable);
 })();
+
+/* --------------------------------------------------------------
+ * TalkKink compatibility overrides
+ * - Remove the Flag column from the on-page comparison table.
+ * - Stop the legacy PDF from firing so only the “web” PDF runs.
+ *   (We re-wire the Download button to call TKCompatPDF only.)
+ * -------------------------------------------------------------- */
+
+(function () {
+  /* Remove the "Flag" column from the DOM table
+     (affects BOTH the on-page view and any PDF that clones the table). */
+  function removeFlagColumn() {
+    // Adjust selector if your comparison table has a specific id
+    const table =
+      document.querySelector('#compatTable') ||
+      document.querySelector('#comparisonTable') ||
+      document.querySelector('table');
+
+    if (!table) {
+      console.warn('[TK-compat] No compatibility table found to strip Flag column.');
+      return;
+    }
+
+    const headRow = table.querySelector('thead tr');
+    if (!headRow) return;
+
+    const headCells = Array.from(headRow.cells);
+    const flagIndex = headCells.findIndex(th =>
+      th.textContent.trim().toLowerCase() === 'flag'
+    );
+    if (flagIndex === -1) {
+      // Already removed, nothing to do
+      return;
+    }
+
+    // Delete the "Flag" cell from every row (header + body + footer)
+    Array.from(table.rows).forEach(row => {
+      if (row.cells[flagIndex]) {
+        row.deleteCell(flagIndex);
+      }
+    });
+
+    console.info('[TK-compat] Removed Flag column from compatibility table.');
+  }
+
+  /* Re-wire the Download button so ONLY the new TKCompatPDF exporter runs.
+     This prevents the old legacy generator from opening a second PDF. */
+  function rewireDownloadButton() {
+    const btn = document.querySelector(
+      '#downloadPdfBtn, #downloadBtn, [data-download-pdf]'
+    );
+    if (!btn) {
+      console.warn('[TK-compat] No Download PDF button found to rewire.');
+      return;
+    }
+
+    // Clone the button to strip inline onclick + legacy listeners
+    const clone = btn.cloneNode(true);
+    clone.removeAttribute('onclick');
+
+    clone.addEventListener('click', function (e) {
+      e.preventDefault();
+
+      // Prefer the “pretty” compatibility exporter if present
+      if (
+        window.TKCompatPDF &&
+        typeof window.TKCompatPDF.generateFromStorage === 'function'
+      ) {
+        window.TKCompatPDF.generateFromStorage();
+        return;
+      }
+
+      if (
+        window.TKCompatPDF &&
+        typeof window.TKCompatPDF.download === 'function'
+      ) {
+        window.TKCompatPDF.download();
+        return;
+      }
+
+      console.warn(
+        '[TK-compat] TKCompatPDF not available; Download button is now a no-op.'
+      );
+    });
+
+    btn.parentNode.replaceChild(clone, btn);
+    console.info('[TK-compat] Download button re-wired to TKCompatPDF only.');
+  }
+
+  /* Hard-disable any legacy global generator just in case something still calls it. */
+  window.generateDarkPDF = function () {
+    console.info('[TK-compat] Legacy generateDarkPDF is disabled on this page.');
+    // No-op: old PDF should not run any more.
+  };
+
+  // Run once when the DOM is ready
+  function init() {
+    removeFlagColumn();
+    rewireDownloadButton();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+})();
 </script>
 </body>
 </html>
