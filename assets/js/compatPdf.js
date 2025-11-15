@@ -2,7 +2,6 @@
  * Talk Kink Compatibility Survey PDF
  * - Dark theme
  * - Header centered, table left-aligned
- * - Flag column uses green / yellow / red squares
  */
 
 (() => {
@@ -10,10 +9,9 @@
     pdfKillSwitch: false,
     selectors: { downloadBtn: '#downloadPdfBtn' },
     columns: [
-      { key: 'item', header: 'Item', w: 260 },
+      { key: 'item', header: 'Item', w: 310 },
       { key: 'a', header: 'Partner A', w: 70 },
       { key: 'match', header: 'Match', w: 80 },
-      { key: 'flag', header: 'Flag', w: 50 },
       { key: 'b', header: 'Partner B', w: 70 },
     ],
     local: {
@@ -234,13 +232,10 @@
     const bScore = coerceScore(bRaw);
     const matchPercent = computeMatchPercent(matchRaw, aScore, bScore);
     const matchDisplay = matchPercent != null ? `${matchPercent}%` : safeString(matchRaw);
-    const status = tk_flagStatus(aScore, bScore, matchPercent);
-
     return {
       item: safeString(item),
       a: aScore != null ? String(aScore) : safeString(aRaw),
       match: matchDisplay,
-      flag: status,
       b: bScore != null ? String(bScore) : safeString(bRaw),
       matchPercent,
       aScore,
@@ -271,40 +266,6 @@
     return 118 + 36;
   }
 
-  function tk_flagStatus(a, b, matchPercent) {
-    // High compatibility
-    if (Number.isFinite(matchPercent) && matchPercent >= 90) return 'green';
-    // Very low compatibility
-    if (Number.isFinite(matchPercent) && matchPercent <= 30) return 'red';
-
-    // “One is a 5 and the other isn’t” soft warning
-    const oneIsFive = a === 5 || b === 5;
-    if (oneIsFive && Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) >= 1)
-      return 'yellow';
-
-    return '';
-  }
-
-  function tk_drawFlagSquare(doc, cell, color) {
-    if (!color) return;
-    const { x, y, height, width } = cell;
-    const size = Math.min(width, height) * 0.55;
-    const sx = x + (width - size) / 2;
-    const sy = y + (height - size) / 2;
-
-    const palette = {
-      green: [24, 214, 154],
-      yellow: [255, 204, 0],
-      red: [255, 66, 66],
-    };
-    const rgb = palette[color];
-    if (!rgb) return;
-
-    doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-    doc.setLineWidth(0);
-    doc.rect(sx, sy, size, size, 'F');
-  }
-
   function tk_renderSectionTable(doc, sectionTitle, rows, startY) {
     // Section heading (e.g., Behavioral Play)
     doc.setFont('helvetica', 'bold');
@@ -328,7 +289,6 @@
         item: safeString(row.item),
         a: aVal,
         match: matchVal,
-        flag: tk_flagStatus(aNum, bNum, matchNum),
         b: bVal,
       };
     });
@@ -337,7 +297,6 @@
       { header: 'Item', dataKey: 'item' },
       { header: 'Partner A', dataKey: 'a' },
       { header: 'Match', dataKey: 'match' },
-      { header: 'Flag', dataKey: 'flag' },
       { header: 'Partner B', dataKey: 'b' },
     ];
 
@@ -370,27 +329,10 @@
         item: { cellWidth: 320, halign: 'left' },
         a: { cellWidth: 70, halign: 'center' },
         match: { cellWidth: 80, halign: 'center' },
-        flag: { cellWidth: 50, halign: 'center' },
         b: { cellWidth: 70, halign: 'center' },
       },
       theme: 'grid',
       overflow: 'linebreak',
-
-      // Remove any flag text – we draw colored squares instead
-      didParseCell: (data) => {
-        if (data.section === 'body' && data.column.dataKey === 'flag') {
-          data.cell.text = [];
-          data.cell.styles.textColor = [25, 25, 28];
-        }
-      },
-
-      // Draw green / yellow / red squares in the Flag column
-      didDrawCell: (data) => {
-        if (data.section === 'body' && data.column.dataKey === 'flag') {
-          const color = data.row?.raw?.flag;
-          tk_drawFlagSquare(doc, data.cell, color);
-        }
-      },
     });
   }
 
@@ -443,7 +385,6 @@
         r.item ?? r.label ?? '',
         String(r.a ?? r.partnerA ?? ''),
         String(r.match ?? r.matchPct ?? r.matchText ?? ''),
-        '', // no flag text in fallback
         String(r.b ?? r.partnerB ?? ''),
       ];
       values.forEach((val, i) => {
@@ -535,9 +476,9 @@
 
   function demoRows() {
     return [
-      { item: 'Giving: General', a: 3, match: '100%', b: 3, flag: 'green' },
-      { item: 'Receiving: Service', a: 5, match: '100%', b: 5, flag: 'green' },
-      { item: 'Rituals', a: 4, match: '100%', b: 4, flag: '' },
+      { item: 'Giving: General', a: 3, match: '100%', b: 3 },
+      { item: 'Receiving: Service', a: 5, match: '100%', b: 5 },
+      { item: 'Rituals', a: 4, match: '100%', b: 4 },
     ];
   }
 

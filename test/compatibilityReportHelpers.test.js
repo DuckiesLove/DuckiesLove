@@ -37,29 +37,12 @@ test('drawMatchBar renders dark bar with colored text and resets color', () => {
   const fillColorCall = doc.calls.find(c => c[0] === 'setFillColor');
   assert.deepStrictEqual(fillColorCall, ['setFillColor', [0, 0, 0]]);
 
-const colorCalls = doc.calls.filter(c => c[0] === 'setTextColor');
-assert.deepStrictEqual(colorCalls[0], ['setTextColor', [255, 0, 0]]);
-assert.deepStrictEqual(colorCalls[colorCalls.length - 1], ['setTextColor', [255, 255, 255]]);
+  const colorCalls = doc.calls.filter(c => c[0] === 'setTextColor');
+  assert.deepStrictEqual(colorCalls[0], ['setTextColor', [255, 0, 0]]);
+  assert.deepStrictEqual(colorCalls[colorCalls.length - 1], ['setTextColor', [255, 255, 255]]);
 
   const textCall = doc.calls.find(c => c[0] === 'text' && c[1][0] === '50%');
   assert.ok(textCall, 'percentage label should be rendered');
-});
-
-test('flag and partner B columns render in white after drawMatchBar', () => {
-  const doc = createDocMock();
-  const items = [{ label: 'Test', partnerA: 4, partnerB: 0 }]; // results in a 🚩 flag
-  const margin = 5;
-  const usableWidth = doc.internal.pageSize.getWidth() - margin * 2;
-  const layout = buildLayout(margin, usableWidth);
-  renderCategorySection(doc, 'Cat', items, layout, 20);
-
-  const flagIndex = doc.calls.findIndex(c => c[0] === 'text' && c[1][0] === '🚩');
-  const lastColorBeforeFlag = doc.calls.slice(0, flagIndex).filter(c => c[0] === 'setTextColor').pop();
-  assert.deepStrictEqual(lastColorBeforeFlag, ['setTextColor', [255, 255, 255]]);
-
-  const partnerBIndex = doc.calls.findIndex(c => c[0] === 'text' && c[1][0] === '0');
-  const lastColorBeforePartnerB = doc.calls.slice(0, partnerBIndex).filter(c => c[0] === 'setTextColor').pop();
-  assert.deepStrictEqual(lastColorBeforePartnerB, ['setTextColor', [255, 255, 255]]);
 });
 
 test('renderCategorySection renders each item and returns final y', () => {
@@ -83,7 +66,6 @@ test('renderCategorySection renders each item and returns final y', () => {
   assert(texts.includes('Item'));
   assert(texts.includes('Partner A'));
   assert(texts.includes('Match'));
-  assert(texts.includes('Flag'));
   assert(texts.includes('Partner B'));
 });
 

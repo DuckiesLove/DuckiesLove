@@ -1,13 +1,11 @@
 // ---- Compatibility Report Rendering Helpers ----
 
-import { getFlagColor } from './matchFlag.js';
 const PX_TO_MM = 0.2645833333;
 const LABEL_MAX_WIDTH_PX = 130;
 const ROW_MIN_HEIGHT_PX = 28;
 const MATCH_BAR_HEIGHT_PX = 12;
 const MIN_MATCH_WIDTH_PX = 80;
 const MIN_PARTNER_WIDTH_PX = 36;
-const MIN_FLAG_WIDTH_PX = 20;
 const DEFAULT_FONT_SIZE = 10;
 const DEFAULT_LINE_HEIGHT = 1.2;
 
@@ -19,39 +17,6 @@ function getFontColor(percentage) {
   if (percentage >= 90) return [0, 255, 0];
   if (percentage >= 60) return [255, 255, 0];
   return [255, 0, 0];
-}
-
-function drawFlagSquare(doc, cellX, cellY, cellWidth, cellHeight, colorName) {
-  if (!colorName) return;
-
-  const size = Math.min(cellWidth, cellHeight) * 0.55;
-  const sx = cellX + (cellWidth - size) / 2;
-  const sy = cellY + (cellHeight - size) / 2;
-
-  const palette = {
-    green: [24, 214, 154],
-    yellow: [255, 204, 0],
-    red: [255, 66, 66],
-  };
-
-  const rgb = palette[colorName];
-  if (!rgb) return;
-
-  doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-  doc.setLineWidth(0);
-  doc.rect(sx, sy, size, size, 'F');
-}
-
-function coerceFlagColor(value) {
-  if (value == null || value === '') return '';
-  if (typeof value === 'string') {
-    const trimmed = value.trim().toLowerCase();
-    if (['green', 'yellow', 'red'].includes(trimmed)) return trimmed;
-    if (trimmed === '🟩') return 'green';
-    if (trimmed === '🟨') return 'yellow';
-    if (trimmed === '🟥') return 'red';
-  }
-  return '';
 }
 
 // Draw the colored match bar with percentage label (or N/A)
@@ -109,8 +74,7 @@ function renderCategoryHeader(
 export function buildLayout(startX, usableWidth) {
   const minPartner = pxToMm(MIN_PARTNER_WIDTH_PX);
   const minMatch = pxToMm(MIN_MATCH_WIDTH_PX);
-  const minFlag = pxToMm(MIN_FLAG_WIDTH_PX);
-  const minOtherTotal = minPartner * 2 + minMatch + minFlag;
+  const minOtherTotal = minPartner * 2 + minMatch;
 
   let labelMaxWidth = Math.min(pxToMm(LABEL_MAX_WIDTH_PX), usableWidth * 0.33);
   if (labelMaxWidth < pxToMm(60)) {
@@ -127,24 +91,20 @@ export function buildLayout(startX, usableWidth) {
 
   const weightPartner = 1;
   const weightMatch = 2.4;
-  const weightFlag = 0.6;
-  const totalWeight = weightPartner * 2 + weightMatch + weightFlag;
+  const totalWeight = weightPartner * 2 + weightMatch;
   const unit = totalWeight > 0 ? remainingWidth / totalWeight : 0;
 
   let partnerWidth = Math.max(minPartner, unit * weightPartner);
   let matchWidth = Math.max(minMatch, unit * weightMatch);
-  let flagWidth = Math.max(minFlag, unit * weightFlag);
-
-  let usedOther = partnerWidth * 2 + matchWidth + flagWidth;
+  let usedOther = partnerWidth * 2 + matchWidth;
   if (usedOther > remainingWidth) {
     const over = usedOther - remainingWidth;
-    const adjustable = (partnerWidth - minPartner) * 2 + (matchWidth - minMatch) + (flagWidth - minFlag);
+    const adjustable = (partnerWidth - minPartner) * 2 + (matchWidth - minMatch);
     if (adjustable > 0) {
       const ratio = over / adjustable;
       partnerWidth -= (partnerWidth - minPartner) * ratio;
       matchWidth -= (matchWidth - minMatch) * ratio;
-      flagWidth -= (flagWidth - minFlag) * ratio;
-      usedOther = partnerWidth * 2 + matchWidth + flagWidth;
+      usedOther = partnerWidth * 2 + matchWidth;
     }
     if (usedOther > remainingWidth) {
       matchWidth = Math.max(minMatch, matchWidth - (usedOther - remainingWidth));
@@ -163,9 +123,6 @@ export function buildLayout(startX, usableWidth) {
   const colBStart = colBar + matchWidth;
   const colBCenter = colBStart + partnerWidth / 2;
 
-  const colFlagStart = colBStart + partnerWidth;
-  const colFlag = colFlagStart + flagWidth / 2;
-
   const rowHeight = Math.max(pxToMm(ROW_MIN_HEIGHT_PX), 8);
   const barHeight = Math.min(rowHeight - pxToMm(6), pxToMm(MATCH_BAR_HEIGHT_PX));
   const barPadding = matchWidth > 0 ? Math.min(matchWidth / 6, pxToMm(6)) : 0;
@@ -178,8 +135,6 @@ export function buildLayout(startX, usableWidth) {
     colAStart,
     colBar,
     colBarCenter,
-    colFlag,
-    colFlagStart,
     colB: colBCenter,
     colBStart,
     barWidth,
@@ -191,7 +146,6 @@ export function buildLayout(startX, usableWidth) {
     labelMaxWidth,
     partnerWidth,
     matchWidth,
-    flagWidth,
     rowHeight,
     headerHeight: Math.max(pxToMm(20), rowHeight * 0.85),
     columnHeaderGap: Math.max(pxToMm(12), rowHeight * 0.6),
@@ -232,21 +186,17 @@ function drawKinkRow(
   aScore,
   bScore,
   match,
-  textColor = [255, 255, 255],
-  flagOverride = ''
+  textColor = [255, 255, 255]
 ) {
   const {
     colLabel,
     labelMaxWidth,
     colA,
     colBar,
-    colFlag,
-    colFlagStart,
     colB,
     barWidth,
     barHeight,
     barPadding,
-    flagWidth,
     rowHeight,
     fontSize,
     lineHeight,
@@ -281,12 +231,6 @@ function drawKinkRow(
 
   const format = (value) => formatScore(value);
 
-  const cellWidth = flagWidth ?? Math.max((colFlag - (colFlagStart ?? colFlag)) * 2, 0);
-  const flagCellWidth = cellWidth > 0 ? cellWidth : barWidth;
-  const flagCellX = colFlagStart ?? (colFlag - flagCellWidth / 2);
-  const flagCellY = rowTop;
-  const flagCellHeight = rowHeight;
-
   if (aNorm == null || bNorm == null) {
     doc.text('N/A', colA, centerY, { align: 'center', baseline: 'middle' });
     drawMatchBar(
@@ -304,14 +248,11 @@ function drawKinkRow(
     } else {
       doc.setTextColor(textColor);
     }
-    drawFlagSquare(doc, flagCellX, flagCellY, flagCellWidth, flagCellHeight, '');
     return;
   }
 
   const resolvedMatch =
     match !== undefined && match !== null ? match : getMatchPercentage(aNorm, bNorm);
-  const explicitFlag = coerceFlagColor(flagOverride);
-  const flagColor = explicitFlag || getFlagColor(resolvedMatch, aNorm, bNorm);
 
   doc.text(format(aNorm), colA, centerY, { align: 'center', baseline: 'middle' });
   drawMatchBar(
@@ -328,7 +269,6 @@ function drawKinkRow(
   } else {
     doc.setTextColor(textColor);
   }
-  drawFlagSquare(doc, flagCellX, flagCellY, flagCellWidth, flagCellHeight, flagColor);
   doc.text(format(bNorm), colB, centerY, { align: 'center', baseline: 'middle' });
 }
 
@@ -405,7 +345,6 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
     colLabel,
     colA,
     colBar,
-    colFlag,
     colB,
     startX,
     width,
@@ -416,7 +355,7 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   const sectionHeight = headerHeight + columnHeaderGap + items.length * rowHeight;
 
   const innerStartX = startX ?? colLabel;
-  const usedWidth = width ?? Math.max(colB, colFlag, colBar + layout.matchWidth) - innerStartX;
+  const usedWidth = width ?? Math.max(colB, colBar + layout.matchWidth) - innerStartX;
   const rectX = innerStartX - paddingLeft;
   const rectY = startY - paddingTop;
   const rectWidth = Math.max(0, usedWidth + paddingLeft + paddingRight);
@@ -454,12 +393,10 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   doc.text('Partner A', colA, currentY, { align: 'center' });
   doc.text('Match', colBar + layout.matchWidth / 2, currentY, { align: 'center' });
   doc.text('Partner B', colB, currentY, { align: 'center' });
-  doc.text('Flag', colFlag, currentY, { align: 'center' });
 
   currentY += columnHeaderGap;
 
   for (const item of items) {
-    const flagOverride = coerceFlagColor(item.flag);
     drawKinkRow(
       doc,
       layout,
@@ -469,7 +406,6 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
       item.partnerB,
       item.match,
       textColor,
-      flagOverride
     );
     currentY += rowHeight;
   }
