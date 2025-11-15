@@ -2458,8 +2458,6 @@
 })();
   </script>
 
-
-    <script defer src="/assets/js/comparison.js"></script>
   <script defer>
     /**
      * Safely clear margin on the dock *only if it exists on this page*.
@@ -2495,8 +2493,39 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"
         crossorigin="anonymous" referrerpolicy="no-referrer" data-lib="jspdf-autotable"></script>
 
-<!-- NOW load your existing compatPdf.js which used to request /vendor/* -->
-<script src="assets/js/compatPdf.js?v=clean-reset-1" defer></script>
+<!-- ================= TalkKink Compatibility PDF Wiring ================ -->
+<!-- IMPORTANT:
+     1) Make sure there is NO <script src="js/compatPdf.js"></script> on this page.
+     2) This script uses the heavy exporter (flag squares, accent header, etc.).
+-->
+
+<!-- Core comparison / table logic (keep whatever you already use here) -->
+<script src="assets/js/comparison.js"></script>
+
+<!-- Heavy PDF exporter with colored flag squares -->
+<script src="assets/js/compatPdf.js?v=2025-11-14-1"></script>
+
+<script>
+  // Optional: if your download button has a different id, update this selector
+  document.addEventListener('DOMContentLoaded', function () {
+    const btn = document.querySelector('#downloadPdfBtn, #downloadBtn, [data-download-pdf]');
+    if (!btn) return;
+
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      // Let the heavy exporter handle everything
+      if (window.TKCompatPDF && typeof window.TKCompatPDF.generateFromStorage === 'function') {
+        window.TKCompatPDF.generateFromStorage();
+      } else if (window.TKCompatPDF && typeof window.TKCompatPDF.download === 'function') {
+        window.TKCompatPDF.download();
+      } else {
+        console.error('[TalkKink] TKCompatPDF not ready on compatibility.html');
+        alert('PDF exporter not ready. Please refresh and try again.');
+      }
+    }, { passive: false });
+  });
+</script>
+<!-- =================================================================== -->
 </body>
 
 </html>
