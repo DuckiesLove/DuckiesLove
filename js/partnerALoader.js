@@ -17,6 +17,140 @@ const $one = (sel, ctx = document) => ctx.querySelector(sel);
 const $all = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const normalize = normalizeKey;
 
+const PARTNER_WEB_TABLE_SELECTOR = '#partnerWebReport';
+
+if (typeof window !== 'undefined') {
+  window.generateDarkPDF = function () {
+    console.info('[partner-web-report] PDF export disabled on this page.');
+  };
+}
+
+function safeString(val) {
+  if (val == null) return '';
+  const s = String(val).trim();
+  return (s === 'null' || s === 'undefined') ? '' : s;
+}
+
+function coerceScore(val) {
+  if (val == null || (typeof val === 'string' && !val.trim())) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  const parsed = Number(String(val).replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function clampPercent(v) {
+  if (!Number.isFinite(v)) return null;
+  return Math.max(0, Math.min(100, v));
+}
+
+function computeMatchPercent(rawMatch, aScore, bScore) {
+  const direct = clampPercent(coerceScore(rawMatch));
+  if (direct != null) return Math.round(direct);
+
+  if (Number.isFinite(aScore) && Number.isFinite(bScore)) {
+    const pct = 100 - (Math.abs(aScore - bScore) / 5) * 100;
+    return Math.round(Math.max(0, Math.min(100, pct)));
+  }
+  return null;
+}
+
+function getCompatRows() {
+  if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+    return window.talkkinkCompatRows.slice();
+  }
+
+  try {
+    const raw = localStorage.getItem('talkkink:compatRows');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn('[partner-web-report] could not read cached rows', e);
+    return [];
+  }
+}
+
+function normalizeCompatRow(row) {
+  let item, aRaw, bRaw, matchRaw;
+
+  if (Array.isArray(row)) {
+    [item, aRaw, matchRaw, , bRaw] = row;
+  } else if (row && typeof row === 'object') {
+    item = row.item ?? row.label ?? row.category ?? '';
+    aRaw = row.a ?? row.partnerA ?? row.aScore ?? row.scoreA;
+    bRaw = row.b ?? row.partnerB ?? row.bScore ?? row.scoreB;
+    matchRaw =
+      row.matchPercent ??
+      row.matchPct ??
+      row.match ??
+      row.matchText ??
+      row.matchValue ??
+      '';
+  }
+
+  const aScore = coerceScore(aRaw);
+  const bScore = coerceScore(bRaw);
+  const matchPercent = computeMatchPercent(matchRaw, aScore, bScore);
+
+  return {
+    item: safeString(item),
+    a: aScore != null ? String(aScore) : safeString(aRaw),
+    b: bScore != null ? String(bScore) : safeString(bRaw),
+    match: matchPercent != null ? `${matchPercent}%` : safeString(matchRaw),
+  };
+}
+
+function buildPartnerWebReport() {
+  const table = document.querySelector(PARTNER_WEB_TABLE_SELECTOR);
+  if (!table) return;
+
+  const rawRows = getCompatRows();
+  if (!rawRows.length) {
+    table.innerHTML =
+      '<thead><tr><th>Item</th><th>Partner A</th><th>Match</th><th>Partner B</th></tr></thead>' +
+      '<tbody><tr><td colspan="4">Load both surveys on the compatibility page first.</td></tr></tbody>';
+    return;
+  }
+
+  const rows = rawRows.map(normalizeCompatRow).filter(r => r.item || r.a || r.b || r.match);
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['Item', 'Partner A', 'Match', 'Partner B'].forEach(label => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+
+  const tbody = document.createElement('tbody');
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+
+    const tdItem = document.createElement('td');
+    tdItem.textContent = r.item;
+    tr.appendChild(tdItem);
+
+    const tdA = document.createElement('td');
+    tdA.textContent = r.a;
+    tr.appendChild(tdA);
+
+    const tdMatch = document.createElement('td');
+    tdMatch.textContent = r.match;
+    tr.appendChild(tdMatch);
+
+    const tdB = document.createElement('td');
+    tdB.textContent = r.b;
+    tr.appendChild(tdB);
+
+    tbody.appendChild(tr);
+  });
+
+  table.innerHTML = '';
+  table.appendChild(thead);
+  table.appendChild(tbody);
+}
+
 function tagPartnerAColumn(root = $one(CFG.tableContainer)) {
   if (!root) return;
   root.querySelectorAll('table').forEach(table => {
@@ -231,19 +365,27 @@ function guardDownload() {
 }
 
 // initialization
+function initPartnerALoader() {
+  ensurePartnerACol();
+  annotateRows();
+  tagPartnerAColumn();
+  observeDom();
+  const up = $one(CFG.uploadSelector);
+  if (up) up.addEventListener('change', e => {
+    e.stopImmediatePropagation?.();
+    if (e.target.files.length) handlePartnerAUpload(e.target.files[0]);
+  }, true);
+  guardDownload();
+  buildPartnerWebReport();
+}
+
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
-    ensurePartnerACol();
-    annotateRows();
-    tagPartnerAColumn();
-    observeDom();
-    const up = $one(CFG.uploadSelector);
-    if (up) up.addEventListener('change', e => {
-      e.stopImmediatePropagation?.();
-      if (e.target.files.length) handlePartnerAUpload(e.target.files[0]);
-    }, true);
-    guardDownload();
-  });
+  document.addEventListener('DOMContentLoaded', initPartnerALoader);
+  if (document.readyState !== 'loading') {
+    try { initPartnerALoader(); } catch (err) {
+      console.warn('[partner-a-loader] init failed', err);
+    }
+  }
 }
 
 // Unified exports from both branches
