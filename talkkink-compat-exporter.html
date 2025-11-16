@@ -66,13 +66,15 @@
     background: rgba(255,255,255,.02);
   }
   table.compat tr:nth-child(odd) td{background: rgba(255,255,255,.035)}
-  table.compat .num{ text-align:center; font-variant-numeric: tabular-nums }
+  table.compat .num,
+  table.compat .flag{ text-align:center; font-variant-numeric: tabular-nums }
   table.compat .label{ word-break: break-word }
 
-  table.compat colgroup col.label{ width: 64% }
-  table.compat colgroup col.pa{ width: 12% }
-  table.compat colgroup col.match{ width: 12% }
-  table.compat colgroup col.pb{ width: 12% }
+  table.compat colgroup col.label{ width: 56% }
+  table.compat colgroup col.pa{ width: 11% }
+  table.compat colgroup col.match{ width: 11% }
+  table.compat colgroup col.flag{ width: 11% }
+  table.compat colgroup col.pb{ width: 11% }
 
   /* Remove accidental duplicate header row if an upstream script injects again */
   table.compat thead tr + tr{ display:none !important }
@@ -97,11 +99,11 @@
   <!-- Your compatibility table; the colgroup keeps widths in sync with PDF -->
   <table class="compat" id="compatTable">
     <colgroup>
-      <col class="label"><col class="pa"><col class="match"><col class="pb">
+      <col class="label"><col class="pa"><col class="match"><col class="flag"><col class="pb">
     </colgroup>
     <thead>
       <tr>
-        <th>Item</th><th>Partner A</th><th>Match</th><th>Partner B</th>
+        <th>Item</th><th>Partner A</th><th>Match</th><th>Flag</th><th>Partner B</th>
       </tr>
     </thead>
     <tbody id="compatBody"><!-- rows injected by your app; leave empty in template --></tbody>
@@ -125,9 +127,10 @@
     selectors: { downloadBtn: '#downloadPdfBtn' },
     columns: [
       { key: 'item',  header: 'Item',      w: 320 },
-      { key: 'a',     header: 'Partner A', w: 80  },
+      { key: 'a',     header: 'Partner A', w: 70  },
       { key: 'match', header: 'Match',     w: 80  },
-      { key: 'b',     header: 'Partner B', w: 80  },
+      { key: 'flag',  header: 'Flag',      w: 60  },
+      { key: 'b',     header: 'Partner B', w: 70  },
     ],
     cdn: {
       jspdf: [
@@ -203,54 +206,121 @@
   /* ---------------------- Helpers ---------------------- */
 
   const TK_ACCENT = [0, 214, 199];
+  const TK_FLAG_EMOJI = { green: '🟩', yellow: '🟨', red: '🟥' };
+  const TK_FLAG_RGB = {
+    green: [24, 214, 154],
+    yellow: [255, 204, 0],
+    red: [255, 66, 66],
+  };
 
-  const safe = v =>
+  const safe = (v) =>
     v == null || v === 'null' || v === 'undefined' ? '' : String(v);
 
-  const coerceNum = v => {
+  const clampPercent = (value) => Math.max(0, Math.min(100, value));
+
+  const coerceNum = (v) => {
     if (v == null || v === '') return null;
-    const n = Number(String(v).replace(/[^\d.-]/g, ''));
+    const cleaned = String(v).replace(/[^\d.-]/g, '');
+    if (!cleaned) return null;
+    const n = Number(cleaned);
     return Number.isFinite(n) ? n : null;
   };
 
-  function computeMatch(a, b, raw) {
-    const direct = coerceNum(raw);
-    if (direct != null) return Math.min(Math.max(direct, 0), 100);
-    if (a != null && b != null) {
-      const diff = Math.abs(a - b);
-      return Math.round(100 - (diff / 5) * 100);
+  function tk_matchPercent(a, b) {
+    if (typeof a !== 'number' || typeof b !== 'number') return null;
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    const diff = Math.min(5, Math.abs(a - b));
+    return Math.round(((5 - diff) / 5) * 100);
+  }
+
+  function tk_normalizeFlag(value) {
+    if (value == null) return '';
+    const str = String(value).trim();
+    if (!str) return '';
+    const lower = str.toLowerCase();
+    if (['green', 'yellow', 'red'].includes(lower)) return lower;
+    if (str === '🟩' || str === '🟢') return 'green';
+    if (str === '🟨' || str === '🟡' || str === '🟠') return 'yellow';
+    if (str === '🟥' || str === '🔴') return 'red';
+    return '';
+  }
+
+  function tk_flagStatus(a, b, matchPercent) {
+    if (Number.isFinite(matchPercent)) {
+      if (matchPercent >= 90) return 'green';
+      if (matchPercent <= 30) return 'red';
     }
-    return null;
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return '';
+    const oneIsFive = a === 5 || b === 5;
+    if (oneIsFive && Math.abs(a - b) >= 1) return 'yellow';
+    return '';
+  }
+
+  function tk_drawFlagSquare(doc, cell, colorName) {
+    const rgb = TK_FLAG_RGB[colorName];
+    if (!rgb || !cell) return;
+    const size = Math.min(cell.width, cell.height) * 0.45;
+    const sx = cell.x + (cell.width - size) / 2;
+    const sy = cell.y + (cell.height - size) / 2;
+    doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+    doc.rect(sx, sy, size, size, 'F');
+  }
+
+  function tk_renderMatchColumn(a, b, matchPercent, matchRaw) {
+    if (Number.isFinite(matchPercent)) return `${matchPercent}%`;
+    const computed = tk_matchPercent(a, b);
+    if (computed !== null) return `${computed}%`;
+    const str = safe(matchRaw).trim();
+    return str || 'N/A';
   }
 
   function normalizeRow(r) {
-    let item, aRaw, bRaw, matchRaw;
+    let item;
+    let aRaw;
+    let bRaw;
+    let matchRaw;
+    let flagRaw;
 
     if (Array.isArray(r)) {
-      if (r.length >= 5) {
-        [item, aRaw, matchRaw, , bRaw] = r;
-      } else {
+      [item, aRaw, matchRaw, flagRaw, bRaw] = r;
+      if (r.length === 4) {
         [item, aRaw, matchRaw, bRaw] = r;
+        flagRaw = null;
       }
-    } else {
+    } else if (r && typeof r === 'object') {
       item = r.item ?? r.label ?? '';
-      aRaw = r.a ?? r.partnerA ?? null;
-      bRaw = r.b ?? r.partnerB ?? null;
-      matchRaw = r.matchPercent ?? r.match ?? null;
+      aRaw = r.a ?? r.partnerA ?? r.aScore ?? null;
+      bRaw = r.b ?? r.partnerB ?? r.bScore ?? null;
+      matchRaw =
+        r.matchPercent ??
+        r.match ??
+        r.matchPct ??
+        r.matchValue ??
+        null;
+      flagRaw = r.flag ?? r.flagEmoji ?? r.flagStatus ?? r.flagLabel ?? null;
     }
 
     const a = coerceNum(aRaw);
     const b = coerceNum(bRaw);
-    const pct = computeMatch(a, b, matchRaw);
+    const directMatch = coerceNum(matchRaw);
+    const matchPct =
+      directMatch != null ? clampPercent(Math.round(directMatch)) : tk_matchPercent(a, b);
+    const matchDisplay = tk_renderMatchColumn(a, b, matchPct, matchRaw);
+    const explicitFlag = tk_normalizeFlag(flagRaw);
+    const computedFlag = tk_flagStatus(a, b, matchPct);
+    const flagStatus = explicitFlag || computedFlag || '';
+    const flagEmoji = flagStatus ? TK_FLAG_EMOJI[flagStatus] || '' : '';
 
     return {
       item: safe(item),
       a: a != null ? String(a) : safe(aRaw),
+      match: matchDisplay,
+      flag: flagEmoji,
       b: b != null ? String(b) : safe(bRaw),
-      match: pct != null ? pct + '%' : safe(matchRaw),
       aNum: a,
       bNum: b,
-      pct,
+      pct: matchPct,
+      flagStatus,
     };
   }
 
@@ -284,35 +354,39 @@
     const tw = doc.getTextWidth(title);
     doc.text(title, (pageW - tw) / 2, startY);
 
-    const tableRows = rows.map(r => ({
+    const tableRows = rows.map((r) => ({
       item: safe(r.item),
       a: safe(r.a),
       match: safe(r.match),
+      flag: r.flag || '',
       b: safe(r.b),
+      __flagStatus: r.flagStatus || '',
     }));
-
-    const columnStyles = Object.fromEntries(
-      CFG.columns.map((col, idx) => [idx, {
-        cellWidth: col.w,
-        halign: idx === 0 ? 'left' : 'center',
-      }])
-    );
 
     const itemColumn = CFG.columns.find((col) => col.key === 'item');
     const wrapWidth = Math.max(40, (itemColumn?.w || 320) - 12);
 
-    const bodyRows = tableRows.map((row) => {
-      const wrappedItem =
+    const bodyRows = tableRows.map((row) => ({
+      ...row,
+      item:
         row.item && typeof doc.splitTextToSize === 'function'
           ? doc.splitTextToSize(row.item, wrapWidth)
-          : row.item;
-      return [wrappedItem, row.a, row.match, row.b];
-    });
+          : row.item,
+    }));
+
+    const columnStyles = Object.fromEntries(
+      CFG.columns.map((col) => [col.key, {
+        cellWidth: col.w,
+        halign: col.key === 'item' ? 'left' : 'center',
+      }])
+    );
+
+    const columns = CFG.columns.map((col) => ({ header: col.header, dataKey: col.key }));
 
     doc.autoTable({
       startY: startY + 26,
       margin: { left: 70, right: 70 },
-      head: [CFG.columns.map(c => c.header)],
+      columns,
       body: bodyRows,
       theme: 'grid',
       styles: {
@@ -323,6 +397,7 @@
         lineColor: [40, 40, 45],
         lineWidth: 1.2,
         halign: 'left',
+        overflow: 'linebreak',
       },
       headStyles: {
         fontStyle: 'bold',
@@ -331,6 +406,16 @@
         halign: 'center',
       },
       columnStyles,
+      didDrawCell(data) {
+        if (data.section !== 'body') return;
+        if (data.column.dataKey === 'flag') {
+          const status = data.row.raw?.__flagStatus;
+          if (status) {
+            tk_drawFlagSquare(doc, data.cell, status);
+            data.cell.text = [];
+          }
+        }
+      },
     });
   }
 
@@ -373,7 +458,9 @@
     body.querySelectorAll('tr').forEach(tr => {
       const cells = Array.from(tr.children, td => safe(td?.textContent).trim());
       if (cells.length >= 4) {
-        rows.push(cells.slice(0, 4));
+        const normalized = cells.slice(0, 5);
+        if (normalized.length === 4) normalized.splice(3, 0, '');
+        rows.push(normalized);
       }
     });
     return rows;
