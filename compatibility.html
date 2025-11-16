@@ -1086,46 +1086,27 @@
 
   <script>
     /* ========================================================================
-     * TalkKink Compatibility — SINGLE PDF OVERRIDE (JS rows only)
-     * - Uses TKCompatPDF.download() only
-     * - Reads rows from window.talkkinkCompatRows / localStorage
-     * - No Flag column in the PDF (handled inside assets/js/compatPdf.js)
+     * TalkKink Compatibility — SINGLE PDF OVERRIDE (storage-based)
+     * - Uses TKCompatPDF.generateFromStorage() only
+     * - Depends on tk-compat-upload-glue.js saving rows to localStorage
+     * - Old DOM-based PDF generator is completely bypassed
      * ===================================================================== */
     (function () {
       const BTN_SELECTOR = '#downloadPdfBtn, #downloadBtn, [data-download-pdf]';
 
-      function readRowsFromJS() {
-        if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
-          return window.talkkinkCompatRows.slice();
-        }
-
-        if (Array.isArray(window.tkCompatRows) && window.tkCompatRows.length) {
-          return window.tkCompatRows.slice();
-        }
-
-        return [];
-      }
-
-      function readRowsFromStorage() {
+      function rowsExistInStorage() {
         try {
           const raw =
             localStorage.getItem('talkkink:compatRows') ||
             localStorage.getItem('talkkink:compatibilityRows') ||
             '';
-          if (!raw) return [];
+          if (!raw) return false;
           const parsed = JSON.parse(raw);
-          return Array.isArray(parsed) ? parsed : [];
+          return Array.isArray(parsed) && parsed.length > 0;
         } catch (err) {
-          console.warn('[compat-override] Failed to read cached compat rows:', err);
-          return [];
+          console.warn('[compat-override] Failed to read compat rows from storage:', err);
+          return false;
         }
-      }
-
-      function getCompatRows() {
-        const jsRows = readRowsFromJS();
-        if (jsRows.length) return jsRows;
-
-        return readRowsFromStorage();
       }
 
       async function handleDownload(e) {
@@ -1135,25 +1116,30 @@
           if (e.stopImmediatePropagation) e.stopImmediatePropagation();
         }
 
-        const rows = getCompatRows();
-        if (!rows.length) {
-          alert('Upload both partner surveys first (and wait for the console to say both are loaded) before downloading.');
-          return;
-        }
-
-        if (!window.TKCompatPDF || typeof window.TKCompatPDF.download !== 'function') {
-          console.error('[compat-override] TKCompatPDF.download not available.');
+        if (!window.TKCompatPDF) {
+          console.error('[compat-override] TKCompatPDF not available on window.');
           alert('PDF generator is not loaded. Make sure assets/js/compatPdf.js is included.');
           return;
         }
 
+        const hasGenFromStorage = typeof window.TKCompatPDF.generateFromStorage === 'function';
+        const hasDownload = typeof window.TKCompatPDF.download === 'function';
+
+        if (!rowsExistInStorage()) {
+          alert('Upload both partner surveys first, then wait for the green messages below the buttons before downloading.');
+          return;
+        }
+
         try {
-          if (typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
-            window.TKCompatPDF.notifyRowsUpdated(rows);
+          if (hasGenFromStorage) {
+            await window.TKCompatPDF.generateFromStorage();
+          } else if (hasDownload) {
+            await window.TKCompatPDF.download();
+          } else {
+            alert('PDF generator methods are missing (no generateFromStorage / download).');
           }
-          await window.TKCompatPDF.download(rows);
         } catch (err) {
-          console.error('[compat-override] TKCompatPDF.download failed:', err);
+          console.error('[compat-override] PDF generation failed:', err);
           alert('PDF could not be generated. See console for details.');
         }
       }
@@ -1184,7 +1170,9 @@
           return handleDownload(new Event('click'));
         };
 
-        console.info('[compat-override] Download button now uses TKCompatPDF only (JS rows; no Flag column).');
+        console.info(
+          '[compat-override] Download button now uses TKCompatPDF.generateFromStorage() only (no legacy Flag column PDF).'
+        );
       }
 
       if (document.readyState === 'loading') {
