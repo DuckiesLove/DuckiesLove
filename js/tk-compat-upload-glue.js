@@ -46,6 +46,15 @@
     return out;
   }
 
+  function coerceScore(value) {
+    if (value == null || value === '') return null;
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    if (num < 0) return 0;
+    if (num > 5) return 5;
+    return num;
+  }
+
   function coerceToArraySelectors(selectors) {
     if (!selectors) return [];
     if (Array.isArray(selectors)) return selectors;
@@ -139,6 +148,74 @@
     };
   }
 
+  function normalizeSurveyExport(payload) {
+    const survey = payload && typeof payload === 'object' ? payload.survey : null;
+    if (!survey || typeof survey !== 'object') return null;
+
+    const metaSource = (payload.meta && typeof payload.meta === 'object') ? payload.meta : payload;
+    const meta = pick(metaSource, [
+      'exportedAt',
+      'generatedAt',
+      'surveyTitle',
+      'title',
+      'name',
+      'theme',
+      'selectedCategories'
+    ]);
+    if (!meta.exportedAt && meta.generatedAt) meta.exportedAt = meta.generatedAt;
+    if (!meta.surveyTitle && meta.title) meta.surveyTitle = meta.title;
+    if (!meta.surveyTitle && meta.name) meta.surveyTitle = meta.name;
+
+    const answers = [];
+    const pushEntry = (categoryKey, role, entry, idx) => {
+      if (!entry || typeof entry !== 'object') return;
+      const score = coerceScore(entry.rating ?? entry.score ?? entry.value ?? entry.answer);
+      if (score == null) return;
+      const kinkId =
+        entry.kinkId ??
+        entry.key ??
+        entry.id ??
+        entry.slug ??
+        entry.code ??
+        entry.name ??
+        `${categoryKey || 'cat'}:${role}:${idx}`;
+      const title =
+        entry.name ??
+        entry.label ??
+        entry.title ??
+        entry.text ??
+        entry.prompt ??
+        entry.question ??
+        String(kinkId);
+      const categoryLabel = entry.category ?? categoryKey ?? null;
+      answers.push({
+        kinkId: String(kinkId),
+        side: String(role || 'general').toLowerCase(),
+        score,
+        title,
+        categoryId: categoryKey ?? entry.categoryId ?? null,
+        category: categoryLabel
+      });
+    };
+
+    Object.entries(survey).forEach(([categoryKey, block]) => {
+      if (!block || typeof block !== 'object') return;
+      ['Giving', 'Receiving', 'General'].forEach(role => {
+        const list = Array.isArray(block[role]) ? block[role] : [];
+        list.forEach((entry, idx) => pushEntry(categoryKey, role, entry, idx));
+      });
+    });
+
+    if (!answers.length) return null;
+
+    return {
+      schema: 'talkkink.v2',
+      meta,
+      answers,
+      byKink: toByKinkMap(answers)
+    };
+  }
+
   function normalizePayload(obj) {
     if (!obj || typeof obj !== 'object') throw new Error('Invalid file content');
 
@@ -153,6 +230,9 @@
 
     const fromMap = normalizeLegacyByKink(obj);
     if (fromMap) return fromMap;
+
+    const fromSurvey = normalizeSurveyExport(obj);
+    if (fromSurvey) return fromSurvey;
 
     throw new Error('Unsupported survey format');
   }
