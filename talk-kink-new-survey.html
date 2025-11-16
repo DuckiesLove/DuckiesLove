@@ -569,10 +569,16 @@
   };
   function normalize(raw){
     const out = [];
+
     const push = (name, items)=>{
       const cat = tidy(name); if(!cat) return;
+      const list = Array.isArray(items)
+        ? items
+        : Array.isArray(items?.items)
+          ? items.items
+          : [];
       const good=[];
-      (items||[]).forEach(it=>{
+      list.forEach(it=>{
         const id=tidy(it?.id||it?.key||it?.name||'');
         const label=tidy(it?.label||it?.text||'');
         const type=tidy(it?.type||'scale');
@@ -580,8 +586,32 @@
       });
       if(good.length) out.push({category:cat, items:good});
     };
-    if (Array.isArray(raw)) raw.forEach(x=>push(x?.category ?? x?.name, x?.items));
-    else if (raw && typeof raw==='object') Object.entries(raw).forEach(([k,v])=>push(k,v));
+
+    const fromEntries = () => {
+      if (!raw || typeof raw !== 'object') return;
+      Object.entries(raw).forEach(([k,v])=>{
+        if (Array.isArray(v)) push(k,v);
+      });
+    };
+
+    if (Array.isArray(raw)) {
+      raw.forEach(x=>push(x?.category ?? x?.name, x?.items));
+    } else if (Array.isArray(raw?.categories)) {
+      raw.categories.forEach(x=>push(x?.category ?? x?.name, x?.items));
+    } else if (Array.isArray(raw?.kinks)) {
+      const grouped = new Map();
+      raw.kinks.forEach(item => {
+        if (!item) return;
+        const cat = tidy(item.category || item.group || 'General');
+        if (!grouped.has(cat)) grouped.set(cat, []);
+        grouped.get(cat).push(item);
+      });
+      grouped.forEach((items, cat)=>push(cat, items));
+      if (!out.length) fromEntries();
+    } else {
+      fromEntries();
+    }
+
     return out;
   }
 
