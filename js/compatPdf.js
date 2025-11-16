@@ -231,7 +231,7 @@
     if (Array.isArray(row)) {
       [item, aRaw, matchRaw, , bRaw] = row;
     } else if (row && typeof row === 'object') {
-      // IMPORTANT: Prefer human label over internal code
+      // Prefer human label over internal code
       item = row.label ?? row.item ?? row.category ?? '';
       aRaw = row.a ?? row.partnerA ?? row.aScore ?? row.scoreA;
       bRaw = row.b ?? row.partnerB ?? row.bScore ?? row.scoreB;
@@ -337,7 +337,6 @@
         fillColor: [25, 25, 28],
         lineColor: [40, 40, 45],
         lineWidth: 1.2,
-        overflow: 'linebreak', // <= modern style-based overflow
       },
       headStyles: {
         fontStyle: 'bold',
@@ -378,8 +377,6 @@
       TK_ACCENT,
     );
 
-    // Single-section view. If you later add per-category grouping,
-    // you can split normalizedRows and call tk_renderSectionTable multiple times.
     tk_renderSectionTable(doc, 'Behavioral Play', normalizedRows, headerY);
   }
 
@@ -542,7 +539,6 @@
     const btn = getBtn();
     if (btn) btn.disabled = true;
 
-    // in case upload glue already populated:
     if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
       setCachedRows(window.talkkinkCompatRows.slice());
     }
