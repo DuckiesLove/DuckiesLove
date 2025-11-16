@@ -894,15 +894,6 @@ if (document.readyState === 'loading') {
     clone.addEventListener('click', function (e) {
       e.preventDefault();
 
-      // Prefer the “pretty” compatibility exporter if present
-      if (
-        window.TKCompatPDF &&
-        typeof window.TKCompatPDF.generateFromStorage === 'function'
-      ) {
-        window.TKCompatPDF.generateFromStorage();
-        return;
-      }
-
       if (
         window.TKCompatPDF &&
         typeof window.TKCompatPDF.download === 'function'

@@ -109,8 +109,8 @@
       if(!(aData && bData)) return;
       if (window.TKPDF && typeof window.TKPDF.download === 'function') {
         window.TKPDF.download();
-      } else if (window.TKCompatPDF && typeof window.TKCompatPDF.generateFromStorage === 'function') {
-        window.TKCompatPDF.generateFromStorage();
+      } else if (window.TKCompatPDF && typeof window.TKCompatPDF.download === 'function') {
+        window.TKCompatPDF.download();
       } else if (typeof window.downloadCompatibilityPDF === 'function') {
         window.downloadCompatibilityPDF(aData, bData, { theme: document.documentElement.className });
       } else {
