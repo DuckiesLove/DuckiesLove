@@ -151,6 +151,105 @@
     };
   }
 
+  function normalizeTalkkinkExport(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+
+    const format = String(payload.format || payload.schema || '').toLowerCase();
+    if (format && !format.includes('talkkink')) return null;
+
+    const fromItems = Array.isArray(payload.items) ? payload.items : null;
+    const mapSources = [
+      payload.answers,
+      payload.answersById,
+      payload.answersByKey,
+      payload.map,
+      payload.ratings,
+      payload.scores
+    ];
+    const answers = [];
+
+    const meta = pick(payload, [
+      'generatedAt',
+      'exportedAt',
+      'surveyTitle',
+      'title',
+      'theme',
+      'selectedCategories',
+      'stamp',
+      'counts',
+      'context',
+      'source'
+    ]);
+
+    if (!meta.exportedAt && meta.generatedAt) meta.exportedAt = meta.generatedAt;
+    if (!meta.surveyTitle && meta.title) meta.surveyTitle = meta.title;
+    if (!meta.surveyTitle && typeof meta.source === 'object') {
+      meta.surveyTitle = meta.surveyTitle || meta.source?.title || meta.source?.name || null;
+    }
+
+    const pushAnswer = (entry, fallbackScore) => {
+      if (!entry || typeof entry !== 'object') return;
+      const kinkId = entry.kinkId ?? entry.id ?? entry.key ?? entry.slug ?? entry.code ?? entry.name;
+      const score = coerceScore(
+        entry.score ??
+        entry.rating ??
+        entry.value ??
+        entry.answer ??
+        fallbackScore
+      );
+      if (kinkId == null || score == null) return;
+
+      const title = entry.title ?? entry.prompt ?? entry.label ?? entry.name ?? null;
+      const categoryId = entry.categoryId ?? entry.sectionId ?? entry.category ?? null;
+      const categoryLabel = entry.category ?? entry.categoryName ?? entry.section ?? null;
+      const side = String(entry.side ?? entry.role ?? 'general').toLowerCase();
+
+      answers.push({
+        kinkId: String(kinkId),
+        side,
+        score,
+        title,
+        categoryId,
+        category: categoryLabel
+      });
+    };
+
+    if (fromItems) {
+      fromItems.forEach(item => {
+        const fallbackScore = (() => {
+          const id = item?.id ?? item?.kinkId ?? item?.key;
+          if (id == null) return null;
+          for (const src of mapSources) {
+            if (!src || typeof src !== 'object') continue;
+            if (Object.prototype.hasOwnProperty.call(src, id)) return src[id];
+            const strId = String(id);
+            if (Object.prototype.hasOwnProperty.call(src, strId)) return src[strId];
+          }
+          return null;
+        })();
+        pushAnswer(item, fallbackScore);
+      });
+    }
+
+    if (!answers.length) {
+      mapSources.forEach((src) => {
+        if (!src || typeof src !== 'object') return;
+        Object.entries(src).forEach(([key, val]) => {
+          pushAnswer({ id: key, kinkId: key, category: null, categoryId: null, title: null }, val);
+        });
+      });
+    }
+
+    if (!answers.length) return null;
+
+    return {
+      schema: 'talkkink.v2',
+      meta,
+      answers,
+      byKink: toByKinkMap(answers)
+    };
+  }
+
   // Legacy: { answers: [{kinkId/ id, side/ channel, score/ value}] }
   function normalizeLegacyAnswersArray(payload) {
     const arr = Array.isArray(payload.answers) ? payload.answers
@@ -272,6 +371,9 @@
     }
 
     // legacy fallbacks
+    const tkExport = normalizeTalkkinkExport(obj);
+    if (tkExport) return tkExport;
+
     const fromArr = normalizeLegacyAnswersArray(obj);
     if (fromArr) return fromArr;
 
