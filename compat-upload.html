@@ -386,10 +386,6 @@ function updateComparison() {
 
 <script>
 (function installSolidPdfExport(){
-  // ---- thresholds/icons
-  const TK_THRESH = { star: 90, flag: 60, low: 30 };
-  const ICONS = { star: "★", flag: "⚑", low: "🚩", blank: "" };
-
   // ---- utils
   const num = v => {
     const n = Number(String(v ?? "").trim());
@@ -399,13 +395,6 @@ function updateComparison() {
     const A = num(a), B = num(b);
     if (A == null || B == null) return null;
     return Math.round(100 - (Math.abs(A - B) / 5) * 100);
-  };
-  const flagFor = pct => {
-    if (pct == null) return ICONS.blank;
-    if (pct >= TK_THRESH.star) return ICONS.star;
-    if (pct >= TK_THRESH.flag) return ICONS.flag;
-    if (pct <= TK_THRESH.low)  return ICONS.low;
-    return ICONS.blank;
   };
 
   // ---- collect rows from DOM
@@ -430,7 +419,6 @@ function updateComparison() {
         cat || "—",
         (A ?? "—"),
         (pct == null ? "—" : `${pct}%`),
-        flagFor(pct),
         (B ?? "—")
       ]);
     }
@@ -477,7 +465,7 @@ function updateComparison() {
       doc.text("Talk Kink • Compatibility Report", 40, 48);
 
       runAutoTable(doc, {
-        head: [["Category", "Partner A", "Match", "Flag", "Partner B"]],
+        head: [["Category", "Partner A", "Match", "Partner B"]],
         body: rows,
         startY: 70,
         styles: { fontSize: 10, cellPadding: 6, overflow: "linebreak" },
@@ -486,8 +474,7 @@ function updateComparison() {
           0: { halign: "left"  },
           1: { halign: "center" },
           2: { halign: "center" },
-          3: { halign: "center" },
-          4: { halign: "center" }
+          3: { halign: "center" }
         }
       });
 
