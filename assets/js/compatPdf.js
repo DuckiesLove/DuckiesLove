@@ -7,8 +7,19 @@
     AUTOTABLE: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
   };
 
-  let storedRows = [];
+  const CFG = {
+    selectors: {
+      downloadBtn: '#downloadPdfBtn, #downloadBtn, [data-download-pdf]',
+    },
+    storageKeys: ['talkkink:compatRows', 'talkkink:compatibilityRows'],
+    pdfKillSwitch: false,
+  };
+
+  let cachedRows = Array.isArray(window.talkkinkCompatRows) ? window.talkkinkCompatRows.slice() : [];
   let libsPromise = null;
+  let libsReady = false;
+  let rowsReady = cachedRows.length > 0;
+  let enablingErrored = false;
 
   function injectScriptOnce(src, key) {
     return new Promise((resolve, reject) => {
@@ -84,6 +95,96 @@
     })();
 
     return libsPromise;
+  }
+
+  async function ensurePdfLibsReady() {
+    try {
+      const libs = await ensureLibs();
+      libsReady = true;
+      setButtonState();
+      return libs;
+    } catch (err) {
+      enablingErrored = true;
+      setButtonState();
+      throw err;
+    }
+  }
+
+  function selectorList(value) {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    return String(value)
+      .split(',')
+      .map((sel) => sel.trim())
+      .filter(Boolean);
+  }
+
+  function getButtons() {
+    const selectors = selectorList(CFG.selectors.downloadBtn);
+    if (!selectors.length) return [];
+    const nodes = new Set();
+    selectors.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((btn) => nodes.add(btn));
+    });
+    return Array.from(nodes);
+  }
+
+  function setButtonState() {
+    const buttons = getButtons();
+    if (!buttons.length) return;
+    const hasRows = rowsReady || computeRowsArray().length > 0 || readRowsFromStorage().length > 0;
+    const ready = libsReady && hasRows && !CFG.pdfKillSwitch && !enablingErrored;
+    buttons.forEach((btn) => {
+      if (!btn) return;
+      btn.disabled = !ready;
+      if (ready) {
+        btn.removeAttribute('aria-disabled');
+        btn.classList.remove('tk-compat-disabled');
+      } else {
+        btn.setAttribute('aria-disabled', 'true');
+        btn.classList.add('tk-compat-disabled');
+      }
+    });
+  }
+
+  function setCachedRows(rows) {
+    const next = Array.isArray(rows) ? rows.slice() : [];
+    cachedRows = next;
+    if (next.length) {
+      window.talkkinkCompatRows = next.slice();
+    } else {
+      delete window.talkkinkCompatRows;
+    }
+    rowsReady = next.length > 0;
+    setButtonState();
+  }
+
+  function computeRowsArray() {
+    if (Array.isArray(cachedRows) && cachedRows.length) {
+      return cachedRows.slice();
+    }
+    if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+      return window.talkkinkCompatRows.slice();
+    }
+    return [];
+  }
+
+  function readRowsFromStorage() {
+    if (typeof localStorage === 'undefined') return [];
+    for (const key of CFG.storageKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.rows)) {
+          return parsed.rows;
+        }
+      } catch (err) {
+        console.warn('[compatPdf] Failed to read rows from storage key:', key, err);
+      }
+    }
+    return [];
   }
 
   function safeString(val) {
@@ -188,10 +289,11 @@
   }
 
   async function generateCompatibilityPDF(rows) {
-    const data = normalizeRows(rows);
+    const sourceRows = Array.isArray(rows) && rows.length ? rows : computeRowsArray();
+    const data = normalizeRows(sourceRows);
     if (!data.length) throw new Error('No compatibility rows available.');
 
-    const { jsPDF } = await ensureLibs();
+    const { jsPDF } = await ensurePdfLibsReady();
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
     const startY = drawHeader(doc, 'Behavioral Play');
 
@@ -241,21 +343,61 @@
     doc.save('compatibility.pdf');
   }
 
-  function setStoredRows(rows) {
-    storedRows = Array.isArray(rows) ? rows.slice() : [];
+  async function generateFromStorage() {
+    let rows = computeRowsArray();
+
+    if (!rows.length) {
+      rows = readRowsFromStorage();
+    }
+
+    if (!rows.length) {
+      alert('Upload both partner surveys first, then wait for the green messages below the buttons before downloading.');
+      return;
+    }
+
+    setCachedRows(rows);
+    await generateCompatibilityPDF(rows);
   }
+
+  function handleDomReady() {
+    setButtonState();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', handleDomReady, { once: true });
+  } else {
+    handleDomReady();
+  }
+
+  document.addEventListener('tk-compat-upload', () => setButtonState());
+  document.addEventListener('tk-compat-upload-error', () => setButtonState());
+
+  ensurePdfLibsReady().catch((err) => {
+    console.error('[compatPdf] Failed to load PDF libraries:', err);
+  });
 
   window.TKCompatPDF = {
     notifyRowsUpdated(rows) {
-      setStoredRows(rows);
+      setCachedRows(Array.isArray(rows) ? rows : []);
     },
-    async download(rows) {
-      const payload = Array.isArray(rows) && rows.length ? rows : storedRows;
-      if (!payload || !payload.length) {
-        throw new Error('No rows supplied to TKCompatPDF.download()');
+    download(rows) {
+      if (Array.isArray(rows) && rows.length) {
+        setCachedRows(rows);
       }
-      return generateCompatibilityPDF(payload);
+      return generateCompatibilityPDF(rows);
     },
-    ensureLibs,
+    generateFromStorage,
+    ensureLibs: ensurePdfLibsReady,
+    setKillSwitch(disabled) {
+      CFG.pdfKillSwitch = !!disabled;
+      setButtonState();
+    },
+    _forceEnable() {
+      libsReady = true;
+      rowsReady = true;
+      enablingErrored = false;
+      CFG.pdfKillSwitch = false;
+      setButtonState();
+    },
   };
 })();
