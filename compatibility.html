@@ -714,8 +714,20 @@
     <h1 class="tk-title">TalkKink Compatibility</h1>
 
     <div class="tk-menu">
-      <label id="yourBtn" for="yourFile" class="tk-btn">Upload Your Survey</label>
-      <label id="partnerBtn" for="partnerFile" class="tk-btn">Upload Partner’s Survey</label>
+      <div class="upload-container" role="group" aria-label="Upload surveys">
+        <div class="upload-button">
+          <input id="yourFile" type="file" accept=".json,application/json" aria-describedby="yourStatus" />
+          <button id="yourBtn" type="button" class="tk-btn upload-trigger wide-button">
+            Upload Your Survey
+          </button>
+        </div>
+        <div class="upload-button">
+          <input id="partnerFile" type="file" accept=".json,application/json" aria-describedby="partnerStatus" />
+          <button id="partnerBtn" type="button" class="tk-btn upload-trigger wide-button">
+            Upload Partner’s Survey
+          </button>
+        </div>
+      </div>
       <button id="downloadBtn" class="glow-cta compat-download-btn">Download PDF</button>
     </div>
 
@@ -725,9 +737,6 @@
     </div>
 
         <a href="https://talkkink.org/KinkSurveyPage/index.html" class="tk-btn back">← Back</a>
-
-    <input id="yourFile" type="file" accept="application/json" hidden />
-    <input id="partnerFile" type="file" accept="application/json" hidden />
 
     <script>
       (function () {
