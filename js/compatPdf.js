@@ -1,11 +1,12 @@
 /**
- * TalkKink Compatibility PDF – FINAL FIXED
- * ----------------------------------------
+ * TalkKink Compatibility PDF – DARK ROWS, NO FLAGS
+ * ------------------------------------------------
  * ✔ CDN-only jsPDF + autoTable
  * ✔ Columns: Item | Partner A | Match | Partner B
  * ✔ NO flag column
  * ✔ Uses the match % already computed by comparison logic
  * ✔ No deprecated autoTable options
+ * ✔ All rows use the same dark background (no white stripes)
  */
 
 (() => {
@@ -266,6 +267,7 @@
       head: [['Item', 'Partner A', 'Match', 'Partner B']],
       body: body.map(r => [r.item, r.a, r.match, r.b]),
       margin: { left: 60, right: 60 },
+      theme: 'grid', // so no striped white rows
       styles: {
         font: 'helvetica',
         fontSize: 12,
@@ -285,6 +287,11 @@
         1: { cellWidth: 80, halign: 'center' },
         2: { cellWidth: 80, halign: 'center' },
         3: { cellWidth: 80, halign: 'center' }
+      },
+      // force alternate rows to use the same dark fill (no white boxes)
+      alternateRowStyles: {
+        fillColor: [25, 25, 28],
+        textColor: [230, 230, 230]
       }
     });
   }
