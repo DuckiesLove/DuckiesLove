@@ -1,428 +1,560 @@
 /**
- * TalkKink Compatibility PDF – DARK ROWS, NO FLAGS
- * ------------------------------------------------
- * ✔ CDN-only jsPDF + autoTable
- * ✔ Columns: Item | Partner A | Match | Partner B
- * ✔ NO flag column
- * ✔ Uses the match % already computed by comparison logic
- * ✔ No deprecated autoTable options
- * ✔ All rows use the same dark background (no white stripes)
+ * TalkKink Compatibility PDF (Dark, Web-Only)
+ * - Single layout: Item | Partner A | Match | Partner B
+ * - Match column shows percentage + emoji (⭐ / 🚩)
+ * - ⭐ for 85–100%, 🚩 for 0–30%, nothing between
+ * - Category headers between sections
+ * - Footer summary with averages + counts
  */
 
-(() => {
-  const CFG = {
-    pdfKillSwitch: false,
-    selectors: { downloadBtn: '#downloadPdfBtn, #downloadBtn, [data-download-pdf]' },
-
-    columns: [
-      { key: 'item', header: 'Item', w: 320 },
-      { key: 'a', header: 'Partner A', w: 80 },
-      { key: 'match', header: 'Match', w: 80 },
-      { key: 'b', header: 'Partner B', w: 80 }
-    ],
-
-    cdn: {
-      jspdf: [
-        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-        'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
-        'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
-      ],
-      autotable: [
-        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js',
-        'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js',
-        'https://unpkg.com/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
-      ]
-    }
+(function () {
+  const CDN = {
+    JSPDF:
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+    AUTOTABLE:
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js",
   };
 
-  console.info('[compat] kill-switch ' + (CFG.pdfKillSwitch ? 'enabled' : 'disabled'));
+  const STORAGE_KEY = "talkkink:compatRows";
+  const DL_SELECTOR = "#downloadPdfBtn, #downloadBtn, [data-download-pdf]";
 
-  let libsReady = false;
-  let libsReadyPromise = null;
-  let cachedRows = [];
-  let enablingErrored = false;
+  const ACCENT = [0, 214, 199];
+  const BG = [15, 16, 18];
+  const TABLE_BG = [26, 27, 31];
+  const ALT_ROW_BG = [19, 20, 24];
+  const GRID = [40, 40, 45];
+  const TEXT_MAIN = [235, 235, 235];
+  const HEADER_TEXT = [0, 255, 245];
 
-  /* ------------------ SCRIPT LOADING (CDN ONLY) ------------------ */
+  let libsPromise = null;
 
-  function injectScriptOnce(src, idKey) {
+  /* --------------------------- Utility Helpers --------------------------- */
+
+  function injectScript(src, dataKey) {
     return new Promise((resolve, reject) => {
-      if (idKey) {
-        const existing = document.querySelector(`script[data-lib="${idKey}"]`);
-        if (existing && existing.dataset.loaded === '1') return resolve();
+      const existing = dataKey
+        ? document.querySelector(`script[data-lib="${dataKey}"]`)
+        : null;
+
+      if (existing && existing.dataset.loaded === "1") return resolve();
+      if (existing) {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener(
+          "error",
+          () => reject(new Error(`Failed to load ${src}`)),
+          { once: true }
+        );
+        return;
       }
 
-      const s = document.createElement('script');
+      const s = document.createElement("script");
       s.src = src;
-      s.crossOrigin = 'anonymous';
-      s.referrerPolicy = 'no-referrer';
-      if (idKey) s.dataset.lib = idKey;
       s.defer = true;
+      s.crossOrigin = "anonymous";
+      s.referrerPolicy = "no-referrer";
+      if (dataKey) s.dataset.lib = dataKey;
 
       s.onload = () => {
-        if (idKey) s.dataset.loaded = '1';
+        if (dataKey) s.dataset.loaded = "1";
         resolve();
       };
-      s.onerror = () => {
-        s.remove();
-        reject(new Error(`Failed to load ${src}`));
-      };
-
+      s.onerror = () => reject(new Error(`Failed to load ${src}`));
       document.head.appendChild(s);
     });
   }
 
-  function jsPdfPresent() {
-    return !!(window.jspdf?.jsPDF || window.jsPDF);
+  function hasJsPDF() {
+    return !!(window.jspdf && window.jspdf.jsPDF) || !!window.jsPDF;
   }
 
-  function autoTablePresent(jsPDF) {
-    return !!(
-      jsPDF?.API?.autoTable ||
-      window.jsPDF?.API?.autoTable ||
-      window.jspdf?.autoTable
-    );
+  function hasAutoTable() {
+    const ctor = window.jspdf && window.jspdf.jsPDF;
+    const legacy = window.jsPDF;
+    const api =
+      (ctor && ctor.API) || (legacy && legacy.API) || (window.jspdf && window.jspdf.API);
+    return !!(api && (api.autoTable || api.__autoTable__));
   }
 
-  async function ensureJsPDF() {
-    if (jsPdfPresent()) return window.jspdf?.jsPDF || window.jsPDF;
-    for (const src of CFG.cdn.jspdf) {
-      try {
-        await injectScriptOnce(src, 'jspdf');
-        if (jsPdfPresent()) break;
-      } catch (e) {}
+  async function ensurePdfLibs() {
+    if (libsPromise) return libsPromise;
+
+    libsPromise = (async () => {
+      if (!hasJsPDF()) {
+        await injectScript(CDN.JSPDF, "jspdf");
+      }
+
+      // Bridge UMD -> legacy
+      if (!window.jsPDF && window.jspdf && window.jspdf.jsPDF) {
+        window.jsPDF = window.jspdf.jsPDF;
+      }
+
+      if (!hasAutoTable()) {
+        await injectScript(CDN.AUTOTABLE, "jspdf-autotable");
+      }
+
+      const ctor = window.jspdf && window.jspdf.jsPDF;
+      const legacy = window.jsPDF;
+      const api =
+        (legacy && legacy.API && (legacy.API.autoTable || legacy.API.__autoTable__)) ||
+        (ctor && ctor.API && (ctor.API.autoTable || ctor.API.__autoTable__));
+
+      if (api) {
+        if (ctor) {
+          ctor.API = ctor.API || {};
+          ctor.API.autoTable = api;
+        }
+        if (legacy) {
+          legacy.API = legacy.API || {};
+          legacy.API.autoTable = api;
+        }
+      }
+
+      if (!hasJsPDF()) throw new Error("jsPDF not available after CDN load");
+      if (!hasAutoTable())
+        throw new Error("jsPDF-AutoTable not available after CDN load");
+
+      return window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
+    })();
+
+    return libsPromise;
+  }
+
+  function safeString(val) {
+    if (val == null) return "";
+    const s = String(val).trim();
+    return s === "null" || s === "undefined" ? "" : s;
+  }
+
+  function coerceScore(val) {
+    if (val == null || (typeof val === "string" && !val.trim())) return null;
+    if (typeof val === "number" && Number.isFinite(val)) return val;
+    const parsed = Number(String(val).replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function clampPercent(v) {
+    if (!Number.isFinite(v)) return null;
+    return Math.max(0, Math.min(100, v));
+  }
+
+  function computeMatchPercent(rawMatch, aScore, bScore) {
+    // 1) If we already have a percentage, trust that
+    const direct = clampPercent(coerceScore(rawMatch));
+    if (direct != null) return Math.round(direct);
+
+    // 2) Otherwise derive from A/B scores (5-point scale)
+    if (Number.isFinite(aScore) && Number.isFinite(bScore)) {
+      const diff = Math.abs(aScore - bScore);
+      const pct = 100 - (diff / 5) * 100;
+      return Math.round(Math.max(0, Math.min(100, pct)));
     }
-    if (!jsPdfPresent()) throw new Error('jsPDF failed to load via CDN');
-    return window.jspdf?.jsPDF || window.jsPDF;
+
+    return null;
   }
 
-  async function ensureAutoTable(jsPDF) {
-    if (autoTablePresent(jsPDF)) return true;
-    for (const src of CFG.cdn.autotable) {
-      try {
-        await injectScriptOnce(src, 'jspdf-autotable');
-        if (autoTablePresent(jsPDF)) return true;
-      } catch (e) {}
+  function deriveSectionTitle(rawRows) {
+    if (!rawRows || !rawRows.length) return "Compatibility Survey";
+    const r0 = rawRows[0] || {};
+    const candidates = [
+      r0.sectionTitle,
+      r0.kinkArea,
+      r0.area,
+      r0.kink,
+      r0.category,
+      r0.group,
+      r0.title,
+    ];
+    for (const c of candidates) {
+      if (c && typeof c === "string") return c;
     }
-    return autoTablePresent(jsPDF);
+    return "Compatibility Survey";
   }
 
-  function ensurePdfLibsReady() {
-    if (!libsReadyPromise) {
-      libsReadyPromise = (async () => {
-        const jsPDF = await ensureJsPDF();
-        await ensureAutoTable(jsPDF);
-        libsReady = true;
-        enablingErrored = false;
-        setButtonState();
-        return { jsPDF, hasAutoTable: autoTablePresent(jsPDF) };
-      })().catch(err => {
-        libsReady = false;
-        enablingErrored = true;
-        libsReadyPromise = null;
-        console.error('[compat-pdf] libs failed:', err);
-        setButtonState();
-      });
+  function deriveRowCategory(raw, itemLabel) {
+    // Prefer explicit properties from glue/rows
+    const candidates = [
+      raw.section,
+      raw.category,
+      raw.group,
+      raw.subCategory,
+      raw.kinkCategory,
+    ];
+    for (const c of candidates) {
+      if (c && typeof c === "string") return c;
     }
-    return libsReadyPromise;
+
+    // Fallback: text in parentheses at end of item, e.g. "(Body Part Torture)"
+    const label = safeString(itemLabel);
+    const m = label.match(/\(([^)]+)\)\s*$/);
+    if (m) return m[1];
+
+    return "";
   }
 
-  /* ------------------ NORMALIZATION HELPERS ------------------ */
+  // ⭐ for 85–100%, 🚩 for 0–30%, nothing in between
+  function getMatchEmoji(aScore, bScore, matchPercent) {
+    if (!Number.isFinite(matchPercent)) return "";
 
-  const ACCENT = [0, 214, 199];
+    if (matchPercent >= 85) return "⭐";
+    if (matchPercent <= 30) return "🚩";
 
-  function safeString(v) {
-    if (v == null) return '';
-    const s = String(v).trim();
-    return s === 'undefined' || s === 'null' ? '' : s;
+    return "";
   }
 
-  // Just ensure a score is turned into a simple string
-  function normalizeScore(v) {
-    if (v == null) return '';
-    const n = Number(String(v).replace(/[^\d.-]/g, ''));
-    if (Number.isFinite(n)) return String(n);
-    return safeString(v);
-  }
+  function normalizeCompatRow(raw) {
+    if (!raw) return null;
 
-  // Ensure the match is a human-friendly percentage string, WITHOUT recalculating
-  function normalizeMatch(v) {
-    const raw = safeString(v);
-    if (!raw) return '';
-    if (raw.includes('%')) return raw;
-    const n = Number(raw.replace(/[^\d.-]/g, ''));
-    if (Number.isFinite(n)) return `${n}%`;
-    return raw;
-  }
-
-  // Handle both array-based and object-based rows
-  function normalizeRow(row) {
-    let item = '';
+    let item;
     let aRaw;
     let bRaw;
     let matchRaw;
 
-    if (Array.isArray(row)) {
-      // Try to auto-detect the format:
-      // 1) [item, a, b, match, flag]
-      // 2) [item, a, match, flag, b]
-      item = row[0];
-      const v1 = row[1];
-      const v2 = row[2];
-      const v3 = row[3];
-
-      if (row.length >= 4) {
-        const s2 = safeString(v2);
-        const s3 = safeString(v3);
-
-        if (s3.includes('%')) {
-          // [item, a, b, match, ...]
-          aRaw = v1;
-          bRaw = v2;
-          matchRaw = v3;
-        } else if (s2.includes('%')) {
-          // [item, a, match, flag, b]
-          aRaw = v1;
-          matchRaw = v2;
-          bRaw = row[4];
-        } else if (row.length >= 5 && safeString(row[3]).includes('%')) {
-          // [item, a, b, match, flag] variant
-          aRaw = v1;
-          bRaw = v2;
-          matchRaw = row[3];
-        } else if (row.length >= 4) {
-          // Fallback guess: [item, a, b, match]
-          aRaw = v1;
-          bRaw = v2;
-          matchRaw = v3;
-        } else {
-          // Minimal fallback: [item, a, b]
-          aRaw = v1;
-          bRaw = v2;
-          matchRaw = '';
-        }
-      } else {
-        // Worst case, just treat 1 as A and 2 as B
-        item = row[0];
-        aRaw = row[1];
-        bRaw = row[2];
-        matchRaw = '';
-      }
-    } else if (row && typeof row === 'object') {
-      item = row.item ?? row.label ?? '';
-      aRaw = row.a ?? row.partnerA ?? row.scoreA ?? row.aScore;
-      bRaw = row.b ?? row.partnerB ?? row.scoreB ?? row.bScore;
+    if (Array.isArray(raw)) {
+      // Legacy [item, A, match, <flag>, B]
+      [item, aRaw, matchRaw, , bRaw] = raw;
+    } else if (typeof raw === "object") {
+      item = raw.item || raw.label || raw.name || "";
+      aRaw = raw.a ?? raw.partnerA ?? raw.aScore ?? raw.scoreA;
+      bRaw = raw.b ?? raw.partnerB ?? raw.bScore ?? raw.scoreB;
       matchRaw =
-        row.matchPercent ??
-        row.matchPct ??
-        row.match ??
-        row.matchText ??
-        row.matchValue ??
-        '';
+        raw.matchPercent ??
+        raw.matchPct ??
+        raw.match ??
+        raw.matchText ??
+        raw.matchValue ??
+        "";
     }
 
+    const aScore = coerceScore(aRaw);
+    const bScore = coerceScore(bRaw);
+    const matchPercent = computeMatchPercent(matchRaw, aScore, bScore);
+
+    const cat = deriveRowCategory(raw, item);
+
     return {
+      raw,
+      section: safeString(cat),
       item: safeString(item),
-      a: normalizeScore(aRaw),
-      match: normalizeMatch(matchRaw),
-      b: normalizeScore(bRaw)
+      aScore,
+      bScore,
+      matchPercent,
+      aText: aScore != null ? String(aScore) : safeString(aRaw),
+      bText: bScore != null ? String(bScore) : safeString(bRaw),
+      matchText: matchPercent != null ? `${matchPercent}%` : safeString(matchRaw),
     };
   }
 
-  /* ------------------ PDF RENDERING ------------------ */
+  function computeSummaryStats(rows) {
+    let answered = 0;
+    let sum = 0;
+    let stars = 0;
+    let reds = 0;
 
-  function drawHeader(doc) {
-    const w = doc.internal.pageSize.getWidth();
-    const h = doc.internal.pageSize.getHeight();
+    rows.forEach((r) => {
+      if (!Number.isFinite(r.matchPercent)) return;
+      answered += 1;
+      sum += r.matchPercent;
+      const emoji = getMatchEmoji(r.aScore, r.bScore, r.matchPercent);
+      if (emoji === "⭐") stars += 1;
+      else if (emoji === "🚩") reds += 1;
+    });
 
-    doc.setFillColor(18, 19, 20);
-    doc.rect(0, 0, w, h, 'F');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(36);
-    const title = 'TalkKink Compatibility Survey';
-    doc.text(title, (w - doc.getTextWidth(title)) / 2, 80);
-
-    doc.setFontSize(12);
-    const sub = 'Generated: ' + new Date().toLocaleString();
-    doc.text(sub, (w - doc.getTextWidth(sub)) / 2, 104);
-
-    doc.setDrawColor(...ACCENT);
-    doc.setLineWidth(2.5);
-    doc.line(60, 118, w - 60, 118);
-
-    doc.setFontSize(24);
-    const section = 'Behavioral Play';
-    doc.text(section, (w - doc.getTextWidth(section)) / 2, 160);
-
-    return 180; // first table Y
+    const avg = answered ? Math.round(sum / answered) : null;
+    return { totalRows: rows.length, answered, avg, stars, reds };
   }
 
-  function renderWithAutoTable(doc, rows) {
-    const startY = drawHeader(doc);
-    const body = rows.map(normalizeRow);
+  function buildBodyRows(normRows) {
+    const rows = [];
+    let currentSection = null;
+
+    // Stable group + sort by section then item
+    const sorted = normRows.slice().sort((a, b) => {
+      const sa = a.section || "";
+      const sb = b.section || "";
+      if (sa !== sb) return sa.localeCompare(sb);
+      return a.item.localeCompare(b.item);
+    });
+
+    sorted.forEach((r) => {
+      const sec = r.section || "";
+      if (sec && sec !== currentSection) {
+        currentSection = sec;
+        rows.push({
+          item: sec,
+          a: "",
+          match: "",
+          b: "",
+          _isGroupHeader: true,
+        });
+      }
+
+      const emoji = getMatchEmoji(r.aScore, r.bScore, r.matchPercent);
+      const matchText =
+        r.matchPercent != null
+          ? `${r.matchPercent}%${emoji ? " " + emoji : ""}`
+          : safeString(r.matchText);
+
+      rows.push({
+        item: r.item,
+        a: r.aText,
+        match: matchText,
+        b: r.bText,
+        _isGroupHeader: false,
+        _source: r,
+      });
+    });
+
+    return rows;
+  }
+
+  /* ----------------------------- Drawing -------------------------------- */
+
+  function drawHeader(doc, mainTitle, sectionTitle) {
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    doc.setFillColor(BG[0], BG[1], BG[2]);
+    doc.rect(0, 0, pageW, pageH, "F");
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(40);
+    const tW = doc.getTextWidth(mainTitle);
+    doc.text(mainTitle, (pageW - tW) / 2, 80);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    const stamp = `Generated: ${new Date().toLocaleString()}`;
+    const sW = doc.getTextWidth(stamp);
+    doc.text(stamp, (pageW - sW) / 2, 108);
+
+    doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+    doc.setLineWidth(2.5);
+    const pad = 80;
+    doc.line(pad, 122, pageW - pad, 122);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(28);
+    const hW = doc.getTextWidth(sectionTitle);
+    doc.text(sectionTitle, (pageW - hW) / 2, 170);
+
+    return 190;
+  }
+
+  function drawSummaryFooter(doc, stats, startY) {
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = startY + 18;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(220, 220, 220);
+
+    const parts = [];
+
+    if (stats.avg != null) {
+      parts.push(`Average compatibility: ${stats.avg}%`);
+    }
+
+    parts.push(`⭐ 85–100% matches: ${stats.stars}`);
+    parts.push(`🚩 30% or below: ${stats.reds}`);
+
+    const text = parts.join("   •   ");
+    const tW = doc.getTextWidth(text);
+    doc.text(text, (pageW - tW) / 2, y);
+
+    y += 12;
+    return y;
+  }
+
+  function renderDarkPdf(doc, rawRows) {
+    const normRows = rawRows
+      .map(normalizeCompatRow)
+      .filter((r) => r && (r.item || r.aText || r.bText));
+
+    if (!normRows.length) {
+      throw new Error("No compatibility rows available");
+    }
+
+    const sectionTitle = deriveSectionTitle(rawRows);
+    const mainTitle = "TalkKink Compatibility Survey";
+
+    const headerY = drawHeader(doc, mainTitle, sectionTitle);
+    const bodyRows = buildBodyRows(normRows);
+    const stats = computeSummaryStats(normRows);
+
+    const columns = [
+      { header: "Item", dataKey: "item" },
+      { header: "Partner A", dataKey: "a" },
+      { header: "Match", dataKey: "match" },
+      { header: "Partner B", dataKey: "b" },
+    ];
 
     doc.autoTable({
-      startY,
-      head: [['Item', 'Partner A', 'Match', 'Partner B']],
-      body: body.map(r => [r.item, r.a, r.match, r.b]),
-      margin: { left: 60, right: 60 },
-      theme: 'grid', // so no striped white rows
+      columns,
+      body: bodyRows,
+      startY: headerY,
+      margin: { left: 70, right: 70 },
+      theme: "grid",
       styles: {
-        font: 'helvetica',
+        font: "helvetica",
         fontSize: 12,
-        textColor: [230, 230, 230],
-        fillColor: [25, 25, 28],
-        lineColor: [40, 40, 45],
-        lineWidth: 1.1
+        halign: "left",
+        valign: "middle",
+        cellPadding: { top: 5, bottom: 5, left: 6, right: 6 },
+        textColor: TEXT_MAIN,
+        fillColor: TABLE_BG,
+        lineColor: GRID,
+        lineWidth: 0.9,
+        overflow: "linebreak", // inside styles, not root (no deprecation warning)
       },
       headStyles: {
-        textColor: [0, 255, 245],
-        fillColor: [28, 28, 32],
-        fontStyle: 'bold',
-        halign: 'center'
+        fontStyle: "bold",
+        textColor: HEADER_TEXT,
+        fillColor: [30, 32, 36],
+        lineColor: GRID,
+        lineWidth: 1.2,
+        halign: "center",
+      },
+      alternateRowStyles: {
+        fillColor: ALT_ROW_BG,
       },
       columnStyles: {
-        0: { cellWidth: 320, halign: 'left' },
-        1: { cellWidth: 80, halign: 'center' },
-        2: { cellWidth: 80, halign: 'center' },
-        3: { cellWidth: 80, halign: 'center' }
+        item: { cellWidth: 320, halign: "left" },
+        a: { cellWidth: 70, halign: "center" },
+        match: { cellWidth: 90, halign: "center" },
+        b: { cellWidth: 70, halign: "center" },
       },
-      // force alternate rows to use the same dark fill (no white boxes)
-      alternateRowStyles: {
-        fillColor: [25, 25, 28],
-        textColor: [230, 230, 230]
-      }
+      didParseCell: function (data) {
+        if (data.section !== "body") return;
+        const raw = data.row.raw || {};
+        if (raw._isGroupHeader) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [24, 25, 30];
+          data.cell.styles.textColor = HEADER_TEXT;
+          data.cell.styles.halign = "left";
+
+          if (data.column.dataKey === "item") {
+            data.cell.colSpan = 4;
+          } else {
+            data.cell.text = [];
+          }
+        }
+      },
     });
+
+    const finalY =
+      (doc.lastAutoTable && doc.lastAutoTable.finalY) || headerY + 40;
+    drawSummaryFooter(doc, stats, finalY);
   }
 
-  function renderFallback(doc, rows) {
-    const startY = drawHeader(doc);
-    let y = startY + 20;
-    doc.setFontSize(12);
-    rows.map(normalizeRow).forEach(r => {
-      doc.text(
-        `${r.item}  —  A:${r.a}  Match:${r.match}  B:${r.b}`,
-        60,
-        y
-      );
-      y += 16;
+  async function generateCompatibilityPDF(rawRows) {
+    const jsPDFCtor = await ensurePdfLibs();
+    const doc = new jsPDFCtor({
+      orientation: "landscape",
+      unit: "pt",
+      format: "letter",
     });
+
+    renderDarkPdf(doc, rawRows);
+    doc.save("compatibility-pretty-dark.pdf");
   }
 
-  /* ------------------ ROW STORAGE ------------------ */
+  /* -------------------------- Rows + Storage ----------------------------- */
 
-  function computeRows() {
-    if (cachedRows.length) return cachedRows;
-    if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
-      return window.talkkinkCompatRows;
+  function getRowsFromWindow() {
+    if (Array.isArray(window.talkkinkCompatRows)) {
+      return window.talkkinkCompatRows.slice();
     }
+    return [];
+  }
+
+  function getRowsFromStorage() {
     try {
-      const raw = localStorage.getItem('talkkink:compatRows');
+      const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? parsed : [];
-    } catch {
+    } catch (err) {
+      console.warn("[compat-pdf] Failed to read rows from storage", err);
       return [];
     }
   }
 
-  function setRows(arr) {
-    cachedRows = Array.isArray(arr) ? arr.slice() : [];
+  function cacheRows(rows) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rows || []));
+    } catch (err) {
+      console.warn("[compat-pdf] Failed to cache rows", err);
+    }
   }
 
-  /* ------------------ BUTTON STATE ------------------ */
+  /* ---------------------------- Download UX ------------------------------ */
 
-  function getBtn() {
-    return document.querySelector(CFG.selectors.downloadBtn);
+  async function generateFromStorage() {
+    let rows = getRowsFromWindow();
+    if (!rows.length) rows = getRowsFromStorage();
+    if (!rows.length) {
+      alert(
+        "Upload both partner surveys first, then wait for the green messages below the buttons before downloading."
+      );
+      throw new Error("No rows available for PDF");
+    }
+
+    cacheRows(rows);
+    await generateCompatibilityPDF(rows);
   }
 
-  function setButtonState() {
-    const btn = getBtn();
+  function attachDownloadOverride() {
+    const btn = document.querySelector(DL_SELECTOR);
     if (!btn) return;
 
-    const rows = computeRows();
-    const canEnable =
-      !CFG.pdfKillSwitch && libsReady && rows.length > 0 && !enablingErrored;
+    console.info(
+      "[compat-override] Download button now uses TKCompatPDF.generateFromStorage() only (no legacy Flag column PDF)."
+    );
 
-    btn.disabled = !canEnable;
-    btn.title = canEnable
-      ? 'Download your compatibility PDF'
-      : 'Upload both partner surveys first, then wait for the green messages below the buttons.';
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      try {
+        await generateFromStorage();
+      } catch (err) {
+        console.error("[compat-pdf] PDF generation failed", err);
+      }
+    });
   }
 
-  /* ------------------ MAIN GENERATOR ------------------ */
-
-  async function generateCompatibilityPDF(rows) {
-    const payload = rows && rows.length ? rows : computeRows();
-    if (!payload.length) throw new Error('No compatibility rows available');
-
-    const { jsPDF, hasAutoTable } = await ensurePdfLibsReady();
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
-
-    if (hasAutoTable) {
-      renderWithAutoTable(doc, payload);
-    } else {
-      renderFallback(doc, payload);
-    }
-
-    doc.save('talkkink-compatibility.pdf');
-  }
-
-  /* ------------------ WIRING ------------------ */
-
-  function init() {
-    const btn = getBtn();
-    if (btn) btn.disabled = true;
-
-    if (Array.isArray(window.talkkinkCompatRows)) {
-      setRows(window.talkkinkCompatRows);
-    }
-
-    setButtonState();
-    ensurePdfLibsReady();
-
-    if (btn) {
-      btn.addEventListener('click', async e => {
-        e.preventDefault();
-        const rows = computeRows();
-        if (!rows.length) {
-          alert(
-            'Upload both partner surveys first, then wait for the green messages below the buttons before downloading.'
-          );
-          return;
-        }
-        try {
-          await generateCompatibilityPDF(rows);
-        } catch (err) {
-          console.error('[compat-pdf] generation failed', err);
-          enablingErrored = true;
-          setButtonState();
-          alert('PDF could not be generated. See console for details.');
-        }
-      });
-    }
-  }
-
-  /* ------------------ PUBLIC API ------------------ */
+  /* --------------------------- Global API -------------------------------- */
 
   window.TKCompatPDF = {
-    notifyRowsUpdated(rows) {
-      setRows(Array.isArray(rows) ? rows : []);
-      setButtonState();
+    async generateFromStorage() {
+      await ensurePdfLibs();
+      return generateFromStorage();
     },
-    generateFromStorage() {
-      const rows = computeRows();
-      if (!rows.length) {
-        alert('Upload both partner surveys first.');
-        return;
+    async download(rows) {
+      await ensurePdfLibs();
+      if (Array.isArray(rows) && rows.length) {
+        cacheRows(rows);
+        return generateCompatibilityPDF(rows);
       }
-      generateCompatibilityPDF(rows);
-    }
+      return generateFromStorage();
+    },
+    notifyRowsUpdated(rows) {
+      if (Array.isArray(rows)) {
+        window.talkkinkCompatRows = rows.slice();
+        cacheRows(rows);
+      }
+    },
+    ensureLibs: ensurePdfLibs,
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
+  /* --------------------------- Init on Load ------------------------------ */
+
+  function init() {
+    console.info("[compat] kill-switch disabled (TKCompatPDF active)");
+    attachDownloadOverride();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
   } else {
     init();
   }
