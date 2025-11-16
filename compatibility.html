@@ -729,6 +729,60 @@
     <input id="yourFile" type="file" accept="application/json" hidden />
     <input id="partnerFile" type="file" accept="application/json" hidden />
 
+    <script>
+      (function () {
+        const STATUS_MAP = {
+          self: document.getElementById('yourStatus'),
+          partner: document.getElementById('partnerStatus')
+        };
+        const button = document.getElementById('downloadBtn');
+        const seen = { self: false, partner: false };
+
+        function setStatus(which, message, state) {
+          const node = STATUS_MAP[which];
+          if (!node) return;
+          if (!message) {
+            node.hidden = true;
+            node.textContent = '';
+            node.removeAttribute('data-state');
+            return;
+          }
+          node.hidden = false;
+          node.textContent = message;
+          node.dataset.state = state || 'info';
+        }
+
+        function markReady() {
+          if (!button) return;
+          const ready = seen.self && seen.partner;
+          button.toggleAttribute('data-ready', ready);
+        }
+
+        function successLabel(which, fileName) {
+          const base = which === 'self' ? 'Your survey' : "Partner’s survey";
+          return fileName ? `${base} loaded (${fileName}).` : `${base} loaded.`;
+        }
+
+        document.addEventListener('tk-compat-upload', (event) => {
+          const detail = event?.detail || {};
+          const who = detail.who;
+          if (who !== 'self' && who !== 'partner') return;
+          seen[who] = true;
+          setStatus(who, successLabel(who, detail.fileName), 'success');
+          markReady();
+        });
+
+        document.addEventListener('tk-compat-upload-error', (event) => {
+          const detail = event?.detail || {};
+          const who = detail.who;
+          if (who !== 'self' && who !== 'partner') return;
+          seen[who] = false;
+          setStatus(who, detail.reason || 'Could not read that file.', 'error');
+          markReady();
+        });
+      })();
+    </script>
+
   </main>
 
   <!-- TK: Page-centered header helper -->
