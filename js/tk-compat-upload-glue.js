@@ -183,8 +183,17 @@
     }
     const input = ensureInput(btn, inputSelectors);
 
-    if (btn.tagName !== 'INPUT') {
-      btn.addEventListener('click', () => input.click());
+    const controlsInputNatively =
+      btn.tagName === 'LABEL' &&
+      Boolean(btn.htmlFor) &&
+      Boolean(input?.id) &&
+      btn.htmlFor === input.id;
+
+    if (btn.tagName !== 'INPUT' && !controlsInputNatively) {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        input.click();
+      });
     }
 
     if (onLoaded === savePartner && input) {

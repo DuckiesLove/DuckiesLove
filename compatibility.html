@@ -1120,6 +1120,8 @@
 
       async function handleDownload(e) {
         if (e) {
+          if (e.__tkCompatHandled) return;
+          e.__tkCompatHandled = true;
           e.preventDefault();
           e.stopPropagation();
           if (e.stopImmediatePropagation) e.stopImmediatePropagation();
