@@ -295,6 +295,7 @@
     };
   </script>
   <script defer src="/js/tk-compat-upload-glue.js"></script>
+  <script defer src="/js/tk-compat-row-cache.js"></script>
   <script defer src="/assets/js/compatPdf.js"></script>
   <style id="tk-compat-center">
     /* Remove any panel/dock if an older script injected it */
@@ -1095,6 +1096,18 @@
       const BTN_SELECTOR = '#downloadPdfBtn, #downloadBtn, [data-download-pdf]';
 
       function rowsExistInStorage() {
+        try {
+          if (typeof window.talkkinkEnsureCompatRows === 'function') {
+            window.talkkinkEnsureCompatRows();
+          }
+        } catch (err) {
+          console.warn('[compat-override] Failed to rebuild compat rows:', err);
+        }
+
+        if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+          return true;
+        }
+
         try {
           const raw =
             localStorage.getItem('talkkink:compatRows') ||
