@@ -356,15 +356,25 @@ function tkFormatScoreDisplay(value) {
   return str;
 }
 
+function tkNormalizePercentText(value) {
+  if (value == null) return "";
+  let str = String(value).trim();
+  if (!str) return "";
+  if (str.includes("&")) {
+    str = str.replace(/&(?=[0-9#%])/g, "");
+  }
+  return str.replace(/\s+/g, " ");
+}
+
 function tkFormatMatchDisplay(raw, parsed) {
   if (raw !== undefined && raw !== null) {
-    const rawStr = String(raw).trim();
-    if (rawStr) {
-      if (/%/.test(rawStr)) return rawStr;
-      const numeric = tkCoerceNumber(rawStr);
+    const normalized = tkNormalizePercentText(raw);
+    if (normalized) {
+      const numeric = tkCoerceNumber(normalized);
       if (Number.isFinite(numeric)) return tkFormatPercent(numeric);
+      if (/%/.test(normalized)) return normalized;
       if (Number.isFinite(parsed)) return tkFormatPercent(parsed);
-      return rawStr;
+      return normalized;
     }
   }
   if (Number.isFinite(parsed)) return tkFormatPercent(parsed);
