@@ -40,6 +40,22 @@
     // (Optional) Wire this to your UI toast if you have one.
   }
 
+  function emitUploadEvent(who, detail = {}) {
+    if (!who) return;
+    document.dispatchEvent(
+      new CustomEvent('tk-compat-upload', {
+        detail: Object.assign({ who }, detail)
+      })
+    );
+  }
+
+  function emitUploadError(who, reason, error) {
+    if (!who) return;
+    const detail = { who, reason: reason || 'Could not read that file.' };
+    if (error) detail.error = error;
+    document.dispatchEvent(new CustomEvent('tk-compat-upload-error', { detail }));
+  }
+
   function pick(obj, keys) {
     const out = {};
     keys.forEach(k => { if (obj && k in obj) out[k] = obj[k]; });
@@ -80,6 +96,37 @@
       by[k][side] = Number(a.score);
     });
     return by;
+  }
+
+  function persistLegacyPayload(who, rawPayload) {
+    if (!rawPayload || typeof rawPayload !== 'object') return;
+
+    let serialized;
+    try {
+      serialized = JSON.stringify(rawPayload);
+    } catch (err) {
+      console.warn('[compat] unable to serialize survey payload for legacy consumers', err);
+      return;
+    }
+
+    const targets = who === 'partner'
+      ? ['talkkink:partner']
+      : ['talkkink:survey', 'talkkink:mine'];
+
+    targets.forEach((key) => {
+      try {
+        localStorage.setItem(key, serialized);
+      } catch (err) {
+        console.warn('[compat] unable to persist survey payload', err);
+      }
+    });
+
+    if (who === 'partner') {
+      window.talkkinkPartner = rawPayload;
+    } else {
+      window.talkkinkMine = rawPayload;
+      window.talkkinkSurvey = rawPayload;
+    }
   }
 
   // ---- Normalizers ---------------------------------------------------------
@@ -255,13 +302,14 @@
     return input;
   }
 
-  function attachFileHandler(buttonSelectors, inputSelectors, onLoaded) {
+  function attachFileHandler(who, buttonSelectors, inputSelectors, onLoaded) {
     const btn = firstMatch(buttonSelectors);
     if (!btn) {
       console.warn('[compat] Missing button:', buttonSelectors);
       return;
     }
     const input = ensureInput(btn, inputSelectors);
+    const isPartner = who === 'partner';
 
     const controlsInputNatively =
       btn.tagName === 'LABEL' &&
@@ -276,7 +324,7 @@
       });
     }
 
-    if (onLoaded === savePartner && input) {
+    if (isPartner && input) {
       input.setAttribute('data-partner-upload', '');
       if (!input.id) input.id = 'partnerFile';
     }
@@ -285,7 +333,7 @@
       const file = input.files && input.files[0];
       if (!file) return;
 
-      if (onLoaded === savePartner) {
+      if (isPartner) {
         let ok = true;
         if (typeof window.tkConfirmPartnerConsent === 'function') {
           try {
@@ -310,10 +358,11 @@
         try {
           const raw = JSON.parse(reader.result);
           const norm = normalizePayload(raw);
-          onLoaded(norm, file.name);
+          onLoaded(norm, file.name, raw);
         } catch (err) {
           console.error('[compat] Failed parsing file:', err);
           showToast('Could not read that file. Is it a TalkKink survey export?', 'error');
+          emitUploadError(who, 'Could not read that file. Is it a TalkKink survey export?', err);
         } finally {
           input.value = '';
         }
@@ -324,18 +373,28 @@
 
   // ---- Persist + enable next steps ----------------------------------------
 
-  function saveSelf(norm) {
-    localStorage.setItem(cfg.lsSelfKey, JSON.stringify(norm));
+  function saveSelf(norm, fileName, raw) {
+    try {
+      localStorage.setItem(cfg.lsSelfKey, JSON.stringify(norm));
+    } catch (err) {
+      console.warn('[compat] unable to persist normalized self survey', err);
+    }
+    persistLegacyPayload('self', raw || norm);
     showToast('Your survey loaded!');
     log('Self survey:', norm);
-    document.dispatchEvent(new CustomEvent('tk-compat-upload', { detail: { who: 'self', data: norm } }));
+    emitUploadEvent('self', { data: norm, fileName, raw });
   }
 
-  function savePartner(norm) {
-    localStorage.setItem(cfg.lsPartKey, JSON.stringify(norm));
+  function savePartner(norm, fileName, raw) {
+    try {
+      localStorage.setItem(cfg.lsPartKey, JSON.stringify(norm));
+    } catch (err) {
+      console.warn('[compat] unable to persist normalized partner survey', err);
+    }
+    persistLegacyPayload('partner', raw || norm);
     showToast("Partner's survey loaded!");
     log('Partner survey:', norm);
-    document.dispatchEvent(new CustomEvent('tk-compat-upload', { detail: { who: 'partner', data: norm } }));
+    emitUploadEvent('partner', { data: norm, fileName, raw });
   }
 
   // Optional: gently validate that both are present before allowing PDF
@@ -360,8 +419,8 @@
   // ---- Init ----------------------------------------------------------------
 
   function init() {
-    attachFileHandler(cfg.btnSelf, cfg.selfInput, saveSelf);
-    attachFileHandler(cfg.btnPartner, cfg.partnerInput, savePartner);
+    attachFileHandler('self', cfg.btnSelf, cfg.selfInput, saveSelf);
+    attachFileHandler('partner', cfg.btnPartner, cfg.partnerInput, savePartner);
     wirePdfButton();
     log('upload glue ready');
   }
