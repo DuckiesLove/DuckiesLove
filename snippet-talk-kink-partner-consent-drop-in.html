@@ -188,7 +188,8 @@
         lineColor: [32, 32, 40],
         lineWidth: 0.25,
         cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
-        valign: 'middle'
+        valign: 'middle',
+        overflow: 'linebreak'
       },
       headStyles: {
         fontStyle: 'bold',
@@ -202,7 +203,7 @@
       alternateRowStyles: { fillColor: [14, 14, 20] },
       columnStyles: {
         Role: { cellWidth: 96 },
-        Item: { cellWidth: 'auto' },
+        Item: { cellWidth: 'wrap' },
         Score: { cellWidth: 60, halign: 'center' }
       },
       didDrawPage: headerRenderer,
