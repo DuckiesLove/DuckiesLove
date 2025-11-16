@@ -5,9 +5,19 @@
 */
 (()=>{ if (window.__TK_COMPAT_PATCH__) return; window.__TK_COMPAT_PATCH__=true;
   const CB_RE=/\bcb_[a-z0-9]{5}\b/i, LABELS=Object.create(null);
-  const nice=s=>String(s||'').trim();
+  const nice=s=>String(s??'').trim();
   const mark=(el,a)=>el&&el.setAttribute(a,'1');
   const done=(el,a)=>el&&el.getAttribute(a)==='1';
+  const clampPct=value=>Math.max(0,Math.min(100,Math.round(value)));
+  const parsePct=value=>{
+    const text=nice(value);
+    if(!text) return null;
+    const match=text.match(/(-?\d+(?:\.\d+)?)\s*%?/);
+    if(!match) return null;
+    const num=Number(match[1]);
+    if(!Number.isFinite(num)) return null;
+    return clampPct(num);
+  };
 
   // --- Minimal inline overrides if you want hard-guaranteed labels (optional) ---
   const INLINE_LB = {
@@ -69,13 +79,20 @@
           mark(catCell,'data-tk-labeled');
         }
         if (pctCell && !done(pctCell,'data-tk-barred')){
-          const rawPct=nice(pctCell.textContent); const mm=rawPct.match(/^(\d{1,3})%$/);
+          const rawPct=nice(pctCell.textContent);
+          const pct=parsePct(rawPct);
           pctCell.classList.add('pct-cell');
-          if (mm){ const pct=Math.max(0,Math.min(100,parseInt(mm[1],10)));
+          pctCell.innerHTML='';
+          if (pct!=null){
             const wrap=document.createElement('div'); wrap.className='pct';
-            wrap.innerHTML='<span class="bar" style="width:'+pct+'%"></span><span class="txt">'+rawPct+'</span>';
-            pctCell.innerHTML=''; pctCell.appendChild(wrap);
-          } else { pctCell.innerHTML='<span class="txt">'+rawPct+'</span>'; }
+            const bar=document.createElement('span'); bar.className='bar'; bar.style.width=pct+'%';
+            const txt=document.createElement('span'); txt.className='txt'; txt.textContent=rawPct||pct+'%';
+            wrap.append(bar,txt);
+            pctCell.appendChild(wrap);
+          } else {
+            const txt=document.createElement('span'); txt.className='txt'; txt.textContent=rawPct||'—';
+            pctCell.appendChild(txt);
+          }
           mark(pctCell,'data-tk-barred');
         }
       }
@@ -92,8 +109,8 @@
       const wrapped={...opts, didDrawCell:function(data){
         if (typeof user==='function') try{ user.call(this,data);}catch{}
         if(data.section==='body' && data.column.index===2){
-          const raw=String(data.cell.raw??'').trim(); const m=raw.match(/^(\d{1,3})%$/);
-          if (m){ const pct=Math.max(0,Math.min(100,parseInt(m[1],10)));
+          const pct=parsePct(data.cell.raw);
+          if (pct!=null){
             const pad=1, x=data.cell.x+pad, y=data.cell.y+data.cell.height-2.2, w=Math.max(0,data.cell.width-pad*2)*(pct/100);
             this.setFillColor(0,230,255); this.rect(x,y,w,1.8,'F');
           }
