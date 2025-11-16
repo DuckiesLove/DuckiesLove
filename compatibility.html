@@ -1021,15 +1021,84 @@
   </script>
 
   <script>
+    /* ========================================================================
+     * TalkKink Compatibility — SINGLE PDF OVERRIDE
+     * - Uses TKCompatPDF.download() only
+     * - Reads rows from the visible comparison table (so “surveys load” correctly)
+     * - Falls back to window.talkkinkCompatRows or localStorage if needed
+     * - No Flag column in the PDF
+     * ===================================================================== */
     (function () {
       const BTN_SELECTOR = '#downloadPdfBtn, #downloadBtn, [data-download-pdf]';
 
-      function getCompatRows() {
+      function findCompatTable() {
+        const direct =
+          document.querySelector('#comparisonTable') ||
+          document.querySelector('#compatibilityTable') ||
+          document.querySelector('table[data-compat-table]') ||
+          document.querySelector('table.compat-table');
+
+        if (direct) return direct;
+
+        const tables = Array.from(document.querySelectorAll('table'));
+        for (const t of tables) {
+          const firstRow = t.querySelector('thead tr') || t.querySelector('tr');
+          if (!firstRow) continue;
+          const headers = Array.from(firstRow.querySelectorAll('th,td')).map((c) =>
+            (c.textContent || '').trim().toLowerCase()
+          );
+          if (
+            headers.some((h) => h === 'item') &&
+            headers.some((h) => h.includes('partner a'))
+          ) {
+            return t;
+          }
+        }
+        return null;
+      }
+
+      function scrapeRowsFromTable() {
+        const table = findCompatTable();
+        if (!table) return [];
+
+        const bodyRows =
+          table.querySelectorAll('tbody tr').length
+            ? table.querySelectorAll('tbody tr')
+            : table.querySelectorAll('tr:not(:first-child)');
+
+        const rows = [];
+        bodyRows.forEach((tr) => {
+          const cells = Array.from(tr.querySelectorAll('td'));
+          if (cells.length < 3) return;
+
+          const item = (cells[0].textContent || '').trim();
+          const a = (cells[1].textContent || '').trim();
+          const match = (cells[2].textContent || '').trim();
+
+          const bIndex = cells.length >= 4 ? cells.length - 1 : 2;
+          const b = (cells[bIndex].textContent || '').trim();
+
+          if (item || a || b || match) {
+            rows.push({ item, a, match, b });
+          }
+        });
+
+        return rows;
+      }
+
+      function readRowsFromJS() {
         if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
           return window.talkkinkCompatRows;
         }
+        return [];
+      }
+
+      function readRowsFromStorage() {
         try {
-          const raw = localStorage.getItem('talkkink:compatRows');
+          const raw =
+            localStorage.getItem('talkkink:compatRows') ||
+            localStorage.getItem('talkkink:compatibilityRows') ||
+            '';
           if (!raw) return [];
           const parsed = JSON.parse(raw);
           return Array.isArray(parsed) ? parsed : [];
@@ -1037,6 +1106,16 @@
           console.warn('[compat-override] Failed to read cached compat rows:', err);
           return [];
         }
+      }
+
+      function getCompatRows() {
+        const tableRows = scrapeRowsFromTable();
+        if (tableRows.length) return tableRows;
+
+        const jsRows = readRowsFromJS();
+        if (jsRows.length) return jsRows;
+
+        return readRowsFromStorage();
       }
 
       async function handleDownload(e) {
@@ -1048,7 +1127,7 @@
 
         const rows = getCompatRows();
         if (!rows.length) {
-          alert('Upload both partner surveys first so we can build your compatibility report.');
+          alert('Upload both partner surveys and wait for the comparison table to appear before downloading.');
           return;
         }
 
@@ -1059,6 +1138,9 @@
         }
 
         try {
+          if (typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
+            window.TKCompatPDF.notifyRowsUpdated(rows);
+          }
           await window.TKCompatPDF.download(rows);
         } catch (err) {
           console.error('[compat-override] TKCompatPDF.download failed:', err);
