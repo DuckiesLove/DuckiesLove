@@ -337,6 +337,8 @@
         fillColor: [25, 25, 28],
         lineColor: [40, 40, 45],
         lineWidth: 1.2,
+        // << important: overflow is now on styles, NOT root
+        overflow: 'linebreak',
       },
       headStyles: {
         fontStyle: 'bold',
