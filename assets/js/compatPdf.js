@@ -1,191 +1,96 @@
-/**
- * TalkKink Compatibility PDF — dark layout, NO Flag column
- * Columns: Item | Partner A | Match | Partner B
- */
-
-(() => {
-  const CFG = {
-    pdfKillSwitch: false,
-    selectors: { downloadBtn: '#downloadPdfBtn' },
-    columns: [
-      { key: 'item', header: 'Item', w: 260 },
-      { key: 'a', header: 'Partner A', w: 80 },
-      { key: 'match', header: 'Match', w: 90 },
-      { key: 'b', header: 'Partner B', w: 80 },
-    ],
-    local: {
-      jspdf: [
-        '/vendor/jspdf.umd.min.js',
-        '/js/vendor/jspdf.umd.min.js',
-        '/assets/js/vendor/jspdf.umd.min.js',
-      ],
-      autotable: [
-        '/vendor/jspdf.plugin.autotable.min.js',
-        '/js/vendor/jspdf.plugin.autotable.min.js',
-        '/assets/js/vendor/jspdf.plugin.autotable.min.js',
-      ],
-    },
-    cdn: {
-      jspdf: [
-        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-        'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
-        'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
-      ],
-      autotable: [
-        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
-        'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
-        'https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
-      ],
-    },
+/* ========================================================================
+ * New TalkKink compatibility PDF generator
+ * ===================================================================== */
+(function () {
+  const CDN = {
+    JSPDF: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    AUTOTABLE: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
   };
 
-  console.info('[compat] kill-switch ' + (CFG.pdfKillSwitch ? 'enabled' : 'disabled'));
+  let storedRows = [];
+  let libsPromise = null;
 
-  let libsReady = false;
-  let libsReadyPromise = null;
-  let rowsReady = false;
-  let cachedRows = [];
-  let enablingErrored = false;
-
-  /* ---------- SCRIPT LOADER HELPERS ---------- */
-
-  function injectScriptOnce(src, dataKey) {
+  function injectScriptOnce(src, key) {
     return new Promise((resolve, reject) => {
-      if (dataKey) {
-        const existing = document.querySelector(`script[data-lib="${dataKey}"]`);
-        if (existing && existing.dataset.loaded === '1') return resolve();
-        if (existing) {
-          existing.addEventListener('load', () => resolve(), { once: true });
-          existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
-          return;
-        }
+      const existing = key ? document.querySelector(`script[data-lib="${key}"]`) : null;
+      if (existing && existing.dataset.loaded === '1') return resolve();
+      if (existing) {
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error('load fail ' + src)), { once: true });
+        return;
       }
-
       const s = document.createElement('script');
       s.src = src;
+      s.defer = true;
       s.crossOrigin = 'anonymous';
       s.referrerPolicy = 'no-referrer';
-      if (dataKey) s.dataset.lib = dataKey;
-      s.defer = true;
+      if (key) s.dataset.lib = key;
       s.onload = () => {
-        if (dataKey) s.dataset.loaded = '1';
+        if (key) s.dataset.loaded = '1';
         resolve();
       };
-      s.onerror = () => {
-        try { s.remove(); } catch (_) {}
-        reject(new Error(`Failed to load ${src}`));
-      };
+      s.onerror = () => reject(new Error('load fail ' + src));
       document.head.appendChild(s);
     });
   }
 
-  function jsPdfPresent() {
+  function hasJsPDF() {
     return !!(window.jspdf && window.jspdf.jsPDF) || !!window.jsPDF;
   }
 
-  function autoTablePresent(jsPDF) {
+  function hasAutoTable() {
     const api =
-      (jsPDF && jsPDF.API && (jsPDF.API.autoTable || jsPDF.API.__autoTable__)) ||
-      (window.jsPDF && window.jsPDF.API && (window.jsPDF.API.autoTable || window.jsPDF.API.__autoTable__)) ||
-      (window.jspdf && window.jspdf.autoTable);
-    return !!api;
+      (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API) ||
+      (window.jsPDF && window.jsPDF.API);
+    if (!api) return false;
+    return !!(api.autoTable || api.__autoTable__);
   }
 
-  async function ensureJsPDF() {
-    if (jsPdfPresent()) {
-      return window.jspdf?.jsPDF || window.jsPDF;
-    }
+  async function ensureLibs() {
+    if (libsPromise) return libsPromise;
 
-    const attempts = [...CFG.local.jspdf, ...CFG.cdn.jspdf];
-    for (const src of attempts) {
-      try {
-        await injectScriptOnce(src, 'jspdf');
-        if (jsPdfPresent()) break;
-      } catch (err) {
-        console.warn('[compat-pdf] jsPDF load failed for', src, err);
+    libsPromise = (async () => {
+      if (!hasJsPDF()) {
+        await injectScriptOnce(CDN.JSPDF, 'jspdf');
       }
-    }
-
-    if (!jsPdfPresent()) {
-      throw new Error('jsPDF not available after local/CDN attempts');
-    }
-
-    return window.jspdf?.jsPDF || window.jsPDF;
-  }
-
-  async function ensureAutoTable(jsPDF) {
-    if (autoTablePresent(jsPDF)) return true;
-
-    const attempts = [...CFG.local.autotable, ...CFG.cdn.autotable];
-    for (const src of attempts) {
-      try {
-        await injectScriptOnce(src, 'jspdf-autotable');
-        if (autoTablePresent(jsPDF)) return true;
-      } catch (err) {
-        console.warn('[compat-pdf] autoTable load failed for', src, err);
+      if (!window.jsPDF && window.jspdf && window.jspdf.jsPDF) {
+        window.jsPDF = window.jspdf.jsPDF;
       }
-    }
 
-    return autoTablePresent(jsPDF);
-  }
+      if (!hasAutoTable()) {
+        await injectScriptOnce(CDN.AUTOTABLE, 'jspdf-autotable');
+      }
 
-  function ensurePdfLibsReady() {
-    if (!libsReadyPromise) {
-      libsReadyPromise = (async () => {
-        const jsPDF = await ensureJsPDF();
-        const hasAutoTable = await ensureAutoTable(jsPDF).catch(() => false);
-
-        try {
-          const doc = new jsPDF({ unit: 'pt' });
-          if (!doc) throw new Error('constructor returned undefined');
-        } catch (err) {
-          throw new Error(`jsPDF constructor test failed: ${err?.message || err}`);
+      const ctor = window.jspdf && window.jspdf.jsPDF;
+      const legacy = window.jsPDF;
+      const at =
+        (legacy && legacy.API && (legacy.API.autoTable || legacy.API.__autoTable__)) ||
+        (ctor && ctor.API && (ctor.API.autoTable || ctor.API.__autoTable__));
+      if (at) {
+        if (ctor) {
+          ctor.API = ctor.API || {};
+          ctor.API.autoTable = at;
         }
+        if (legacy) {
+          legacy.API = legacy.API || {};
+          legacy.API.autoTable = at;
+        }
+      }
 
-        libsReady = true;
-        enablingErrored = false;
-        setButtonState();
+      if (!hasJsPDF()) throw new Error('jsPDF not available after CDN load');
+      if (!hasAutoTable()) throw new Error('autoTable not available after CDN load');
 
-        return { jsPDF, hasAutoTable };
-      })().catch(err => {
-        libsReady = false;
-        enablingErrored = true;
-        libsReadyPromise = null;
-        setButtonState();
-        throw err;
-      });
-    }
+      return { jsPDF: window.jsPDF || (window.jspdf && window.jspdf.jsPDF) };
+    })();
 
-    return libsReadyPromise;
+    return libsPromise;
   }
-
-  /* ---------- TEXT HELPERS ---------- */
-
-  function centerText(doc, text, y, fontSize = 12, font = ['helvetica', 'bold']) {
-    const [fam, style] = font;
-    doc.setFont(fam, style);
-    doc.setFontSize(fontSize);
-    const pageW = doc.internal.pageSize.getWidth();
-    const tw = doc.getTextWidth(text);
-    doc.text(text, (pageW - tw) / 2, y);
-  }
-
-  function truncateToWidth(doc, text, width) {
-    if (!text) return '';
-    const s = String(text);
-    if (doc.getTextWidth(s) <= width) return s;
-    const ell = '…';
-    let out = s;
-    while (out.length && doc.getTextWidth(out + ell) > width) out = out.slice(0, -1);
-    return out + ell;
-  }
-
-  const TK_ACCENT = [0, 214, 199];
 
   function safeString(val) {
     if (val == null) return '';
-    const str = String(val).trim();
-    return (str === 'null' || str === 'undefined') ? '' : str;
+    const s = String(val).trim();
+    if (s === 'null' || s === 'undefined') return '';
+    return s;
   }
 
   function coerceScore(val) {
@@ -210,14 +115,13 @@
     return null;
   }
 
-  function normalizeCompatRow(row) {
+  function normalizeRow(row) {
     let item;
     let aRaw;
     let bRaw;
     let matchRaw;
 
     if (Array.isArray(row)) {
-      // Old array shape: [item, a, match, flag, b]
       [item, aRaw, matchRaw, , bRaw] = row;
     } else if (row && typeof row === 'object') {
       item = row.item ?? row.label ?? row.category ?? '';
@@ -235,68 +139,61 @@
     const aScore = coerceScore(aRaw);
     const bScore = coerceScore(bRaw);
     const matchPercent = computeMatchPercent(matchRaw, aScore, bScore);
-    const matchDisplay = matchPercent != null ? `${matchPercent}%` : safeString(matchRaw);
 
     return {
       item: safeString(item),
       a: aScore != null ? String(aScore) : safeString(aRaw),
-      match: matchDisplay,
       b: bScore != null ? String(bScore) : safeString(bRaw),
-      matchPercent,
-      aScore,
-      bScore,
+      match: matchPercent != null ? `${matchPercent}%` : safeString(matchRaw),
     };
   }
 
-  /* ---------- HEADER + TABLE RENDER ---------- */
+  function normalizeRows(rows) {
+    return (Array.isArray(rows) ? rows : [])
+      .map(normalizeRow)
+      .filter((r) => r.item || r.a || r.b || r.match);
+  }
 
-  function tk_drawHeader(doc, title, generatedAt, accent = TK_ACCENT) {
+  function drawHeader(doc, sectionTitle) {
     const pageW = doc.internal.pageSize.getWidth();
+    const accent = [0, 214, 199];
+
+    doc.setFillColor(18, 19, 20);
+    doc.rect(0, 0, pageW, doc.internal.pageSize.getHeight(), 'F');
 
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(36);
+    doc.setFontSize(32);
+    const title = 'Talk Kink Compatibility Survey';
     const tW = doc.getTextWidth(title);
-    doc.text(title, (pageW - tW) / 2, 80);
+    doc.text(title, (pageW - tW) / 2, 70);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    const sub = `Generated: ${generatedAt}`;
+    const sub = 'Generated: ' + new Date().toLocaleString();
     const sW = doc.getTextWidth(sub);
-    doc.text(sub, (pageW - sW) / 2, 104);
+    doc.text(sub, (pageW - sW) / 2, 94);
 
-    doc.setDrawColor(...accent);
+    doc.setDrawColor(accent[0], accent[1], accent[2]);
     doc.setLineWidth(2.5);
     const pad = 84;
-    doc.line(pad, 118, pageW - pad, 118);
+    doc.line(pad, 108, pageW - pad, 108);
 
-    return 118 + 36;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    const secW = doc.getTextWidth(sectionTitle);
+    doc.text(sectionTitle, (pageW - secW) / 2, 140);
+
+    return 160;
   }
 
-  function tk_renderSectionTable(doc, sectionTitle, rows, startY) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.setTextColor(255, 255, 255);
-    const pageW = doc.internal.pageSize.getWidth();
-    const titleW = doc.getTextWidth(sectionTitle);
-    doc.text(sectionTitle, (pageW - titleW) / 2, startY);
+  async function generateCompatibilityPDF(rows) {
+    const data = normalizeRows(rows);
+    if (!data.length) throw new Error('No compatibility rows available.');
 
-    const body = rows.map((row) => {
-      const aNum = Number(row.aScore ?? row.a);
-      const bNum = Number(row.bScore ?? row.b);
-      const matchNum = Number(row.matchPercent);
-      const aVal = Number.isFinite(aNum) ? String(aNum) : safeString(row.a);
-      const bVal = Number.isFinite(bNum) ? String(bNum) : safeString(row.b);
-      const matchVal = Number.isFinite(matchNum)
-        ? `${Math.round(matchNum)}%`
-        : safeString(row.match);
-      return {
-        item: safeString(row.item),
-        a: aVal,
-        match: matchVal,
-        b: bVal,
-      };
-    });
+    const { jsPDF } = await ensureLibs();
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+    const startY = drawHeader(doc, 'Behavioral Play');
 
     const columns = [
       { header: 'Item', dataKey: 'item' },
@@ -307,360 +204,58 @@
 
     doc.autoTable({
       columns,
-      body,
-      startY: startY + 24,
-      margin: { left: 70, right: 70 },
+      body: data,
+      startY,
+      margin: { left: 60, right: 60 },
+      theme: 'grid',
       styles: {
         font: 'helvetica',
-        fontSize: 12,
-        halign: 'left',
-        valign: 'middle',
-        minCellHeight: 20,
-        cellPadding: { top: 5, bottom: 5, left: 6, right: 6 },
+        fontSize: 11,
         textColor: [230, 230, 230],
         fillColor: [25, 25, 28],
         lineColor: [40, 40, 45],
-        lineWidth: 1.2,
+        lineWidth: 0.8,
+        cellPadding: { top: 4, bottom: 4, left: 6, right: 6 },
+        halign: 'left',
+        valign: 'middle',
       },
       headStyles: {
         fontStyle: 'bold',
         textColor: [0, 255, 245],
         fillColor: [28, 28, 32],
         lineColor: [40, 40, 45],
-        lineWidth: 1.4,
+        lineWidth: 0.9,
         halign: 'center',
       },
       columnStyles: {
-        item: { cellWidth: 340, halign: 'left' },
-        a: { cellWidth: 80, halign: 'center' },
-        match: { cellWidth: 80, halign: 'center' },
-        b: { cellWidth: 80, halign: 'center' },
+        item: { halign: 'left' },
+        a: { halign: 'center' },
+        match: { halign: 'center' },
+        b: { halign: 'center' },
       },
-      theme: 'grid',
+      tableWidth: 'auto',
       overflow: 'linebreak',
+      pageBreak: 'auto',
     });
-  }
-
-  function renderWithAutoTable(doc, rows) {
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    doc.setFillColor(18, 19, 20);
-    doc.rect(0, 0, pageW, pageH, 'F');
-    doc.setTextColor(255, 255, 255);
-
-    const normalizedRows = rows
-      .map(normalizeCompatRow)
-      .filter((r) => r.item || r.a || r.b || r.match);
-    const headerY = tk_drawHeader(
-      doc,
-      'Talk Kink Compatibility Survey',
-      new Date().toLocaleString(),
-      TK_ACCENT,
-    );
-
-    tk_renderSectionTable(doc, 'Behavioral Play', normalizedRows, headerY);
-  }
-
-  function renderFallback(doc, rows) {
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const marginL = 40;
-    const startY = 140;
-
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, pageW, pageH, 'F');
-    doc.setTextColor(255, 255, 255);
-
-    centerText(doc, 'Talk Kink Compatibility Survey', 70, 32, ['helvetica', 'bold']);
-    centerText(doc, 'Behavioral Play', 110, 18, ['helvetica', 'bold']);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    let x = marginL;
-    CFG.columns.forEach((c) => {
-      doc.text(c.header, x, startY);
-      x += c.w;
-    });
-
-    doc.setFont('helvetica', 'normal');
-    let y = startY + 18;
-    rows.forEach((r) => {
-      x = marginL;
-      const values = [
-        r.item ?? r.label ?? '',
-        String(r.a ?? r.partnerA ?? ''),
-        String(r.match ?? r.matchPct ?? r.matchText ?? ''),
-        String(r.b ?? r.partnerB ?? ''),
-      ];
-      values.forEach((val, i) => {
-        const txt = truncateToWidth(doc, val, CFG.columns[i].w - 6);
-        doc.text(txt, x, y);
-        x += CFG.columns[i].w;
-      });
-      y += 16;
-    });
-
-    const tableW = CFG.columns.reduce((sum, c) => sum + c.w, 0);
-    const tableH = Math.max(60, (rows.length + 2) * 16);
-    doc.setDrawColor(160, 160, 160);
-    doc.setLineWidth(0.75);
-    doc.rect(marginL - 6, startY - 26, tableW + 12, tableH, 'S');
-  }
-
-  /* ---------- MAIN GENERATION ---------- */
-
-  async function generateCompatibilityPDF(rows) {
-    const data = Array.isArray(rows) ? rows : [];
-    const payload = data.length ? data : computeRowsArray();
-    if (!payload.length) {
-      throw new Error('No compatibility rows available');
-    }
-
-    const { jsPDF, hasAutoTable } = await ensurePdfLibsReady();
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
-
-    if (hasAutoTable && typeof doc.autoTable === 'function') {
-      renderWithAutoTable(doc, payload);
-    } else {
-      renderFallback(doc, payload);
-    }
 
     doc.save('compatibility.pdf');
   }
 
-  /* ---------- STATE + BUTTON WIRING ---------- */
-
-  function getBtn() {
-    return document.querySelector(CFG.selectors.downloadBtn);
+  function setStoredRows(rows) {
+    storedRows = Array.isArray(rows) ? rows.slice() : [];
   }
-
-  function computeRowsArray() {
-    if (Array.isArray(cachedRows) && cachedRows.length) return cachedRows;
-    const winRows = Array.isArray(window.talkkinkCompatRows) ? window.talkkinkCompatRows : [];
-    return Array.isArray(winRows) ? winRows : [];
-  }
-
-  function computeRowsReady() {
-    return computeRowsArray().length > 0;
-  }
-
-  function setCachedRows(rows) {
-    cachedRows = Array.isArray(rows) ? rows.slice() : [];
-    rowsReady = computeRowsReady();
-  }
-
-  function readRowsFromStorage() {
-    const current = computeRowsArray();
-    if (current.length) return current;
-    try {
-      const raw = localStorage.getItem('talkkink:compatRows');
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (err) {
-      console.warn('[compat-pdf] Failed to read cached compatibility rows', err);
-      return [];
-    }
-  }
-
-  function setButtonState() {
-    const btn = getBtn();
-    if (!btn) return;
-
-    rowsReady = computeRowsReady();
-    const canEnable = !CFG.pdfKillSwitch && libsReady && rowsReady && !enablingErrored;
-    btn.disabled = !canEnable;
-
-    if (!canEnable) {
-      const reasons = [];
-      if (CFG.pdfKillSwitch) reasons.push('Kill switch active');
-      if (enablingErrored) reasons.push('PDF libraries failed to load');
-      if (!libsReady && !enablingErrored) reasons.push('PDF libs not ready');
-      if (!rowsReady) reasons.push('Upload both surveys to compare');
-      btn.title = 'PDF unavailable: ' + (reasons.join(' · ') || 'unknown');
-    } else {
-      btn.title = 'Download your compatibility PDF';
-    }
-  }
-
-  function demoRows() {
-    return [
-      { item: 'Giving: General', a: 3, match: '100%', b: 3 },
-      { item: 'Receiving: Service', a: 5, match: '100%', b: 5 },
-      { item: 'Rituals', a: 4, match: '100%', b: 4 },
-    ];
-  }
-
-  function wireClick() {
-    const btn = getBtn();
-    if (!btn) return;
-
-    // Strip any inline onclick from the legacy generator
-    btn.removeAttribute('onclick');
-
-    btn.addEventListener('click', async (e) => {
-      const force = e.altKey === true;
-      if (btn.disabled && !force) return;
-      e.preventDefault();
-
-      try {
-        if (!libsReady) await ensurePdfLibsReady();
-        let rows = computeRowsArray();
-        if (!rows.length) {
-          rows = readRowsFromStorage();
-          if (rows.length) setCachedRows(rows);
-        }
-        if (!rows.length && !force) {
-          alert('Upload both surveys first.');
-          return;
-        }
-        await generateCompatibilityPDF(rows.length ? rows : demoRows());
-      } catch (err) {
-        console.error('[compat-pdf] generation failed', err);
-        enablingErrored = true;
-        setButtonState();
-        alert('PDF could not be generated. See console for details.');
-      }
-    });
-  }
-
-  async function generateFromStorage() {
-    const rows = readRowsFromStorage();
-    if (!rows.length) {
-      alert('Upload both surveys first.');
-      return;
-    }
-    setCachedRows(rows);
-    await generateCompatibilityPDF(rows);
-  }
-
-  function init() {
-    const btn = getBtn();
-    if (btn) btn.disabled = true;
-
-    if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
-      setCachedRows(window.talkkinkCompatRows.slice());
-    }
-
-    wireClick();
-    setButtonState();
-
-    ensurePdfLibsReady().catch(err => {
-      console.error('[compat-pdf] libs failed to load', err);
-    });
-  }
-
-  /* ---------- PUBLIC API ---------- */
 
   window.TKCompatPDF = {
     notifyRowsUpdated(rows) {
-      setCachedRows(Array.isArray(rows) ? rows : []);
-      setButtonState();
+      setStoredRows(rows);
     },
-    download(rows) {
-      if (Array.isArray(rows) && rows.length) {
-        setCachedRows(rows);
+    async download(rows) {
+      const payload = Array.isArray(rows) && rows.length ? rows : storedRows;
+      if (!payload || !payload.length) {
+        throw new Error('No rows supplied to TKCompatPDF.download()');
       }
-      return generateCompatibilityPDF(rows);
+      return generateCompatibilityPDF(payload);
     },
-    generateFromStorage,
-    ensureLibs: ensurePdfLibsReady,
-    _forceEnable() {
-      libsReady = true;
-      rowsReady = true;
-      enablingErrored = false;
-      CFG.pdfKillSwitch = false;
-      setButtonState();
-    },
-  };
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
-  } else {
-    init();
-  }
-})();
-
-/* ========= TALK KINK PDF: CDN-ONLY OVERRIDE (unchanged, but safe) ========= */
-
-(function () {
-  const CDN = {
-    JSPDF: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-    AUTOTABLE: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
-  };
-
-  function inject(src, key) {
-    return new Promise((resolve, reject) => {
-      const existing = key ? document.querySelector(`script[data-lib="${key}"]`) : null;
-      if (existing && existing.dataset.loaded === '1') return resolve();
-      if (existing) {
-        existing.addEventListener('load', () => resolve(), { once: true });
-        existing.addEventListener('error', () => reject(new Error('load fail ' + src)), { once: true });
-        return;
-      }
-      const s = document.createElement('script');
-      s.src = src; s.defer = true; s.crossOrigin = 'anonymous'; s.referrerPolicy = 'no-referrer';
-      if (key) s.dataset.lib = key;
-      s.onload  = () => { if (key) s.dataset.loaded = '1'; resolve(); };
-      s.onerror = () => reject(new Error('load fail ' + src));
-      document.head.appendChild(s);
-    });
-  }
-
-  const hasJsPDF     = () => !!(window.jspdf?.jsPDF) || !!window.jsPDF;
-  const hasAutoTable = () => {
-    const api = (window.jspdf?.jsPDF?.API) || (window.jsPDF?.API);
-    return !!(api && (api.autoTable || api.__autoTable__));
-  };
-
-  async function loadFromCDN() {
-    if (!hasJsPDF()) await inject(CDN.JSPDF, 'jspdf');
-    if (!window.jsPDF && window.jspdf?.jsPDF) window.jsPDF = window.jspdf.jsPDF;
-
-    if (!hasAutoTable()) await inject(CDN.AUTOTABLE, 'jspdf-autotable');
-
-    const ctor   = window.jspdf?.jsPDF;
-    const legacy = window.jsPDF;
-    const at = (legacy?.API?.autoTable) || (ctor?.API?.autoTable);
-    if (at) {
-      if (ctor)   { ctor.API   = ctor.API   || {}; ctor.API.autoTable   = at; }
-      if (legacy) { legacy.API = legacy.API || {}; legacy.API.autoTable = at; }
-    }
-
-    if (!hasJsPDF())     throw new Error('jsPDF not available');
-    if (!hasAutoTable()) throw new Error('autoTable not available');
-
-    return window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
-  }
-
-  window.tkLoadPdfLibs    = async () => ({ jsPDF: await loadFromCDN() });
-  window.ensurePdfLibs    = async () =>      loadFromCDN();
-  window.ensureAutoTable  = async () => true;
-
-  (async () => {
-    try {
-      const btn = document.querySelector('#downloadBtn, #downloadPdfBtn, [data-download-pdf]');
-      if (btn) {
-        btn.disabled = true;
-        btn.title = 'Loading PDF libraries…';
-      }
-      await loadFromCDN();
-      if (btn) {
-        btn.disabled = false;
-        btn.title = 'Download your compatibility PDF';
-      }
-      console.info('[compat-pdf] CDN libs ready');
-    } catch (err) {
-      console.error('[compat-pdf] Loader error:', err);
-    }
-  })();
-
-  const VENDOR_AT_RE = /\/vendor\/jspdf\.plugin\.autotable\.min\.js(?:\?.*)?$/i;
-  const origAppend = HTMLHeadElement.prototype.appendChild;
-  HTMLHeadElement.prototype.appendChild = function (node) {
-    if (node && node.tagName === 'SCRIPT' && VENDOR_AT_RE.test(node.src)) {
-      node.src = CDN.AUTOTABLE;
-    }
-    return origAppend.apply(this, arguments);
+    ensureLibs,
   };
 })();
