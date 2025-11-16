@@ -652,6 +652,166 @@ function tkCollectCompatRowsForPdf() {
   return source.map(tkNormalizeCompatRow).filter(Boolean);
 }
 
+function tkSplitCompatLabel(label) {
+  if (!label) {
+    return { category: 'Compatibility', text: '' };
+  }
+
+  const match = String(label).split(':');
+  if (match.length < 2) {
+    return { category: 'Compatibility', text: String(label).trim() };
+  }
+
+  const category = match.shift().trim() || 'Compatibility';
+  const text = match.join(':').trim() || String(label).trim();
+  return { category, text };
+}
+
+function tkFormatPdfScore(displayValue, scoreValue) {
+  if (displayValue != null && displayValue !== '') {
+    return String(displayValue);
+  }
+  if (Number.isFinite(scoreValue)) {
+    return String(scoreValue);
+  }
+  return '';
+}
+
+function tkFormatPdfMatch(row) {
+  if (Number.isFinite(row.matchPct)) {
+    return `${Math.max(0, Math.min(100, Math.round(row.matchPct)))}%`;
+  }
+
+  const raw = row.matchDisplay ?? row.matchRaw ?? row.matchPct ?? row.match;
+  if (raw == null) return '—';
+
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return `${Math.max(0, Math.min(100, Math.round(raw)))}%`;
+  }
+
+  const text = String(raw).trim();
+  if (!text) return '—';
+
+  const numeric = text.replace(/[^0-9]+/g, '');
+  if (numeric) {
+    const pct = Math.max(0, Math.min(100, Number.parseInt(numeric, 10)));
+    return `${pct}%`;
+  }
+
+  return text;
+}
+
+function tkBuildPdfCategories(rows) {
+  const grouped = new Map();
+
+  rows.forEach((row) => {
+    if (!row) return;
+
+    const { category, text } = tkSplitCompatLabel(row.labelShort || row.label || '');
+    if (!grouped.has(category)) {
+      grouped.set(category, { category, items: [] });
+    }
+
+    grouped.get(category).items.push({
+      label: text || row.label || '—',
+      partnerA: tkFormatPdfScore(row.aDisplay, row.aScore),
+      partnerB: tkFormatPdfScore(row.bDisplay, row.bScore),
+      match: tkFormatPdfMatch(row),
+    });
+  });
+
+  return Array.from(grouped.values());
+}
+
+function tkFillPdfBackground(doc) {
+  const width = doc.internal.pageSize.getWidth();
+  const height = doc.internal.pageSize.getHeight();
+  doc.setFillColor(20, 20, 20);
+  doc.rect(0, 0, width, height, 'F');
+}
+
+async function tkGeneratePdfFromCategories(categories) {
+  if (!categories.length) {
+    throw new Error('No compatibility rows available');
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  tkFillPdfBackground(doc);
+
+  doc.setFontSize(24);
+  doc.setFont('Helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('TalkKink Compatibility Survey', pageWidth / 2, 60, { align: 'center' });
+
+  doc.setFontSize(12);
+  doc.setFont('Helvetica', 'normal');
+  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 85, { align: 'center' });
+
+  doc.setDrawColor(0, 255, 255);
+  doc.setLineWidth(2);
+  doc.line(50, 100, pageWidth - 50, 100);
+
+  doc.setFontSize(20);
+  doc.setFont('Helvetica', 'bold');
+  doc.text('Compatibility Survey', pageWidth / 2, 130, { align: 'center' });
+
+  const tableBody = [];
+  categories.forEach((category) => {
+    tableBody.push([
+      {
+        content: category.category,
+        colSpan: 4,
+        styles: {
+          fontStyle: 'bold',
+          fillColor: [30, 30, 30],
+          textColor: [0, 255, 255],
+        },
+      },
+    ]);
+
+    category.items.forEach((row) => {
+      tableBody.push([
+        row.label,
+        row.partnerA ?? '',
+        row.match ?? '—',
+        row.partnerB ?? '',
+      ]);
+    });
+  });
+
+  doc.autoTable({
+    startY: 150,
+    head: [['Item', 'Partner A', 'Match', 'Partner B']],
+    body: tableBody,
+    styles: {
+      halign: 'left',
+      font: 'helvetica',
+      fontSize: 10,
+      textColor: [255, 255, 255],
+      cellPadding: 6,
+      fillColor: [24, 24, 24],
+    },
+    headStyles: {
+      fillColor: [0, 255, 255],
+      textColor: [0, 0, 0],
+      halign: 'center',
+    },
+    columnStyles: {
+      0: { cellWidth: 250 },
+      1: { cellWidth: 80, halign: 'center' },
+      2: { cellWidth: 60, halign: 'center' },
+      3: { cellWidth: 80, halign: 'center' },
+    },
+    theme: 'grid',
+    didDrawPage: () => tkFillPdfBackground(doc),
+  });
+
+  doc.save('talkkink_compatibility.pdf');
+}
+
 async function TKPDF_exportCompatibilitySingle() {
   try {
     await tkEnsureJsPDF();
@@ -673,50 +833,9 @@ async function TKPDF_exportCompatibilitySingle() {
   }
 
   try {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('landscape', 'pt', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(28);
-    doc.text(TK_PDF_TITLE, pageWidth / 2, 60, { align: 'center' });
-
-    doc.setFontSize(13);
-    doc.setFont('Helvetica', 'normal');
-    doc.text('Generated: ' + new Date().toLocaleString(), pageWidth / 2, 82, { align: 'center' });
-
     const compatRows = tkCollectCompatRowsForPdf();
-    const body = compatRows.map(tkBuildCompatRow);
-
-    doc.autoTable({
-      head: [["Item", "Partner A", "Match", "Partner B"]],
-      body,
-      startY: 110,
-      styles: {
-        font: 'helvetica',
-        fontSize: 10,
-        textColor: [255, 255, 255],
-        fillColor: [16, 16, 16]
-      },
-      headStyles: {
-        fillColor: [0, 255, 255],
-        textColor: [0, 0, 0],
-        halign: 'center'
-      },
-      columnStyles: {
-        0: { cellWidth: 300 },
-        1: { cellWidth: 80, halign: 'center' },
-        2: { cellWidth: 80, halign: 'center' },
-        3: { cellWidth: 80, halign: 'center' }
-      },
-      theme: 'grid',
-      didDrawPage: function () {
-        doc.setFillColor(16, 16, 16);
-        doc.rect(0, 0, pageWidth, doc.internal.pageSize.getHeight(), 'F');
-      }
-    });
-
-    doc.save('TalkKink-Compatibility-Report.pdf');
+    const categories = tkBuildPdfCategories(compatRows);
+    await tkGeneratePdfFromCategories(categories);
   } catch (err) {
     console.error('[TKPDF] Failed to export compatibility report.', err);
     alert('PDF export failed. See console for details.');
