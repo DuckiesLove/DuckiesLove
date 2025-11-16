@@ -285,6 +285,9 @@
     const titleW = doc.getTextWidth(sectionTitle);
     doc.text(sectionTitle, (pageW - titleW) / 2, startY);
 
+    const itemColumn = CFG.columns.find((col) => col.key === 'item');
+    const wrapWidth = Math.max(40, (itemColumn?.w || 320) - 12);
+
     const body = rows.map((row) => {
       const aNum = Number(row.aScore ?? row.a);
       const bNum = Number(row.bScore ?? row.b);
@@ -294,8 +297,13 @@
       const matchVal = Number.isFinite(matchNum)
         ? `${Math.round(matchNum)}%`
         : safeString(row.match);
+      const safeItem = safeString(row.item);
+      const wrappedItem =
+        safeItem && typeof doc.splitTextToSize === 'function'
+          ? doc.splitTextToSize(safeItem, wrapWidth)
+          : safeItem;
       return {
-        item: safeString(row.item),
+        item: wrappedItem,
         a: aVal,
         match: matchVal,
         b: bVal,

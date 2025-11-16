@@ -285,10 +285,10 @@
     doc.text(title, (pageW - tw) / 2, startY);
 
     const tableRows = rows.map(r => ({
-      item: r.item,
-      a: r.a,
-      match: r.match,
-      b: r.b,
+      item: safe(r.item),
+      a: safe(r.a),
+      match: safe(r.match),
+      b: safe(r.b),
     }));
 
     const columnStyles = Object.fromEntries(
@@ -298,11 +298,22 @@
       }])
     );
 
+    const itemColumn = CFG.columns.find((col) => col.key === 'item');
+    const wrapWidth = Math.max(40, (itemColumn?.w || 320) - 12);
+
+    const bodyRows = tableRows.map((row) => {
+      const wrappedItem =
+        row.item && typeof doc.splitTextToSize === 'function'
+          ? doc.splitTextToSize(row.item, wrapWidth)
+          : row.item;
+      return [wrappedItem, row.a, row.match, row.b];
+    });
+
     doc.autoTable({
       startY: startY + 26,
       margin: { left: 70, right: 70 },
       head: [CFG.columns.map(c => c.header)],
-      body: tableRows.map(r => [r.item, r.a, r.match, r.b]),
+      body: bodyRows,
       theme: 'grid',
       styles: {
         font: 'helvetica',
