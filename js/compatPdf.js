@@ -1,188 +1,596 @@
-(function(){
-  // Prevent double-bind of the download click
-  if (window.__TKPDF_BOUND__) return;
-  window.__TKPDF_BOUND__ = true;
+/**
+ * TalkKink Compatibility PDF – single modern generator
+ * - Uses jsPDF + autoTable from local paths OR CDN
+ * - Reads merged comparison rows from:
+ *      1) window.talkkinkCompatRows  (preferred)
+ *      2) localStorage["talkkink:compatRows"]
+ * - Columns: Item | Partner A | Match | Partner B
+ * - NO flag column, NO legacy “clean report” exporter.
+ *
+ * Drop-in: replace your existing js/compatPdf.js with this file.
+ */
 
-  const btn = document.querySelector('#downloadPdfBtn') || document.querySelector('#btnDownloadPdf');
-  if (!btn) return;
-
-  // Centralized constants so layout is predictable
-  const COLW = { item:56, partnerA:12, match:16, flag:4, partnerB:12 }; // must sum ~100
-  const BG   = [10,10,12];      // dark page background
-  const MARG = {top: 56, right: 36, bottom: 40, left: 36}; // title space + tight page
-
-  const FLAG_RGB = {
-    green: [24, 214, 154],
-    yellow: [255, 204, 0],
-    red: [255, 66, 66],
+(() => {
+  const CFG = {
+    pdfKillSwitch: false,
+    selectors: { downloadBtn: '#downloadPdfBtn, #downloadBtn, [data-download-pdf]' },
+    columns: [
+      { key: 'item', header: 'Item', w: 320 },
+      { key: 'a', header: 'Partner A', w: 80 },
+      { key: 'match', header: 'Match', w: 80 },
+      { key: 'b', header: 'Partner B', w: 80 },
+    ],
+    local: {
+      jspdf: [
+        '/vendor/jspdf.umd.min.js',
+        '/js/vendor/jspdf.umd.min.js',
+        '/assets/js/vendor/jspdf.umd.min.js',
+      ],
+      autotable: [
+        '/vendor/jspdf.plugin.autotable.min.js',
+        '/js/vendor/jspdf.plugin.autotable.min.js',
+        '/assets/js/vendor/jspdf.plugin.autotable.min.js',
+      ],
+    },
+    cdn: {
+      jspdf: [
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+        'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+        'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      ],
+      autotable: [
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js',
+        'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js',
+        'https://unpkg.com/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js',
+      ],
+    },
   };
-  const HIDE_FLAG_STATUSES = new Set(['none','off','hide','hidden','blank','disabled']);
 
-  function parseHexColor(hex){
-    if (!hex) return null;
-    const clean = String(hex).trim().replace(/^#/, '');
-    if (clean.length !== 6) return null;
-    const r = parseInt(clean.slice(0,2), 16);
-    const g = parseInt(clean.slice(2,4), 16);
-    const b = parseInt(clean.slice(4,6), 16);
-    if ([r,g,b].some(n=>Number.isNaN(n))) return null;
-    return [r,g,b];
+  console.info('[compat] kill-switch ' + (CFG.pdfKillSwitch ? 'enabled' : 'disabled'));
+
+  let libsReady = false;
+  let libsReadyPromise = null;
+  let rowsReady = false;
+  let cachedRows = [];
+  let enablingErrored = false;
+
+  /* ------------------------------------------------------------------ */
+  /*  LOADING HELPERS                                                   */
+  /* ------------------------------------------------------------------ */
+
+  function injectScriptOnce(src, dataKey) {
+    return new Promise((resolve, reject) => {
+      if (dataKey) {
+        const existing = document.querySelector(`script[data-lib="${dataKey}"]`);
+        if (existing && existing.dataset.loaded === '1') return resolve();
+        if (existing) {
+          existing.addEventListener('load', () => resolve(), { once: true });
+          existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+          return;
+        }
+      }
+
+      const s = document.createElement('script');
+      s.src = src;
+      s.crossOrigin = 'anonymous';
+      s.referrerPolicy = 'no-referrer';
+      if (dataKey) s.dataset.lib = dataKey;
+      s.defer = true;
+      s.onload = () => {
+        if (dataKey) s.dataset.loaded = '1';
+        resolve();
+      };
+      s.onerror = () => {
+        try { s.remove(); } catch (_) {}
+        reject(new Error(`Failed to load ${src}`));
+      };
+      document.head.appendChild(s);
+    });
   }
 
-  function extractFlagMeta(td){
-    if (!td) return { text:'▶', color:null };
-
-    const rawText = (td.textContent || '').trim();
-    const dot = td.querySelector?.('.flag-dot');
-    const cellStatus = (td.dataset?.flagStatus || '').trim().toLowerCase();
-    const hasExplicitStatus = typeof td.hasAttribute === 'function' ? td.hasAttribute('data-flag-status') : false;
-    const hideFlag =
-      HIDE_FLAG_STATUSES.has(cellStatus) ||
-      td.dataset?.flagHide === '1' || td.dataset?.flagHide === 'true' ||
-      td.dataset?.flagHidden === 'true' || td.dataset?.flagDisabled === 'true' ||
-      (!dot && !rawText && hasExplicitStatus && !cellStatus);
-
-    if (hideFlag){
-      return { text: '', color:null, status: cellStatus };
-    }
-
-    if (!dot){
-      return { text: rawText || '▶', color:null };
-    }
-
-    const status = dot.dataset?.flagStatus || cellStatus || '';
-    const emoji = dot.dataset?.flagEmoji || rawText || '';
-    const hasColor = dot.dataset?.hasColor === 'true';
-
-    let color = null;
-    if (hasColor){
-      const cssColor = dot.style?.getPropertyValue?.('--flag-color') || '';
-      color = parseHexColor(cssColor) || parseHexColor(dot.dataset?.flagColor) || parseHexColor(td.dataset?.flagColor) || null;
-    }
-    if (!color && status && FLAG_RGB[status]){
-      color = FLAG_RGB[status];
-    }
-
-    if (!color){
-      return { text: emoji || rawText || '▶', color:null };
-    }
-
-    return { text: '', color, status, emoji };
+  function jsPdfPresent() {
+    return !!(window.jspdf && window.jspdf.jsPDF) || !!window.jsPDF;
   }
 
-  function drawFlagSquare(doc, cell, color){
-    if (!Array.isArray(color) || color.length !== 3) return;
-    const [r,g,b] = color.map(n=>Math.max(0, Math.min(255, Number(n) || 0)));
-    const { x, y, height, width } = cell;
-    const size = Math.min(width, height) * 0.45;
-    const sx = x + (width - size) / 2;
-    const sy = y + (height - size) / 2;
-    doc.setFillColor(r,g,b);
-    doc.setLineWidth(0);
-    doc.rect(sx, sy, size, size, 'F');
+  function autoTablePresent(jsPDF) {
+    const api =
+      (jsPDF && jsPDF.API && (jsPDF.API.autoTable || jsPDF.API.__autoTable__)) ||
+      (window.jsPDF && window.jsPDF.API && (window.jsPDF.API.autoTable || window.jsPDF.API.__autoTable__)) ||
+      (window.jspdf && window.jspdf.autoTable);
+    return !!api;
   }
 
-  // Draw outlined text (stroke + fill) for title/subtitle
-  function drawOutlined(doc, text, x, y, opts={}, strokeWidth=0.6){
-    const { fontSize=32, align='center' } = opts;
+  async function ensureJsPDF() {
+    if (jsPdfPresent()) {
+      return window.jspdf?.jsPDF || window.jsPDF;
+    }
+
+    const attempts = [...CFG.local.jspdf, ...CFG.cdn.jspdf];
+    for (const src of attempts) {
+      try {
+        await injectScriptOnce(src, 'jspdf');
+        if (jsPdfPresent()) break;
+      } catch (err) {
+        console.warn('[compat-pdf] jsPDF load failed for', src, err);
+      }
+    }
+
+    if (!jsPdfPresent()) {
+      throw new Error('jsPDF not available after local/CDN attempts');
+    }
+
+    return window.jspdf?.jsPDF || window.jsPDF;
+  }
+
+  async function ensureAutoTable(jsPDF) {
+    if (autoTablePresent(jsPDF)) return true;
+
+    const attempts = [...CFG.local.autotable, ...CFG.cdn.autotable];
+    for (const src of attempts) {
+      try {
+        await injectScriptOnce(src, 'jspdf-autotable');
+        if (autoTablePresent(jsPDF)) return true;
+      } catch (err) {
+        console.warn('[compat-pdf] autoTable load failed for', src, err);
+      }
+    }
+
+    return autoTablePresent(jsPDF);
+  }
+
+  function ensurePdfLibsReady() {
+    if (!libsReadyPromise) {
+      libsReadyPromise = (async () => {
+        const jsPDF = await ensureJsPDF();
+        const hasAutoTable = await ensureAutoTable(jsPDF).catch(() => false);
+
+        try {
+          const doc = new jsPDF({ unit: 'pt' });
+          if (!doc) throw new Error('constructor returned undefined');
+        } catch (err) {
+          throw new Error(`jsPDF constructor test failed: ${err?.message || err}`);
+        }
+
+        libsReady = true;
+        enablingErrored = false;
+        setButtonState();
+
+        return { jsPDF, hasAutoTable };
+      })().catch(err => {
+        libsReady = false;
+        enablingErrored = true;
+        libsReadyPromise = null;
+        setButtonState();
+        throw err;
+      });
+    }
+
+    return libsReadyPromise;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  TEXT / VALUE HELPERS                                              */
+  /* ------------------------------------------------------------------ */
+
+  const TK_ACCENT = [0, 214, 199];
+
+  function centerText(doc, text, y, fontSize = 12, font = ['helvetica', 'bold']) {
+    const [fam, style] = font;
+    doc.setFont(fam, style);
     doc.setFontSize(fontSize);
-    doc.setTextColor(57,230,223);   // cyan
-    // Stroke pass
-    doc.setDrawColor(0,0,0);
-    doc.setLineWidth(strokeWidth);
-    doc.text(text, x, y, {align, renderingMode:'stroke'});
-    // Fill pass
-    doc.text(text, x, y, {align, renderingMode:'fill'});
+    const pageW = doc.internal.pageSize.getWidth();
+    const tw = doc.getTextWidth(text);
+    doc.text(text, (pageW - tw) / 2, y);
   }
 
-  async function buildPdf(){
-    // Ensure jsPDF + AutoTable are present (local loader recommended)
-    if (!window.jspdf?.jsPDF?.API?.autoTable) { throw new Error('jsPDF/AutoTable missing'); }
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit:'pt', format:'letter' });
-    // page bg
-    doc.setFillColor(...BG); doc.rect(0,0,doc.internal.pageSize.getWidth(),doc.internal.pageSize.getHeight(),'F');
+  function truncateToWidth(doc, text, width) {
+    if (!text) return '';
+    const s = String(text);
+    if (doc.getTextWidth(s) <= width) return s;
+    const ell = '…';
+    let out = s;
+    while (out.length && doc.getTextWidth(out + ell) > width) out = out.slice(0, -1);
+    return out + ell;
+  }
 
+  function safeString(val) {
+    if (val == null) return '';
+    const str = String(val).trim();
+    return (str === 'null' || str === 'undefined') ? '' : str;
+  }
+
+  function coerceScore(val) {
+    if (val == null || (typeof val === 'string' && !val.trim())) return null;
+    if (typeof val === 'number' && Number.isFinite(val)) return val;
+    const parsed = Number(String(val).replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function clampPercent(value) {
+    if (!Number.isFinite(value)) return null;
+    return Math.max(0, Math.min(100, value));
+  }
+
+  function computeMatchPercent(rawMatch, aScore, bScore) {
+    const direct = clampPercent(coerceScore(rawMatch));
+    if (direct != null) return Math.round(direct);
+    if (Number.isFinite(aScore) && Number.isFinite(bScore)) {
+      const pct = 100 - (Math.abs(aScore - bScore) / 5) * 100;
+      return Math.round(Math.max(0, Math.min(100, pct)));
+    }
+    return null;
+  }
+
+  /** Normalize one row coming from compatRows / localStorage */
+  function normalizeCompatRow(row) {
+    let item;
+    let aRaw;
+    let bRaw;
+    let matchRaw;
+
+    if (Array.isArray(row)) {
+      [item, aRaw, matchRaw, , bRaw] = row;
+    } else if (row && typeof row === 'object') {
+      // IMPORTANT: Prefer human label over internal code
+      item = row.label ?? row.item ?? row.category ?? '';
+      aRaw = row.a ?? row.partnerA ?? row.aScore ?? row.scoreA;
+      bRaw = row.b ?? row.partnerB ?? row.bScore ?? row.scoreB;
+      matchRaw =
+        row.matchPercent ??
+        row.matchPct ??
+        row.match ??
+        row.matchText ??
+        row.matchValue ??
+        '';
+    }
+
+    const aScore = coerceScore(aRaw);
+    const bScore = coerceScore(bRaw);
+    const matchPercent = computeMatchPercent(matchRaw, aScore, bScore);
+    const matchDisplay = matchPercent != null ? `${matchPercent}%` : safeString(matchRaw);
+
+    const itemText = safeString(item);
+
+    return {
+      item: itemText,
+      a: aScore != null ? String(aScore) : safeString(aRaw),
+      match: matchDisplay,
+      b: bScore != null ? String(bScore) : safeString(bRaw),
+      matchPercent,
+      aScore,
+      bScore,
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  HEADER + TABLE RENDER                                             */
+  /* ------------------------------------------------------------------ */
+
+  function tk_drawHeader(doc, title, generatedAt, accent = TK_ACCENT) {
     const pageW = doc.internal.pageSize.getWidth();
-    const centerX = pageW/2;
-    const ts = new Date().toLocaleString();
-    drawOutlined(doc, 'TalkKink Compatibility', centerX, 86, {fontSize:44});
-    drawOutlined(doc, `Generated: ${ts}`, centerX, 112, {fontSize:16});
-    drawOutlined(doc, 'Behavioral Play', centerX, 156, {fontSize:34});
 
-    // Extract table rows from the live table to keep order identical
-    const table = document.querySelector('table.compat');
-    if (!table) throw new Error('No table.compat found');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(36);
+    const tW = doc.getTextWidth(title);
+    doc.text(title, (pageW - tW) / 2, 80);
 
-    const rows = [...table.tBodies[0].rows].map(tr=>{
-      const tds = [...tr.cells];
-      const flagMeta = extractFlagMeta(tds[3]);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    const sub = `Generated: ${generatedAt}`;
+    const sW = doc.getTextWidth(sub);
+    doc.text(sub, (pageW - sW) / 2, 104);
+
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(2.5);
+    const pad = 84;
+    doc.line(pad, 118, pageW - pad, 118);
+
+    return 118 + 36; // return baseline for section title
+  }
+
+  function tk_renderSectionTable(doc, sectionTitle, rows, startY) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    const pageW = doc.internal.pageSize.getWidth();
+    const titleW = doc.getTextWidth(sectionTitle);
+    doc.text(sectionTitle, (pageW - titleW) / 2, startY);
+
+    const body = rows.map((row) => {
+      const aNum = Number(row.aScore ?? row.a);
+      const bNum = Number(row.bScore ?? row.b);
+      const matchNum = Number(row.matchPercent);
+      const aVal = Number.isFinite(aNum) ? String(aNum) : safeString(row.a);
+      const bVal = Number.isFinite(bNum) ? String(bNum) : safeString(row.b);
+      const matchVal = Number.isFinite(matchNum)
+        ? `${Math.round(matchNum)}%`
+        : safeString(row.match);
       return {
-        item: (tds[0]?.textContent || '').trim(),
-        partnerA: (tds[1]?.textContent || '').trim(),
-        match: (tds[2]?.textContent || '').trim(),
-        flag: flagMeta.text,
-        partnerB: (tds[4]?.textContent || '').trim(),
-        __flagColor: flagMeta.color
+        item: safeString(row.item),
+        a: aVal,
+        match: matchVal,
+        b: bVal,
       };
     });
 
+    const columns = [
+      { header: 'Item', dataKey: 'item' },
+      { header: 'Partner A', dataKey: 'a' },
+      { header: 'Match', dataKey: 'match' },
+      { header: 'Partner B', dataKey: 'b' },
+    ];
+
     doc.autoTable({
-      startY: 180,
-      columns: [
-        { header: 'Item', dataKey: 'item' },
-        { header: 'Partner A', dataKey: 'partnerA' },
-        { header: 'Match', dataKey: 'match' },
-        { header: 'Flag', dataKey: 'flag' },
-        { header: 'Partner B', dataKey: 'partnerB' },
-      ],
-      body: rows,
-      margin: MARG,
+      columns,
+      body,
+      startY: startY + 24,
+      margin: { left: 70, right: 70 },
       styles: {
+        font: 'helvetica',
         fontSize: 12,
-        textColor: [230,230,235],
-        fillColor: [17,18,20],
-        lineColor: [34,52,66],
-        lineWidth: 0.5,
-        cellPadding: {top:6, right:8, bottom:6, left:8},
-        overflow: 'linebreak',
-        rowPageBreak: 'avoid'
+        halign: 'left',
+        valign: 'middle',
+        minCellHeight: 20,
+        cellPadding: { top: 5, bottom: 5, left: 6, right: 6 },
+        textColor: [230, 230, 230],
+        fillColor: [25, 25, 28],
+        lineColor: [40, 40, 45],
+        lineWidth: 1.2,
+        overflow: 'linebreak', // <= modern style-based overflow
       },
       headStyles: {
-        fillColor: [12,12,14],
-        textColor: [57,230,223],
         fontStyle: 'bold',
+        textColor: [0, 255, 245],
+        fillColor: [28, 28, 32],
+        lineColor: [40, 40, 45],
+        lineWidth: 1.4,
         halign: 'center',
-        valign: 'middle'
       },
       columnStyles: {
-        item: { cellWidth: `${COLW.item}%`, halign:'left'   },
-        partnerA: { cellWidth: `${COLW.partnerA}%`, halign:'center' },
-        match: { cellWidth: `${COLW.match}%`, halign:'center' },
-        flag: { cellWidth: `${COLW.flag}%`, halign:'center' },
-        partnerB: { cellWidth: `${COLW.partnerB}%`, halign:'center' }
+        item: { cellWidth: 320, halign: 'left' },
+        a: { cellWidth: 80, halign: 'center' },
+        match: { cellWidth: 80, halign: 'center' },
+        b: { cellWidth: 80, halign: 'center' },
       },
-      didParseCell: (d)=>{
-        // Force a single-line header, allow body to wrap
-        if (d.section === 'head') d.cell.styles.minCellHeight = 20;
-        if (d.section === 'body' && d.column.dataKey === 'flag' && Array.isArray(d.row.raw?.__flagColor)) {
-          d.cell.text = [];
-        }
-      },
-      didDrawCell: (d)=>{
-        if (d.section === 'body' && d.column.dataKey === 'flag') {
-          const color = d.row.raw?.__flagColor;
-          if (Array.isArray(color)) drawFlagSquare(doc, d.cell, color);
-        }
-      }
+      theme: 'grid',
     });
-
-    doc.save('talkkink-compatibility.pdf');
   }
 
-  // Bind once
-  btn.addEventListener('click', (e)=>{
-    e.preventDefault();
-    Promise.resolve().then(buildPdf).catch(err=>alert(err?.message||err));
-  }, { once:false }); // once=false because of our global __TKPDF_BOUND__ guard
+  function renderWithAutoTable(doc, rows) {
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(18, 19, 20);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    doc.setTextColor(255, 255, 255);
+
+    const normalizedRows = rows
+      .map(normalizeCompatRow)
+      // drop empty rows
+      .filter((r) => r.item || r.a || r.b || r.match)
+      // drop obvious placeholder labels like "General: 1"
+      .filter((r) => !/^General:\s*\d+$/i.test(r.item));
+
+    const headerY = tk_drawHeader(
+      doc,
+      'Talk Kink Compatibility Survey',
+      new Date().toLocaleString(),
+      TK_ACCENT,
+    );
+
+    // Single-section view. If you later add per-category grouping,
+    // you can split normalizedRows and call tk_renderSectionTable multiple times.
+    tk_renderSectionTable(doc, 'Behavioral Play', normalizedRows, headerY);
+  }
+
+  function renderFallback(doc, rows) {
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const marginL = 40;
+    const startY = 140;
+
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    doc.setTextColor(255, 255, 255);
+
+    centerText(doc, 'Talk Kink Compatibility Survey', 70, 32, ['helvetica', 'bold']);
+    centerText(doc, 'Behavioral Play', 110, 18, ['helvetica', 'bold']);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    let x = marginL;
+    const headers = ['Item', 'Partner A', 'Match', 'Partner B'];
+    CFG.columns.slice(0, 4).forEach((c, idx) => {
+      doc.text(headers[idx], x, startY);
+      x += c.w;
+    });
+
+    doc.setFont('helvetica', 'normal');
+    let y = startY + 18;
+    rows.forEach((r) => {
+      const item = safeString(r.label ?? r.item ?? '');
+      if (!item || /^General:\s*\d+$/i.test(item)) return;
+
+      x = marginL;
+      const values = [
+        item,
+        String(r.a ?? r.partnerA ?? ''),
+        String(r.match ?? r.matchPct ?? r.matchText ?? ''),
+        String(r.b ?? r.partnerB ?? ''),
+      ];
+      values.forEach((val, i) => {
+        const txt = truncateToWidth(doc, val, CFG.columns[i].w - 6);
+        doc.text(txt, x, y);
+        x += CFG.columns[i].w;
+      });
+      y += 16;
+    });
+
+    const tableW = CFG.columns.slice(0, 4).reduce((sum, c) => sum + c.w, 0);
+    const tableH = Math.max(60, (rows.length + 2) * 16);
+    doc.setDrawColor(160, 160, 160);
+    doc.setLineWidth(0.75);
+    doc.rect(marginL - 6, startY - 26, tableW + 12, tableH, 'S');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  DATA SOURCE HELPERS                                               */
+  /* ------------------------------------------------------------------ */
+
+  function getBtn() {
+    return document.querySelector(CFG.selectors.downloadBtn);
+  }
+
+  function computeRowsArray() {
+    if (Array.isArray(cachedRows) && cachedRows.length) return cachedRows;
+
+    // 1) live on window
+    const winRows = Array.isArray(window.talkkinkCompatRows)
+      ? window.talkkinkCompatRows
+      : [];
+    if (winRows.length) return winRows;
+
+    // 2) localStorage backup
+    try {
+      const raw = localStorage.getItem('talkkink:compatRows');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      console.warn('[compat-pdf] Failed to read cached compatibility rows', err);
+      return [];
+    }
+  }
+
+  function setCachedRows(rows) {
+    cachedRows = Array.isArray(rows) ? rows.slice() : [];
+    rowsReady = computeRowsArray().length > 0;
+  }
+
+  function setButtonState() {
+    const btn = getBtn();
+    if (!btn) return;
+
+    rowsReady = computeRowsArray().length > 0;
+    const canEnable = !CFG.pdfKillSwitch && libsReady && rowsReady && !enablingErrored;
+    btn.disabled = !canEnable;
+
+    if (!canEnable) {
+      const reasons = [];
+      if (CFG.pdfKillSwitch) reasons.push('Kill switch active');
+      if (enablingErrored) reasons.push('PDF libraries failed to load');
+      if (!libsReady && !enablingErrored) reasons.push('PDF libs not ready');
+      if (!rowsReady) reasons.push('Upload both surveys to compare');
+      btn.title = 'PDF unavailable: ' + (reasons.join(' · ') || 'unknown');
+    } else {
+      btn.title = 'Download your compatibility PDF';
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  MAIN GENERATOR                                                    */
+  /* ------------------------------------------------------------------ */
+
+  async function generateCompatibilityPDF(rows) {
+    const data = Array.isArray(rows) ? rows : [];
+    const payload = data.length ? data : computeRowsArray();
+    if (!payload.length) {
+      throw new Error('No compatibility rows available');
+    }
+
+    const { jsPDF, hasAutoTable } = await ensurePdfLibsReady();
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+
+    if (hasAutoTable && typeof doc.autoTable === 'function') {
+      renderWithAutoTable(doc, payload);
+    } else {
+      renderFallback(doc, payload);
+    }
+
+    doc.save('compatibility-pretty-dark.pdf');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  WIRING                                                            */
+  /* ------------------------------------------------------------------ */
+
+  function wireClick() {
+    const btn = getBtn();
+    if (!btn) return;
+
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+
+      const rows = computeRowsArray();
+      if (!rows.length) {
+        alert('Upload both partner surveys first, then wait for the green messages below the buttons before downloading.');
+        return;
+      }
+
+      try {
+        await generateCompatibilityPDF(rows);
+      } catch (err) {
+        console.error('[compat-pdf] generation failed', err);
+        enablingErrored = true;
+        setButtonState();
+        alert('PDF could not be generated. See console for details.');
+      }
+    });
+  }
+
+  function init() {
+    const btn = getBtn();
+    if (btn) btn.disabled = true;
+
+    // in case upload glue already populated:
+    if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+      setCachedRows(window.talkkinkCompatRows.slice());
+    }
+
+    wireClick();
+    setButtonState();
+
+    ensurePdfLibsReady().catch(err => {
+      console.error('[compat-pdf] libs failed to load', err);
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  PUBLIC API                                                        */
+  /* ------------------------------------------------------------------ */
+
+  window.TKCompatPDF = {
+    notifyRowsUpdated(rows) {
+      setCachedRows(Array.isArray(rows) ? rows : []);
+      setButtonState();
+    },
+    download(rows) {
+      if (Array.isArray(rows) && rows.length) {
+        setCachedRows(rows);
+      }
+      return generateCompatibilityPDF(rows);
+    },
+    generateFromStorage() {
+      const rows = computeRowsArray();
+      if (!rows.length) {
+        alert('Upload both partner surveys first, then wait for the green messages below the buttons before downloading.');
+        return;
+      }
+      return generateCompatibilityPDF(rows);
+    },
+    ensureLibs: ensurePdfLibsReady,
+    _forceEnable() {
+      libsReady = true;
+      rowsReady = true;
+      enablingErrored = false;
+      CFG.pdfKillSwitch = false;
+      setButtonState();
+    },
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();
