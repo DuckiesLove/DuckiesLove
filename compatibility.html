@@ -1086,74 +1086,23 @@
 
   <script>
     /* ========================================================================
-     * TalkKink Compatibility — SINGLE PDF OVERRIDE
+     * TalkKink Compatibility — SINGLE PDF OVERRIDE (JS rows only)
      * - Uses TKCompatPDF.download() only
-     * - Reads rows from the visible comparison table (so “surveys load” correctly)
-     * - Falls back to window.talkkinkCompatRows or localStorage if needed
-     * - No Flag column in the PDF
+     * - Reads rows from window.talkkinkCompatRows / localStorage
+     * - No Flag column in the PDF (handled inside assets/js/compatPdf.js)
      * ===================================================================== */
     (function () {
       const BTN_SELECTOR = '#downloadPdfBtn, #downloadBtn, [data-download-pdf]';
 
-      function findCompatTable() {
-        const direct =
-          document.querySelector('#comparisonTable') ||
-          document.querySelector('#compatibilityTable') ||
-          document.querySelector('table[data-compat-table]') ||
-          document.querySelector('table.compat-table');
-
-        if (direct) return direct;
-
-        const tables = Array.from(document.querySelectorAll('table'));
-        for (const t of tables) {
-          const firstRow = t.querySelector('thead tr') || t.querySelector('tr');
-          if (!firstRow) continue;
-          const headers = Array.from(firstRow.querySelectorAll('th,td')).map((c) =>
-            (c.textContent || '').trim().toLowerCase()
-          );
-          if (
-            headers.some((h) => h === 'item') &&
-            headers.some((h) => h.includes('partner a'))
-          ) {
-            return t;
-          }
-        }
-        return null;
-      }
-
-      function scrapeRowsFromTable() {
-        const table = findCompatTable();
-        if (!table) return [];
-
-        const bodyRows =
-          table.querySelectorAll('tbody tr').length
-            ? table.querySelectorAll('tbody tr')
-            : table.querySelectorAll('tr:not(:first-child)');
-
-        const rows = [];
-        bodyRows.forEach((tr) => {
-          const cells = Array.from(tr.querySelectorAll('td'));
-          if (cells.length < 3) return;
-
-          const item = (cells[0].textContent || '').trim();
-          const a = (cells[1].textContent || '').trim();
-          const match = (cells[2].textContent || '').trim();
-
-          const bIndex = cells.length >= 4 ? cells.length - 1 : 2;
-          const b = (cells[bIndex].textContent || '').trim();
-
-          if (item || a || b || match) {
-            rows.push({ item, a, match, b });
-          }
-        });
-
-        return rows;
-      }
-
       function readRowsFromJS() {
         if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
-          return window.talkkinkCompatRows;
+          return window.talkkinkCompatRows.slice();
         }
+
+        if (Array.isArray(window.tkCompatRows) && window.tkCompatRows.length) {
+          return window.tkCompatRows.slice();
+        }
+
         return [];
       }
 
@@ -1173,9 +1122,6 @@
       }
 
       function getCompatRows() {
-        const tableRows = scrapeRowsFromTable();
-        if (tableRows.length) return tableRows;
-
         const jsRows = readRowsFromJS();
         if (jsRows.length) return jsRows;
 
@@ -1184,8 +1130,6 @@
 
       async function handleDownload(e) {
         if (e) {
-          if (e.__tkCompatHandled) return;
-          e.__tkCompatHandled = true;
           e.preventDefault();
           e.stopPropagation();
           if (e.stopImmediatePropagation) e.stopImmediatePropagation();
@@ -1193,7 +1137,7 @@
 
         const rows = getCompatRows();
         if (!rows.length) {
-          alert('Upload both partner surveys and wait for the comparison table to appear before downloading.');
+          alert('Upload both partner surveys first (and wait for the console to say both are loaded) before downloading.');
           return;
         }
 
@@ -1240,7 +1184,7 @@
           return handleDownload(new Event('click'));
         };
 
-        console.info('[compat-override] Download button now uses TKCompatPDF only (no Flag column).');
+        console.info('[compat-override] Download button now uses TKCompatPDF only (JS rows; no Flag column).');
       }
 
       if (document.readyState === 'loading') {
