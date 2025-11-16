@@ -673,6 +673,16 @@ const tLabel = v=>{
 };
 
 /* --------------------- TABLE: labels + % bars + sort ------------------ */
+function tkParsePercent(raw){
+  const text = (raw == null ? '' : String(raw)).trim();
+  if (!text) return null;
+  const match = text.match(/(-?\d+(?:\.\d+)?)\s*%?/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function tkEnhanceTable(){
   const table = document.querySelector('#compatTable') || document.querySelector('table');
   if (!table) return;
@@ -692,13 +702,15 @@ function tkEnhanceTable(){
   (table.querySelectorAll('tbody tr')||[]).forEach(tr=>{
     const cell = tr.cells?.[idx]; if (!cell) return;
     const raw = (cell.textContent||'').trim();
-    const m = raw.match(/^(\d+)%$/);
-    if (!m){ cell.textContent='—'; return; }
-    const p = Math.max(0, Math.min(100, parseInt(m[1],10)));
+    const pct = tkParsePercent(raw);
+    if (pct == null){
+      cell.textContent = raw || '—';
+      return;
+    }
     cell.textContent='';
     const bar=document.createElement('div'); bar.className='tk-bar';
-    const fill=document.createElement('i'); fill.style.width=p+'%';
-    const cap=document.createElement('span'); cap.textContent=p+'%';
+    const fill=document.createElement('i'); fill.style.width=pct+'%';
+    const cap=document.createElement('span'); cap.textContent= raw || (pct+'%');
     bar.append(fill,cap); cell.appendChild(bar);
   });
 
