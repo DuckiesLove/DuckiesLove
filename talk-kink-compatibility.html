@@ -59,10 +59,9 @@
     width:100%; border-collapse:separate; border-spacing:0;
     background:transparent; table-layout:fixed;
   }
-  .compat col.label   { width:53%; }
+  .compat col.label   { width:56%; }
   .compat col.a       { width:12%; }
-  .compat col.match   { width:16%; }
-  .compat col.flag    { width:7%; }    /* give "Flag" breathing room */
+  .compat col.match   { width:20%; }
   .compat col.b       { width:12%; }
 
   .compat thead th{
@@ -84,63 +83,8 @@
   }
   .compat tbody tr:nth-child(2n) td{ background:var(--row-alt); }
   .compat tbody td.label{ color:var(--ink); }
-  .compat tbody td.num, .compat tbody td.match, .compat tbody td.flag{
+  .compat tbody td.num, .compat tbody td.match{
     text-align:center; white-space:nowrap;
-  }
-  .compat tbody td.flag{
-    text-align:center; letter-spacing:.5px; color:var(--ink-dim);
-  }
-
-  .compat tbody td.flag{
-    position:relative;
-  }
-
-  .flag-dot{
-    --flag-square-size:18px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    width:26px;
-    height:26px;
-    border-radius:8px;
-    position:relative;
-    color:var(--ink);
-    font-size:14px;
-    line-height:1;
-  }
-
-  .flag-dot::after{
-    content:"";
-    display:block;
-    width:var(--flag-square-size);
-    height:var(--flag-square-size);
-    border-radius:6px;
-    background:var(--flag-color, rgba(255,255,255,0.12));
-    box-shadow:
-      0 0 0 1px rgba(0,231,255,.35),
-      0 0 16px rgba(0,231,255,.18);
-    transition:transform .15s ease, box-shadow .2s ease;
-  }
-
-  .flag-dot[data-has-color="true"]{
-    color:transparent;
-    text-shadow:none;
-  }
-
-  .flag-dot[data-flag-status="green"]{ --flag-color:#18d69a; }
-  .flag-dot[data-flag-status="yellow"]{ --flag-color:#ffcc00; }
-  .flag-dot[data-flag-status="red"]{ --flag-color:#ff4242; }
-
-  .flag-dot:hover::after{
-    transform:scale(1.05);
-    box-shadow:
-      0 0 0 1px rgba(0,231,255,.6),
-      0 0 22px rgba(0,231,255,.25);
-  }
-
-  .flag-dot:focus-visible{
-    outline:2px solid var(--accent);
-    outline-offset:2px;
   }
 
   .sr-only{
@@ -171,7 +115,6 @@
     .compat thead th, .compat tbody td{ font-size:18px; }
     .compat col.label{ width:51%; }
     .compat col.match{ width:17%; }
-    .compat col.flag { width:8%; }
   }
 </style>
 </head>
@@ -189,7 +132,6 @@
         <col class="label"><!-- Item -->
         <col class="a">    <!-- Partner A -->
         <col class="match"><!-- Match -->
-        <col class="flag"><!-- Flag -->
         <col class="b">    <!-- Partner B -->
       </colgroup>
       <thead>
@@ -197,7 +139,6 @@
           <th>Item</th>
           <th>Partner A</th>
           <th>Match</th>
-          <th>Flag</th>
           <th>Partner B</th>
         </tr>
       </thead>
@@ -490,7 +431,7 @@ function tkNormalizeCompatRow(entry) {
 function tkBuildCompatRow(row) {
   const normalized = tkNormalizeCompatRow(row);
   if (!normalized) {
-    return ["", "", "0%", "", ""];
+    return ["", "", "0%", ""];
   }
 
   const matchPct = Number.isFinite(normalized.matchPct)
@@ -504,14 +445,6 @@ function tkBuildCompatRow(row) {
   const bScore = Number.isFinite(normalized.bScore)
     ? normalized.bScore
     : tkParseScore(normalized.bDisplay);
-
-  const flagInfo = tkResolveFlagInfo({
-    ...normalized,
-    matchPct,
-    aScore,
-    bScore,
-  });
-  const flag = flagInfo.emoji;
 
   const label = normalized.labelShort || normalized.label || "";
   const matchText = normalized.matchDisplay ||
@@ -528,7 +461,6 @@ function tkBuildCompatRow(row) {
     toCell(label),
     toCell(partnerA),
     toCell(matchText || (Number.isFinite(matchPct) ? tkFormatPercent(matchPct) : "0%")),
-    toCell(flag),
     toCell(partnerB)
   ];
 }
@@ -540,7 +472,6 @@ if (typeof window !== 'undefined') {
   window.tkGetFlagSquare = tkGetFlagSquare;
   window.tkResolveFlagInfo = tkResolveFlagInfo;
   window.tkBuildCompatRow = tkBuildCompatRow;
-  window.tkRenderFlagCell = tkRenderFlagCell;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -602,28 +533,6 @@ if (typeof window !== 'undefined') {
 
   /* Render into DOM (single-run; we clear body first to avoid doubles) */
   const TBODY = document.getElementById('compatBody');
-  const FLAG_LABEL_FALLBACK = {
-    green: 'High match',
-    yellow: 'Needs discussion',
-    red: 'Conflict',
-  };
-
-  function tkDescribeFlag(info) {
-    if (!info || !info.status) return 'No flag';
-    const base = FLAG_META[info.status]?.label || FLAG_LABEL_FALLBACK[info.status] || 'Flagged item';
-    if (Number.isFinite(info.matchPct)) {
-      return `${base} (${tkFormatPercent(info.matchPct)})`;
-    }
-    return base;
-  }
-
-  function tkRenderFlagCell(td, info) {
-    td.textContent = '';
-    td.dataset.flagStatus = '';
-    td.removeAttribute('title');
-    // Intentionally leave the column blank (no flag indicators).
-  }
-
   function renderTable(rows){
     TBODY.replaceChildren();
     const toText = (value) => (value === undefined || value === null ? '' : String(value));
@@ -631,24 +540,18 @@ if (typeof window !== 'undefined') {
     for (const row of rows){
       if (!row) continue;
       const tr = document.createElement('tr');
-      const flagInfo = tkResolveFlagInfo(row);
       const matchText = row.matchDisplay || tkFormatMatchDisplay(row.matchRaw, row.matchPct);
       const cells = [
         ['label', row.label],
         ['num',   row.aDisplay ?? (Number.isFinite(row.aScore) ? String(row.aScore) : '')],
         ['match', matchText],
-        ['flag',  flagInfo],
         ['num',   row.bDisplay ?? (Number.isFinite(row.bScore) ? String(row.bScore) : '')],
       ];
 
       for (const [cls, value] of cells){
         const td = document.createElement('td');
         td.className = cls;
-        if (cls === 'flag') {
-          tkRenderFlagCell(td, value);
-        } else {
-          td.textContent = toText(value);
-        }
+        td.textContent = toText(value);
         tr.appendChild(td);
       }
 
@@ -772,7 +675,7 @@ async function TKPDF_exportCompatibilitySingle() {
     const body = compatRows.map(tkBuildCompatRow);
 
     doc.autoTable({
-      head: [["Item", "Partner A", "Match", "Flag", "Partner B"]],
+      head: [["Item", "Partner A", "Match", "Partner B"]],
       body,
       startY: 110,
       styles: {
@@ -787,11 +690,10 @@ async function TKPDF_exportCompatibilitySingle() {
         halign: 'center'
       },
       columnStyles: {
-        0: { cellWidth: 260 },
-        1: { cellWidth: 70, halign: 'center' },
-        2: { cellWidth: 70, halign: 'center' },
-        3: { cellWidth: 50, halign: 'center' },
-        4: { cellWidth: 70, halign: 'center' }
+        0: { cellWidth: 300 },
+        1: { cellWidth: 80, halign: 'center' },
+        2: { cellWidth: 80, halign: 'center' },
+        3: { cellWidth: 80, halign: 'center' }
       },
       theme: 'grid',
       didDrawPage: function () {
@@ -895,9 +797,6 @@ if (document.readyState === 'loading') {
     tbl.style.width = '100%';
     tbl.style.tableLayout = 'fixed';
 
-    const flagCol = tbl.querySelector('col.flag');
-    if (flagCol) flagCol.style.width = '6%';
-
     const headCells = tbl.querySelectorAll('thead th');
     headCells.forEach((th, idx) => {
       th.style.textAlign = idx === 0 ? 'left' : 'center';
@@ -914,35 +813,12 @@ if (document.readyState === 'loading') {
 
       const decodedCells = Array.from(cells, cell => decodeEntities(cell.textContent.trim()));
       const aScore = tkParseScore(decodedCells[1]);
-      const bScore = tkParseScore(decodedCells[4]);
+      const bScore = tkParseScore(decodedCells[3]);
       const matchPct = tkParseMatchPercent(decodedCells[2]);
-      const flagCell = cells[3];
-      const rawFlagText = decodedCells[3];
-      const rowData = {
-        aScore,
-        bScore,
-        matchPct,
-        flagRaw: rawFlagText,
-        flagStatus: flagCell?.dataset?.flagStatus || rawFlagText,
-        hasData: Number.isFinite(aScore) || Number.isFinite(bScore),
-      };
-      const flagInfo = tkResolveFlagInfo(rowData);
 
       cells.forEach((cell, idx) => {
         const decoded = decodedCells[idx] ?? '';
-        if (idx === 3){
-          cell.classList.add('flag');
-          if (typeof window.tkRenderFlagCell === 'function') {
-            window.tkRenderFlagCell(cell, flagInfo);
-          } else {
-            const fallback = (flagInfo && flagInfo.emoji) || decoded.replace(/&+/g, '').trim();
-            cell.textContent = fallback;
-            cell.style.textAlign = 'center';
-            cell.style.letterSpacing = '.5px';
-          }
-        }else{
-          cell.textContent = decoded;
-        }
+        cell.textContent = decoded;
         cell.style.background = '';
       });
     });
