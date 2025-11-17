@@ -1,7 +1,7 @@
 /**
  * TalkKink Compatibility PDF (Dark, Web-Only)
- * - Single layout: Item | Partner A | Match | Partner B
- * - Match column shows percentage + emoji (⭐ / 🚩)
+ * - Single layout: Item | Partner A | Match | Flag | Partner B
+ * - Match column shows percentage, flag column shows ⭐ / 🚩
  * - ⭐ for 85–100%, 🚩 for 0–30%, nothing between
  * - Category headers between sections
  * - Footer summary with averages + counts
@@ -209,7 +209,7 @@
   }
 
   // ⭐ for 85–100%, 🚩 for 0–30%, nothing in between
-  function getMatchEmoji(aScore, bScore, matchPercent) {
+  function tkFlagStatus(aScore, bScore, matchPercent) {
     if (!Number.isFinite(matchPercent)) return "";
 
     if (matchPercent >= 85) return "⭐";
@@ -271,9 +271,9 @@
       if (!Number.isFinite(r.matchPercent)) return;
       answered += 1;
       sum += r.matchPercent;
-      const emoji = getMatchEmoji(r.aScore, r.bScore, r.matchPercent);
-      if (emoji === "⭐") stars += 1;
-      else if (emoji === "🚩") reds += 1;
+      const flag = tkFlagStatus(r.aScore, r.bScore, r.matchPercent);
+      if (flag === "⭐") stars += 1;
+      else if (flag === "🚩") reds += 1;
     });
 
     const avg = answered ? Math.round(sum / answered) : null;
@@ -300,21 +300,21 @@
           item: sec,
           a: "",
           match: "",
+          flag: "",
           b: "",
           _isGroupHeader: true,
         });
       }
 
-      const emoji = getMatchEmoji(r.aScore, r.bScore, r.matchPercent);
+      const flag = tkFlagStatus(r.aScore, r.bScore, r.matchPercent);
       const matchText =
-        r.matchPercent != null
-          ? `${r.matchPercent}%${emoji ? " " + emoji : ""}`
-          : safeString(r.matchText);
+        r.matchPercent != null ? `${r.matchPercent}%` : safeString(r.matchText);
 
       rows.push({
         item: r.item,
         a: r.aText,
         match: matchText,
+        flag,
         b: r.bText,
         _isGroupHeader: false,
         _source: r,
@@ -450,6 +450,7 @@
       { header: "Item", dataKey: "item" },
       { header: "Partner A", dataKey: "a" },
       { header: "Match", dataKey: "match" },
+      { header: "", dataKey: "flag" },
       { header: "Partner B", dataKey: "b" },
     ];
 
@@ -483,9 +484,10 @@
         fillColor: ALT_ROW_BG,
       },
       columnStyles: {
-        item: { cellWidth: 320, halign: "left" },
+        item: { cellWidth: 300, halign: "left" },
         a: { cellWidth: 70, halign: "center" },
         match: { cellWidth: 90, halign: "center" },
+        flag: { cellWidth: 40, halign: "center" },
         b: { cellWidth: 70, halign: "center" },
       },
       didParseCell: function (data) {
@@ -498,7 +500,7 @@
           data.cell.styles.halign = "left";
 
           if (data.column.dataKey === "item") {
-            data.cell.colSpan = 4;
+            data.cell.colSpan = 5;
           } else {
             data.cell.text = [];
           }
