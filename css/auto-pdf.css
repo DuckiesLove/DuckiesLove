@@ -1,3 +1,9 @@
+:root {
+  /* Keep the rendered report within the printable page width so the PDF
+     clone never overflows the sheet. */
+  --pdf-page-max-width: 960px;
+}
+
 body {
   background-color: var(--pdf-bg, #000) !important;
   color: var(--pdf-text, #f1f1f1) !important;
@@ -22,17 +28,18 @@ body {
 #pdf-container, #compat-container {
   background-color: var(--pdf-bg, #000);
   display: block;
-  width: 100vw;
-  max-width: none;
-  margin: 0;
+  width: min(100vw, var(--pdf-page-max-width));
+  max-width: var(--pdf-page-max-width);
+  margin: 0 auto;
   padding: 0;
+  box-sizing: border-box;
 }
 
 #compatibility-wrapper {
   background-color: var(--pdf-bg, #000);
-  width: 100vw;
-  max-width: none;
-  margin: 0;
+  width: 100%;
+  max-width: var(--pdf-page-max-width);
+  margin: 0 auto;
   padding: 0;
   box-sizing: border-box;
 }
@@ -74,13 +81,15 @@ body.exporting {
 }
 
 /* Wrap the table container and center it */
-.exporting .compatibility-wrapper {
+.exporting .compatibility-wrapper,
+.exporting #pdf-container,
+.exporting #compat-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 100% !important;
-  max-width: 100% !important;
+  width: min(100vw, var(--pdf-page-max-width)) !important;
+  max-width: var(--pdf-page-max-width) !important;
   margin: 0 auto !important;
   padding: 0 !important;
   background-color: var(--pdf-bg, #000) !important;
@@ -180,7 +189,7 @@ body.exporting {
     background: var(--pdf-bg, #000) !important;
     color: var(--pdf-text, #fff);
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--pdf-page-max-width);
   margin: 0 auto;
   padding: 20px;
   box-sizing: border-box;
