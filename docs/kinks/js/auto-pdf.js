@@ -1,5 +1,6 @@
 import { calculateCategoryMatch } from './matchFlag.js';
 import { calculateCompatibility } from './compatibility.js';
+import { tkGenerateCompatRows } from './tkCompatRows.js';
 
 let surveyA = null;
 let surveyB = null;
@@ -415,6 +416,31 @@ function updateComparison() {
   const compat = calculateCompatibility(surveyA, surveyB);
   const history = addHistoryEntry(compat.compatibilityScore);
   const compatData = { categories: pdfCategories, history };
+
+  const compatMapA = {};
+  const compatMapB = {};
+  Object.entries(breakdown).forEach(([category, items]) => {
+    compatMapA[category] = compatMapA[category] || {};
+    compatMapB[category] = compatMapB[category] || {};
+    items.forEach(item => {
+      const scoreA = maxRating(item.you);
+      const scoreB = maxRating(item.partner);
+      if (scoreA !== null && scoreA !== undefined) {
+        compatMapA[category][item.name] = scoreA;
+      }
+      if (scoreB !== null && scoreB !== undefined) {
+        compatMapB[category][item.name] = scoreB;
+      }
+    });
+  });
+
+  const compatRows = tkGenerateCompatRows(compatMapA, compatMapB);
+  if (compatRows.length) {
+    window.talkkinkCompatRows = compatRows;
+  } else {
+    delete window.talkkinkCompatRows;
+  }
+
   window.compatibilityData = compatData;
   generatePDF(compatData);
 }
