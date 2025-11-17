@@ -210,6 +210,8 @@
   const safe = (v) =>
     v == null || v === 'null' || v === 'undefined' ? '' : String(v);
 
+  const cleanText = (value) => safe(value).replace(/\s+/g, ' ').trim();
+
   const clampPercent = (value) => Math.max(0, Math.min(100, value));
 
   const coerceNum = (v) => {
@@ -232,51 +234,23 @@
     const str = String(value).trim();
     if (!str) return '';
     const lower = str.toLowerCase();
-    if (lower === 'n/a' || lower === 'na') return 'N/A';
-    if (
-      ['⭐', '⭐️', 'star', 'stars'].includes(lower) ||
-      ['green', '🟩', '🟢'].includes(lower)
-    )
-      return '⭐';
-    if (
-      ['🚩', '🚩️', 'flag', 'red flag'].includes(lower) ||
-      ['red', '🟥', '🔴'].includes(lower)
-    )
-      return '🚩';
-    if (lower === 'yellow' || lower === '🟨' || lower === '🟡' || lower === '🟠') return '';
-    return str;
-  }
-
-  function tk_flagStatus(a, b, matchPercent) {
-    if (a === undefined || b === undefined || a === null || b === null) return 'N/A';
-    if (Number.isFinite(matchPercent) && matchPercent >= 85) return '⭐';
-    if (Number.isFinite(matchPercent) && matchPercent <= 30) return '🚩';
+    if (['⭐', '⭐️', 'star', 'stars', 'green', '🟩', '🟢'].includes(lower)) return '⭐';
+    if (['🚩', 'flag', 'red flag', 'red', '🟥', '🔴', '🚩️'].includes(lower)) return '🚩';
     return '';
   }
 
-  function tk_renderFlag(doc, cell, value) {
-    if (!cell) return;
-    if (value === 'N/A') {
-      doc.setTextColor(255, 255, 255);
-      doc.setFillColor(0, 0, 0);
-      doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
-      doc.text('N/A', cell.x + cell.width / 2, cell.y + cell.height / 2 + 2, {
-        align: 'center',
-      });
-      return;
-    }
-
-    doc.setTextColor(0, 0, 0);
-    doc.text(value, cell.x + cell.width / 2, cell.y + cell.height / 2 + 2, {
-      align: 'center',
-    });
+  function tk_flagStatus(a, b, matchPercent) {
+    if (!Number.isFinite(matchPercent)) return '';
+    if (matchPercent >= 85) return '⭐';
+    if (matchPercent <= 30) return '🚩';
+    return '';
   }
 
   function tk_renderMatchColumn(a, b, matchPercent, matchRaw) {
     if (Number.isFinite(matchPercent)) return `${matchPercent}%`;
     const computed = tk_matchPercent(a, b);
     if (computed !== null) return `${computed}%`;
-    const str = safe(matchRaw).trim();
+    const str = safe(matchRaw).replace(/\s+/g, ' ').trim();
     return str || 'N/A';
   }
 
@@ -309,19 +283,24 @@
     const a = coerceNum(aRaw);
     const b = coerceNum(bRaw);
     const directMatch = coerceNum(matchRaw);
-    const matchPct =
-      directMatch != null ? clampPercent(Math.round(directMatch)) : tk_matchPercent(a, b);
+    let matchPct = null;
+    if (directMatch != null) {
+      const normalized = directMatch >= 0 && directMatch <= 1 ? directMatch * 100 : directMatch;
+      matchPct = clampPercent(Math.round(normalized));
+    } else {
+      matchPct = tk_matchPercent(a, b);
+    }
     const matchDisplay = tk_renderMatchColumn(a, b, matchPct, matchRaw);
     const explicitFlag = tk_normalizeFlag(flagRaw);
     const computedFlag = tk_flagStatus(a, b, matchPct);
     const flagStatus = explicitFlag || computedFlag || '';
 
     return {
-      item: safe(item),
-      a: a != null ? String(a) : safe(aRaw),
+      item: cleanText(item),
+      a: a != null ? String(a) : cleanText(aRaw),
       match: matchDisplay,
       flag: flagStatus,
-      b: b != null ? String(b) : safe(bRaw),
+      b: b != null ? String(b) : cleanText(bRaw),
       aNum: a,
       bNum: b,
       pct: matchPct,
@@ -360,12 +339,11 @@
     doc.text(title, (pageW - tw) / 2, startY);
 
     const tableRows = rows.map((r) => ({
-      item: safe(r.item),
-      a: safe(r.a),
-      match: safe(r.match),
+      item: cleanText(r.item),
+      a: cleanText(r.a),
+      match: cleanText(r.match),
       flag: r.flag || '',
-      b: safe(r.b),
-      __flagStatus: r.flagStatus || '',
+      b: cleanText(r.b),
     }));
 
     const itemColumn = CFG.columns.find((col) => col.key === 'item');
@@ -411,16 +389,6 @@
         halign: 'center',
       },
       columnStyles,
-      didDrawCell(data) {
-        if (data.section !== 'body') return;
-        if (data.column.dataKey === 'flag') {
-          const status = data.row.raw?.__flagStatus;
-          if (status === 'N/A' || status === '⭐' || status === '🚩') {
-            data.cell.text = [];
-            tk_renderFlag(doc, data.cell, status);
-          }
-        }
-      },
     });
   }
 
