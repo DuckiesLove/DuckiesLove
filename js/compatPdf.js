@@ -300,21 +300,24 @@
           item: sec,
           a: "",
           match: "",
-          flag: "",
           b: "",
           _isGroupHeader: true,
         });
       }
 
       const flag = tkFlagStatus(r.aScore, r.bScore, r.matchPercent);
-      const matchText =
+      const matchBase =
         r.matchPercent != null ? `${r.matchPercent}%` : safeString(r.matchText);
+      const matchText = flag
+        ? matchBase
+          ? `${matchBase} ${flag}`
+          : flag
+        : matchBase;
 
       rows.push({
         item: r.item,
         a: r.aText,
         match: matchText,
-        flag,
         b: r.bText,
         _isGroupHeader: false,
         _source: r,
@@ -412,7 +415,6 @@
       { header: "Item", dataKey: "item" },
       { header: "Partner A", dataKey: "a" },
       { header: "Match", dataKey: "match" },
-      { header: "", dataKey: "flag" },
       { header: "Partner B", dataKey: "b" },
     ];
 
@@ -448,8 +450,7 @@
       columnStyles: {
         item: { cellWidth: 300, halign: "left" },
         a: { cellWidth: 70, halign: "center" },
-        match: { cellWidth: 90, halign: "center" },
-        flag: { cellWidth: 40, halign: "center" },
+        match: { cellWidth: 130, halign: "center" },
         b: { cellWidth: 70, halign: "center" },
       },
       didParseCell: function (data) {
@@ -462,7 +463,7 @@
           data.cell.styles.halign = "left";
 
           if (data.column.dataKey === "item") {
-            data.cell.colSpan = 5;
+            data.cell.colSpan = 4;
           } else {
             data.cell.text = [];
           }
