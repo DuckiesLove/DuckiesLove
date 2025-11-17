@@ -729,15 +729,15 @@ async function tkGeneratePdfFromCategories(categories) {
   }
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 40;
-  const accent = [0, 240, 240];
-  const background = [15, 15, 15];
-  const bodyFill = [30, 30, 30];
+  const accent = [0, 255, 255];
+  const background = [17, 17, 17];
+  const tableFill = [17, 17, 17];
   const bodyText = [255, 255, 255];
-  const lineColor = [60, 60, 60];
+  const lineColor = [51, 51, 51];
   const generatedAt = `Generated: ${new Date().toLocaleString()}`;
 
   const surveyRows = categories.flatMap((category) => {
@@ -758,58 +758,74 @@ async function tkGeneratePdfFromCategories(categories) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
     doc.setTextColor(255, 255, 255);
-    doc.text('TalkKink Compatibility Report', margin, 60);
+    doc.text('TalkKink Compatibility Report', pageWidth / 2, margin, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    doc.setTextColor(204, 204, 204);
-    doc.text(generatedAt, margin, 90);
+    doc.setTextColor(221, 221, 221);
+    doc.text(generatedAt, pageWidth / 2, margin + 30, { align: 'center' });
 
     doc.setDrawColor(...accent);
     doc.setLineWidth(2);
-    doc.line(margin, 105, pageWidth - margin, 105);
+    doc.line(margin, margin + 40, pageWidth - margin, margin + 40);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Compatibility Survey', pageWidth / 2, margin + 70, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(153, 153, 153);
+    doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageWidth - margin, pageHeight - 12, { align: 'right' });
   };
 
   drawPageFrame();
 
+  const headRow = [
+    { content: 'Item', styles: { halign: 'left', fillColor: background, textColor: accent } },
+    { content: 'Partner A', styles: { halign: 'center', fillColor: background, textColor: accent } },
+    { content: 'Match', styles: { halign: 'center', fillColor: background, textColor: accent } },
+    { content: 'Partner B', styles: { halign: 'center', fillColor: background, textColor: accent } }
+  ];
+
   doc.autoTable({
-    startY: 130,
-    head: [[
-      { content: 'Item', styles: { fillColor: [0, 0, 0], textColor: accent } },
-      { content: 'Partner A', styles: { fillColor: [0, 0, 0], textColor: accent } },
-      { content: 'Match', styles: { fillColor: [0, 0, 0], textColor: accent } },
-      { content: 'Partner B', styles: { fillColor: [0, 0, 0], textColor: accent } },
-    ]],
+    startY: margin + 90,
+    head: [headRow],
     body: surveyRows.map((row) => [
       row.item,
       row.partnerA,
       row.match,
       row.partnerB,
     ]),
+    theme: 'grid',
     styles: {
+      font: 'helvetica',
       fontSize: 10,
-      halign: 'left',
-      valign: 'middle',
-      cellPadding: 4,
+      cellPadding: 6,
       textColor: bodyText,
-      fillColor: bodyFill,
+      fillColor: tableFill,
       lineColor,
       lineWidth: 0.5,
-      font: 'helvetica',
-    },
-    columnStyles: {
-      0: { cellWidth: 250, halign: 'left' },
-      1: { cellWidth: 70, halign: 'center' },
-      2: { cellWidth: 80, halign: 'center' },
-      3: { cellWidth: 70, halign: 'center' },
+      halign: 'left',
+      valign: 'middle',
+      overflow: 'linebreak',
     },
     headStyles: {
-      fillColor: [0, 0, 0],
+      fontSize: 12,
+      fillColor: background,
       textColor: accent,
-      fontStyle: 'bold',
+      halign: 'center',
+      lineWidth: 0.5,
+      lineColor,
+    },
+    columnStyles: {
+      0: { cellWidth: 280, halign: 'left' },
+      1: { cellWidth: 80, halign: 'center' },
+      2: { cellWidth: 100, halign: 'center' },
+      3: { cellWidth: 80, halign: 'center' },
     },
     margin: { left: margin, right: margin },
-    theme: 'striped',
     didDrawPage: () => {
       drawPageFrame();
     },
