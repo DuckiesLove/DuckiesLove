@@ -308,19 +308,15 @@
       const flag = tkFlagStatus(r.aScore, r.bScore, r.matchPercent);
       const matchBase =
         r.matchPercent != null ? `${r.matchPercent}%` : safeString(r.matchText);
-      const matchText = flag
-        ? matchBase
-          ? `${matchBase} ${flag}`
-          : flag
-        : matchBase;
 
       rows.push({
         item: r.item,
         a: r.aText,
-        match: matchText,
+        match: matchBase,
         b: r.bText,
         _isGroupHeader: false,
         _source: r,
+        _matchIcon: flag,
       });
     });
 
@@ -365,6 +361,143 @@
 
     const str = text == null ? "" : String(text);
     return str.length * 6;
+  }
+
+  function computeTableLayout(doc) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = Math.max(36, Math.min(70, Math.round(pageWidth * 0.1)));
+    const available = pageWidth - margin * 2;
+    const minWidths = { item: 200, a: 60, match: 90, b: 60 };
+    const weights = { item: 0.52, a: 0.16, match: 0.16, b: 0.16 };
+    const widths = { item: 0, a: 0, match: 0, b: 0 };
+
+    let total = 0;
+    Object.keys(widths).forEach((key) => {
+      const raw = Math.round(available * (weights[key] || 0));
+      widths[key] = Math.max(raw, minWidths[key]);
+      total += widths[key];
+    });
+
+    const reduceOrder = ["item", "match", "a", "b"];
+    const growOrder = ["item", "match", "a", "b"];
+
+    function shrinkToFit(target) {
+      let guard = 0;
+      while (total > target && guard < 4096) {
+        let changed = false;
+        for (const key of reduceOrder) {
+          if (total <= target) break;
+          if (widths[key] > minWidths[key]) {
+            widths[key] -= 1;
+            total -= 1;
+            changed = true;
+          }
+        }
+        if (!changed) break;
+        guard += 1;
+      }
+    }
+
+    function growToFit(target) {
+      let guard = 0;
+      while (total < target && guard < 4096) {
+        for (const key of growOrder) {
+          if (total >= target) break;
+          widths[key] += 1;
+          total += 1;
+        }
+        guard += 1;
+      }
+    }
+
+    if (total > available) {
+      shrinkToFit(available);
+    } else if (total < available) {
+      growToFit(available);
+    }
+
+    return { margin, widths };
+  }
+
+  function drawPolygon(doc, points, style) {
+    if (!doc || typeof doc.lines !== "function") return;
+    if (!Array.isArray(points) || points.length < 2) return;
+    const segments = [];
+    for (let i = 1; i < points.length; i += 1) {
+      segments.push([points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]]);
+    }
+    doc.lines(segments, points[0][0], points[0][1], [1, 1], style || "F", true);
+  }
+
+  function drawStarShape(doc, frame) {
+    if (!frame) return;
+    const size = Math.max(frame.size || 0, 6);
+    const cx = frame.x + size / 2;
+    const cy = frame.y + size / 2;
+    const outer = size / 2;
+    const inner = outer * 0.5;
+    const pts = [];
+    for (let i = 0; i < 5; i += 1) {
+      const outerAngle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+      const innerAngle = outerAngle + Math.PI / 5;
+      pts.push([cx + Math.cos(outerAngle) * outer, cy + Math.sin(outerAngle) * outer]);
+      pts.push([cx + Math.cos(innerAngle) * inner, cy + Math.sin(innerAngle) * inner]);
+    }
+    if (typeof doc.saveGraphicsState === "function") doc.saveGraphicsState();
+    doc.setFillColor(255, 213, 79);
+    doc.setDrawColor(230, 170, 0);
+    doc.setLineWidth(0.8);
+    drawPolygon(doc, pts, "FD");
+    if (typeof doc.restoreGraphicsState === "function") doc.restoreGraphicsState();
+  }
+
+  function drawFlagShape(doc, frame) {
+    if (!frame) return;
+    const size = Math.max(frame.size || 0, 6);
+    const poleWidth = Math.max(size * 0.15, 1.2);
+    const poleX = frame.x + Math.max(size * 0.05, 0.4);
+    const top = frame.y;
+    const bottom = frame.y + size;
+    if (typeof doc.saveGraphicsState === "function") doc.saveGraphicsState();
+    doc.setFillColor(185, 185, 185);
+    doc.setDrawColor(120, 120, 120);
+    doc.rect(poleX, top, poleWidth, size, "F");
+
+    const flagWidth = Math.max(size - poleWidth - size * 0.1, size * 0.4);
+    const points = [
+      [poleX + poleWidth, top + size * 0.05],
+      [poleX + poleWidth + flagWidth, top + size * 0.25],
+      [poleX + poleWidth + flagWidth * 0.65, top + size * 0.5],
+      [poleX + poleWidth + flagWidth, bottom - size * 0.25],
+      [poleX + poleWidth, bottom - size * 0.05],
+    ];
+    doc.setFillColor(230, 52, 70);
+    doc.setDrawColor(180, 12, 24);
+    doc.setLineWidth(0.6);
+    drawPolygon(doc, points, "FD");
+    if (typeof doc.restoreGraphicsState === "function") doc.restoreGraphicsState();
+  }
+
+  function drawMatchIcon(doc, cell, icon, options) {
+    if (!doc || !cell || !icon) return;
+    const opts = options || {};
+    const rawHeight = cell.height || opts.size || 12;
+    const rawWidth = cell.width || opts.size || rawHeight;
+    const maxSize = typeof opts.size === "number" ? opts.size : 14;
+    const iconSize = Math.min(maxSize, Math.max(8, Math.min(rawHeight, rawWidth)));
+    const padding = typeof opts.padding === "number" ? opts.padding : 4;
+    const alignLeft = opts.align === "left";
+    const x = alignLeft
+      ? cell.x + padding
+      : cell.x + rawWidth - iconSize - padding;
+    const y = cell.y + (rawHeight - iconSize) / 2;
+    const frame = { x, y, size: iconSize };
+
+    if (icon === "⭐") {
+      drawStarShape(doc, frame);
+    } else if (icon === "🚩") {
+      drawFlagShape(doc, frame);
+    }
   }
 
   function drawHeader(doc, mainTitle, sectionTitle, options) {
@@ -413,18 +546,43 @@
     doc.setFontSize(11);
     doc.setTextColor(220, 220, 220);
 
-    const parts = [];
-
+    const segments = [];
     if (stats.avg != null) {
-      parts.push(`Average compatibility: ${stats.avg}%`);
+      segments.push({ text: `Average compatibility: ${stats.avg}%` });
     }
+    segments.push({ icon: "⭐", text: `85–100% matches: ${stats.stars}` });
+    segments.push({ icon: "🚩", text: `30% or below: ${stats.reds}` });
 
-    parts.push(`⭐ 85–100% matches: ${stats.stars}`);
-    parts.push(`🚩 30% or below: ${stats.reds}`);
+    const spacer = "   •   ";
+    let printable = "";
+    const placeholders = [];
+    segments.forEach((seg, idx) => {
+      if (!seg || !seg.text) return;
+      if (idx > 0) printable += spacer;
+      if (seg.icon) {
+        const markerIndex = printable.length;
+        placeholders.push({ icon: seg.icon, index: markerIndex });
+        printable += "  ";
+      }
+      printable += seg.text;
+    });
 
-    const text = parts.join("   •   ");
-    const tW = measureTextWidth(doc, text);
-    doc.text(text, (pageW - tW) / 2, y);
+    const textWidth = measureTextWidth(doc, printable);
+    const startX = (pageW - textWidth) / 2;
+    doc.text(printable, startX, y);
+
+    const iconSize = 12;
+    placeholders.forEach((ph) => {
+      if (!ph || !ph.icon) return;
+      const prefix = printable.slice(0, ph.index);
+      const offset = measureTextWidth(doc, prefix);
+      drawMatchIcon(
+        doc,
+        { x: startX + offset, y: y - iconSize + 3, width: iconSize, height: iconSize },
+        ph.icon,
+        { align: "left", padding: 0, size: iconSize },
+      );
+    });
 
     y += 12;
     return y;
@@ -455,19 +613,20 @@
       { header: "Match", dataKey: "match" },
       { header: "Partner B", dataKey: "b" },
     ];
+    const layout = computeTableLayout(doc);
 
     doc.autoTable({
       columns,
       body: bodyRows,
       startY: headerY,
-      margin: { left: 70, right: 70 },
+      margin: { left: layout.margin, right: layout.margin },
       theme: "grid",
       styles: {
         font: "helvetica",
         fontSize: 12,
         halign: "left",
         valign: "middle",
-        cellPadding: { top: 5, bottom: 5, left: 6, right: 6 },
+        cellPadding: { top: 5, bottom: 5, left: 6, right: 8 },
         textColor: TEXT_MAIN,
         fillColor: TABLE_BG,
         lineColor: GRID,
@@ -486,10 +645,14 @@
         fillColor: ALT_ROW_BG,
       },
       columnStyles: {
-        item: { cellWidth: 300, halign: "left" },
-        a: { cellWidth: 70, halign: "center" },
-        match: { cellWidth: 130, halign: "center" },
-        b: { cellWidth: 70, halign: "center" },
+        item: { cellWidth: layout.widths.item, halign: "left" },
+        a: { cellWidth: layout.widths.a, halign: "center" },
+        match: {
+          cellWidth: layout.widths.match,
+          halign: "center",
+          cellPadding: { top: 5, bottom: 5, left: 6, right: 18 },
+        },
+        b: { cellWidth: layout.widths.b, halign: "center" },
       },
       didParseCell: function (data) {
         if (data.section !== "body") return;
@@ -505,6 +668,14 @@
           } else {
             data.cell.text = [];
           }
+        }
+      },
+      didDrawCell: function (data) {
+        if (data.section !== "body") return;
+        const raw = data.row.raw || {};
+        if (raw._isGroupHeader) return;
+        if (data.column.dataKey === "match" && raw._matchIcon) {
+          drawMatchIcon(doc, data.cell, raw._matchIcon);
         }
       },
       didDrawPage: function () {
