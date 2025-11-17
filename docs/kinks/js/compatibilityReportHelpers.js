@@ -21,6 +21,13 @@ function getFontColor(percentage) {
   return [255, 0, 0];
 }
 
+function getMatchEmoji(percentage) {
+  if (percentage === null || percentage === undefined) return '';
+  if (percentage >= 85) return '⭐';
+  if (percentage <= 30) return '🚩';
+  return '';
+}
+
 function drawFlagSquare(doc, cellX, cellY, cellWidth, cellHeight, colorName) {
   if (!colorName) return;
 
@@ -64,7 +71,11 @@ export function drawMatchBar(
   percentage,
   resetColor = [255, 255, 255]
 ) {
-  const label = percentage !== null && percentage !== undefined ? `${percentage}%` : 'N/A';
+  const emoji = getMatchEmoji(percentage);
+  const label =
+    percentage !== null && percentage !== undefined
+      ? `${percentage}%${emoji ? ` ${emoji}` : ''}`
+      : 'N/A';
   const textColor = getFontColor(percentage);
 
   doc.setFillColor(0, 0, 0);
