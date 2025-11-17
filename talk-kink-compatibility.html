@@ -717,6 +717,9 @@ function tkBuildPdfCategories(rows) {
       partnerA: tkFormatPdfScore(row.aDisplay, row.aScore),
       partnerB: tkFormatPdfScore(row.bDisplay, row.bScore),
       match: tkFormatPdfMatch(row),
+      scoreA: Number.isFinite(row.aScore) ? row.aScore : null,
+      scoreB: Number.isFinite(row.bScore) ? row.bScore : null,
+      matchPct: Number.isFinite(row.matchPct) ? row.matchPct : null,
     });
   });
 
@@ -733,23 +736,83 @@ async function tkGeneratePdfFromCategories(categories) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 40;
-  const accent = [0, 255, 255];
+  const accent = [0, 224, 208];
   const background = [17, 17, 17];
   const tableFill = [17, 17, 17];
   const bodyText = [255, 255, 255];
   const lineColor = [51, 51, 51];
   const generatedAt = `Generated: ${new Date().toLocaleString()}`;
 
-  const surveyRows = categories.flatMap((category) => {
-    if (!category || !Array.isArray(category.items)) return [];
-    const label = category.category || 'Other';
-    return category.items.map((row) => ({
-      item: label ? `${label} — ${row.label || '—'}` : (row.label || '—'),
-      partnerA: row.partnerA ?? '',
-      match: row.match ?? '',
-      partnerB: row.partnerB ?? '',
-    }));
+  const flattenedRows = [];
+  categories.forEach((category) => {
+    if (!category || !Array.isArray(category.items)) return;
+    const prefix = category.category || category.name || 'Compatibility';
+    category.items.forEach((row) => {
+      flattenedRows.push({
+        item: prefix ? `${prefix} — ${row.label || '—'}` : (row.label || '—'),
+        partnerA: row.partnerA ?? '',
+        partnerB: row.partnerB ?? '',
+        scoreA: Number.isFinite(row.scoreA) ? row.scoreA : null,
+        scoreB: Number.isFinite(row.scoreB) ? row.scoreB : null,
+        matchText: row.match ?? '',
+        matchPct: Number.isFinite(row.matchPct) ? row.matchPct : null,
+      });
+    });
   });
+
+  if (!flattenedRows.length) {
+    throw new Error('No compatibility rows available');
+  }
+
+  const clampPercent = (value) => {
+    if (!Number.isFinite(value)) return null;
+    return Math.max(0, Math.min(100, Math.round(value)));
+  };
+
+  const deriveMatchPercent = (row) => {
+    if (Number.isFinite(row.scoreA) && Number.isFinite(row.scoreB)) {
+      return clampPercent(100 - Math.abs(row.scoreA - row.scoreB) * 20);
+    }
+    if (Number.isFinite(row.matchPct)) {
+      return clampPercent(row.matchPct);
+    }
+    return clampPercent(tkParseMatchPercent(row.matchText));
+  };
+
+  const getEmojiFlag = (matchPercent) => {
+    if (!Number.isFinite(matchPercent)) return '';
+    if (matchPercent >= 85) return '⭐';
+    if (matchPercent <= 30) return '🚩';
+    return '';
+  };
+
+  const pdfRows = flattenedRows.map((row) => {
+    const matchPercent = deriveMatchPercent(row);
+    return {
+      item: row.item,
+      partnerA: row.partnerA,
+      match: matchPercent != null ? `${matchPercent}%` : (row.matchText || '—'),
+      flag: getEmojiFlag(matchPercent),
+      partnerB: row.partnerB,
+    };
+  });
+
+  const tableWidth = pageWidth - margin * 2;
+  const colWidths = {
+    item: tableWidth * 0.45,
+    partnerA: tableWidth * 0.12,
+    match: tableWidth * 0.08,
+    flag: tableWidth * 0.05,
+    partnerB: tableWidth * 0.12,
+  };
+
+  const columns = [
+    { header: 'Item', dataKey: 'item' },
+    { header: 'Partner A', dataKey: 'partnerA' },
+    { header: 'Match', dataKey: 'match' },
+    { header: '', dataKey: 'flag' },
+    { header: 'Partner B', dataKey: 'partnerB' },
+  ];
 
   const drawPageFrame = () => {
     doc.setFillColor(...background);
@@ -758,80 +821,60 @@ async function tkGeneratePdfFromCategories(categories) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
     doc.setTextColor(255, 255, 255);
-    doc.text('TalkKink Compatibility Report', pageWidth / 2, margin, { align: 'center' });
+    doc.text('TalkKink Compatibility Report', pageWidth / 2, 50, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    doc.setTextColor(221, 221, 221);
-    doc.text(generatedAt, pageWidth / 2, margin + 30, { align: 'center' });
+    doc.setTextColor(170, 170, 170);
+    doc.text(generatedAt, pageWidth / 2, 70, { align: 'center' });
 
     doc.setDrawColor(...accent);
     doc.setLineWidth(2);
-    doc.line(margin, margin + 40, pageWidth - margin, margin + 40);
+    doc.line(margin, 80, pageWidth - margin, 80);
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setTextColor(255, 255, 255);
-    doc.text('Compatibility Survey', pageWidth / 2, margin + 70, { align: 'center' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(153, 153, 153);
-    doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageWidth - margin, pageHeight - 12, { align: 'right' });
+    doc.text('Compatibility Survey', pageWidth / 2, 110, { align: 'center' });
   };
 
   drawPageFrame();
 
-  const headRow = [
-    { content: 'Item', styles: { halign: 'left', fillColor: background, textColor: accent } },
-    { content: 'Partner A', styles: { halign: 'center', fillColor: background, textColor: accent } },
-    { content: 'Match', styles: { halign: 'center', fillColor: background, textColor: accent } },
-    { content: 'Partner B', styles: { halign: 'center', fillColor: background, textColor: accent } }
-  ];
-
   doc.autoTable({
-    startY: margin + 90,
-    head: [headRow],
-    body: surveyRows.map((row) => [
-      row.item,
-      row.partnerA,
-      row.match,
-      row.partnerB,
-    ]),
+    startY: 130,
+    columns,
+    body: pdfRows,
     theme: 'grid',
     styles: {
       font: 'helvetica',
       fontSize: 10,
-      cellPadding: 6,
       textColor: bodyText,
+      cellPadding: 4,
       fillColor: tableFill,
       lineColor,
       lineWidth: 0.5,
-      halign: 'left',
       valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      fontSize: 12,
-      fillColor: background,
-      textColor: accent,
-      halign: 'center',
-      lineWidth: 0.5,
-      lineColor,
     },
     columnStyles: {
-      0: { cellWidth: 280, halign: 'left' },
-      1: { cellWidth: 80, halign: 'center' },
-      2: { cellWidth: 100, halign: 'center' },
-      3: { cellWidth: 80, halign: 'center' },
+      item: { cellWidth: colWidths.item, halign: 'left' },
+      partnerA: { cellWidth: colWidths.partnerA, halign: 'center' },
+      match: { cellWidth: colWidths.match, halign: 'center' },
+      flag: { cellWidth: colWidths.flag, halign: 'center' },
+      partnerB: { cellWidth: colWidths.partnerB, halign: 'center' },
     },
-    margin: { left: margin, right: margin },
+    headStyles: {
+      fillColor: [17, 17, 17],
+      textColor: accent,
+      fontStyle: 'bold',
+      halign: 'center',
+    },
+    margin: { top: 130, left: margin, right: margin },
     didDrawPage: () => {
       drawPageFrame();
     },
   });
 
-  doc.save('talkkink-compatibility.pdf');
+  doc.save('TalkKink_Compatibility.pdf');
 }
 
 async function TKPDF_exportCompatibilitySingle() {
