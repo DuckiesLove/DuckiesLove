@@ -116,6 +116,103 @@
 
 let partnerAData = null;
 let partnerBData = null;
+let partnerAAnswers = {};
+let partnerBAnswers = {};
+let compatibilityItems = [];
+
+function calculateMatchScore(a, b) {
+  if (a === undefined || b === undefined || a === null || b === null) return null;
+  const maxScore = 5;
+  const diff = Math.abs(a - b);
+  return Math.round(((maxScore - diff) / maxScore) * 100);
+}
+
+function generateCompatibilityRows(partnerAAnswersMap = {}, partnerBAnswersMap = {}, items = []) {
+  return items.map(item => {
+    const aScore = partnerAAnswersMap[item.id] ?? '';
+    const bScore = partnerBAnswersMap[item.id] ?? '';
+    const match = (aScore !== '' && bScore !== '') ? `${calculateMatchScore(aScore, bScore)}%` : '';
+    return {
+      item: item.label,
+      partnerA: aScore,
+      match,
+      partnerB: bScore,
+    };
+  });
+}
+
+function normalizeItemId(entry) {
+  const raw = entry?.id
+    ?? entry?.key
+    ?? entry?.kinkId
+    ?? entry?.kinkID
+    ?? entry?.slug
+    ?? entry?.label
+    ?? entry?.name;
+  if (raw === undefined || raw === null) return '';
+  const str = String(raw).trim();
+  return str;
+}
+
+function normalizeItemLabel(entry, fallback) {
+  const raw = entry?.label
+    ?? entry?.name
+    ?? entry?.title
+    ?? entry?.kink
+    ?? entry?.kinkLabel
+    ?? entry?.id
+    ?? entry?.key
+    ?? fallback;
+  const str = raw == null ? '' : String(raw).trim();
+  return str || fallback;
+}
+
+function toAnswerDictionary(items = []) {
+  const dict = {};
+  items.forEach(item => {
+    const id = normalizeItemId(item);
+    if (!id) return;
+    const score = toNumberish(item?.score ?? item?.value ?? item?.rating);
+    if (typeof score !== 'number' || Number.isNaN(score)) return;
+    const clamped = Math.max(0, Math.min(5, score));
+    dict[id] = Math.round(clamped * 100) / 100;
+  });
+  return dict;
+}
+
+function buildCompatibilityItems(aItems = [], bItems = []) {
+  const unique = new Map();
+  const append = list => {
+    list.forEach(item => {
+      if (!item) return;
+      const id = normalizeItemId(item);
+      if (!id || unique.has(id)) return;
+      unique.set(id, normalizeItemLabel(item, id));
+    });
+  };
+  append(Array.isArray(aItems) ? aItems : []);
+  append(Array.isArray(bItems) ? bItems : []);
+  return Array.from(unique.entries())
+    .map(([id, label]) => ({ id, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+}
+
+function updateAnswerCaches() {
+  partnerAAnswers = toAnswerDictionary(partnerAData?.items || []);
+  partnerBAnswers = toAnswerDictionary(partnerBData?.items || []);
+  compatibilityItems = buildCompatibilityItems(partnerAData?.items || [], partnerBData?.items || []);
+  if (typeof window !== 'undefined') {
+    window.partnerAData = partnerAData;
+    window.partnerBData = partnerBData;
+    window.partnerAAnswers = partnerAAnswers;
+    window.partnerBAnswers = partnerBAnswers;
+    window.compatibilityItems = compatibilityItems;
+    window.calculateMatchScore = calculateMatchScore;
+    window.generateCompatibilityRows = generateCompatibilityRows;
+  }
+}
+
+updateAnswerCaches();
 
 const NAME_KEYS  = ["id","key","name","label","title","slug"];
 const SCORE_KEYS = ["rating","score","value","val","points","level"];
@@ -290,8 +387,12 @@ async function handleUpload(file, which) {
     const { errors, scoredCount, total, missing } = validateNormalized(normalized);
 
     // Store by partner
-    if (which === "A") partnerAData = normalized;
-    else partnerBData = normalized;
+    if (which === "A") {
+      partnerAData = normalized;
+    } else {
+      partnerBData = normalized;
+    }
+    updateAnswerCaches();
 
     // Update comparison table right away (no-op if you haven’t built it)
     updateComparison();
@@ -397,8 +498,41 @@ function updateComparison() {
     return Math.round(100 - (Math.abs(A - B) / 5) * 100);
   };
 
-  // ---- collect rows from DOM
+  function rowsFromAnswerCaches() {
+    const items = Array.isArray(window.compatibilityItems) ? window.compatibilityItems : null;
+    if (!items || !items.length) return null;
+    const builder = typeof window.generateCompatibilityRows === 'function'
+      ? window.generateCompatibilityRows
+      : (aMap, bMap, list) => list.map(item => {
+          const aScore = aMap[item.id];
+          const bScore = bMap[item.id];
+          const pct = (aScore !== undefined && bScore !== undefined && aScore !== '' && bScore !== '')
+            ? matchPct(aScore, bScore)
+            : null;
+          return {
+            item: item.label,
+            partnerA: aScore,
+            match: pct == null ? '' : `${pct}%`,
+            partnerB: bScore
+          };
+        });
+    const rows = builder(window.partnerAAnswers || {}, window.partnerBAnswers || {}, items) || [];
+    const filtered = rows
+      .filter(row => row && (row.partnerA !== '' || row.partnerB !== '' || row.match))
+      .map(row => [
+        row.item || '—',
+        row.partnerA === '' || row.partnerA == null ? '—' : String(row.partnerA),
+        row.match || '—',
+        row.partnerB === '' || row.partnerB == null ? '—' : String(row.partnerB)
+      ]);
+    return filtered.length ? filtered : null;
+  }
+
+  // ---- collect rows from DOM (fallback)
   function collectRows() {
+    const cached = rowsFromAnswerCaches();
+    if (cached) return cached;
+
     let trs = Array.from(document.querySelectorAll('tbody tr[data-kink-id]'));
     if (trs.length === 0) {
       trs = Array.from(document.querySelectorAll('tbody tr'))
@@ -406,20 +540,20 @@ function updateComparison() {
     }
     const rows = [];
     for (const tr of trs) {
-      const cat = tr.cells?.[0]?.textContent?.trim() || tr.getAttribute('data-kink-id') || "";
+      const cat = tr.cells?.[0]?.textContent?.trim() || tr.getAttribute('data-kink-id') || '';
       const aTxt = tr.querySelector('td[data-cell="A"]')?.textContent
-                ?? tr.cells?.[1]?.textContent ?? "";
+                ?? tr.cells?.[1]?.textContent ?? '';
       const bTxt = tr.querySelector('td[data-cell="B"]')?.textContent
-                ?? tr.cells?.[tr.cells.length - 1]?.textContent ?? "";
+                ?? tr.cells?.[tr.cells.length - 1]?.textContent ?? '';
 
       const A = num(aTxt), B = num(bTxt);
       const pct = matchPct(A, B);
 
       rows.push([
-        cat || "—",
-        (A ?? "—"),
-        (pct == null ? "—" : `${pct}%`),
-        (B ?? "—")
+        cat || '—',
+        (A ?? '—'),
+        (pct == null ? '—' : `${pct}%`),
+        (B ?? '—')
       ]);
     }
     return rows;
