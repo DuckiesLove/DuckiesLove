@@ -1,8 +1,8 @@
 /**
  * TalkKink Compatibility PDF (Dark, Web-Only)
- * - Single layout: Item | Partner A | Match | Partner B | Flag
- * - Match column shows percentage with ⭐ for 85%+, Flag column only shows 🚩 when triggered
- * - ⭐ for 85–100%, 🚩 for 0–30% (plus other red-flag rules), nothing between
+ * - Single layout: Item | Partner A | Match | Partner B (no Flag column)
+ * - Match column shows percentage with ⭐ for 85%+
+ * - 🚩 logic is retained for summaries only (no dedicated column)
  * - Category headers between sections
  * - Footer summary with averages + counts
  */
@@ -142,6 +142,12 @@
     return s === "null" || s === "undefined" ? "" : s;
   }
 
+  function cleanMatchText(val) {
+    const str = safeString(val);
+    if (!str) return "";
+    return str.replace(/&{2,}/g, "").trim();
+  }
+
   function coerceScore(val) {
     if (val == null || (typeof val === "string" && !val.trim())) return null;
     if (typeof val === "number" && Number.isFinite(val)) return val;
@@ -271,11 +277,12 @@
       matchPercent,
       aText: aScore != null ? String(aScore) : safeString(aRaw),
       bText: bScore != null ? String(bScore) : safeString(bRaw),
-      matchPercentStr: (matchPercent != null ? `${matchPercent}%` : safeString(matchRaw)).replace(
-        /&&/g,
-        "",
+      matchPercentStr: cleanMatchText(
+        matchPercent != null ? `${matchPercent}%` : safeString(matchRaw),
       ),
-      matchText: matchPercent != null ? `${matchPercent}%` : safeString(matchRaw),
+      matchText: cleanMatchText(
+        matchPercent != null ? `${matchPercent}%` : safeString(matchRaw),
+      ),
     };
   }
 
@@ -320,23 +327,20 @@
           a: "",
           match: "",
           b: "",
-          flag: "",
           _isGroupHeader: true,
         });
       }
 
-      const flag = getFlagEmoji(r.aScore, r.bScore, r.matchPercent);
       const matchBase =
         r.matchPercent != null
           ? formatMatchWithEmoji(r.aScore, r.bScore, r.matchPercent)
-          : r.matchPercentStr || safeString(r.matchText);
+          : cleanMatchText(r.matchPercentStr || r.matchText);
 
       rows.push({
         item: r.item,
         a: r.aText,
         match: matchBase,
         b: r.bText,
-        flag,
         _isGroupHeader: false,
         _source: r,
       });
@@ -389,9 +393,9 @@
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = Math.max(36, Math.min(70, Math.round(pageWidth * 0.1)));
     const available = pageWidth - margin * 2;
-    const minWidths = { item: 200, a: 60, match: 90, b: 60, flag: 50 };
-    const weights = { item: 0.48, a: 0.16, match: 0.18, b: 0.13, flag: 0.05 };
-    const widths = { item: 0, a: 0, match: 0, b: 0, flag: 0 };
+    const minWidths = { item: 220, a: 70, match: 110, b: 70 };
+    const weights = { item: 0.52, a: 0.16, match: 0.2, b: 0.12 };
+    const widths = { item: 0, a: 0, match: 0, b: 0 };
 
     let total = 0;
     Object.keys(widths).forEach((key) => {
@@ -400,8 +404,8 @@
       total += widths[key];
     });
 
-    const reduceOrder = ["item", "match", "a", "b", "flag"];
-    const growOrder = ["item", "match", "a", "b", "flag"];
+    const reduceOrder = ["item", "match", "a", "b"];
+    const growOrder = ["item", "match", "a", "b"];
 
     function shrinkToFit(target) {
       let guard = 0;
@@ -553,6 +557,7 @@
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
+    doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
     doc.text(sectionTitle, pageW / 2, 95, { align: "center" });
 
     doc.setFont("helvetica", "normal");
@@ -634,9 +639,8 @@
     const columns = [
       { header: "Item", dataKey: "item" },
       { header: "Partner A", dataKey: "a" },
-      { header: "Match %", dataKey: "match" },
+      { header: "Match", dataKey: "match" },
       { header: "Partner B", dataKey: "b" },
-      { header: "Flag", dataKey: "flag" },
     ];
     const layout = computeTableLayout(doc);
 
@@ -649,9 +653,9 @@
       styles: {
         font: "helvetica",
         fontSize: 12,
-        halign: "left",
+        halign: "center",
         valign: "middle",
-        cellPadding: { top: 5, bottom: 5, left: 6, right: 8 },
+        cellPadding: { top: 6, bottom: 6, left: 6, right: 6 },
         textColor: TEXT_MAIN,
         fillColor: TABLE_BG,
         lineColor: GRID,
@@ -672,13 +676,8 @@
       columnStyles: {
         item: { cellWidth: layout.widths.item, halign: "left" },
         a: { cellWidth: layout.widths.a, halign: "center" },
-        match: {
-          cellWidth: layout.widths.match,
-          halign: "center",
-          cellPadding: { top: 5, bottom: 5, left: 6, right: 18 },
-        },
+        match: { cellWidth: layout.widths.match, halign: "center" },
         b: { cellWidth: layout.widths.b, halign: "center" },
-        flag: { cellWidth: layout.widths.flag, halign: "center" },
       },
       didParseCell: function (data) {
         if (data.section !== "body") return;
@@ -690,7 +689,7 @@
           data.cell.styles.halign = "left";
 
           if (data.column.dataKey === "item") {
-            data.cell.colSpan = 5;
+            data.cell.colSpan = columns.length;
           } else {
             data.cell.text = [];
           }
