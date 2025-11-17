@@ -206,12 +206,6 @@
   /* ---------------------- Helpers ---------------------- */
 
   const TK_ACCENT = [0, 214, 199];
-  const TK_FLAG_EMOJI = { green: '🟩', yellow: '🟨', red: '🟥' };
-  const TK_FLAG_RGB = {
-    green: [24, 214, 154],
-    yellow: [255, 204, 0],
-    red: [255, 66, 66],
-  };
 
   const safe = (v) =>
     v == null || v === 'null' || v === 'undefined' ? '' : String(v);
@@ -238,32 +232,44 @@
     const str = String(value).trim();
     if (!str) return '';
     const lower = str.toLowerCase();
-    if (['green', 'yellow', 'red'].includes(lower)) return lower;
-    if (str === '🟩' || str === '🟢') return 'green';
-    if (str === '🟨' || str === '🟡' || str === '🟠') return 'yellow';
-    if (str === '🟥' || str === '🔴') return 'red';
-    return '';
+    if (lower === 'n/a' || lower === 'na') return 'N/A';
+    if (
+      ['⭐', '⭐️', 'star', 'stars'].includes(lower) ||
+      ['green', '🟩', '🟢'].includes(lower)
+    )
+      return '⭐';
+    if (
+      ['🚩', '🚩️', 'flag', 'red flag'].includes(lower) ||
+      ['red', '🟥', '🔴'].includes(lower)
+    )
+      return '🚩';
+    if (lower === 'yellow' || lower === '🟨' || lower === '🟡' || lower === '🟠') return '';
+    return str;
   }
 
   function tk_flagStatus(a, b, matchPercent) {
-    if (Number.isFinite(matchPercent)) {
-      if (matchPercent >= 90) return 'green';
-      if (matchPercent <= 30) return 'red';
-    }
-    if (!Number.isFinite(a) || !Number.isFinite(b)) return '';
-    const oneIsFive = a === 5 || b === 5;
-    if (oneIsFive && Math.abs(a - b) >= 1) return 'yellow';
+    if (a === undefined || b === undefined || a === null || b === null) return 'N/A';
+    if (Number.isFinite(matchPercent) && matchPercent >= 85) return '⭐';
+    if (Number.isFinite(matchPercent) && matchPercent <= 30) return '🚩';
     return '';
   }
 
-  function tk_drawFlagSquare(doc, cell, colorName) {
-    const rgb = TK_FLAG_RGB[colorName];
-    if (!rgb || !cell) return;
-    const size = Math.min(cell.width, cell.height) * 0.45;
-    const sx = cell.x + (cell.width - size) / 2;
-    const sy = cell.y + (cell.height - size) / 2;
-    doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-    doc.rect(sx, sy, size, size, 'F');
+  function tk_renderFlag(doc, cell, value) {
+    if (!cell) return;
+    if (value === 'N/A') {
+      doc.setTextColor(255, 255, 255);
+      doc.setFillColor(0, 0, 0);
+      doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+      doc.text('N/A', cell.x + cell.width / 2, cell.y + cell.height / 2 + 2, {
+        align: 'center',
+      });
+      return;
+    }
+
+    doc.setTextColor(0, 0, 0);
+    doc.text(value, cell.x + cell.width / 2, cell.y + cell.height / 2 + 2, {
+      align: 'center',
+    });
   }
 
   function tk_renderMatchColumn(a, b, matchPercent, matchRaw) {
@@ -309,13 +315,12 @@
     const explicitFlag = tk_normalizeFlag(flagRaw);
     const computedFlag = tk_flagStatus(a, b, matchPct);
     const flagStatus = explicitFlag || computedFlag || '';
-    const flagEmoji = flagStatus ? TK_FLAG_EMOJI[flagStatus] || '' : '';
 
     return {
       item: safe(item),
       a: a != null ? String(a) : safe(aRaw),
       match: matchDisplay,
-      flag: flagEmoji,
+      flag: flagStatus,
       b: b != null ? String(b) : safe(bRaw),
       aNum: a,
       bNum: b,
@@ -410,9 +415,9 @@
         if (data.section !== 'body') return;
         if (data.column.dataKey === 'flag') {
           const status = data.row.raw?.__flagStatus;
-          if (status) {
-            tk_drawFlagSquare(doc, data.cell, status);
+          if (status === 'N/A' || status === '⭐' || status === '🚩') {
             data.cell.text = [];
+            tk_renderFlag(doc, data.cell, status);
           }
         }
       },
