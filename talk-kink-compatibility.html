@@ -723,13 +723,6 @@ function tkBuildPdfCategories(rows) {
   return Array.from(grouped.values());
 }
 
-function tkFillPdfBackground(doc) {
-  const width = doc.internal.pageSize.getWidth();
-  const height = doc.internal.pageSize.getHeight();
-  doc.setFillColor(20, 20, 20);
-  doc.rect(0, 0, width, height, 'F');
-}
-
 async function tkGeneratePdfFromCategories(categories) {
   if (!categories.length) {
     throw new Error('No compatibility rows available');
@@ -739,22 +732,21 @@ async function tkGeneratePdfFromCategories(categories) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  tkFillPdfBackground(doc);
-
   const margin = 40;
 
-  doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('TalkKink Compatibility', pageWidth / 2, 50, { align: 'center' });
+  doc.setFontSize(28);
+  doc.setTextColor(0, 0, 0);
+  doc.text('TalkKink Compatibility', pageWidth / 2, 40, { align: 'center' });
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 70, { align: 'center' });
+  const generatedAt = `Generated: ${new Date().toLocaleString()}`;
+  doc.text(generatedAt, pageWidth / 2, 55, { align: 'center' });
 
   doc.setDrawColor(0, 255, 255);
-  doc.setLineWidth(2);
-  doc.line(margin, 80, pageWidth - margin, 80);
+  doc.setLineWidth(1.5);
+  doc.line(margin, 62, pageWidth - margin, 62);
 
   const tableBody = [];
   categories.forEach((category) => {
@@ -764,8 +756,9 @@ async function tkGeneratePdfFromCategories(categories) {
         colSpan: 4,
         styles: {
           fontStyle: 'bold',
-          fillColor: [30, 30, 30],
-          textColor: [0, 255, 255],
+          halign: 'left',
+          fillColor: [240, 240, 240],
+          textColor: [0, 0, 0],
         },
       },
     ]);
@@ -774,45 +767,38 @@ async function tkGeneratePdfFromCategories(categories) {
       tableBody.push([
         row.label,
         row.partnerA ?? '',
-        row.match ?? '—',
+        row.match ?? '',
         row.partnerB ?? '',
       ]);
     });
   });
 
-  const partnerAWidth = 60;
-  const matchWidth = 80;
-  const partnerBWidth = 60;
-  const fixedColumnsWidth = partnerAWidth + matchWidth + partnerBWidth;
-  const itemWidth = Math.max(120, pageWidth - margin * 2 - fixedColumnsWidth);
+  const columnStyles = {
+    0: { halign: 'left', cellWidth: 220 },
+    1: { cellWidth: 60 },
+    2: { cellWidth: 70 },
+    3: { cellWidth: 60 },
+  };
 
   doc.autoTable({
-    startY: 100,
+    startY: 75,
     head: [['Item', 'Partner A', 'Match', 'Partner B']],
     body: tableBody,
-    theme: 'grid',
-    margin: { left: margin, right: margin },
     styles: {
-      halign: 'left',
-      font: 'helvetica',
       fontSize: 10,
-      textColor: [255, 255, 255],
+      font: 'helvetica',
       cellPadding: 4,
-      fillColor: [24, 24, 24],
+      halign: 'center',
+      valign: 'middle',
       overflow: 'linebreak',
     },
     headStyles: {
       fillColor: [0, 255, 255],
       textColor: [0, 0, 0],
-      halign: 'center',
+      fontStyle: 'bold',
     },
-    columnStyles: {
-      0: { cellWidth: itemWidth },
-      1: { cellWidth: partnerAWidth, halign: 'center' },
-      2: { cellWidth: matchWidth, halign: 'center' },
-      3: { cellWidth: partnerBWidth, halign: 'center' },
-    },
-    didDrawPage: () => tkFillPdfBackground(doc),
+    columnStyles,
+    margin: { left: margin, right: margin },
   });
 
   doc.save('talkkink_compatibility.pdf');
