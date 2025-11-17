@@ -326,6 +326,44 @@
 
   /* ----------------------------- Drawing -------------------------------- */
 
+  function measureTextWidth(doc, text) {
+    if (!doc) return 0;
+    if (typeof doc.getTextWidth === "function") {
+      try {
+        return doc.getTextWidth(text);
+      } catch (err) {
+        /* ignore and fall through */
+      }
+    }
+
+    if (typeof doc.getTextDimensions === "function") {
+      try {
+        const dims = doc.getTextDimensions(text || "");
+        if (dims && Number.isFinite(dims.w)) return dims.w;
+      } catch (err) {
+        /* ignore and fall through */
+      }
+    }
+
+    if (
+      typeof doc.getStringUnitWidth === "function" &&
+      typeof doc.getFontSize === "function"
+    ) {
+      try {
+        const units = doc.getStringUnitWidth(text || "");
+        const fontSize = doc.getFontSize();
+        if (Number.isFinite(units) && Number.isFinite(fontSize)) {
+          return units * fontSize;
+        }
+      } catch (err) {
+        /* ignore and fall through */
+      }
+    }
+
+    const str = text == null ? "" : String(text);
+    return str.length * 6;
+  }
+
   function drawHeader(doc, mainTitle, sectionTitle) {
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -336,13 +374,13 @@
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(40);
-    const tW = doc.getTextWidth(mainTitle);
+    const tW = measureTextWidth(doc, mainTitle);
     doc.text(mainTitle, (pageW - tW) / 2, 80);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
     const stamp = `Generated: ${new Date().toLocaleString()}`;
-    const sW = doc.getTextWidth(stamp);
+    const sW = measureTextWidth(doc, stamp);
     doc.text(stamp, (pageW - sW) / 2, 108);
 
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
@@ -352,7 +390,7 @@
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(28);
-    const hW = doc.getTextWidth(sectionTitle);
+    const hW = measureTextWidth(doc, sectionTitle);
     doc.text(sectionTitle, (pageW - hW) / 2, 170);
 
     return 190;
@@ -376,7 +414,7 @@
     parts.push(`🚩 30% or below: ${stats.reds}`);
 
     const text = parts.join("   •   ");
-    const tW = doc.getTextWidth(text);
+    const tW = measureTextWidth(doc, text);
     doc.text(text, (pageW - tW) / 2, y);
 
     y += 12;
