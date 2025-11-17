@@ -8,11 +8,17 @@
  */
 
 (function () {
-  const CDN = {
-    JSPDF:
+  const SCRIPT_SOURCES = {
+    JSPDF: [
+      "/assets/js/vendor/jspdf.umd.min.js",
+      "/js/vendor/jspdf.umd.min.js",
       "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
-    AUTOTABLE:
+    ],
+    AUTOTABLE: [
+      "/assets/js/vendor/jspdf.plugin.autotable.min.js",
+      "/js/vendor/jspdf.plugin.autotable.min.js",
       "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js",
+    ],
   };
 
   const STORAGE_KEY = "talkkink:compatRows";
@@ -30,20 +36,13 @@
 
   /* --------------------------- Utility Helpers --------------------------- */
 
+  const LOADED_LIBS = new Set();
+
   function injectScript(src, dataKey) {
     return new Promise((resolve, reject) => {
-      const existing = dataKey
-        ? document.querySelector(`script[data-lib="${dataKey}"]`)
-        : null;
-
-      if (existing && existing.dataset.loaded === "1") return resolve();
-      if (existing) {
-        existing.addEventListener("load", () => resolve(), { once: true });
-        existing.addEventListener(
-          "error",
-          () => reject(new Error(`Failed to load ${src}`)),
-          { once: true }
-        );
+      const key = dataKey || src;
+      if (key && LOADED_LIBS.has(key)) {
+        resolve();
         return;
       }
 
@@ -55,12 +54,30 @@
       if (dataKey) s.dataset.lib = dataKey;
 
       s.onload = () => {
-        if (dataKey) s.dataset.loaded = "1";
+        if (key) LOADED_LIBS.add(key);
         resolve();
       };
-      s.onerror = () => reject(new Error(`Failed to load ${src}`));
+      s.onerror = () => {
+        s.remove();
+        reject(new Error(`Failed to load ${src}`));
+      };
       document.head.appendChild(s);
     });
+  }
+
+  async function loadScriptFromSources(sources, dataKey) {
+    let lastError = null;
+    for (const src of sources) {
+      try {
+        await injectScript(src, dataKey);
+        return;
+      } catch (err) {
+        lastError = err;
+        console.warn(`[compat-pdf] Failed to load ${dataKey || "script"} from ${src}`, err);
+      }
+    }
+    if (lastError) throw lastError;
+    throw new Error(`Unable to load ${dataKey || "script"}`);
   }
 
   function hasJsPDF() {
@@ -80,7 +97,7 @@
 
     libsPromise = (async () => {
       if (!hasJsPDF()) {
-        await injectScript(CDN.JSPDF, "jspdf");
+        await loadScriptFromSources(SCRIPT_SOURCES.JSPDF, "jspdf");
       }
 
       // Bridge UMD -> legacy
@@ -89,7 +106,7 @@
       }
 
       if (!hasAutoTable()) {
-        await injectScript(CDN.AUTOTABLE, "jspdf-autotable");
+        await loadScriptFromSources(SCRIPT_SOURCES.AUTOTABLE, "jspdf-autotable");
       }
 
       const ctor = window.jspdf && window.jspdf.jsPDF;
