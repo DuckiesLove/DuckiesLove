@@ -51,6 +51,8 @@ test('generates PDF with score columns and percent', async () => {
   assert.ok(flattened.includes('Partner A'));
   assert.ok(flattened.includes('Partner B'));
   assert.ok(flattened.includes('Match'));
+  assert.ok(flattened.includes('100% ⭐'));
+  assert.ok(flattened.includes('20% 🚩'));
 });
 
 test('shows N/A bar when scores missing', async () => {
