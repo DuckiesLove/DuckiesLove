@@ -247,6 +247,7 @@ function registerStaticDir(mountPath, dirName, { index } = {}) {
 
 registerStaticDir('/css', 'css');
 registerStaticDir('/js', 'js');
+registerStaticDir('/assets', 'assets');
 registerStaticDir('/src', 'src');
 registerStaticDir('/data', 'data');
 registerStaticDir('/kinks', 'kinks', { index: 'index.html' });
