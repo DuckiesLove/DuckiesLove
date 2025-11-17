@@ -364,12 +364,19 @@
     return str.length * 6;
   }
 
-  function drawHeader(doc, mainTitle, sectionTitle) {
+  function drawHeader(doc, mainTitle, sectionTitle, options) {
+    const opts = options || {};
+    const stampText = typeof opts.timestamp === "string" && opts.timestamp
+      ? opts.timestamp
+      : `Generated: ${new Date().toLocaleString()}`;
+    const fillBackground = opts.fillBackground !== false;
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
 
-    doc.setFillColor(BG[0], BG[1], BG[2]);
-    doc.rect(0, 0, pageW, pageH, "F");
+    if (fillBackground) {
+      doc.setFillColor(BG[0], BG[1], BG[2]);
+      doc.rect(0, 0, pageW, pageH, "F");
+    }
 
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
@@ -379,9 +386,8 @@
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
-    const stamp = `Generated: ${new Date().toLocaleString()}`;
-    const sW = measureTextWidth(doc, stamp);
-    doc.text(stamp, (pageW - sW) / 2, 108);
+    const sW = measureTextWidth(doc, stampText);
+    doc.text(stampText, (pageW - sW) / 2, 108);
 
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
     doc.setLineWidth(2.5);
@@ -433,7 +439,10 @@
     const sectionTitle = deriveSectionTitle(rawRows);
     const mainTitle = "TalkKink Compatibility Survey";
 
-    const headerY = drawHeader(doc, mainTitle, sectionTitle);
+    const headerStamp = `Generated: ${new Date().toLocaleString()}`;
+    const headerY = drawHeader(doc, mainTitle, sectionTitle, {
+      timestamp: headerStamp,
+    });
     const bodyRows = buildBodyRows(normRows);
     const stats = computeSummaryStats(normRows);
 
@@ -494,6 +503,11 @@
             data.cell.text = [];
           }
         }
+      },
+      didDrawPage: function () {
+        drawHeader(doc, mainTitle, sectionTitle, {
+          timestamp: headerStamp,
+        });
       },
     });
 
