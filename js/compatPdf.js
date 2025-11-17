@@ -507,7 +507,7 @@
 
   /* ---------------------------- Download UX ------------------------------ */
 
-  async function generateFromStorage() {
+  async function generateFromStorageInternal() {
     let rows = getRowsFromWindow();
     if (!rows.length) rows = getRowsFromStorage();
     if (!rows.length) {
@@ -532,7 +532,7 @@
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       try {
-        await generateFromStorage();
+        await generateFromStorageInternal();
       } catch (err) {
         console.error("[compat-pdf] PDF generation failed", err);
       }
@@ -544,7 +544,7 @@
   window.TKCompatPDF = {
     async generateFromStorage() {
       await ensurePdfLibs();
-      return generateFromStorage();
+      return generateFromStorageInternal();
     },
     async download(rows) {
       await ensurePdfLibs();
@@ -552,7 +552,7 @@
         cacheRows(rows);
         return tkGenerateCompatPdf(rows);
       }
-      return generateFromStorage();
+      return generateFromStorageInternal();
     },
     notifyRowsUpdated(rows) {
       if (Array.isArray(rows)) {
