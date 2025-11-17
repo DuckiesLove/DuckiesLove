@@ -1,8 +1,8 @@
 /**
  * TalkKink Compatibility PDF (Dark, Web-Only)
- * - Single layout: Item | Partner A | Match | Flag | Partner B
- * - Match column shows percentage, flag column shows ⭐ / 🚩
- * - ⭐ for 85–100%, 🚩 for 0–30%, nothing between
+ * - Single layout: Item | Partner A | Match | Partner B | Flag
+ * - Match column shows percentage with ⭐ for 85%+, Flag column only shows 🚩 when triggered
+ * - ⭐ for 85–100%, 🚩 for 0–30% (plus other red-flag rules), nothing between
  * - Category headers between sections
  * - Footer summary with averages + counts
  */
@@ -208,14 +208,28 @@
     return "";
   }
 
-  // ⭐ for 85–100%, 🚩 for 0–30%, nothing in between
-  function tkFlagStatus(aScore, bScore, matchPercent) {
+  function getMatchEmoji(matchPercent) {
     if (!Number.isFinite(matchPercent)) return "";
+    return matchPercent >= 85 ? "⭐" : "";
+  }
 
-    if (matchPercent >= 85) return "⭐";
-    if (matchPercent <= 30) return "🚩";
+  function getFlagEmoji(aScore, bScore, matchPercent) {
+    const aVal = Number.isFinite(aScore) ? aScore : null;
+    const bVal = Number.isFinite(bScore) ? bScore : null;
+    const diff = aVal != null && bVal != null ? Math.abs(aVal - bVal) : 0;
+    const oneIsZero = aVal === 0 || bVal === 0;
+    const oneIsFive = aVal === 5 || bVal === 5;
 
+    if ((Number.isFinite(matchPercent) && matchPercent <= 30) || (oneIsFive && diff >= 3) || oneIsZero) {
+      return "🚩";
+    }
     return "";
+  }
+
+  function formatMatchWithEmoji(aScore, bScore, matchPercent) {
+    if (!Number.isFinite(matchPercent)) return "";
+    const emoji = getMatchEmoji(matchPercent);
+    return `${matchPercent}%${emoji ? ` ${emoji}` : ""}`;
   }
 
   function normalizeCompatRow(raw) {
@@ -257,6 +271,10 @@
       matchPercent,
       aText: aScore != null ? String(aScore) : safeString(aRaw),
       bText: bScore != null ? String(bScore) : safeString(bRaw),
+      matchPercentStr: (matchPercent != null ? `${matchPercent}%` : safeString(matchRaw)).replace(
+        /&&/g,
+        "",
+      ),
       matchText: matchPercent != null ? `${matchPercent}%` : safeString(matchRaw),
     };
   }
@@ -271,9 +289,10 @@
       if (!Number.isFinite(r.matchPercent)) return;
       answered += 1;
       sum += r.matchPercent;
-      const flag = tkFlagStatus(r.aScore, r.bScore, r.matchPercent);
-      if (flag === "⭐") stars += 1;
-      else if (flag === "🚩") reds += 1;
+      const star = getMatchEmoji(r.matchPercent);
+      const flag = getFlagEmoji(r.aScore, r.bScore, r.matchPercent);
+      if (star) stars += 1;
+      if (flag) reds += 1;
     });
 
     const avg = answered ? Math.round(sum / answered) : null;
@@ -301,22 +320,25 @@
           a: "",
           match: "",
           b: "",
+          flag: "",
           _isGroupHeader: true,
         });
       }
 
-      const flag = tkFlagStatus(r.aScore, r.bScore, r.matchPercent);
+      const flag = getFlagEmoji(r.aScore, r.bScore, r.matchPercent);
       const matchBase =
-        r.matchPercent != null ? `${r.matchPercent}%` : safeString(r.matchText);
+        r.matchPercent != null
+          ? formatMatchWithEmoji(r.aScore, r.bScore, r.matchPercent)
+          : r.matchPercentStr || safeString(r.matchText);
 
       rows.push({
         item: r.item,
         a: r.aText,
         match: matchBase,
         b: r.bText,
+        flag,
         _isGroupHeader: false,
         _source: r,
-        _matchIcon: flag,
       });
     });
 
@@ -335,6 +357,30 @@
       }
     }
 
+    if (typeof doc.getTextDimensions === "function") {
+      try {
+        const dims = doc.getTextDimensions(text || "");
+        if (dims && Number.isFinite(dims.w)) return dims.w;
+      } catch (err) {
+        /* ignore and fall through */
+      }
+    }
+
+    if (
+      typeof doc.getStringUnitWidth === "function" &&
+      typeof doc.getFontSize === "function"
+    ) {
+      try {
+        const units = doc.getStringUnitWidth(text || "");
+        const fontSize = doc.getFontSize();
+        if (Number.isFinite(units) && Number.isFinite(fontSize)) {
+          return units * fontSize;
+        }
+      } catch (err) {
+        /* ignore and fall through */
+      }
+    }
+
     const str = text == null ? "" : String(text);
     return str.length * 6;
   }
@@ -343,9 +389,9 @@
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = Math.max(36, Math.min(70, Math.round(pageWidth * 0.1)));
     const available = pageWidth - margin * 2;
-    const minWidths = { item: 200, a: 60, match: 90, b: 60 };
-    const weights = { item: 0.52, a: 0.16, match: 0.16, b: 0.16 };
-    const widths = { item: 0, a: 0, match: 0, b: 0 };
+    const minWidths = { item: 200, a: 60, match: 90, b: 60, flag: 50 };
+    const weights = { item: 0.48, a: 0.16, match: 0.18, b: 0.13, flag: 0.05 };
+    const widths = { item: 0, a: 0, match: 0, b: 0, flag: 0 };
 
     let total = 0;
     Object.keys(widths).forEach((key) => {
@@ -354,8 +400,8 @@
       total += widths[key];
     });
 
-    const reduceOrder = ["item", "match", "a", "b"];
-    const growOrder = ["item", "match", "a", "b"];
+    const reduceOrder = ["item", "match", "a", "b", "flag"];
+    const growOrder = ["item", "match", "a", "b", "flag"];
 
     function shrinkToFit(target) {
       let guard = 0;
@@ -490,28 +536,30 @@
       doc.rect(0, 0, pageW, pageH, "F");
     }
 
-    doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(40);
-    const tW = measureTextWidth(doc, mainTitle);
-    doc.text(mainTitle, (pageW - tW) / 2, 80);
+    doc.setTextColor(0, 255, 255);
+    doc.setFontSize(22);
+    doc.text(mainTitle || "TalkKink Compatibility", pageW / 2, 40, { align: "center" });
 
-    doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
-    const sW = measureTextWidth(doc, stampText);
-    doc.text(stampText, (pageW - sW) / 2, 108);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "normal");
+    doc.text(stampText, pageW / 2, 60, { align: "center" });
 
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
     doc.setLineWidth(2.5);
     const pad = 80;
-    doc.line(pad, 122, pageW - pad, 122);
+    doc.line(pad, 75, pageW - pad, 75);
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(28);
-    const hW = measureTextWidth(doc, sectionTitle);
-    doc.text(sectionTitle, (pageW - hW) / 2, 170);
+    doc.setFontSize(18);
+    doc.text(sectionTitle, pageW / 2, 95, { align: "center" });
 
-    return 190;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.setTextColor(255, 255, 255);
+
+    return 120;
   }
 
   function drawSummaryFooter(doc, stats, startY) {
@@ -527,7 +575,7 @@
       segments.push({ text: `Average compatibility: ${stats.avg}%` });
     }
     segments.push({ icon: "⭐", text: `85–100% matches: ${stats.stars}` });
-    segments.push({ icon: "🚩", text: `30% or below: ${stats.reds}` });
+    segments.push({ icon: "🚩", text: `Flags triggered: ${stats.reds}` });
 
     const spacer = "   •   ";
     let printable = "";
@@ -586,8 +634,9 @@
     const columns = [
       { header: "Item", dataKey: "item" },
       { header: "Partner A", dataKey: "a" },
-      { header: "Match", dataKey: "match" },
+      { header: "Match %", dataKey: "match" },
       { header: "Partner B", dataKey: "b" },
+      { header: "Flag", dataKey: "flag" },
     ];
     const layout = computeTableLayout(doc);
 
@@ -629,6 +678,7 @@
           cellPadding: { top: 5, bottom: 5, left: 6, right: 18 },
         },
         b: { cellWidth: layout.widths.b, halign: "center" },
+        flag: { cellWidth: layout.widths.flag, halign: "center" },
       },
       didParseCell: function (data) {
         if (data.section !== "body") return;
@@ -640,18 +690,10 @@
           data.cell.styles.halign = "left";
 
           if (data.column.dataKey === "item") {
-            data.cell.colSpan = 4;
+            data.cell.colSpan = 5;
           } else {
             data.cell.text = [];
           }
-        }
-      },
-      didDrawCell: function (data) {
-        if (data.section !== "body") return;
-        const raw = data.row.raw || {};
-        if (raw._isGroupHeader) return;
-        if (data.column.dataKey === "match" && raw._matchIcon) {
-          drawMatchIcon(doc, data.cell, raw._matchIcon);
         }
       },
       didDrawPage: function () {
