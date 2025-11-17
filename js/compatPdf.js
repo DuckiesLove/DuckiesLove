@@ -464,7 +464,7 @@
     drawSummaryFooter(doc, stats, finalY);
   }
 
-  async function generateCompatibilityPDF(rawRows) {
+  async function tkGenerateCompatPdf(rawRows) {
     const jsPDFCtor = await ensurePdfLibs();
     const doc = new jsPDFCtor({
       orientation: "landscape",
@@ -518,7 +518,7 @@
     }
 
     cacheRows(rows);
-    await generateCompatibilityPDF(rows);
+    await tkGenerateCompatPdf(rows);
   }
 
   function attachDownloadOverride() {
@@ -550,7 +550,7 @@
       await ensurePdfLibs();
       if (Array.isArray(rows) && rows.length) {
         cacheRows(rows);
-        return generateCompatibilityPDF(rows);
+        return tkGenerateCompatPdf(rows);
       }
       return generateFromStorage();
     },
