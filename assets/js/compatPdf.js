@@ -1,10 +1,9 @@
 /**
  * TalkKink Compatibility PDF (Dark, Web-Only)
- * - Single layout: Item | Partner A | Match | Partner B | Flag
- * - Match column shows percentage with ⭐ for 85%+, Flag column only shows 🚩 when triggered
- * - ⭐ for 85–100%, 🚩 for 0–30% (plus other red-flag rules), nothing between
+ * - Single layout: Item | Partner A | Match | Partner B (no Flag column)
+ * - Match column shows percentage with ⭐ for 85%+
  * - Category headers between sections
- * - Footer summary with averages + counts
+ * - Footer summary with averages + star counts
  */
 
 (function () {
@@ -136,10 +135,16 @@
     return libsPromise;
   }
 
+  function cleanArtifacts(text) {
+    if (typeof text !== "string") return text;
+    return text.replace(/&{2,}/g, "&");
+  }
+
   function safeString(val) {
     if (val == null) return "";
     const s = String(val).trim();
-    return s === "null" || s === "undefined" ? "" : s;
+    if (s === "null" || s === "undefined") return "";
+    return cleanArtifacts(s);
   }
 
   function coerceScore(val) {
@@ -213,19 +218,6 @@
     return matchPercent >= 85 ? "⭐" : "";
   }
 
-  function getFlagEmoji(aScore, bScore, matchPercent) {
-    const aVal = Number.isFinite(aScore) ? aScore : null;
-    const bVal = Number.isFinite(bScore) ? bScore : null;
-    const diff = aVal != null && bVal != null ? Math.abs(aVal - bVal) : 0;
-    const oneIsZero = aVal === 0 || bVal === 0;
-    const oneIsFive = aVal === 5 || bVal === 5;
-
-    if ((Number.isFinite(matchPercent) && matchPercent <= 30) || (oneIsFive && diff >= 3) || oneIsZero) {
-      return "🚩";
-    }
-    return "";
-  }
-
   function formatMatchWithEmoji(aScore, bScore, matchPercent) {
     if (!Number.isFinite(matchPercent)) return "";
     const emoji = getMatchEmoji(matchPercent);
@@ -271,10 +263,7 @@
       matchPercent,
       aText: aScore != null ? String(aScore) : safeString(aRaw),
       bText: bScore != null ? String(bScore) : safeString(bRaw),
-      matchPercentStr: (matchPercent != null ? `${matchPercent}%` : safeString(matchRaw)).replace(
-        /&&/g,
-        "",
-      ),
+      matchPercentStr: matchPercent != null ? `${matchPercent}%` : safeString(matchRaw),
       matchText: matchPercent != null ? `${matchPercent}%` : safeString(matchRaw),
     };
   }
@@ -283,20 +272,16 @@
     let answered = 0;
     let sum = 0;
     let stars = 0;
-    let reds = 0;
-
     rows.forEach((r) => {
       if (!Number.isFinite(r.matchPercent)) return;
       answered += 1;
       sum += r.matchPercent;
       const star = getMatchEmoji(r.matchPercent);
-      const flag = getFlagEmoji(r.aScore, r.bScore, r.matchPercent);
       if (star) stars += 1;
-      if (flag) reds += 1;
     });
 
     const avg = answered ? Math.round(sum / answered) : null;
-    return { totalRows: rows.length, answered, avg, stars, reds };
+    return { totalRows: rows.length, answered, avg, stars };
   }
 
   function buildBodyRows(normRows) {
@@ -320,12 +305,10 @@
           a: "",
           match: "",
           b: "",
-          flag: "",
           _isGroupHeader: true,
         });
       }
 
-      const flag = getFlagEmoji(r.aScore, r.bScore, r.matchPercent);
       const matchBase =
         r.matchPercent != null
           ? formatMatchWithEmoji(r.aScore, r.bScore, r.matchPercent)
@@ -336,7 +319,6 @@
         a: r.aText,
         match: matchBase,
         b: r.bText,
-        flag,
         _isGroupHeader: false,
         _source: r,
       });
@@ -389,9 +371,9 @@
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = Math.max(36, Math.min(70, Math.round(pageWidth * 0.1)));
     const available = pageWidth - margin * 2;
-    const minWidths = { item: 200, a: 60, match: 90, b: 60, flag: 50 };
-    const weights = { item: 0.48, a: 0.16, match: 0.18, b: 0.13, flag: 0.05 };
-    const widths = { item: 0, a: 0, match: 0, b: 0, flag: 0 };
+    const minWidths = { item: 220, a: 70, match: 110, b: 70 };
+    const weights = { item: 0.54, a: 0.16, match: 0.2, b: 0.1 };
+    const widths = { item: 0, a: 0, match: 0, b: 0 };
 
     let total = 0;
     Object.keys(widths).forEach((key) => {
@@ -400,8 +382,8 @@
       total += widths[key];
     });
 
-    const reduceOrder = ["item", "match", "a", "b", "flag"];
-    const growOrder = ["item", "match", "a", "b", "flag"];
+    const reduceOrder = ["item", "match", "a", "b"];
+    const growOrder = ["item", "match", "a", "b"];
 
     function shrinkToFit(target) {
       let guard = 0;
@@ -473,33 +455,6 @@
     if (typeof doc.restoreGraphicsState === "function") doc.restoreGraphicsState();
   }
 
-  function drawFlagShape(doc, frame) {
-    if (!frame) return;
-    const size = Math.max(frame.size || 0, 6);
-    const poleWidth = Math.max(size * 0.15, 1.2);
-    const poleX = frame.x + Math.max(size * 0.05, 0.4);
-    const top = frame.y;
-    const bottom = frame.y + size;
-    if (typeof doc.saveGraphicsState === "function") doc.saveGraphicsState();
-    doc.setFillColor(185, 185, 185);
-    doc.setDrawColor(120, 120, 120);
-    doc.rect(poleX, top, poleWidth, size, "F");
-
-    const flagWidth = Math.max(size - poleWidth - size * 0.1, size * 0.4);
-    const points = [
-      [poleX + poleWidth, top + size * 0.05],
-      [poleX + poleWidth + flagWidth, top + size * 0.25],
-      [poleX + poleWidth + flagWidth * 0.65, top + size * 0.5],
-      [poleX + poleWidth + flagWidth, bottom - size * 0.25],
-      [poleX + poleWidth, bottom - size * 0.05],
-    ];
-    doc.setFillColor(230, 52, 70);
-    doc.setDrawColor(180, 12, 24);
-    doc.setLineWidth(0.6);
-    drawPolygon(doc, points, "FD");
-    if (typeof doc.restoreGraphicsState === "function") doc.restoreGraphicsState();
-  }
-
   function drawMatchIcon(doc, cell, icon, options) {
     if (!doc || !cell || !icon) return;
     const opts = options || {};
@@ -517,8 +472,6 @@
 
     if (icon === "⭐") {
       drawStarShape(doc, frame);
-    } else if (icon === "🚩") {
-      drawFlagShape(doc, frame);
     }
   }
 
@@ -536,30 +489,47 @@
       doc.rect(0, 0, pageW, pageH, "F");
     }
 
+    const titleBoxWidth = Math.min(520, pageW * 0.75);
+    const titleBoxX = (pageW - titleBoxWidth) / 2;
+    const titleBoxY = 26;
+    const titleBoxHeight = 42;
+
+    if (typeof doc.roundedRect === "function") {
+      doc.setFillColor(18, 27, 36);
+      doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+      doc.setLineWidth(1.4);
+      doc.roundedRect(titleBoxX, titleBoxY - 18, titleBoxWidth, titleBoxHeight, 8, 8, "FD");
+    }
+
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 255, 255);
-    doc.setFontSize(22);
-    doc.text(mainTitle || "TalkKink Compatibility", pageW / 2, 40, { align: "center" });
+    doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+    doc.setFontSize(24);
+    doc.text(mainTitle || "TalkKink Compatibility", pageW / 2, 36, { align: "center" });
 
     doc.setFontSize(12);
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(230, 234, 240);
     doc.setFont("helvetica", "normal");
-    doc.text(stampText, pageW / 2, 60, { align: "center" });
+    doc.text(stampText, pageW / 2, 56, { align: "center" });
 
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setLineWidth(2.5);
+    doc.setLineWidth(4.5);
     const pad = 80;
-    doc.line(pad, 75, pageW - pad, 75);
+    const glowY = 74;
+    doc.line(pad, glowY, pageW - pad, glowY);
+    doc.setLineWidth(1.3);
+    doc.setDrawColor(0, 130, 150);
+    doc.line(pad, glowY + 6, pageW - pad, glowY + 6);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text(sectionTitle, pageW / 2, 95, { align: "center" });
+    doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+    doc.text(sectionTitle, pageW / 2, 98, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
     doc.setTextColor(255, 255, 255);
 
-    return 120;
+    return 126;
   }
 
   function drawSummaryFooter(doc, stats, startY) {
@@ -575,7 +545,6 @@
       segments.push({ text: `Average compatibility: ${stats.avg}%` });
     }
     segments.push({ icon: "⭐", text: `85–100% matches: ${stats.stars}` });
-    segments.push({ icon: "🚩", text: `Flags triggered: ${stats.reds}` });
 
     const spacer = "   •   ";
     let printable = "";
@@ -636,7 +605,6 @@
       { header: "Partner A", dataKey: "a" },
       { header: "Match %", dataKey: "match" },
       { header: "Partner B", dataKey: "b" },
-      { header: "Flag", dataKey: "flag" },
     ];
     const layout = computeTableLayout(doc);
 
@@ -675,10 +643,9 @@
         match: {
           cellWidth: layout.widths.match,
           halign: "center",
-          cellPadding: { top: 5, bottom: 5, left: 6, right: 18 },
+          cellPadding: { top: 5, bottom: 5, left: 6, right: 6 },
         },
         b: { cellWidth: layout.widths.b, halign: "center" },
-        flag: { cellWidth: layout.widths.flag, halign: "center" },
       },
       didParseCell: function (data) {
         if (data.section !== "body") return;
@@ -690,7 +657,7 @@
           data.cell.styles.halign = "left";
 
           if (data.column.dataKey === "item") {
-            data.cell.colSpan = 5;
+            data.cell.colSpan = columns.length;
           } else {
             data.cell.text = [];
           }
