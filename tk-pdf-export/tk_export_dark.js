@@ -1,6 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
 /*
 USAGE EXAMPLES:
@@ -13,11 +15,17 @@ USAGE EXAMPLES:
   # C) From one combined JSON file:
   # { "partnerA":[...], "partnerB":[...] }
   node tk_export_dark.js --json combined.json --out compatibility-dark.pdf
+
+  # D) Use the auto-table layout with TalkKink branding (optional font path):
+  node tk_export_dark.js --html compatibility.html --table --font ./fonts/Fredoka-Regular.ttf
 */
 
 const args = parseArgs(process.argv.slice(2));
 const TITLE = "Talk Kink • Compatibility Report";
 const FILE  = args.out || "compatibility-dark.pdf";
+const DEFAULT_FONT_PATH = fileURLToPath(new URL("./fonts/Fredoka-Regular.ttf", import.meta.url));
+const useTableLayout = parseBooleanFlag(args.table) || args.layout === "table";
+const fontOverridePath = args.font;
 
 // Layout constants (dark theme)
 const GRID = 1.6;                // thick white borders
@@ -36,6 +44,13 @@ function parseArgs(argv) {
     out[key] = val;
   }
   return out;
+}
+
+function parseBooleanFlag(value) {
+  if (value == null) return false;
+  const normalized = String(value).toLowerCase();
+  if (["false", "0", "off", "no"].includes(normalized)) return false;
+  return true;
 }
 
 // Helpers
@@ -200,6 +215,11 @@ async function main() {
     process.exit(2);
   }
 
+  if (useTableLayout) {
+    await generateTablePdf(rows, { outFile: FILE, fontPath: fontOverridePath });
+    return;
+  }
+
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
   const { Cat, A, M, B, pageW } = computeLayout(doc);
   const pageH = doc.internal.pageSize.getHeight();
@@ -263,6 +283,116 @@ async function main() {
   const pdf = doc.output("arraybuffer");
   await writeFile(FILE, Buffer.from(pdf));
   console.log("✔ Wrote", FILE);
+}
+
+function sanitizeCell(value) {
+  if (value == null) return "—";
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const text = String(value).trim();
+  return text ? text : "—";
+}
+
+function normalizeMatch(value) {
+  const raw = value == null ? "" : String(value);
+  const numeric = Number(raw.replace(/[^0-9.-]/g, ""));
+  if (Number.isFinite(numeric)) {
+    const pct = Math.max(0, Math.min(100, Math.round(numeric)));
+    const star = pct >= 85 ? " ⭐" : "";
+    return { pct, text: `${pct}%${star}` };
+  }
+  const cleaned = raw.trim();
+  return { pct: null, text: cleaned || "—" };
+}
+
+async function registerFredokaFont(doc, explicitPath) {
+  const candidates = [];
+  if (explicitPath) candidates.push({ path: explicitPath, explicit: true });
+  candidates.push({ path: DEFAULT_FONT_PATH, explicit: false });
+
+  for (const candidate of candidates) {
+    if (!candidate.path) continue;
+    try {
+      const data = await readFile(candidate.path);
+      const base64 = Buffer.from(data).toString("base64");
+      doc.addFileToVFS("Fredoka-Regular.ttf", base64);
+      doc.addFont("Fredoka-Regular.ttf", "Fredoka", "normal");
+      doc.setFont("Fredoka", "normal");
+      if (candidate.explicit) {
+        console.info(`[pdf] Registered custom font from ${candidate.path}`);
+      }
+      return "Fredoka";
+    } catch (error) {
+      if (candidate.explicit) {
+        console.warn(`[pdf] Failed to load font ${candidate.path}: ${error?.message || error}`);
+      }
+    }
+  }
+  return "helvetica";
+}
+
+async function generateTablePdf(rows, { outFile, fontPath } = {}) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
+  const fontFamily = await registerFredokaFont(doc, fontPath);
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  doc.setFont(fontFamily, "normal");
+  doc.setFontSize(22);
+  doc.setTextColor(0, 255, 255);
+  doc.text("TalkKink Compatibility Survey", 20, 32);
+
+  doc.setFontSize(14);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 48);
+  doc.setDrawColor(0, 255, 255);
+  doc.setLineWidth(1);
+  doc.line(20, 52, pageWidth - 20, 52);
+  doc.text("Compatibility Survey", 20, 68);
+
+  const body = rows.map(([item, a, pct, b]) => {
+    const match = normalizeMatch(pct);
+    return [
+      item || "—",
+      sanitizeCell(a),
+      match.text,
+      sanitizeCell(b),
+    ];
+  });
+
+  autoTable(doc, {
+    head: [["Item", "Partner A", "Match %", "Partner B"]],
+    body,
+    startY: 82,
+    margin: { left: 20, right: 20 },
+    styles: {
+      font: fontFamily,
+      fontSize: 11,
+      halign: "left",
+      valign: "middle",
+      textColor: 255,
+      cellPadding: 6,
+      fillColor: [15, 16, 18],
+      lineColor: [40, 40, 40],
+      lineWidth: 0.4,
+    },
+    headStyles: {
+      fillColor: [0, 255, 255],
+      textColor: 0,
+      fontSize: 13,
+      fontStyle: "bold",
+      halign: "center",
+    },
+    columnStyles: {
+      0: { cellWidth: 360 },
+      1: { cellWidth: 90, halign: "center" },
+      2: { cellWidth: 130, halign: "center" },
+      3: { cellWidth: 90, halign: "center" },
+    },
+  });
+
+  const pdf = doc.output("arraybuffer");
+  const targetFile = outFile || FILE;
+  await writeFile(targetFile, Buffer.from(pdf));
+  console.log("✔ Wrote", targetFile);
 }
 
 main().catch(err => {
