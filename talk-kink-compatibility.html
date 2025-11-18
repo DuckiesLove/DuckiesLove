@@ -72,6 +72,8 @@
     text-align:center;
     line-height:1.1;
     white-space:nowrap;
+    font-variant-numeric:tabular-nums;
+    font-feature-settings:'tnum';
     /* give the header the outlined look, too */
     text-shadow:
       0 0 0 var(--bg),
@@ -82,6 +84,8 @@
   .compat tbody td{
     padding:14px 12px; font-size:19px; line-height:1.3; color:var(--ink);
     border-bottom:1px solid #151a1e; background:var(--row);
+    font-variant-numeric:tabular-nums;
+    font-feature-settings:'tnum';
   }
   .compat tbody tr:nth-child(2n) td{ background:var(--row-alt); }
   .compat tbody td.label{ color:var(--ink); }
