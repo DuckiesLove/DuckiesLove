@@ -66,15 +66,13 @@
     background: rgba(255,255,255,.02);
   }
   table.compat tr:nth-child(odd) td{background: rgba(255,255,255,.035)}
-  table.compat .num,
-  table.compat .flag{ text-align:center; font-variant-numeric: tabular-nums }
+  table.compat .num{ text-align:center; font-variant-numeric: tabular-nums }
   table.compat .label{ word-break: break-word }
 
-  table.compat colgroup col.label{ width: 56% }
-  table.compat colgroup col.pa{ width: 11% }
-  table.compat colgroup col.match{ width: 11% }
-  table.compat colgroup col.flag{ width: 11% }
-  table.compat colgroup col.pb{ width: 11% }
+  table.compat colgroup col.label{ width: 60% }
+  table.compat colgroup col.pa{ width: 12% }
+  table.compat colgroup col.match{ width: 16% }
+  table.compat colgroup col.pb{ width: 12% }
 
   /* Remove accidental duplicate header row if an upstream script injects again */
   table.compat thead tr + tr{ display:none !important }
@@ -99,11 +97,11 @@
   <!-- Your compatibility table; the colgroup keeps widths in sync with PDF -->
   <table class="compat" id="compatTable">
     <colgroup>
-      <col class="label"><col class="pa"><col class="match"><col class="flag"><col class="pb">
+      <col class="label"><col class="pa"><col class="match"><col class="pb">
     </colgroup>
     <thead>
       <tr>
-        <th>Kinks</th><th>Partner A</th><th>Match</th><th>Flag</th><th>Partner B</th>
+        <th>Kinks</th><th>Partner A</th><th>Match %</th><th>Partner B</th>
       </tr>
     </thead>
     <tbody id="compatBody"><!-- rows injected by your app; leave empty in template --></tbody>
@@ -127,10 +125,9 @@
     selectors: { downloadBtn: '#downloadPdfBtn' },
     columns: [
       { key: 'item',  header: 'Kinks',     w: 330 },
-      { key: 'a',     header: 'Partner A', w: 75  },
-      { key: 'match', header: 'Match',     w: 95  },
-      { key: 'flag',  header: 'Flag',      w: 60  },
-      { key: 'b',     header: 'Partner B', w: 75  },
+      { key: 'a',     header: 'Partner A', w: 80  },
+      { key: 'match', header: 'Match %',   w: 120 },
+      { key: 'b',     header: 'Partner B', w: 80  },
     ],
     cdn: {
       jspdf: [
@@ -235,15 +232,12 @@
     if (!str) return '';
     const lower = str.toLowerCase();
     if (['⭐', '⭐️', 'star', 'stars', 'green', '🟩', '🟢'].includes(lower)) return '⭐';
-    if (['🚩', 'flag', 'red flag', 'red', '🟥', '🔴', '🚩️'].includes(lower)) return '🚩';
     return '';
   }
 
   function tk_flagStatus(a, b, matchPercent) {
     if (!Number.isFinite(matchPercent)) return '';
-    if (matchPercent >= 85) return '⭐';
-    if (matchPercent <= 30) return '🚩';
-    return '';
+    return matchPercent >= 85 ? '⭐' : '';
   }
 
   function tk_renderMatchColumn(a, b, matchPercent, matchRaw) {
@@ -262,8 +256,9 @@
     let flagRaw;
 
     if (Array.isArray(r)) {
-      [item, aRaw, matchRaw, flagRaw, bRaw] = r;
-      if (r.length === 4) {
+      if (r.length >= 5) {
+        [item, aRaw, matchRaw, flagRaw, bRaw] = r;
+      } else {
         [item, aRaw, matchRaw, bRaw] = r;
         flagRaw = null;
       }
@@ -293,18 +288,18 @@
     const matchDisplay = tk_renderMatchColumn(a, b, matchPct, matchRaw);
     const explicitFlag = tk_normalizeFlag(flagRaw);
     const computedFlag = tk_flagStatus(a, b, matchPct);
-    const flagStatus = explicitFlag || computedFlag || '';
+    const matchWithStar = (explicitFlag || computedFlag)
+      ? `${matchDisplay} ${(explicitFlag || computedFlag)}`.trim()
+      : matchDisplay;
 
     return {
       item: cleanText(item),
       a: a != null ? String(a) : cleanText(aRaw),
-      match: matchDisplay,
-      flag: flagStatus,
+      match: matchWithStar,
       b: b != null ? String(b) : cleanText(bRaw),
       aNum: a,
       bNum: b,
       pct: matchPct,
-      flagStatus,
     };
   }
 
@@ -353,17 +348,11 @@
   }
 
   function renderSection(doc, rows, headerMeta) {
-    const pdfColumns = CFG.columns.filter((col) => col.key !== 'flag');
+    const pdfColumns = CFG.columns;
     const tableRows = rows.map((r) => ({
       item: cleanText(r.item),
       a: cleanText(r.a),
       match: cleanText(r.match),
-      matchWithFlag:
-        r.flag === '⭐'
-          ? `${cleanText(r.match)} ★`
-          : r.flag === '🚩'
-            ? `${cleanText(r.match)} 🚩`
-            : cleanText(r.match),
       b: cleanText(r.b),
     }));
 
@@ -376,7 +365,7 @@
           ? doc.splitTextToSize(row.item, wrapWidth)
           : row.item,
       a: row.a,
-      match: row.matchWithFlag,
+      match: row.match,
       b: row.b,
     }));
 
@@ -471,9 +460,7 @@
     body.querySelectorAll('tr').forEach(tr => {
       const cells = Array.from(tr.children, td => safe(td?.textContent).trim());
       if (cells.length >= 4) {
-        const normalized = cells.slice(0, 5);
-        if (normalized.length === 4) normalized.splice(3, 0, '');
-        rows.push(normalized);
+        rows.push(cells.slice(0, 4));
       }
     });
     return rows;
