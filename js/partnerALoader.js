@@ -107,7 +107,7 @@ function buildPartnerWebReport() {
   const rawRows = getCompatRows();
   if (!rawRows.length) {
     table.innerHTML =
-      '<thead><tr><th>Item</th><th>Partner A</th><th>Match</th><th>Partner B</th></tr></thead>' +
+      '<thead><tr><th>Kinks</th><th>Partner A</th><th>Match</th><th>Partner B</th></tr></thead>' +
       '<tbody><tr><td colspan="4">Load both surveys on the compatibility page first.</td></tr></tbody>';
     return;
   }
@@ -116,7 +116,7 @@ function buildPartnerWebReport() {
 
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
-  ['Item', 'Partner A', 'Match', 'Partner B'].forEach(label => {
+  ['Kinks', 'Partner A', 'Match', 'Partner B'].forEach(label => {
     const th = document.createElement('th');
     th.textContent = label;
     headRow.appendChild(th);

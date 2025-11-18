@@ -752,7 +752,7 @@ async function exportCSV() {
     }
     lastResult = buildKinkBreakdown(surveyA, surveyB);
   }
-  const rows = [['Category', 'Item', 'Partner A', 'Partner B']];
+  const rows = [['Category', 'Kinks', 'Partner A', 'Partner B']];
   Object.entries(lastResult).forEach(([cat, list]) => {
     list.forEach(it => {
       rows.push([cat, it.name, maxRating(it.you) ?? '', maxRating(it.partner) ?? '']);

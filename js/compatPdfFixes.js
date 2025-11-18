@@ -7,7 +7,7 @@
   if (!compat) return;
 
   // Remove any duplicate header cells beyond the canonical 5
-  const wanted = ['Item','Partner A','Match','Flag','Partner B'];
+  const wanted = ['Kinks','Partner A','Match','Flag','Partner B'];
   const ths = [...compat.tHead?.rows?.[0]?.cells||[]];
   if (ths.length) {
     // If a second Item/Flag snuck in, rebuild the header cleanly
