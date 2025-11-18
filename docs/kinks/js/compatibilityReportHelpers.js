@@ -391,7 +391,7 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   } else {
     doc.setTextColor(textColor);
   }
-  doc.text('Item', colLabel, currentY, { align: 'left' });
+    doc.text('Kinks', colLabel, currentY, { align: 'left' });
   doc.text('Partner A', colA, currentY, { align: 'center' });
   const matchHeaderX = matchWidth ? colBar + matchWidth / 2 : colBar;
   doc.text('Match %', matchHeaderX, currentY, { align: 'center' });

@@ -63,7 +63,7 @@ test('renderCategorySection renders each item and returns final y', () => {
   assert(texts.includes('MyCat'));
   assert(texts.includes('First'));
   assert(texts.includes('Second'));
-  assert(texts.includes('Item'));
+  assert(texts.includes('Kinks'));
   assert(texts.includes('Partner A'));
   assert(texts.includes('Match'));
   assert(texts.includes('Partner B'));

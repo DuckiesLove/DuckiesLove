@@ -641,7 +641,7 @@
     const stats = computeSummaryStats(normRows);
 
     const columns = [
-      { header: "Item", dataKey: "item" },
+      { header: "Kinks", dataKey: "item" },
       { header: "Partner A", dataKey: "a" },
       { header: "Match %", dataKey: "match" },
       { header: "Partner B", dataKey: "b" },

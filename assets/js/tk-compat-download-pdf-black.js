@@ -209,7 +209,7 @@
       ]);
 
       doc.autoTable(Object.assign({}, tableCommon, {
-        head: [['Score', 'Item']],
+        head: [['Score', 'Kinks']],
         body: rows,
         startY: y + 10,
         userStyles: { chapterTitle: cat || 'Other' }

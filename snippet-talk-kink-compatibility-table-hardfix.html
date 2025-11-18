@@ -61,11 +61,11 @@
   Array.from(main.querySelectorAll('thead')).forEach((th, i) => { if (i) th.remove(); });
   let thead = main.querySelector('thead');
   if (!thead) { thead = document.createElement('thead'); main.prepend(thead); }
-  const HEADS = ['Item','Partner A','Match','Flag','Partner B'];
+  const HEADS = ['Kinks','Partner A','Match','Flag','Partner B'];
   thead.innerHTML = `<tr>${HEADS.map(h=>`<th>${h}</th>`).join('')}</tr>`;
 
   // 4) Install a fresh colgroup for correct widths
-  const widths = [56, 12, 16, 4, 12]; // Item, A, Match, Flag, B
+  const widths = [56, 12, 16, 4, 12]; // Kinks, A, Match, Flag, B
   main.querySelector('colgroup')?.remove();
   const cg = document.createElement('colgroup');
   widths.forEach(w => { const c = document.createElement('col'); c.style.width = w + '%'; cg.appendChild(c); });
@@ -86,7 +86,7 @@
     while ((tds = Array.from(tr.querySelectorAll('td'))).length < 5) tr.appendChild(document.createElement('td'));
 
     // Clean and align columns
-    // 0: Item (trim newlines/spaces)
+    // 0: Kinks (trim newlines/spaces)
     tds[0].textContent = (tds[0].textContent || '').replace(/\s+/g,' ').trim();
 
     // 1,2,4 numeric -> center

@@ -118,7 +118,7 @@ const fallbackHelpers = (() => {
 
     let currentY = startY + layout.headerHeight;
     doc.setFontSize(9);
-    doc.text('Item', layout.colLabel, currentY);
+    doc.text('Kinks', layout.colLabel, currentY);
     doc.text('Partner A', layout.colA, currentY, { align: 'center' });
     doc.text('Match %', layout.colBar, currentY, { align: 'center' });
     doc.text('Partner B', layout.colB, currentY, { align: 'center' });

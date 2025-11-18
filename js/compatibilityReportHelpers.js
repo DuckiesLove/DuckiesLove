@@ -400,7 +400,7 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   } else {
     doc.setTextColor(textColor);
   }
-  doc.text('Item', colLabel, currentY, { align: 'left' });
+    doc.text('Kinks', colLabel, currentY, { align: 'left' });
   doc.text('Partner A', colA, currentY, { align: 'center' });
   doc.text('Match', colBar + layout.matchWidth / 2, currentY, { align: 'center' });
   doc.text('Partner B', colB, currentY, { align: 'center' });
