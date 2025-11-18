@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>TalkKink Compatibility</title>
+<title>TalkKink Compatibility Survey</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fredoka:wght@600;700&display=swap">
@@ -138,7 +138,7 @@
 </head>
 <body>
   <div class="page" id="app">
-    <h1 class="title">TalkKink Compatibility</h1>
+    <h1 class="title">TalkKink Compatibility Survey</h1>
     <p class="subtitle" id="ts">Generated: —</p>
     <div class="hr"></div>
     <h2 class="section">Behavioral Play</h2>
@@ -165,6 +165,193 @@
   </div>
 
 <script>
+const TK_COMPAT_DEFAULT_TITLE = 'TalkKink Compatibility Survey';
+
+function tkCompatSafeString(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+  try {
+    return String(value).trim();
+  } catch (err) {
+    console.warn('[tk-compat-meta] Unable to stringify value', err);
+    return '';
+  }
+}
+
+function tkCompatPickFirst(values) {
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      const nested = tkCompatPickFirst(value);
+      if (nested) return nested;
+      continue;
+    }
+    const str = tkCompatSafeString(value);
+    if (str) return str;
+  }
+  return '';
+}
+
+function tkCompatTryParseDate(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const fromNum = new Date(value);
+    if (!Number.isNaN(fromNum.getTime())) return fromNum;
+  }
+  const text = tkCompatSafeString(value);
+  if (!text) return null;
+  const normalized = text.replace(/^generated:\s*/i, '').trim();
+  if (!normalized) return null;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function tkCompatFormatStamp(rawStamp, fallbackDate = new Date()) {
+  const parsed = tkCompatTryParseDate(rawStamp);
+  if (parsed) {
+    return `Generated: ${parsed.toLocaleString()}`;
+  }
+  const text = tkCompatSafeString(rawStamp);
+  if (text) {
+    return /^generated:/i.test(text) ? text : `Generated: ${text}`;
+  }
+  const fallback = fallbackDate instanceof Date ? fallbackDate : new Date();
+  return `Generated: ${fallback.toLocaleString()}`;
+}
+
+function tkCompatReadJson(key) {
+  if (!key || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (err) {
+    console.warn('[tk-compat-meta] Failed to read', key, err);
+    return null;
+  }
+}
+
+function tkCompatLoadPayload(sequence) {
+  for (const getter of sequence) {
+    try {
+      const value = getter();
+      if (value) return value;
+    } catch (err) {
+      console.warn('[tk-compat-meta] Source error', err);
+    }
+  }
+  return null;
+}
+
+function tkCompatExtractMeta(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  const meta = typeof payload.meta === 'object' ? payload.meta : {};
+  const source = typeof payload.source === 'object' ? payload.source : {};
+  const context = typeof payload.context === 'object' ? payload.context : {};
+
+  const title = tkCompatPickFirst([
+    meta.surveyTitle,
+    meta.title,
+    meta.name,
+    payload.title,
+    payload.name,
+    source.title,
+    source.name,
+    context.title,
+    context.name,
+  ]);
+
+  const exportedAt = tkCompatPickFirst([
+    meta.exportedAt,
+    payload.exportedAt,
+    meta.generatedAt,
+    payload.generatedAt,
+    meta.timestamp,
+    payload.timestamp,
+    source.generatedAt,
+    context.generatedAt,
+  ]);
+
+  const stamp = tkCompatPickFirst([meta.stamp, payload.stamp]);
+
+  return { title, exportedAt, stamp };
+}
+
+function tkResolveCompatMeta() {
+  const fallbackDate = new Date();
+  const selfPayload = tkCompatLoadPayload([
+    () => (typeof window !== 'undefined' ? window.talkkinkMine : null),
+    () => (typeof window !== 'undefined' ? window.talkkinkSurvey : null),
+    () => tkCompatReadJson('tk_compat.self'),
+    () => tkCompatReadJson('talkkink:mine'),
+    () => tkCompatReadJson('talkkink:survey'),
+  ]);
+  const partnerPayload = tkCompatLoadPayload([
+    () => (typeof window !== 'undefined' ? window.talkkinkPartner : null),
+    () => tkCompatReadJson('tk_compat.partner'),
+    () => tkCompatReadJson('talkkink:partner'),
+  ]);
+
+  const selfMeta = tkCompatExtractMeta(selfPayload);
+  const partnerMeta = tkCompatExtractMeta(partnerPayload);
+
+  const title = tkCompatPickFirst([
+    selfMeta?.title,
+    partnerMeta?.title,
+  ]) || TK_COMPAT_DEFAULT_TITLE;
+
+  const stampRaw = tkCompatPickFirst([
+    selfMeta?.stamp,
+    partnerMeta?.stamp,
+    selfMeta?.exportedAt,
+    partnerMeta?.exportedAt,
+  ]);
+
+  const generatedStamp = tkCompatFormatStamp(stampRaw, fallbackDate);
+
+  return {
+    title,
+    generatedStamp,
+    timestamp: tkCompatTryParseDate(stampRaw),
+    sources: { self: selfMeta, partner: partnerMeta },
+  };
+}
+
+const TK_COMPAT_META = tkResolveCompatMeta();
+if (typeof window !== 'undefined') {
+  window.TK_COMPAT_META = TK_COMPAT_META;
+}
+
+const TK_COMPAT_PDF_TITLE = (TK_COMPAT_META && TK_COMPAT_META.title) || TK_COMPAT_DEFAULT_TITLE;
+const TK_COMPAT_PDF_SUBTITLE = TK_COMPAT_PDF_TITLE === TK_COMPAT_DEFAULT_TITLE
+  ? 'Compatibility Report'
+  : TK_COMPAT_DEFAULT_TITLE;
+
+function tkCompatBuildFileName(meta = TK_COMPAT_META) {
+  const base = tkCompatSafeString(meta?.title) || 'TalkKink Compatibility';
+  const safe = base
+    .replace(/[^a-z0-9]+/gi, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return (safe || 'TalkKink_Compatibility') + '.pdf';
+}
+
+function tkApplyCompatMeta(meta = TK_COMPAT_META) {
+  if (!meta) return;
+  if (meta.title) {
+    document.title = meta.title;
+    const heading = document.querySelector('.title');
+    if (heading) heading.textContent = meta.title;
+  }
+  const subtitle = document.getElementById('ts');
+  if (subtitle) {
+    subtitle.textContent = meta.generatedStamp || tkCompatFormatStamp();
+  }
+}
+
+tkApplyCompatMeta();
+
 const FLAG_META = {
   green:  { emoji: "🟩", label: "High match", color: "#18d69a" },
   yellow: { emoji: "🟨", label: "Needs discussion", color: "#ffcc00" },
@@ -509,11 +696,6 @@ if (typeof window !== 'undefined') {
   if (window.__TK_ONE_TIME_INIT__) return;  // hard lock
   window.__TK_ONE_TIME_INIT__ = true;
 
-  /* Timestamp */
-  const ts = new Date();
-  document.getElementById('ts').textContent =
-    'Generated: ' + ts.toLocaleString();
-
   /* Demo source (will be replaced if live globals/localStorage exist) */
   const TK_COMPAT_CACHE_VERSION = 'v3'; // bump when schema or fallback changes
   const LS_VERSION_KEY = 'talkkink:compatRows:ver';
@@ -759,7 +941,7 @@ async function tkGeneratePdfFromCategories(categories) {
   const tableFill = [17, 17, 17];
   const bodyText = [255, 255, 255];
   const lineColor = [51, 51, 51];
-  const generatedAt = `Generated: ${new Date().toLocaleString()}`;
+  const generatedAt = TK_COMPAT_META.generatedStamp;
 
   const flattenedRows = [];
   categories.forEach((category) => {
@@ -839,7 +1021,7 @@ async function tkGeneratePdfFromCategories(categories) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
     doc.setTextColor(255, 255, 255);
-    doc.text('TalkKink Compatibility Report', pageWidth / 2, 50, { align: 'center' });
+    doc.text(TK_COMPAT_PDF_TITLE, pageWidth / 2, 50, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
@@ -853,7 +1035,7 @@ async function tkGeneratePdfFromCategories(categories) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(255, 255, 255);
-    doc.text('Compatibility Survey', pageWidth / 2, 110, { align: 'center' });
+    doc.text(TK_COMPAT_PDF_SUBTITLE, pageWidth / 2, 110, { align: 'center' });
   };
 
   drawPageFrame();
@@ -892,7 +1074,7 @@ async function tkGeneratePdfFromCategories(categories) {
     },
   });
 
-  doc.save('TalkKink_Compatibility.pdf');
+  doc.save(tkCompatBuildFileName());
 }
 
 async function TKPDF_exportCompatibilitySingle() {
