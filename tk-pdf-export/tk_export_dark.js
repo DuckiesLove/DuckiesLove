@@ -203,6 +203,7 @@ async function main() {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
   const { Cat, A, M, B, pageW } = computeLayout(doc);
   const pageH = doc.internal.pageSize.getHeight();
+  const generatedStamp = `Generated: ${new Date().toLocaleString()}`;
 
   const paintBg = () => {
     doc.setFillColor(0, 0, 0);
@@ -210,10 +211,17 @@ async function main() {
     doc.setTextColor(255, 255, 255);
   };
 
+  const drawTitleBlock = () => {
+    doc.setFontSize(28);
+    doc.text(TITLE, pageW / 2, 48, { align: "center" });
+    doc.setFontSize(12);
+    doc.text(generatedStamp, pageW / 2, 68, { align: "center" });
+    doc.setFontSize(28);
+  };
+
   // Title + first page
   paintBg();
-  doc.setFontSize(28);
-  doc.text(TITLE, MARGIN_LR, 48);
+  drawTitleBlock();
 
   const x0 = MARGIN_LR;
   let y = TOP_Y;
@@ -222,8 +230,7 @@ async function main() {
     if (y + h + BOTTOM > pageH) {
       doc.addPage();
       paintBg();
-      doc.setFontSize(28);
-      doc.text(TITLE, MARGIN_LR, 48);
+      drawTitleBlock();
       y = TOP_Y;
       drawHeader();
     }
@@ -232,7 +239,7 @@ async function main() {
   function drawHeader() {
     const h = PAD_Y * 2 + LINE_H;
     let x = x0;
-    drawCell(doc, x, y, Cat, h, "Category", "left"); x += Cat;
+    drawCell(doc, x, y, Cat, h, "Category", "center"); x += Cat;
     drawCell(doc, x, y, A,   h, "Partner A", "center"); x += A;
     drawCell(doc, x, y, M,   h, "Match %",   "center"); x += M;
     drawCell(doc, x, y, B,   h, "Partner B", "center");
@@ -246,7 +253,7 @@ async function main() {
     const rowH = Math.max(PAD_Y * 2 + catLines.length * LINE_H, PAD_Y * 2 + LINE_H);
     newPageIfNeeded(rowH);
     let x = x0;
-    drawCell(doc, x, y, Cat, rowH, catLines, "left");   x += Cat;
+    drawCell(doc, x, y, Cat, rowH, catLines, "center"); x += Cat;
     drawCell(doc, x, y, A,   rowH, String(a ?? "—"), "center"); x += A;
     drawCell(doc, x, y, M,   rowH, String(pct ?? "—"), "center"); x += M;
     drawCell(doc, x, y, B,   rowH, String(b ?? "—"), "center");
