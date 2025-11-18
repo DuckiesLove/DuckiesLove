@@ -441,7 +441,7 @@
     }
 
     const tableWidth = widths.item + widths.a + widths.match + widths.b;
-    const centerX = margin + tableWidth / 2;
+    const centerX = pageWidth / 2;
 
     return { margin, widths, tableWidth, centerX };
   }
@@ -693,7 +693,7 @@
           data.cell.styles.fontStyle = "bold";
           data.cell.styles.fillColor = [24, 25, 30];
           data.cell.styles.textColor = HEADER_TEXT;
-          data.cell.styles.halign = "left";
+          data.cell.styles.halign = "center";
 
           if (data.column.dataKey === "item") {
             data.cell.colSpan = columns.length;
