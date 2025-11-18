@@ -126,11 +126,11 @@
     pdfKillSwitch: false,
     selectors: { downloadBtn: '#downloadPdfBtn' },
     columns: [
-      { key: 'item',  header: 'Item',      w: 320 },
-      { key: 'a',     header: 'Partner A', w: 70  },
-      { key: 'match', header: 'Match',     w: 80  },
+      { key: 'item',  header: 'Item',      w: 330 },
+      { key: 'a',     header: 'Partner A', w: 75  },
+      { key: 'match', header: 'Match',     w: 95  },
       { key: 'flag',  header: 'Flag',      w: 60  },
-      { key: 'b',     header: 'Partner B', w: 70  },
+      { key: 'b',     header: 'Partner B', w: 75  },
     ],
     cdn: {
       jspdf: [
@@ -308,87 +308,120 @@
     };
   }
 
-  function header(doc, title, y) {
-    const pageW = doc.internal.pageSize.getWidth();
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(36);
-    doc.setTextColor(255, 255, 255);
-
-    const w = doc.getTextWidth(title);
-    doc.text(title, (pageW - w) / 2, y);
-
-    doc.setFontSize(12);
-    const sub = 'Generated: ' + new Date().toLocaleString();
-    const w2 = doc.getTextWidth(sub);
-    doc.text(sub, (pageW - w2) / 2, y + 20);
-
-    doc.setDrawColor(...TK_ACCENT);
-    doc.setLineWidth(2.5);
-    doc.line(80, y + 34, pageW - 80, y + 34);
-
-    return y + 60;
+  function getText(selector, fallback) {
+    const el = document.querySelector(selector);
+    const text = cleanText(el?.textContent);
+    return text || fallback;
   }
 
-  function renderSection(doc, title, rows, startY) {
+  function buildHeaderMeta(doc, { title, subtitle, sectionTitle }) {
     const pageW = doc.internal.pageSize.getWidth();
+    const titleY = 70;
+    const subtitleY = titleY + 28;
+    const ruleY = subtitleY + 14;
+    const sectionY = ruleY + 34;
+    const tableStartY = sectionY + 30;
+    return { pageW, titleY, subtitleY, ruleY, sectionY, tableStartY, title, subtitle, sectionTitle };
+  }
+
+  function paintPageBackground(doc) {
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(5, 6, 8);
+    doc.rect(0, 0, pageW, pageH, 'F');
+  }
+
+  function drawHeader(doc, meta) {
+    const opts = { align: 'center', baseline: 'alphabetic' };
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(44);
+    doc.setTextColor(...TK_ACCENT);
+    doc.text(meta.title, meta.pageW / 2, meta.titleY, opts);
 
-    const tw = doc.getTextWidth(title);
-    doc.text(title, (pageW - tw) / 2, startY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(14);
+    doc.setTextColor(183, 255, 255);
+    doc.text(meta.subtitle, meta.pageW / 2, meta.subtitleY, opts);
 
+    doc.setDrawColor(...TK_ACCENT);
+    doc.setLineWidth(2.4);
+    doc.line(80, meta.ruleY, meta.pageW - 80, meta.ruleY);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(30);
+    doc.text(meta.sectionTitle, meta.pageW / 2, meta.sectionY, opts);
+  }
+
+  function renderSection(doc, rows, headerMeta) {
+    const pdfColumns = CFG.columns.filter((col) => col.key !== 'flag');
     const tableRows = rows.map((r) => ({
       item: cleanText(r.item),
       a: cleanText(r.a),
       match: cleanText(r.match),
-      flag: r.flag || '',
+      matchWithFlag:
+        r.flag === '⭐'
+          ? `${cleanText(r.match)} ★`
+          : r.flag === '🚩'
+            ? `${cleanText(r.match)} 🚩`
+            : cleanText(r.match),
       b: cleanText(r.b),
     }));
 
-    const itemColumn = CFG.columns.find((col) => col.key === 'item');
-    const wrapWidth = Math.max(40, (itemColumn?.w || 320) - 12);
+    const itemColumn = pdfColumns.find((col) => col.key === 'item');
+    const wrapWidth = Math.max(40, (itemColumn?.w || 330) - 16);
 
     const bodyRows = tableRows.map((row) => ({
-      ...row,
       item:
         row.item && typeof doc.splitTextToSize === 'function'
           ? doc.splitTextToSize(row.item, wrapWidth)
           : row.item,
+      a: row.a,
+      match: row.matchWithFlag,
+      b: row.b,
     }));
 
     const columnStyles = Object.fromEntries(
-      CFG.columns.map((col) => [col.key, {
+      pdfColumns.map((col) => [col.key, {
         cellWidth: col.w,
         halign: col.key === 'item' ? 'left' : 'center',
       }])
     );
 
-    const columns = CFG.columns.map((col) => ({ header: col.header, dataKey: col.key }));
+    const columns = pdfColumns.map((col) => ({ header: col.header, dataKey: col.key }));
 
     doc.autoTable({
-      startY: startY + 26,
-      margin: { left: 70, right: 70 },
+      startY: headerMeta.tableStartY,
+      margin: { left: 70, right: 70, top: headerMeta.tableStartY },
       columns,
       body: bodyRows,
       theme: 'grid',
       styles: {
         font: 'helvetica',
         fontSize: 12,
-        textColor: [230, 230, 230],
-        fillColor: [25, 25, 28],
-        lineColor: [40, 40, 45],
-        lineWidth: 1.2,
+        textColor: [228, 238, 240],
+        fillColor: [18, 21, 27],
+        cellPadding: { top: 8, bottom: 8, left: 10, right: 10 },
+        lineColor: [35, 42, 48],
+        lineWidth: 0.9,
         halign: 'left',
         overflow: 'linebreak',
       },
       headStyles: {
         fontStyle: 'bold',
-        textColor: [0, 255, 245],
-        fillColor: [28, 28, 32],
+        fontSize: 13,
+        textColor: TK_ACCENT,
+        fillColor: [11, 16, 20],
         halign: 'center',
+        lineWidth: 1.1,
+        lineColor: [35, 42, 48],
+      },
+      alternateRowStyles: {
+        fillColor: [12, 14, 18],
       },
       columnStyles,
+      didDrawPage: () => {
+        drawHeader(doc, headerMeta);
+      },
     });
   }
 
@@ -406,16 +439,23 @@
       format: 'letter',
     });
 
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-
-    doc.setFillColor(18, 19, 20);
-    doc.rect(0, 0, pageW, pageH, 'F');
-
     const normalized = rows.map(normalizeRow);
+    const title = getText('.hx.h1', 'TalkKink Compatibility');
+    const subtitle = getText('#tk-ts', `Generated: ${new Date().toLocaleString()}`);
+    const sectionTitle = getText('.hx.h2', 'Behavioral Play');
+    const headerMeta = buildHeaderMeta(doc, { title, subtitle, sectionTitle });
 
-    const y = header(doc, 'Talk Kink Compatibility Survey', 70);
-    renderSection(doc, 'Behavioral Play', normalized, y);
+    paintPageBackground(doc);
+    const originalAddPage = doc.addPage.bind(doc);
+    doc.addPage = (...args) => {
+      const result = originalAddPage(...args);
+      paintPageBackground(doc);
+      return result;
+    };
+
+    renderSection(doc, normalized, headerMeta);
+
+    doc.addPage = originalAddPage;
 
     doc.save('TalkKink-compatibility.pdf');
   }
