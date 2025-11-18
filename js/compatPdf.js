@@ -442,7 +442,10 @@
       growToFit(available);
     }
 
-    return { margin, widths };
+    const tableWidth = widths.item + widths.a + widths.match + widths.b;
+    const centerX = margin + tableWidth / 2;
+
+    return { margin, widths, tableWidth, centerX };
   }
 
   function drawPolygon(doc, points, style) {
@@ -534,6 +537,7 @@
     const fillBackground = opts.fillBackground !== false;
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
+    const centerX = Number.isFinite(opts.centerX) ? opts.centerX : pageW / 2;
 
     if (fillBackground) {
       doc.setFillColor(BG[0], BG[1], BG[2]);
@@ -543,12 +547,12 @@
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 255, 255);
     doc.setFontSize(22);
-    doc.text(mainTitle || "TalkKink Compatibility", pageW / 2, 40, { align: "center" });
+    doc.text(mainTitle || "TalkKink Compatibility", centerX, 40, { align: "center" });
 
     doc.setFontSize(12);
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "normal");
-    doc.text(stampText, pageW / 2, 60, { align: "center" });
+    doc.text(stampText, centerX, 60, { align: "center" });
 
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
     doc.setLineWidth(2.5);
@@ -558,7 +562,7 @@
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.text(sectionTitle, pageW / 2, 95, { align: "center" });
+    doc.text(sectionTitle, centerX, 95, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
@@ -629,9 +633,11 @@
     const sectionTitle = deriveSectionTitle(rawRows);
     const mainTitle = "TalkKink Compatibility Survey";
 
+    const layout = computeTableLayout(doc);
     const headerStamp = `Generated: ${new Date().toLocaleString()}`;
     const headerY = drawHeader(doc, mainTitle, sectionTitle, {
       timestamp: headerStamp,
+      centerX: layout.centerX,
     });
     const bodyRows = buildBodyRows(normRows);
     const stats = computeSummaryStats(normRows);
@@ -642,7 +648,6 @@
       { header: "Match", dataKey: "match" },
       { header: "Partner B", dataKey: "b" },
     ];
-    const layout = computeTableLayout(doc);
 
     doc.autoTable({
       columns,
@@ -698,6 +703,7 @@
       didDrawPage: function () {
         drawHeader(doc, mainTitle, sectionTitle, {
           timestamp: headerStamp,
+          centerX: layout.centerX,
         });
       },
     });
