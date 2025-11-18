@@ -8,7 +8,7 @@
  * - Reads merged comparison rows from:
  *      1) window.talkkinkCompatRows  (preferred)
  *      2) localStorage["talkkink:compatRows"]
- * - Columns: Item | Partner A | Match | Partner B
+ * - Columns: Kinks | Partner A | Match | Partner B
  * - NO flag column, NO legacy “clean report” exporter.
  */
 
@@ -17,7 +17,7 @@
     pdfKillSwitch: false,
     selectors: { downloadBtn: '#downloadPdfBtn, #downloadBtn, [data-download-pdf]' },
     columns: [
-      { key: 'item', header: 'Item', w: 320 },
+      { key: 'item', header: 'Kinks', w: 320 },
       { key: 'a', header: 'Partner A', w: 80 },
       { key: 'match', header: 'Match', w: 80 },
       { key: 'b', header: 'Partner B', w: 80 },
@@ -311,7 +311,7 @@
     });
 
     const columns = [
-      { header: 'Item', dataKey: 'item' },
+      { header: 'Kinks', dataKey: 'item' },
       { header: 'Partner A', dataKey: 'a' },
       { header: 'Match', dataKey: 'match' },
       { header: 'Partner B', dataKey: 'b' },
@@ -391,7 +391,7 @@
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     let x = marginL;
-    const headers = ['Item', 'Partner A', 'Match', 'Partner B'];
+    const headers = ['Kinks', 'Partner A', 'Match', 'Partner B'];
     CFG.columns.slice(0, 4).forEach((c, idx) => {
       doc.text(headers[idx], x, startY);
       x += c.w;
