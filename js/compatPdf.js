@@ -2,7 +2,6 @@
  * TalkKink Compatibility PDF (Dark, Web-Only)
  * - Single layout: Item | Partner A | Match | Partner B (no Flag column)
  * - Match column shows percentage with ⭐ for 85%+
- * - 🚩 logic is retained for summaries only (no dedicated column)
  * - Category headers between sections
  * - Footer summary with averages + counts
  */
@@ -219,19 +218,6 @@
     return matchPercent >= 85 ? "⭐" : "";
   }
 
-  function getFlagEmoji(aScore, bScore, matchPercent) {
-    const aVal = Number.isFinite(aScore) ? aScore : null;
-    const bVal = Number.isFinite(bScore) ? bScore : null;
-    const diff = aVal != null && bVal != null ? Math.abs(aVal - bVal) : 0;
-    const oneIsZero = aVal === 0 || bVal === 0;
-    const oneIsFive = aVal === 5 || bVal === 5;
-
-    if ((Number.isFinite(matchPercent) && matchPercent <= 30) || (oneIsFive && diff >= 3) || oneIsZero) {
-      return "🚩";
-    }
-    return "";
-  }
-
   function normalizeCompatRow(raw) {
     if (!raw) return null;
 
@@ -284,20 +270,17 @@
     let answered = 0;
     let sum = 0;
     let stars = 0;
-    let reds = 0;
 
     rows.forEach((r) => {
       if (!Number.isFinite(r.matchPercent)) return;
       answered += 1;
       sum += r.matchPercent;
       const star = getMatchEmoji(r.matchPercent);
-      const flag = getFlagEmoji(r.aScore, r.bScore, r.matchPercent);
       if (star) stars += 1;
-      if (flag) reds += 1;
     });
 
     const avg = answered ? Math.round(sum / answered) : null;
-    return { totalRows: rows.length, answered, avg, stars, reds };
+    return { totalRows: rows.length, answered, avg, stars };
   }
 
   function buildBodyRows(normRows) {
@@ -478,33 +461,6 @@
     if (typeof doc.restoreGraphicsState === "function") doc.restoreGraphicsState();
   }
 
-  function drawFlagShape(doc, frame) {
-    if (!frame) return;
-    const size = Math.max(frame.size || 0, 6);
-    const poleWidth = Math.max(size * 0.15, 1.2);
-    const poleX = frame.x + Math.max(size * 0.05, 0.4);
-    const top = frame.y;
-    const bottom = frame.y + size;
-    if (typeof doc.saveGraphicsState === "function") doc.saveGraphicsState();
-    doc.setFillColor(185, 185, 185);
-    doc.setDrawColor(120, 120, 120);
-    doc.rect(poleX, top, poleWidth, size, "F");
-
-    const flagWidth = Math.max(size - poleWidth - size * 0.1, size * 0.4);
-    const points = [
-      [poleX + poleWidth, top + size * 0.05],
-      [poleX + poleWidth + flagWidth, top + size * 0.25],
-      [poleX + poleWidth + flagWidth * 0.65, top + size * 0.5],
-      [poleX + poleWidth + flagWidth, bottom - size * 0.25],
-      [poleX + poleWidth, bottom - size * 0.05],
-    ];
-    doc.setFillColor(230, 52, 70);
-    doc.setDrawColor(180, 12, 24);
-    doc.setLineWidth(0.6);
-    drawPolygon(doc, points, "FD");
-    if (typeof doc.restoreGraphicsState === "function") doc.restoreGraphicsState();
-  }
-
   function drawMatchIcon(doc, cell, icon, options) {
     if (!doc || !cell || !icon) return;
     const opts = options || {};
@@ -522,8 +478,6 @@
 
     if (icon === "⭐") {
       drawStarShape(doc, frame);
-    } else if (icon === "🚩") {
-      drawFlagShape(doc, frame);
     }
   }
 
@@ -582,7 +536,6 @@
       segments.push({ text: `Average compatibility: ${stats.avg}%` });
     }
     segments.push({ icon: "⭐", text: `85–100% matches: ${stats.stars}` });
-    segments.push({ icon: "🚩", text: `Flags triggered: ${stats.reds}` });
 
     const spacer = "   •   ";
     let printable = "";
