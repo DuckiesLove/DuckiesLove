@@ -218,12 +218,6 @@
     return matchPercent >= 85 ? "⭐" : "";
   }
 
-  function formatMatchWithEmoji(aScore, bScore, matchPercent) {
-    if (!Number.isFinite(matchPercent)) return "";
-    const emoji = getMatchEmoji(matchPercent);
-    return `${matchPercent}%${emoji ? ` ${emoji}` : ""}`;
-  }
-
   function normalizeCompatRow(raw) {
     if (!raw) return null;
 
@@ -309,18 +303,22 @@
         });
       }
 
-      const matchBase =
-        r.matchPercent != null
-          ? formatMatchWithEmoji(r.aScore, r.bScore, r.matchPercent)
-          : r.matchPercentStr || safeString(r.matchText);
+      let matchText = r.matchPercentStr || safeString(r.matchText);
+      let matchIcon = "";
+
+      if (r.matchPercent != null) {
+        matchText = `${r.matchPercent}%`;
+        matchIcon = getMatchEmoji(r.matchPercent);
+      }
 
       rows.push({
         item: r.item,
         a: r.aText,
-        match: matchBase,
+        match: matchText,
         b: r.bText,
         _isGroupHeader: false,
         _source: r,
+        _matchIcon: matchIcon,
       });
     });
 
@@ -648,7 +646,7 @@
         match: {
           cellWidth: layout.widths.match,
           halign: "center",
-          cellPadding: { top: 5, bottom: 5, left: 6, right: 6 },
+          cellPadding: { top: 5, bottom: 5, left: 6, right: 10 },
         },
         b: { cellWidth: layout.widths.b, halign: "center" },
       },
@@ -666,6 +664,17 @@
           } else {
             data.cell.text = [];
           }
+        }
+      },
+      didDrawCell: function (data) {
+        if (data.section !== "body") return;
+        const raw = data.row.raw || {};
+        if (raw._isGroupHeader) return;
+        if (data.column.dataKey === "match" && raw._matchIcon) {
+          drawMatchIcon(doc, data.cell, raw._matchIcon, {
+            align: "right",
+            padding: 4,
+          });
         }
       },
       didDrawPage: function () {

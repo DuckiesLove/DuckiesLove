@@ -232,12 +232,6 @@
     return "";
   }
 
-  function formatMatchWithEmoji(aScore, bScore, matchPercent) {
-    if (!Number.isFinite(matchPercent)) return "";
-    const emoji = getMatchEmoji(matchPercent);
-    return `${matchPercent}%${emoji ? ` ${emoji}` : ""}`;
-  }
-
   function normalizeCompatRow(raw) {
     if (!raw) return null;
 
@@ -331,18 +325,22 @@
         });
       }
 
-      const matchBase =
-        r.matchPercent != null
-          ? formatMatchWithEmoji(r.aScore, r.bScore, r.matchPercent)
-          : cleanMatchText(r.matchPercentStr || r.matchText);
+      let matchText = cleanMatchText(r.matchPercentStr || r.matchText);
+      let matchIcon = "";
+
+      if (r.matchPercent != null) {
+        matchText = `${r.matchPercent}%`;
+        matchIcon = getMatchEmoji(r.matchPercent);
+      }
 
       rows.push({
         item: r.item,
         a: r.aText,
-        match: matchBase,
+        match: matchText,
         b: r.bText,
         _isGroupHeader: false,
         _source: r,
+        _matchIcon: matchIcon,
       });
     });
 
@@ -645,7 +643,7 @@
     const columns = [
       { header: "Item", dataKey: "item" },
       { header: "Partner A", dataKey: "a" },
-      { header: "Match", dataKey: "match" },
+      { header: "Match %", dataKey: "match" },
       { header: "Partner B", dataKey: "b" },
     ];
 
@@ -681,7 +679,11 @@
       columnStyles: {
         item: { cellWidth: layout.widths.item, halign: "left" },
         a: { cellWidth: layout.widths.a, halign: "center" },
-        match: { cellWidth: layout.widths.match, halign: "center" },
+        match: {
+          cellWidth: layout.widths.match,
+          halign: "center",
+          cellPadding: { top: 6, bottom: 6, left: 6, right: 10 },
+        },
         b: { cellWidth: layout.widths.b, halign: "center" },
       },
       didParseCell: function (data) {
@@ -698,6 +700,17 @@
           } else {
             data.cell.text = [];
           }
+        }
+      },
+      didDrawCell: function (data) {
+        if (data.section !== "body") return;
+        const raw = data.row.raw || {};
+        if (raw._isGroupHeader) return;
+        if (data.column.dataKey === "match" && raw._matchIcon) {
+          drawMatchIcon(doc, data.cell, raw._matchIcon, {
+            align: "right",
+            padding: 4,
+          });
         }
       },
       didDrawPage: function () {
