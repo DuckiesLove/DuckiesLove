@@ -3,6 +3,148 @@ import { shortenLabel } from './labelShortener.js';
 import { ensureJsPDF } from './loadJsPDF.js';
 const DEBUG = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
+const DEFAULT_FONT_SETTINGS = {
+  base: { family: 'helvetica', style: 'normal' },
+  roles: {
+    title: { size: 18, style: 'bold' },
+    landscapeTitle: { size: 16, style: 'bold' },
+    table: { size: 9, style: 'normal' },
+    landscapeHeader: { size: 10, style: 'bold' },
+    landscapeBody: { size: 10, style: 'normal' },
+  },
+};
+
+let sharedFontOverrides = null;
+
+const isPlainObject = (value) => Object.prototype.toString.call(value) === '[object Object]';
+
+const deepMerge = (target, ...sources) => {
+  const output = isPlainObject(target) ? { ...target } : target;
+  sources.filter(Boolean).forEach((source) => {
+    if (!isPlainObject(source)) {
+      return;
+    }
+    Object.entries(source).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        output[key] = value.slice();
+      } else if (isPlainObject(value)) {
+        output[key] = deepMerge(isPlainObject(output[key]) ? output[key] : {}, value);
+      } else if (value !== undefined) {
+        output[key] = value;
+      }
+    });
+  });
+  return output;
+};
+
+const normalizeFontInput = (input) => {
+  if (!input) return null;
+  if (typeof input === 'string') {
+    return { base: { family: input } };
+  }
+  if (isPlainObject(input)) {
+    const cloned = deepMerge({}, input);
+    if (typeof cloned.base === 'string') {
+      cloned.base = { family: cloned.base };
+    }
+    return cloned;
+  }
+  return null;
+};
+
+const resolveFontSettings = (localOverride) => {
+  const globalConfig = typeof window !== 'undefined' ? normalizeFontInput(window.compatibilityPdfFontSettings) : null;
+  const localConfig = normalizeFontInput(localOverride);
+  return deepMerge({}, DEFAULT_FONT_SETTINGS, sharedFontOverrides, globalConfig, localConfig);
+};
+
+const collectFontFiles = (config = {}) => {
+  const files = [];
+  const pushFiles = (candidate) => {
+    if (!candidate) return;
+    if (Array.isArray(candidate)) {
+      candidate.forEach(pushFiles);
+      return;
+    }
+    if (isPlainObject(candidate)) {
+      files.push(candidate);
+    }
+  };
+  pushFiles(config.files);
+  pushFiles(config.base?.files);
+  if (config.roles) {
+    Object.values(config.roles).forEach((role) => pushFiles(role?.files));
+  }
+  return files.filter((entry) => entry && entry.family && entry.data);
+};
+
+const registerFontSources = (doc, config) => {
+  if (!doc || typeof doc.addFileToVFS !== 'function' || typeof doc.addFont !== 'function') {
+    return;
+  }
+  const fonts = collectFontFiles(config);
+  if (!fonts.length) return;
+  if (!doc.__compatPdfFontCache) {
+    Object.defineProperty(doc, '__compatPdfFontCache', {
+      value: new Set(),
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    });
+  }
+  fonts.forEach((font) => {
+    const style = font.style || 'normal';
+    const cacheKey = `${font.family}|${style}`;
+    if (doc.__compatPdfFontCache.has(cacheKey)) return;
+    const fileName = font.fileName || `${font.family}-${style}.ttf`;
+    try {
+      doc.addFileToVFS(fileName, font.data);
+      doc.addFont(fileName, font.family, style);
+      doc.__compatPdfFontCache.add(cacheKey);
+    } catch (error) {
+      if (DEBUG) {
+        console.warn('[compat-pdf] Failed to register font', font.family, error);
+      }
+    }
+  });
+};
+
+const applyFontRole = (doc, config, role) => {
+  if (!doc) return null;
+  const base = config?.base || {};
+  const roleConfig = (role && config?.roles?.[role]) ? config.roles[role] : {};
+  const resolved = deepMerge({}, base, roleConfig);
+  const family = resolved.family || base.family;
+  const style = resolved.style || base.style || 'normal';
+  if (family && typeof doc.setFont === 'function') {
+    try {
+      doc.setFont(family, style);
+    } catch (_) {
+      // Ignore if jsPDF rejects the font (e.g., missing registration)
+    }
+  }
+  if (typeof resolved.size === 'number' && typeof doc.setFontSize === 'function') {
+    doc.setFontSize(resolved.size);
+  }
+  return resolved;
+};
+
+export function setCompatibilityPdfFontSettings(overrides) {
+  if (overrides == null) {
+    sharedFontOverrides = null;
+    if (typeof window !== 'undefined' && window.compatibilityPdfFontSettings) {
+      delete window.compatibilityPdfFontSettings;
+    }
+    return null;
+  }
+  const normalized = normalizeFontInput(overrides) || {};
+  sharedFontOverrides = deepMerge({}, sharedFontOverrides, normalized);
+  if (typeof window !== 'undefined') {
+    window.compatibilityPdfFontSettings = deepMerge({}, window.compatibilityPdfFontSettings || {}, normalized);
+  }
+  return sharedFontOverrides;
+}
+
 const FALLBACK_ROW_HEIGHT = 11;
 const FALLBACK_HEADER_HEIGHT = 10;
 const FALLBACK_COLUMN_GAP = 6;
@@ -192,7 +334,13 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
     filename = 'compatibility_report.pdf',
     save = true,
     saveHook = null,
+    fontSettings: fontSettingsOverride = null,
+    font = null,
+    fontFamily = null,
   } = options || {};
+
+  const fontSettings = resolveFontSettings(fontSettingsOverride || font || fontFamily);
+  registerFontSources(doc, fontSettings);
 
   const config = {
     margin: 10,
@@ -222,7 +370,7 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
   let y = 20;
 
   drawBackground();
-  doc.setFontSize(18);
+  applyFontRole(doc, fontSettings, 'title');
   doc.text('Kink Compatibility Report', 105, y);
   y += 10;
 
@@ -296,6 +444,7 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
         ? (category.category || category.name)
         : `${category.category || category.name} (cont.)`;
 
+      applyFontRole(doc, fontSettings, 'table');
       const endY = renderCategorySection(
         doc,
         sectionLabel,
@@ -310,6 +459,7 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
     }
 
     if (rawItems.length === 0) {
+      applyFontRole(doc, fontSettings, 'table');
       const endY = renderCategorySection(
         doc,
         category.category || category.name,
@@ -358,10 +508,12 @@ if (typeof document !== 'undefined') {
   }
 }
 
-export async function generateCompatibilityPDFLandscape(data) {
+export async function generateCompatibilityPDFLandscape(data, options = {}) {
   const categories = Array.isArray(data) ? data : data?.categories || [];
   const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const fontSettings = resolveFontSettings(options.fontSettings || options.font || options.fontFamily);
+  registerFontSources(doc, fontSettings);
   const getPageMetrics = () => ({
     width: doc.internal.pageSize.getWidth(),
     height: doc.internal.pageSize.getHeight()
@@ -379,11 +531,10 @@ export async function generateCompatibilityPDFLandscape(data) {
 
   let y = 20;
 
-  drawTitle(doc, pageWidth);
+  drawTitle(doc, pageWidth, fontSettings);
   y += 15;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  applyFontRole(doc, fontSettings, 'landscapeHeader');
   doc.text('Kink', margin, y);
   doc.text('Combined Score', pageWidth - margin, y, { align: 'right' });
   y += 6;
@@ -391,8 +542,7 @@ export async function generateCompatibilityPDFLandscape(data) {
   const allItems = categories.flatMap(cat => cat.items);
   allItems.forEach(kink => {
     const score = combinedScore(kink.a ?? kink.partnerA, kink.b ?? kink.partnerB);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
+    applyFontRole(doc, fontSettings, 'landscapeBody');
     doc.setTextColor(255, 255, 255);
     doc.text(kink.label || kink.kink, margin, y, { maxWidth: pageWidth - margin * 2 - 30 });
     doc.text(score, pageWidth - margin, y, { align: 'right' });
@@ -407,9 +557,8 @@ export async function generateCompatibilityPDFLandscape(data) {
   await doc.save('compatibility_report_landscape.pdf');
 }
 
-function drawTitle(doc, pageWidth) {
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+function drawTitle(doc, pageWidth, fontSettings) {
+  applyFontRole(doc, fontSettings, 'landscapeTitle');
   doc.text('Kink Compatibility Report', pageWidth / 2, 15, { align: 'center' });
 }
 
