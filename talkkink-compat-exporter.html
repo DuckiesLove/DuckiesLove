@@ -126,7 +126,7 @@
     columns: [
       { key: 'item',  header: 'Kinks',     w: 330 },
       { key: 'a',     header: 'Partner A', w: 80  },
-      { key: 'match', header: 'Match %',   w: 120 },
+      { key: 'match', header: 'Match %',   w: 140 },
       { key: 'b',     header: 'Partner B', w: 80  },
     ],
     cdn: {
@@ -231,29 +231,84 @@
     const str = String(value).trim();
     if (!str) return '';
     const lower = str.toLowerCase();
-    if (['⭐', '⭐️', 'star', 'stars', 'green', '🟩', '🟢'].includes(lower)) return 'star';
-    if (['🚩', 'red-flag', 'red flag', 'red', '🟥', '🔴'].includes(lower)) return 'red-flag';
+    if (['⭐', '⭐️', 'star', 'stars', 'green', '🟩', '🟢'].includes(lower)) return '⭐';
+    if (['🚩', 'red-flag', 'red flag', 'red', '🟥', '🔴'].includes(lower)) return '🚩';
+    if (['🟨', '🟡', 'yellow', 'caution', 'warn', 'warning', '⚠️'].includes(lower)) return '🟨';
     return '';
   }
 
   function tk_flagStatus(partnerAScore, partnerBScore, matchPercent) {
-    if (!Number.isFinite(matchPercent)) return '';
-    if (matchPercent >= 85) return 'star';
-    if (matchPercent <= 30) return 'red-flag';
+    const aScore = Number.isFinite(partnerAScore) ? partnerAScore : coerceNum(partnerAScore);
+    const bScore = Number.isFinite(partnerBScore) ? partnerBScore : coerceNum(partnerBScore);
+    let pct = Number.isFinite(matchPercent) ? matchPercent : null;
+    if (!Number.isFinite(pct)) pct = tk_matchPercent(aScore, bScore);
+    if (!Number.isFinite(pct)) return '';
+    if (pct >= 90) return '⭐';
+    if (pct <= 30) return '🚩';
+    if (
+      Number.isFinite(aScore) &&
+      Number.isFinite(bScore) &&
+      (aScore === 5 || bScore === 5) &&
+      Math.abs(aScore - bScore) >= 1
+    ) {
+      return '🟨';
+    }
     return '';
   }
 
-  function tk_drawFlag(doc, cell, flagType) {
-    const { x, y, height, width } = cell;
-    doc.setFont('helvetica', 'bold');
+  function tk_drawMatchCell(doc, cell, matchPercent, flagEmoji, fallbackText) {
+    if (!doc || !cell) return;
+    const { x, y, width, height } = cell;
+    const cleanFallback = cleanText(fallbackText) || 'N/A';
+    const pctText = Number.isFinite(matchPercent) ? `${matchPercent}%` : cleanFallback;
+    const display = flagEmoji ? `${pctText} ${flagEmoji}` : pctText;
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    const emoji = flagType === 'star' ? '⭐' : flagType === 'red-flag' ? '🚩' : '';
-    if (emoji) {
-      doc.text(emoji, x + width / 2, y + height / 2, {
-        align: 'center',
-        baseline: 'middle',
-      });
-    }
+    doc.text(display.trim(), x + width / 2, y + height / 2, {
+      align: 'center',
+      baseline: 'middle',
+    });
+  }
+
+  function buildRow(item) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
+    const labelShort = cleanText(item.labelShort ?? item.label ?? item.item ?? '');
+    const aScore = Number.isFinite(item.scoreA)
+      ? item.scoreA
+      : Number.isFinite(item.aScore)
+      ? item.aScore
+      : null;
+    const bScore = Number.isFinite(item.scoreB)
+      ? item.scoreB
+      : Number.isFinite(item.bScore)
+      ? item.bScore
+      : null;
+    const aDisplay = safe(item.a ?? item.partnerA ?? (aScore != null ? String(aScore) : ''));
+    const bDisplay = safe(item.b ?? item.partnerB ?? (bScore != null ? String(bScore) : ''));
+    const directMatch = coerceNum(
+      item.matchPercent ?? item.matchPct ?? item.match ?? item.matchValue ?? null
+    );
+    const derivedMatch =
+      directMatch != null
+        ? clampPercent(Math.round(directMatch))
+        : Number.isFinite(aScore) && Number.isFinite(bScore)
+        ? clampPercent(100 - Math.abs(aScore - bScore) * 20)
+        : null;
+    const flagEmoji =
+      tk_normalizeFlag(
+        item.flagEmoji ?? item.flag ?? item.flagLabel ?? item.flagStatus ?? item.flagName ?? null
+      ) || (derivedMatch != null ? tk_flagStatus(aScore, bScore, derivedMatch) : '');
+
+    return {
+      ...item,
+      labelShort,
+      a: aDisplay,
+      b: bDisplay,
+      matchPercent: derivedMatch,
+      flagEmoji,
+      scoreA: aScore ?? item.scoreA ?? item.aScore ?? null,
+      scoreB: bScore ?? item.scoreB ?? item.bScore ?? null,
+    };
   }
 
   function tk_renderMatchColumn(a, b, matchPercent, matchRaw) {
@@ -262,6 +317,11 @@
     if (computed !== null) return `${computed}%`;
     const str = safe(matchRaw).replace(/\s+/g, ' ').trim();
     return str || 'N/A';
+  }
+
+  function sanitizeCompatRows(rows) {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row) => (row && typeof row === 'object' && !Array.isArray(row) ? buildRow(row) : row));
   }
 
   function normalizeRow(r) {
@@ -279,16 +339,16 @@
         flagRaw = null;
       }
     } else if (r && typeof r === 'object') {
-      item = r.item ?? r.label ?? '';
-      aRaw = r.a ?? r.partnerA ?? r.aScore ?? null;
-      bRaw = r.b ?? r.partnerB ?? r.bScore ?? null;
+      item = r.labelShort ?? r.item ?? r.label ?? '';
+      aRaw = r.a ?? r.partnerA ?? r.aScore ?? r.scoreA ?? null;
+      bRaw = r.b ?? r.partnerB ?? r.bScore ?? r.scoreB ?? null;
       matchRaw =
         r.matchPercent ??
         r.match ??
         r.matchPct ??
         r.matchValue ??
         null;
-      flagRaw = r.flag ?? r.flagEmoji ?? r.flagStatus ?? r.flagLabel ?? null;
+      flagRaw = r.flagEmoji ?? r.flag ?? r.flagStatus ?? r.flagLabel ?? null;
     }
 
     const a = coerceNum(aRaw);
@@ -304,7 +364,7 @@
     const matchDisplay = tk_renderMatchColumn(a, b, matchPct, matchRaw);
     const explicitFlag = tk_normalizeFlag(flagRaw);
     const computedFlag = tk_flagStatus(a, b, matchPct);
-    const flagType = explicitFlag || computedFlag;
+    const flagEmoji = explicitFlag || computedFlag;
 
     return {
       item: cleanText(item),
@@ -314,7 +374,7 @@
       aNum: a,
       bNum: b,
       pct: matchPct,
-      flagType,
+      flagEmoji,
     };
   }
 
@@ -369,7 +429,7 @@
       a: cleanText(r.a),
       match: cleanText(r.match),
       b: cleanText(r.b),
-      flagType: r.flagType,
+      flagEmoji: r.flagEmoji,
       matchPercent: r.pct,
       partnerA: r.aNum,
       partnerB: r.bNum,
@@ -428,24 +488,33 @@
       didParseCell: (data) => {
         if (data.column.dataKey !== 'match') return;
         const row = data.row?.raw || {};
-        const baseMatch = cleanText(row.match);
-        const matchText = baseMatch || cleanText(data.cell.raw ?? data.cell.text?.[0] ?? '');
-        let flag = row.flagType;
-        if (!flag) {
-          const aScore = row.partnerA ?? row.aNum;
-          const bScore = row.partnerB ?? row.bNum;
-          const pct = row.matchPercent ?? row.pct;
-          flag = tk_flagStatus(aScore, bScore, pct);
-        }
-        data.cell.text = [matchText];
-        if (flag) data.cell.flagType = flag;
+        const fallbackText =
+          cleanText(row.match) || cleanText(data.cell.raw ?? data.cell.text?.[0] ?? '');
+        const matchPercent =
+          Number.isFinite(row.matchPercent)
+            ? row.matchPercent
+            : Number.isFinite(row.pct)
+            ? row.pct
+            : coerceNum(fallbackText);
+        const aScore = Number.isFinite(row.partnerA)
+          ? row.partnerA
+          : Number.isFinite(row.aNum)
+          ? row.aNum
+          : coerceNum(row.a);
+        const bScore = Number.isFinite(row.partnerB)
+          ? row.partnerB
+          : Number.isFinite(row.bNum)
+          ? row.bNum
+          : coerceNum(row.b);
+        const flagEmoji = row.flagEmoji || tk_flagStatus(aScore, bScore, matchPercent);
+        data.cell.text = [''];
+        data.cell._tkMatchCell = { matchPercent, flagEmoji, fallbackText };
       },
       didDrawCell: (data) => {
         if (data.column.dataKey !== 'match') return;
-        const flag = data.cell?.flagType;
-        if (flag) {
-          tk_drawFlag(doc, data.cell, flag);
-        }
+        const payload = data.cell?._tkMatchCell;
+        if (!payload) return;
+        tk_drawMatchCell(doc, data.cell, payload.matchPercent, payload.flagEmoji, payload.fallbackText);
       },
       didDrawPage: () => {
         drawHeader(doc, headerMeta);
@@ -508,7 +577,9 @@
   function computeRows() {
     if (cachedRows?.length) return cachedRows;
     if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
-      cachedRows = window.talkkinkCompatRows.slice();
+      const prepared = sanitizeCompatRows(window.talkkinkCompatRows);
+      cachedRows = prepared.slice();
+      window.talkkinkCompatRows = prepared.slice();
     } else {
       cachedRows = extractRowsFromTable();
     }
@@ -526,8 +597,9 @@
   window.TKCompatPDF = {
     notifyRowsUpdated(rows) {
       if (Array.isArray(rows)) {
-        cachedRows = rows.slice();
-        window.talkkinkCompatRows = rows.slice();
+        const prepared = sanitizeCompatRows(rows);
+        cachedRows = prepared.slice();
+        window.talkkinkCompatRows = prepared.slice();
       } else {
         cachedRows = [];
         window.talkkinkCompatRows = undefined;
@@ -545,7 +617,7 @@
     if (btn) btn.disabled = true;
 
     if (Array.isArray(window.talkkinkCompatRows))
-      cachedRows = window.talkkinkCompatRows.slice();
+      cachedRows = sanitizeCompatRows(window.talkkinkCompatRows);
     else
       cachedRows = extractRowsFromTable();
 
