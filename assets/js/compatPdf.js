@@ -30,8 +30,162 @@
   const GRID = [40, 40, 45];
   const TEXT_MAIN = [235, 235, 235];
   const HEADER_TEXT = [0, 255, 245];
+  const DEFAULT_FONT_FAMILY = "helvetica";
+
+  const REMOTE_FONT_SOURCES = [
+    {
+      family: "Inter",
+      style: "normal",
+      fileName: "Inter-Regular.ttf",
+      url: "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter-Regular.ttf",
+    },
+    {
+      family: "Inter",
+      style: "bold",
+      fileName: "Inter-Bold.ttf",
+      url: "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter-Bold.ttf",
+    },
+  ];
+
+  const remoteFontCache = new Map();
 
   let libsPromise = null;
+
+  function ensureDocFontCache(doc) {
+    if (!doc) return null;
+    if (!doc.__compatPdfFontCache) {
+      Object.defineProperty(doc, "__compatPdfFontCache", {
+        value: new Set(),
+        enumerable: false,
+        configurable: false,
+        writable: false,
+      });
+    }
+    return doc.__compatPdfFontCache;
+  }
+
+  function arrayBufferToBase64(buffer) {
+    if (typeof Buffer === "function") {
+      return Buffer.from(buffer).toString("base64");
+    }
+    const bytes = new Uint8Array(buffer);
+    const chunk = 0x8000;
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += chunk) {
+      const slice = bytes.subarray(i, i + chunk);
+      binary += String.fromCharCode.apply(null, slice);
+    }
+    if (typeof btoa === "function") {
+      return btoa(binary);
+    }
+    throw new Error("No base64 encoder available");
+  }
+
+  async function fetchFontBase64(font) {
+    if (!font || !font.url) return null;
+    if (remoteFontCache.has(font.fileName)) {
+      return remoteFontCache.get(font.fileName);
+    }
+    if (typeof fetch !== "function") {
+      return null;
+    }
+    const loader = (async () => {
+      const res = await fetch(font.url);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch font ${font.url} (${res.status})`);
+      }
+      const buf = await res.arrayBuffer();
+      return arrayBufferToBase64(buf);
+    })()
+      .catch((err) => {
+        console.warn("[compat-pdf] Unable to download font", font.fileName, err);
+        remoteFontCache.delete(font.fileName);
+        return null;
+      });
+
+    remoteFontCache.set(font.fileName, loader);
+    return loader;
+  }
+
+  async function registerRemoteFont(doc, font) {
+    if (!doc || typeof doc.addFileToVFS !== "function" || typeof doc.addFont !== "function") {
+      return false;
+    }
+    const cache = ensureDocFontCache(doc);
+    const style = font.style || "normal";
+    const key = `${font.family}|${style}`;
+    if (cache && cache.has(key)) {
+      return true;
+    }
+    const base64 = await fetchFontBase64(font);
+    if (!base64) {
+      return false;
+    }
+    try {
+      doc.addFileToVFS(font.fileName, base64);
+      doc.addFont(font.fileName, font.family, style);
+      if (cache) {
+        cache.add(key);
+      }
+      return true;
+    } catch (err) {
+      console.warn("[compat-pdf] Failed to register font", font.fileName, err);
+      return false;
+    }
+  }
+
+  async function ensurePreferredFonts(doc) {
+    const states = await Promise.all(
+      REMOTE_FONT_SOURCES.map(async (font) => ({
+        style: font.style || "normal",
+        ok: await registerRemoteFont(doc, font),
+      })),
+    );
+    return {
+      family: REMOTE_FONT_SOURCES[0]?.family || DEFAULT_FONT_FAMILY,
+      hasNormal: states.some((s) => s.style === "normal" && s.ok),
+      hasBold: states.some((s) => s.style === "bold" && s.ok),
+      ready: states.some((s) => s.ok),
+    };
+  }
+
+  function createFontController(doc, state) {
+    const fallbackFamily = DEFAULT_FONT_FAMILY;
+    const family = state?.ready ? state.family : fallbackFamily;
+    const supportsBold = state?.ready ? !!state.hasBold : true;
+    return {
+      family,
+      use(style = "normal") {
+        const desiredStyle = style === "bold" && !supportsBold ? "normal" : style;
+        try {
+          doc.setFont(family, desiredStyle);
+        } catch (_) {
+          try {
+            doc.setFont(fallbackFamily, style);
+          } catch (err) {
+            console.warn("[compat-pdf] Failed to set font", err);
+          }
+        }
+      },
+    };
+  }
+
+  async function prepareFontState(doc) {
+    try {
+      const state = await ensurePreferredFonts(doc);
+      if (state?.ready) {
+        return state;
+      }
+    } catch (err) {
+      console.warn("[compat-pdf] Font preload failed", err);
+    }
+    return {
+      family: DEFAULT_FONT_FAMILY,
+      hasNormal: true,
+      hasBold: true,
+      ready: false,
+    };
+  }
 
   /* --------------------------- Utility Helpers --------------------------- */
 
@@ -476,7 +630,7 @@
     }
   }
 
-  function drawHeader(doc, mainTitle, sectionTitle, options) {
+  function drawHeader(doc, mainTitle, sectionTitle, options, fontCtrl) {
     const opts = options || {};
     const stampText = typeof opts.timestamp === "string" && opts.timestamp
       ? opts.timestamp
@@ -503,14 +657,22 @@
       doc.roundedRect(titleBoxX, titleBoxY - 18, titleBoxWidth, titleBoxHeight, 8, 8, "FD");
     }
 
-    doc.setFont("helvetica", "bold");
+    if (fontCtrl) {
+      fontCtrl.use("bold");
+    } else {
+      doc.setFont(DEFAULT_FONT_FAMILY, "bold");
+    }
     doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
     doc.setFontSize(24);
     doc.text(mainTitle || "TalkKink Compatibility", centerX, 36, { align: "center" });
 
     doc.setFontSize(12);
     doc.setTextColor(230, 234, 240);
-    doc.setFont("helvetica", "normal");
+    if (fontCtrl) {
+      fontCtrl.use("normal");
+    } else {
+      doc.setFont(DEFAULT_FONT_FAMILY, "normal");
+    }
     doc.text(stampText, centerX, 56, { align: "center" });
 
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
@@ -522,23 +684,35 @@
     doc.setDrawColor(0, 130, 150);
     doc.line(pad, glowY + 6, pageW - pad, glowY + 6);
 
-    doc.setFont("helvetica", "bold");
+    if (fontCtrl) {
+      fontCtrl.use("bold");
+    } else {
+      doc.setFont(DEFAULT_FONT_FAMILY, "bold");
+    }
     doc.setFontSize(18);
     doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
     doc.text(sectionTitle, centerX, 98, { align: "center" });
 
-    doc.setFont("helvetica", "normal");
+    if (fontCtrl) {
+      fontCtrl.use("normal");
+    } else {
+      doc.setFont(DEFAULT_FONT_FAMILY, "normal");
+    }
     doc.setFontSize(12);
     doc.setTextColor(255, 255, 255);
 
     return 126;
   }
 
-  function drawSummaryFooter(doc, stats, startY) {
+  function drawSummaryFooter(doc, stats, startY, fontCtrl) {
     const pageW = doc.internal.pageSize.getWidth();
     let y = startY + 18;
 
-    doc.setFont("helvetica", "normal");
+    if (fontCtrl) {
+      fontCtrl.use("normal");
+    } else {
+      doc.setFont(DEFAULT_FONT_FAMILY, "normal");
+    }
     doc.setFontSize(11);
     doc.setTextColor(220, 220, 220);
 
@@ -583,7 +757,8 @@
     return y;
   }
 
-  function renderDarkPdf(doc, rawRows) {
+  function renderDarkPdf(doc, rawRows, fontState) {
+    const fontCtrl = createFontController(doc, fontState);
     const normRows = rawRows
       .map(normalizeCompatRow)
       .filter((r) => r && (r.item || r.aText || r.bText));
@@ -600,7 +775,7 @@
     const headerY = drawHeader(doc, mainTitle, sectionTitle, {
       timestamp: headerStamp,
       centerX: layout.centerX,
-    });
+    }, fontCtrl);
     const bodyRows = buildBodyRows(normRows);
     const stats = computeSummaryStats(normRows);
 
@@ -611,6 +786,8 @@
       { header: "Partner B", dataKey: "b" },
     ];
 
+    const tableFont = fontCtrl.family || DEFAULT_FONT_FAMILY;
+
     doc.autoTable({
       columns,
       body: bodyRows,
@@ -618,7 +795,7 @@
       margin: { left: layout.margin, right: layout.margin },
       theme: "grid",
       styles: {
-        font: "helvetica",
+        font: tableFont,
         fontSize: 12,
         halign: "center",
         valign: "middle",
@@ -681,13 +858,13 @@
         drawHeader(doc, mainTitle, sectionTitle, {
           timestamp: headerStamp,
           centerX: layout.centerX,
-        });
+        }, fontCtrl);
       },
     });
 
     const finalY =
       (doc.lastAutoTable && doc.lastAutoTable.finalY) || headerY + 40;
-    drawSummaryFooter(doc, stats, finalY);
+    drawSummaryFooter(doc, stats, finalY, fontCtrl);
   }
 
   async function tkGenerateCompatPdf(rawRows) {
@@ -698,7 +875,8 @@
       format: "letter",
     });
 
-    renderDarkPdf(doc, rawRows);
+    const fontState = await prepareFontState(doc);
+    renderDarkPdf(doc, rawRows, fontState);
     doc.save("compatibility-pretty-dark.pdf");
   }
 
