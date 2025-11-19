@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fredoka:wght@600;700&display=swap">
+<script defer src="/assets/js/compatPdf.js"></script>
 <style>
   :root{
     --bg:#0e0f11;            /* page background */
@@ -769,8 +770,36 @@ if (typeof window !== 'undefined') {
     }
   }
 
+  function shareRowsWithPdf(rows){
+    const notify = () => {
+      if (window.TKCompatPDF && typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
+        window.TKCompatPDF.notifyRowsUpdated(rows);
+        return true;
+      }
+      return false;
+    };
+
+    if (notify()) return;
+    let tries = 0;
+    const id = setInterval(() => {
+      tries += 1;
+      if (notify() || tries >= 12) {
+        clearInterval(id);
+      }
+    }, 250);
+  }
+
   const compatRows = pickRows().map(tkNormalizeCompatRow).filter(Boolean);
   window.__tkCompatNormalizedRows = compatRows;
+
+  try {
+    window.talkkinkCompatRows = compatRows;
+    localStorage.setItem('talkkink:compatRows', JSON.stringify(compatRows));
+  } catch (err) {
+    console.warn('[TK-compat] Unable to persist compatibility rows', err);
+  }
+
+  shareRowsWithPdf(compatRows);
   renderTable(compatRows);
 })();
 
