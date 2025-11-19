@@ -30,22 +30,29 @@
   const GRID = [40, 40, 45];
   const TEXT_MAIN = [235, 235, 235];
   const HEADER_TEXT = [0, 255, 245];
-  const DEFAULT_FONT_FAMILY = "helvetica";
+  const DEFAULT_FONT_FAMILY = "Space Grotesk";
 
-  const REMOTE_FONT_SOURCES = [
-    {
-      family: "Inter",
-      style: "normal",
-      fileName: "Inter-Regular.ttf",
-      url: "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter-Regular.ttf",
+  const REMOTE_FONT_SOURCES = {
+    "Space Grotesk": {
+      normal: "https://fonts.gstatic.com/s/spacegrotesk/v4/sZlEdRyC6CRY3Tp6HMQpH30.woff2",
+      bold: "https://fonts.gstatic.com/s/spacegrotesk/v4/sZlGdRyC6CRY3Tp6HMQpGX8iCw.woff2",
     },
-    {
-      family: "Inter",
-      style: "bold",
-      fileName: "Inter-Bold.ttf",
-      url: "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter-Bold.ttf",
+    Fredoka: {
+      normal: "https://fonts.gstatic.com/s/fredoka/v9/8vIS7w2n2l2ZpU6D80VgM_w.woff2",
+      bold: "https://fonts.gstatic.com/s/fredoka/v9/8vIU7w2n2l2ZpU6D80VMKL0W.woff2",
     },
-  ];
+  };
+
+  const PRIMARY_REMOTE_FAMILY = Object.keys(REMOTE_FONT_SOURCES)[0] || DEFAULT_FONT_FAMILY;
+  const REMOTE_FONT_VARIANTS = Object.entries(REMOTE_FONT_SOURCES).flatMap(
+    ([family, styles]) =>
+      Object.entries(styles).map(([style, url]) => ({
+        family,
+        style,
+        url,
+        fileName: `${family.replace(/\s+/g, "")}-${style}.woff2`,
+      })),
+  );
 
   const remoteFontCache = new Map();
 
@@ -136,21 +143,60 @@
 
   async function ensurePreferredFonts(doc) {
     const states = await Promise.all(
-      REMOTE_FONT_SOURCES.map(async (font) => ({
+      REMOTE_FONT_VARIANTS.map(async (font) => ({
+        family: font.family,
         style: font.style || "normal",
         ok: await registerRemoteFont(doc, font),
       })),
     );
+
+    const orderedFamilies = Object.keys(REMOTE_FONT_SOURCES);
+    const familyState = (family) => {
+      const entries = states.filter((s) => s.family === family && s.ok);
+      if (!entries.length) return null;
+      return {
+        family,
+        hasNormal: entries.some((s) => s.style === "normal"),
+        hasBold: entries.some((s) => s.style === "bold"),
+        ready: true,
+      };
+    };
+
+    const preferredState =
+      orderedFamilies.map((family) => familyState(family)).find(Boolean) ||
+      states
+        .filter((s) => s.ok)
+        .map((s) => familyState(s.family))
+        .find(Boolean);
+
+    if (preferredState) {
+      return preferredState;
+    }
+
     return {
-      family: REMOTE_FONT_SOURCES[0]?.family || DEFAULT_FONT_FAMILY,
-      hasNormal: states.some((s) => s.style === "normal" && s.ok),
-      hasBold: states.some((s) => s.style === "bold" && s.ok),
-      ready: states.some((s) => s.ok),
+      family: PRIMARY_REMOTE_FAMILY,
+      hasNormal: false,
+      hasBold: false,
+      ready: false,
     };
   }
 
   function createFontController(doc, state) {
-    const fallbackFamily = DEFAULT_FONT_FAMILY;
+    let fallbackFamily = DEFAULT_FONT_FAMILY;
+    if (doc && typeof doc.setFont === "function") {
+      try {
+        doc.setFont(DEFAULT_FONT_FAMILY);
+      } catch (err) {
+        console.warn("[compat-pdf] Unable to set default font", err);
+        fallbackFamily = "helvetica";
+        try {
+          doc.setFont(fallbackFamily);
+        } catch (_) {
+          /* no-op */
+        }
+      }
+    }
+
     const family = state?.ready ? state.family : fallbackFamily;
     const supportsBold = state?.ready ? !!state.hasBold : true;
     return {
