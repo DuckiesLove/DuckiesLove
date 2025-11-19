@@ -231,13 +231,29 @@
     const str = String(value).trim();
     if (!str) return '';
     const lower = str.toLowerCase();
-    if (['⭐', '⭐️', 'star', 'stars', 'green', '🟩', '🟢'].includes(lower)) return '⭐';
+    if (['⭐', '⭐️', 'star', 'stars', 'green', '🟩', '🟢'].includes(lower)) return 'star';
+    if (['🚩', 'red-flag', 'red flag', 'red', '🟥', '🔴'].includes(lower)) return 'red-flag';
     return '';
   }
 
-  function tk_flagStatus(a, b, matchPercent) {
+  function tk_flagStatus(partnerAScore, partnerBScore, matchPercent) {
     if (!Number.isFinite(matchPercent)) return '';
-    return matchPercent >= 85 ? '⭐' : '';
+    if (matchPercent >= 85) return 'star';
+    if (matchPercent <= 30) return 'red-flag';
+    return '';
+  }
+
+  function tk_drawFlag(doc, cell, flagType) {
+    const { x, y, height, width } = cell;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    const emoji = flagType === 'star' ? '⭐' : flagType === 'red-flag' ? '🚩' : '';
+    if (emoji) {
+      doc.text(emoji, x + width / 2, y + height / 2, {
+        align: 'center',
+        baseline: 'middle',
+      });
+    }
   }
 
   function tk_renderMatchColumn(a, b, matchPercent, matchRaw) {
@@ -288,18 +304,17 @@
     const matchDisplay = tk_renderMatchColumn(a, b, matchPct, matchRaw);
     const explicitFlag = tk_normalizeFlag(flagRaw);
     const computedFlag = tk_flagStatus(a, b, matchPct);
-    const matchWithStar = (explicitFlag || computedFlag)
-      ? `${matchDisplay} ${(explicitFlag || computedFlag)}`.trim()
-      : matchDisplay;
+    const flagType = explicitFlag || computedFlag;
 
     return {
       item: cleanText(item),
       a: a != null ? String(a) : cleanText(aRaw),
-      match: matchWithStar,
+      match: matchDisplay,
       b: b != null ? String(b) : cleanText(bRaw),
       aNum: a,
       bNum: b,
       pct: matchPct,
+      flagType,
     };
   }
 
@@ -354,19 +369,21 @@
       a: cleanText(r.a),
       match: cleanText(r.match),
       b: cleanText(r.b),
+      flagType: r.flagType,
+      matchPercent: r.pct,
+      partnerA: r.aNum,
+      partnerB: r.bNum,
     }));
 
     const itemColumn = pdfColumns.find((col) => col.key === 'item');
     const wrapWidth = Math.max(40, (itemColumn?.w || 330) - 16);
 
     const bodyRows = tableRows.map((row) => ({
+      ...row,
       item:
         row.item && typeof doc.splitTextToSize === 'function'
           ? doc.splitTextToSize(row.item, wrapWidth)
           : row.item,
-      a: row.a,
-      match: row.match,
-      b: row.b,
     }));
 
     const columnStyles = Object.fromEntries(
@@ -408,6 +425,28 @@
         fillColor: [12, 14, 18],
       },
       columnStyles,
+      didParseCell: (data) => {
+        if (data.column.dataKey !== 'match') return;
+        const row = data.row?.raw || {};
+        const baseMatch = cleanText(row.match);
+        const matchText = baseMatch || cleanText(data.cell.raw ?? data.cell.text?.[0] ?? '');
+        let flag = row.flagType;
+        if (!flag) {
+          const aScore = row.partnerA ?? row.aNum;
+          const bScore = row.partnerB ?? row.bNum;
+          const pct = row.matchPercent ?? row.pct;
+          flag = tk_flagStatus(aScore, bScore, pct);
+        }
+        data.cell.text = [matchText];
+        if (flag) data.cell.flagType = flag;
+      },
+      didDrawCell: (data) => {
+        if (data.column.dataKey !== 'match') return;
+        const flag = data.cell?.flagType;
+        if (flag) {
+          tk_drawFlag(doc, data.cell, flag);
+        }
+      },
       didDrawPage: () => {
         drawHeader(doc, headerMeta);
       },
