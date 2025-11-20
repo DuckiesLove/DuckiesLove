@@ -25,6 +25,12 @@ window.TKCompatPDF = (function () {
     return 'general';
   }
 
+  const AUTOTABLE_CDN =
+    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js';
+  let autoTableLoadPromise = null;
+
+  const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
   function clampScore(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return null;
@@ -167,10 +173,59 @@ window.TKCompatPDF = (function () {
     return rows;
   }
 
+  function isAutoTablePlaceholder(fn) {
+    if (!fn) return true;
+    try {
+      const text = String(fn);
+      return text.includes('placeholder');
+    } catch (err) {
+      return true;
+    }
+  }
+
   function ensureJsPDF() {
     const ctor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
     if (typeof ctor === 'function') return ctor;
     throw new Error('jsPDF is not loaded.');
+  }
+
+  function loadAutoTableFromCdnIfNeeded() {
+    if (autoTableLoadPromise) return autoTableLoadPromise;
+
+    autoTableLoadPromise = (async () => {
+      const existingAutoTable = window.jspdf?.autoTable;
+      const placeholder = isAutoTablePlaceholder(existingAutoTable);
+
+      if (!placeholder) return;
+
+      console.warn('[compat-pdf] Real jsPDF-AutoTable is missing. Injecting from CDN...');
+
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = AUTOTABLE_CDN;
+        script.onload = () => {
+          console.info('[compat-pdf] jsPDF-AutoTable loaded successfully.');
+          resolve();
+        };
+        script.onerror = () => reject(new Error('Failed to load jsPDF-AutoTable from CDN'));
+        document.head.appendChild(script);
+      });
+    })();
+
+    return autoTableLoadPromise;
+  }
+
+  async function ensureAutoTableReady() {
+    ensureJsPDF();
+    await loadAutoTableFromCdnIfNeeded();
+
+    const maxWait = 3000;
+    const deadline = Date.now() + maxWait;
+
+    while (!window.jspdf?.autoTable || isAutoTablePlaceholder(window.jspdf.autoTable)) {
+      if (Date.now() > deadline) throw new Error('AutoTable failed to load');
+      await delay(100);
+    }
   }
 
   function getAutoTable(doc) {
@@ -197,6 +252,7 @@ window.TKCompatPDF = (function () {
       return;
     }
 
+    await ensureAutoTableReady();
     const JsPDF = ensureJsPDF();
     const doc = new JsPDF({ putOnlyUsedFonts: true, unit: 'pt', format: 'letter' });
     const autoTable = getAutoTable(doc);
