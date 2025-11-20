@@ -30,7 +30,8 @@
   const GRID = [30, 50, 56];
   const TEXT_MAIN = [232, 247, 251];
   const HEADER_TEXT = [183, 255, 255];
-  const DEFAULT_FONT_FAMILY = "Space Grotesk";
+  const DEFAULT_FONT_FAMILY = "SpaceGrotesk";
+  const FALLBACK_FONT_FAMILY = "Inter";
 
   const SECTION_PANEL = [10, 29, 38];
   const HEADER_PANEL = [11, 23, 31];
@@ -41,32 +42,39 @@
     b: [6, 38, 45],
   };
 
-  const REMOTE_FONT_SOURCES = [
-    {
-      family: "Space Grotesk",
-      url: "https://fonts.gstatic.com/s/spacegrotesk/v15/Pby6FmL8HhTPqbjUzux3JWptAQ.woff2",
-      style: "normal",
-      weight: 400,
+  const REMOTE_FONT_SOURCES = {
+    "SpaceGrotesk-Regular": {
+      url: "/assets/fonts/SpaceGrotesk-Regular.ttf",
+      fontName: "SpaceGrotesk",
+      fontStyle: "normal",
     },
-    {
-      family: "Fredoka",
-      url: "https://fonts.gstatic.com/s/fredoka/v12/SLXGc1jY5nQ8c2bZINkGZAA.woff2",
-      style: "normal",
-      weight: 400,
+    "FredokaOne-Regular": {
+      url: "/assets/fonts/FredokaOne-Regular.ttf",
+      fontName: "FredokaOne",
+      fontStyle: "normal",
     },
-  ];
+  };
 
-  const PRIMARY_REMOTE_FAMILY = REMOTE_FONT_SOURCES[0]?.family || DEFAULT_FONT_FAMILY;
-  const REMOTE_FONT_VARIANTS = REMOTE_FONT_SOURCES.map((font) => ({
-    family: font.family,
-    style: font.style || "normal",
-    url: font.url,
-    fileName:
-      font.fileName ||
-      `${font.family.replace(/\s+/g, "")}-${font.style || "normal"}.${
-        (font.url && font.url.split(".").pop()) || "ttf"
-      }`,
-  }));
+  const EMBEDDED_FONT_DATA =
+    (typeof window !== "undefined" && window.FONT_DATA) ||
+    (typeof FONT_DATA !== "undefined" && FONT_DATA) ||
+    {};
+
+  const REMOTE_FONT_VARIANTS = Object.entries(REMOTE_FONT_SOURCES).map(
+    ([key, font]) => ({
+      key,
+      family: font.fontName,
+      style: font.fontStyle || "normal",
+      url: font.url,
+      fileName:
+        font.fileName ||
+        `${font.fontName}-${font.fontStyle || "normal"}.${
+          (font.url && font.url.split(".").pop()) || "ttf"
+        }`,
+    }),
+  );
+
+  const PRIMARY_REMOTE_FAMILY = REMOTE_FONT_VARIANTS[0]?.family || DEFAULT_FONT_FAMILY;
 
   const remoteFontCache = new Map();
 
@@ -138,7 +146,8 @@
     if (cache && cache.has(key)) {
       return true;
     }
-    const base64 = await fetchFontBase64(font);
+    const embeddedBase64 = EMBEDDED_FONT_DATA[font.key];
+    const base64 = embeddedBase64 || (await fetchFontBase64(font));
     if (!base64) {
       return false;
     }
@@ -164,7 +173,7 @@
       })),
     );
 
-    const orderedFamilies = REMOTE_FONT_SOURCES.map((f) => f.family);
+    const orderedFamilies = REMOTE_FONT_VARIANTS.map((f) => f.family);
     const familyState = (family) => {
       const entries = states.filter((s) => s.family === family && s.ok);
       if (!entries.length) return null;
@@ -208,11 +217,16 @@
         }
       } catch (err) {
         console.warn("[compat-pdf] Unable to set default font", err);
-        fallbackFamily = "helvetica";
+        fallbackFamily = FALLBACK_FONT_FAMILY || "helvetica";
         try {
           doc.setFont(fallbackFamily);
         } catch (_) {
-          /* no-op */
+          try {
+            doc.setFont("helvetica");
+            fallbackFamily = "helvetica";
+          } catch (__) {
+            /* no-op */
+          }
         }
       }
     }
@@ -723,6 +737,7 @@
     const centerX = Number.isFinite(opts.centerX) ? opts.centerX : pageW / 2;
     const headingFamily = ensureFontFamily(doc, opts.headingFont, "bold", fontCtrl?.family);
     const bodyFamily = ensureFontFamily(doc, opts.bodyFont, "normal", fontCtrl?.family);
+    const titleFamily = ensureFontFamily(doc, "FredokaOne", "normal", headingFamily);
 
     if (fillBackground) {
       doc.setFillColor(BG[0], BG[1], BG[2]);
@@ -739,9 +754,10 @@
     const sectionY = pillY + pillHeight / 2 + 2;
     const tableStartY = pillY + pillHeight + 32;
 
-    ensureFontFamily(doc, headingFamily, "bold", fontCtrl?.family);
+    ensureFontFamily(doc, titleFamily || headingFamily, "normal", fontCtrl?.family);
+    doc.setFont(titleFamily || headingFamily, "normal");
     doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setFontSize(46);
+    doc.setFontSize(40);
     doc.text(mainTitle || "TalkKink Compatibility", centerX, titleY, { align: "center" });
 
     doc.setFontSize(14);
@@ -833,7 +849,7 @@
     }
 
     const sectionTitle = deriveSectionTitle(rawRows);
-    const mainTitle = "TalkKink Compatibility Survey";
+    const mainTitle = "TalkKink Compatibility Report";
     doc.setFont(DEFAULT_FONT_FAMILY, "bold");
     const headingFont = ensureFontFamily(doc, DEFAULT_FONT_FAMILY, "bold", fontCtrl.family);
     doc.setFont(DEFAULT_FONT_FAMILY, "normal");
@@ -858,6 +874,8 @@
     ];
 
     const tableFont = ensureFontFamily(doc, bodyFont, "normal", fontCtrl.family || DEFAULT_FONT_FAMILY);
+
+    doc.setFont(tableFont, "normal");
 
     doc.autoTable({
       columns,
