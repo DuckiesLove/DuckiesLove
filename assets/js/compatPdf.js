@@ -7,6 +7,8 @@ window.TKCompatPDF = (function () {
     ? window.talkkinkCompatRows.slice()
     : [];
 
+  const log = (...args) => console.log('[compat-pdf]', ...args);
+
   function safeString(value) {
     if (value == null) return '';
     return String(value).trim();
@@ -242,6 +244,17 @@ window.TKCompatPDF = (function () {
     return false;
   }
 
+  function injectScript(url) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.async = false;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+      document.head.appendChild(script);
+    });
+  }
+
   async function ensurePdfLibraries() {
     if (hasRealAutoTable()) return;
     if (pdfLibLoadPromise) {
@@ -269,8 +282,41 @@ window.TKCompatPDF = (function () {
       }
 
       if (!hasRealAutoTable()) {
+        log('AutoTable missing after standard loaders, attempting direct injection...');
+        if (!getJsPdfCtor()) {
+          log('Injecting jsPDF...');
+          for (const src of JSPDF_CDN) {
+            try {
+              await injectScript(src);
+              break;
+            } catch (err) {
+              console.warn('[compat-pdf] Direct jsPDF injection failed', src, err);
+            }
+          }
+        }
+
+        if (getJsPdfCtor() && !window.jsPDF) {
+          window.jsPDF = getJsPdfCtor();
+        }
+
+        if (!hasRealAutoTable()) {
+          log('Injecting AutoTable...');
+          for (const src of AUTOTABLE_CDN) {
+            try {
+              await injectScript(src);
+              if (hasRealAutoTable()) break;
+            } catch (err) {
+              console.warn('[compat-pdf] Direct AutoTable injection failed', src, err);
+            }
+          }
+        }
+      }
+
+      if (!hasRealAutoTable()) {
         throw new Error('jsPDF-AutoTable not available after loading attempts.');
       }
+
+      log('jsPDF-AutoTable loaded successfully.');
     })();
 
     try {
