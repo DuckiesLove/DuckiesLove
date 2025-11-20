@@ -300,6 +300,7 @@
   </script>
   <script defer src="/js/tk-compat-upload-glue.js"></script>
   <script defer src="/js/tk-compat-row-cache.js"></script>
+  <script defer src="/assets/js/compatPdfCore.js"></script>
   <script defer src="/assets/js/compatPdf.js"></script>
   <style id="tk-compat-center">
     /* Remove any panel/dock if an older script injected it */
@@ -1133,31 +1134,20 @@
           if (e.stopImmediatePropagation) e.stopImmediatePropagation();
         }
 
-        if (!window.TKCompatPDF) {
-          console.error('[compat-override] TKCompatPDF not available on window.');
-          alert('PDF generator is not loaded. Make sure assets/js/compatPdf.js is included.');
-          return;
-        }
-
-        const hasGenFromStorage = typeof window.TKCompatPDF.generateFromStorage === 'function';
-        const hasDownload = typeof window.TKCompatPDF.download === 'function';
-
         if (!rowsExistInStorage()) {
           alert('Upload both partner surveys first, then wait for the green messages below the buttons before downloading.');
           return;
         }
 
-        try {
-          if (hasGenFromStorage) {
+        if (window.TKCompatPDF?.generateFromStorage) {
+          try {
             await window.TKCompatPDF.generateFromStorage();
-          } else if (hasDownload) {
-            await window.TKCompatPDF.download();
-          } else {
-            alert('PDF generator methods are missing (no generateFromStorage / download).');
+          } catch (err) {
+            console.error('[compat-override] PDF generation failed:', err);
+            alert('PDF could not be generated. See console for details.');
           }
-        } catch (err) {
-          console.error('[compat-override] PDF generation failed:', err);
-          alert('PDF could not be generated. See console for details.');
+        } else {
+          alert('PDF generator is not loaded. Make sure assets/js/compatPdf.js is included.');
         }
       }
 
