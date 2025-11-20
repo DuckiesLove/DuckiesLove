@@ -30,7 +30,6 @@
   const GRID = [30, 50, 56];
   const TEXT_MAIN = [232, 247, 251];
   const HEADER_TEXT = [183, 255, 255];
-  const DEFAULT_FONT_FAMILY = "Space Grotesk";
 
   const SECTION_PANEL = [10, 29, 38];
   const HEADER_PANEL = [11, 23, 31];
@@ -42,24 +41,27 @@
   };
 
   const REMOTE_FONT_SOURCES = {
-    "Space Grotesk": {
-      normal: "https://fonts.gstatic.com/s/spacegrotesk/v4/sZlEdRyC6CRY3Tp6HMQpH30.woff2",
-      bold: "https://fonts.gstatic.com/s/spacegrotesk/v4/sZlGdRyC6CRY3Tp6HMQpGX8iCw.woff2",
+    SpaceGrotesk: {
+      normal: "https://fonts.gstatic.com/s/spacegrotesk/v5/P5sUzYyWRnq_U4hZSR3dfChIYg.ttf",
+      bold: "https://fonts.gstatic.com/s/spacegrotesk/v5/P5sZzYyWRnq_U4hZSR3dfCJGbJ32.ttf",
     },
     Fredoka: {
-      normal: "https://fonts.gstatic.com/s/fredoka/v9/8vIS7w2n2l2ZpU6D80VgM_w.woff2",
-      bold: "https://fonts.gstatic.com/s/fredoka/v9/8vIU7w2n2l2ZpU6D80VMKL0W.woff2",
+      normal: "https://fonts.gstatic.com/s/fredoka/v14/K88oAZovgv3gogq81vU.ttf",
+      bold: "https://fonts.gstatic.com/s/fredoka/v14/K88oAZovgv3gogq81vU-Bold.ttf",
     },
   };
+
+  const DEFAULT_FONT_FAMILY = "Fredoka";
 
   const PRIMARY_REMOTE_FAMILY = Object.keys(REMOTE_FONT_SOURCES)[0] || DEFAULT_FONT_FAMILY;
   const REMOTE_FONT_VARIANTS = Object.entries(REMOTE_FONT_SOURCES).flatMap(
     ([family, styles]) =>
       Object.entries(styles).map(([style, url]) => ({
+        key: `${family}-${style}`,
         family,
         style,
         url,
-        fileName: `${family.replace(/\s+/g, "")}-${style}.woff2`,
+        fileName: `${family}-${style}.${(url && url.split(".").pop()) || "ttf"}`,
       })),
   );
 
@@ -823,8 +825,10 @@
 
     const sectionTitle = deriveSectionTitle(rawRows);
     const mainTitle = "TalkKink Compatibility Survey";
-    const headingFont = ensureFontFamily(doc, "Fredoka", "bold", fontCtrl.family);
-    const bodyFont = ensureFontFamily(doc, "Space Grotesk", "normal", fontCtrl.family);
+    doc.setFont("Fredoka", "normal");
+    const headingFont = ensureFontFamily(doc, "Fredoka", "normal", fontCtrl.family);
+    doc.setFont("Fredoka", "normal");
+    const bodyFont = ensureFontFamily(doc, "SpaceGrotesk", "normal", fontCtrl.family);
 
     const layout = computeTableLayout(doc);
     const headerStamp = `Generated: ${new Date().toLocaleString()}`;
@@ -844,32 +848,33 @@
       { header: "Partner B", dataKey: "b" },
     ];
 
-    const tableFont = ensureFontFamily(doc, bodyFont, "normal", fontCtrl.family || DEFAULT_FONT_FAMILY);
+    const columnHeaders = columns.map((c) => c.header);
 
     doc.autoTable({
       columns,
+      head: [columnHeaders],
       body: bodyRows,
       startY: headerY,
       margin: { left: layout.margin, right: layout.margin },
       theme: "grid",
       styles: {
-        font: tableFont,
-        fontSize: 11,
+        font: "SpaceGrotesk",
+        fontSize: 10,
         halign: "center",
         valign: "middle",
         cellPadding: { top: 9, bottom: 9, left: 10, right: 10 },
-        textColor: TEXT_MAIN,
+        textColor: [255, 255, 255],
         fillColor: TABLE_BG,
         lineColor: GRID,
         lineWidth: 1.05,
         overflow: "linebreak", // inside styles, not root (no deprecation warning)
       },
       headStyles: {
-        font: headingFont,
+        fillColor: [0, 0, 0],
+        textColor: [0, 255, 255],
+        font: "SpaceGrotesk",
         fontStyle: "normal",
-        fontSize: 13,
-        textColor: ACCENT,
-        fillColor: HEADER_PANEL,
+        fontSize: 11,
         lineColor: GRID,
         lineWidth: 1.05,
         halign: "center",
@@ -878,14 +883,15 @@
         fillColor: ALT_ROW_BG,
       },
       columnStyles: {
-        item: { cellWidth: layout.widths.item, halign: "left" },
-        a: { cellWidth: layout.widths.a, halign: "center" },
-        match: {
+        0: { cellWidth: layout.widths.item, halign: "left", font: "SpaceGrotesk", fontStyle: "normal" },
+        1: { cellWidth: layout.widths.a, halign: "center", font: "SpaceGrotesk" },
+        2: {
           cellWidth: layout.widths.match,
           halign: "center",
+          font: "SpaceGrotesk",
           cellPadding: { top: 9, bottom: 9, left: 10, right: 12 },
         },
-        b: { cellWidth: layout.widths.b, halign: "center" },
+        3: { cellWidth: layout.widths.b, halign: "center", font: "SpaceGrotesk" },
       },
       didParseCell: function (data) {
         if (data.section !== "body") return;

@@ -30,8 +30,6 @@
   const GRID = [30, 50, 56];
   const TEXT_MAIN = [232, 247, 251];
   const HEADER_TEXT = [183, 255, 255];
-  const DEFAULT_FONT_FAMILY = "Space Grotesk";
-  const FALLBACK_FONT_FAMILY = "Inter";
 
   const SECTION_PANEL = [10, 29, 38];
   const HEADER_PANEL = [11, 23, 31];
@@ -43,35 +41,33 @@
   };
 
   const REMOTE_FONT_SOURCES = {
-    "Space Grotesk": {
-      url: "/fonts/SpaceGrotesk-Regular.ttf",
-      fontName: "Space Grotesk",
-      fontStyle: "normal",
+    SpaceGrotesk: {
+      normal: "https://fonts.gstatic.com/s/spacegrotesk/v5/P5sUzYyWRnq_U4hZSR3dfChIYg.ttf",
+      bold: "https://fonts.gstatic.com/s/spacegrotesk/v5/P5sZzYyWRnq_U4hZSR3dfCJGbJ32.ttf",
     },
     Fredoka: {
-      url: "/fonts/Fredoka-Regular.ttf",
-      fontName: "Fredoka",
-      fontStyle: "normal",
+      normal: "https://fonts.gstatic.com/s/fredoka/v14/K88oAZovgv3gogq81vU.ttf",
+      bold: "https://fonts.gstatic.com/s/fredoka/v14/K88oAZovgv3gogq81vU-Bold.ttf",
     },
   };
+
+  const DEFAULT_FONT_FAMILY = "Fredoka";
+  const FALLBACK_FONT_FAMILY = "Inter";
 
   const EMBEDDED_FONT_DATA =
     (typeof window !== "undefined" && window.FONT_DATA) ||
     (typeof FONT_DATA !== "undefined" && FONT_DATA) ||
     {};
 
-  const REMOTE_FONT_VARIANTS = Object.entries(REMOTE_FONT_SOURCES).map(
-    ([key, font]) => ({
-      key,
-      family: font.fontName,
-      style: font.fontStyle || "normal",
-      url: font.url,
-      fileName:
-        font.fileName ||
-        `${font.fontName}-${font.fontStyle || "normal"}.${
-          (font.url && font.url.split(".").pop()) || "ttf"
-        }`,
-    }),
+  const REMOTE_FONT_VARIANTS = Object.entries(REMOTE_FONT_SOURCES).flatMap(
+    ([family, variants]) =>
+      Object.entries(variants).map(([style, url]) => ({
+        key: `${family}-${style}`,
+        family,
+        style,
+        url,
+        fileName: `${family}-${style}.${(url && url.split(".").pop()) || "ttf"}`,
+      })),
   );
 
   const PRIMARY_REMOTE_FAMILY = REMOTE_FONT_VARIANTS[0]?.family || DEFAULT_FONT_FAMILY;
@@ -878,10 +874,10 @@
 
     const sectionTitle = deriveSectionTitle(rawRows) || "Compatibility Survey";
     const mainTitle = "TalkKink Compatibility";
-    doc.setFont(DEFAULT_FONT_FAMILY, "normal");
+    doc.setFont("Fredoka", "normal");
     const headingFont = ensureFontFamily(doc, "Fredoka", "normal", fontCtrl.family);
-    doc.setFont(DEFAULT_FONT_FAMILY, "normal");
-    const bodyFont = ensureFontFamily(doc, DEFAULT_FONT_FAMILY, "normal", fontCtrl.family);
+    doc.setFont("Fredoka", "normal");
+    const bodyFont = ensureFontFamily(doc, "SpaceGrotesk", "normal", fontCtrl.family);
 
     const layout = computeTableLayout(doc);
     const headerStamp = `Generated: ${new Date().toLocaleString()}`;
@@ -902,34 +898,35 @@
       { header: "Partner B", dataKey: "b" },
     ];
 
-    const tableFont = ensureFontFamily(doc, bodyFont, "normal", fontCtrl.family || DEFAULT_FONT_FAMILY);
+    const columnHeaders = columns.map((c) => c.header);
 
-    doc.setFont(tableFont, "normal");
+    doc.setFont("Fredoka", "normal");
 
     doc.autoTable({
       columns,
+      head: [columnHeaders],
       body: bodyRows,
       startY: headerY,
       margin: { left: layout.margin, right: layout.margin },
       theme: "grid",
       styles: {
-        font: tableFont,
-        fontSize: 11,
+        font: "SpaceGrotesk",
+        fontSize: 10,
         halign: "center",
         valign: "middle",
         cellPadding: { top: 9, bottom: 9, left: 10, right: 10 },
-        textColor: TEXT_MAIN,
+        textColor: [255, 255, 255],
         fillColor: TABLE_BG,
         lineColor: GRID,
         lineWidth: 1.05,
         overflow: "linebreak", // inside styles, not root (no deprecation warning)
       },
       headStyles: {
-        font: headingFont,
+        fillColor: [0, 0, 0],
+        textColor: [0, 255, 255],
+        font: "SpaceGrotesk",
         fontStyle: "normal",
-        fontSize: 13,
-        textColor: ACCENT,
-        fillColor: HEADER_PANEL,
+        fontSize: 11,
         lineColor: GRID,
         lineWidth: 1.05,
         halign: "center",
@@ -938,15 +935,15 @@
         fillColor: ALT_ROW_BG,
       },
       columnStyles: {
-        0: { cellWidth: layout.widths.item, halign: "left", font: bodyFont, fontStyle: "normal" },
-        1: { cellWidth: layout.widths.a, halign: "center", font: bodyFont },
+        0: { cellWidth: layout.widths.item, halign: "left", font: "SpaceGrotesk", fontStyle: "normal" },
+        1: { cellWidth: layout.widths.a, halign: "center", font: "SpaceGrotesk" },
         2: {
           cellWidth: layout.widths.match,
           halign: "center",
-          font: bodyFont,
+          font: "SpaceGrotesk",
           cellPadding: { top: 9, bottom: 9, left: 10, right: 12 },
         },
-        3: { cellWidth: layout.widths.b, halign: "center", font: bodyFont },
+        3: { cellWidth: layout.widths.b, halign: "center", font: "SpaceGrotesk" },
       },
       didParseCell: function (data) {
         if (data.section !== "body") return;
@@ -998,7 +995,7 @@
 
   async function tkGenerateCompatPdf(rawRows) {
     const jsPDFCtor = await ensurePdfLibs();
-    await loadFonts(["Fredoka", "Space Grotesk"]);
+    await loadFonts(["Fredoka", "SpaceGrotesk"]);
     const doc = new jsPDFCtor({
       orientation: "landscape",
       unit: "pt",
