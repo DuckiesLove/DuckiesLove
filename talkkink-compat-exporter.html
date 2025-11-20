@@ -253,23 +253,74 @@
     return '';
   }
 
-  function tk_flagStatus(partnerAScore, partnerBScore, matchPercent) {
-    const aScore = Number.isFinite(partnerAScore) ? partnerAScore : coerceNum(partnerAScore);
-    const bScore = Number.isFinite(partnerBScore) ? partnerBScore : coerceNum(partnerBScore);
-    let pct = Number.isFinite(matchPercent) ? matchPercent : null;
-    if (!Number.isFinite(pct)) pct = tk_matchPercent(aScore, bScore);
+  /* Flag logic (Green Star, Yellow Caution, Red Flag) */
+  function tk_flagStatus(a, b, matchPercent) {
+    const aScore = Number.isFinite(a) ? a : coerceNum(a);
+    const bScore = Number.isFinite(b) ? b : coerceNum(b);
+    const pct = Number.isFinite(matchPercent) ? matchPercent : tk_matchPercent(aScore, bScore);
     if (!Number.isFinite(pct)) return '';
     if (pct >= 90) return '⭐';
     if (pct <= 30) return '🚩';
-    if (
-      Number.isFinite(aScore) &&
-      Number.isFinite(bScore) &&
-      (aScore === 5 || bScore === 5) &&
-      Math.abs(aScore - bScore) >= 1
-    ) {
-      return '🟨';
-    }
+    const oneIsFive = aScore === 5 || bScore === 5;
+    if (oneIsFive && Math.abs(aScore - bScore) >= 1) return '🟨';
     return '';
+  }
+
+  /* Draw emoji instead of squares (centered between columns) */
+  function tk_drawFlagEmoji(doc, cell, color) {
+    const emojiMap = {
+      green: '⭐',
+      yellow: '🟨',
+      red: '🚩'
+    };
+    const emoji = emojiMap[color];
+    if (!emoji) return;
+    const textWidth = doc.getTextWidth(emoji);
+    const fontSize = 10;
+    const x = cell.x + (cell.width - textWidth) / 2;
+    const y = cell.y + cell.height / 2 + fontSize / 2.8;
+    doc.setFontSize(fontSize);
+    doc.text(emoji, x, y);
+  }
+
+  /* Shorten label utility */
+  function tk_shortenLabel(label) {
+    if (!label) return '';
+    return label
+      .replace('Giving: ', '')
+      .replace('Receiving: ', '')
+      .replace(' (Body Part Torture)', '')
+      .replace(' (Sensory Play)', '')
+      .replace(' (Roleplay)', '')
+      .replace(' (Funishment)', '')
+      .replace(' (Ownership)', '')
+      .replace(' (Control)', '')
+      .replace(' (Psychological)', '')
+      .replace(' (Primal)', '')
+      .replace(' (Degradation)', '')
+      .replace(' (Objectification)', '')
+      .replace(' (Anal Play)', '')
+      .replace(' (Care)', '')
+      .replace(' (Chastity)', '')
+      .replace(' (Appearance Play)', '')
+      .replace(' (Pet Play)', '')
+      .replace(' (Service)', '')
+      .replace(' (Bondage)', '')
+      .replace(' (Verbal)', '')
+      .replace(' (Routine)', '')
+      .replace(' (Edgeplay)', '')
+      .replace(' (Humiliation)', '')
+      .replace(' (Breeding)', '')
+      .replace(' (Breath Play)', '')
+      .replace(' (Masochism)', '')
+      .replace(' (Sadism)', '')
+      .replace(' (Ownership & Possessiveness)', '')
+      .replace(' (Medical)', '')
+      .replace(' (Status)', '')
+      .replace(' (Intimacy)', '')
+      .replace(/ \([^)]*\)/g, '') // any other (…)
+      .replace(' Face ', ' Face-') // minor space fix
+      .trim();
   }
 
   function tk_drawMatchCell(doc, cell, matchPercent, flagEmoji, fallbackText) {
@@ -277,18 +328,22 @@
     const { x, y, width, height } = cell;
     const cleanFallback = cleanText(fallbackText) || 'N/A';
     const pctText = Number.isFinite(matchPercent) ? `${matchPercent}%` : cleanFallback;
-    const display = flagEmoji ? `${pctText} ${flagEmoji}` : pctText;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    doc.text(display.trim(), x + width / 2, y + height / 2, {
+    doc.text(pctText.trim(), x + width / 2, y + height / 2, {
       align: 'center',
       baseline: 'middle',
     });
+
+    if (flagEmoji) {
+      const color = flagEmoji === '⭐' ? 'green' : flagEmoji === '🟨' ? 'yellow' : flagEmoji === '🚩' ? 'red' : '';
+      if (color) tk_drawFlagEmoji(doc, cell, color);
+    }
   }
 
   function buildRow(item) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
-    const labelShort = cleanText(item.labelShort ?? item.label ?? item.item ?? '');
+    const labelShort = tk_shortenLabel(item.labelShort ?? item.label ?? item.item ?? '');
     const aScore = Number.isFinite(item.scoreA)
       ? item.scoreA
       : Number.isFinite(item.aScore)
@@ -313,7 +368,7 @@
     const flagEmoji =
       tk_normalizeFlag(
         item.flagEmoji ?? item.flag ?? item.flagLabel ?? item.flagStatus ?? item.flagName ?? null
-      ) || (derivedMatch != null ? tk_flagStatus(aScore, bScore, derivedMatch) : '');
+      ) || (derivedMatch != null ? tk_normalizeFlag(tk_flagStatus(aScore, bScore, derivedMatch)) : '');
 
     return {
       ...item,
@@ -355,7 +410,7 @@
         flagRaw = null;
       }
     } else if (r && typeof r === 'object') {
-      item = r.labelShort ?? r.item ?? r.label ?? '';
+      item = tk_shortenLabel(r.labelShort ?? r.item ?? r.label ?? '');
       aRaw = r.a ?? r.partnerA ?? r.aScore ?? r.scoreA ?? null;
       bRaw = r.b ?? r.partnerB ?? r.bScore ?? r.scoreB ?? null;
       matchRaw =
@@ -379,7 +434,7 @@
     }
     const matchDisplay = tk_renderMatchColumn(a, b, matchPct, matchRaw);
     const explicitFlag = tk_normalizeFlag(flagRaw);
-    const computedFlag = tk_flagStatus(a, b, matchPct);
+    const computedFlag = tk_normalizeFlag(tk_flagStatus(a, b, matchPct));
     const flagEmoji = explicitFlag || computedFlag;
 
     return {
@@ -535,7 +590,7 @@
           : Number.isFinite(row.bNum)
           ? row.bNum
           : coerceNum(row.b);
-        const flagEmoji = row.flagEmoji || tk_flagStatus(aScore, bScore, matchPercent);
+        const flagEmoji = row.flagEmoji || tk_normalizeFlag(tk_flagStatus(aScore, bScore, matchPercent));
         data.cell.text = [''];
         data.cell._tkMatchCell = { matchPercent, flagEmoji, fallbackText };
       },
