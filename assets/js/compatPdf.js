@@ -30,7 +30,7 @@
   const GRID = [30, 50, 56];
   const TEXT_MAIN = [232, 247, 251];
   const HEADER_TEXT = [183, 255, 255];
-  const DEFAULT_FONT_FAMILY = "Space Grotesk";
+  const DEFAULT_FONT_FAMILY = "fredoka";
 
   const SECTION_PANEL = [10, 29, 38];
   const HEADER_PANEL = [11, 23, 31];
@@ -42,13 +42,13 @@
   };
 
   const REMOTE_FONT_SOURCES = {
-    "Space Grotesk": {
-      normal: "https://fonts.gstatic.com/s/spacegrotesk/v4/sZlEdRyC6CRY3Tp6HMQpH30.woff2",
-      bold: "https://fonts.gstatic.com/s/spacegrotesk/v4/sZlGdRyC6CRY3Tp6HMQpGX8iCw.woff2",
+    fredoka: {
+      normal: "https://talkkink.org/fonts/Fredoka-Regular.ttf",
+      bold: "https://talkkink.org/fonts/Fredoka-Bold.ttf",
     },
-    Fredoka: {
-      normal: "https://fonts.gstatic.com/s/fredoka/v9/8vIS7w2n2l2ZpU6D80VgM_w.woff2",
-      bold: "https://fonts.gstatic.com/s/fredoka/v9/8vIU7w2n2l2ZpU6D80VMKL0W.woff2",
+    grotesk: {
+      normal: "https://talkkink.org/fonts/SpaceGrotesk-Regular.ttf",
+      bold: "https://talkkink.org/fonts/SpaceGrotesk-Bold.ttf",
     },
   };
 
@@ -59,7 +59,7 @@
         family,
         style,
         url,
-        fileName: `${family.replace(/\s+/g, "")}-${style}.woff2`,
+        fileName: `${family.replace(/\s+/g, "")}-${style}.ttf`,
       })),
   );
 
@@ -823,8 +823,10 @@
 
     const sectionTitle = deriveSectionTitle(rawRows);
     const mainTitle = "TalkKink Compatibility Survey";
-    const headingFont = ensureFontFamily(doc, "Fredoka", "bold", fontCtrl.family);
-    const bodyFont = ensureFontFamily(doc, "Space Grotesk", "normal", fontCtrl.family);
+    doc.setFont(DEFAULT_FONT_FAMILY, "bold");
+    const headingFont = ensureFontFamily(doc, DEFAULT_FONT_FAMILY, "bold", fontCtrl.family);
+    doc.setFont(DEFAULT_FONT_FAMILY, "normal");
+    const bodyFont = ensureFontFamily(doc, DEFAULT_FONT_FAMILY, "normal", fontCtrl.family);
 
     const layout = computeTableLayout(doc);
     const headerStamp = `Generated: ${new Date().toLocaleString()}`;
