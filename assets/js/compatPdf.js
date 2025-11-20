@@ -225,6 +225,22 @@
     };
   }
 
+  function ensureFontFamily(doc, preferredFamily, style = "normal", fallbackFamily = DEFAULT_FONT_FAMILY) {
+    const fallback = fallbackFamily || DEFAULT_FONT_FAMILY;
+    const desired = preferredFamily || fallback;
+    try {
+      doc.setFont(desired, style);
+      return desired;
+    } catch (err) {
+      try {
+        doc.setFont(fallback, style);
+      } catch (_) {
+        console.warn("[compat-pdf] Unable to set font", desired, err);
+      }
+      return fallback;
+    }
+  }
+
   async function prepareFontState(doc) {
     try {
       const state = await ensurePreferredFonts(doc);
@@ -694,6 +710,8 @@
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
     const centerX = Number.isFinite(opts.centerX) ? opts.centerX : pageW / 2;
+    const headingFamily = ensureFontFamily(doc, opts.headingFont, "bold", fontCtrl?.family);
+    const bodyFamily = ensureFontFamily(doc, opts.bodyFont, "normal", fontCtrl?.family);
 
     if (fillBackground) {
       doc.setFillColor(BG[0], BG[1], BG[2]);
@@ -710,22 +728,14 @@
     const sectionY = pillY + pillHeight / 2 + 2;
     const tableStartY = pillY + pillHeight + 32;
 
-    if (fontCtrl) {
-      fontCtrl.use("bold");
-    } else {
-      doc.setFont(DEFAULT_FONT_FAMILY, "bold");
-    }
+    ensureFontFamily(doc, headingFamily, "bold", fontCtrl?.family);
     doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
     doc.setFontSize(46);
     doc.text(mainTitle || "TalkKink Compatibility", centerX, titleY, { align: "center" });
 
     doc.setFontSize(14);
     doc.setTextColor(HEADER_TEXT[0], HEADER_TEXT[1], HEADER_TEXT[2]);
-    if (fontCtrl) {
-      fontCtrl.use("normal");
-    } else {
-      doc.setFont(DEFAULT_FONT_FAMILY, "normal");
-    }
+    ensureFontFamily(doc, bodyFamily, "normal", headingFamily);
     doc.text(stampText, centerX, subtitleY, { align: "center" });
 
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
@@ -733,11 +743,7 @@
     const pad = 80;
     doc.line(pad, ruleY, pageW - pad, ruleY);
 
-    if (fontCtrl) {
-      fontCtrl.use("bold");
-    } else {
-      doc.setFont(DEFAULT_FONT_FAMILY, "bold");
-    }
+    ensureFontFamily(doc, headingFamily, "bold", fontCtrl?.family);
     if (typeof doc.roundedRect === "function") {
       doc.setFillColor(SECTION_PANEL[0], SECTION_PANEL[1], SECTION_PANEL[2]);
       doc.setDrawColor(12, 69, 80);
@@ -817,12 +823,16 @@
 
     const sectionTitle = deriveSectionTitle(rawRows);
     const mainTitle = "TalkKink Compatibility Survey";
+    const headingFont = ensureFontFamily(doc, "Fredoka", "bold", fontCtrl.family);
+    const bodyFont = ensureFontFamily(doc, "Space Grotesk", "normal", fontCtrl.family);
 
     const layout = computeTableLayout(doc);
     const headerStamp = `Generated: ${new Date().toLocaleString()}`;
     const headerY = drawHeader(doc, mainTitle, sectionTitle, {
       timestamp: headerStamp,
       centerX: layout.centerX,
+      headingFont,
+      bodyFont,
     }, fontCtrl);
     const bodyRows = buildBodyRows(normRows);
     const stats = computeSummaryStats(normRows);
@@ -834,7 +844,7 @@
       { header: "Partner B", dataKey: "b" },
     ];
 
-    const tableFont = fontCtrl.family || DEFAULT_FONT_FAMILY;
+    const tableFont = ensureFontFamily(doc, bodyFont, "normal", fontCtrl.family || DEFAULT_FONT_FAMILY);
 
     doc.autoTable({
       columns,
@@ -844,7 +854,7 @@
       theme: "grid",
       styles: {
         font: tableFont,
-        fontSize: 12,
+        fontSize: 11,
         halign: "center",
         valign: "middle",
         cellPadding: { top: 9, bottom: 9, left: 10, right: 10 },
@@ -855,7 +865,8 @@
         overflow: "linebreak", // inside styles, not root (no deprecation warning)
       },
       headStyles: {
-        fontStyle: "bold",
+        font: headingFont,
+        fontStyle: "normal",
         fontSize: 13,
         textColor: ACCENT,
         fillColor: HEADER_PANEL,
