@@ -30,7 +30,7 @@
   const GRID = [30, 50, 56];
   const TEXT_MAIN = [232, 247, 251];
   const HEADER_TEXT = [183, 255, 255];
-  const DEFAULT_FONT_FAMILY = "fredoka";
+  const DEFAULT_FONT_FAMILY = "Space Grotesk";
 
   const SECTION_PANEL = [10, 29, 38];
   const HEADER_PANEL = [11, 23, 31];
@@ -41,27 +41,32 @@
     b: [6, 38, 45],
   };
 
-  const REMOTE_FONT_SOURCES = {
-    fredoka: {
-      normal: "https://talkkink.org/fonts/Fredoka-Regular.ttf",
-      bold: "https://talkkink.org/fonts/Fredoka-Bold.ttf",
+  const REMOTE_FONT_SOURCES = [
+    {
+      family: "Space Grotesk",
+      url: "https://fonts.gstatic.com/s/spacegrotesk/v15/Pby6FmL8HhTPqbjUzux3JWptAQ.woff2",
+      style: "normal",
+      weight: 400,
     },
-    grotesk: {
-      normal: "https://talkkink.org/fonts/SpaceGrotesk-Regular.ttf",
-      bold: "https://talkkink.org/fonts/SpaceGrotesk-Bold.ttf",
+    {
+      family: "Fredoka",
+      url: "https://fonts.gstatic.com/s/fredoka/v12/SLXGc1jY5nQ8c2bZINkGZAA.woff2",
+      style: "normal",
+      weight: 400,
     },
-  };
+  ];
 
-  const PRIMARY_REMOTE_FAMILY = Object.keys(REMOTE_FONT_SOURCES)[0] || DEFAULT_FONT_FAMILY;
-  const REMOTE_FONT_VARIANTS = Object.entries(REMOTE_FONT_SOURCES).flatMap(
-    ([family, styles]) =>
-      Object.entries(styles).map(([style, url]) => ({
-        family,
-        style,
-        url,
-        fileName: `${family.replace(/\s+/g, "")}-${style}.ttf`,
-      })),
-  );
+  const PRIMARY_REMOTE_FAMILY = REMOTE_FONT_SOURCES[0]?.family || DEFAULT_FONT_FAMILY;
+  const REMOTE_FONT_VARIANTS = REMOTE_FONT_SOURCES.map((font) => ({
+    family: font.family,
+    style: font.style || "normal",
+    url: font.url,
+    fileName:
+      font.fileName ||
+      `${font.family.replace(/\s+/g, "")}-${font.style || "normal"}.${
+        (font.url && font.url.split(".").pop()) || "ttf"
+      }`,
+  }));
 
   const remoteFontCache = new Map();
 
@@ -159,7 +164,7 @@
       })),
     );
 
-    const orderedFamilies = Object.keys(REMOTE_FONT_SOURCES);
+    const orderedFamilies = REMOTE_FONT_SOURCES.map((f) => f.family);
     const familyState = (family) => {
       const entries = states.filter((s) => s.family === family && s.ok);
       if (!entries.length) return null;
@@ -194,7 +199,13 @@
     let fallbackFamily = DEFAULT_FONT_FAMILY;
     if (doc && typeof doc.setFont === "function") {
       try {
-        doc.setFont(DEFAULT_FONT_FAMILY);
+        doc.setFont(DEFAULT_FONT_FAMILY, "normal");
+        if (typeof doc.setFontSize === "function") {
+          doc.setFontSize(11);
+        }
+        if (typeof doc.setTextColor === "function") {
+          doc.setTextColor(TEXT_MAIN[0], TEXT_MAIN[1], TEXT_MAIN[2]);
+        }
       } catch (err) {
         console.warn("[compat-pdf] Unable to set default font", err);
         fallbackFamily = "helvetica";
@@ -880,14 +891,14 @@
         fillColor: ALT_ROW_BG,
       },
       columnStyles: {
-        item: { cellWidth: layout.widths.item, halign: "left" },
-        a: { cellWidth: layout.widths.a, halign: "center" },
-        match: {
+        0: { cellWidth: layout.widths.item, halign: "left" },
+        1: { cellWidth: layout.widths.a, halign: "center" },
+        2: {
           cellWidth: layout.widths.match,
           halign: "center",
           cellPadding: { top: 9, bottom: 9, left: 10, right: 12 },
         },
-        b: { cellWidth: layout.widths.b, halign: "center" },
+        3: { cellWidth: layout.widths.b, halign: "center" },
       },
       didParseCell: function (data) {
         if (data.section !== "body") return;
