@@ -299,6 +299,14 @@
     };
   </script>
   <script src="js/vendor/jspdf.umd.min.js"></script>
+  <script>
+    // Ensure the UMD build registers a global constructor before the AutoTable plugin loads
+    // so it can safely extend jsPDF. Without this, the plugin may attach to a placeholder and
+    // leave autoTable unavailable.
+    if (window.jspdf?.jsPDF && !window.jsPDF) {
+      window.jsPDF = window.jspdf.jsPDF;
+    }
+  </script>
   <script src="js/vendor/jspdf.plugin.autotable.min.js"></script>
   <script src="assets/js/compatPdf.js"></script>
   <script src="js/tk-compat-upload-glue.js"></script>
