@@ -25,11 +25,27 @@ window.TKCompatPDF = (function () {
     return 'general';
   }
 
-  const AUTOTABLE_CDN =
-    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js';
-  let autoTableLoadPromise = null;
+  const JSPDF_LOCAL = [
+    '/assets/js/vendor/jspdf.umd.min.js',
+    '/js/vendor/jspdf.umd.min.js',
+    '/vendor/jspdf.umd.min.js'
+  ];
 
-  const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+  const AUTOTABLE_LOCAL = [
+    '/assets/js/vendor/jspdf.plugin.autotable.min.js',
+    '/js/vendor/jspdf.plugin.autotable.min.js',
+    '/vendor/jspdf.plugin.autotable.min.js'
+  ];
+
+  const JSPDF_CDN = [
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'
+  ];
+
+  const AUTOTABLE_CDN = [
+    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js'
+  ];
+
+  let pdfLibLoadPromise = null;
 
   function clampScore(value) {
     const num = Number(value);
@@ -183,48 +199,85 @@ window.TKCompatPDF = (function () {
     }
   }
 
+  const getJsPdfCtor = () => (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+
   function ensureJsPDF() {
-    const ctor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    const ctor = getJsPdfCtor();
     if (typeof ctor === 'function') return ctor;
     throw new Error('jsPDF is not loaded.');
   }
 
-  function loadAutoTableFromCdnIfNeeded() {
-    if (autoTableLoadPromise) return autoTableLoadPromise;
+  function hasRealAutoTable() {
+    const apiFn =
+      window.jspdf?.jsPDF?.API?.autoTable ||
+      window.jsPDF?.API?.autoTable ||
+      window.jspdf?.autoTable;
 
-    autoTableLoadPromise = (async () => {
-      const existingAutoTable = window.jspdf?.autoTable;
-      const placeholder = isAutoTablePlaceholder(existingAutoTable);
-
-      if (!placeholder) return;
-
-      console.warn('[compat-pdf] Real jsPDF-AutoTable is missing. Injecting from CDN...');
-
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = AUTOTABLE_CDN;
-        script.onload = () => {
-          console.info('[compat-pdf] jsPDF-AutoTable loaded successfully.');
-          resolve();
-        };
-        script.onerror = () => reject(new Error('Failed to load jsPDF-AutoTable from CDN'));
-        document.head.appendChild(script);
-      });
-    })();
-
-    return autoTableLoadPromise;
+    return typeof apiFn === 'function' && !isAutoTablePlaceholder(apiFn);
   }
 
-  async function ensureAutoTableReady() {
-    ensureJsPDF();
-    await loadAutoTableFromCdnIfNeeded();
+  function loadScript(src, label) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = (err) => {
+        console.warn(`[compat-pdf] Failed to load ${label} script`, src, err);
+        reject(err || new Error(`Failed to load ${label}`));
+      };
+      document.head.appendChild(script);
+    });
+  }
 
-    const maxWait = 3000;
-    const deadline = Date.now() + maxWait;
+  async function tryLoadScripts(sources, label) {
+    for (const src of sources) {
+      try {
+        await loadScript(src, label);
+        return true;
+      } catch (err) {
+        console.warn(`[compat-pdf] ${label} load attempt failed`, src, err);
+      }
+    }
+    return false;
+  }
 
-    while (!window.jspdf?.autoTable || isAutoTablePlaceholder(window.jspdf.autoTable)) {
-      if (Date.now() > deadline) throw new Error('AutoTable failed to load');
-      await delay(100);
+  async function ensurePdfLibraries() {
+    if (hasRealAutoTable()) return;
+    if (pdfLibLoadPromise) {
+      await pdfLibLoadPromise;
+      return;
+    }
+
+    pdfLibLoadPromise = (async () => {
+      if (!getJsPdfCtor()) {
+        const loadedLocalJsPdf = await tryLoadScripts(JSPDF_LOCAL, 'jsPDF');
+        if (!loadedLocalJsPdf) {
+          await tryLoadScripts(JSPDF_CDN, 'jsPDF');
+        }
+      }
+
+      if (getJsPdfCtor() && !window.jsPDF) {
+        window.jsPDF = getJsPdfCtor();
+      }
+
+      if (!hasRealAutoTable()) {
+        const loadedLocalAutoTable = await tryLoadScripts(AUTOTABLE_LOCAL, 'jsPDF-AutoTable');
+        if (!loadedLocalAutoTable && !hasRealAutoTable()) {
+          await tryLoadScripts(AUTOTABLE_CDN, 'jsPDF-AutoTable');
+        }
+      }
+
+      if (!hasRealAutoTable()) {
+        throw new Error('jsPDF-AutoTable not available after loading attempts.');
+      }
+    })();
+
+    try {
+      await pdfLibLoadPromise;
+    } catch (err) {
+      pdfLibLoadPromise = null;
+      throw err;
     }
   }
 
@@ -252,43 +305,61 @@ window.TKCompatPDF = (function () {
       return;
     }
 
-    await ensureAutoTableReady();
-    const JsPDF = ensureJsPDF();
-    const doc = new JsPDF({ putOnlyUsedFonts: true, unit: 'pt', format: 'letter' });
-    const autoTable = getAutoTable(doc);
-    const margin = 40;
+    try {
+      await ensurePdfLibraries();
+    } catch (err) {
+      console.error('[compat-pdf] PDF libraries failed to load', err);
+      alert('PDF could not be generated because required libraries did not load.');
+      return;
+    }
 
-    doc.setFontSize(18);
-    doc.text('TalkKink Compatibility', margin, margin);
-    doc.setFontSize(11);
-    doc.text('Side-by-side scores for you and your partner', margin, margin + 16);
+    if (!hasRealAutoTable()) {
+      console.error('[compat-pdf] PDF generation aborted: AutoTable missing.');
+      alert('PDF could not be generated because the AutoTable plugin is unavailable.');
+      return;
+    }
 
-    const tableData = rows.map((row) => {
-      const match = computeMatch(row.a, row.b);
-      const matchText = match == null ? '' : `${match}%`;
-      return {
-        item: row.item,
-        self: formatScore(row.a),
-        partner: formatScore(row.b),
-        match: matchText
-      };
-    });
+    try {
+      const JsPDF = ensureJsPDF();
+      const doc = new JsPDF({ putOnlyUsedFonts: true, unit: 'pt', format: 'letter' });
+      const autoTable = getAutoTable(doc);
+      const margin = 40;
 
-    autoTable({
-      startY: margin + 30,
-      head: [['Item', 'You', 'Partner', 'Match']],
-      body: tableData.map((r) => [r.item, r.self, r.partner, r.match]),
-      styles: { fontSize: 9, cellPadding: 6 },
-      headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      columnStyles: {
-        1: { halign: 'center', cellWidth: 60 },
-        2: { halign: 'center', cellWidth: 70 },
-        3: { halign: 'center', cellWidth: 60 }
-      }
-    });
+      doc.setFontSize(18);
+      doc.text('TalkKink Compatibility', margin, margin);
+      doc.setFontSize(11);
+      doc.text('Side-by-side scores for you and your partner', margin, margin + 16);
 
-    doc.save('TalkKink_Compatibility_Report.pdf');
+      const tableData = rows.map((row) => {
+        const match = computeMatch(row.a, row.b);
+        const matchText = match == null ? '' : `${match}%`;
+        return {
+          item: row.item,
+          self: formatScore(row.a),
+          partner: formatScore(row.b),
+          match: matchText
+        };
+      });
+
+      autoTable({
+        startY: margin + 30,
+        head: [['Item', 'You', 'Partner', 'Match']],
+        body: tableData.map((r) => [r.item, r.self, r.partner, r.match]),
+        styles: { fontSize: 9, cellPadding: 6 },
+        headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        columnStyles: {
+          1: { halign: 'center', cellWidth: 60 },
+          2: { halign: 'center', cellWidth: 70 },
+          3: { halign: 'center', cellWidth: 60 }
+        }
+      });
+
+      doc.save('TalkKink_Compatibility_Report.pdf');
+    } catch (err) {
+      console.error('[compat-pdf] PDF generation failed', err);
+      alert('PDF generation failed because of an unexpected error.');
+    }
   }
 
   function notifyRowsUpdated(rows) {
