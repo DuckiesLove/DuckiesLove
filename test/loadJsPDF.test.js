@@ -5,6 +5,7 @@ import { ensureJsPDF, loadJsPDF, __resetJsPDFForTesting } from '../js/loadJsPDF.
 function createDocumentStub() {
   const scripts = [];
   const doc = {
+    __scripts: scripts,
     head: {
       appendChild(node) {
         scripts.push(node);
@@ -73,6 +74,24 @@ test('ensureJsPDF recovers when window is missing', async () => {
   assert.equal(typeof jsPDF, 'function');
   assert.ok(globalThis.window);
   assert.equal(globalThis.window.jspdf.jsPDF, jsPDF);
+
+  delete globalThis.window;
+  delete globalThis.document;
+  delete globalThis.jspdf;
+  delete globalThis.jsPDF;
+  __resetJsPDFForTesting();
+});
+
+test('loadJsPDF prefers the bundled vendor script before CDN', async () => {
+  const documentStub = createDocumentStub();
+  globalThis.window = { document: documentStub };
+  globalThis.document = documentStub;
+
+  const jsPDF = await loadJsPDF();
+
+  const expectedLocal = new URL('../js/vendor/jspdf.umd.min.js', import.meta.url).href;
+  assert.equal(documentStub.__scripts[0]?.src, expectedLocal);
+  assert.equal(typeof jsPDF, 'function');
 
   delete globalThis.window;
   delete globalThis.document;
