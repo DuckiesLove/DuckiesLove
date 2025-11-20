@@ -23,14 +23,23 @@
   const STORAGE_KEY = "talkkink:compatRows";
   const DL_SELECTOR = "#downloadPdfBtn, #downloadBtn, [data-download-pdf]";
 
-  const ACCENT = [0, 214, 199];
-  const BG = [15, 16, 18];
-  const TABLE_BG = [26, 27, 31];
-  const ALT_ROW_BG = [19, 20, 24];
-  const GRID = [40, 40, 45];
-  const TEXT_MAIN = [235, 235, 235];
-  const HEADER_TEXT = [0, 255, 245];
+  const ACCENT = [16, 226, 240];
+  const BG = [5, 19, 26];
+  const TABLE_BG = [10, 23, 32];
+  const ALT_ROW_BG = [11, 17, 23];
+  const GRID = [30, 50, 56];
+  const TEXT_MAIN = [232, 247, 251];
+  const HEADER_TEXT = [183, 255, 255];
   const DEFAULT_FONT_FAMILY = "Space Grotesk";
+
+  const SECTION_PANEL = [10, 29, 38];
+  const HEADER_PANEL = [11, 23, 31];
+  const COLUMN_FILLS = {
+    item: [10, 23, 32],
+    a: [6, 38, 45],
+    match: [8, 25, 33],
+    b: [6, 38, 45],
+  };
 
   const REMOTE_FONT_SOURCES = {
     "Space Grotesk": {
@@ -691,17 +700,15 @@
       doc.rect(0, 0, pageW, pageH, "F");
     }
 
-    const titleBoxWidth = Math.min(520, pageW * 0.75);
-    const titleBoxX = centerX - titleBoxWidth / 2;
-    const titleBoxY = 26;
-    const titleBoxHeight = 42;
-
-    if (typeof doc.roundedRect === "function") {
-      doc.setFillColor(18, 27, 36);
-      doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-      doc.setLineWidth(1.4);
-      doc.roundedRect(titleBoxX, titleBoxY - 18, titleBoxWidth, titleBoxHeight, 8, 8, "FD");
-    }
+    const titleY = 70;
+    const subtitleY = titleY + 24;
+    const ruleY = subtitleY + 16;
+    const pillHeight = 44;
+    const pillWidth = Math.min(440, pageW * 0.6);
+    const pillX = centerX - pillWidth / 2;
+    const pillY = ruleY + 18;
+    const sectionY = pillY + pillHeight / 2 + 2;
+    const tableStartY = pillY + pillHeight + 32;
 
     if (fontCtrl) {
       fontCtrl.use("bold");
@@ -709,45 +716,40 @@
       doc.setFont(DEFAULT_FONT_FAMILY, "bold");
     }
     doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setFontSize(24);
-    doc.text(mainTitle || "TalkKink Compatibility", centerX, 36, { align: "center" });
+    doc.setFontSize(46);
+    doc.text(mainTitle || "TalkKink Compatibility", centerX, titleY, { align: "center" });
 
-    doc.setFontSize(12);
-    doc.setTextColor(230, 234, 240);
+    doc.setFontSize(14);
+    doc.setTextColor(HEADER_TEXT[0], HEADER_TEXT[1], HEADER_TEXT[2]);
     if (fontCtrl) {
       fontCtrl.use("normal");
     } else {
       doc.setFont(DEFAULT_FONT_FAMILY, "normal");
     }
-    doc.text(stampText, centerX, 56, { align: "center" });
+    doc.text(stampText, centerX, subtitleY, { align: "center" });
 
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setLineWidth(4.5);
+    doc.setLineWidth(2.4);
     const pad = 80;
-    const glowY = 74;
-    doc.line(pad, glowY, pageW - pad, glowY);
-    doc.setLineWidth(1.3);
-    doc.setDrawColor(0, 130, 150);
-    doc.line(pad, glowY + 6, pageW - pad, glowY + 6);
+    doc.line(pad, ruleY, pageW - pad, ruleY);
 
     if (fontCtrl) {
       fontCtrl.use("bold");
     } else {
       doc.setFont(DEFAULT_FONT_FAMILY, "bold");
     }
-    doc.setFontSize(18);
-    doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.text(sectionTitle, centerX, 98, { align: "center" });
-
-    if (fontCtrl) {
-      fontCtrl.use("normal");
-    } else {
-      doc.setFont(DEFAULT_FONT_FAMILY, "normal");
+    if (typeof doc.roundedRect === "function") {
+      doc.setFillColor(SECTION_PANEL[0], SECTION_PANEL[1], SECTION_PANEL[2]);
+      doc.setDrawColor(12, 69, 80);
+      doc.setLineWidth(1);
+      doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 12, 12, "FD");
     }
-    doc.setFontSize(12);
-    doc.setTextColor(255, 255, 255);
 
-    return 126;
+    doc.setFontSize(32);
+    doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+    doc.text(sectionTitle, centerX, sectionY, { align: "center", baseline: "middle" });
+
+    return tableStartY;
   }
 
   function drawSummaryFooter(doc, stats, startY, fontCtrl) {
@@ -760,7 +762,7 @@
       doc.setFont(DEFAULT_FONT_FAMILY, "normal");
     }
     doc.setFontSize(11);
-    doc.setTextColor(220, 220, 220);
+    doc.setTextColor(TEXT_MAIN[0], TEXT_MAIN[1], TEXT_MAIN[2]);
 
     const segments = [];
     if (stats.avg != null) {
@@ -845,19 +847,20 @@
         fontSize: 12,
         halign: "center",
         valign: "middle",
-        cellPadding: { top: 5, bottom: 5, left: 6, right: 8 },
+        cellPadding: { top: 9, bottom: 9, left: 10, right: 10 },
         textColor: TEXT_MAIN,
         fillColor: TABLE_BG,
         lineColor: GRID,
-        lineWidth: 0.9,
+        lineWidth: 1.05,
         overflow: "linebreak", // inside styles, not root (no deprecation warning)
       },
       headStyles: {
         fontStyle: "bold",
-        textColor: HEADER_TEXT,
-        fillColor: [30, 32, 36],
+        fontSize: 13,
+        textColor: ACCENT,
+        fillColor: HEADER_PANEL,
         lineColor: GRID,
-        lineWidth: 1.2,
+        lineWidth: 1.05,
         halign: "center",
       },
       alternateRowStyles: {
@@ -869,7 +872,7 @@
         match: {
           cellWidth: layout.widths.match,
           halign: "center",
-          cellPadding: { top: 5, bottom: 5, left: 6, right: 10 },
+          cellPadding: { top: 9, bottom: 9, left: 10, right: 12 },
         },
         b: { cellWidth: layout.widths.b, halign: "center" },
       },
@@ -878,7 +881,7 @@
         const raw = data.row.raw || {};
         if (raw._isGroupHeader) {
           data.cell.styles.fontStyle = "bold";
-          data.cell.styles.fillColor = [24, 25, 30];
+          data.cell.styles.fillColor = SECTION_PANEL;
           data.cell.styles.textColor = HEADER_TEXT;
           data.cell.styles.halign = "center";
 
@@ -887,6 +890,14 @@
           } else {
             data.cell.text = [];
           }
+
+          return;
+        }
+
+        const fill = COLUMN_FILLS[data.column.dataKey];
+        if (fill && data.cell?.styles) {
+          const bump = data.row.index % 2 ? 4 : 0;
+          data.cell.styles.fillColor = fill.map((v) => Math.min(255, v + bump));
         }
       },
       didDrawCell: function (data) {
