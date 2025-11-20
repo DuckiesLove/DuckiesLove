@@ -10,14 +10,15 @@
 <script defer src="/assets/js/compatPdf.js"></script>
 <style>
   :root{
-    --bg:#0e0f11;            /* page background */
-    --panel:#0b0c0d;         /* table banding base */
-    --row:#111315;           /* row color */
-    --row-alt:#0f1012;       /* zebra */
+    --bg:#0a141c;            /* page background */
+    --panel:#0c1d25;         /* table banding base */
+    --row:#0c1f29;           /* row color */
+    --row-alt:#0a1b23;       /* zebra */
     --ink:#e6feff;           /* main text */
     --ink-dim:#b8dfe0;
-    --accent:#00e7ff;        /* teal glow */
-    --grid:#23292d;          /* table lines */
+    --accent:#09e1ff;        /* teal glow */
+    --grid:#0f4658;          /* table lines */
+    --grid-strong:#0da6c5;   /* brighter dividers */
     --font-body:"Space Grotesk","Inter","Segoe UI","Helvetica Neue",system-ui,-apple-system,sans-serif;
     --font-display:"Fredoka","Fredoka One","Space Grotesk","Inter",system-ui,-apple-system,sans-serif;
   }
@@ -70,6 +71,10 @@
   .compat{
     width:100%; border-collapse:separate; border-spacing:0;
     background:transparent; table-layout:fixed;
+    border:1px solid var(--grid-strong);
+    box-shadow:0 0 0 1px rgba(13,166,197,.28), 0 18px 40px rgba(0,0,0,.45);
+    border-radius:12px;
+    overflow:hidden;
   }
   .compat col.label   { width:56%; }
   .compat col.a       { width:12%; }
@@ -78,9 +83,9 @@
 
   .compat thead th{
     position:sticky; top:0; z-index:1;
-    background:#0f1215;
+    background:linear-gradient(180deg, rgba(13,166,197,.32), rgba(13,166,197,.08) 90%);
     color:var(--accent); font-weight:800; font-size:20px; padding:14px 12px;
-    border-bottom:1px solid var(--grid);
+    border-bottom:2px solid var(--grid-strong);
     text-align:center;
     line-height:1.1;
     white-space:nowrap;
@@ -95,14 +100,26 @@
 
   .compat tbody td{
     padding:14px 12px; font-size:19px; line-height:1.3; color:var(--ink);
-    border-bottom:1px solid #151a1e; background:var(--row);
+    border-top:1px solid var(--grid);
+    border-bottom:1px solid rgba(13,166,197,.16);
+    background:var(--row);
     font-variant-numeric:tabular-nums;
     font-feature-settings:'tnum';
   }
   .compat tbody tr:nth-child(2n) td{ background:var(--row-alt); }
-  .compat tbody td.label{ color:var(--ink); }
+  .compat tbody td.label{ color:#8ed6e8; }
   .compat tbody td.num, .compat tbody td.match{
     text-align:center; white-space:nowrap;
+  }
+  .compat tbody td.match{
+    color:var(--accent);
+    font-weight:800;
+    letter-spacing:.4px;
+  }
+  .compat tbody td.match .match-star{
+    color:#ffc642;
+    margin-left:6px;
+    text-shadow:0 0 8px rgba(255,198,66,.45);
   }
 
   .sr-only{
@@ -752,6 +769,7 @@ if (typeof window !== 'undefined') {
       if (!row) continue;
       const tr = document.createElement('tr');
       const matchText = row.matchDisplay || tkFormatMatchDisplay(row.matchRaw, row.matchPct);
+      const matchValue = tkParseMatchPercent(row.matchPct ?? matchText);
       const cells = [
         ['label', row.label],
         ['num',   row.aDisplay ?? (Number.isFinite(row.aScore) ? String(row.aScore) : '')],
@@ -763,6 +781,12 @@ if (typeof window !== 'undefined') {
         const td = document.createElement('td');
         td.className = cls;
         td.textContent = toText(value);
+        if (cls === 'match' && matchValue === 100) {
+          const star = document.createElement('span');
+          star.className = 'match-star';
+          star.textContent = '★';
+          td.appendChild(star);
+        }
         tr.appendChild(td);
       }
 
