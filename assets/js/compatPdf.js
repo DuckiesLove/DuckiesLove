@@ -30,7 +30,7 @@
   const GRID = [30, 50, 56];
   const TEXT_MAIN = [232, 247, 251];
   const HEADER_TEXT = [183, 255, 255];
-  const DEFAULT_FONT_FAMILY = "SpaceGrotesk";
+  const DEFAULT_FONT_FAMILY = "Space Grotesk";
   const FALLBACK_FONT_FAMILY = "Inter";
 
   const SECTION_PANEL = [10, 29, 38];
@@ -43,14 +43,14 @@
   };
 
   const REMOTE_FONT_SOURCES = {
-    "SpaceGrotesk-Regular": {
-      url: "/assets/fonts/SpaceGrotesk-Regular.ttf",
-      fontName: "SpaceGrotesk",
+    "Space Grotesk": {
+      url: "/fonts/SpaceGrotesk-Regular.ttf",
+      fontName: "Space Grotesk",
       fontStyle: "normal",
     },
-    "FredokaOne-Regular": {
-      url: "/assets/fonts/FredokaOne-Regular.ttf",
-      fontName: "FredokaOne",
+    Fredoka: {
+      url: "/fonts/Fredoka-Regular.ttf",
+      fontName: "Fredoka",
       fontStyle: "normal",
     },
   };
@@ -210,7 +210,7 @@
       try {
         doc.setFont(DEFAULT_FONT_FAMILY, "normal");
         if (typeof doc.setFontSize === "function") {
-          doc.setFontSize(11);
+          doc.setFontSize(10);
         }
         if (typeof doc.setTextColor === "function") {
           doc.setTextColor(TEXT_MAIN[0], TEXT_MAIN[1], TEXT_MAIN[2]);
@@ -281,6 +281,21 @@
       hasBold: true,
       ready: false,
     };
+  }
+
+  async function loadFonts(families) {
+    const targets = Array.isArray(families) && families.length
+      ? families
+      : REMOTE_FONT_VARIANTS.map((font) => font.family);
+
+    const variants = REMOTE_FONT_VARIANTS.filter((font) => targets.includes(font.family));
+    await Promise.all(
+      variants.map((font) =>
+        fetchFontBase64(font).catch((err) => {
+          console.warn("[compat-pdf] Failed to preload font", font.family, err);
+        }),
+      ),
+    );
   }
 
   /* --------------------------- Utility Helpers --------------------------- */
@@ -735,9 +750,19 @@
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
     const centerX = Number.isFinite(opts.centerX) ? opts.centerX : pageW / 2;
-    const headingFamily = ensureFontFamily(doc, opts.headingFont, "bold", fontCtrl?.family);
-    const bodyFamily = ensureFontFamily(doc, opts.bodyFont, "normal", fontCtrl?.family);
-    const titleFamily = ensureFontFamily(doc, "FredokaOne", "normal", headingFamily);
+    const headingFamily = ensureFontFamily(
+      doc,
+      opts.headingFont || "Fredoka",
+      "normal",
+      fontCtrl?.family,
+    );
+    const bodyFamily = ensureFontFamily(
+      doc,
+      opts.bodyFont || DEFAULT_FONT_FAMILY,
+      "normal",
+      fontCtrl?.family,
+    );
+    const titleFamily = ensureFontFamily(doc, "Fredoka", "normal", headingFamily);
 
     if (fillBackground) {
       doc.setFillColor(BG[0], BG[1], BG[2]);
@@ -756,17 +781,20 @@
 
     ensureFontFamily(doc, titleFamily || headingFamily, "normal", fontCtrl?.family);
     doc.setFont(titleFamily || headingFamily, "normal");
-    doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setFontSize(40);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(28);
     doc.text(mainTitle || "TalkKink Compatibility", centerX, titleY, { align: "center" });
 
-    doc.setFontSize(14);
-    doc.setTextColor(HEADER_TEXT[0], HEADER_TEXT[1], HEADER_TEXT[2]);
+    doc.setFontSize(20);
     ensureFontFamily(doc, bodyFamily, "normal", headingFamily);
-    doc.text(stampText, centerX, subtitleY, { align: "center" });
+    doc.text(opts.subtitle || "Compatibility Survey", centerX, subtitleY, { align: "center" });
 
-    doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-    doc.setLineWidth(2.4);
+    doc.setFont(bodyFamily, "normal");
+    doc.setFontSize(10);
+    doc.text(stampText, centerX, subtitleY + 12, { align: "center" });
+
+    doc.setDrawColor(0, 242, 255);
+    doc.setLineWidth(0.5);
     const pad = 80;
     doc.line(pad, ruleY, pageW - pad, ruleY);
 
@@ -848,16 +876,17 @@
       throw new Error("No compatibility rows available");
     }
 
-    const sectionTitle = deriveSectionTitle(rawRows);
-    const mainTitle = "TalkKink Compatibility Report";
-    doc.setFont(DEFAULT_FONT_FAMILY, "bold");
-    const headingFont = ensureFontFamily(doc, DEFAULT_FONT_FAMILY, "bold", fontCtrl.family);
+    const sectionTitle = deriveSectionTitle(rawRows) || "Compatibility Survey";
+    const mainTitle = "TalkKink Compatibility";
+    doc.setFont(DEFAULT_FONT_FAMILY, "normal");
+    const headingFont = ensureFontFamily(doc, "Fredoka", "normal", fontCtrl.family);
     doc.setFont(DEFAULT_FONT_FAMILY, "normal");
     const bodyFont = ensureFontFamily(doc, DEFAULT_FONT_FAMILY, "normal", fontCtrl.family);
 
     const layout = computeTableLayout(doc);
     const headerStamp = `Generated: ${new Date().toLocaleString()}`;
     const headerY = drawHeader(doc, mainTitle, sectionTitle, {
+      subtitle: "Compatibility Survey",
       timestamp: headerStamp,
       centerX: layout.centerX,
       headingFont,
@@ -909,14 +938,15 @@
         fillColor: ALT_ROW_BG,
       },
       columnStyles: {
-        0: { cellWidth: layout.widths.item, halign: "left" },
-        1: { cellWidth: layout.widths.a, halign: "center" },
+        0: { cellWidth: layout.widths.item, halign: "left", font: bodyFont, fontStyle: "normal" },
+        1: { cellWidth: layout.widths.a, halign: "center", font: bodyFont },
         2: {
           cellWidth: layout.widths.match,
           halign: "center",
+          font: bodyFont,
           cellPadding: { top: 9, bottom: 9, left: 10, right: 12 },
         },
-        3: { cellWidth: layout.widths.b, halign: "center" },
+        3: { cellWidth: layout.widths.b, halign: "center", font: bodyFont },
       },
       didParseCell: function (data) {
         if (data.section !== "body") return;
@@ -968,6 +998,7 @@
 
   async function tkGenerateCompatPdf(rawRows) {
     const jsPDFCtor = await ensurePdfLibs();
+    await loadFonts(["Fredoka", "Space Grotesk"]);
     const doc = new jsPDFCtor({
       orientation: "landscape",
       unit: "pt",
