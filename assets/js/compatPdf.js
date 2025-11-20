@@ -928,10 +928,29 @@
 
   /* -------------------------- Rows + Storage ----------------------------- */
 
+  function getRowsFromDom() {
+    if (typeof document === "undefined") return [];
+    const body = document.querySelector("#compatBody");
+    if (!body) return [];
+
+    const rows = [];
+    body.querySelectorAll("tr").forEach((tr) => {
+      const cells = Array.from(tr.children || [])
+        .slice(0, 4)
+        .map((td) => safeString(td?.textContent).trim());
+      if (cells.length >= 4 && cells.some((c) => c)) {
+        rows.push(cells);
+      }
+    });
+    return rows;
+  }
+
   function getRowsFromWindow() {
     if (Array.isArray(window.talkkinkCompatRows)) {
       return window.talkkinkCompatRows.slice();
     }
+    const domRows = getRowsFromDom();
+    if (domRows.length) return domRows;
     return [];
   }
 
@@ -959,6 +978,7 @@
 
   async function generateFromStorageInternal() {
     let rows = getRowsFromWindow();
+    if (!rows.length) rows = getRowsFromDom();
     if (!rows.length) rows = getRowsFromStorage();
     if (!rows.length) {
       alert(
