@@ -7,6 +7,18 @@ const CDN_SOURCES = [
   'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
 ];
 
+const LOCAL_SOURCES = (() => {
+  const urls = [];
+  try {
+    const bundled = new URL('./vendor/jspdf.umd.min.js', import.meta.url);
+    urls.push(bundled.href);
+  } catch (_) {
+    // Ignore environments that lack import.meta
+  }
+  urls.push('/js/vendor/jspdf.umd.min.js');
+  return urls;
+})();
+
 function getGlobalCandidates() {
   const ordered = [];
   if (typeof globalThis !== 'undefined' && globalThis.window) {
@@ -143,20 +155,30 @@ async function loadJsPDFInternal() {
   }
 
   let lastError = null;
-  for (const src of CDN_SOURCES) {
-    try {
-      await injectScript(src, 'jspdf');
-    } catch (error) {
-      lastError = error;
-      continue;
-    }
 
-    const { ctor, scope: loadedScope } = findExistingJsPDF();
-    if (ctor) {
-      assignAliases(loadedScope, ctor);
-      return ctor;
+  const attemptSources = async (sources) => {
+    for (const src of sources) {
+      try {
+        await injectScript(src, 'jspdf');
+      } catch (error) {
+        lastError = error;
+        continue;
+      }
+
+      const { ctor, scope: loadedScope } = findExistingJsPDF();
+      if (ctor) {
+        assignAliases(loadedScope, ctor);
+        return ctor;
+      }
     }
-  }
+    return null;
+  };
+
+  const localCtor = await attemptSources(LOCAL_SOURCES);
+  if (localCtor) return localCtor;
+
+  const cdnCtor = await attemptSources(CDN_SOURCES);
+  if (cdnCtor) return cdnCtor;
 
   const { ctor: finalCtor, scope: finalScope } = findExistingJsPDF();
   if (finalCtor) {
@@ -164,7 +186,7 @@ async function loadJsPDFInternal() {
     return finalCtor;
   }
 
-  const error = new Error('jsPDF failed to load from CDN');
+  const error = new Error('jsPDF failed to load from local bundle or CDN');
   if (lastError) {
     error.cause = lastError;
   }
