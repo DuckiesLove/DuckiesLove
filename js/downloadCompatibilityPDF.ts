@@ -350,11 +350,19 @@ function normalizeColumns(columns?: ColumnInput[]): NormalizedColumn[] {
   });
 }
 
+function formatCellValue(value: unknown): string {
+  if (value == null || value === "") return "—";
+  const text = String(value).trim();
+  if (!text) return "—";
+  if (text === "&&&") return "N/A";
+  return text;
+}
+
 function normalizeProvidedRows(rows: DownloadRowInput[] | undefined, columns: NormalizedColumn[]): string[][] {
   if (!Array.isArray(rows)) return [];
   return rows.map((raw) => {
     if (Array.isArray(raw)) {
-      return raw.map((v) => (v == null || v === "" ? "—" : String(v)));
+      return raw.map((v) => formatCellValue(v));
     }
     if (!raw || typeof raw !== "object") {
       return columns.map(() => "—");
@@ -364,7 +372,7 @@ function normalizeProvidedRows(rows: DownloadRowInput[] | undefined, columns: No
       const value = key != null && Object.prototype.hasOwnProperty.call(raw, key)
         ? (raw as Record<string, unknown>)[key as keyof typeof raw]
         : (raw as Record<string, unknown>)[col.header as keyof typeof raw];
-      return value == null || value === "" ? "—" : String(value);
+      return formatCellValue(value);
     });
   });
 }
@@ -478,7 +486,12 @@ export async function downloadCompatibilityPDF(options: DownloadOptions = {}): P
           },
         ];
       }
-      return [row.category, row.A, row.pct, row.B];
+      return [
+        formatCellValue(row.category),
+        formatCellValue(row.A),
+        formatCellValue(row.pct),
+        formatCellValue(row.B),
+      ];
     });
   }
 
