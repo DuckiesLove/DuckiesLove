@@ -1169,6 +1169,10 @@
 
         btn.removeAttribute('onclick');
 
+        if (btn.classList) {
+          btn.classList.add('btn-glow');
+        }
+
         document.addEventListener(
           'click',
           function (ev) {

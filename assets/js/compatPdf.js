@@ -144,6 +144,16 @@ window.TKCompatPDF = (function () {
     return percent;
   }
 
+  function deriveCategoryLabel(payloads) {
+    return (
+      payloads?.self?.meta?.categoryLabel ||
+      payloads?.self?.meta?.category ||
+      payloads?.partner?.meta?.categoryLabel ||
+      payloads?.partner?.meta?.category ||
+      'Compatibility Results'
+    );
+  }
+
   function formatScore(value) {
     if (value == null) return '';
     if (!Number.isFinite(value)) return '';
@@ -398,41 +408,78 @@ window.TKCompatPDF = (function () {
 
     try {
       const JsPDF = ensureJsPDF();
-      const doc = new JsPDF({ putOnlyUsedFonts: true, unit: 'pt', format: 'letter' });
+      const doc = new JsPDF({ putOnlyUsedFonts: true, unit: 'pt', format: 'a4', orientation: 'p' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const autoTable = getAutoTable(doc);
-      const margin = 40;
 
-      doc.setFontSize(18);
-      doc.text('TalkKink Compatibility', margin, margin);
-      doc.setFontSize(11);
-      doc.text('Side-by-side scores for you and your partner', margin, margin + 16);
+      const timestamp = new Date().toLocaleString();
+      const categoryLabel = deriveCategoryLabel(payloads);
+
+      doc.setFillColor(10, 10, 10);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+      doc.setFontSize(24);
+      doc.setTextColor(0, 255, 255);
+      doc.text('TalkKink Compatibility Survey', pageWidth / 2, 30, { align: 'center' });
+
+      doc.setFontSize(10);
+      doc.setTextColor(200, 200, 200);
+      doc.text(`Generated: ${timestamp}`, pageWidth / 2, 42, { align: 'center' });
+
+      doc.setDrawColor(0, 255, 255);
+      doc.setLineWidth(1);
+      doc.line(40, 50, pageWidth - 40, 50);
+
+      doc.setFontSize(20);
+      doc.setTextColor(0, 255, 255);
+      doc.text(categoryLabel, pageWidth / 2, 75, { align: 'center' });
 
       const tableData = rows.map((row) => {
         const match = computeMatch(row.a, row.b);
-        const matchText = match == null ? '' : `${match}%`;
-        return {
-          item: row.item,
-          self: formatScore(row.a),
-          partner: formatScore(row.b),
-          match: matchText
-        };
+        const matchText = match == null ? '—' : `${match}%`;
+        return [
+          row.item || '—',
+          formatScore(row.a) || '—',
+          matchText,
+          formatScore(row.b) || '—'
+        ];
       });
 
       autoTable({
-        startY: margin + 30,
-        head: [['Item', 'You', 'Partner', 'Match']],
-        body: tableData.map((r) => [r.item, r.self, r.partner, r.match]),
-        styles: { fontSize: 9, cellPadding: 6 },
-        headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        columnStyles: {
-          1: { halign: 'center', cellWidth: 60 },
-          2: { halign: 'center', cellWidth: 70 },
-          3: { halign: 'center', cellWidth: 60 }
+        head: [['Kinks', 'Partner A', 'Match', 'Partner B']],
+        body: tableData,
+        startY: 90,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [0, 255, 255],
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        bodyStyles: {
+          fillColor: [30, 30, 30],
+          textColor: [255, 255, 255],
+          fontStyle: 'normal',
+          halign: 'left'
+        },
+        alternateRowStyles: {
+          fillColor: [40, 40, 40]
+        },
+        styles: {
+          fontSize: 11,
+          cellPadding: 3,
+          overflow: 'linebreak'
+        },
+        didParseCell: function (data) {
+          if (data.column.index === 2) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.textColor = [0, 255, 255];
+          }
         }
       });
 
-      doc.save('TalkKink_Compatibility_Report.pdf');
+      doc.save('TalkKink-Compatibility.pdf');
     } catch (err) {
       console.error('[compat-pdf] PDF generation failed', err);
       alert('PDF generation failed because of an unexpected error.');
