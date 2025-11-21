@@ -985,26 +985,40 @@ async function tkGeneratePdfFromCategories(categories) {
   }
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 40;
-  const accent = [0, 224, 208];
-  const background = [17, 17, 17];
-  const tableFill = [17, 17, 17];
-  const bodyText = [255, 255, 255];
-  const lineColor = [51, 51, 51];
-  const generatedAt = TK_COMPAT_META.generatedStamp;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const neonBlue = '#00FFFF';
+  const bgColor = '#111111';
+  const textColor = '#FFFFFF';
+  const pageSize = () => ({
+    width: doc.internal.pageSize.getWidth(),
+    height: doc.internal.pageSize.getHeight(),
+  });
+
+  const paintBackground = () => {
+    const { width, height } = pageSize();
+    doc.setFillColor(bgColor);
+    doc.rect(0, 0, width, height, 'F');
+  };
+
+  const originalAddPage = doc.addPage.bind(doc);
+  doc.addPage = function addPageWithBg() {
+    const result = originalAddPage();
+    paintBackground();
+    return result;
+  };
+
+  paintBackground();
 
   const flattenedRows = [];
   categories.forEach((category) => {
     if (!category || !Array.isArray(category.items)) return;
-    const prefix = category.category || category.name || 'Compatibility';
+    const prefix = category.category || category.name || '';
     category.items.forEach((row) => {
+      const baseLabel = row.label || '—';
       flattenedRows.push({
-        item: prefix ? `${prefix} — ${row.label || '—'}` : (row.label || '—'),
-        partnerA: row.partnerA ?? '',
-        partnerB: row.partnerB ?? '',
+        label: prefix ? `${prefix} — ${baseLabel}` : baseLabel,
+        a: row.partnerA ?? '',
+        b: row.partnerB ?? '',
         scoreA: Number.isFinite(row.scoreA) ? row.scoreA : null,
         scoreB: Number.isFinite(row.scoreB) ? row.scoreB : null,
         matchText: row.match ?? '',
@@ -1032,98 +1046,62 @@ async function tkGeneratePdfFromCategories(categories) {
     return clampPercent(tkParseMatchPercent(row.matchText));
   };
 
-  const getEmojiFlag = (matchPercent) => {
-    if (!Number.isFinite(matchPercent)) return '';
-    if (matchPercent >= 85) return '⭐';
-    if (matchPercent <= 30) return '🚩';
-    return '';
-  };
-
   const pdfRows = flattenedRows.map((row) => {
     const matchPercent = deriveMatchPercent(row);
-    return {
-      item: row.item,
-      partnerA: row.partnerA,
-      match: matchPercent != null ? `${matchPercent}%` : (row.matchText || '—'),
-      flag: getEmojiFlag(matchPercent),
-      partnerB: row.partnerB,
-    };
+    return [
+      row.label,
+      row.a || '—',
+      matchPercent != null ? `${matchPercent}%` : (row.matchText || '—'),
+      row.b || '—',
+    ];
   });
 
-  const tableWidth = pageWidth - margin * 2;
-  const colWidths = {
-    item: tableWidth * 0.45,
-    partnerA: tableWidth * 0.12,
-    match: tableWidth * 0.08,
-    flag: tableWidth * 0.05,
-    partnerB: tableWidth * 0.12,
-  };
-
-  const columns = [
-    { header: 'Kinks', dataKey: 'item' },
-    { header: 'Partner A', dataKey: 'partnerA' },
-    { header: 'Match', dataKey: 'match' },
-    { header: '', dataKey: 'flag' },
-    { header: 'Partner B', dataKey: 'partnerB' },
-  ];
-
-  const drawPageFrame = () => {
-    doc.setFillColor(...background);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
-
+  const drawHeader = () => {
+    const { width } = pageSize();
+    doc.setTextColor(neonBlue);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(28);
-    doc.setTextColor(255, 255, 255);
-    doc.text(TK_COMPAT_PDF_TITLE, pageWidth / 2, 50, { align: 'center' });
+    doc.setFontSize(26);
+    doc.text('TalkKink Compatibility Survey', width / 2, 60, { align: 'center' });
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(12);
-    doc.setTextColor(170, 170, 170);
-    doc.text(generatedAt, pageWidth / 2, 70, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text(TK_COMPAT_META.generatedStamp || tkCompatFormatStamp(), width / 2, 78, { align: 'center' });
 
-    doc.setDrawColor(...accent);
-    doc.setLineWidth(2);
-    doc.line(margin, 80, pageWidth - margin, 80);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.setTextColor(255, 255, 255);
-    doc.text(TK_COMPAT_PDF_SUBTITLE, pageWidth / 2, 110, { align: 'center' });
+    doc.setFontSize(22);
+    doc.text(TK_COMPAT_PDF_SUBTITLE, width / 2, 110, { align: 'center' });
   };
-
-  drawPageFrame();
 
   doc.autoTable({
     startY: 130,
-    columns,
+    head: [['Kinks', 'Partner A', 'Match', 'Partner B']],
     body: pdfRows,
-    theme: 'grid',
     styles: {
-      font: 'helvetica',
       fontSize: 10,
-      textColor: bodyText,
-      cellPadding: 4,
-      fillColor: tableFill,
-      lineColor,
-      lineWidth: 0.5,
-      valign: 'middle',
-    },
-    columnStyles: {
-      item: { cellWidth: colWidths.item, halign: 'left' },
-      partnerA: { cellWidth: colWidths.partnerA, halign: 'center' },
-      match: { cellWidth: colWidths.match, halign: 'center' },
-      flag: { cellWidth: colWidths.flag, halign: 'center' },
-      partnerB: { cellWidth: colWidths.partnerB, halign: 'center' },
+      cellPadding: 6,
+      textColor,
+      fillColor: '#1a1a1a',
+      lineColor: neonBlue,
+      lineWidth: 0.3,
+      fontStyle: 'normal',
+      halign: 'left',
     },
     headStyles: {
-      fillColor: [17, 17, 17],
-      textColor: accent,
+      fillColor: '#000000',
+      textColor: neonBlue,
       fontStyle: 'bold',
-      halign: 'center',
+      halign: 'left',
     },
-    margin: { top: 130, left: margin, right: margin },
+    alternateRowStyles: {
+      fillColor: '#191919',
+    },
+    columnStyles: {
+      0: { cellWidth: 240 },
+      1: { cellWidth: 80, halign: 'center' },
+      2: { cellWidth: 80, halign: 'center' },
+      3: { cellWidth: 80, halign: 'center' },
+    },
+    margin: { top: 130, left: 40, right: 40 },
     didDrawPage: () => {
-      drawPageFrame();
+      drawHeader();
     },
   });
 
