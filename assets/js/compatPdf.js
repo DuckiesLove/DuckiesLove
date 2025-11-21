@@ -27,6 +27,8 @@ window.TKCompatPDF = (function () {
     return 'general';
   }
 
+  const hasSurveyData = (data) => data?.meta && Array.isArray(data.answers) && data.answers.length > 0;
+
   const JSPDF_LOCAL = [
     '/assets/js/vendor/jspdf.umd.min.js',
     '/js/vendor/jspdf.umd.min.js',
@@ -44,7 +46,7 @@ window.TKCompatPDF = (function () {
   ];
 
   const AUTOTABLE_CDN = [
-    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js'
+    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
   ];
 
   let pdfLibLoadPromise = null;
@@ -169,7 +171,14 @@ window.TKCompatPDF = (function () {
     return null;
   }
 
-  function rowsFromStorage() {
+  function readSurveyPayloads() {
+    return {
+      self: readFirst(SELF_KEYS),
+      partner: readFirst(PARTNER_KEYS)
+    };
+  }
+
+  function rowsFromStorage(payloads = {}) {
     if (Array.isArray(cachedRows) && cachedRows.length) {
       return cachedRows.slice();
     }
@@ -182,8 +191,8 @@ window.TKCompatPDF = (function () {
       }
     }
 
-    const self = readFirst(SELF_KEYS);
-    const partner = readFirst(PARTNER_KEYS);
+    const self = payloads.self ?? readFirst(SELF_KEYS);
+    const partner = payloads.partner ?? readFirst(PARTNER_KEYS);
     if (!self || !partner) return [];
 
     const rows = buildRows(self, partner);
@@ -202,6 +211,17 @@ window.TKCompatPDF = (function () {
   }
 
   const getJsPdfCtor = () => (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+
+  function attachAutoTablePlugin() {
+    const JsPDF = getJsPdfCtor();
+    const autoTableFn =
+      window.jspdf?.autoTable || window.jspdf_autotable || window.autotable || window.autoTable;
+
+    if (JsPDF?.API && !JsPDF.API.autoTable && typeof autoTableFn === 'function') {
+      console.warn('[compat-pdf] AutoTable not found. Injecting manually.');
+      JsPDF.API.autoTable = autoTableFn;
+    }
+  }
 
   function ensureJsPDF() {
     const ctor = getJsPdfCtor();
@@ -312,6 +332,8 @@ window.TKCompatPDF = (function () {
         }
       }
 
+      attachAutoTablePlugin();
+
       if (!hasRealAutoTable()) {
         throw new Error('jsPDF-AutoTable not available after loading attempts.');
       }
@@ -345,7 +367,15 @@ window.TKCompatPDF = (function () {
   }
 
   async function generateFromStorage() {
-    const rows = rowsFromStorage();
+    const payloads = readSurveyPayloads();
+
+    if (!hasSurveyData(payloads.self) || !hasSurveyData(payloads.partner)) {
+      console.error('[compat-override] PDF generation failed: Missing survey data.', payloads);
+      alert('Error: One or both surveys are missing. Make sure both are uploaded.');
+      return;
+    }
+
+    const rows = rowsFromStorage(payloads);
     if (!rows.length) {
       alert('Upload both partner surveys first, then try again.');
       return;
@@ -353,6 +383,7 @@ window.TKCompatPDF = (function () {
 
     try {
       await ensurePdfLibraries();
+      attachAutoTablePlugin();
     } catch (err) {
       console.error('[compat-pdf] PDF libraries failed to load', err);
       alert('PDF could not be generated because required libraries did not load.');
