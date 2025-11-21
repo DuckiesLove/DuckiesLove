@@ -330,23 +330,97 @@ async function registerFredokaFont(doc, explicitPath) {
   return "helvetica";
 }
 
+function styleCompatPDF(doc, { fontFamily } = {}) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const generatedStamp = `Generated: ${new Date().toLocaleString()}`;
+  const font = fontFamily || "helvetica";
+
+  const drawPageChrome = () => {
+    doc.setFillColor("#0c0c0c");
+    doc.rect(0, 0, pageWidth, pageHeight, "F");
+
+    doc.setTextColor("#ffffff");
+    doc.setFont(font, "normal");
+
+    doc.setFontSize(22);
+    doc.setTextColor("#00ffff");
+    doc.text("TalkKink Compatibility Survey", pageWidth / 2, 20, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(generatedStamp, pageWidth / 2, 26, { align: "center" });
+
+    doc.setFontSize(16);
+    doc.setFont(font, "bold");
+    doc.text("Compatibility Matrix", pageWidth / 2, 32, { align: "center" });
+
+    doc.setDrawColor("#00ffff");
+    doc.setLineWidth(0.5);
+    doc.line(20, 34, pageWidth - 20, 34);
+
+    doc.setFontSize(10);
+    doc.setTextColor("#ffffff");
+    doc.setFont(font, "normal");
+  };
+
+  const installPageChrome = () => {
+    const originalAddPage = doc.addPage.bind(doc);
+    drawPageChrome();
+    doc.addPage = (...args) => {
+      const result = originalAddPage(...args);
+      drawPageChrome();
+      return result;
+    };
+    return () => {
+      doc.addPage = originalAddPage;
+    };
+  };
+
+  const margin = { top: 42, left: 20, right: 20 };
+  const baseWidths = [90, 25, 25, 25];
+  const availableWidth = pageWidth - (margin.left + margin.right);
+  const widthScale = availableWidth / baseWidths.reduce((sum, value) => sum + value, 0);
+
+  const tableOptions = {
+    headStyles: {
+      fillColor: [17, 17, 17],
+      textColor: [0, 255, 255],
+      fontStyle: "bold",
+      halign: "center",
+    },
+    bodyStyles: {
+      fillColor: [26, 26, 26],
+      textColor: [255, 255, 255],
+      fontStyle: "normal",
+      halign: "center",
+    },
+    alternateRowStyles: { fillColor: [15, 15, 15] },
+    tableLineColor: [51, 51, 51],
+    tableLineWidth: 0.1,
+    margin,
+    startY: margin.top,
+    styles: {
+      font,
+      cellPadding: 3,
+      lineColor: [51, 51, 51],
+      fontSize: 9,
+    },
+    columnStyles: {
+      0: { halign: "left", cellWidth: baseWidths[0] * widthScale },
+      1: { cellWidth: baseWidths[1] * widthScale },
+      2: { cellWidth: baseWidths[2] * widthScale },
+      3: { cellWidth: baseWidths[3] * widthScale },
+    },
+  };
+
+  return { tableOptions, installPageChrome };
+}
+
 async function generateTablePdf(rows, { outFile, fontPath } = {}) {
-  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" });
   const fontFamily = await registerFredokaFont(doc, fontPath);
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  doc.setFont(fontFamily, "normal");
-  doc.setFontSize(22);
-  doc.setTextColor(0, 255, 255);
-  doc.text("TalkKink Compatibility Survey", 20, 32);
-
-  doc.setFontSize(14);
-  doc.setTextColor(255, 255, 255);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 48);
-  doc.setDrawColor(0, 255, 255);
-  doc.setLineWidth(1);
-  doc.line(20, 52, pageWidth - 20, 52);
-  doc.text("Compatibility Survey", 20, 68);
+  const { tableOptions, installPageChrome } = styleCompatPDF(doc, { fontFamily });
+  const restoreAddPage = installPageChrome();
 
   const body = rows.map(([item, a, pct, b]) => {
     const match = normalizeMatch(pct);
@@ -361,36 +435,12 @@ async function generateTablePdf(rows, { outFile, fontPath } = {}) {
   autoTable(doc, {
     head: [["Item", "Partner A", "Match %", "Partner B"]],
     body,
-    startY: 82,
-    margin: { left: 20, right: 20 },
-    styles: {
-      font: fontFamily,
-      fontSize: 11,
-      halign: "left",
-      valign: "middle",
-      textColor: 255,
-      cellPadding: 6,
-      fillColor: [15, 16, 18],
-      lineColor: [40, 40, 40],
-      lineWidth: 0.4,
-    },
-    headStyles: {
-      fillColor: [0, 255, 255],
-      textColor: 0,
-      fontSize: 13,
-      fontStyle: "bold",
-      halign: "center",
-    },
-    columnStyles: {
-      0: { cellWidth: 360 },
-      1: { cellWidth: 90, halign: "center" },
-      2: { cellWidth: 130, halign: "center" },
-      3: { cellWidth: 90, halign: "center" },
-    },
+    ...tableOptions,
   });
 
   const pdf = doc.output("arraybuffer");
   const targetFile = outFile || FILE;
+  restoreAddPage();
   await writeFile(targetFile, Buffer.from(pdf));
   console.log("✔ Wrote", targetFile);
 }
