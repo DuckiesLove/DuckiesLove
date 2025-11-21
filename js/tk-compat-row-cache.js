@@ -9,6 +9,12 @@
   const SELF_KEY = cfg.lsSelfKey || DEFAULT_SELF_KEY;
   const PARTNER_KEY = cfg.lsPartKey || DEFAULT_PARTNER_KEY;
 
+  function matchPercent(a, b) {
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    const diff = Math.min(5, Math.abs(a - b));
+    return Math.round(((5 - diff) / 5) * 100);
+  }
+
   function safeString(value) {
     if (value == null) return '';
     const str = String(value).trim();
@@ -186,7 +192,8 @@
       const aScore = getScore(selfMap, kinkId, side);
       const bScore = getScore(partnerMap, kinkId, complementSide(side));
       if (aScore == null && bScore == null) return;
-      rows.push({ item: row.item, a: aScore, b: bScore });
+      const matchPct = matchPercent(aScore, bScore);
+      rows.push({ item: row.item, a: aScore, b: bScore, matchPct });
     });
 
     rows.sort((a, b) => a.item.localeCompare(b.item, undefined, { sensitivity: 'base' }));
