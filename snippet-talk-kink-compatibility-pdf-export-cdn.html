@@ -186,7 +186,11 @@
   function safeString(val) {
     if (val == null) return '';
     const str = String(val).trim();
-    return (str === 'null' || str === 'undefined') ? '' : str;
+    return (str === 'null' || str === 'undefined' || str === '&&&') ? '' : str;
+  }
+
+  function sanitizeCellValue(cellValue) {
+    return cellValue === '&&&' ? '' : cellValue;
   }
 
   function coerceScore(val) {
@@ -254,50 +258,55 @@
   /*  HEADER + TABLE RENDER                                             */
   /* ------------------------------------------------------------------ */
 
-  function tk_drawHeader(doc, title, generatedAt, accent = TK_ACCENT) {
+  function tk_drawHeaderWithGlow(doc, title, generatedAt, accent = TK_ACCENT) {
     const pageW = doc.internal.pageSize.getWidth();
 
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor('#00FFFF');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(36);
+    doc.setFontSize(24);
     const tW = doc.getTextWidth(title);
-    doc.text(title, (pageW - tW) / 2, 80);
+    doc.text(title, (pageW - tW) / 2, 70);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     const sub = `Generated: ${generatedAt}`;
-    const sW = doc.getTextWidth(sub);
-    doc.text(sub, (pageW - sW) / 2, 104);
+    doc.text(sub, pageW - 16, 16, { align: 'right' });
 
     doc.setDrawColor(...accent);
-    doc.setLineWidth(2.5);
-    const pad = 84;
-    doc.line(pad, 118, pageW - pad, 118);
+    doc.setLineWidth(1.5);
+    const pad = 64;
+    doc.line(pad, 86, pageW - pad, 86);
 
-    return 118 + 36;
+    return 110;
+  }
+
+  function tk_drawCategoryTitleWithGlow(doc, title, yPosition) {
+    const pageW = doc.internal.pageSize.getWidth();
+    doc.setTextColor('#00FFFF');
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    const tW = doc.getTextWidth(title);
+    doc.text(title, (pageW - tW) / 2, yPosition);
+    return yPosition + 10;
   }
 
   function tk_renderSectionTable(doc, sectionTitle, rows, startY) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.setTextColor(255, 255, 255);
     const pageW = doc.internal.pageSize.getWidth();
-    const titleW = doc.getTextWidth(sectionTitle);
-    doc.text(sectionTitle, (pageW - titleW) / 2, startY);
-
     const itemColumn = CFG.columns.find((col) => col.key === 'item');
     const wrapWidth = Math.max(40, (itemColumn?.w || 320) - 12);
+
+    tk_drawCategoryTitleWithGlow(doc, sectionTitle, startY);
 
     const body = rows.map((row) => {
       const aNum = Number(row.aScore ?? row.a);
       const bNum = Number(row.bScore ?? row.b);
       const matchNum = Number(row.matchPercent);
-      const aVal = Number.isFinite(aNum) ? String(aNum) : safeString(row.a);
-      const bVal = Number.isFinite(bNum) ? String(bNum) : safeString(row.b);
-      const matchVal = Number.isFinite(matchNum)
-        ? `${Math.round(matchNum)}%`
-        : safeString(row.match);
-      const safeItem = safeString(row.item);
+      const aVal = sanitizeCellValue(Number.isFinite(aNum) ? String(aNum) : safeString(row.a));
+      const bVal = sanitizeCellValue(Number.isFinite(bNum) ? String(bNum) : safeString(row.b));
+      const matchVal = sanitizeCellValue(
+        Number.isFinite(matchNum) ? `${Math.round(matchNum)}%` : safeString(row.match),
+      );
+      const safeItem = sanitizeCellValue(safeString(row.item));
       const wrappedItem =
         safeItem && typeof doc.splitTextToSize === 'function'
           ? doc.splitTextToSize(safeItem, wrapWidth)
@@ -320,27 +329,24 @@
     doc.autoTable({
       columns,
       body,
-      startY: startY + 24,
+      startY: startY + 20,
       margin: { left: 70, right: 70 },
       styles: {
         font: 'helvetica',
-        fontSize: 12,
-        halign: 'left',
+        fontSize: 10,
+        halign: 'center',
         valign: 'middle',
-        minCellHeight: 20,
-        cellPadding: { top: 5, bottom: 5, left: 6, right: 6 },
-        textColor: [230, 230, 230],
-        fillColor: [25, 25, 28],
-        lineColor: [40, 40, 45],
-        lineWidth: 1.2,
+        cellPadding: 2,
+        textColor: '#FFFFFF',
+        lineColor: '#00FFFF',
+        lineWidth: 0.3,
+        fillColor: (rowIndex) => (rowIndex % 2 === 0 ? '#222' : '#2a2a2a'),
         overflow: 'linebreak',
       },
       headStyles: {
+        fillColor: '#000000',
+        textColor: '#00FFFF',
         fontStyle: 'bold',
-        textColor: [0, 255, 245],
-        fillColor: [28, 28, 32],
-        lineColor: [40, 40, 45],
-        lineWidth: 1.4,
         halign: 'center',
       },
       columnStyles: {
@@ -365,7 +371,7 @@
       .filter((r) => r.item || r.a || r.b || r.match)
       .filter((r) => !/^General:\s*\d+$/i.test(r.item));
 
-    const headerY = tk_drawHeader(
+    const headerY = tk_drawHeaderWithGlow(
       doc,
       'TalkKink Compatibility Survey',
       new Date().toLocaleString(),
@@ -428,6 +434,15 @@
   /* ------------------------------------------------------------------ */
   /*  DATA SOURCE HELPERS                                               */
   /* ------------------------------------------------------------------ */
+
+  function applyDownloadButtonGlow() {
+    const btn = getBtn();
+    if (!btn) return;
+    btn.style.boxShadow = '0 0 10px #00FFFF';
+    btn.style.backgroundColor = '#111';
+    btn.style.color = '#00FFFF';
+    btn.style.border = '1px solid #00FFFF';
+  }
 
   function getBtn() {
     return document.querySelector(CFG.selectors.downloadBtn);
@@ -531,6 +546,7 @@
   function init() {
     const btn = getBtn();
     if (btn) btn.disabled = true;
+    applyDownloadButtonGlow();
 
     if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
       setCachedRows(window.talkkinkCompatRows.slice());
