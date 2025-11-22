@@ -558,7 +558,9 @@ window.TKCompatPDF = (function () {
       const doc = new JsPDF({ putOnlyUsedFonts: true, unit: 'pt', format: 'a4', orientation: 'p' });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const headerCenterX = pageWidth / 2 - 20;
+      // Keep header elements truly centered on the page instead of nudging them left,
+      // so the title, timestamp, and category label align with the rest of the layout.
+      const headerCenterX = pageWidth / 2;
       const autoTable = getAutoTable(doc);
       if (!doc.autoTable && typeof autoTable === 'function') {
         doc.autoTable = (opts) => autoTable(opts);
