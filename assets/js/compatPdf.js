@@ -27,6 +27,11 @@ window.TKCompatPDF = (function () {
     return 'general';
   }
 
+  function cleanValue(val) {
+    if (val === undefined || val === null || val === '&&&') return '';
+    return val;
+  }
+
   const hasSurveyData = (data) => data?.meta && Array.isArray(data.answers) && data.answers.length > 0;
 
   const JSPDF_LOCAL = [
@@ -137,11 +142,20 @@ window.TKCompatPDF = (function () {
     return rows;
   }
 
-  function computeMatch(a, b) {
-    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-    const diff = Math.abs(a - b);
-    const percent = Math.max(0, Math.min(100, Math.round((1 - diff / 5) * 100)));
-    return percent;
+  function getCompatMatch(scoreA, scoreB) {
+    const cleanA = cleanValue(scoreA);
+    const cleanB = cleanValue(scoreB);
+
+    if (cleanA === '' && cleanB === '') return 'N/A';
+    if (cleanA === '' || cleanB === '') return '';
+
+    const numA = Number(cleanA);
+    const numB = Number(cleanB);
+    if (!Number.isFinite(numA) || !Number.isFinite(numB)) return '';
+
+    const diff = Math.abs(numA - numB);
+    const percent = Math.max(0, Math.min(100, Math.round(100 - diff * 20)));
+    return `${percent}%`;
   }
 
   function deriveCategoryLabel(payloads) {
@@ -159,6 +173,15 @@ window.TKCompatPDF = (function () {
     if (!Number.isFinite(value)) return '';
     if (Number.isInteger(value)) return String(value);
     return value.toFixed(2);
+  }
+
+  function formatCompatScore(value) {
+    const cleaned = cleanValue(value);
+    if (cleaned === '') return '';
+
+    const num = Number(cleaned);
+    if (Number.isFinite(num)) return formatScore(num);
+    return String(cleaned);
   }
 
   function readJson(key) {
@@ -436,13 +459,15 @@ window.TKCompatPDF = (function () {
       doc.text(categoryLabel, pageWidth / 2, 75, { align: 'center' });
 
       const tableData = rows.map((row) => {
-        const match = computeMatch(row.a, row.b);
-        const matchText = match == null ? '—' : `${match}%`;
+        const scoreA = formatCompatScore(row.a);
+        const scoreB = formatCompatScore(row.b);
+        const match = getCompatMatch(row.a, row.b) || '—';
+
         return [
           row.item || '—',
-          formatScore(row.a) || '—',
-          matchText,
-          formatScore(row.b) || '—'
+          scoreA || '—',
+          match,
+          scoreB || '—'
         ];
       });
 
