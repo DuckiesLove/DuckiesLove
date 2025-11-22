@@ -32,15 +32,19 @@ const STRIP_IMAGES_IN_PDF = true;
 (function injectPdfCSS(){
   if (document.querySelector('style[data-pdf-style]')) return;
   const css = `
-  .pdf-export{background:#000!important;color:#fff!important;padding:24px!important;margin:0!important}
+  .pdf-export{background:#000!important;color:#fff!important;padding:24px!important;margin:0!important;font-family:'Inter','Helvetica Neue',Arial,sans-serif!important}
   .pdf-export .compat-section{break-inside: avoid-page!important; page-break-inside: avoid!important; margin: 0 0 18pt 0!important}
-  .pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;background:transparent!important;color:#fff!important}
+  .pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;background:transparent!important;color:#fff!important;font-family:inherit!important}
   .pdf-export th,.pdf-export td{border:none!important;background:transparent!important;color:#fff!important;padding:6px 8px!important;line-height:1.25!important;vertical-align:top!important;word-break:break-word!important;white-space:normal!important;box-sizing:border-box!important;page-break-inside:avoid!important;break-inside:avoid!important}
   .pdf-export tr{page-break-inside:avoid!important;break-inside:avoid!important}
   .pdf-export .section-title,.pdf-export .category-header,.pdf-export .compat-category{border:none!important;box-shadow:none!important;background:transparent!important;padding:6px 0!important}
   .pdf-export .category-emoji,.pdf-export .category-header .emoji,.pdf-export .section-title .emoji{display:none!important}
   .pdf-export .col-category{text-align:left!important;white-space:normal!important}
   .pdf-export .col-a,.pdf-export .col-match,.pdf-export .col-b{text-align:center!important;white-space:nowrap!important}
+  .pdf-export table tr > :nth-child(2),
+  .pdf-export table tr > :nth-child(3),
+  .pdf-export table tr > :nth-child(4),
+  .pdf-export table tr > :nth-child(5){text-align:center!important;white-space:nowrap!important}
   `;
   const style = document.createElement('style');
   style.setAttribute('data-pdf-style','true');
