@@ -1203,6 +1203,107 @@
     })();
   </script>
 
+  <script>
+    (() => {
+      const FONT_STACK = "'Fredoka One', 'Inter', 'Open Sans', system-ui, sans-serif";
+
+      function shortenLabel(label = '') {
+        const raw = String(label || '').trim();
+        if (!raw) return '';
+        if (raw.length <= 64) return raw;
+
+        const words = raw.split(/\s+/);
+        let out = '';
+        for (const word of words) {
+          const next = out ? `${out} ${word}` : word;
+          if (next.length > 54) break;
+          out = next;
+        }
+
+        if (!out) {
+          return `${raw.slice(0, 60).trimEnd()}…`;
+        }
+
+        return `${out}…`;
+      }
+
+      function parseMatchPercent(cell) {
+        if (!cell) return null;
+        const text = (cell.textContent || '').trim();
+        const match = text.match(/-?\d+(?:\.\d+)?/);
+        if (!match) return null;
+        const num = Number(match[0]);
+        return Number.isFinite(num) ? num : null;
+      }
+
+      function applyFontToCells(cells) {
+        cells.forEach((td) => {
+          td.style.fontFamily = FONT_STACK;
+          td.style.fontSize = '13px';
+        });
+      }
+
+      function refreshCompatibilityTable() {
+        const table = document.querySelector(
+          'table.compat-table, table#compatibility, table[data-compat], table.compat'
+        );
+        if (!table) return;
+
+        if (document.body) {
+          document.body.classList.add('dark-theme');
+          document.body.style.fontFamily = FONT_STACK;
+        }
+
+        const tbody = table.tBodies?.[0];
+        if (!tbody) return;
+
+        Array.from(tbody.rows).forEach((tr) => {
+          tr.classList.add('compat-row');
+          tr.classList.remove('strong-match', 'red-flag');
+
+          const cells = Array.from(tr.querySelectorAll('td'));
+          applyFontToCells(cells);
+
+          const labelCell = cells[0];
+          if (labelCell) {
+            labelCell.textContent = shortenLabel(labelCell.textContent);
+            labelCell.classList.add('kink-label');
+          }
+
+          const matchCell = cells[2];
+          const pct = parseMatchPercent(matchCell);
+          if (pct != null) {
+            if (pct >= 90) tr.classList.add('strong-match');
+            else if (pct <= 30) tr.classList.add('red-flag');
+          }
+        });
+      }
+
+      function watchCompatibilityUpdates() {
+        const table = document.querySelector(
+          'table.compat-table, table#compatibility, table[data-compat], table.compat'
+        );
+        if (!table) return;
+        const target = table.tBodies?.[0] || table;
+        const observer = new MutationObserver(() => refreshCompatibilityTable());
+        observer.observe(target, { childList: true, subtree: true });
+      }
+
+      function ready() {
+        refreshCompatibilityTable();
+        watchCompatibilityUpdates();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ready, { once: true });
+      } else {
+        ready();
+      }
+
+      window.tkRefreshCompatStyles = refreshCompatibilityTable;
+    })();
+  </script>
+
 <!-- =================================================================== -->
 </body>
 
