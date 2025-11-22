@@ -1,8 +1,9 @@
 import { ensureJsPDF } from './loadJsPDF.js';
+import { PDF_FONT_FAMILY, registerPdfFonts } from './helpers/pdfFonts.js';
 
 const THEME_PRESETS = {
   dark: {
-    titleFont: 'helvetica',
+    titleFont: PDF_FONT_FAMILY,
     titleSize: 22,
     subTitleSize: 16,
     textColor: '#00F0FF',
@@ -56,7 +57,11 @@ function ensureAutoTable(doc, ctor) {
 export async function generateBehavioralPlayPDF(data = [], theme = 'dark', options = {}) {
   const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  await registerPdfFonts(doc);
   ensureAutoTable(doc, jsPDFCtor);
+
+  const useHeaderFont = () => doc.setFont(PDF_FONT_FAMILY, 'bold');
+  const useBodyFont = () => doc.setFont(PDF_FONT_FAMILY, 'normal');
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -66,17 +71,18 @@ export async function generateBehavioralPlayPDF(data = [], theme = 'dark', optio
   doc.setFillColor(styles.backgroundColor);
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-  doc.setFont(styles.titleFont, 'bold');
+  useHeaderFont();
   doc.setFontSize(styles.titleSize);
   doc.setTextColor(styles.textColor);
   doc.text('TalkKink Compatibility Survey', pageWidth / 2, 32, { align: 'center' });
 
   const timestamp = options.timestamp || new Date().toLocaleString();
   doc.setFontSize(10);
+  useBodyFont();
   doc.text(`Generated: ${timestamp}`, pageWidth / 2, 44, { align: 'center' });
 
   doc.setFontSize(styles.subTitleSize);
-  doc.setFont(undefined, 'bold');
+  useHeaderFont();
   doc.setTextColor(styles.textColor);
   doc.text('Behavioral Play', pageWidth / 2, 66, { align: 'center' });
 
@@ -93,7 +99,7 @@ export async function generateBehavioralPlayPDF(data = [], theme = 'dark', optio
     body: rows,
     theme: 'grid',
     styles: {
-      font: 'helvetica',
+      font: PDF_FONT_FAMILY,
       fontSize: 10,
       textColor: styles.tableTextColor,
       halign: 'center',

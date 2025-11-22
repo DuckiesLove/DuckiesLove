@@ -1,4 +1,5 @@
 import { ensureJsPDF } from './loadJsPDF.js';
+import { PDF_FONT_FAMILY, registerPdfFonts } from './helpers/pdfFonts.js';
 
 function formatScore(value) {
   if (value === null || value === undefined) {
@@ -72,11 +73,16 @@ function ensureAutoTable(doc, ctor) {
 export async function generateCompatibilityPDF(data = [], options = {}) {
   const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor('p', 'pt', 'a4');
+  await registerPdfFonts(doc);
   ensureAutoTable(doc, jsPDFCtor);
+
+  const useHeaderFont = () => doc.setFont(PDF_FONT_FAMILY, 'bold');
+  const useBodyFont = () => doc.setFont(PDF_FONT_FAMILY, 'normal');
 
   const marginX = options.marginX ?? 40;
   let cursorY = options.marginY ?? 40;
 
+  useHeaderFont();
   doc.setFontSize(28);
   doc.setTextColor(0, 255, 255);
   doc.text('TalkKink Compatibility Survey', marginX, cursorY);
@@ -84,12 +90,14 @@ export async function generateCompatibilityPDF(data = [], options = {}) {
 
   const timestamp =
     options.generatedAt || `Generated: ${new Date().toLocaleString()}`;
+  useBodyFont();
   doc.setFontSize(12);
   doc.setTextColor(255, 255, 255);
   doc.text(timestamp, marginX, cursorY);
   cursorY += 30;
 
   const sectionTitle = options.sectionTitle || 'Compatibility Survey';
+  useHeaderFont();
   doc.setFontSize(20);
   doc.setTextColor(0, 255, 255);
   doc.text(sectionTitle, marginX, cursorY);
@@ -104,7 +112,7 @@ export async function generateCompatibilityPDF(data = [], options = {}) {
     margin: { left: marginX, right: marginX },
     theme: 'grid',
     styles: {
-      font: 'helvetica',
+      font: PDF_FONT_FAMILY,
       fontSize: 11,
       textColor: [255, 255, 255],
       cellPadding: 6,

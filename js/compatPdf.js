@@ -2,7 +2,7 @@
   const TABLE_BG = [11, 30, 38];
   const GRID = [0, 208, 255];
   const REMOTE_FONT_SOURCES = {};
-  const DEFAULT_FONT_FAMILY = "helvetica";
+  const DEFAULT_FONT_FAMILY = "DejaVuSans";
     if (matchPercent >= 90) return "⭐";
     if (matchPercent <= 30) return "🚩";
     return "";
