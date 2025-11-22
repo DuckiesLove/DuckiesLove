@@ -1,4 +1,34 @@
 /* Compatibility table styles */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
+:root {
+  --tk-compat-font: 'Fredoka One', 'Inter', 'Open Sans', system-ui, sans-serif;
+}
+
+body.dark-theme {
+  background: #0b0c10;
+  color: #e9eef0;
+}
+
+.compat-row td {
+  font-family: var(--tk-compat-font);
+  font-size: 13px;
+  line-height: 1.25;
+  padding: 8px 10px;
+}
+
+.kink-label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.compat-row.strong-match td {
+  background: rgba(0, 230, 140, 0.12);
+}
+
+.compat-row.red-flag td {
+  background: rgba(255, 85, 85, 0.16);
+}
 
 html,
 body {
