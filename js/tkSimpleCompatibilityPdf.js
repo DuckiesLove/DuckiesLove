@@ -21,6 +21,20 @@ function clampPercent(value) {
   return Math.max(0, Math.min(100, Math.round(num)));
 }
 
+function parseMatchText(matchString) {
+  if (!matchString.includes('&&&')) return matchString;
+
+  const [percent] = matchString.split('&&&').map((s) => s.trim());
+  const value = parseInt(percent);
+
+  let emoji = '';
+  if (value >= 90) emoji = '⭐';
+  else if (value <= 30) emoji = '🚩';
+  else emoji = '🟩';
+
+  return `${percent} ${emoji}`;
+}
+
 function formatMatchCell(item) {
   const directPct = clampPercent(
     item.matchPercent ?? item.matchPct ?? item.match,
@@ -30,7 +44,7 @@ function formatMatchCell(item) {
     return `${directPct}%${star}`;
   }
   if (typeof item.matchText === 'string' && item.matchText.trim()) {
-    return item.matchText.trim();
+    return parseMatchText(item.matchText.trim());
   }
   return '';
 }
