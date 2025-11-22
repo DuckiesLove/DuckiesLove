@@ -41,6 +41,9 @@
   .title, .subtitle, .section {
     text-align:center;
     margin:0 auto;
+    display:block;
+    width:100%;
+    color:var(--accent);
     font-family: var(--header-font, var(--font-display), 'Fredoka One', sans-serif);
   }
   .title{
@@ -206,13 +209,59 @@ function tkCompatFormatStamp(stamp) {
   })}`;
 }
 
+function tkCompatExtractMeta(data) {
+  if (!data || typeof data !== 'object') return null;
+
+  const sources = [];
+  if (data.meta && typeof data.meta === 'object') sources.push(data.meta);
+  if (
+    data.compat &&
+    typeof data.compat === 'object' &&
+    data.compat.meta &&
+    typeof data.compat.meta === 'object'
+  ) {
+    sources.push(data.compat.meta);
+  }
+  sources.push(data);
+
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+
+    const title = tkCompatSafeString(
+      source.title ||
+      source.surveyTitle ||
+      data?.meta?.surveyTitle ||
+      data?.title ||
+      data?.surveyTitle ||
+      ''
+    );
+
+    const stamp =
+      source.exportedAt ||
+      source.generatedAt ||
+      source.timestamp ||
+      source.stamp ||
+      source.exported_at ||
+      source.generated_at ||
+      null;
+
+    if (title || stamp) return { title, stamp };
+  }
+
+  return null;
+}
+
 function tkResolveCompatMeta() {
-  const defaultTitle = 'TalkKink Compatibility Survey';
   const keys = ['tk_compat.self', 'tk_compat.partner', 'talkkinkMine', 'talkkinkSurvey'];
+  const fallbackStamp = new Date().toISOString();
+  const fallback = {
+    title: TK_COMPAT_DEFAULT_TITLE,
+    stamp: fallbackStamp,
+    formattedStamp: tkCompatFormatStamp(fallbackStamp),
+  };
 
   if (typeof localStorage === 'undefined') {
-    const stamp = new Date().toISOString();
-    return { title: defaultTitle, stamp, formattedStamp: tkCompatFormatStamp(stamp) };
+    return fallback;
   }
 
   for (const key of keys) {
@@ -220,10 +269,12 @@ function tkResolveCompatMeta() {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
       const data = JSON.parse(raw);
-      if (data?.title || data?.stamp || data?.timestamp || data?.exportedAt || data?.generatedAt) {
-        const stamp = data.stamp || data.exportedAt || data.generatedAt || data.timestamp || new Date().toISOString();
+      const resolved = tkCompatExtractMeta(data);
+      if (resolved) {
+        const stamp = resolved.stamp || fallbackStamp;
+        const title = resolved.title || TK_COMPAT_DEFAULT_TITLE;
         return {
-          title: data.title || defaultTitle,
+          title,
           stamp,
           formattedStamp: tkCompatFormatStamp(stamp),
         };
@@ -233,23 +284,22 @@ function tkResolveCompatMeta() {
     }
   }
 
-  const stamp = new Date().toISOString();
-  return {
-    title: defaultTitle,
-    stamp,
-    formattedStamp: tkCompatFormatStamp(stamp),
-  };
+  return fallback;
 }
 
-const TK_COMPAT_META = tkResolveCompatMeta();
+let TK_COMPAT_META = tkResolveCompatMeta();
 if (typeof window !== 'undefined') {
   window.TK_COMPAT_META = TK_COMPAT_META;
 }
 
-const TK_COMPAT_PDF_TITLE = (TK_COMPAT_META && TK_COMPAT_META.title) || TK_COMPAT_DEFAULT_TITLE;
-const TK_COMPAT_PDF_SUBTITLE = TK_COMPAT_PDF_TITLE === TK_COMPAT_DEFAULT_TITLE
-  ? 'Compatibility Report'
-  : TK_COMPAT_DEFAULT_TITLE;
+function tkCompatPdfLabels(meta = TK_COMPAT_META) {
+  const title = (meta && meta.title) || TK_COMPAT_DEFAULT_TITLE;
+  const subtitle = title === TK_COMPAT_DEFAULT_TITLE
+    ? 'Compatibility Report'
+    : TK_COMPAT_DEFAULT_TITLE;
+
+  return { title, subtitle };
+}
 
 function tkCompatBuildFileName(meta = TK_COMPAT_META) {
   const base = tkCompatSafeString(meta?.title) || 'TalkKink Compatibility';
@@ -273,7 +323,19 @@ function tkApplyCompatMeta(meta = TK_COMPAT_META) {
   }
 }
 
-tkApplyCompatMeta();
+function tkInitCompatMeta() {
+  TK_COMPAT_META = tkResolveCompatMeta();
+  if (typeof window !== 'undefined') {
+    window.TK_COMPAT_META = TK_COMPAT_META;
+  }
+  tkApplyCompatMeta(TK_COMPAT_META);
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', tkInitCompatMeta, { once: true });
+} else {
+  tkInitCompatMeta();
+}
 
 const FLAG_META = {
   green:  { emoji: "🟩", label: "High match", color: "#18d69a" },
@@ -973,16 +1035,18 @@ async function tkGeneratePdfFromCategories(categories) {
 
   const drawHeader = () => {
     const { width } = pageSize();
+    const meta = TK_COMPAT_META || tkResolveCompatMeta();
+    const { title: pdfTitle, subtitle: pdfSubtitle } = tkCompatPdfLabels(meta);
     doc.setTextColor(neonBlue);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(26);
-    doc.text('TalkKink Compatibility Survey', width / 2, 60, { align: 'center' });
+    doc.text(pdfTitle, width / 2, 60, { align: 'center' });
 
     doc.setFontSize(10);
-    doc.text(TK_COMPAT_META.formattedStamp || tkCompatFormatStamp(TK_COMPAT_META.stamp), width / 2, 78, { align: 'center' });
+    doc.text(meta.formattedStamp || tkCompatFormatStamp(meta.stamp), width / 2, 78, { align: 'center' });
 
     doc.setFontSize(22);
-    doc.text(TK_COMPAT_PDF_SUBTITLE, width / 2, 110, { align: 'center' });
+    doc.text(pdfSubtitle, width / 2, 110, { align: 'center' });
   };
 
   doc.autoTable({
