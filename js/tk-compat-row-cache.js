@@ -203,17 +203,25 @@
   function ensureCompatRows(opts = {}) {
     const force = Boolean(opts.force);
     const existing = readStoredRows();
-    if (existing.length && !force) {
+    const self = readJson(SELF_KEY);
+    const partner = readJson(PARTNER_KEY);
+    const hasSource = Boolean(self) && Boolean(partner);
+
+    if (!force && !hasSource && existing.length) {
       window.talkkinkCompatRows = existing.slice();
       return true;
     }
 
-    const self = readJson(SELF_KEY);
-    const partner = readJson(PARTNER_KEY);
-    if (!self || !partner) return false;
+    if (!hasSource) return false;
 
     const rows = buildRows(self, partner);
-    if (!rows.length) return false;
+    if (!rows.length) {
+      if (existing.length && !force) {
+        window.talkkinkCompatRows = existing.slice();
+        return true;
+      }
+      return false;
+    }
     persistRows(rows);
     return true;
   }
