@@ -90,6 +90,8 @@ export async function generateCompatibilityPDF(data = [], options = {}) {
   await registerPdfFonts(doc);
   ensureAutoTable(doc, jsPDFCtor);
 
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const centerX = pageWidth / 2;
   const useHeaderFont = () => doc.setFont(PDF_FONT_FAMILY, 'bold');
   const useBodyFont = () => doc.setFont(PDF_FONT_FAMILY, 'normal');
 
@@ -99,7 +101,9 @@ export async function generateCompatibilityPDF(data = [], options = {}) {
   useHeaderFont();
   doc.setFontSize(28);
   doc.setTextColor(0, 255, 255);
-  doc.text('TalkKink Compatibility Survey', marginX, cursorY);
+  doc.text('TalkKink Compatibility Survey', centerX, cursorY, {
+    align: 'center',
+  });
   cursorY += 20;
 
   const timestamp =
