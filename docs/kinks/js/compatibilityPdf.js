@@ -97,6 +97,12 @@ const registerFontSources = (doc, config) => {
     const cacheKey = `${font.family}|${style}`;
     if (doc.__compatPdfFontCache.has(cacheKey)) return;
     const fileName = font.fileName || `${font.family}-${style}.ttf`;
+    if (!font.data) {
+      if (DEBUG) {
+        console.warn('[compat-pdf] Skipping font registration: missing data for', font.family);
+      }
+      return;
+    }
     try {
       doc.addFileToVFS(fileName, font.data);
       doc.addFont(fileName, font.family, style);
@@ -117,10 +123,22 @@ const applyFontRole = (doc, config, role) => {
   const family = resolved.family || base.family;
   const style = resolved.style || base.style || 'normal';
   if (family && typeof doc.setFont === 'function') {
+    let applied = false;
     try {
       doc.setFont(family, style);
-    } catch (_) {
-      // Ignore if jsPDF rejects the font (e.g., missing registration)
+      applied = true;
+    } catch (error) {
+      if (DEBUG) {
+        console.warn('[compat-pdf] Failed to apply font', family, error);
+      }
+    }
+    if (!applied && family !== 'helvetica') {
+      try {
+        doc.setFont('helvetica', style);
+        resolved.family = 'helvetica';
+      } catch (_) {
+        // Ignore if jsPDF rejects the fallback as well
+      }
     }
   }
   if (typeof resolved.size === 'number' && typeof doc.setFontSize === 'function') {
