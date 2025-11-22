@@ -68,7 +68,8 @@
     const colw = opts.COLW || DEFAULT_COLW;
     const tableLeft = margin.left;
     const tableWidth = colw.reduce((a,b)=>a+b,0);
-    const centerX = tableLeft + tableWidth / 2;
+    const pageWidth = opts.pageWidth || doc.internal.pageSize.getWidth();
+    const centerX = pageWidth / 2;
 
     const titleY = opts.titleY ?? 84;
     const timeY  = opts.timeY  ?? 100;
@@ -143,7 +144,15 @@
     paintPage(doc);
     const margin = computeTableMargin(doc, TOK.margins, COLW);
     const generatedStamp = new Date().toLocaleString();
-    const headerConfig = { margin, COLW, titleY: 84, timeY: 100, catY: 126, timestamp: generatedStamp };
+    const headerConfig = {
+      margin,
+      COLW,
+      titleY: 84,
+      timeY: 100,
+      catY: 126,
+      timestamp: generatedStamp,
+      pageWidth: doc.internal.pageSize.getWidth(),
+    };
     const { startY } = drawCenteredHeaderToTable(doc, headerConfig);
     const body = await buildRows();
 
