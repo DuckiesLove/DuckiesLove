@@ -45,12 +45,12 @@
   // --- Theme tokens
   const TOK = {
     cyan: [0,255,255],
-    bodyFill: [10,10,12],
+    bodyFill: [11,22,29],
     grid: [34,34,42],
     margins: { top: 56, right: 56, bottom: 60, left: 56 },
     title: 'TalkKink Compatibility',
     section: 'Behavioral Play',
-    timestamp: [160,220,220]
+    timestampColor: [160,220,220]
   };
 
   const DEFAULT_COLW = [360, 70, 70, 50, 70];
@@ -71,27 +71,32 @@
     const pageWidth = opts.pageWidth || doc.internal.pageSize.getWidth();
     const centerX = pageWidth / 2;
 
-    const titleY = opts.titleY ?? 84;
-    const timeY  = opts.timeY  ?? 100;
-    const catY   = opts.catY   ?? 126;
+    const titleY = opts.titleY ?? 15;
+    const timeY  = opts.timeY  ?? 22;
+    const catY   = opts.catY   ?? 34;
     const timeStamp = opts.timestamp || new Date().toLocaleString();
+    const timestampText = opts.timestampText || `Generated: ${timeStamp}`;
 
     doc.setFont('helvetica','bold');
-    doc.setFontSize(28);
+    doc.setFontSize(18);
     doc.setTextColor(255,255,255);
     doc.text(TOK.title, centerX, titleY, { align: 'center' });
 
     doc.setFont('helvetica','normal');
-    doc.setFontSize(11);
-    doc.setTextColor(...TOK.timestamp);
-    doc.text(`Generated: ${timeStamp}`, centerX, timeY, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setTextColor(...TOK.timestampColor);
+    doc.text(timestampText, centerX, timeY, { align: 'center' });
+
+    doc.setDrawColor('#00E0FF');
+    doc.setLineWidth(1.25);
+    doc.line(pageWidth * 0.05, catY - 8, pageWidth * 0.95, catY - 8);
 
     doc.setFont('helvetica','bold');
-    doc.setFontSize(22);
+    doc.setFontSize(16);
     doc.setTextColor(255,255,255);
     doc.text(TOK.section, centerX, catY, { align: 'center' });
 
-    const gap = opts.afterCategoryGap ?? 14;
+    const gap = opts.afterCategoryGap ?? 26;
     return { startY: opts.startY ?? (catY + gap) };
   }
 
@@ -147,9 +152,10 @@
     const headerConfig = {
       margin,
       COLW,
-      titleY: 84,
-      timeY: 100,
-      catY: 126,
+      titleY: 15,
+      timeY: 22,
+      catY: 34,
+      afterCategoryGap: 26,
       timestamp: generatedStamp,
       pageWidth: doc.internal.pageSize.getWidth(),
     };
@@ -169,6 +175,13 @@
         2: { cellWidth: COLW[2], halign:'center'},
         3: { cellWidth: COLW[3], halign:'center'},
         4: { cellWidth: COLW[4], halign:'center'}
+      },
+      didParseCell(data) {
+        if (data.section === 'body' && (data.column.dataKey === 'match' || data.column.dataKey === 2)) {
+          data.cell.styles.textColor = [0, 255, 255];
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fontSize = 10;
+        }
       },
       didDrawPage(data){ if (data.pageNumber > 1) drawCenteredHeaderToTable(doc, headerConfig); }
     });
