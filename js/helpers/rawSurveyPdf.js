@@ -6,6 +6,7 @@
 import { buildLayout } from '../compatibilityReportHelpers.js';
 import { getFlagSymbol } from '../matchFlag.js';
 import { shortenLabel } from '../labelShortener.js';
+import { PDF_FONT_FAMILY, registerPdfFonts } from './pdfFonts.js';
 
 // ---- Helper functions ----
 
@@ -85,14 +86,16 @@ function drawCategorySection(title, items, layout, startY, doc, theme) {
 
 // ---- Main PDF generation ----
 
-export function generateCompatibilityPDF(partnerAData, partnerBData, doc, theme = {}) {
+export async function generateCompatibilityPDF(partnerAData, partnerBData, doc, theme = {}) {
   const {
     bgColor = '#ffffff',
     textColor = '#000000',
     barFillColor = '#000000',
     barTextColor = '#ffffff',
-    font = 'helvetica'
+    font = PDF_FONT_FAMILY
   } = theme;
+
+  await registerPdfFonts(doc);
 
   doc.setFillColor(bgColor);
   doc.rect(

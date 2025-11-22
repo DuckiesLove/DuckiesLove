@@ -9,6 +9,8 @@ const CONSENT_IDS = {
   cancel: 'tk-consent-cancel'
 } as const;
 
+const PDF_FONT_FAMILY = 'DejaVuSans';
+
 const CONSENT_COPY = {
   title: 'Consent Check',
   message: "Do you have your partner's consent to export or share this compatibility PDF?"
@@ -48,6 +50,43 @@ function injectConsentStyle(): void {
     .tk-btn.primary{background:#2a7;border-color:#2a7}
   `;
   doc.head?.appendChild(style);
+}
+
+async function ensureDocFonts(doc: any): Promise<void> {
+  if (!doc || typeof doc.addFileToVFS !== 'function' || typeof doc.addFont !== 'function') return;
+  const existing = typeof doc.getFontList === 'function' ? doc.getFontList() : null;
+  if (existing?.[PDF_FONT_FAMILY]) return;
+
+  if ((window as any).tkPdfFonts?.registerPdfFonts) {
+    await (window as any).tkPdfFonts.registerPdfFonts(doc);
+    return;
+  }
+
+  const module = await import('./helpers/pdfFonts.js').catch((err) => {
+    console.warn('Failed to import shared PDF font helper', err);
+    return null;
+  });
+  if (module?.registerPdfFonts) {
+    await module.registerPdfFonts(doc);
+    return;
+  }
+
+  if ((window as any).tkPdfFontData?.normal && (window as any).tkPdfFontData?.bold) {
+    const names = (window as any).tkPdfFontData.names || {};
+    const normalName = names.normal || 'DejaVuSans.ttf';
+    const boldName = names.bold || 'DejaVuSans-Bold.ttf';
+    doc.addFileToVFS(normalName, (window as any).tkPdfFontData.normal);
+    doc.addFileToVFS(boldName, (window as any).tkPdfFontData.bold);
+    doc.addFont(normalName, PDF_FONT_FAMILY, 'normal');
+    doc.addFont(boldName, PDF_FONT_FAMILY, 'bold');
+  }
+}
+
+function createFontSetters(doc: any) {
+  return {
+    header: () => doc.setFont(PDF_FONT_FAMILY, 'bold'),
+    body: () => doc.setFont(PDF_FONT_FAMILY, 'normal'),
+  };
 }
 
 type ConsentElements = {
@@ -506,6 +545,9 @@ export async function downloadCompatibilityPDF(options: DownloadOptions = {}): P
   const pageH = doc.internal.pageSize.getHeight();
   const bleed = 3;
 
+  await ensureDocFonts(doc);
+  const fonts = createFontSetters(doc);
+
   const paintBg = (): void => {
     if (typeof doc.setFillColor === "function") doc.setFillColor(0, 0, 0);
     if (typeof doc.rect === "function") doc.rect(-bleed, -bleed, pageW + bleed * 2, pageH + bleed * 2, "F");
@@ -518,7 +560,7 @@ export async function downloadCompatibilityPDF(options: DownloadOptions = {}): P
 
   if (typeof doc.setFont === "function") {
     try {
-      doc.setFont("helvetica", "normal");
+      fonts.body();
     } catch {
       /* ignore font errors */
     }
@@ -555,6 +597,7 @@ export async function downloadCompatibilityPDF(options: DownloadOptions = {}): P
       horizontalPageBreak: true,
       theme: "plain",
       styles: {
+        font: PDF_FONT_FAMILY,
         fontSize: 11,
         cellPadding: 8,
         textColor: [255, 255, 255],
@@ -568,6 +611,7 @@ export async function downloadCompatibilityPDF(options: DownloadOptions = {}): P
       },
       headStyles: {
         fontStyle: "bold",
+        font: PDF_FONT_FAMILY,
         fillColor: null,
         textColor: [255, 255, 255],
         lineColor: [0, 0, 0],

@@ -24,7 +24,7 @@ test('renders categories, scores, matches and flags', async () => {
   const { generateCompatibilityPDF } = await import('../js/helpers/rawSurveyPdf.js');
   const partnerA = { Cat: { Item1: 5, Item2: 4 } };
   const partnerB = { Cat: { Item1: 5, Item2: 3 } };
-  generateCompatibilityPDF(partnerA, partnerB, doc);
+  await generateCompatibilityPDF(partnerA, partnerB, doc);
   const texts = textCalls.flatMap(call => (Array.isArray(call[0]) ? call[0] : [call[0]]));
   assert.ok(texts.includes('Cat'));
   assert.ok(texts.includes('Item1'));
@@ -39,7 +39,7 @@ test('handles missing scores as N/A', async () => {
   const { generateCompatibilityPDF } = await import('../js/helpers/rawSurveyPdf.js');
   const partnerA = { Cat: { Item1: 5 } };
   const partnerB = { Cat: {} };
-  generateCompatibilityPDF(partnerA, partnerB, doc);
+  await generateCompatibilityPDF(partnerA, partnerB, doc);
   const texts = textCalls.flatMap(call => (Array.isArray(call[0]) ? call[0] : [call[0]]));
   assert.ok(texts.includes('N/A'));
 });

@@ -1,5 +1,6 @@
 import { ensureJsPDF } from './loadJsPDF.js';
 import { shortenLabel as baseShortenLabel } from './labelShortener.js';
+import { PDF_FONT_FAMILY, registerPdfFonts } from './helpers/pdfFonts.js';
 
 const replacementLabels = {
   'Assigning corner time or time-outs': 'Corner time',
@@ -122,15 +123,21 @@ function normalizeResponses(data) {
 export async function generateCompatibilityPDF(data = {}, options = {}) {
   const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor();
+  await registerPdfFonts(doc);
   ensureAutoTable(doc, jsPDFCtor);
+
+  const useHeaderFont = () => doc.setFont(PDF_FONT_FAMILY, 'bold');
+  const useBodyFont = () => doc.setFont(PDF_FONT_FAMILY, 'normal');
 
   const pageWidth = doc.internal?.pageSize?.getWidth?.() ?? 210;
   const sectionTitle = data.sectionTitle || data.title || options.sectionTitle || 'Compatibility Survey';
 
+  useHeaderFont();
   doc.setFontSize(18);
   doc.setTextColor(0, 255, 255);
   doc.text('TalkKink Compatibility Survey', pageWidth / 2, 20, { align: 'center' });
 
+  useBodyFont();
   doc.setFontSize(10);
   doc.setTextColor(200);
   doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 27, { align: 'center' });
@@ -138,6 +145,7 @@ export async function generateCompatibilityPDF(data = {}, options = {}) {
   doc.setDrawColor(0, 255, 255);
   doc.line(20, 32, pageWidth - 20, 32);
 
+  useHeaderFont();
   doc.setFontSize(16);
   doc.setTextColor(0, 255, 255);
   doc.text(sectionTitle, pageWidth / 2, 42, { align: 'center' });
@@ -164,6 +172,7 @@ export async function generateCompatibilityPDF(data = {}, options = {}) {
       }
     },
     styles: {
+      font: PDF_FONT_FAMILY,
       fontSize: 8,
       cellPadding: 2,
       valign: 'middle',

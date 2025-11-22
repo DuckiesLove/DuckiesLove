@@ -20,6 +20,42 @@
   // ---------- helpers ----------
   const $ = (sel, root = document) => root.querySelector(sel);
 
+  const PDF_FONT_FAMILY = 'DejaVuSans';
+
+  async function ensureFonts(doc) {
+    if (!doc || typeof doc.addFileToVFS !== 'function' || typeof doc.addFont !== 'function') return;
+    const fontList = typeof doc.getFontList === 'function' ? doc.getFontList() : null;
+    if (fontList?.[PDF_FONT_FAMILY]) return;
+    if (window.tkPdfFonts?.registerPdfFonts) {
+      await window.tkPdfFonts.registerPdfFonts(doc);
+      return;
+    }
+
+    const fontModule = await import('./helpers/pdfFonts.js').catch((err) => {
+      console.warn('Unable to import shared PDF fonts helper', err);
+      return null;
+    });
+    if (fontModule?.registerPdfFonts) {
+      await fontModule.registerPdfFonts(doc);
+      return;
+    }
+
+    if (window.tkPdfFontData?.normal && window.tkPdfFontData?.bold) {
+      const names = window.tkPdfFontData.names || {};
+      const normalName = names.normal || 'DejaVuSans.ttf';
+      const boldName = names.bold || 'DejaVuSans-Bold.ttf';
+      doc.addFileToVFS(normalName, window.tkPdfFontData.normal);
+      doc.addFileToVFS(boldName, window.tkPdfFontData.bold);
+      doc.addFont(normalName, PDF_FONT_FAMILY, 'normal');
+      doc.addFont(boldName, PDF_FONT_FAMILY, 'bold');
+    }
+  }
+
+  const createFontSetters = (doc) => ({
+    headerFont: () => doc.setFont(PDF_FONT_FAMILY, 'bold'),
+    bodyFont: () => doc.setFont(PDF_FONT_FAMILY, 'normal')
+  });
+
   // Best guess for the comparison table:
   function findComparisonTable() {
     // 1) Prefer an explicitly marked table
@@ -143,18 +179,21 @@
       format: "letter" // change to "a4" if desired
     });
 
+    await ensureFonts(doc);
+    const { headerFont, bodyFont } = createFontSetters(doc);
+
     fillBlackBackground(doc);
 
     // Title + timestamp (in white)
     doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
+    headerFont();
     doc.setFontSize(22);
     const pageWidth = doc.internal.pageSize.getWidth();
     const titleY = 40;
     doc.text("Talk Kink — Compatibility", pageWidth / 2, titleY, { align: "center" });
 
     doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
+    bodyFont();
     const ts = new Date().toLocaleString();
     doc.text(ts, pageWidth / 2, titleY + 18, { align: "center" });
 
@@ -174,7 +213,7 @@
           lineColor: [128, 128, 128],
           lineWidth: 0.4,
           cellPadding: 4,
-          font: "helvetica",
+          font: PDF_FONT_FAMILY,
           fontSize: 10,
           valign: "middle"
         },
@@ -196,12 +235,12 @@
           fillBlackBackground(doc); // ensure black on every page
           // redraw the title (AutoTable clears the page background)
           doc.setTextColor(255, 255, 255);
-          doc.setFont("helvetica", "bold");
+          headerFont();
           doc.setFontSize(22);
           const pw = doc.internal.pageSize.getWidth();
           doc.text("Talk Kink — Compatibility", pw / 2, titleY, { align: "center" });
           doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
+          bodyFont();
           const ts2 = new Date().toLocaleString();
           doc.text(ts2, pw / 2, titleY + 18, { align: "center" });
         }
@@ -211,7 +250,7 @@
       const left = 24, top = titleY + 28, lh = 16, colGap = 12;
       const colWidths = [pageWidth * 0.55, 80, 100, 80];
 
-      doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+      headerFont(); doc.setFontSize(11);
       doc.text(data.head[0] || "Category", pageWidth / 2, top, { align: "center" });
       let x = left + colWidths[0] + colGap;
       for (let i = 1; i < data.head.length; i++) {
@@ -219,7 +258,7 @@
         x += colWidths[i] + colGap;
       }
 
-      doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+      bodyFont(); doc.setFontSize(10);
       let y = top + 10;
       for (const row of data.body) {
         y += lh; x = left;
@@ -232,14 +271,14 @@
           doc.addPage();
           fillBlackBackground(doc);
           doc.setTextColor(255, 255, 255);
-          doc.setFont("helvetica", "bold");
+          headerFont();
           doc.setFontSize(22);
           const pw2 = doc.internal.pageSize.getWidth();
           doc.text("Talk Kink — Compatibility", pw2 / 2, titleY, { align: "center" });
           doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
+          bodyFont();
           doc.text(new Date().toLocaleString(), pw2 / 2, titleY + 18, { align: "center" });
-          doc.setFont("helvetica", "normal");
+          bodyFont();
           doc.setFontSize(10);
           y = top + 10;
         }
