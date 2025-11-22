@@ -130,25 +130,31 @@ export async function generateCompatibilityPDF(data = {}, options = {}) {
   const useBodyFont = () => doc.setFont(PDF_FONT_FAMILY, 'normal');
 
   const pageWidth = doc.internal?.pageSize?.getWidth?.() ?? 210;
-  const sectionTitle = data.sectionTitle || data.title || options.sectionTitle || 'Compatibility Survey';
+  const headerTitle = data.title || options.title || 'TalkKink Compatibility Summary';
+  const generatedAt =
+    data.generatedAt || options.generatedAt || options.generatedTime || new Date().toLocaleString();
+  const sectionTitle = data.sectionTitle || options.sectionTitle || 'Compatibility Results';
 
   useHeaderFont();
-  doc.setFontSize(18);
+  doc.setFontSize(24);
   doc.setTextColor(0, 255, 255);
-  doc.text('TalkKink Compatibility Survey', pageWidth / 2, 20, { align: 'center' });
+  const titleY = 20;
+  doc.text(headerTitle, pageWidth / 2, titleY, { align: 'center' });
 
   useBodyFont();
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setTextColor(200);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 27, { align: 'center' });
+  const timestampY = 27;
+  doc.text(`Generated: ${generatedAt}`, pageWidth / 2, timestampY, { align: 'center' });
 
   doc.setDrawColor(0, 255, 255);
-  doc.line(20, 32, pageWidth - 20, 32);
+  const dividerY = 32;
+  doc.line(20, dividerY, pageWidth - 20, dividerY);
 
   useHeaderFont();
-  doc.setFontSize(16);
+  doc.setFontSize(20);
   doc.setTextColor(0, 255, 255);
-  doc.text(sectionTitle, pageWidth / 2, 42, { align: 'center' });
+  doc.text(sectionTitle, pageWidth / 2, dividerY + 10, { align: 'center' });
 
   const columns = [
     { header: 'Kinks', dataKey: 'kink' },
