@@ -120,18 +120,34 @@ let partnerAAnswers = {};
 let partnerBAnswers = {};
 let compatibilityItems = [];
 
+function sanitizeScore(score) {
+  if (score == null || score === '' || score === '&&&') return '&&&';
+  return score;
+}
+
 function calculateMatchScore(a, b) {
-  if (a === undefined || b === undefined || a === null || b === null) return null;
-  const maxScore = 5;
+  if (
+    a === '&&&' || b === '&&&' ||
+    a === null || b === null ||
+    a === undefined || b === undefined ||
+    a === '' || b === ''
+  ) {
+    return '&&&';
+  }
+
   const diff = Math.abs(a - b);
-  return Math.round(((maxScore - diff) / maxScore) * 100);
+  const max = 5; // scale 0–5
+  const matchPercent = Math.round(100 - (diff / max) * 100);
+  return `${matchPercent}%`;
 }
 
 function generateCompatibilityRows(partnerAAnswersMap = {}, partnerBAnswersMap = {}, items = []) {
   return items.map(item => {
-    const aScore = partnerAAnswersMap[item.id] ?? '';
-    const bScore = partnerBAnswersMap[item.id] ?? '';
-    const match = (aScore !== '' && bScore !== '') ? `${calculateMatchScore(aScore, bScore)}%` : '';
+    const aScoreRaw = partnerAAnswersMap[item.id];
+    const bScoreRaw = partnerBAnswersMap[item.id];
+    const aScore = sanitizeScore(aScoreRaw);
+    const bScore = sanitizeScore(bScoreRaw);
+    const match = calculateMatchScore(aScoreRaw, bScoreRaw);
     return {
       item: item.label,
       partnerA: aScore,
@@ -488,14 +504,16 @@ function updateComparison() {
 <script>
 (function installSolidPdfExport(){
   // ---- utils
+  const sanitizeScore = score => (score == null || score === '' || score === '&&&') ? '&&&' : score;
   const num = v => {
     const n = Number(String(v ?? "").trim());
     return Number.isFinite(n) ? n : null;
   };
   const matchPct = (a, b) => {
     const A = num(a), B = num(b);
-    if (A == null || B == null) return null;
-    return Math.round(100 - (Math.abs(A - B) / 5) * 100);
+    if (A == null || B == null) return '&&&';
+    const pct = Math.round(100 - (Math.abs(A - B) / 5) * 100);
+    return `${pct}%`;
   };
 
   function rowsFromAnswerCaches() {
@@ -506,14 +524,12 @@ function updateComparison() {
       : (aMap, bMap, list) => list.map(item => {
           const aScore = aMap[item.id];
           const bScore = bMap[item.id];
-          const pct = (aScore !== undefined && bScore !== undefined && aScore !== '' && bScore !== '')
-            ? matchPct(aScore, bScore)
-            : null;
+          const pct = matchPct(aScore, bScore);
           return {
             item: item.label,
-            partnerA: aScore,
-            match: pct == null ? '' : `${pct}%`,
-            partnerB: bScore
+            partnerA: sanitizeScore(aScore),
+            match: pct,
+            partnerB: sanitizeScore(bScore)
           };
         });
     const rows = builder(window.partnerAAnswers || {}, window.partnerBAnswers || {}, items) || [];
