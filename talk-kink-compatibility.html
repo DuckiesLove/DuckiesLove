@@ -329,6 +329,52 @@ function tkApplyCompatMeta(meta = TK_COMPAT_META) {
   if (subtitle) {
     subtitle.textContent = stamp || meta?.formattedStamp || '';
   }
+
+  tkRepairCompatHeader();
+}
+
+function tkRepairCompatHeader() {
+  const titleEl = document.querySelector('.title');
+  const subtitleEl = document.querySelector('.subtitle');
+
+  const repairText = (el, fallbackText) => {
+    if (!el) return;
+
+    const cleanText = (el.textContent || '').trim();
+    if (!cleanText) {
+      el.textContent = fallbackText;
+      return;
+    }
+
+    if (el.innerHTML.trim() !== cleanText) {
+      el.textContent = cleanText;
+    }
+  };
+
+  repairText(titleEl, TK_COMPAT_DEFAULT_TITLE);
+  repairText(subtitleEl, `Generated: ${new Date().toLocaleString()}`);
+
+  const enforceCenter = (el) => {
+    if (!el) return;
+    el.style.textAlign = 'center';
+    el.style.marginLeft = 'auto';
+    el.style.marginRight = 'auto';
+    el.style.display = 'block';
+    el.style.float = 'none';
+  };
+
+  enforceCenter(titleEl);
+  enforceCenter(subtitleEl);
+
+  const container =
+    document.querySelector('.compatibility-results-container') ||
+    document.querySelector('.page');
+
+  if (container) {
+    container.style.width = '100%';
+    container.style.display = 'block';
+    container.style.textAlign = 'center';
+  }
 }
 
 function tkInitCompatMeta() {
