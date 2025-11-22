@@ -205,110 +205,42 @@ window.TKCompatPDF = (function () {
   }
 
   // Compatibility Table Layout (final version - matches Behavioral Play layout)
-  function renderCompatCategoryTable(doc, data, categoryLabel, startY) {
-    const headerRow = [
-      { content: 'Kinks', styles: { halign: 'left', fontStyle: 'bold' } },
-      { content: 'Partner A', styles: { halign: 'center' } },
-      { content: 'Match', styles: { halign: 'center' } },
-      { content: 'Partner B', styles: { halign: 'center' } },
-    ];
+  function renderCompatCategoryTable(doc, category, data) {
+    const { items, label } = category;
 
-    const bodyRows = data.map((item) => {
-      const { kinkLabel, scoreA, scoreB, match } = item;
-      const percent = typeof match === 'number' ? `${match}%` : 'N/A';
-      const isValid = typeof scoreA === 'number' && typeof scoreB === 'number';
-      const scoreAContent = isValid ? scoreA.toString() : '&&&';
-      const scoreBContent = isValid ? scoreB.toString() : '&&&';
-      const matchContent = isValid ? percent : '&&&';
+    // Guard clause to ensure required values are present
+    if (!items || !Array.isArray(items)) {
+      console.warn("renderCompatCategoryTable: Missing or invalid items for category", category);
+      return;
+    }
 
-      return [
-        { content: kinkLabel, styles: { halign: 'left' } },
-        { content: scoreAContent, styles: { halign: 'center' } },
-        { content: matchContent, styles: { halign: 'center' } },
-        { content: scoreBContent, styles: { halign: 'center' } },
-      ];
-    });
+    const yStart = doc.autoTable.previous.finalY ?? 40;
 
     doc.autoTable({
-      startY,
-      theme: 'grid',
-      head: [headerRow],
-      body: bodyRows,
-      headStyles: {
-        fillColor: [0, 255, 255],
-        textColor: [0, 0, 0],
-        fontStyle: 'bold',
-      },
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-        overflow: 'linebreak',
-        valign: 'middle',
-        lineColor: [60, 60, 60],
-        lineWidth: 0.2,
-      },
-      columnStyles: {
-        0: { cellWidth: 180 }, // Kink label
-        1: { cellWidth: 30 }, // Partner A
-        2: { cellWidth: 50 }, // Match
-        3: { cellWidth: 30 }, // Partner B
-      },
-      willDrawCell(data) {
-        const col = data.column.index;
-        const row = data.row.index;
-        const cell = data.cell;
-        const isMatchCol = col === 2;
-        const item = data.table.body[row];
-        const matchVal = item[2]?.content;
-        const scoreA = item[1]?.content;
-        const scoreB = item[3]?.content;
-
-        // Custom bar logic
-        if (isMatchCol && matchVal && matchVal !== 'N/A' && matchVal !== '&&&') {
-          const percent = parseInt(matchVal, 10);
-          const { x, y, width, height } = cell;
-          const barW = width * (percent / 100);
-          const barH = height * 0.4;
-          const barX = x + (width - barW) / 2;
-          const barY = y + (height - barH) / 2;
-
-          // Draw bar background
-          doc.setFillColor(0, 0, 0);
-          doc.rect(x, y, width, height, 'F');
-
-          // Draw filled match bar
-          doc.setFillColor(0, 255, 255);
-          doc.rect(barX, barY, barW, barH, 'F');
-
-          // Add emoji overlays
-          let emoji = '';
-          const sA = parseInt(scoreA, 10);
-          const sB = parseInt(scoreB, 10);
-          if (percent >= 90) emoji = '⭐';
-          else if (percent <= 30) emoji = '🚩';
-          else if ((sA === 5 || sB === 5) && Math.abs(sA - sB) >= 1) emoji = '🟨';
-
-          if (emoji) {
-            doc.setFontSize(10);
-            doc.setTextColor(0, 0, 0);
-            doc.text(emoji, x + width / 2, y + height / 2 + 3, { align: 'center', baseline: 'middle' });
-          }
-
-          return false; // skip default text
-        }
-
-        // Display 'N/A' in center of bar cell
-        if (isMatchCol && (matchVal === 'N/A' || matchVal === '&&&')) {
-          const { x, y, width, height } = cell;
-          doc.setFontSize(8);
-          doc.setTextColor(255, 255, 255);
-          doc.text(matchVal, x + width / 2, y + height / 2 + 2, { align: 'center', baseline: 'middle' });
-          return false;
-        }
-      },
+      startY: yStart + 10,
+      head: [[
+        { content: 'Kinks', styles: { halign: 'left', fontStyle: 'bold' } },
+        { content: 'Partner A', styles: { halign: 'center' } },
+        { content: 'Match', styles: { halign: 'center' } },
+        { content: 'Partner B', styles: { halign: 'center' } },
+      ]],
+      body: items.map(item => {
+        return [
+          item.label ?? '',
+          item.a?.toString() ?? '&&&',
+          item.matchPercent ? `${item.matchPercent}%` : '&&&',
+          item.b?.toString() ?? '&&&'
+        ];
+      }),
+      theme: 'striped',
+      headStyles: { fillColor: [0, 255, 255], textColor: 0 },
+      styles: { fontSize: 10, cellPadding: 3, valign: 'middle' },
+      didDrawPage: (data) => {
+        doc.setTextColor(0, 255, 255);
+        doc.setFontSize(16);
+        doc.text(`Compatibility Results`, data.settings.margin.left, 30);
+      }
     });
-
-    return doc.autoTable.previous.finalY + 10;
   }
 
   function parseMatchPercentage(matchValue) {
@@ -594,7 +526,7 @@ window.TKCompatPDF = (function () {
 
       const tableRows = normalizeCompatTableRows(rows);
 
-      renderCompatCategoryTable(doc, tableRows, categoryLabel, 90);
+      renderCompatCategoryTable(doc, { items: tableRows, label: categoryLabel }, tableRows);
 
       doc.save('TalkKink-Compatibility.pdf');
     } catch (err) {
