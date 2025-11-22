@@ -604,6 +604,16 @@ function tkFormatMatchDisplay(raw, parsed) {
   return "";
 }
 
+function tkDeriveMatchPercent(matchRaw, aScore, bScore) {
+  const parsed = tkParseMatchPercent(matchRaw);
+  if (Number.isFinite(parsed)) return parsed;
+  if (Number.isFinite(aScore) && Number.isFinite(bScore)) {
+    const diff = Math.min(5, Math.abs(aScore - bScore));
+    return Math.max(0, Math.min(100, Math.round(100 - diff * 20)));
+  }
+  return null;
+}
+
 function tkNormalizeCompatRow(entry) {
   if (!entry) return null;
 
@@ -637,7 +647,7 @@ function tkNormalizeCompatRow(entry) {
 
   const aScore = tkParseScore(aRaw);
   const bScore = tkParseScore(bRaw);
-  const matchPct = tkParseMatchPercent(matchRaw);
+  const matchPct = tkDeriveMatchPercent(matchRaw, aScore, bScore);
 
   if (typeof hasData !== "boolean") {
     hasData = Number.isFinite(aScore) || Number.isFinite(bScore);
