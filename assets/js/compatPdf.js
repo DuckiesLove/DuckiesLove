@@ -309,7 +309,9 @@ window.TKCompatPDF = (function () {
       }
     });
 
-    return doc.lastAutoTable.finalY ?? doc.previousAutoTable.finalY ?? 10;
+    const lastY = doc.lastAutoTable?.finalY;
+    const prevY = doc.previousAutoTable?.finalY;
+    return lastY ?? prevY ?? startY ?? 10;
   }
 
   function parseMatchPercentage(matchValue) {
