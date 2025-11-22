@@ -184,13 +184,27 @@
   }
 
   function safeString(val) {
-    if (val == null) return '';
+    if (val == null) return '—';
     const str = String(val).trim();
-    return (str === 'null' || str === 'undefined' || str === '&&&') ? '' : str;
+    if (!str || str === 'null' || str === 'undefined' || str === '&&&') return '—';
+    return str;
   }
 
   function sanitizeCellValue(cellValue) {
-    return cellValue === '&&&' ? '' : cellValue;
+    if (cellValue === '&&&' || cellValue === '') return '—';
+    return cellValue;
+  }
+
+  function tk_formatAnswer(score) {
+    if (score === null || score === undefined || score === '') return '—';
+    return score;
+  }
+
+  function tk_calcMatch(a, b) {
+    if (a === null || b === null || a === undefined || b === undefined) return '—';
+    const diff = Math.abs(a - b);
+    const pct = Math.max(0, Math.round(100 - diff * 20));
+    return `${pct}%`;
   }
 
   function coerceScore(val) {
@@ -239,15 +253,19 @@
     const aScore = coerceScore(aRaw);
     const bScore = coerceScore(bRaw);
     const matchPercent = computeMatchPercent(matchRaw, aScore, bScore);
-    const matchDisplay = matchPercent != null ? `${matchPercent}%` : safeString(matchRaw);
+    const computedMatch = tk_calcMatch(aScore, bScore);
+    const rawMatch = safeString(matchRaw);
+    const matchDisplay = matchPercent != null ? `${matchPercent}%` : tk_formatAnswer(rawMatch || computedMatch);
 
-    const itemText = safeString(item);
+    const itemText = tk_formatAnswer(safeString(item));
+    const aDisplay = tk_formatAnswer(Number.isFinite(aScore) ? String(aScore) : safeString(aRaw));
+    const bDisplay = tk_formatAnswer(Number.isFinite(bScore) ? String(bScore) : safeString(bRaw));
 
     return {
       item: itemText,
-      a: aScore != null ? String(aScore) : safeString(aRaw),
+      a: aDisplay,
       match: matchDisplay,
-      b: bScore != null ? String(bScore) : safeString(bRaw),
+      b: bDisplay,
       matchPercent,
       aScore,
       bScore,
@@ -298,15 +316,10 @@
     tk_drawCategoryTitleWithGlow(doc, sectionTitle, startY);
 
     const body = rows.map((row) => {
-      const aNum = Number(row.aScore ?? row.a);
-      const bNum = Number(row.bScore ?? row.b);
-      const matchNum = Number(row.matchPercent);
-      const aVal = sanitizeCellValue(Number.isFinite(aNum) ? String(aNum) : safeString(row.a));
-      const bVal = sanitizeCellValue(Number.isFinite(bNum) ? String(bNum) : safeString(row.b));
-      const matchVal = sanitizeCellValue(
-        Number.isFinite(matchNum) ? `${Math.round(matchNum)}%` : safeString(row.match),
-      );
-      const safeItem = sanitizeCellValue(safeString(row.item));
+      const aVal = sanitizeCellValue(tk_formatAnswer(row.a));
+      const bVal = sanitizeCellValue(tk_formatAnswer(row.b));
+      const matchVal = sanitizeCellValue(tk_formatAnswer(row.match));
+      const safeItem = sanitizeCellValue(tk_formatAnswer(row.item));
       const wrappedItem =
         safeItem && typeof doc.splitTextToSize === 'function'
           ? doc.splitTextToSize(safeItem, wrapWidth)
@@ -366,11 +379,6 @@
     doc.rect(0, 0, pageW, pageH, 'F');
     doc.setTextColor(255, 255, 255);
 
-    const normalizedRows = rows
-      .map(normalizeCompatRow)
-      .filter((r) => r.item || r.a || r.b || r.match)
-      .filter((r) => !/^General:\s*\d+$/i.test(r.item));
-
     const headerY = tk_drawHeaderWithGlow(
       doc,
       'TalkKink Compatibility Survey',
@@ -378,7 +386,7 @@
       TK_ACCENT,
     );
 
-    tk_renderSectionTable(doc, 'Behavioral Play', normalizedRows, headerY);
+    tk_renderSectionTable(doc, 'Behavioral Play', rows, headerY);
   }
 
   function renderFallback(doc, rows) {
@@ -429,6 +437,13 @@
     doc.setDrawColor(160, 160, 160);
     doc.setLineWidth(0.75);
     doc.rect(marginL - 6, startY - 26, tableW + 12, tableH, 'S');
+  }
+
+  function normalizeRows(rows) {
+    return (Array.isArray(rows) ? rows : [])
+      .map(normalizeCompatRow)
+      .filter((r) => r.item || r.a || r.b || r.match)
+      .filter((r) => !/^General:\s*\d+$/i.test(r.item || ''));
   }
 
   /* ------------------------------------------------------------------ */
@@ -499,7 +514,8 @@
   async function generateCompatibilityPDF(rows) {
     const data = Array.isArray(rows) ? rows : [];
     const payload = data.length ? data : computeRowsArray();
-    if (!payload.length) {
+    const normalizedRows = normalizeRows(payload);
+    if (!normalizedRows.length) {
       throw new Error('No compatibility rows available');
     }
 
@@ -507,9 +523,9 @@
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
 
     if (hasAutoTable && typeof doc.autoTable === 'function') {
-      renderWithAutoTable(doc, payload);
+      renderWithAutoTable(doc, normalizedRows);
     } else {
-      renderFallback(doc, payload);
+      renderFallback(doc, normalizedRows);
     }
 
     doc.save('compatibility-pretty-dark.pdf');
