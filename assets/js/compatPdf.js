@@ -558,6 +558,7 @@ window.TKCompatPDF = (function () {
       const doc = new JsPDF({ putOnlyUsedFonts: true, unit: 'pt', format: 'a4', orientation: 'p' });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
+      const headerCenterX = pageWidth / 2 - 20;
       const autoTable = getAutoTable(doc);
       if (!doc.autoTable && typeof autoTable === 'function') {
         doc.autoTable = (opts) => autoTable(opts);
@@ -572,12 +573,12 @@ window.TKCompatPDF = (function () {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(26);
       doc.setTextColor(...toRGB(THEME.accent));
-      doc.text('TalkKink Compatibility Survey', pageWidth / 2, 38, { align: 'center' });
+      doc.text('TalkKink Compatibility Survey', headerCenterX, 38, { align: 'center' });
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(11);
       doc.setTextColor(...toRGB(THEME.inkDim));
-      doc.text(`Generated: ${timestamp}`, pageWidth / 2, 54, { align: 'center' });
+      doc.text(`Generated: ${timestamp}`, headerCenterX, 54, { align: 'center' });
 
       doc.setDrawColor(...toRGB(THEME.accent));
       doc.setLineWidth(1.5);
@@ -586,7 +587,7 @@ window.TKCompatPDF = (function () {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(22);
       doc.setTextColor(...toRGB(THEME.accent));
-      doc.text(categoryLabel, pageWidth / 2, 92, { align: 'center' });
+      doc.text(categoryLabel, headerCenterX, 92, { align: 'center' });
 
       const tableRows = normalizeCompatTableRows(rows);
 
