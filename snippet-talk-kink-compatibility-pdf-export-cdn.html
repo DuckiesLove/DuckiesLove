@@ -276,26 +276,35 @@
   /*  HEADER + TABLE RENDER                                             */
   /* ------------------------------------------------------------------ */
 
-  function tk_drawHeaderWithGlow(doc, title, generatedAt, accent = TK_ACCENT) {
-    const pageW = doc.internal.pageSize.getWidth();
+  function drawCenteredHeaderToTable(doc, TOK = {}) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const title = TOK.title || 'TalkKink Compatibility Survey';
+    const generatedAt = TOK.generatedAt || new Date().toLocaleString();
+    const section = TOK.section || 'Compatibility Results';
 
-    doc.setTextColor('#00FFFF');
+    const titleY = TOK.titleY ?? 20;
+    const timeY = TOK.timeY ?? 28;
+    const catY = TOK.catY ?? 38;
+
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor('#00f0ff');
     doc.setFontSize(24);
-    const tW = doc.getTextWidth(title);
-    doc.text(title, (pageW - tW) / 2, 70);
+    doc.text(title, pageWidth / 2, titleY, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    const sub = `Generated: ${generatedAt}`;
-    doc.text(sub, pageW - 16, 16, { align: 'right' });
+    doc.text(`Generated: ${generatedAt}`, pageWidth / 2, timeY, { align: 'center' });
 
-    doc.setDrawColor(...accent);
-    doc.setLineWidth(1.5);
-    const pad = 64;
-    doc.line(pad, 86, pageW - pad, 86);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text(section, pageWidth / 2, catY, { align: 'center' });
 
-    return 110;
+    doc.setDrawColor('#00f0ff');
+    doc.setLineWidth(1);
+    doc.line(64, catY + 4, pageWidth - 64, catY + 4);
+
+    const gap = TOK.afterCategoryGap ?? 14;
+    return { startY: TOK.startY ?? catY + gap };
   }
 
   function tk_drawCategoryTitleWithGlow(doc, title, yPosition) {
@@ -308,12 +317,14 @@
     return yPosition + 10;
   }
 
-  function tk_renderSectionTable(doc, sectionTitle, rows, startY) {
+  function tk_renderSectionTable(doc, sectionTitle, rows, startY, opts = {}) {
+    const { drawSectionTitle = true, tableStartY } = opts;
     const pageW = doc.internal.pageSize.getWidth();
     const itemColumn = CFG.columns.find((col) => col.key === 'item');
     const wrapWidth = Math.max(40, (itemColumn?.w || 320) - 12);
 
-    tk_drawCategoryTitleWithGlow(doc, sectionTitle, startY);
+    const sectionTitleEnd = drawSectionTitle ? tk_drawCategoryTitleWithGlow(doc, sectionTitle, startY) : startY;
+    const tableY = tableStartY ?? (drawSectionTitle ? sectionTitleEnd + 10 : startY);
 
     const body = rows.map((row) => {
       const aVal = sanitizeCellValue(tk_formatAnswer(row.a));
@@ -342,8 +353,8 @@
     doc.autoTable({
       columns,
       body,
-      startY: startY + 20,
-      margin: { left: 70, right: 70 },
+      startY: tableY,
+      margin: { left: 70, right: 70, top: tableY },
       styles: {
         font: 'helvetica',
         fontSize: 10,
@@ -379,14 +390,18 @@
     doc.rect(0, 0, pageW, pageH, 'F');
     doc.setTextColor(255, 255, 255);
 
-    const headerY = tk_drawHeaderWithGlow(
-      doc,
-      'TalkKink Compatibility Survey',
-      new Date().toLocaleString(),
-      TK_ACCENT,
-    );
+    const headerTokens = {
+      title: 'TalkKink Compatibility Survey',
+      generatedAt: new Date().toLocaleString(),
+      section: 'Behavioral Play',
+    };
 
-    tk_renderSectionTable(doc, 'Behavioral Play', rows, headerY);
+    const { startY } = drawCenteredHeaderToTable(doc, headerTokens);
+
+    tk_renderSectionTable(doc, headerTokens.section, rows, startY, {
+      drawSectionTitle: false,
+      tableStartY: startY,
+    });
   }
 
   function renderFallback(doc, rows) {
