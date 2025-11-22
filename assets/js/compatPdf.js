@@ -9,6 +9,19 @@ window.TKCompatPDF = (function () {
 
   const log = (...args) => console.log('[compat-pdf]', ...args);
 
+  const THEME = {
+    bg: [10, 20, 28],
+    panel: [12, 29, 37],
+    row: [12, 31, 41],
+    rowAlt: [10, 27, 35],
+    grid: [15, 70, 88],
+    accent: [9, 225, 255],
+    ink: [230, 254, 255],
+    inkDim: [184, 223, 224]
+  };
+
+  const toRGB = (arr = []) => arr.slice(0, 3);
+
   function safeString(value) {
     if (value == null) return '';
     return String(value).trim();
@@ -168,22 +181,6 @@ window.TKCompatPDF = (function () {
     );
   }
 
-  function formatScore(value) {
-    if (value == null) return '';
-    if (!Number.isFinite(value)) return '';
-    if (Number.isInteger(value)) return String(value);
-    return value.toFixed(2);
-  }
-
-  function formatCompatScore(value) {
-    const cleaned = cleanValue(value);
-    if (cleaned === '') return '';
-
-    const num = Number(cleaned);
-    if (Number.isFinite(num)) return formatScore(num);
-    return String(cleaned);
-  }
-
   function readJson(key) {
     if (!key) return null;
     try {
@@ -222,90 +219,69 @@ window.TKCompatPDF = (function () {
     'Toys & Tools': 'Toys'
   };
 
-  // 📊 Flag logic with emojis
-  function tk_flagStatus(a, b, matchPercent) {
-    if (matchPercent >= 90) return '⭐';
-    if (matchPercent <= 30) return '🚩';
-    const oneIsFive = a === 5 || b === 5;
-    if (oneIsFive && Math.abs(a - b) >= 1) return '🟨';
-    return '';
-  }
-
-  // 🟥 Draw black bar + compatibility % + emoji flag
-  function drawCompatibilityBar(doc, cell, matchPercent, flagEmoji) {
-    const { x, y, width, height } = cell;
-    const barWidth = width - 2;
-    const barHeight = 8;
-    const barX = x + 1;
-    const barY = y + (height - barHeight) / 2;
-
-    // Draw black base bar
-    doc.setFillColor(0, 0, 0);
-    doc.rect(barX, barY, barWidth, barHeight, 'F');
-
-    // Fill match percent (gray if invalid)
-    if (!isNaN(matchPercent)) {
-      doc.setFillColor(160);
-      doc.rect(barX, barY, (barWidth * matchPercent) / 100, barHeight, 'F');
-    }
-
-    // Add text label
-    doc.setTextColor(255);
-    doc.setFontSize(7);
-    doc.text(
-      isNaN(matchPercent) ? 'N/A' : `${matchPercent}%`,
-      barX + barWidth / 2,
-      barY + 6,
-      { align: 'center' }
-    );
-
-    // Add flag emoji
-    if (flagEmoji) {
-      doc.setTextColor(0);
-      doc.setFontSize(9);
-      doc.text(flagEmoji, barX + barWidth + 4, barY + 6);
-    }
-  }
-
-  // 🧠 Core table rendering (safe fallback for empty rows)
-  function renderCompatCategoryTable(doc, category, rows, startY) {
+    // 🧠 Core table rendering (safe fallback for empty rows)
+    function renderCompatCategoryTable(doc, category, rows, startY) {
     if (!rows || rows.length === 0) return startY ?? 10;
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 40;
+    const usableWidth = pageWidth - marginX * 2;
+    const colWidths = {
+      label: usableWidth * 0.56,
+      partner: usableWidth * 0.12,
+      match: usableWidth * 0.20
+    };
 
     const tableBody = rows.map(row => {
       const shortLabel = labelShortMap[row.label] || row.label;
-      const a = row.partnerA ?? '';
-      const b = row.partnerB ?? '';
       const matchPercent = row.matchPercent ?? NaN;
-      const flag = tk_flagStatus(a, b, matchPercent);
       return [
         shortLabel,
-        { content: String(a), styles: { halign: 'center' } },
-        { content: '', styles: { cellWidth: 42 }, drawCell: (data) => drawCompatibilityBar(doc, data.cell, matchPercent, flag) },
-        { content: String(b), styles: { halign: 'center' } }
+        formatScore(row.partnerA),
+        formatMatch(matchPercent),
+        formatScore(row.partnerB)
       ];
     });
 
     doc.autoTable({
-      head: [['Kink', 'Partner A', 'Match', 'Partner B']],
+      head: [['Kinks', 'Partner A', 'Match', 'Partner B']],
       body: tableBody,
       startY: startY ?? 10,
+      margin: { left: marginX, right: marginX },
       styles: {
-        fontSize: 9,
-        cellPadding: 2,
+        fontSize: 10,
+        font: 'helvetica',
+        textColor: toRGB(THEME.ink),
+        cellPadding: { top: 10, right: 8, bottom: 10, left: 8 },
         overflow: 'linebreak',
-        valign: 'middle'
+        valign: 'middle',
+        lineColor: toRGB(THEME.grid),
+        lineWidth: 0.35,
+        fillColor: toRGB(THEME.row)
       },
       headStyles: {
-        fillColor: [10, 10, 10],
-        textColor: 255,
-        fontSize: 9,
-        halign: 'center'
+        fillColor: toRGB(THEME.panel),
+        textColor: toRGB(THEME.accent),
+        fontSize: 12,
+        fontStyle: 'bold',
+        halign: 'center',
+        lineColor: toRGB(THEME.grid),
+        lineWidth: 0.8
+      },
+      alternateRowStyles: {
+        fillColor: toRGB(THEME.rowAlt)
       },
       columnStyles: {
-        0: { cellWidth: 52 },
-        1: { cellWidth: 18, halign: 'center' },
-        2: { cellWidth: 42 },
-        3: { cellWidth: 18, halign: 'center' }
+        0: { cellWidth: colWidths.label, halign: 'left', textColor: [142, 214, 232] },
+        1: { cellWidth: colWidths.partner, halign: 'center' },
+        2: { cellWidth: colWidths.match, halign: 'center', textColor: toRGB(THEME.accent) },
+        3: { cellWidth: colWidths.partner, halign: 'center' }
+      },
+      didParseCell: (data) => {
+        if (data.section !== 'body') return;
+        if (data.column.index === 2 && data.cell.raw === '—') {
+          data.cell.styles.textColor = toRGB(THEME.inkDim);
+        }
       }
     });
 
@@ -321,6 +297,18 @@ window.TKCompatPDF = (function () {
       if (Number.isFinite(parsed)) return parsed;
     }
     return null;
+  }
+
+  function formatScore(value) {
+    if (Number.isFinite(value)) return String(value);
+    const text = safeString(value);
+    return text || '—';
+  }
+
+  function formatMatch(matchPercent) {
+    if (!Number.isFinite(matchPercent)) return '—';
+    const rounded = Math.round(matchPercent);
+    return rounded === 100 ? '100% ★' : `${rounded}%`;
   }
 
   function normalizeCompatTableRows(rows = []) {
@@ -578,28 +566,31 @@ window.TKCompatPDF = (function () {
       const timestamp = new Date().toLocaleString();
       const categoryLabel = deriveCategoryLabel(payloads);
 
-      doc.setFillColor(10, 10, 10);
+      doc.setFillColor(...toRGB(THEME.bg));
       doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-      doc.setFontSize(24);
-      doc.setTextColor(0, 255, 255);
-      doc.text('TalkKink Compatibility Survey', pageWidth / 2, 30, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(26);
+      doc.setTextColor(...toRGB(THEME.accent));
+      doc.text('TalkKink Compatibility Survey', pageWidth / 2, 38, { align: 'center' });
 
-      doc.setFontSize(10);
-      doc.setTextColor(200, 200, 200);
-      doc.text(`Generated: ${timestamp}`, pageWidth / 2, 42, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(...toRGB(THEME.inkDim));
+      doc.text(`Generated: ${timestamp}`, pageWidth / 2, 54, { align: 'center' });
 
-      doc.setDrawColor(0, 255, 255);
-      doc.setLineWidth(1);
-      doc.line(40, 50, pageWidth - 40, 50);
+      doc.setDrawColor(...toRGB(THEME.accent));
+      doc.setLineWidth(1.5);
+      doc.line(40, 64, pageWidth - 40, 64);
 
-      doc.setFontSize(20);
-      doc.setTextColor(0, 255, 255);
-      doc.text(categoryLabel, pageWidth / 2, 75, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(...toRGB(THEME.accent));
+      doc.text(categoryLabel, pageWidth / 2, 92, { align: 'center' });
 
       const tableRows = normalizeCompatTableRows(rows);
 
-      renderCompatCategoryTable(doc, { items: tableRows, label: categoryLabel }, tableRows, 90);
+      renderCompatCategoryTable(doc, { items: tableRows, label: categoryLabel }, tableRows, 108);
 
       doc.save('TalkKink-Compatibility.pdf');
     } catch (err) {
