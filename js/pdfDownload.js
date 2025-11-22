@@ -539,7 +539,7 @@ function extractSurveyEntries(rawSurvey){
   return Array.from(entries.values());
 }
 
-function buildCategoriesFromSurveys(partnerAInput, partnerBInput){
+export function buildCategoriesFromSurveys(partnerAInput, partnerBInput){
   const aEntries = extractSurveyEntries(partnerAInput);
   const bEntries = extractSurveyEntries(partnerBInput);
 
