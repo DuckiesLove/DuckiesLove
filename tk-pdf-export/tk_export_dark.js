@@ -343,19 +343,20 @@ function styleCompatPDF(doc, { fontFamily } = {}) {
     doc.setTextColor("#ffffff");
     doc.setFont(font, "normal");
 
-    doc.setFontSize(22);
-    doc.setTextColor("#00ffff");
+    doc.setFontSize(24);
+    doc.setTextColor("#00e5ff");
     doc.text("TalkKink Compatibility Survey", pageWidth / 2, 20, { align: "center" });
+
     doc.setFontSize(10);
-    doc.text(generatedStamp, pageWidth / 2, 26, { align: "center" });
+    doc.text(generatedStamp, pageWidth / 2, 28, { align: "center" });
 
-    doc.setFontSize(16);
+    doc.setFontSize(18);
     doc.setFont(font, "bold");
-    doc.text("Compatibility Matrix", pageWidth / 2, 32, { align: "center" });
+    doc.text("Compatibility Results", pageWidth / 2, 40, { align: "center" });
 
-    doc.setDrawColor("#00ffff");
-    doc.setLineWidth(0.5);
-    doc.line(20, 34, pageWidth - 20, 34);
+    doc.setDrawColor("#00e5ff");
+    doc.setLineWidth(1);
+    doc.line(20, 44, pageWidth - 20, 44);
 
     doc.setFontSize(10);
     doc.setTextColor("#ffffff");
