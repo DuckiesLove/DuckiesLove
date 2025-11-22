@@ -1,161 +1,197 @@
-import { renderCategorySection, buildLayout } from './compatibilityReportHelpers.js';
-import { shortenLabel } from './labelShortener.js';
 import { ensureJsPDF } from './loadJsPDF.js';
+import { shortenLabel as baseShortenLabel } from './labelShortener.js';
 
-// Default PDF layout settings
-const defaultPdfStyles = {
-  backgroundColor: '#000000',
-  textColor: '#FFFFFF',
-  headingFont: 'helvetica',
-  bodyFont: 'helvetica',
-  barHeight: 10,
-  barSpacing: 6,
-  barColors: {
-    green: 'green',
-    yellow: 'yellow',
-    red: 'red',
-    black: 'black'
-  },
-  sectionPaddingX: 12,
-  sectionPaddingY: 10,
-  sectionOutlineColor: '#3a3a3a',
-  sectionOutlineWidth: 0.8,
-  sectionBackgroundColor: null
+const replacementLabels = {
+  'Assigning corner time or time-outs': 'Corner time',
+  'Attitude toward funishment vs serious correction': 'Funishment vs correction',
+  'Being placed in the corner or given a time-out': 'Receiving time-out',
+  'Getting scolded or lectured for correction': 'Receiving scolding',
+  'Having privileges revoked (phone, TV)': 'Privileges revoked',
+  'Lecturing or scolding to modify behavior': 'Giving scolding',
+  'Playful punishments that still reinforce rules': 'Playful rule-punishment',
+  'Preferred style of discipline (strict vs lenient)': 'Discipline style',
 };
 
-// Icon used in history rows based on score percentage
-function getHistoryIcon(score) {
-  if (typeof score !== 'number') return '⚪';
-  if (score >= 80) return '🟢';
-  if (score >= 60) return '🟡';
-  return '🔴';
+function shortenLabel(label) {
+  const mapped = replacementLabels[label];
+  const shortened = baseShortenLabel(mapped ?? label ?? '');
+  return shortened || '—';
 }
 
-export async function generateCompatibilityPDF(compatibilityData, styleOptions = {}) {
-  const pdfStyles = { ...defaultPdfStyles, ...styleOptions };
+function flagStatus(a, b, match) {
+  const pct = Number(match);
+  if (!Number.isFinite(pct)) return '';
+  if (pct >= 90) return '⭐';
+  if (pct <= 30) return '🚩';
+  const oneIsFive = a === 5 || b === 5;
+  if (oneIsFive && Math.abs((a ?? 0) - (b ?? 0)) >= 1) return '🟨';
+  return '';
+}
 
-  const categories = Array.isArray(compatibilityData)
-    ? compatibilityData
-    : compatibilityData?.categories || [];
-  const history = Array.isArray(compatibilityData) ? [] : compatibilityData?.history || [];
-  const jsPDFCtor = await ensureJsPDF();
-  const doc = new jsPDFCtor({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+function drawCenteredBar(doc, cell, match) {
+  const { x, y, width, height } = cell;
+  const barWidth = width * 0.9;
+  const centerX = x + (width - barWidth) / 2;
+  const centerY = y + height / 4;
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 40;
-  const usableWidth = pageWidth - margin * 2;
-  const lineHeight = pdfStyles.barHeight + pdfStyles.barSpacing;
+  doc.setFillColor(30, 30, 30);
+  doc.rect(centerX, centerY, barWidth, 6, 'F');
 
-  const drawBackground = () => {
-    doc.setFillColor(pdfStyles.backgroundColor);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
-    doc.setTextColor(pdfStyles.textColor);
-  };
-
-  drawBackground();
-  doc.setFont(pdfStyles.headingFont, 'bold');
-  doc.setFontSize(18);
-  doc.text('Kink Compatibility Report', pageWidth / 2, 40, { align: 'center' });
-
-  const columnGap = 20;
-  const columnWidth = (usableWidth - columnGap) / 2;
-  const columnX = [margin, margin + columnWidth + columnGap];
-  const columnY = [80, 80];
-  let currentColumn = 0;
-
-  categories.forEach(category => {
-    const items = category.items.map(item => {
-      const partnerA = typeof item.a === 'number' ? item.a :
-        typeof item.partnerA === 'number' ? item.partnerA :
-        typeof item.scoreA === 'number' ? item.scoreA : null;
-      const partnerB = typeof item.b === 'number' ? item.b :
-        typeof item.partnerB === 'number' ? item.partnerB :
-        typeof item.scoreB === 'number' ? item.scoreB : null;
-      const match = item.match !== undefined ? item.match :
-        (partnerA === null || partnerB === null ? null : Math.max(0, 100 - Math.abs(partnerA - partnerB) * 20));
-      const fullLabel = item.label || item.kink || item.name || '';
-      return {
-        label: shortenLabel(fullLabel),
-        partnerA,
-        partnerB,
-        match
-      };
-    });
-
-    const sectionHeight = 23 + items.length * 12 + pdfStyles.barSpacing;
-    while (columnY[currentColumn] + sectionHeight > pageHeight - margin) {
-      if (currentColumn === 0) {
-        currentColumn = 1;
-      } else {
-        doc.addPage();
-        drawBackground();
-        columnY[0] = margin;
-        columnY[1] = margin;
-        currentColumn = 0;
-      }
+  if (match !== null && match !== undefined) {
+    if (match === 'N/A') {
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(6);
+      doc.text('N/A', x + width / 2, centerY + 4, { align: 'center' });
+      return;
     }
 
-    const layout = buildLayout(columnX[currentColumn], columnWidth);
-    const endY = renderCategorySection(
-      doc,
-      category.category || category.name,
-      items,
-      layout,
-      columnY[currentColumn],
-      {
-        textColor: pdfStyles.textColor,
-        borderColor: pdfStyles.sectionOutlineColor,
-        borderWidth: pdfStyles.sectionOutlineWidth,
-        paddingTop: pdfStyles.sectionPaddingY,
-        paddingRight: pdfStyles.sectionPaddingX,
-        paddingBottom: pdfStyles.sectionPaddingY,
-        paddingLeft: pdfStyles.sectionPaddingX,
-        backgroundColor: pdfStyles.sectionBackgroundColor,
-      }
+    const fill = parseInt(match, 10);
+    let fillColor = [0, 255, 0];
+    if (fill < 80) fillColor = [255, 215, 0];
+    if (fill < 60) fillColor = [255, 80, 80];
+
+    doc.setFillColor(...fillColor);
+    doc.rect(centerX, centerY, (barWidth * fill) / 100, 6, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(6);
+    doc.text(`${fill}%`, x + width / 2, centerY + 4, { align: 'center' });
+  }
+}
+
+function ensureAutoTable(doc, ctor) {
+  if (doc && typeof doc.autoTable === 'function') return;
+
+  const api = ctor?.API || globalThis?.jspdf?.jsPDF?.API || globalThis?.jsPDF?.API;
+  if (api && typeof api.autoTable === 'function') {
+    doc.autoTable = function autoTableProxy() {
+      return api.autoTable.apply(this, arguments);
+    };
+    return;
+  }
+  throw new Error('jsPDF autoTable plugin not available');
+}
+
+function normalizeScore(value) {
+  if (value === null || value === undefined) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function normalizeMatch(matchValue, aScore, bScore) {
+  if (matchValue === undefined) {
+    if (aScore == null || bScore == null) return 'N/A';
+    const pct = Math.max(0, Math.min(100, Math.round(100 - Math.abs(aScore - bScore) * 20)));
+    return pct;
+  }
+  if (matchValue === null) return 'N/A';
+  if (typeof matchValue === 'string' && matchValue.trim().toUpperCase() === 'N/A') return 'N/A';
+  const num = Number(matchValue);
+  return Number.isFinite(num) ? Math.max(0, Math.min(100, Math.round(num))) : 'N/A';
+}
+
+function normalizeResponses(data) {
+  const fromResponses = Array.isArray(data?.responses) ? data.responses : null;
+  const fromCategories = Array.isArray(data?.categories)
+    ? data.categories.flatMap((category) => category.items || [])
+    : null;
+  const rows = fromResponses || fromCategories || (Array.isArray(data) ? data : []);
+
+  return rows.map((row) => {
+    const aScore = normalizeScore(
+      row?.a ?? row?.partnerA ?? row?.scoreA ?? row?.partnerScoreA,
     );
-    columnY[currentColumn] = endY + pdfStyles.barSpacing;
+    const bScore = normalizeScore(
+      row?.b ?? row?.partnerB ?? row?.scoreB ?? row?.partnerScoreB,
+    );
+    const match = normalizeMatch(
+      row?.match ?? row?.matchPercent ?? row?.matchPct,
+      aScore,
+      bScore,
+    );
+    return {
+      kink: shortenLabel(row?.kink ?? row?.label ?? row?.name ?? row?.item ?? ''),
+      a: aScore ?? '—',
+      b: bScore ?? '—',
+      matchBar: match,
+      flag: flagStatus(aScore, bScore, match),
+    };
+  });
+}
+
+export async function generateCompatibilityPDF(data = {}, options = {}) {
+  const jsPDFCtor = await ensureJsPDF();
+  const doc = new jsPDFCtor();
+  ensureAutoTable(doc, jsPDFCtor);
+
+  const pageWidth = doc.internal?.pageSize?.getWidth?.() ?? 210;
+  const sectionTitle = data.sectionTitle || data.title || options.sectionTitle || 'Compatibility Survey';
+
+  doc.setFontSize(18);
+  doc.setTextColor(0, 255, 255);
+  doc.text('TalkKink Compatibility Survey', pageWidth / 2, 20, { align: 'center' });
+
+  doc.setFontSize(10);
+  doc.setTextColor(200);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 27, { align: 'center' });
+
+  doc.setDrawColor(0, 255, 255);
+  doc.line(20, 32, pageWidth - 20, 32);
+
+  doc.setFontSize(16);
+  doc.setTextColor(0, 255, 255);
+  doc.text(sectionTitle, pageWidth / 2, 42, { align: 'center' });
+
+  const columns = [
+    { header: 'Kinks', dataKey: 'kink' },
+    { header: 'Partner A', dataKey: 'a', styles: { halign: 'center' } },
+    { header: '', dataKey: 'flag', styles: { halign: 'center' } },
+    { header: 'Partner B', dataKey: 'b', styles: { halign: 'center' } },
+    { header: 'Match', dataKey: 'matchBar' },
+  ];
+
+  const rows = normalizeResponses(data);
+
+  doc.autoTable({
+    startY: 48,
+    columns,
+    head: [columns.map((col) => col.header)],
+    body: rows.map((row) => columns.map((col) => row[col.dataKey])),
+    didDrawCell: (ctx) => {
+      const column = columns[ctx.column.index];
+      if (column?.dataKey === 'matchBar') {
+        drawCenteredBar(doc, ctx.cell, ctx.cell.raw ?? rows[ctx.row.index]?.matchBar);
+      }
+    },
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+      valign: 'middle',
+      textColor: 255,
+      fontStyle: 'normal',
+    },
+    headStyles: {
+      fillColor: [0, 255, 255],
+      textColor: 0,
+      halign: 'center',
+    },
+    alternateRowStyles: { fillColor: [30, 30, 30] },
+    bodyStyles: { halign: 'left' },
+    columnStyles: {
+      0: { cellWidth: 70 },
+      1: { cellWidth: 15, halign: 'center' },
+      2: { cellWidth: 10, halign: 'center' },
+      3: { cellWidth: 15, halign: 'center' },
+      4: { cellWidth: 70 },
+    },
+    theme: 'grid',
   });
 
-  let y = Math.max(columnY[0], columnY[1]);
-
-  // Render compatibility history if available
-  const recentHistory = history.slice(-5).reverse();
-  if (recentHistory.length) {
-    if (y + lineHeight > pageHeight - margin) {
-      doc.addPage();
-      drawBackground();
-      y = margin;
-    }
-
-    doc.setFont(pdfStyles.headingFont, 'bold');
-    doc.setFontSize(14);
-    doc.text('Compatibility History', pageWidth / 2, y, { align: 'center' });
-    y += pdfStyles.barSpacing * 2;
-
-    doc.setFont(pdfStyles.bodyFont, 'normal');
-    doc.setFontSize(10);
-
-    recentHistory.forEach(entry => {
-      const date = new Date(entry.date || entry.timestamp || entry.time || Date.now());
-      const dateStr = date.toLocaleString();
-      const score = typeof entry.score === 'number' ? `${entry.score}%` : 'N/A';
-      const icon = getHistoryIcon(entry.score);
-
-      doc.text(icon, margin, y);
-      doc.text(dateStr, margin + 15, y);
-      doc.text(score, pageWidth - margin, y, { align: 'right' });
-
-      y += lineHeight;
-      if (y + lineHeight > pageHeight - margin) {
-        doc.addPage();
-        drawBackground();
-        y = margin;
-      }
-    });
+  if (options.save !== false && typeof doc.save === 'function') {
+    const filename = options.filename || 'compatibility.pdf';
+    doc.save(filename);
   }
 
-  doc.save('kink-compatibility.pdf');
   return doc;
 }
 
