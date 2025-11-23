@@ -226,6 +226,13 @@
 
   const cleanText = (value) => safe(value).replace(/\s+/g, ' ').trim();
 
+  const displayValue = (value, fallback = 'N/A') => {
+    if (value === undefined || value === null) return fallback;
+    const text = cleanText(value);
+    if (!text || text === '&&&') return fallback;
+    return text;
+  };
+
   const clampPercent = (value) => Math.max(0, Math.min(100, value));
 
   const coerceNum = (v) => {
@@ -388,7 +395,7 @@
       flagRaw = r.flagEmoji ?? r.flag ?? r.flagStatus ?? r.flagLabel ?? null;
     }
 
-    if (aRaw == null && bRaw == null) return null;
+    if (aRaw == null && bRaw == null && !item) return null;
 
     const a = coerceNum(aRaw);
     const b = coerceNum(bRaw);
@@ -445,12 +452,12 @@
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(46);
     doc.setTextColor(...TK_ACCENT);
-    doc.text(meta.title, meta.pageW / 2, meta.titleY, opts);
+    doc.text(meta.title, meta.pageW / 2, meta.titleY, { ...opts, charSpace: 0 });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(14);
     doc.setTextColor(191, 255, 255);
-    doc.text(meta.subtitle, meta.pageW / 2, meta.subtitleY, opts);
+    doc.text(meta.subtitle, meta.pageW / 2, meta.subtitleY, { ...opts, charSpace: 0 });
 
     doc.setDrawColor(...TK_ACCENT);
     doc.setLineWidth(2.4);
@@ -458,7 +465,7 @@
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(32);
-    doc.text(meta.sectionTitle, meta.pageW / 2, meta.sectionY, opts);
+    doc.text(meta.sectionTitle, meta.pageW / 2, meta.sectionY, { ...opts, charSpace: 0 });
   }
 
   function renderSection(doc, rows, headerMeta) {
@@ -472,11 +479,11 @@
 
     const pdfColumns = CFG.columns;
     const tableRows = rows.map((r) => ({
-      item: cleanText(r.item),
-      a: cleanText(r.a),
-      match: cleanText(r.match),
+      item: displayValue(r.item),
+      a: displayValue(r.a),
+      match: displayValue(r.match),
       flag: '',
-      b: cleanText(r.b),
+      b: displayValue(r.b),
       flagColor: r.flagColor,
       matchPercent: r.pct,
       partnerA: r.aNum,
@@ -511,13 +518,13 @@
       theme: 'grid',
       styles: {
         font: 'helvetica',
-        fontSize: 12,
+        fontSize: 10,
         textColor: [232, 247, 251],
         fillColor: [14, 20, 26],
-        cellPadding: { top: 9, bottom: 9, left: 10, right: 10 },
+        cellPadding: 2,
         lineColor: [30, 50, 56],
         lineWidth: 0.85,
-        halign: 'left',
+        halign: 'center',
         overflow: 'linebreak',
       },
       headStyles: {
@@ -597,6 +604,8 @@
       unit: 'pt',
       format: 'letter',
     });
+
+    doc.setFontSize(10);
 
     const normalized = sanitizeCompatRows(rows);
     const title = getText('.hx.h1', 'TalkKink Compatibility Survey');
