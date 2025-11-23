@@ -293,12 +293,23 @@
       .trim();
   }
 
+  function tk_cleanMatchDisplay(text) {
+    const normalized = safe(text).replace(/\s+/g, ' ').trim();
+    if (!normalized) return '';
+    const collapsed = normalized
+      .replace(/&{2,}/g, '&')
+      .replace(/%{2,}/g, '%')
+      .replace(/&+$/g, '')
+      .trim();
+    return collapsed;
+  }
+
   function tk_renderMatchText(a, b, matchPercent, matchRaw) {
     if (Number.isFinite(matchPercent)) return `${clampPercent(matchPercent)}%`;
     const computed = tk_matchPercent(a, b);
     if (Number.isFinite(computed)) return `${computed}%`;
-    const str = safe(matchRaw).replace(/\s+/g, ' ').trim();
-    return str || 'N/A';
+    const cleaned = tk_cleanMatchDisplay(matchRaw);
+    return cleaned || 'N/A';
   }
 
   function buildRow(item) {
