@@ -1,1329 +1,256 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Kill-switch for legacy Partner-B bootstrap that caused "freeze after first upload" -->
-  <script>
-    // Hard disable any code path that auto-fills Partner B from internal JSON.
-    // This must be loaded before every other script.
-    window.TK_DISABLE_BOOTSTRAP_B = true;
-    console.info('[compat] kill-switch enabled');
-    // one-time guard so labels/overrides merge only once per load
-    window._tkLabelsMerged = false;
-  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>See Our Compatibility</title>
+  <title>TalkKink Compatibility Survey</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
   <style>
-    /* Kill any category dock/panel overlays without layout shift */
-    #tkDockCard,
-    #categorySurveyPanel,
-    aside.category-panel,
-    .category-panel,
-    [data-testid="select-categories-panel"],
-    #tkOverlay,
-    .tk-overlay {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      pointer-events: none !important;
-    }
-
-    /* Ensure body isn't pushed for a removed dock */
-    html.tk-dock body {
-      margin-left: 0 !important;
-    }
-  </style>
-  <script>
-    (function killCategoryPanel() {
-      const selectors = [
-        '#tkDockCard',
-        '#categorySurveyPanel',
-        'aside.category-panel',
-        '.category-panel',
-        '[data-testid="select-categories-panel"]',
-        '#tkOverlay',
-        '.tk-overlay'
-      ];
-
-      window.__TK_DISABLE_PANEL__ = true;
-      window.__TK_DISABLE_PORTAL__ = true;
-
-      const purge = () => {
-        document.documentElement.classList.remove('tk-dock');
-        if (document.body) {
-          document.body.style.marginLeft = '';
-        }
-        selectors.forEach((selector) => {
-          document.querySelectorAll(selector).forEach((node) => node.remove());
-        });
-      };
-
-      purge();
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', purge, { once: true });
-      }
-
-      const observer = new MutationObserver(purge);
-      observer.observe(document.documentElement, { childList: true, subtree: true });
-      setTimeout(() => observer.disconnect(), 4000);
-    })();
-  </script>
-
-  <script>
-    (function () {
-      /* 0) stop stale data from re-injecting a broken table */
-      try {
-        localStorage.removeItem('talkkink:compatRows');
-      } catch (e) {}
-      window.talkkinkCompatRows = [];
-      if (window.TKCompatPDF && typeof window.TKCompatPDF.notifyRowsUpdated === 'function') {
-        window.TKCompatPDF.notifyRowsUpdated([]);
-      }
-
-      /* 1) find a single compatibility table; delete extras */
-      const all = Array.from(document.querySelectorAll('table.compat-table, table#compatibility, table[data-compat]'));
-      const tbl = all[0];
-      all.slice(1).forEach(n => n.remove());
-      if (!tbl) return;
-
-      /* 2) enforce ONE thead with 5 headers */
-      const theads = tbl.querySelectorAll('thead');
-      theads.forEach((t, i) => { if (i) t.remove(); });
-      let thead = tbl.querySelector('thead');
-      if (!thead) {
-        thead = document.createElement('thead');
-        tbl.prepend(thead);
-      }
-      const want = ['Item','Partner A','Match','Partner B','Partner C'];
-      // build/normalize the header row
-      thead.innerHTML = `<tr>${want.map(() => '<th></th>').join('')}</tr>`;
-      thead.querySelectorAll('th').forEach((th, i) => th.textContent = want[i]);
-
-      /* 3) trim each body row to exactly 5 tds in correct order */
-      const rows = tbl.tBodies.length ? Array.from(tbl.tBodies[0].rows) : [];
-      rows.forEach(tr => {
-        const cells = Array.from(tr.children).filter(el => el.tagName === 'TD');
-        // if there are more than 5 tds, keep the first 5 only
-        if (cells.length > 5) cells.slice(5).forEach(td => td.remove());
-        // if fewer, pad with empty cells
-        while (tr.querySelectorAll('td').length < 5) tr.appendChild(document.createElement('td'));
-      });
-
-      /* 4) ensure Partner columns are centered and migrate legacy Flag data */
-      const FLAG_GLYPHS = new Set(['🟩', '🟨', '🟥']);
-      rows.forEach(tr => {
-        const tds = tr.querySelectorAll('td');
-        const bCell = tds[3];
-        const cCell = tds[4];
-        // center numeric cols
-        if (tds[1]) tds[1].classList.add('tk-center');
-        if (tds[2]) tds[2].classList.add('tk-center');
-        if (bCell) bCell.classList.add('tk-center');
-        if (cCell) cCell.classList.add('tk-center');
-
-        if (!bCell || !cCell) return;
-
-        const flagText = (bCell.textContent || '').trim();
-        const partnerBValue = (cCell.textContent || '').trim();
-
-        // If this row is still using the legacy “Flag + Partner B” layout,
-        // move the Partner B value into column 4 and clear column 5 so it
-        // can be repurposed for Partner C.
-        if (FLAG_GLYPHS.has(flagText) && partnerBValue) {
-          bCell.textContent = partnerBValue;
-          cCell.textContent = '—';
-        }
-      });
-
-      /* 5) install a clean colgroup so headers don’t wrap/smash */
-      let cg = tbl.querySelector('colgroup');
-      if (cg) cg.remove();
-      cg = document.createElement('colgroup');
-      // widths: item 52%, A 14%, match 16%, B 9%, C 9%
-      [52,14,16,9,9].forEach(w => {
-        const c = document.createElement('col');
-        c.style.width = w + '%';
-        cg.appendChild(c);
-      });
-      tbl.prepend(cg);
-
-      /* 6) styling: remove white strips, outline headers, center where needed */
-      const ACCENT = '#30E7E7';
-      const css = `
-        body{ background:#0b0b0c; }
-        table{ width:100%; table-layout:fixed; border-collapse:collapse; background:transparent; }
-        thead th{
-          color:${ACCENT}; font-weight:700; padding:12px 10px; text-align:left;
-          text-shadow:0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000;
-          border-bottom:2px solid rgba(255,255,255,.14);
-          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-          font-variant-numeric:tabular-nums;
-          font-feature-settings:'tnum';
-          background:transparent;
-        }
-        tbody td{
-          color:#e9eef0; padding:12px 10px; border-bottom:1px solid rgba(255,255,255,.06);
-          white-space:normal; overflow:hidden; text-overflow:ellipsis; background:transparent;
-          font-variant-numeric:tabular-nums;
-          font-feature-settings:'tnum';
-        }
-        tbody tr:nth-child(even) td{ background:rgba(255,255,255,.03); }
-        .tk-center{ text-align:center; }
-      `;
-      let style = document.getElementById('tk-compat-fix-css');
-      if (!style) {
-        style = document.createElement('style');
-        style.id = 'tk-compat-fix-css';
-        style.textContent = css;
-        document.head.appendChild(style);
-      }
-    })();
-  </script>
-  <!-- COMPAT PAGE: recentre layout + neutralize any dock margin -->
-  <style id="compat-centering">
     :root {
-      --tk-dock-width: 0px !important;
+      --bg: #0b1c20;
+      --panel: #10282d;
+      --text: #e8f5f8;
+      --muted: #9bd4da;
+      --accent: #24e0de;
+      --accent-strong: #32f7e9;
+      --header-shadow: 0 10px 40px rgba(0, 0, 0, 0.28);
+      --radius: 16px;
     }
 
-    html,
-    body {
-      margin: 0;
-    }
-
-    .compat-page,
-    .compat-wrapper,
-    #compatRoot,
-    main,
-    .page,
-    .container {
-      max-width: 960px;
-      margin: 0 auto !important;
-      padding: 40px 16px;
-    }
-
-    .compat-buttons,
-    .compat-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      align-items: center;
-    }
-
-    .compat-buttons .themed-button,
-    .compat-actions .themed-button,
-    .themed-button.compat {
-      width: min(680px, 90vw);
-    }
-  </style>
-  <style id="compat-print-full-bleed">
-    @page {
-      size: auto;
-      margin: 0;
-    }
-
-    @media print {
-      html,
-      body {
-        margin: 0 !important;
-        background: #000;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-
-      body {
-        min-height: 100vh;
-      }
-
-      .compat-page,
-      .compat-wrapper,
-      #compatRoot,
-      main,
-      .page,
-      .container {
-        max-width: none !important;
-        width: 100vw !important;
-        padding: 24px 32px !important;
-        box-sizing: border-box;
-        margin: 0 auto !important;
-      }
-
-      table.compat {
-        width: 100%;
-      }
-    }
-  </style>
-
-  <script>
-    (function () {
-      try {
-        if (document.body) {
-          document.body.style.marginLeft = '0px';
-        }
-        document.documentElement.style.setProperty('--tk-dock-width', '0px');
-
-        const host = document.querySelector(
-          '#compatRoot, .compat-page, .compat-wrapper, main, .page, .container'
-        );
-
-        if (host) {
-          Object.assign(host.style, {
-            maxWidth: '960px',
-            margin: '0 auto',
-            padding: '40px 16px'
-          });
-        }
-
-        document.querySelectorAll('.themed-button').forEach((btn) => {
-          Object.assign(btn.style, {
-            width: 'min(680px, 90vw)',
-            margin: '0 auto',
-            display: 'block'
-          });
-        });
-      } catch (err) {
-        console.warn('[compat] unable to apply centering overrides', err);
-      }
-    })();
-  </script>
-
-  <script>
-    window.TK_COMPAT_UPLOAD_CFG = {
-      btnSelf: '#yourBtn, #uploadYourSurvey',
-      btnPartner: '#partnerBtn, #uploadPartnerSurvey',
-      btnPdf: '#downloadBtn, #downloadPdfBtn',
-      selfInput: '#yourFile',
-      partnerInput: '#partnerFile',
-      guardPdf: false,
-      autoInit: true
-    };
-  </script>
-  <script src="assets/js/vendor/jspdf.umd.min.js"></script>
-  <script>
-    // Ensure the UMD build registers a global constructor before the AutoTable plugin loads
-    // so it can safely extend jsPDF. Without this, the plugin may attach to a placeholder and
-    // leave autoTable unavailable.
-    if (window.jspdf?.jsPDF && !window.jsPDF) {
-      window.jsPDF = window.jspdf.jsPDF;
-    }
-  </script>
-  <script src="assets/js/vendor/jspdf.plugin.autotable.min.js"></script>
-  <script src="assets/js/compatPdf.js"></script>
-  <script src="js/tk-compat-upload-glue.js"></script>
-  <script src="js/tk-compat-row-cache.js"></script>
-  <style id="tk-compat-center">
-    /* Remove any panel/dock if an older script injected it */
-    #tkDockCard,
-    #categorySurveyPanel,
-    .category-panel,
-    .tk-overlay {
-      display: none !important;
-    }
-
-    html,
-    body {
-      margin: 0;
-    }
-
-    body[style*="margin-left"] {
-      margin-left: 0 !important;
-    }
-
-    /* Center the content column */
-    .compat-wrap,
-    .compat-container,
-    .container,
-    main,
-    #app {
+    * {
       box-sizing: border-box;
-      max-width: 960px;
-      width: min(960px, 92vw);
-      margin-inline: auto;
-      padding-inline: 16px;
     }
 
-    .compat-wrap > *,
-    .compat-container > *,
-    .container > *,
-    main > * {
-      max-width: 100%;
-    }
-
-    /* Keep the hero title centered on dedicated compatibility pages */
-    body[data-page="compat"] .tk-title {
-      text-align: center;
-      margin-inline: auto;
-    }
-  </style>
-  <script>
-    (function () {
-      const clearDock = () => {
-        // Nuke any leftover dock/overlay/panel on this page
-        for (const sel of ['#tkDockCard', '.tk-overlay', '#categorySurveyPanel', '.category-panel']) {
-          const n = document.querySelector(sel);
-          if (n) n.remove();
-        }
-
-        const body = document.body;
-        if (body) {
-          body.style.marginLeft = '';
-        }
-
-        const dock = document.querySelector('#compat-dock');
-        if (dock) {
-          dock.style.removeProperty('margin-bottom');
-        }
-      };
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', clearDock, { once: true });
-      } else {
-        clearDock();
-      }
-    })();
-  </script>
-  <!-- Import theme and global layout styles -->
-  <link rel="stylesheet" href="/css/theme.css" />
-  <link rel="stylesheet" href="/css/global.css" />
-  <link rel="stylesheet" href="/css/compat-table.css" />
-  <link rel="stylesheet" href="/css/font-failopen.css">
-  <link rel="stylesheet" href="/css/compatibility.css" />
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
-
-  <style>
-    /* --- Percent bar (Match %) --- */
-    .pct {
-      position: relative;
-      width: 100%;
-      height: 22px;
-      border: 1px solid #3ddbf3;
-      border-radius: 6px;
-      background: rgba(61,219,243,0.08);
-      overflow: hidden;
-    }
-    .pct-fill {
-      position: absolute;
-      inset: 0;
-      width: 0%;
-      background: linear-gradient(90deg, #18a0fb, #3df3c3);
-      transition: width .35s ease;
-    }
-    .pct-text {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      font-variant-numeric: tabular-nums;
-      font-weight: 600;
-    }
-    /* Friendly label text in first column (wrap nicely on small screens) */
-    .tk-cat {
-      white-space: normal;
-      line-height: 1.2;
-    }
-    .tk-code {
-      opacity: .5;
-      font-size: .85em;
-      margin-left: .4rem;
-    }
-  </style>
-  <style>
-    td.pct-cell .pct { position: relative; height: 1.1em; line-height: 1.1em; }
-    td.pct-cell .pct .bar { position:absolute; left:0; top:0; bottom:0; width:0%;
-                            background:rgba(0,255,255,0.25); border-radius:2px; }
-    td.pct-cell .pct .txt { position:relative; display:block; text-align:center; }
-    td.pct-cell { min-width:5rem; }
-  </style>
-  <style>
-  #pdf-container {
-    width: 100%;
-    max-width: 100%;
-  }
-  table {
-    width: 100%;
-    table-layout: fixed;
-  }
-  th, td {
-    text-align: center;
-    vertical-align: middle;
-    padding: 6px;
-  }
-  th:first-child, td:first-child {
-    text-align: left;
-    padding-left: 10px;
-  }
-  </style>
-  <style>
-    .upload-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.5rem;
-      margin-top: 3rem;
-    }
-
-    .upload-button {
-      position: relative;
-      width: 100%;
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 20%, rgba(50, 247, 233, 0.05), transparent 35%),
+        radial-gradient(circle at 80% 10%, rgba(50, 247, 233, 0.08), transparent 40%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
       display: flex;
       justify-content: center;
+      padding: 32px 16px 64px;
     }
 
-    .upload-button input[type="file"] {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
+    .shell {
+      width: min(1100px, 96vw);
+      display: grid;
+      gap: 22px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #122d33, #0c2025 65%);
+      border: 1px solid rgba(50, 247, 233, 0.14);
+      box-shadow: var(--header-shadow);
+      padding: 28px 32px;
+      border-radius: var(--radius);
+      position: relative;
       overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
     }
 
-    .upload-button .upload-trigger {
-      cursor: pointer;
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 30%, rgba(50, 247, 233, 0.1), transparent 35%),
+        radial-gradient(circle at 80% 0%, rgba(50, 247, 233, 0.08), transparent 40%);
+      pointer-events: none;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(26px, 3vw, 34px);
+      letter-spacing: 0.01em;
+    }
+
+    .hero .timestamp {
+      margin-top: 6px;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: 0.02em;
+    }
+
+    .hero .section-label {
+      margin-top: 22px;
+      font-size: clamp(20px, 2.3vw, 26px);
+      font-weight: 700;
+      color: var(--accent-strong);
+      letter-spacing: 0.02em;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      margin-top: 22px;
+    }
+
+    .cta {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
+      gap: 10px;
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: 1px solid rgba(50, 247, 233, 0.35);
+      background: linear-gradient(135deg, rgba(50, 247, 233, 0.18), rgba(50, 247, 233, 0.08));
+      color: var(--text);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
     }
 
-    .upload-button .upload-trigger:focus-visible {
-      outline: 2px solid rgba(61, 219, 243, 0.9);
-      outline-offset: 2px;
+    .cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
     }
 
-    .wide-button {
-      min-width: 260px;
-      max-width: 300px;
+    .cta svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, #0f262c 0%, #0d2026 100%);
+      border: 1px solid rgba(50, 247, 233, 0.16);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table {
       width: 100%;
-    }
-    .export-tip {
-      font-size: 0.9rem;
-      margin: 0;
-    }
-  </style>
-  <style>
-    /* Keep rows from splitting in both web and print */
-    .compat-section tr { break-inside: avoid; page-break-inside: avoid; }
-
-    /* Make sure tables are fixed-width to avoid right-side cutoff */
-    .compat-section table {
-      width: 100% !important;
-      table-layout: fixed !important;
-      border-collapse: collapse !important;
+      border-collapse: collapse;
+      min-width: 780px;
+      color: var(--text);
     }
 
-    /* Optional: make header clean (no decorative lines/boxes) */
-    .section-title, .category-header, .compat-category {
-      border: none !important;
-      box-shadow: none !important;
-      background: transparent !important;
+    thead th {
+      text-align: left;
+      padding: 14px 18px;
+      font-size: 14px;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+      border-bottom: 1px solid rgba(50, 247, 233, 0.18);
+      position: sticky;
+      top: 0;
+      background: rgba(12, 32, 37, 0.95);
+      z-index: 1;
+    }
+
+    thead th:nth-child(n + 2) {
+      text-align: center;
+    }
+
+    tbody tr {
+      background: rgba(255, 255, 255, 0.01);
+    }
+
+    tbody tr:nth-child(even) {
+      background: rgba(50, 247, 233, 0.02);
+    }
+
+    td {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 15px;
+      vertical-align: middle;
+    }
+
+    td:nth-child(n + 2) {
+      text-align: center;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .kink {
+      color: #d1f6f7;
+      font-weight: 600;
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 18px 12px 48px;
+      }
+
+      .hero,
+      .panel {
+        border-radius: 12px;
+      }
     }
   </style>
-  <style>
-    /* Force LIGHT pdf colors by default; override via body[style] if you want dark */
-    :root { --pdf-bg:#fff; --pdf-text:#000; }
-    .pdf-export, #pdfWrapper, .pdf-container {
-      background: var(--pdf-bg) !important;
-      color: var(--pdf-text) !important;
-    }
-  </style>
-  <style>
-    /* optional polish to match your theme */
-    .tk-compat th, .tk-compat td{
-      border-bottom:1px solid #00e6ff33;
-      padding:.55rem .8rem;
-      vertical-align:middle;
-    }
-    .tk-compat td.ta-c{ text-align:center; }
-  </style>
-  <style>
-  /* Small, unobtrusive subtitle under the category code */
-  .tk-catwrap { display:flex; flex-direction:column; gap:2px; }
-  .tk-catwrap .tk-code { font-weight:600; letter-spacing:0.02em; }
-  .tk-catwrap .tk-sub  {
-    font-weight:500; opacity:.78;
-    font-size: clamp(11px,.9vw,13px);
-    line-height:1.2;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    max-width: min(48vw, 780px);  /* fits your wide first column */
-  }
-
-  /* Match % meter (tuned for your dark theme) */
-  .tk-meter {
-    position: relative;
-    height: 10px; min-width: 110px;
-    background: rgba(0, 230, 255, .12);
-    border-radius: 999px;
-    outline: 1px solid rgba(0,230,255,.20);
-    overflow: hidden;
-  }
-  .tk-meter > .tk-fill {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg,
-      rgba(0,230,255,.88), rgba(120,255,250,.95));
-    box-shadow: 0 0 10px rgba(0,230,255,.35) inset;
-    border-radius: inherit;
-    transition: width .35s ease;
-  }
-  .tk-meter + .tk-pct {
-    display:inline-block; min-width: 42px;
-    font-weight:800; letter-spacing:.02em;
-    margin-left:.5rem; opacity:.9;
-  }
-
-  /* Keep row height stable on narrow screens */
-  @media (max-width: 720px){
-    .tk-catwrap .tk-sub { max-width: 70vw; }
-    .tk-meter { min-width: 80px; }
-  }
-  </style>
-  <style>
-  /* ====== Match % chip (compact, no layout shift) ====== */
-  .tk-match-chip{
-    display:inline-flex; flex-direction:column; align-items:center; gap:6px;
-    min-width:70px; line-height:1; vertical-align:middle;
-  }
-  .tk-match-num{ font-weight:800; letter-spacing:.02em; }
-  .tk-match-bar{
-    position:relative; width:90px; height:7px; border-radius:999px;
-    outline:1px solid rgba(0,230,255,.35);
-    background:rgba(0,230,255,.10); overflow:hidden;
-  }
-  .tk-match-fill{
-    display:block; height:100%; width:var(--w,0%);
-    background:linear-gradient(90deg,#00e6ff,#3bffc4);
-    border-radius:inherit; transition:width .25s ease;
-  }
-  /* Dim the bar if the value is “missing” on that row */
-  .tk-match-chip[data-missing="1"] .tk-match-bar{ opacity:.38; }
-
-  /* ====== Category main + tiny subline (summary) ====== */
-  .tk-cat-wrap{ display:flex; flex-direction:column; gap:3px; }
-  .tk-cat-main{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .tk-cat-sub{
-    font-size:.82em; color:#9beff7; opacity:.78;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    max-width:48ch;  /* keep it subtle; doesn’t stretch your layout */
-  }
-  /* On narrow screens you can hide the subline if you want */
-  @media (max-width: 680px){
-    .tk-cat-sub{ display:none; }
-  }
-  </style>
-  <style>
-  /* Compatibility table progressive enhancement (fallback match bar + labels) */
-  td.ksv-match { white-space: nowrap; }
-
-  .ksv-matchwrap{
-    display:flex; flex-direction:column; align-items:center; gap:.4rem;
-    min-width:8rem;
-  }
-  .ksv-pct{
-    font: 800 0.95rem/1.1 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    letter-spacing:.02em; color:#d9ffff;
-  }
-  .ksv-bar{
-    width:100%; height:6px; border-radius:999px;
-    background: rgba(0,230,255,.12);
-    outline: 1px solid rgba(0,230,255,.35);
-    overflow:hidden;
-  }
-  .ksv-bar > i{
-    display:block; height:100%; width:var(--w,0%);
-    background: linear-gradient(90deg,#00e6ff 0%, #5fffd6 100%);
-    box-shadow: 0 0 6px #00e6ff66 inset;
-  }
-
-  .tk-upload-messages {
-    display: grid;
-    gap: 0.35rem;
-    margin: 0.75rem auto 0;
-    max-width: 32rem;
-  }
-
-  .tk-upload-status {
-    font: 500 0.92rem/1.35 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    color: #c9f4ff;
-    text-align: center;
-    padding: 0.45rem 0.75rem;
-    background: rgba(0, 230, 255, 0.08);
-    border: 1px solid rgba(0, 230, 255, 0.18);
-    border-radius: 0.75rem;
-    margin: 0;
-  }
-
-  .tk-upload-status[data-state="info"] {
-    color: #c9f4ff;
-  }
-
-  .tk-upload-status[data-state="success"] {
-    color: #9fffd6;
-    background: rgba(53, 255, 197, 0.08);
-    border-color: rgba(105, 255, 213, 0.25);
-  }
-
-  .tk-upload-status[data-state="error"] {
-    color: #ffc1ce;
-    background: rgba(255, 70, 102, 0.07);
-    border-color: rgba(255, 102, 133, 0.2);
-  }
-
-  .tk-consent-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(4, 16, 28, 0.82);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 1.5rem;
-  }
-
-  .tk-consent-card {
-    background: #04111c;
-    border: 1px solid rgba(0, 230, 255, 0.25);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-    border-radius: 1rem;
-    padding: 1.65rem;
-    max-width: min(34rem, 100%);
-    color: #f2fbff;
-  }
-
-  .tk-consent-card h2 {
-    font: 700 1.2rem/1.3 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    margin: 0 0 0.75rem;
-  }
-
-  .tk-consent-card p {
-    margin: 0 0 1.25rem;
-    font: 500 0.98rem/1.6 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    color: #c8e9ff;
-  }
-
-  .tk-consent-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-  }
-
-  .tk-btn.tk-btn-secondary {
-    background: rgba(0, 230, 255, 0.08);
-  }
-
-  .tk-btn.tk-btn-secondary:hover {
-    background: rgba(0, 230, 255, 0.14);
-  }
-
-  .tk-consent-backdrop[hidden] {
-    display: none;
-  }
-
-  td.ksv-cat{
-    word-break: break-word;
-  }
-  .ksv-cat .ksv-cat-text{
-    display:inline;
-  }
-  </style>
-
-  <link rel="stylesheet" href="/assets/css/comparison.css" />
 </head>
-<body data-page="compat">
-  <main class="tk-landing">
-    <h1 class="tk-title">TalkKink Compatibility</h1>
-
-    <div class="tk-menu">
-      <div class="upload-container" role="group" aria-label="Upload surveys">
-        <div class="upload-button">
-          <input id="yourFile" type="file" accept=".json,application/json" aria-describedby="yourStatus" />
-          <button id="yourBtn" type="button" class="tk-btn upload-trigger wide-button">
-            Upload Your Survey
-          </button>
-        </div>
-        <div class="upload-button">
-          <input id="partnerFile" type="file" accept=".json,application/json" aria-describedby="partnerStatus" />
-          <button id="partnerBtn" type="button" class="tk-btn upload-trigger wide-button">
-            Upload Partner’s Survey
-          </button>
-        </div>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <h1>TalkKink Compatibility Survey</h1>
+      <div class="timestamp">Generated: 11/19/2025, 1:08:06 AM</div>
+      <div class="section-label">Behavioral Play</div>
+      <div class="controls">
+        <button class="cta" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 16.5 6.75 11.25l1.06-1.06L11.25 13.7V3h1.5v10.7l3.44-3.44 1.06 1.06z" />
+            <path d="M5 19h14v-4h1.5v4A1.5 1.5 0 0 1 19 20.5H5A1.5 1.5 0 0 1 3.5 19v-4H5z" />
+          </svg>
+          Download PDF
+        </button>
       </div>
-      <button id="downloadBtn" class="glow-cta compat-download-btn">Download PDF</button>
-    </div>
+    </header>
 
-    <div class="tk-upload-messages" aria-live="polite" aria-atomic="true">
-      <p id="yourStatus" class="tk-upload-status" role="status" hidden></p>
-      <p id="partnerStatus" class="tk-upload-status" role="status" hidden></p>
-    </div>
-
-        <a href="https://talkkink.org/KinkSurveyPage/index.html" class="tk-btn back">← Back</a>
-
-    <script>
-      (function () {
-        const STATUS_MAP = {
-          self: document.getElementById('yourStatus'),
-          partner: document.getElementById('partnerStatus')
-        };
-        const button = document.getElementById('downloadBtn');
-        const seen = { self: false, partner: false };
-
-        function setStatus(which, message, state) {
-          const node = STATUS_MAP[which];
-          if (!node) return;
-          if (!message) {
-            node.hidden = true;
-            node.textContent = '';
-            node.removeAttribute('data-state');
-            return;
-          }
-          node.hidden = false;
-          node.textContent = message;
-          node.dataset.state = state || 'info';
-        }
-
-        function markReady() {
-          if (!button) return;
-          const ready = seen.self && seen.partner;
-          button.toggleAttribute('data-ready', ready);
-        }
-
-        function successLabel(which, fileName) {
-          const base = which === 'self' ? 'Your survey' : "Partner’s survey";
-          return fileName ? `${base} loaded (${fileName}).` : `${base} loaded.`;
-        }
-
-        document.addEventListener('tk-compat-upload', (event) => {
-          const detail = event?.detail || {};
-          const who = detail.who;
-          if (who !== 'self' && who !== 'partner') return;
-          seen[who] = true;
-          setStatus(who, successLabel(who, detail.fileName), 'success');
-          markReady();
-        });
-
-        document.addEventListener('tk-compat-upload-error', (event) => {
-          const detail = event?.detail || {};
-          const who = detail.who;
-          if (who !== 'self' && who !== 'partner') return;
-          seen[who] = false;
-          setStatus(who, detail.reason || 'Could not read that file.', 'error');
-          markReady();
-        });
-      })();
-    </script>
-
-  </main>
-
-  <!-- TK: Page-centered header helper -->
-  <script>
-  (() => {
-    const FS = { title: 26, stamp: 9, section: 18 };
-    const Y = { title: 64, stamp: 82, rule: 92, section: 118, tableTop: 136 };
-    const CYAN = [0, 255, 255];
-    const RULE_W = 1;
-    const PAGE_RULE_MARGIN = { left: 72, right: 72 };
-    const TIMESTAMP = new Date().toLocaleString();
-
-    const NULL_FN = () => {};
-    ['paint', 'cat', 'drawHeader', 'centerHeader', 'drawHeaderCenteredToPage', 'tkHeaderOverTable', 'tkCenteredHeaderAndTable', 'tkPageCenteredHeaderAndTable']
-      .forEach((name) => {
-        if (typeof window[name] === 'function') window[name] = NULL_FN;
-      });
-
-    function pageWidth(doc) {
-      const size = doc.internal.pageSize;
-      return typeof size.getWidth === 'function' ? size.getWidth() : size.width;
-    }
-
-    function pageHeight(doc) {
-      const size = doc.internal.pageSize;
-      return typeof size.getHeight === 'function' ? size.getHeight() : size.height;
-    }
-
-    function pageCenter(doc) {
-      return pageWidth(doc) / 2;
-    }
-
-    function tableBox(doc, tableOpts = {}) {
-      const width = pageWidth(doc);
-      const margin = tableOpts.margin || {};
-      const ml = Number.isFinite(margin.left) ? margin.left : 72;
-      const mr = Number.isFinite(margin.right) ? margin.right : 72;
-
-      let tw = tableOpts.tableWidth;
-      if (!Number.isFinite(tw)) {
-        tw = Math.min(680, width - (ml + mr));
-      }
-
-      return { width, ml, mr, tw, cx: ml + tw / 2 };
-    }
-
-    function resolveHeaderCenters(doc, alignTarget, tableOpts = {}, tableData) {
-      const cx = pageCenter(doc);
-      const width = pageWidth(doc);
-      const ruleMarginL = Number.isFinite(PAGE_RULE_MARGIN.left) ? PAGE_RULE_MARGIN.left : 72;
-      const ruleMarginR = Number.isFinite(PAGE_RULE_MARGIN.right) ? PAGE_RULE_MARGIN.right : 72;
-      const base = {
-        cx,
-        ruleL: Math.max(0, ruleMarginL),
-        ruleR: Math.max(Math.max(0, ruleMarginL), width - ruleMarginR)
-      };
-
-      if (alignTarget === 'table') {
-        const table = tableData?.table;
-        const startX = Number.isFinite(table?.startX)
-          ? table.startX
-          : Number.isFinite(table?.x)
-            ? table.x
-            : null;
-        const tw = Number.isFinite(table?.width)
-          ? table.width
-          : Number.isFinite(table?.finalWidth)
-            ? table.finalWidth
-            : null;
-        if (startX != null && tw != null) {
-          base.tableCx = startX + tw / 2;
-        } else {
-          const box = tableBox(doc, tableOpts);
-          base.tableCx = box.cx;
-        }
-      }
-
-      return base;
-    }
-
-    function drawPageHeader(doc, centers, sectionTitle, sectionBaseline, options = {}) {
-      const {
-        drawBackground = true,
-        drawText = true,
-        drawRule = true,
-        drawSection = true
-      } = options;
-
-      const PW = pageWidth(doc);
-      const PH = pageHeight(doc);
-      if (drawBackground) {
-        doc.setFillColor(10, 10, 12);
-        doc.rect(0, 0, PW, PH, 'F');
-      }
-
-      if (drawText) {
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(FS.title);
-        doc.text('Talk Kink Compatibility Survey', centers.cx, Y.title, { align: 'center' });
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(FS.stamp);
-        doc.setTextColor(170, 210, 255);
-        doc.text('Generated: ' + TIMESTAMP, centers.cx, Y.stamp, { align: 'center' });
-      }
-
-      if (drawRule) {
-        doc.setDrawColor(...CYAN);
-        if (typeof doc.setLineWidth === 'function') doc.setLineWidth(RULE_W);
-        doc.line(centers.ruleL, Y.rule, centers.ruleR, Y.rule);
-      }
-
-      if (drawSection) {
-        const sectionY = Number.isFinite(sectionBaseline) ? sectionBaseline : Y.section;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(FS.section);
-        doc.setTextColor(255, 255, 255);
-        const sectionLabel = sectionTitle != null ? String(sectionTitle) : 'Partner Upload Snapshot';
-        doc.text(sectionLabel, centers.cx, sectionY, { align: 'center' });
-      }
-    }
-
-    function isPlainObject(value) {
-      return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-    }
-
-    window.tkHeaderAndTable = function tkHeaderAndTable(doc, sectionOrOpts, maybeTableOpts) {
-      if (!doc || typeof doc.autoTable !== 'function') {
-        throw new Error('autoTable is required before calling tkHeaderAndTable');
-      }
-
-      const legacySignature = maybeTableOpts === undefined && isPlainObject(sectionOrOpts);
-
-      let sectionTitle = legacySignature ? sectionOrOpts.sectionTitle : sectionOrOpts;
-      let alignTarget = legacySignature ? sectionOrOpts.alignTarget : undefined;
-      let sectionBaseline = legacySignature ? sectionOrOpts.startY : undefined;
-      let tableOpts = legacySignature ? sectionOrOpts.table || {} : maybeTableOpts || {};
-
-      tableOpts = { ...tableOpts };
-
-      if (sectionTitle == null && legacySignature) sectionTitle = sectionOrOpts.section;
-      if (alignTarget == null && typeof tableOpts.alignTarget === 'string') {
-        alignTarget = tableOpts.alignTarget;
-      }
-      if (sectionBaseline == null && Number.isFinite(tableOpts.sectionY)) {
-        sectionBaseline = tableOpts.sectionY;
-      }
-
-      const rawAlignTarget = alignTarget || tableOpts.headerAlignTarget || 'page';
-      const providedWillDrawPage = tableOpts.willDrawPage;
-      const providedDidDrawPage = tableOpts.didDrawPage;
-      const explicitStartY = tableOpts.startY;
-
-      const headerBaseline = Number.isFinite(sectionBaseline)
-        ? sectionBaseline
-        : Number.isFinite(tableOpts.sectionY)
-          ? tableOpts.sectionY
-          : Y.section;
-
-      const resolvedStartY = Number.isFinite(explicitStartY) ? explicitStartY : Y.tableTop;
-
-      delete tableOpts.alignTarget;
-      delete tableOpts.headerAlignTarget;
-      delete tableOpts.sectionY;
-      delete tableOpts.willDrawPage;
-      delete tableOpts.didDrawPage;
-
-      const paintHeader = (data, options = {}) => {
-        const centers = resolveHeaderCenters(doc, rawAlignTarget, tableOpts, data);
-        drawPageHeader(doc, centers, sectionTitle, headerBaseline, options);
-      };
-
-      doc.autoTable({
-        ...tableOpts,
-        startY: resolvedStartY,
-        willDrawPage: (data) => {
-          paintHeader(rawAlignTarget === 'table' ? data : null, {
-            drawText: false,
-            drawRule: false,
-            drawSection: false
-          });
-          if (typeof providedWillDrawPage === 'function') providedWillDrawPage(data);
-        },
-        didDrawPage: (data) => {
-          paintHeader(data, { drawBackground: false });
-          if (typeof providedDidDrawPage === 'function') providedDidDrawPage(data);
-        }
-      });
-
-      return doc.lastAutoTable?.finalY ?? resolvedStartY;
-    };
-
-    window.tkPageCenteredHeaderAndTable = window.tkCenteredHeaderAndTable = window.tkHeaderAndTable;
-    window.drawHeaderCenteredToPage = function drawHeaderCenteredToPage(doc, sectionTitle = 'Behavioral Play') {
-      if (!doc) return;
-      const centers = resolveHeaderCenters(doc, 'page');
-      drawPageHeader(doc, centers, sectionTitle, undefined, { drawBackground: false });
-    };
-  })();
-  </script>
+    <section class="panel">
+      <div class="table-wrap">
+        <table aria-label="Compatibility table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Partner A</th>
+              <th>Match</th>
+              <th>Partner B</th>
+            </tr>
+          </thead>
+          <tbody id="compat-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 
   <script>
-    function ksvParseSurveyJsonText(jsonText, partner = 'A') {
-      const fail = (reason) => ({ ok: false, reason, cells: [], survey: null });
-      if (typeof jsonText !== 'string') return fail('No JSON payload provided');
+    const rows = [
+      ["Giving: Assigning corner time or time-outs", "5", "100%", "3"],
+      ["General: Attitude toward punishment vs serious correction", "5", "100%", "5"],
+      ["Receiving: Being placed in the corner or given a time-out", "5", "100%", "5"],
+      ["Receiving: Getting scolded or lectured for correction", "5", "100%", "3"],
+      ["Receiving: Having privileges revoked (phone, TV)", "5", "100%", "5"],
+      ["General: Lecture or scolding to modify behavior", "5", "100%", "3"],
+      ["Giving: Playful punishments that still enforce rules", "4", "100%", "5"],
+      ["General: Preferred style of discipline (strict vs lenient)", "5", "100%", "5"],
+    ];
 
-      let payload;
-      try {
-        payload = JSON.parse(jsonText);
-      } catch (err) {
-        return fail('Invalid JSON');
-      }
-
-      const answers = {};
-      const answersByKey = {};
-      let maxIndex = 0;
-
-      const clamp = (value) => {
-        const n = Number(value);
-        if (!Number.isFinite(n)) return 0;
-        if (n < 0) return 0;
-        if (n > 5) return 5;
-        return Math.round(n);
-      };
-
-      const toRating = (value) => {
-        if (value == null || value === '') return 0;
-        if (typeof value === 'number' && Number.isFinite(value)) return clamp(value);
-        if (typeof value === 'string') {
-          const trimmed = value.trim();
-          if (!trimmed) return 0;
-          const match = trimmed.match(/-?\d+(?:\.\d+)?/);
-          if (match) return clamp(Number(match[0]));
-        }
-        return 0;
-      };
-
-      const applyRating = (index, value) => {
-        const idx = Number(index);
-        if (!Number.isFinite(idx) || idx <= 0) return;
-        const normalized = toRating(value);
-        const key = String(idx);
-        answersByKey[key] = normalized;
-        if (idx > maxIndex) maxIndex = idx;
-      };
-
-      const absorbArray = (arr) => {
-        if (!Array.isArray(arr)) return;
-        arr.forEach((value, i) => applyRating(i + 1, value));
-      };
-
-      const absorbObject = (obj) => {
-        if (!obj || typeof obj !== 'object') return;
-        Object.keys(obj)
-          .sort((a, b) => Number(a) - Number(b))
-          .forEach((key) => applyRating(key, obj[key]));
-      };
-
-      if (Array.isArray(payload)) {
-        absorbArray(payload);
-      } else if (payload && typeof payload === 'object') {
-        absorbArray(payload.cells);
-        absorbArray(payload.answers);
-        absorbObject(payload.answersByKey);
-        absorbObject(payload.answersById);
-        absorbObject(payload.ratings);
-      } else {
-        return fail('Unsupported survey payload');
-      }
-
-      if (!maxIndex) {
-        return fail('No survey answers found');
-      }
-
-      for (let i = 1; i <= maxIndex; i += 1) {
-        const key = String(i);
-        const rating = Object.prototype.hasOwnProperty.call(answersByKey, key)
-          ? answersByKey[key]
-          : 0;
-        answers[key] = rating;
-        answersByKey[key] = rating;
-      }
-
-      const cells = Array.from({ length: maxIndex }, (_, i) => answersByKey[String(i + 1)] ?? 0);
-      return { ok:true, cells, survey: { answers, answersByKey } };
-}
-
-    window.ksvParseSurveyJsonText = ksvParseSurveyJsonText;
+    const tbody = document.getElementById("compat-body");
+    tbody.innerHTML = rows
+      .map(
+        ([item, a, match, b]) => `
+          <tr>
+            <td class="kink">${item}</td>
+            <td>${a}</td>
+            <td>${match}</td>
+            <td>${b}</td>
+          </tr>
+        `
+      )
+      .join("");
   </script>
-
-  <script>
-    /* ========================================================================
-     * TalkKink Compatibility — SINGLE PDF OVERRIDE (storage-based)
-     * - Uses TKCompatPDF.generateFromStorage() only
-     * - Depends on tk-compat-upload-glue.js saving rows to localStorage
-     * - Old DOM-based PDF generator is completely bypassed
-     * ===================================================================== */
-    (function () {
-      const BTN_SELECTOR = '#downloadPdfBtn, #downloadBtn, [data-download-pdf]';
-
-      function rowsExistInStorage() {
-        try {
-          if (typeof window.talkkinkEnsureCompatRows === 'function') {
-            window.talkkinkEnsureCompatRows();
-          }
-        } catch (err) {
-          console.warn('[compat-override] Failed to rebuild compat rows:', err);
-        }
-
-        if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
-          return true;
-        }
-
-        try {
-          const raw =
-            localStorage.getItem('talkkink:compatRows') ||
-            localStorage.getItem('talkkink:compatibilityRows') ||
-            '';
-          if (!raw) return false;
-          const parsed = JSON.parse(raw);
-          return Array.isArray(parsed) && parsed.length > 0;
-        } catch (err) {
-          console.warn('[compat-override] Failed to read compat rows from storage:', err);
-          return false;
-        }
-      }
-
-      async function handleDownload(e) {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        }
-
-        // Refresh the cached compatibility rows so the PDF generator sees
-        // the latest uploaded surveys instead of any stale placeholder data.
-        try {
-          if (typeof window.talkkinkEnsureCompatRows === 'function') {
-            window.talkkinkEnsureCompatRows({ force: true });
-          }
-          if (window.TKCompatPDF?.notifyRowsUpdated && Array.isArray(window.talkkinkCompatRows)) {
-            window.TKCompatPDF.notifyRowsUpdated(window.talkkinkCompatRows);
-          }
-        } catch (err) {
-          console.warn('[compat-override] Unable to refresh compat rows before PDF', err);
-        }
-
-        if (!rowsExistInStorage()) {
-          alert('Upload both partner surveys first, then wait for the green messages below the buttons before downloading.');
-          return;
-        }
-
-        if (window.TKCompatPDF?.generateFromStorage) {
-          try {
-            await window.TKCompatPDF.generateFromStorage();
-          } catch (err) {
-            console.error('[compat-override] PDF generation failed:', err);
-            alert('PDF could not be generated. See console for details.');
-          }
-        } else {
-          alert('PDF generator is not loaded. Make sure assets/js/compatPdf.js is included.');
-        }
-      }
-
-      function wire() {
-        const btn = document.querySelector(BTN_SELECTOR);
-        if (!btn) {
-          console.warn('[compat-override] No compatibility download button found.');
-          return;
-        }
-
-        btn.removeAttribute('onclick');
-
-        if (btn.classList) {
-          btn.classList.add('btn-glow');
-        }
-
-        document.addEventListener(
-          'click',
-          function (ev) {
-            const target = ev.target.closest(BTN_SELECTOR);
-            if (!target) return;
-            handleDownload(ev);
-          },
-          true
-        );
-
-        btn.addEventListener('click', handleDownload);
-
-        window.handleDownloadClick = handleDownload;
-        window.generateDarkPDF = function () {
-          return handleDownload(new Event('click'));
-        };
-
-        console.info(
-          '[compat-override] Download button now uses TKCompatPDF.generateFromStorage() only (no legacy Flag column PDF).'
-        );
-      }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', wire, { once: true });
-      } else {
-        wire();
-      }
-    })();
-  </script>
-
-  <script>
-    (() => {
-      const FONT_STACK = "'Fredoka One', 'Inter', 'Open Sans', system-ui, sans-serif";
-
-      function shortenLabel(label = '') {
-        const raw = String(label || '').trim();
-        if (!raw) return '';
-        if (raw.length <= 64) return raw;
-
-        const words = raw.split(/\s+/);
-        let out = '';
-        for (const word of words) {
-          const next = out ? `${out} ${word}` : word;
-          if (next.length > 54) break;
-          out = next;
-        }
-
-        if (!out) {
-          return `${raw.slice(0, 60).trimEnd()}…`;
-        }
-
-        return `${out}…`;
-      }
-
-      function parseMatchPercent(cell) {
-        if (!cell) return null;
-        const text = (cell.textContent || '').trim();
-        const match = text.match(/-?\d+(?:\.\d+)?/);
-        if (!match) return null;
-        const num = Number(match[0]);
-        return Number.isFinite(num) ? num : null;
-      }
-
-      function applyFontToCells(cells) {
-        cells.forEach((td) => {
-          td.style.fontFamily = FONT_STACK;
-          td.style.fontSize = '13px';
-        });
-      }
-
-      function refreshCompatibilityTable() {
-        const table = document.querySelector(
-          'table.compat-table, table#compatibility, table[data-compat], table.compat'
-        );
-        if (!table) return;
-
-        if (document.body) {
-          document.body.classList.add('dark-theme');
-          document.body.style.fontFamily = FONT_STACK;
-        }
-
-        const tbody = table.tBodies?.[0];
-        if (!tbody) return;
-
-        Array.from(tbody.rows).forEach((tr) => {
-          tr.classList.add('compat-row');
-          tr.classList.remove('strong-match', 'red-flag');
-
-          const cells = Array.from(tr.querySelectorAll('td'));
-          applyFontToCells(cells);
-
-          const labelCell = cells[0];
-          if (labelCell) {
-            labelCell.textContent = shortenLabel(labelCell.textContent);
-            labelCell.classList.add('kink-label');
-          }
-
-          const matchCell = cells[2];
-          const pct = parseMatchPercent(matchCell);
-          if (pct != null) {
-            if (pct >= 90) tr.classList.add('strong-match');
-            else if (pct <= 30) tr.classList.add('red-flag');
-          }
-        });
-      }
-
-      function watchCompatibilityUpdates() {
-        const table = document.querySelector(
-          'table.compat-table, table#compatibility, table[data-compat], table.compat'
-        );
-        if (!table) return;
-        const target = table.tBodies?.[0] || table;
-        const observer = new MutationObserver(() => refreshCompatibilityTable());
-        observer.observe(target, { childList: true, subtree: true });
-      }
-
-      function ready() {
-        refreshCompatibilityTable();
-        watchCompatibilityUpdates();
-      }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', ready, { once: true });
-      } else {
-        ready();
-      }
-
-      window.tkRefreshCompatStyles = refreshCompatibilityTable;
-    })();
-  </script>
-
-<!-- =================================================================== -->
 </body>
-
 </html>
