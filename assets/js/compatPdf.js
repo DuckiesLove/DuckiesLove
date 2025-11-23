@@ -384,25 +384,33 @@ window.TKCompatPDF = (function () {
   }
 
   function rowsFromStorage(payloads = {}) {
-    if (Array.isArray(cachedRows) && cachedRows.length) {
-      return cachedRows.slice();
+    const windowRows = Array.isArray(window.talkkinkCompatRows)
+      ? window.talkkinkCompatRows
+      : null;
+
+    if (windowRows?.length) {
+      cachedRows = windowRows.slice();
     }
 
-    for (const key of ROW_STORAGE_KEYS) {
-      const parsed = readJson(key);
-      if (Array.isArray(parsed) && parsed.length) {
-        cachedRows = parsed.slice();
-        return cachedRows.slice();
+    if (!cachedRows?.length) {
+      for (const key of ROW_STORAGE_KEYS) {
+        const parsed = readJson(key);
+        if (Array.isArray(parsed) && parsed.length) {
+          cachedRows = parsed.slice();
+          break;
+        }
       }
     }
 
-    const self = payloads.self ?? readFirst(SELF_KEYS);
-    const partner = payloads.partner ?? readFirst(PARTNER_KEYS);
-    if (!self || !partner) return [];
+    if (!cachedRows?.length) {
+      const self = payloads.self ?? readFirst(SELF_KEYS);
+      const partner = payloads.partner ?? readFirst(PARTNER_KEYS);
+      if (!self || !partner) return [];
 
-    const rows = buildRows(self, partner);
-    cachedRows = rows.slice();
-    return rows;
+      cachedRows = buildRows(self, partner).slice();
+    }
+
+    return cachedRows.slice();
   }
 
   function isAutoTablePlaceholder(fn) {
