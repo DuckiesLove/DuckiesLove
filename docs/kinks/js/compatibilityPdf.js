@@ -271,7 +271,7 @@ const fallbackHelpers = (() => {
     const width = Math.max(usableWidth, 160);
     const labelWidth = Math.max(width * 0.44, 70);
     const remaining = Math.max(width - labelWidth, 60);
-    const partnerWidth = Math.max(remaining * 0.32, 28);
+    const partnerWidth = Math.max(remaining * 0.32, 40);
     const matchWidth = Math.max(remaining - partnerWidth * 2, 40);
 
     const colLabel = startX;
@@ -338,7 +338,8 @@ const fallbackHelpers = (() => {
     doc.text(categoryLabel, headerX, startY, { align: 'center' });
 
     let currentY = startY + layout.headerHeight;
-    doc.setFontSize(9);
+    const rowSeparatorInset = 2;
+    doc.setFontSize(10);
     doc.text('Kinks', layout.colLabel, currentY);
     doc.text('Partner A', layout.colA, currentY, { align: 'center' });
     doc.text('Match %', layout.colBar, currentY, { align: 'center' });
@@ -348,6 +349,7 @@ const fallbackHelpers = (() => {
     const labelWidth = layout.labelWidth || 60;
 
     items.forEach((item) => {
+      doc.setFontSize(10);
       const lines = typeof doc.splitTextToSize === 'function'
         ? doc.splitTextToSize(item.label || '', labelWidth)
         : [item.label || ''];
@@ -360,6 +362,17 @@ const fallbackHelpers = (() => {
         : `${match}%${match >= 85 ? ' ⭐' : match <= 30 ? ' 🚩' : ''}`;
       doc.text(matchLabel, layout.colBar, currentY, { align: 'center' });
       doc.text(formatScore(item.partnerB), layout.colB, currentY, { align: 'center' });
+      if (borderWidth > 0 && typeof doc.line === 'function') {
+        doc.setDrawColor(...toColorArray(borderColor));
+        doc.setLineWidth(Math.max(0.2, borderWidth / 2));
+        doc.line(
+          layout.startX + rowSeparatorInset,
+          currentY + layout.rowHeight,
+          layout.startX + layout.width - rowSeparatorInset,
+          currentY + layout.rowHeight,
+        );
+        doc.setLineWidth(0);
+      }
       currentY += layout.rowHeight;
     });
 
@@ -514,6 +527,7 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
         : `${category.category || category.name} (cont.)`;
 
       applyFontRole(doc, fontSettings, 'table');
+      doc.setFontSize(10);
       const endY = renderCategorySection(
         doc,
         sectionLabel,
