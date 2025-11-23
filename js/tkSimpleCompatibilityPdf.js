@@ -1,17 +1,24 @@
 import { ensureJsPDF } from './loadJsPDF.js';
 import { PDF_FONT_FAMILY, registerPdfFonts } from './helpers/pdfFonts.js';
 
+function sanitizeText(value) {
+  if (value === null || value === undefined) return '';
+  const text = String(value).replace(/\s+/g, ' ').trim();
+  if (!text || text === '&&&' || text.toLowerCase() === 'n/a') return '';
+  return text;
+}
+
 function formatScore(value) {
-  if (value === null || value === undefined) {
-    return '';
-  }
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value.toString();
   }
   if (typeof value === 'string') {
-    return value.trim();
+    const cleaned = sanitizeText(value);
+    if (!cleaned) return 'N/A';
+    const numeric = Number(cleaned);
+    return Number.isFinite(numeric) ? numeric.toString() : cleaned;
   }
-  return '';
+  return 'N/A';
 }
 
 function clampPercent(value) {
@@ -22,10 +29,15 @@ function clampPercent(value) {
 }
 
 function parseMatchText(matchString) {
-  if (!matchString.includes('&&&')) return matchString;
+  const cleaned = sanitizeText(matchString);
+  if (!cleaned) return '';
 
-  const [percent] = matchString.split('&&&').map((s) => s.trim());
-  const value = parseInt(percent);
+  if (!cleaned.includes('&&&')) return cleaned;
+
+  const [percent = ''] = cleaned.split('&&&').map((s) => s.trim()).filter(Boolean);
+  if (!percent) return '';
+
+  const value = parseInt(percent, 10);
 
   let emoji = '';
   if (value >= 90) emoji = '⭐';
@@ -44,8 +56,15 @@ function formatMatchCell(item) {
     return `${directPct}%${star}`;
   }
   if (typeof item.matchText === 'string' && item.matchText.trim()) {
-    return parseMatchText(item.matchText.trim());
+    return parseMatchText(item.matchText.trim()) || 'N/A';
   }
+  return 'N/A';
+}
+
+function computeFlagSymbol(matchValue) {
+  if (!Number.isFinite(matchValue)) return '';
+  if (matchValue >= 90) return '⭐';
+  if (matchValue <= 30) return '🚩';
   return '';
 }
 
@@ -60,10 +79,15 @@ function normalizeRows(data = []) {
       const partnerB =
         item.partnerB ?? item.partnerScoreB ?? item.b ?? item.scoreB;
 
+      const matchPercent = clampPercent(
+        item.matchPercent ?? item.matchPct ?? item.match,
+      );
+
       return [
-        kink ? String(kink) : '',
+        kink ? String(kink).trim() : '',
         formatScore(partnerA),
-        formatMatchCell(item),
+        formatMatchCell({ ...item, matchPercent }),
+        computeFlagSymbol(matchPercent),
         formatScore(partnerB),
       ];
     })
@@ -135,31 +159,53 @@ export async function generateCompatibilityPDF(data = [], options = {}) {
   doc.text(sectionTitle, marginX, cursorY);
 
   const rows = normalizeRows(Array.isArray(data) ? data : []);
-  const body = rows.length ? rows : [['', '', '', '']];
+  const body = rows.length ? rows : [['', 'N/A', 'N/A', '', 'N/A']];
 
   doc.autoTable({
-    head: [['Kinks', 'Partner A', 'Match %', 'Partner B']],
+    head: [['Kinks', 'Partner A', 'Match', 'Flag', 'Partner B']],
     body,
     startY: cursorY + 10,
     margin: { left: marginX, right: marginX },
     theme: 'grid',
     styles: {
       font: PDF_FONT_FAMILY,
-      fontSize: 11,
-      textColor: [255, 255, 255],
-      cellPadding: 6,
+      fontSize: 10,
+      textColor: '#FFFFFF',
+      cellPadding: 4,
+      halign: 'center',
+      overflow: 'linebreak',
+      charSpace: 0,
     },
     headStyles: {
-      fillColor: [0, 0, 0],
-      textColor: [0, 255, 255],
-      fontSize: 13,
+      fillColor: '#003b4c',
+      textColor: '#00e0ff',
       fontStyle: 'bold',
+      fontSize: 11,
+    },
+    bodyStyles: {
+      font: PDF_FONT_FAMILY,
+      fontSize: 10,
+      lineColor: '#198ca5',
+      lineWidth: 0.1,
     },
     alternateRowStyles: {
-      fillColor: [26, 26, 26],
+      fillColor: null,
     },
-    tableLineColor: [0, 255, 255],
-    tableLineWidth: 0.75,
+    tableLineColor: '#198ca5',
+    tableLineWidth: 0.2,
+    columnStyles: {
+      0: { halign: 'left' },
+      1: { halign: 'center' },
+      2: { halign: 'center' },
+      3: { halign: 'center' },
+      4: { halign: 'center' },
+    },
+    didParseCell: (data) => {
+      if (!data?.cell?.styles) return;
+      data.cell.styles.fontSize = 10;
+      data.cell.styles.cellPadding = 4;
+      data.cell.styles.overflow = 'linebreak';
+    },
   });
 
   if (options.save !== false && typeof doc.save === 'function') {
