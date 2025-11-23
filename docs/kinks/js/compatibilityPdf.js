@@ -174,6 +174,21 @@ const warnMissingHelper = (name) => {
   console.warn(`[compat-pdf] Missing helper "${name}". Using fallback implementation.`);
 };
 
+const coerceScore = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
+};
+
+const pickScore = (...candidates) => {
+  for (const candidate of candidates) {
+    const coerced = coerceScore(candidate);
+    if (coerced !== null) return coerced;
+  }
+  return null;
+};
+
 const fallbackHelpers = (() => {
   const normalizeScore = (val) => {
     if (val === null || val === undefined) return null;
@@ -424,20 +439,8 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
 
       const chunk = remainingItems.slice(0, Math.max(1, maxRows));
       const formatted = chunk.map((item) => {
-        const aScoreRaw = typeof item.a === 'number'
-          ? item.a
-          : typeof item.partnerA === 'number'
-            ? item.partnerA
-            : typeof item.scoreA === 'number'
-              ? item.scoreA
-              : null;
-        const bScoreRaw = typeof item.b === 'number'
-          ? item.b
-          : typeof item.partnerB === 'number'
-            ? item.partnerB
-            : typeof item.scoreB === 'number'
-              ? item.scoreB
-              : null;
+        const aScoreRaw = pickScore(item.a, item.partnerA, item.scoreA);
+        const bScoreRaw = pickScore(item.b, item.partnerB, item.scoreB);
 
         const matchPercent =
           aScoreRaw !== null && bScoreRaw !== null
@@ -581,8 +584,8 @@ function drawTitle(doc, pageWidth, fontSettings) {
 }
 
 function combinedScore(a, b) {
-  const aNum = typeof a === 'number' ? a : null;
-  const bNum = typeof b === 'number' ? b : null;
+  const aNum = coerceScore(a);
+  const bNum = coerceScore(b);
   if (aNum === null && bNum === null) return '-';
   if (aNum === null) return String(bNum);
   if (bNum === null) return String(aNum);

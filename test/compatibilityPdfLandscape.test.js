@@ -35,7 +35,7 @@ test('generates landscape compatibility PDF with combined scores', async () => {
     categories: [
       {
         items: [
-          { kink: 'Bondage', partnerA: 5, partnerB: 3 }
+          { kink: 'Bondage', partnerA: '5', partnerB: '3' }
         ]
       }
     ]
