@@ -1,10 +1,18 @@
 let cachedJsPDF = null;
 let pendingLoad = null;
+let autoTablePending = null;
+let autoTableReady = false;
 
 const CDN_SOURCES = [
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
   'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
+];
+
+const AUTOTABLE_CDN_SOURCES = [
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js',
+  'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js',
+  'https://unpkg.com/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js',
 ];
 
 const LOCAL_SOURCES = (() => {
@@ -16,6 +24,18 @@ const LOCAL_SOURCES = (() => {
     // Ignore environments that lack import.meta
   }
   urls.push('/js/vendor/jspdf.umd.min.js');
+  return urls;
+})();
+
+const AUTOTABLE_LOCAL_SOURCES = (() => {
+  const urls = [];
+  try {
+    const bundled = new URL('./vendor/jspdf.plugin.autotable.min.js', import.meta.url);
+    urls.push(bundled.href);
+  } catch (_) {
+    // Ignore environments that lack import.meta
+  }
+  urls.push('/js/vendor/jspdf.plugin.autotable.min.js');
   return urls;
 })();
 
@@ -89,6 +109,23 @@ function assignAliases(scope, ctor) {
   }
 }
 
+function getAutoTableApi() {
+  for (const candidate of getGlobalCandidates()) {
+    const api =
+      candidate?.jspdf?.jsPDF?.API ||
+      candidate?.jsPDF?.API ||
+      candidate?.jsPDF?.jsPDF?.API;
+    const fn = api?.autoTable || api?.__autoTable__;
+    if (fn) return { api, fn };
+
+    const legacy = candidate?.jspdf?.autoTable;
+    if (legacy) {
+      return { api: candidate?.jspdf?.jsPDF?.API || candidate?.jsPDF?.API || api || {}, fn: legacy };
+    }
+  }
+  return { api: null, fn: null };
+}
+
 function findExistingJsPDF() {
   for (const candidate of getGlobalCandidates()) {
     const ctor = extractCtor(candidate);
@@ -147,10 +184,66 @@ function injectScript(src, key) {
   });
 }
 
+function autoTablePresent() {
+  const { api, fn } = getAutoTableApi();
+  if (!fn) return null;
+  return { api, fn };
+}
+
+function graftAutoTableToCtor(ctor) {
+  const found = autoTablePresent();
+  if (!found || !ctor) return found;
+  ctor.API = ctor.API || {};
+  if (!ctor.API.autoTable && found.fn) {
+    ctor.API.autoTable = found.fn;
+  }
+  return found;
+}
+
+async function ensureAutoTableLoaded() {
+  if (autoTableReady && autoTablePresent()) return autoTablePresent();
+  if (autoTablePending) return autoTablePending;
+
+  autoTablePending = (async () => {
+    const attemptSources = async (sources) => {
+      for (const src of sources) {
+        if (autoTablePresent()) return true;
+        try {
+          await injectScript(src, 'jspdf-autotable');
+        } catch (error) {
+          // Continue to the next source
+          continue;
+        }
+      }
+      return autoTablePresent();
+    };
+
+    await attemptSources(AUTOTABLE_LOCAL_SOURCES);
+    const afterLocal = autoTablePresent();
+    if (!afterLocal) {
+      await attemptSources(AUTOTABLE_CDN_SOURCES);
+    }
+
+    const present = autoTablePresent();
+    autoTableReady = !!present;
+    if (!present) {
+      throw new Error('jsPDF autoTable plugin failed to load');
+    }
+    if (cachedJsPDF) graftAutoTableToCtor(cachedJsPDF);
+    return present;
+  })().finally(() => {
+    autoTablePending = null;
+  });
+
+  return autoTablePending;
+}
+
 async function loadJsPDFInternal() {
   const { ctor: existingCtor, scope } = findExistingJsPDF();
   if (existingCtor) {
     assignAliases(scope, existingCtor);
+    await ensureAutoTableLoaded().catch(() => {});
+    graftAutoTableToCtor(existingCtor);
     return existingCtor;
   }
 
@@ -175,14 +268,24 @@ async function loadJsPDFInternal() {
   };
 
   const localCtor = await attemptSources(LOCAL_SOURCES);
-  if (localCtor) return localCtor;
+  if (localCtor) {
+    await ensureAutoTableLoaded().catch(() => {});
+    graftAutoTableToCtor(localCtor);
+    return localCtor;
+  }
 
   const cdnCtor = await attemptSources(CDN_SOURCES);
-  if (cdnCtor) return cdnCtor;
+  if (cdnCtor) {
+    await ensureAutoTableLoaded().catch(() => {});
+    graftAutoTableToCtor(cdnCtor);
+    return cdnCtor;
+  }
 
   const { ctor: finalCtor, scope: finalScope } = findExistingJsPDF();
   if (finalCtor) {
     assignAliases(finalScope, finalCtor);
+    await ensureAutoTableLoaded().catch(() => {});
+    graftAutoTableToCtor(finalCtor);
     return finalCtor;
   }
 
@@ -198,6 +301,8 @@ export async function ensureJsPDF() {
   if (existingCtor) {
     assignAliases(scope, existingCtor);
     cachedJsPDF = existingCtor;
+    await ensureAutoTableLoaded().catch(() => {});
+    graftAutoTableToCtor(existingCtor);
     return existingCtor;
   }
 
@@ -228,4 +333,6 @@ export async function loadJsPDF() {
 export function __resetJsPDFForTesting() {
   cachedJsPDF = null;
   pendingLoad = null;
+  autoTablePending = null;
+  autoTableReady = false;
 }
