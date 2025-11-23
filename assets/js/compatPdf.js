@@ -51,7 +51,13 @@ window.TKCompatPDF = (function () {
 
     const parts = raw.split('&&&').map((p) => p.trim()).filter(Boolean);
     const matchText = parts[0] || '';
-    const flagText = parts.slice(1).join(' ').trim();
+    let flagText = parts.slice(1).join(' ').trim();
+
+    // Some historical generators appended "&&&" as a placeholder flag marker.
+    // Treat that as "no flag" so the PDF doesn't surface meaningless symbols.
+    if (flagText === '&&&') {
+      flagText = '';
+    }
 
     const parsed = parseInt(matchText, 10);
     const percent = Number.isFinite(parsed) ? parsed : null;
