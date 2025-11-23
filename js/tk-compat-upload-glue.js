@@ -495,7 +495,7 @@
     }
     persistLegacyPayload('partner', raw || norm);
     showToast("Partner's survey loaded!");
-    log('Partner survey:', norm);
+    console.log('[compat] Partner survey:', norm);
     emitUploadEvent('partner', { data: norm, fileName, raw });
   }
 
