@@ -348,12 +348,6 @@
     main > * {
       max-width: 100%;
     }
-
-    /* Keep the hero title centered on dedicated compatibility pages */
-    body[data-page="compat"] .tk-title {
-      text-align: center;
-      margin-inline: auto;
-    }
   </style>
   <script>
     (function () {
@@ -1147,19 +1141,6 @@
           e.preventDefault();
           e.stopPropagation();
           if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        }
-
-        // Refresh the cached compatibility rows so the PDF generator sees
-        // the latest uploaded surveys instead of any stale placeholder data.
-        try {
-          if (typeof window.talkkinkEnsureCompatRows === 'function') {
-            window.talkkinkEnsureCompatRows({ force: true });
-          }
-          if (window.TKCompatPDF?.notifyRowsUpdated && Array.isArray(window.talkkinkCompatRows)) {
-            window.TKCompatPDF.notifyRowsUpdated(window.talkkinkCompatRows);
-          }
-        } catch (err) {
-          console.warn('[compat-override] Unable to refresh compat rows before PDF', err);
         }
 
         if (!rowsExistInStorage()) {
