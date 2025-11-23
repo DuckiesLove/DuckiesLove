@@ -11,6 +11,13 @@ function computeMatchPercent(aScore, bScore) {
   return percent;
 }
 
+function formatValue(val) {
+  if (val === undefined || val === null || val === '') return 'N/A';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' && Number.isFinite(val)) return val.toString();
+  return String(val);
+}
+
 export function buildCompatCategories(partnerA, partnerB, metadata = {}) {
   const categories = buildCategoriesFromSurveys(partnerA, partnerB);
   const title = metadata?.categoryLabel || metadata?.title || '';
@@ -41,9 +48,9 @@ export function renderCompatCategoryTable(doc, categories, startY = 0) {
   (categories || []).forEach((category) => {
     const data = (category.items || []).map((item) => [
       item.label,
-      item.partnerA != null ? item.partnerA.toString() : '',
-      item.compatibility != null ? item.compatibility.toString() : '',
-      item.partnerB != null ? item.partnerB.toString() : '',
+      formatValue(item.partnerA),
+      formatValue(item.compatibility),
+      formatValue(item.partnerB),
     ]);
 
     doc.autoTable({
