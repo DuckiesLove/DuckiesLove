@@ -389,7 +389,25 @@ function normalizeColumns(columns?: ColumnInput[]): NormalizedColumn[] {
   });
 }
 
-function formatCellValue(value: unknown): string {
+function formatMatchValue(matchPercent: unknown): string {
+  if (matchPercent === null || matchPercent === undefined) return "N/A";
+
+  const text = String(matchPercent).trim();
+  if (!text || text === "—" || /^n\/?a$/i.test(text) || text === "&&&") return "N/A";
+
+  const percentMatch = text.match(/^(\d{1,3})\s*%?/);
+  if (percentMatch) {
+    const num = Math.max(0, Math.min(100, Number(percentMatch[1])));
+    return `${num}%`;
+  }
+
+  const cleaned = text.replace(/&&&/g, "").replace(/&+$/g, "").trim();
+  return cleaned || "N/A";
+}
+
+function formatCellValue(value: unknown, isMatchColumn = false): string {
+  if (isMatchColumn) return formatMatchValue(value);
+
   if (value == null || value === "") return "—";
   const text = String(value).trim();
   if (!text) return "—";
@@ -401,17 +419,20 @@ function normalizeProvidedRows(rows: DownloadRowInput[] | undefined, columns: No
   if (!Array.isArray(rows)) return [];
   return rows.map((raw) => {
     if (Array.isArray(raw)) {
-      return raw.map((v) => formatCellValue(v));
+      return raw.map((v, idx) =>
+        formatCellValue(v, columns[idx]?.header?.toLowerCase().includes("match")),
+      );
     }
     if (!raw || typeof raw !== "object") {
       return columns.map(() => "—");
     }
-    return columns.map((col) => {
+    return columns.map((col, idx) => {
       const key = col.dataKey;
       const value = key != null && Object.prototype.hasOwnProperty.call(raw, key)
         ? (raw as Record<string, unknown>)[key as keyof typeof raw]
         : (raw as Record<string, unknown>)[col.header as keyof typeof raw];
-      return formatCellValue(value);
+      const isMatch = col.header.toLowerCase().includes("match");
+      return formatCellValue(value, isMatch || columns[idx]?.header?.toLowerCase().includes("match"));
     });
   });
 }
@@ -528,7 +549,7 @@ export async function downloadCompatibilityPDF(options: DownloadOptions = {}): P
       return [
         formatCellValue(row.category),
         formatCellValue(row.A),
-        formatCellValue(row.pct),
+        formatCellValue(row.pct, true),
         formatCellValue(row.B),
       ];
     });

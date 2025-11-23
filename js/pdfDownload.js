@@ -318,6 +318,21 @@ function parseMatchValue(value){
   return null;
 }
 
+function formatMatchText(matchPercent){
+  if (matchPercent === null || matchPercent === undefined) return 'N/A';
+  const text = String(matchPercent).trim();
+  if (!text || text === '—' || /^n\/?a$/i.test(text) || text === '&&&') return 'N/A';
+
+  const percentMatch = text.match(/^(\d{1,3})\s*%?/);
+  if (percentMatch) {
+    const num = Math.max(0, Math.min(100, Number(percentMatch[1])));
+    return `${num}%`;
+  }
+
+  const cleaned = text.replace(/&&&/g, '').replace(/&+$/g, '').trim();
+  return cleaned || 'N/A';
+}
+
 function normalizeProvidedRow(row, columns){
   if (Array.isArray(row)) return row;
   if (!row || typeof row !== 'object') return columns.map(() => '—');
