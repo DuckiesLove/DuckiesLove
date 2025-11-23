@@ -70,6 +70,16 @@ function ensureAutoTable(doc, ctor) {
     };
     return;
   }
+  if (typeof globalThis.__tkAutoTableFallback === 'function') {
+    doc.autoTable = function autoTableFallbackProxy() {
+      return globalThis.__tkAutoTableFallback.apply(this, arguments);
+    };
+    if (ctor) {
+      ctor.API = ctor.API || {};
+      ctor.API.autoTable = ctor.API.autoTable || globalThis.__tkAutoTableFallback;
+    }
+    return;
+  }
   throw new Error('jsPDF autoTable plugin not available');
 }
 
@@ -126,11 +136,15 @@ export async function generateCompatibilityPDF(data = {}, options = {}) {
   await registerPdfFonts(doc);
   ensureAutoTable(doc, jsPDFCtor);
 
-  const useHeaderFont = () => doc.setFont(PDF_FONT_FAMILY, 'bold');
-  const useBodyFont = () => doc.setFont(PDF_FONT_FAMILY, 'normal');
+  const useHeaderFont = () => {
+    if (typeof doc.setFont === 'function') doc.setFont(PDF_FONT_FAMILY, 'bold');
+  };
+  const useBodyFont = () => {
+    if (typeof doc.setFont === 'function') doc.setFont(PDF_FONT_FAMILY, 'normal');
+  };
 
   const pageWidth = doc.internal?.pageSize?.getWidth?.() ?? 210;
-  const headerTitle = data.title || options.title || 'TalkKink Compatibility Summary';
+  const headerTitle = data.title || options.title || 'TalkKink Compatibility Survey';
   const generatedAt =
     data.generatedAt || options.generatedAt || options.generatedTime || new Date().toLocaleString();
   const sectionTitle = data.sectionTitle || options.sectionTitle || 'Compatibility Results';

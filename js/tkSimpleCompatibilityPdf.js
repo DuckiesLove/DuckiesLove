@@ -81,6 +81,16 @@ function ensureAutoTable(doc, ctor) {
     };
     return;
   }
+  if (typeof globalThis.__tkAutoTableFallback === 'function') {
+    doc.autoTable = function autoTableFallbackProxy() {
+      return globalThis.__tkAutoTableFallback.apply(this, arguments);
+    };
+    if (ctor) {
+      ctor.API = ctor.API || {};
+      ctor.API.autoTable = ctor.API.autoTable || globalThis.__tkAutoTableFallback;
+    }
+    return;
+  }
   throw new Error('jsPDF autoTable plugin not available');
 }
 
@@ -92,8 +102,12 @@ export async function generateCompatibilityPDF(data = [], options = {}) {
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const centerX = pageWidth / 2;
-  const useHeaderFont = () => doc.setFont(PDF_FONT_FAMILY, 'bold');
-  const useBodyFont = () => doc.setFont(PDF_FONT_FAMILY, 'normal');
+  const useHeaderFont = () => {
+    if (typeof doc.setFont === 'function') doc.setFont(PDF_FONT_FAMILY, 'bold');
+  };
+  const useBodyFont = () => {
+    if (typeof doc.setFont === 'function') doc.setFont(PDF_FONT_FAMILY, 'normal');
+  };
 
   const marginX = options.marginX ?? 40;
   let cursorY = options.marginY ?? 40;

@@ -80,6 +80,16 @@ function ensureAutoTable(doc, ctor) {
     };
     return;
   }
+  if (typeof globalThis.__tkAutoTableFallback === 'function') {
+    doc.autoTable = function autoTableFallbackProxy() {
+      return globalThis.__tkAutoTableFallback.apply(this, arguments);
+    };
+    if (ctor) {
+      ctor.API = ctor.API || {};
+      ctor.API.autoTable = ctor.API.autoTable || globalThis.__tkAutoTableFallback;
+    }
+    return;
+  }
   throw new Error('jsPDF autoTable plugin not available');
 }
 

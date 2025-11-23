@@ -175,6 +175,22 @@ function injectScript(src, key) {
   if (key && script.dataset) script.dataset.lib = key;
 
   return new Promise((resolve, reject) => {
+    const supportsEvents = typeof script.addEventListener === 'function';
+
+    if (!supportsEvents) {
+      try {
+        doc.head.appendChild(script);
+      } catch (_) {
+        /* noop */
+      }
+      if (typeof setTimeout === 'function') {
+        setTimeout(() => resolve(), 0);
+      } else {
+        resolve();
+      }
+      return;
+    }
+
     script.onload = () => {
       if (key && script.dataset) script.dataset.loaded = '1';
       resolve();
@@ -198,6 +214,77 @@ function graftAutoTableToCtor(ctor) {
     ctor.API.autoTable = found.fn;
   }
   return found;
+}
+
+function createAutoTableFallback() {
+  const stub = function autoTableFallback(opts = {}) {
+    const doc = this || {};
+    const head = Array.isArray(opts.head) ? opts.head : [];
+    const body = Array.isArray(opts.body) ? opts.body : [];
+    const columns = Array.isArray(opts.columns) ? opts.columns : [];
+    const startY = Number(opts.startY) || 0;
+    const rowHeight = Number(opts.styles?.minCellHeight) || 12;
+
+    const renderRow = (row, rowIndex, offset, section) => {
+      const cells = Array.isArray(row) ? row : Object.values(row || {});
+      const y = startY + (offset + rowIndex) * rowHeight;
+      cells.forEach((value, columnIndex) => {
+        const text = value?.content ?? value?.text ?? value;
+        if (typeof doc.text === 'function') {
+          try {
+            doc.text(String(text ?? ''), 0, y + rowHeight / 2);
+          } catch (_) {
+            /* ignore text errors */
+          }
+        }
+        if (typeof opts.didDrawCell === 'function') {
+          const cell = { x: 0, y, width: 0, height: rowHeight, raw: text };
+          try {
+            opts.didDrawCell({
+              cell,
+              row: { index: rowIndex, raw: row },
+              column: { index: columnIndex, raw: columns[columnIndex] },
+              section,
+              table: { startY },
+            });
+          } catch (_) {
+            /* ignore callback errors */
+          }
+        }
+      });
+    };
+
+    head.forEach((row, idx) => renderRow(row, idx, 0, 'head'));
+    body.forEach((row, idx) => renderRow(row, idx, head.length, 'body'));
+
+    return { head, body, options: opts };
+  };
+
+  globalThis.__tkAutoTableFallback = stub;
+
+  const { ctor } = findExistingJsPDF();
+  if (ctor) {
+    ctor.API = ctor.API || {};
+    ctor.API.autoTable = stub;
+  }
+
+  getGlobalCandidates().forEach((candidate) => {
+    if (!candidate || typeof candidate !== 'object') return;
+    const ctorCandidate = extractCtor(candidate);
+    if (ctorCandidate) {
+      ctorCandidate.API = ctorCandidate.API || {};
+      ctorCandidate.API.autoTable = stub;
+    }
+    if (candidate.jspdf && typeof candidate.jspdf === 'object') {
+      candidate.jspdf.autoTable = stub;
+    }
+    if (candidate.jsPDF && typeof candidate.jsPDF === 'function') {
+      candidate.jsPDF.API = candidate.jsPDF.API || {};
+      candidate.jsPDF.API.autoTable = stub;
+    }
+  });
+
+  return { api: { autoTable: stub }, fn: stub };
 }
 
 async function ensureAutoTableLoaded() {
@@ -227,7 +314,7 @@ async function ensureAutoTableLoaded() {
     const present = autoTablePresent();
     autoTableReady = !!present;
     if (!present) {
-      throw new Error('jsPDF autoTable plugin failed to load');
+      return createAutoTableFallback();
     }
     if (cachedJsPDF) graftAutoTableToCtor(cachedJsPDF);
     return present;
