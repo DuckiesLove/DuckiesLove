@@ -57,8 +57,8 @@ test('talkkink simple compatibility PDF maps rows and adds stars', async () => {
   assert.ok(doc);
   assert.equal(doc.autoTableCalls.length, 1);
   const body = doc.autoTableCalls[0].body;
-  assert.deepEqual(body[0], ['Rope Play', '5', '100% ⭐', '5']);
-  assert.deepEqual(body[1], ['Impact', '2', '60%', '4']);
+  assert.deepEqual(body[0], ['Rope Play', '5', '100% ⭐', '⭐', '5']);
+  assert.deepEqual(body[1], ['Impact', '2', '60%', '', '4']);
 });
 
 test('simple compatibility PDF gracefully handles empty rows', async () => {
@@ -69,6 +69,6 @@ test('simple compatibility PDF gracefully handles empty rows', async () => {
 
   const doc = getDoc();
   assert.ok(doc);
-  const [[firstRow]] = doc.autoTableCalls[0].body;
-  assert.equal(firstRow, '');
+  const [firstRow] = doc.autoTableCalls[0].body;
+  assert.deepEqual(firstRow, ['', 'N/A', 'N/A', '', 'N/A']);
 });
