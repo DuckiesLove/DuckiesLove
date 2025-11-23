@@ -5,7 +5,7 @@ const LABEL_MAX_WIDTH_PX = 170;
 const ROW_MIN_HEIGHT_PX = 24;
 const MATCH_BAR_HEIGHT_PX = 12;
 const MIN_MATCH_WIDTH_PX = 30;
-const MIN_PARTNER_WIDTH_PX = 20;
+const MIN_PARTNER_WIDTH_PX = 42;
 const DEFAULT_FONT_SIZE = 10;
 const DEFAULT_LINE_HEIGHT = 1.2;
 
@@ -47,7 +47,7 @@ export function drawMatchBar(
   doc.rect(x, y, width, height, 'F');
 
   // Label centered inside the bar
-  doc.setFontSize(Math.max(6, Math.min(8, height / pxToMm(1.5))));
+  doc.setFontSize(10);
   doc.setTextColor(...textColor);
   doc.text(label, x + width / 2, y + height / 2, {
     align: 'center',
@@ -78,7 +78,7 @@ function renderCategoryHeader(
     doc.setTextColor(textColor);
   }
   doc.text(category, x, y, { align });
-  doc.setFontSize(9);
+  doc.setFontSize(10);
 }
 
 // Column layout setup using full width
@@ -383,15 +383,16 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   renderCategoryHeader(doc, sectionCenterX, startY, categoryLabel, textColor, 'center');
 
   let currentY = startY + headerHeight;
+  const rowSeparatorInset = pxToMm(2);
 
   // Column titles
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   if (Array.isArray(textColor)) {
     doc.setTextColor(...textColor);
   } else {
     doc.setTextColor(textColor);
   }
-    doc.text('Kinks', colLabel, currentY, { align: 'left' });
+  doc.text('Kinks', colLabel, currentY, { align: 'left' });
   doc.text('Partner A', colA, currentY, { align: 'center' });
   const matchHeaderX = matchWidth ? colBar + matchWidth / 2 : colBar;
   doc.text('Match %', matchHeaderX, currentY, { align: 'center' });
@@ -400,6 +401,7 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
   currentY += columnHeaderGap;
 
   for (const item of items) {
+    doc.setFontSize(10);
     drawKinkRow(
       doc,
       layout,
@@ -410,6 +412,17 @@ export function renderCategorySection(doc, categoryLabel, items, layout, startY,
       item.match,
       textColor
     );
+    if (borderWidth > 0 && resolvedBorderColor && typeof doc.line === 'function') {
+      doc.setDrawColor(...resolvedBorderColor);
+      doc.setLineWidth(Math.max(0.2, borderWidth / 2));
+      doc.line(
+        innerStartX + rowSeparatorInset,
+        currentY + rowHeight,
+        innerStartX + usedWidth - rowSeparatorInset,
+        currentY + rowHeight,
+      );
+      doc.setLineWidth(0);
+    }
     currentY += rowHeight;
   }
 
