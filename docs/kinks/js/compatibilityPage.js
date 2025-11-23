@@ -91,6 +91,30 @@ function maxRating(obj) {
   return vals.length ? Math.max(...vals) : null;
 }
 
+function clampScore(value) {
+  return Math.min(5, Math.max(0, value));
+}
+
+function cleanScore(score) {
+  if (score === null || score === undefined) return 'N/A';
+  if (typeof score === 'string') {
+    const trimmed = score.trim();
+    if (!trimmed || trimmed.includes('&')) return 'N/A';
+    if (trimmed.toUpperCase() === 'N/A') return 'N/A';
+    const num = Number(trimmed);
+    return Number.isNaN(num) ? 'N/A' : clampScore(num);
+  }
+  if (typeof score === 'number' && Number.isFinite(score)) {
+    return clampScore(score);
+  }
+  return 'N/A';
+}
+
+function normalizeScoreForMaps(score) {
+  const cleaned = cleanScore(score);
+  return typeof cleaned === 'number' ? cleaned : null;
+}
+
 function colorClass(percent) {
   if (percent === null || percent === undefined) return 'black';
   if (percent >= 80) return 'green';
@@ -621,8 +645,8 @@ function updateComparison() {
     category,
     items: items.map(it => ({
       label: it.name,
-      a: maxRating(it.you),
-      b: maxRating(it.partner)
+      a: cleanScore(maxRating(it.you)),
+      b: cleanScore(maxRating(it.partner))
     }))
   }));
   window.compatibilityData = { categories, history };

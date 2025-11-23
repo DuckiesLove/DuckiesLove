@@ -8,7 +8,7 @@ const DEFAULT_FONT_SETTINGS = {
   roles: {
     title: { size: 18, style: 'bold' },
     landscapeTitle: { size: 16, style: 'bold' },
-    table: { size: 9, style: 'normal' },
+    table: { size: 10, style: 'normal' },
     landscapeHeader: { size: 10, style: 'bold' },
     landscapeBody: { size: 10, style: 'normal' },
   },
@@ -35,6 +35,52 @@ const deepMerge = (target, ...sources) => {
     });
   });
   return output;
+};
+
+const clampScore = (value) => Math.min(5, Math.max(0, value));
+
+const cleanPdfScore = (score) => {
+  if (score === null || score === undefined) return null;
+  if (typeof score === 'string') {
+    const trimmed = score.trim();
+    if (!trimmed) return null;
+    if (trimmed.includes('&')) return 'N/A';
+    if (trimmed.toUpperCase() === 'N/A') return 'N/A';
+    const num = Number(trimmed);
+    return Number.isNaN(num) ? 'N/A' : clampScore(num);
+  }
+  if (typeof score === 'number' && Number.isFinite(score)) {
+    return clampScore(score);
+  }
+  return 'N/A';
+};
+
+const sanitizeCompatibilityData = (data) => {
+  const categories = Array.isArray(data?.categories)
+    ? data.categories.map((category) => {
+        const items = Array.isArray(category.items)
+          ? category.items.map((item) => {
+              const aScore = cleanPdfScore(item.a ?? item.partnerA ?? item.scoreA);
+              const bScore = cleanPdfScore(item.b ?? item.partnerB ?? item.scoreB);
+              return {
+                ...item,
+                a: aScore,
+                partnerA: aScore,
+                scoreA: aScore,
+                b: bScore,
+                partnerB: bScore,
+                scoreB: bScore,
+              };
+            })
+          : [];
+        return { ...category, items };
+      })
+    : [];
+
+  return {
+    categories,
+    history: Array.isArray(data?.history) ? data.history : [],
+  };
 };
 
 const normalizeFontInput = (input) => {
@@ -362,6 +408,7 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
 
   const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor({ orientation: 'landscape' });
+  doc.setFontSize(10);
 
   const {
     filename = 'compatibility_report.pdf',
@@ -396,7 +443,8 @@ export async function generateCompatibilityPDF(data = { categories: [] }, option
     doc.setTextColor(255, 255, 255);
   };
 
-  const categories = Array.isArray(data) ? data : data?.categories || [];
+  const sanitized = sanitizeCompatibilityData(Array.isArray(data) ? { categories: data } : data || {});
+  const categories = sanitized.categories;
   if (categories.length === 0) {
     console.warn('generateCompatibilityPDF called without data');
   }
@@ -530,9 +578,11 @@ if (typeof document !== 'undefined') {
 }
 
 export async function generateCompatibilityPDFLandscape(data, options = {}) {
-  const categories = Array.isArray(data) ? data : data?.categories || [];
+  const sanitized = sanitizeCompatibilityData(Array.isArray(data) ? { categories: data } : data || {});
+  const categories = sanitized.categories;
   const jsPDFCtor = await ensureJsPDF();
   const doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  doc.setFontSize(10);
   const fontSettings = resolveFontSettings(options.fontSettings || options.font || options.fontFamily);
   registerFontSources(doc, fontSettings);
   const getPageMetrics = () => ({
