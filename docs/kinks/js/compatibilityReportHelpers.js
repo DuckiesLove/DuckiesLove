@@ -1,11 +1,11 @@
 // ---- Compatibility Report Rendering Helpers ----
 
 const PX_TO_MM = 0.2645833333;
-const LABEL_MAX_WIDTH_PX = 130;
-const ROW_MIN_HEIGHT_PX = 28;
+const LABEL_MAX_WIDTH_PX = 170;
+const ROW_MIN_HEIGHT_PX = 24;
 const MATCH_BAR_HEIGHT_PX = 12;
-const MIN_MATCH_WIDTH_PX = 80;
-const MIN_PARTNER_WIDTH_PX = 36;
+const MIN_MATCH_WIDTH_PX = 30;
+const MIN_PARTNER_WIDTH_PX = 20;
 const DEFAULT_FONT_SIZE = 10;
 const DEFAULT_LINE_HEIGHT = 1.2;
 
