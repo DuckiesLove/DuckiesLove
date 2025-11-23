@@ -341,10 +341,24 @@ export async function downloadCompatibilityPDF(options: DownloadOptions = {}): P
 
   const columnDefs = normalizeColumns(columns);
   const tableHead = [columnDefs.map((col) => col.header || "")];
-  const columnStyles: Record<number, { halign?: ColumnAlign; cellWidth?: number }> = {};
+  const columnStyles: Record<
+    number,
+    { halign?: ColumnAlign; cellWidth?: number; fontStyle?: string }
+  > = {};
   columnDefs.forEach((col, idx) => {
     columnStyles[idx] = { halign: col.align };
     if (typeof col.cellWidth === "number") columnStyles[idx].cellWidth = col.cellWidth;
+  });
+
+  Object.entries({
+    0: { halign: "left" as ColumnAlign },
+    1: { fontStyle: "bold" },
+    2: { fontStyle: "normal" },
+    3: { fontStyle: "normal" },
+    4: { fontStyle: "bold" },
+  }).forEach(([index, style]) => {
+    const idx = Number(index);
+    columnStyles[idx] = { ...(columnStyles[idx] || {}), ...style };
   });
 
   const hasProvidedRows = Array.isArray(rows) && rows.length > 0;
@@ -453,15 +467,16 @@ export async function downloadCompatibilityPDF(options: DownloadOptions = {}): P
       horizontalPageBreak: true,
       theme: "plain",
       styles: {
-        fontSize: 11,
-        cellPadding: 8,
+        fontSize: 10,
+        halign: "center",
+        cellPadding: 2,
+        overflow: "linebreak",
+        font: "helvetica",
         textColor: [255, 255, 255],
         fillColor: null,
         lineColor: [0, 0, 0],
         lineWidth: 0,
-        halign: "center",
         valign: "middle",
-        overflow: "linebreak",
         minCellHeight: 18,
       },
       headStyles: {
@@ -476,6 +491,13 @@ export async function downloadCompatibilityPDF(options: DownloadOptions = {}): P
       tableLineColor: [0, 0, 0],
       tableLineWidth: 0,
       didAddPage: paintBg,
+      didParseCell: (data: any) => {
+        if (!data?.cell?.styles) return;
+        data.cell.styles.fontSize = 10;
+        data.cell.styles.cellPadding = 2;
+        data.cell.styles.lineWidth = 0.1;
+        data.cell.styles.letterSpacing = 0;
+      },
       willDrawCell: () => {
         if (!primed) {
           primed = true;
