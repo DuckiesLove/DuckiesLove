@@ -88,6 +88,7 @@
   function paintPage(doc, colors, pageSize, chapterTitle){
     const { BLACK, CYAN, MUTE, TEXT } = colors;
     const { width, height } = pageSize;
+    const centerX = width / 2;
 
     doc.setFillColor(...BLACK);
     doc.rect(0, 0, width, height, 'F');
@@ -95,14 +96,14 @@
     doc.setTextColor(...CYAN);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
-    doc.text('Talk Kink — Survey Results', 40, 48);
+    doc.text('Talk Kink — Survey Results', centerX, 48, { align: 'center' });
 
     const stamp = formatDate();
     doc.setTextColor(...MUTE);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
     const sub = chapterTitle ? `${stamp}  •  ${chapterTitle}` : stamp;
-    doc.text(sub, 40, 66);
+    doc.text(sub, centerX, 66, { align: 'center' });
 
     const pageStr = `Page ${doc.getNumberOfPages()}`;
     const tw = doc.getTextWidth(pageStr);
