@@ -1,132 +1,140 @@
-import { ensureJsPDF } from './loadJsPDF.js';
-import { PDF_FONT_FAMILY, registerPdfFonts } from './helpers/pdfFonts.js';
-
-const THEME_PRESETS = {
-  dark: {
-    titleFont: PDF_FONT_FAMILY,
-    titleSize: 22,
-    subTitleSize: 16,
-    textColor: '#00F0FF',
-    lineColor: '#00F0FF',
-    tableHeaderColor: '#00F0FF',
-    tableTextColor: '#FFFFFF',
-    backgroundColor: '#000000',
-    matchColor: '#00F0FF',
-  },
+const clampScore = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  return Math.min(5, Math.max(0, num));
 };
 
-function clampPercent(value) {
-  if (value == null) return '0%';
-  const bounded = Math.max(0, Math.min(100, Math.round(value)));
+const cleanText = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/\s+/g, ' ').trim();
+};
+
+const escapeHtml = (value) =>
+  cleanText(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+export const computeMatch = (a, b) => {
+  const aScore = clampScore(a);
+  const bScore = clampScore(b);
+  if (aScore === null || bScore === null) return '';
+  const diff = Math.abs(aScore - bScore);
+  const pct = Math.round(100 - diff * 20);
+  const bounded = Math.min(100, Math.max(0, pct));
   return `${bounded}%`;
-}
+};
 
-function computeMatch(a, b) {
-  if (a == null || b == null || Number.isNaN(a) || Number.isNaN(b)) return '0%';
-  const diff = Math.abs(Number(a) - Number(b));
-  const pct = 100 - diff * 20;
-  return clampPercent(pct);
-}
+const normalizeMatch = (matchValue, a, b) => {
+  const cleaned = cleanText(matchValue);
+  if (cleaned) return cleaned.replace(/%+$/, '') + '%';
+  return computeMatch(a, b);
+};
 
-function normalizeRows(rows = []) {
-  if (!Array.isArray(rows) || rows.length === 0) return [];
-  return rows.map((row = {}) => {
-    const partnerA = row.a ?? row.partnerA ?? row.scoreA ?? row.self ?? row.valueA;
-    const partnerB = row.b ?? row.partnerB ?? row.scoreB ?? row.partner ?? row.valueB;
-    return [
-      row.kink || row.label || row.name || '',
-      partnerA != null ? String(partnerA) : '',
-      computeMatch(partnerA, partnerB),
-      partnerB != null ? String(partnerB) : '',
-    ];
-  });
-}
+export const normalizeRows = (rows = []) => {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      if (!row) return null;
 
-function ensureAutoTable(doc, ctor) {
-  if (typeof doc.autoTable === 'function') return;
-  const api = ctor?.API || globalThis?.jspdf?.jsPDF?.API || globalThis?.jsPDF?.API;
-  if (api && typeof api.autoTable === 'function') {
-    doc.autoTable = function autoTableProxy() {
-      return api.autoTable.apply(this, arguments);
-    };
-    return;
-  }
-  throw new Error('jsPDF autoTable plugin not available');
-}
+      let label = '';
+      let a = '';
+      let b = '';
+      let match = '';
 
-export async function generateBehavioralPlayPDF(data = [], theme = 'dark', options = {}) {
-  const jsPDFCtor = await ensureJsPDF();
-  const doc = new jsPDFCtor({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-  await registerPdfFonts(doc);
-  ensureAutoTable(doc, jsPDFCtor);
+      if (Array.isArray(row)) {
+        [label, a, match, b] = row;
+      } else if (typeof row === 'object') {
+        label = row.kink ?? row.label ?? row.name ?? '';
+        a = row.a ?? row.partnerA ?? row.scoreA ?? row.self ?? row.valueA ?? '';
+        b = row.b ?? row.partnerB ?? row.scoreB ?? row.partner ?? row.valueB ?? '';
+        match = row.match ?? row.matchPercent ?? row.matchPct ?? '';
+      }
 
-  const useHeaderFont = () => doc.setFont(PDF_FONT_FAMILY, 'bold');
-  const useBodyFont = () => doc.setFont(PDF_FONT_FAMILY, 'normal');
+      const labelText = cleanText(label);
+      const aText = cleanText(a);
+      const bText = cleanText(b);
+      const matchText = normalizeMatch(match, aText, bText);
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const styles = { ...THEME_PRESETS[theme] };
-  const marginX = options.marginX ?? 32;
+      if (!labelText && !aText && !bText && !matchText) return null;
 
-  doc.setFillColor(styles.backgroundColor);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      return {
+        label: labelText,
+        partnerA: aText,
+        match: matchText,
+        partnerB: bText,
+      };
+    })
+    .filter(Boolean);
+};
 
-  useHeaderFont();
-  doc.setFontSize(styles.titleSize);
-  doc.setTextColor(styles.textColor);
-  doc.text('TalkKink Compatibility Survey', pageWidth / 2, 32, { align: 'center' });
+const buildRowHtml = (row) => {
+  const label = escapeHtml(row.label);
+  const a = escapeHtml(row.partnerA ?? '');
+  const b = escapeHtml(row.partnerB ?? '');
+  const match = escapeHtml(row.match ?? '');
+  return `
+    <tr>
+      <td class="label">${label}</td>
+      <td class="num">${a}</td>
+      <td class="num">${match}</td>
+      <td class="num">${b}</td>
+    </tr>`;
+};
 
-  const timestamp = options.timestamp || new Date().toLocaleString();
-  doc.setFontSize(10);
-  useBodyFont();
-  doc.text(`Generated: ${timestamp}`, pageWidth / 2, 44, { align: 'center' });
+export const renderBehavioralPlayHTML = (rows = [], options = {}) => {
+  const preparedRows = normalizeRows(rows);
+  const title = cleanText(options.title) || 'TalkKink Compatibility Survey';
+  const sectionTitle = cleanText(options.sectionTitle) || 'Behavioral Play';
+  const timestampRaw =
+    options.timestamp instanceof Date
+      ? options.timestamp.toLocaleString()
+      : cleanText(options.timestamp) || new Date().toLocaleString();
+  const buttonText = cleanText(options.buttonLabel) || 'Download PDF';
 
-  doc.setFontSize(styles.subTitleSize);
-  useHeaderFont();
-  doc.setTextColor(styles.textColor);
-  doc.text('Behavioral Play', pageWidth / 2, 66, { align: 'center' });
+  const bodyHtml = preparedRows.length
+    ? preparedRows.map(buildRowHtml).join('\n')
+    : '<tr class="empty"><td colspan="4">No compatibility rows yet</td></tr>';
 
-  doc.setDrawColor(styles.lineColor);
-  doc.setLineWidth(1);
-  doc.line(marginX, 72, pageWidth - marginX, 72);
+  const html = `
+    <div class="page" id="tk-root">
+      <h1 class="hx h1">${escapeHtml(title)}</h1>
+      <div class="sub" id="tk-ts">Generated: ${escapeHtml(timestampRaw)}</div>
+      <div class="rule"></div>
+      <h2 class="hx h2">${escapeHtml(sectionTitle)}</h2>
+      <table class="compat" id="compatTable" aria-label="Behavioral play compatibility">
+        <colgroup>
+          <col class="label"><col class="pa"><col class="match"><col class="pb">
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">Kinks</th>
+            <th scope="col">Partner A</th>
+            <th scope="col">Match</th>
+            <th scope="col">Partner B</th>
+          </tr>
+        </thead>
+        <tbody id="compatBody">
+          ${bodyHtml}
+        </tbody>
+      </table>
+      <div class="bar">
+        <button class="btn" id="downloadPdfBtn" type="button">${escapeHtml(buttonText)}</button>
+      </div>
+    </div>`;
 
-  const columns = ['Kinks', 'Partner A', 'Match', 'Partner B'];
-  const rows = normalizeRows(data);
+  return { html, rows: preparedRows, timestamp: timestampRaw };
+};
 
-  doc.autoTable({
-    startY: 84,
-    head: [columns],
-    body: rows,
-    theme: 'grid',
-    styles: {
-      font: PDF_FONT_FAMILY,
-      fontSize: 10,
-      textColor: styles.tableTextColor,
-      halign: 'center',
-      valign: 'middle',
-      cellPadding: 3,
-    },
-    headStyles: {
-      fillColor: '#111111',
-      textColor: styles.tableHeaderColor,
-      fontStyle: 'bold',
-    },
-    alternateRowStyles: { fillColor: '#111111' },
-    tableLineColor: styles.lineColor,
-    tableLineWidth: 0.1,
-    columnStyles: {
-      0: { halign: 'left', cellWidth: 260 },
-      1: { cellWidth: 80 },
-      2: { cellWidth: 70, textColor: styles.matchColor },
-      3: { cellWidth: 80 },
-    },
-  });
+export const renderBehavioralPlaySection = (target, rows = [], options = {}) => {
+  if (typeof document === 'undefined') return null;
+  const root = typeof target === 'string' ? document.querySelector(target) : target;
+  if (!root) return null;
+  const { html, rows: prepared, timestamp } = renderBehavioralPlayHTML(rows, options);
+  root.innerHTML = html;
+  return { rows: prepared, timestamp };
+};
 
-  if (options.save !== false) {
-    doc.save(options.filename || 'TalkKink_Compatibility_Survey.pdf');
-  }
-
-  return doc;
-}
-
-export default generateBehavioralPlayPDF;
+export default renderBehavioralPlayHTML;

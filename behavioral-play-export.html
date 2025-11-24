@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Behavioral Play Compatibility</title>
+  <style>
+    :root {
+      --tk-bg: #05131a;
+      --tk-panel: #0a1d26;
+      --tk-cyan: #10e2f0;
+      --tk-cyan-rgb: 16, 226, 240;
+      --tk-ink: #e8f7fb;
+      --page-pad: 16px;
+      --maxw: 1200px;
+    }
+    html, body { height: 100%; background: var(--tk-bg); margin: 0; }
+    body { display: flex; justify-content: center; padding: 12px; box-sizing: border-box; }
+    .page {
+      width: 100%;
+      max-width: var(--maxw);
+      padding: clamp(12px, 2vw, 24px);
+      box-sizing: border-box;
+      background: linear-gradient(135deg, rgba(0,229,255,.12), rgba(0,229,255,.02));
+      border-radius: 18px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.04) inset;
+    }
+    .hx {
+      margin: 0;
+      text-align: center;
+      color: var(--tk-cyan);
+      letter-spacing: .5px;
+      text-shadow:
+        0 0 2px rgba(var(--tk-cyan-rgb), .9),
+        0 0 6px rgba(var(--tk-cyan-rgb), .6),
+        -1px 0 0 rgba(0,0,0,.9), 1px 0 0 rgba(0,0,0,.9),
+        0 -1px 0 rgba(0,0,0,.9), 0 1px 0 rgba(0,0,0,.9),
+        -1px -1px 0 rgba(0,0,0,.9), 1px 1px 0 rgba(0,0,0,.9);
+    }
+    .h1 { font: 800 clamp(28px, 5vw, 56px) system-ui; }
+    .h2 {
+      font: 800 clamp(22px, 4.2vw, 40px) system-ui;
+      margin-top: .35em;
+      display: inline-block;
+      padding: .45em .9em;
+      background: var(--tk-panel);
+      border-radius: 14px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.06) inset, 0 10px 24px rgba(0,0,0,.2);
+    }
+    .sub {
+      text-align: center; color: #b7ffff; opacity: .85;
+      margin: .25rem 0 .75rem 0; font: 500 clamp(12px,1.6vw,16px) system-ui;
+    }
+    .rule { height: 3px; background: var(--tk-cyan); opacity: .75; margin: .35rem auto 1rem auto; width: 100%; }
+    table.compat {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      background: rgba(0,0,0,.35); color: var(--tk-ink);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.04) inset;
+      border-radius: 14px; overflow: hidden;
+    }
+    table.compat caption { display: none; }
+    table.compat thead th {
+      position: sticky; top: 0; z-index: 2;
+      background: #0b171f; color: var(--tk-cyan);
+      font: 700 clamp(12px,1.7vw,18px) system-ui;
+      padding: .7rem .7rem; border-bottom: 1px solid rgba(255,255,255,.08);
+      text-shadow:
+        0 0 2px rgba(var(--tk-cyan-rgb), .7),
+        0 0 6px rgba(var(--tk-cyan-rgb), .4);
+    }
+    table.compat td {
+      font: 500 clamp(12px,1.5vw,18px) system-ui;
+      padding: .75rem .7rem; border-bottom: 1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.02);
+    }
+    table.compat tr:nth-child(odd) td { background: rgba(255,255,255,.035); }
+    table.compat td:nth-child(2),
+    table.compat td:nth-child(4) { background: rgba(var(--tk-cyan-rgb), .06); color: #c6f7ff; }
+    table.compat td:nth-child(3) { background: rgba(255,255,255,.02); color: #e7fbff; }
+    table.compat .num { text-align: center; font-variant-numeric: tabular-nums; }
+    table.compat .label { word-break: break-word; }
+    table.compat colgroup col.label { width: 60%; }
+    table.compat colgroup col.pa { width: 12%; }
+    table.compat colgroup col.match { width: 16%; }
+    table.compat colgroup col.pb { width: 12%; }
+    table.compat .empty td { text-align: center; font-style: italic; color: #9bdde6; }
+    .bar { display: flex; justify-content: center; margin: 1rem 0; }
+    .btn {
+      background: linear-gradient(0deg, rgba(var(--tk-cyan-rgb), .18), rgba(var(--tk-cyan-rgb), .28));
+      color: #001a1c; font: 700 15px system-ui; border: 1px solid rgba(var(--tk-cyan-rgb), .55);
+      border-radius: 12px; padding: .6rem 1rem; cursor: pointer;
+      box-shadow: 0 10px 24px rgba(0,0,0,.2);
+    }
+    .btn:active { transform: translateY(1px); }
+  </style>
+</head>
+<body>
+  <div id="app" aria-live="polite"></div>
+  <script type="module">
+    import { renderBehavioralPlayHTML } from './js/behavioralPlayPdf.js';
+
+    const rows = [
+      { label: 'Giving: Assigning corner time or time-outs', partnerA: '5', partnerB: '5' },
+      { label: 'General: Attitude toward funishment vs serious correction', partnerA: '3', partnerB: '3' },
+      { label: 'Receiving: Being placed in the corner or given a time-out', partnerA: '5', partnerB: '5' },
+      { label: 'Receiving: Getting scolded or lectured for correction', partnerA: '2', partnerB: '2' },
+      { label: 'Receiving: Having privileges revoked (phone, TV)', partnerA: '4', partnerB: '4' },
+      { label: 'Receiving: Lecturing or scolding to modify behavior', partnerA: '3', partnerB: '3' },
+      { label: 'Giving: Playful punishments that still reinforce rules', partnerA: '4', partnerB: '4' },
+      { label: 'General: Preferred style of discipline (strict vs lenient)', partnerA: '3', partnerB: '3' },
+    ];
+
+    const { html } = renderBehavioralPlayHTML(rows, {
+      timestamp: '11/19/2025, 1:08:06 AM',
+      title: 'TalkKink Compatibility Survey',
+      sectionTitle: 'Behavioral Play',
+    });
+
+    const container = document.getElementById('app');
+    if (container) {
+      container.innerHTML = html;
+    }
+
+    const downloadBtn = document.getElementById('downloadPdfBtn');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => window.print());
+    }
+  </script>
+</body>
+</html>
