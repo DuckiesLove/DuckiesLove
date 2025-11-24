@@ -12,10 +12,15 @@ function computeMatchPercent(aScore, bScore) {
 }
 
 function formatValue(val) {
-  if (val === undefined || val === null || val === '') return 'N/A';
-  if (typeof val === 'string') return val;
+  if (val === undefined || val === null) return 'N/A';
   if (typeof val === 'number' && Number.isFinite(val)) return val.toString();
-  return String(val);
+
+  const text = String(val ?? '').trim();
+  if (!text || text === '—' || /^n\/?a$/i.test(text) || text === '&&&' || /^(null|undefined)$/i.test(text)) {
+    return 'N/A';
+  }
+
+  return text;
 }
 
 export function buildCompatCategories(partnerA, partnerB, metadata = {}) {
@@ -45,6 +50,11 @@ export function buildCompatCategories(partnerA, partnerB, metadata = {}) {
 export function renderCompatCategoryTable(doc, categories, startY = 0) {
   let finalY = startY;
 
+  const margin = { left: 48, right: 48 };
+  const availableWidth = doc.internal.pageSize.getWidth() - (margin.left + margin.right);
+  const numericColumnWidth = 50;
+  const kinkColumnWidth = Math.max(120, availableWidth - numericColumnWidth * 3);
+
   (categories || []).forEach((category) => {
     const data = (category.items || []).map((item) => [
       item.label,
@@ -57,6 +67,7 @@ export function renderCompatCategoryTable(doc, categories, startY = 0) {
       startY: finalY,
       head: [['Kink', 'Partner A', 'Match', 'Partner B']],
       body: data,
+      margin,
       styles: {
         textColor: '#FFFFFF',
         fontSize: 10,
@@ -66,11 +77,14 @@ export function renderCompatCategoryTable(doc, categories, startY = 0) {
         fillColor: [0, 255, 255],
         textColor: [0, 0, 0],
         halign: 'center',
+        fontSize: 11,
+        cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
       },
       columnStyles: {
-        1: { halign: 'center' },
-        2: { halign: 'center' },
-        3: { halign: 'center' },
+        0: { cellWidth: kinkColumnWidth, halign: 'left' },
+        1: { cellWidth: numericColumnWidth, halign: 'center' },
+        2: { cellWidth: numericColumnWidth, halign: 'center' },
+        3: { cellWidth: numericColumnWidth, halign: 'center' },
       },
       didDrawPage: (data) => {
         finalY = data.cursor?.y || startY + 10;
