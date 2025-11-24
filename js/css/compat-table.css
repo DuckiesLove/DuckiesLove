@@ -1,0 +1,171 @@
+/* Compatibility table styles */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
+:root {
+  --tk-compat-font: 'Fredoka One', 'Inter', 'Open Sans', system-ui, sans-serif;
+}
+
+body.dark-theme {
+  background: #0b0c10;
+  color: #e9eef0;
+}
+
+.compat-row td {
+  font-family: var(--tk-compat-font);
+  font-size: 13px;
+  line-height: 1.25;
+  padding: 8px 10px;
+}
+
+.kink-label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.compat-row.strong-match td {
+  background: rgba(0, 230, 140, 0.12);
+}
+
+.compat-row.red-flag td {
+  background: rgba(255, 85, 85, 0.16);
+}
+
+html,
+body {
+  margin: 0;
+  background: #0b0c10;
+}
+
+.compat-page,
+.compat-wrap,
+.compat-wrapper,
+.compat-container,
+#compatRoot {
+  max-width: none !important;
+  width: 100vw;
+  padding-left: 16px;
+  padding-right: 16px;
+  box-sizing: border-box;
+}
+
+/* === TalkKink compat table: stable columns & overflow control === */
+table.compat,
+.compat-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+  color: #fff;
+  background: #000;
+}
+
+table.compat colgroup col.label,
+.compat-table colgroup col.label { width: 56%; }
+table.compat colgroup col.a,
+table.compat colgroup col.pa,
+.compat-table colgroup col.a { width: 12%; }
+table.compat colgroup col.match,
+.compat-table colgroup col.match { width: 16%; }
+table.compat colgroup col.b,
+table.compat colgroup col.pb,
+.compat-table colgroup col.b { width: 10%; }
+table.compat colgroup col.pc,
+.compat-table colgroup col.pc { width: 10%; }
+
+table.compat th,
+table.compat td,
+.compat-table th,
+.compat-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  padding: 8px 10px;
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+table.compat thead th,
+.compat-table thead th {
+  white-space: nowrap;
+  font-weight: 700;
+  border-bottom: 2px solid #333;
+}
+
+/* center numeric columns, keep label left */
+table.compat th.a,
+table.compat td.a,
+table.compat th.pa,
+table.compat td.pa,
+table.compat th.match,
+table.compat td.match,
+table.compat th.b,
+table.compat td.b,
+table.compat th.pb,
+table.compat td.pb,
+table.compat th.pc,
+table.compat td.pc,
+.compat-table th.a,
+.compat-table td.a,
+.compat-table th.match,
+.compat-table td.match,
+.compat-table th.b,
+.compat-table td.b,
+.compat-table th.pc,
+.compat-table td.pc { text-align: center; }
+table.compat th.label,
+table.compat td.label,
+.compat-table th.label,
+.compat-table td.label { text-align: left; }
+
+/* dark rows only (no accidental white stripes) */
+table.compat thead th,
+.compat-table thead th { background:#0c0c0e; color:#39e6df; }
+table.compat tbody tr,
+.compat-table tbody tr { background:#111214; }
+table.compat tbody tr:nth-child(even),
+.compat-table tbody tr:nth-child(even) { background:#0f1012; }
+
+/* Category title row */
+.category-title {
+  font-weight: 800;
+  font-size: 1.25rem;
+  /* Remove top and bottom borders to eliminate box appearance */
+  border-top: none;
+  border-bottom: none;
+  padding: 14px 12px !important;
+  text-align: center;
+}
+
+/* Keep each category block together */
+.category-block {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Label column */
+td.label { text-align: left; }
+
+/* Partner A / Match / Partner B / Partner C cells */
+td.pa,
+td.match,
+td.pb,
+td.pc {
+  text-align: center;
+}
+
+button#tk-missing-pill:focus {
+  outline: none;
+}
+
+/* Print adjustments */
+@media print {
+  body {
+    background: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .category-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
