@@ -140,13 +140,6 @@
   const CFG = {
     pdfKillSwitch: false,
     selectors: { downloadBtn: '#downloadPdfBtn' },
-    columns: [
-      { key: 'item',  header: 'Kinks',             w: 330 },
-      { key: 'a',     header: 'Giving Partner A',  w: 90  },
-      { key: 'match', header: 'Match %',           w: 120 },
-      { key: 'flag',  header: 'Flag',              w: 55  },
-      { key: 'b',     header: 'Giving Partner B',  w: 90  },
-    ],
     cdn: {
       jspdf: [
         'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
@@ -219,8 +212,6 @@
   }
 
   /* ---------------------- Helpers ---------------------- */
-
-  const TK_ACCENT = [16, 226, 240];
 
   const safe = (v) =>
     v == null || v === 'null' || v === 'undefined' ? '' : String(v);
@@ -438,177 +429,76 @@
     return text || fallback;
   }
 
-  function buildHeaderMeta(doc, { title, subtitle, sectionTitle }) {
-    const pageW = doc.internal.pageSize.getWidth();
-    const titleY = 70;
-    const subtitleY = titleY + 28;
-    const ruleY = subtitleY + 14;
-    const sectionY = ruleY + 34;
-    const tableStartY = sectionY + 30;
-    return { pageW, titleY, subtitleY, ruleY, sectionY, tableStartY, title, subtitle, sectionTitle };
+  const tableStyle = {
+    theme: 'grid',
+    styles: {
+      fontSize: 10,
+      font: 'helvetica',
+      textColor: '#FFFFFF',
+      halign: 'left',
+      valign: 'middle',
+      cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+      lineColor: '#222',
+      lineWidth: 0.3,
+      fontStyle: 'normal',
+      overflow: 'linebreak',
+    },
+    headStyles: {
+      fillColor: '#00FFFF',
+      textColor: '#000000',
+      fontSize: 10,
+      halign: 'left',
+      fontStyle: 'bold',
+    },
+    columnStyles: {
+      0: { cellWidth: 130 },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 20, halign: 'center' },
+    },
+  };
+
+  function emojiForMatch(scoreA, scoreB) {
+    const diff = Math.abs(scoreA - scoreB);
+    if (scoreA === scoreB && scoreA > 0) return '⭐';
+    if (diff >= 3) return '🚩';
+    if ((scoreA === 5 || scoreB === 5) && diff >= 1) return '🟨';
+    return '';
   }
 
-  function paintPageBackground(doc) {
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    doc.setFillColor(5, 19, 26);
-    doc.rect(0, 0, pageW, pageH, 'F');
-  }
+  function renderSection(doc, rows, { title, subtitle, sectionTitle }) {
+    const pageWidth = doc.internal.pageSize.getWidth();
 
-  function drawHeader(doc, meta) {
-    const opts = { align: 'center', baseline: 'alphabetic' };
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(46);
-    doc.setTextColor(...TK_ACCENT);
-    doc.text(meta.title, meta.pageW / 2, meta.titleY, { ...opts, charSpace: 0 });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(14);
-    doc.setTextColor(191, 255, 255);
-    doc.text(meta.subtitle, meta.pageW / 2, meta.subtitleY, { ...opts, charSpace: 0 });
-
-    doc.setDrawColor(...TK_ACCENT);
-    doc.setLineWidth(2.4);
-    doc.line(80, meta.ruleY, meta.pageW - 80, meta.ruleY);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(32);
-    doc.text(meta.sectionTitle, meta.pageW / 2, meta.sectionY, { ...opts, charSpace: 0 });
-  }
-
-  function renderSection(doc, rows, headerMeta) {
-    const COLUMN_FILLS = {
-      item: [10, 23, 32],
-      a: [6, 38, 45],
-      match: [8, 25, 33],
-      flag: [10, 23, 32],
-      b: [6, 38, 45],
-    };
-
-    const pdfColumns = CFG.columns;
-    const tableRows = rows.map((r) => {
-      const matchText = safeValue(displayValue(r.match)) ||
-        (Number.isFinite(r.pct) ? `${clampPercent(r.pct)}%` : '');
-      return {
-        item: safeValue(displayValue(r.item)),
-        a: safeValue(displayValue(r.a)),
-        match: matchText,
-        flag: '',
-        b: safeValue(displayValue(r.b)),
-        flagColor: r.flagColor,
-        matchPercent: r.pct,
-        partnerA: r.aNum,
-        partnerB: r.bNum,
-      };
+    const kinkRows = rows.map((r) => {
+      const aScore = Number.isFinite(r.aNum) ? r.aNum : coerceNum(r.a);
+      const bScore = Number.isFinite(r.bNum) ? r.bNum : coerceNum(r.b);
+      const matchPercent = Number.isFinite(r.pct) ? r.pct : tk_matchPercent(aScore, bScore);
+      const matchText = tk_renderMatchText(aScore, bScore, matchPercent, r.match);
+      return [
+        safeValue(displayValue(r.item)),
+        safeValue(displayValue(r.a)),
+        matchText || '',
+        safeValue(displayValue(r.b)),
+      ];
     });
 
-    const itemColumn = pdfColumns.find((col) => col.key === 'item');
-    const wrapWidth = Math.max(40, (itemColumn?.w || 330) - 16);
+    doc.setFontSize(18);
+    doc.setTextColor('#00FFFF');
+    doc.text(title, pageWidth / 2, 20, { align: 'center' });
 
-    const bodyRows = tableRows.map((row) => ({
-      ...row,
-      item:
-        row.item && typeof doc.splitTextToSize === 'function'
-          ? doc.splitTextToSize(row.item, wrapWidth)
-          : row.item,
-    }));
+    doc.setFontSize(10);
+    doc.setTextColor('#FFFFFF');
+    doc.text(subtitle, pageWidth / 2, 26, { align: 'center' });
 
-    const columnStyles = Object.fromEntries(
-      pdfColumns.map((col) => [col.key, {
-        cellWidth: col.w,
-        halign: col.key === 'item' ? 'left' : 'center',
-      }])
-    );
-
-    const columns = pdfColumns.map((col) => ({ header: col.header, dataKey: col.key }));
+    doc.setFontSize(14);
+    doc.setTextColor('#00FFFF');
+    doc.text(sectionTitle, pageWidth / 2, 35, { align: 'center' });
 
     doc.autoTable({
-      startY: headerMeta.tableStartY,
-      margin: { left: 70, right: 70, top: headerMeta.tableStartY },
-      columns,
-      body: bodyRows,
-      theme: 'grid',
-      styles: {
-        font: 'helvetica',
-        fontSize: 10,
-        textColor: [232, 247, 251],
-        fillColor: [14, 20, 26],
-        cellPadding: 2,
-        lineColor: [30, 50, 56],
-        lineWidth: 0.85,
-        halign: 'center',
-        overflow: 'linebreak',
-        charSpace: 0,
-      },
-      headStyles: {
-        fontStyle: 'bold',
-        fontSize: 10,
-        textColor: TK_ACCENT,
-        fillColor: [8, 22, 31],
-        halign: 'center',
-        lineWidth: 1.05,
-        lineColor: [30, 50, 56],
-        cellPadding: 2,
-        charSpace: 0,
-      },
-      bodyStyles: {
-        fontSize: 10,
-        halign: 'center',
-        valign: 'middle',
-        charSpace: 0,
-      },
-      alternateRowStyles: {
-        fillColor: [11, 17, 23],
-      },
-      columnStyles,
-      didParseCell: (data) => {
-        const fill = COLUMN_FILLS[data.column.dataKey];
-        if (fill && data.cell?.styles) {
-          const bump = data.row.index % 2 ? 4 : 0;
-          data.cell.styles.fillColor = fill.map((v) => Math.min(255, v + bump));
-        }
-
-        if (data.section !== 'body') return;
-
-        const row = data.row?.raw || {};
-        if (data.column.dataKey === 'match') {
-          const fallbackText = cleanText(row.match) || cleanText(data.cell.text?.[0] ?? '');
-          const matchPercent =
-            Number.isFinite(row.matchPercent)
-              ? row.matchPercent
-              : Number.isFinite(row.pct)
-              ? row.pct
-              : coerceNum(fallbackText);
-          const aScore = Number.isFinite(row.partnerA)
-            ? row.partnerA
-            : Number.isFinite(row.aNum)
-            ? row.aNum
-            : coerceNum(row.a);
-          const bScore = Number.isFinite(row.partnerB)
-            ? row.partnerB
-            : Number.isFinite(row.bNum)
-            ? row.bNum
-            : coerceNum(row.b);
-          const matchText = tk_renderMatchText(aScore, bScore, matchPercent, fallbackText);
-          data.cell.text = [matchText];
-          data.cell._tkFlagColor = row.flagColor || tk_flagStatus(aScore, bScore, matchPercent);
-          return;
-        }
-
-        if (data.column.dataKey === 'flag') {
-          const flagColor = row.flagColor || tk_flagStatus(row.partnerA, row.partnerB, row.matchPercent);
-          data.cell.text = [''];
-          data.cell._tkFlagColor = flagColor;
-        }
-      },
-      didDrawCell: (data) => {
-        const flagColor = data.cell?._tkFlagColor;
-        if (!flagColor) return;
-        tk_drawFlagSquare(doc, data.cell, flagColor);
-      },
-      didDrawPage: () => {
-        drawHeader(doc, headerMeta);
-      },
+      startY: 40,
+      head: [['Kinks', 'Partner A', 'Match', 'Partner B']],
+      body: kinkRows,
+      ...tableStyle,
     });
   }
 
@@ -622,7 +512,7 @@
 
     const doc = new jsPDF({
       orientation: 'landscape',
-      unit: 'pt',
+      unit: 'mm',
       format: 'letter',
     });
 
@@ -632,19 +522,8 @@
     const title = getText('.hx.h1', 'TalkKink Compatibility Survey');
     const subtitle = getText('#tk-ts', `Generated: ${new Date().toLocaleString()}`);
     const sectionTitle = getText('.hx.h2', 'Behavioral Play');
-    const headerMeta = buildHeaderMeta(doc, { title, subtitle, sectionTitle });
 
-    paintPageBackground(doc);
-    const originalAddPage = doc.addPage.bind(doc);
-    doc.addPage = (...args) => {
-      const result = originalAddPage(...args);
-      paintPageBackground(doc);
-      return result;
-    };
-
-    renderSection(doc, normalized, headerMeta);
-
-    doc.addPage = originalAddPage;
+    renderSection(doc, normalized, { title, subtitle, sectionTitle });
 
     doc.save('TalkKink-compatibility.pdf');
   }
