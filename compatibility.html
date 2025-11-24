@@ -767,7 +767,30 @@
           partner: document.getElementById('partnerStatus')
         };
         const button = document.getElementById('downloadBtn');
+        const SMALL_SCREEN_MAX_WIDTH = 500;
+        const SMALL_SCREEN_REDIRECT = '/compat/small-screen';
         const seen = { self: false, partner: false };
+
+        function shouldRedirectToSmallScreen() {
+          return window.innerWidth < SMALL_SCREEN_MAX_WIDTH;
+        }
+
+        function maybeRedirectToSmallScreen(event) {
+          if (!shouldRedirectToSmallScreen()) return;
+          const target = event?.target?.closest?.('#downloadBtn');
+          if (!target) return;
+
+          event.preventDefault();
+          if (event.stopImmediatePropagation) {
+            event.stopImmediatePropagation();
+          }
+          window.location.assign(SMALL_SCREEN_REDIRECT);
+        }
+
+        if (button && shouldRedirectToSmallScreen()) {
+          document.addEventListener('click', maybeRedirectToSmallScreen, true);
+          button.addEventListener('click', maybeRedirectToSmallScreen);
+        }
 
         function setStatus(which, message, state) {
           const node = STATUS_MAP[which];
