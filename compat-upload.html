@@ -120,6 +120,10 @@ let partnerAAnswers = {};
 let partnerBAnswers = {};
 let compatibilityItems = [];
 
+function isNumericScore(value) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 function sanitizeScore(score) {
   if (score == null || score === '' || score === '&&&') return '&&&';
   return score;
@@ -128,9 +132,7 @@ function sanitizeScore(score) {
 function calculateMatchScore(a, b) {
   if (
     a === '&&&' || b === '&&&' ||
-    a === null || b === null ||
-    a === undefined || b === undefined ||
-    a === '' || b === ''
+    !isNumericScore(a) || !isNumericScore(b)
   ) {
     return '&&&';
   }
@@ -242,13 +244,13 @@ const ID_ALIAS = new Map([
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m]))}
 function pick(obj, keys) { for (const k of keys) if (obj && Object.prototype.hasOwnProperty.call(obj, k)) return obj[k]; }
 function toNumberish(v) {
-  if (typeof v === "number" && !Number.isNaN(v)) return v > 5 && v <= 10 ? v / 2 : v;
+  if (typeof v === "number" && Number.isFinite(v)) return v > 5 && v <= 10 ? v / 2 : v;
   if (typeof v === "string") {
     const t = v.trim();
     if (/^\d+%$/.test(t)) return Number(t.slice(0, -1)) / 20;      // e.g. "80%" -> 4.0 on 0–5
     if (/^\d+\s*\/\s*\d+$/.test(t)) return Number(t.split("/")[0]); // e.g. "4/5" -> 4
     const n = Number(t);
-    if (!Number.isNaN(n)) return n > 5 && n <= 10 ? n / 2 : n;      // handle 1–10 scales
+    if (Number.isFinite(n)) return n > 5 && n <= 10 ? n / 2 : n;      // handle 1–10 scales
   }
   return null;
 }
@@ -313,7 +315,7 @@ function normalizeSurvey(json) {
 function validateNormalized(n) {
   const errors = [];
   if (!n.items.length) errors.push("No recognizable items with names/ids were found.");
-  const scored = n.items.filter(i => typeof i.score === "number");
+  const scored = n.items.filter(i => isNumericScore(i.score));
   if (n.items.length && !scored.length) errors.push("Items found, but none contained numeric scores.");
   return { errors, scoredCount: scored.length, total: n.items.length, missing: n.missingScores };
 }
@@ -339,8 +341,8 @@ function setStatus(which, text, state) {
 /* Enable download only when BOTH A and B have at least one numeric score */
 function updateUIStates() {
   const btn = document.getElementById("downloadBtn");
-  const aOk = !!(partnerAData?.items?.some(i => typeof i.score === "number"));
-  const bOk = !!(partnerBData?.items?.some(i => typeof i.score === "number"));
+  const aOk = !!(partnerAData?.items?.some(i => isNumericScore(i.score)));
+  const bOk = !!(partnerBData?.items?.some(i => isNumericScore(i.score)));
   btn.disabled = !(aOk && bOk);
   if (!aOk || !bOk) {
     setGlobalError([]);
@@ -449,14 +451,14 @@ function updateComparison() {
     if (!tr) return; // still nothing to attach to
 
     const aCell = tr.querySelector('[data-cell="A"]');
-    if (aCell) aCell.textContent = typeof a?.score === 'number' ? String(a.score) : 'N/A';
+    if (aCell) aCell.textContent = isNumericScore(a?.score) ? String(a.score) : 'N/A';
 
     const bCell = tr.querySelector('[data-cell="B"]');
-    if (bCell) bCell.textContent = typeof b?.score === 'number' ? String(b.score) : 'N/A';
+    if (bCell) bCell.textContent = isNumericScore(b?.score) ? String(b.score) : 'N/A';
 
     const matchCell = tr.querySelector('[data-cell="Match"]');
     if (matchCell) {
-      if (typeof a?.score === 'number' && typeof b?.score === 'number') {
+      if (isNumericScore(a?.score) && isNumericScore(b?.score)) {
         const diff = Math.abs(a.score - b.score);
         const pct = Math.max(0, 100 - (diff / 5) * 100);
         matchCell.textContent = `${Math.round(pct)}%`;
@@ -467,7 +469,7 @@ function updateComparison() {
 
     const flagCell = tr.querySelector('[data-cell="Flag"]');
     if (flagCell) {
-      if (typeof a?.score === 'number' && typeof b?.score === 'number') {
+      if (isNumericScore(a?.score) && isNumericScore(b?.score)) {
         flagCell.textContent = Math.abs(a.score - b.score) >= 3 ? '🚩' : '';
       } else {
         flagCell.textContent = '';
