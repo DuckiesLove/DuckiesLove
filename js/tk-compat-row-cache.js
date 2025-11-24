@@ -193,7 +193,15 @@
       const bScore = getScore(partnerMap, kinkId, complementSide(side));
       if (aScore == null && bScore == null) return;
       const matchPct = matchPercent(aScore, bScore);
-      rows.push({ item: row.item, a: aScore, b: bScore, matchPct });
+      rows.push({
+        item: row.item,
+        label: row.item,
+        a: aScore,
+        b: bScore,
+        aScore,
+        bScore,
+        matchPct
+      });
     });
 
     rows.sort((a, b) => a.item.localeCompare(b.item, undefined, { sensitivity: 'base' }));
