@@ -384,12 +384,21 @@ window.TKCompatPDF = (function () {
     const boxWidth = (doc.internal.pageSize.getWidth() - 96) / badges.length;
     const boxHeight = 54;
 
+    const drawBadge = (x, y, width, height) => {
+      if (typeof doc.roundedRect === 'function') {
+        doc.roundedRect(x, y, width, height, 6, 6, 'FD');
+      } else {
+        // Fallback for jsPDF builds without the roundedRect plugin
+        doc.rect(x, y, width, height, 'FD');
+      }
+    };
+
     badges.forEach((badge, idx) => {
       const x = 48 + idx * boxWidth;
       doc.setFillColor(...THEME.badge);
       doc.setDrawColor(...THEME.grid);
       doc.setLineWidth(0.8);
-      doc.roundedRect(x, startY, boxWidth - 12, boxHeight, 6, 6, 'FD');
+      drawBadge(x, startY, boxWidth - 12, boxHeight);
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
