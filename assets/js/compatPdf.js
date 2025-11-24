@@ -7,20 +7,33 @@ window.TKCompatPDF = (function () {
     ? window.talkkinkCompatRows.slice()
     : [];
 
-  const log = (...args) => console.log('[compat-pdf]', ...args);
-
   const THEME = {
-    bg: [10, 20, 28],
-    panel: [12, 29, 37],
-    row: [12, 31, 41],
-    rowAlt: [10, 27, 35],
-    grid: [15, 70, 88],
-    accent: [9, 225, 255],
-    ink: [230, 254, 255],
-    inkDim: [184, 223, 224]
+    bg: [6, 12, 20],
+    panel: [14, 24, 36],
+    badge: [18, 33, 47],
+    grid: [46, 83, 107],
+    accent: [48, 231, 231],
+    accentAlt: [255, 116, 206],
+    text: [233, 244, 247],
+    muted: [173, 199, 205]
   };
 
-  const toRGB = (arr = []) => arr.slice(0, 3);
+  const JSPDF_LOCAL = [
+    '/assets/js/vendor/jspdf.umd.min.js',
+    '/js/vendor/jspdf.umd.min.js',
+    '/vendor/jspdf.umd.min.js'
+  ];
+
+  const AUTOTABLE_LOCAL = [
+    '/assets/js/vendor/jspdf.plugin.autotable.min.js',
+    '/js/vendor/jspdf.plugin.autotable.min.js',
+    '/vendor/jspdf.plugin.autotable.min.js'
+  ];
+
+  const JSPDF_CDN = ['https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'];
+  const AUTOTABLE_CDN = [
+    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
+  ];
 
   function safeString(value) {
     if (value == null) return '';
@@ -39,55 +52,6 @@ window.TKCompatPDF = (function () {
     if (side === 'receiving') return 'giving';
     return 'general';
   }
-
-  function cleanValue(val) {
-    if (val === undefined || val === null || val === '&&&') return '';
-    return val;
-  }
-
-  function splitMatchAndFlag(value) {
-    const raw = safeString(value);
-    if (!raw) return { percent: null, flag: '' };
-
-    const parts = raw.split('&&&').map((p) => p.trim()).filter(Boolean);
-    const matchText = parts[0] || '';
-    let flagText = parts.slice(1).join(' ').trim();
-
-    // Some historical generators appended "&&&" as a placeholder flag marker.
-    // Treat that as "no flag" so the PDF doesn't surface meaningless symbols.
-    if (flagText === '&&&') {
-      flagText = '';
-    }
-
-    const parsed = parseInt(matchText, 10);
-    const percent = Number.isFinite(parsed) ? parsed : null;
-
-    return { percent, flag: flagText };
-  }
-
-  const hasSurveyData = (data) => data?.meta && Array.isArray(data.answers) && data.answers.length > 0;
-
-  const JSPDF_LOCAL = [
-    '/assets/js/vendor/jspdf.umd.min.js',
-    '/js/vendor/jspdf.umd.min.js',
-    '/vendor/jspdf.umd.min.js'
-  ];
-
-  const AUTOTABLE_LOCAL = [
-    '/assets/js/vendor/jspdf.plugin.autotable.min.js',
-    '/js/vendor/jspdf.plugin.autotable.min.js',
-    '/vendor/jspdf.plugin.autotable.min.js'
-  ];
-
-  const JSPDF_CDN = [
-    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'
-  ];
-
-  const AUTOTABLE_CDN = [
-    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
-  ];
-
-  let pdfLibLoadPromise = null;
 
   function clampScore(value) {
     const num = Number(value);
@@ -175,30 +139,56 @@ window.TKCompatPDF = (function () {
     return rows;
   }
 
+  function cleanValue(val) {
+    if (val === undefined || val === null || val === '&&&') return '';
+    return val;
+  }
+
   function getCompatMatch(scoreA, scoreB) {
     const cleanA = cleanValue(scoreA);
     const cleanB = cleanValue(scoreB);
 
-    if (cleanA === '' && cleanB === '') return 'N/A';
-    if (cleanA === '' || cleanB === '') return '';
+    if (cleanA === '' && cleanB === '') return null;
+    if (cleanA === '' || cleanB === '') return null;
 
     const numA = Number(cleanA);
     const numB = Number(cleanB);
-    if (!Number.isFinite(numA) || !Number.isFinite(numB)) return '';
+    if (!Number.isFinite(numA) || !Number.isFinite(numB)) return null;
 
     const diff = Math.abs(numA - numB);
-    const percent = Math.max(0, Math.min(100, Math.round(100 - diff * 20)));
-    return `${percent}%`;
+    return Math.max(0, Math.min(100, Math.round(100 - diff * 20)));
   }
 
-  function deriveCategoryLabel(payloads) {
-    return (
-      payloads?.self?.meta?.categoryLabel ||
-      payloads?.self?.meta?.category ||
-      payloads?.partner?.meta?.categoryLabel ||
-      payloads?.partner?.meta?.category ||
-      'Compatibility Results'
-    );
+  function parseMatchPercentage(matchValue) {
+    if (typeof matchValue === 'number' && Number.isFinite(matchValue)) return matchValue;
+    if (typeof matchValue === 'string') {
+      const parsed = parseInt(matchValue, 10);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+  }
+
+  function normalizeCompatTableRows(rows = []) {
+    return rows.map((row) => {
+      const rawA = Number(row.a ?? row.partnerA ?? row.aScore ?? row.scoreA);
+      const rawB = Number(row.b ?? row.partnerB ?? row.bScore ?? row.scoreB);
+      const scoreA = Number.isFinite(rawA) ? rawA : null;
+      const scoreB = Number.isFinite(rawB) ? rawB : null;
+
+      const matchFromRow = parseMatchPercentage(
+        row.match ?? row.matchPct ?? row.matchPercent ?? row.matchValue
+      );
+      const matchPercent = Number.isFinite(matchFromRow)
+        ? matchFromRow
+        : getCompatMatch(scoreA, scoreB);
+
+      return {
+        label: row.item || row.label || '—',
+        partnerA: scoreA,
+        partnerB: scoreB,
+        matchPercent: Number.isFinite(matchPercent) ? matchPercent : null
+      };
+    });
   }
 
   function readJson(key) {
@@ -221,143 +211,6 @@ window.TKCompatPDF = (function () {
     return null;
   }
 
-  // 🔧 Label shortening map
-  const labelShortMap = {
-    'Appearance Play': 'Appearance',
-    'Breath Play': 'Breath',
-    'Psychological & Emotional': 'Emotional',
-    'Communication & Emotional Language': 'Communication',
-    'High-Intensity Kinks (SSC-Aware)': 'High-Intensity',
-    'Bondage & Control': 'Bondage',
-    'Body Fluids & Excretions': 'Fluids',
-    'Group & Public Play': 'Group Play',
-    'Physical Impact': 'Impact',
-    'Power Exchange': 'Power',
-    'Roleplay & Fantasy': 'Roleplay',
-    'Rituals & Protocols': 'Rituals',
-    'Service & Devotion': 'Service',
-    'Toys & Tools': 'Toys'
-  };
-
-  // 🧠 Core table rendering (safe fallback for empty rows)
-  function renderCompatCategoryTable(doc, category, rows, startY) {
-    if (!rows || rows.length === 0) return startY ?? 10;
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const marginX = 40;
-    const usableWidth = pageWidth - marginX * 2;
-    const colWidths = {
-      label: usableWidth * 0.52,
-      partner: usableWidth * 0.14,
-      match: usableWidth * 0.16,
-      partnerB: usableWidth * 0.18
-    };
-
-    const tableBody = rows.map(row => {
-      const shortLabel = labelShortMap[row.label] || row.label;
-      const matchPercent = row.matchPercent ?? NaN;
-      return [
-        shortLabel,
-        formatScore(row.partnerA),
-        formatMatch(matchPercent),
-        formatScore(row.partnerB)
-      ];
-    });
-
-    doc.autoTable({
-      head: [['Item', 'Partner A', 'Match', 'Partner B']],
-      body: tableBody,
-      startY: startY ?? 10,
-      margin: { left: marginX, right: marginX },
-      styles: {
-        fontSize: 10,
-        font: 'helvetica',
-        textColor: toRGB(THEME.ink),
-        cellPadding: { top: 10, right: 8, bottom: 10, left: 8 },
-        overflow: 'linebreak',
-        valign: 'middle',
-        lineColor: toRGB(THEME.grid),
-        lineWidth: 0.35,
-        fillColor: toRGB(THEME.row)
-      },
-      headStyles: {
-        fillColor: toRGB(THEME.panel),
-        textColor: toRGB(THEME.accent),
-        fontSize: 12,
-        fontStyle: 'bold',
-        halign: 'center',
-        lineColor: toRGB(THEME.grid),
-        lineWidth: 0.8
-      },
-      alternateRowStyles: {
-        fillColor: toRGB(THEME.rowAlt)
-      },
-      columnStyles: {
-        0: { cellWidth: colWidths.label, halign: 'left', textColor: [142, 214, 232] },
-        1: { cellWidth: colWidths.partner, halign: 'center' },
-        2: { cellWidth: colWidths.match, halign: 'center', textColor: toRGB(THEME.accent) },
-        3: { cellWidth: colWidths.partnerB, halign: 'center' }
-      },
-      didParseCell: (data) => {
-        if (data.section !== 'body') return;
-        if (data.column.index === 2 && data.cell.raw === '—') {
-          data.cell.styles.textColor = toRGB(THEME.inkDim);
-        }
-      }
-    });
-
-    const lastY = doc.lastAutoTable?.finalY;
-    const prevY = doc.previousAutoTable?.finalY;
-    return lastY ?? prevY ?? startY ?? 10;
-  }
-
-  function parseMatchPercentage(matchValue) {
-    if (typeof matchValue === 'number' && Number.isFinite(matchValue)) return matchValue;
-    if (typeof matchValue === 'string') {
-      const parsed = parseInt(matchValue, 10);
-      if (Number.isFinite(parsed)) return parsed;
-    }
-    return null;
-  }
-
-  function formatScore(value) {
-    if (Number.isFinite(value)) return String(value);
-    const text = safeString(value);
-    return text || '—';
-  }
-
-  function formatMatch(matchPercent) {
-    if (!Number.isFinite(matchPercent)) return '—';
-    const rounded = Math.round(matchPercent);
-    return `${rounded}%`;
-  }
-
-  function normalizeCompatTableRows(rows = []) {
-    return rows.map((row) => {
-      const rawA = Number(row.a ?? row.partnerA ?? row.aScore ?? row.scoreA);
-      const rawB = Number(row.b ?? row.partnerB ?? row.bScore ?? row.scoreB);
-      const scoreA = Number.isFinite(rawA) ? rawA : null;
-      const scoreB = Number.isFinite(rawB) ? rawB : null;
-
-      const { percent: matchFromRaw } = splitMatchAndFlag(
-        row.match ?? row.matchPct ?? row.matchPercent ?? row.matchValue
-      );
-
-      const match = parseMatchPercentage(
-        Number.isFinite(matchFromRaw) ? matchFromRaw : getCompatMatch(scoreA, scoreB)
-      );
-
-      const matchPercent = Number.isFinite(match) ? match : NaN;
-
-      return {
-        label: row.item || row.label || '—',
-        partnerA: scoreA,
-        partnerB: scoreB,
-        matchPercent
-      };
-    });
-  }
-
   function readSurveyPayloads() {
     return {
       self: readFirst(SELF_KEYS),
@@ -365,34 +218,26 @@ window.TKCompatPDF = (function () {
     };
   }
 
-  function rowsFromStorage(payloads = {}) {
-    const windowRows = Array.isArray(window.talkkinkCompatRows)
-      ? window.talkkinkCompatRows
-      : null;
+  function rowsFromStorage(payloads) {
+    if (cachedRows.length) return cachedRows.slice();
 
-    if (windowRows?.length) {
-      cachedRows = windowRows.slice();
+    const localRows = readFirst(ROW_STORAGE_KEYS);
+    if (Array.isArray(localRows) && localRows.length) {
+      cachedRows = localRows.slice();
+      return cachedRows.slice();
     }
 
-    if (!cachedRows?.length) {
-      for (const key of ROW_STORAGE_KEYS) {
-        const parsed = readJson(key);
-        if (Array.isArray(parsed) && parsed.length) {
-          cachedRows = parsed.slice();
-          break;
-        }
-      }
+    if (payloads?.self || payloads?.partner) {
+      const built = buildRows(payloads.self, payloads.partner);
+      cachedRows = built.slice();
+      return built;
     }
 
-    if (!cachedRows?.length) {
-      const self = payloads.self ?? readFirst(SELF_KEYS);
-      const partner = payloads.partner ?? readFirst(PARTNER_KEYS);
-      if (!self || !partner) return [];
+    return [];
+  }
 
-      cachedRows = buildRows(self, partner).slice();
-    }
-
-    return cachedRows.slice();
+  function hasSurveyData(data) {
+    return data?.meta && Array.isArray(data.answers) && data.answers.length > 0;
   }
 
   function isAutoTablePlaceholder(fn) {
@@ -413,15 +258,8 @@ window.TKCompatPDF = (function () {
       window.jspdf?.autoTable || window.jspdf_autotable || window.autotable || window.autoTable;
 
     if (JsPDF?.API && !JsPDF.API.autoTable && typeof autoTableFn === 'function') {
-      console.warn('[compat-pdf] AutoTable not found. Injecting manually.');
       JsPDF.API.autoTable = autoTableFn;
     }
-  }
-
-  function ensureJsPDF() {
-    const ctor = getJsPdfCtor();
-    if (typeof ctor === 'function') return ctor;
-    throw new Error('jsPDF is not loaded.');
   }
 
   function hasRealAutoTable() {
@@ -459,88 +297,31 @@ window.TKCompatPDF = (function () {
     return false;
   }
 
-  function injectScript(url) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = url;
-      script.async = false;
-      script.onload = resolve;
-      script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
-      document.head.appendChild(script);
-    });
-  }
-
   async function ensurePdfLibraries() {
     if (hasRealAutoTable()) return;
-    if (pdfLibLoadPromise) {
-      await pdfLibLoadPromise;
-      return;
+
+    if (!getJsPdfCtor()) {
+      const loadedLocalJsPdf = await tryLoadScripts(JSPDF_LOCAL, 'jsPDF');
+      if (!loadedLocalJsPdf) {
+        await tryLoadScripts(JSPDF_CDN, 'jsPDF');
+      }
     }
 
-    pdfLibLoadPromise = (async () => {
-      if (!getJsPdfCtor()) {
-        const loadedLocalJsPdf = await tryLoadScripts(JSPDF_LOCAL, 'jsPDF');
-        if (!loadedLocalJsPdf) {
-          await tryLoadScripts(JSPDF_CDN, 'jsPDF');
-        }
+    if (getJsPdfCtor() && !window.jsPDF) {
+      window.jsPDF = getJsPdfCtor();
+    }
+
+    if (!hasRealAutoTable()) {
+      const loadedLocalAutoTable = await tryLoadScripts(AUTOTABLE_LOCAL, 'jsPDF-AutoTable');
+      if (!loadedLocalAutoTable && !hasRealAutoTable()) {
+        await tryLoadScripts(AUTOTABLE_CDN, 'jsPDF-AutoTable');
       }
+    }
 
-      if (getJsPdfCtor() && !window.jsPDF) {
-        window.jsPDF = getJsPdfCtor();
-      }
+    attachAutoTablePlugin();
 
-      if (!hasRealAutoTable()) {
-        const loadedLocalAutoTable = await tryLoadScripts(AUTOTABLE_LOCAL, 'jsPDF-AutoTable');
-        if (!loadedLocalAutoTable && !hasRealAutoTable()) {
-          await tryLoadScripts(AUTOTABLE_CDN, 'jsPDF-AutoTable');
-        }
-      }
-
-      if (!hasRealAutoTable()) {
-        log('AutoTable missing after standard loaders, attempting direct injection...');
-        if (!getJsPdfCtor()) {
-          log('Injecting jsPDF...');
-          for (const src of JSPDF_CDN) {
-            try {
-              await injectScript(src);
-              break;
-            } catch (err) {
-              console.warn('[compat-pdf] Direct jsPDF injection failed', src, err);
-            }
-          }
-        }
-
-        if (getJsPdfCtor() && !window.jsPDF) {
-          window.jsPDF = getJsPdfCtor();
-        }
-
-        if (!hasRealAutoTable()) {
-          log('Injecting AutoTable...');
-          for (const src of AUTOTABLE_CDN) {
-            try {
-              await injectScript(src);
-              if (hasRealAutoTable()) break;
-            } catch (err) {
-              console.warn('[compat-pdf] Direct AutoTable injection failed', src, err);
-            }
-          }
-        }
-      }
-
-      attachAutoTablePlugin();
-
-      if (!hasRealAutoTable()) {
-        throw new Error('jsPDF-AutoTable not available after loading attempts.');
-      }
-
-      log('jsPDF-AutoTable loaded successfully.');
-    })();
-
-    try {
-      await pdfLibLoadPromise;
-    } catch (err) {
-      pdfLibLoadPromise = null;
-      throw err;
+    if (!hasRealAutoTable()) {
+      throw new Error('jsPDF-AutoTable not available after loading attempts.');
     }
   }
 
@@ -561,6 +342,129 @@ window.TKCompatPDF = (function () {
     throw new Error('jsPDF autoTable plugin is not loaded.');
   }
 
+  function paintPageBackground(doc) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFillColor(...THEME.bg);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  }
+
+  function renderHeader(doc, centerX, timestamp) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(26);
+    doc.setTextColor(...THEME.accent);
+    doc.text('TalkKink Compatibility', centerX, 48, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(...THEME.muted);
+    doc.text(`Generated ${timestamp}`, centerX, 66, { align: 'center' });
+
+    doc.setDrawColor(...THEME.accent);
+    doc.setLineWidth(1.4);
+    doc.line(48, 80, doc.internal.pageSize.getWidth() - 48, 80);
+  }
+
+  function renderStats(doc, rows, startY) {
+    const count = rows.length;
+    const withMatches = rows.filter((r) => Number.isFinite(r.matchPercent));
+    const avgMatch = withMatches.length
+      ? Math.round(
+          withMatches.reduce((sum, r) => sum + (r.matchPercent ?? 0), 0) / withMatches.length
+        )
+      : null;
+    const strong = withMatches.filter((r) => (r.matchPercent ?? 0) >= 80).length;
+
+    const badges = [
+      { label: 'Items Compared', value: count },
+      { label: 'Avg Match', value: avgMatch != null ? `${avgMatch}%` : '—' },
+      { label: '80%+ Alignments', value: strong }
+    ];
+
+    const boxWidth = (doc.internal.pageSize.getWidth() - 96) / badges.length;
+    const boxHeight = 54;
+
+    badges.forEach((badge, idx) => {
+      const x = 48 + idx * boxWidth;
+      doc.setFillColor(...THEME.badge);
+      doc.setDrawColor(...THEME.grid);
+      doc.setLineWidth(0.8);
+      doc.roundedRect(x, startY, boxWidth - 12, boxHeight, 6, 6, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(...THEME.accent);
+      doc.text(String(badge.value), x + 12, startY + 24);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(...THEME.muted);
+      doc.text(badge.label, x + 12, startY + 42);
+    });
+
+    return startY + boxHeight + 18;
+  }
+
+  function renderCompatTable(doc, rows, startY) {
+    if (!rows.length) return startY;
+
+    const tableBody = rows.map((row) => [
+      row.label,
+      Number.isFinite(row.partnerA) ? row.partnerA : '—',
+      Number.isFinite(row.matchPercent) ? `${Math.round(row.matchPercent)}%` : '—',
+      Number.isFinite(row.partnerB) ? row.partnerB : '—'
+    ]);
+
+    const autoTable = getAutoTable(doc);
+    if (!doc.autoTable && typeof autoTable === 'function') {
+      doc.autoTable = (opts) => autoTable(opts);
+    }
+
+    autoTable({
+      startY,
+      head: [['Item', 'Partner A', 'Match', 'Partner B']],
+      body: tableBody,
+      margin: { left: 48, right: 48 },
+      styles: {
+        fontSize: 10,
+        font: 'helvetica',
+        textColor: THEME.text,
+        cellPadding: { top: 9, right: 10, bottom: 9, left: 10 },
+        overflow: 'linebreak',
+        lineColor: THEME.grid,
+        lineWidth: 0.35,
+        fillColor: THEME.panel,
+        valign: 'middle'
+      },
+      columnStyles: {
+        0: { cellWidth: 'auto', halign: 'left', textColor: [170, 222, 232] },
+        1: { cellWidth: 70, halign: 'center' },
+        2: { cellWidth: 68, halign: 'center', textColor: THEME.accent },
+        3: { cellWidth: 70, halign: 'center' }
+      },
+      headStyles: {
+        fillColor: THEME.panel,
+        textColor: THEME.accent,
+        fontStyle: 'bold',
+        fontSize: 12,
+        lineColor: THEME.grid,
+        lineWidth: 0.8,
+        halign: 'center'
+      },
+      alternateRowStyles: {
+        fillColor: [10, 18, 28]
+      },
+      didParseCell: (data) => {
+        if (data.section !== 'body') return;
+        if (data.column.index === 2 && data.cell.raw === '—') {
+          data.cell.styles.textColor = THEME.muted;
+        }
+      }
+    });
+
+    return doc.lastAutoTable?.finalY ?? startY;
+  }
+
   async function generateFromStorage() {
     const payloads = readSurveyPayloads();
 
@@ -570,15 +474,14 @@ window.TKCompatPDF = (function () {
       return;
     }
 
-    const rows = rowsFromStorage(payloads);
-    if (!rows.length) {
+    const rawRows = rowsFromStorage(payloads);
+    if (!rawRows.length) {
       alert('Upload both partner surveys first, then try again.');
       return;
     }
 
     try {
       await ensurePdfLibraries();
-      attachAutoTablePlugin();
     } catch (err) {
       console.error('[compat-pdf] PDF libraries failed to load', err);
       alert('PDF could not be generated because required libraries did not load.');
@@ -591,47 +494,24 @@ window.TKCompatPDF = (function () {
       return;
     }
 
+    const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (typeof JsPDF !== 'function') {
+      alert('PDF could not be generated because jsPDF is unavailable.');
+      return;
+    }
+
     try {
-      const JsPDF = ensureJsPDF();
       const doc = new JsPDF({ putOnlyUsedFonts: true, unit: 'pt', format: 'a4', orientation: 'p' });
       const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      // Keep header elements truly centered on the page instead of nudging them left,
-      // so the title, timestamp, and category label align with the rest of the layout.
       const headerCenterX = pageWidth / 2;
-      const autoTable = getAutoTable(doc);
-      if (!doc.autoTable && typeof autoTable === 'function') {
-        doc.autoTable = (opts) => autoTable(opts);
-      }
-
       const timestamp = new Date().toLocaleString();
-      const categoryLabel = deriveCategoryLabel(payloads);
 
-      doc.setFillColor(...toRGB(THEME.bg));
-      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      paintPageBackground(doc);
+      renderHeader(doc, headerCenterX, timestamp);
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(26);
-      doc.setTextColor(...toRGB(THEME.accent));
-      doc.text('TalkKink Compatibility Survey', headerCenterX, 38, { align: 'center' });
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
-      doc.setTextColor(...toRGB(THEME.inkDim));
-      doc.text(`Generated: ${timestamp}`, headerCenterX, 54, { align: 'center' });
-
-      doc.setDrawColor(...toRGB(THEME.accent));
-      doc.setLineWidth(1.5);
-      doc.line(40, 64, pageWidth - 40, 64);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.setTextColor(...toRGB(THEME.accent));
-      doc.text(categoryLabel, headerCenterX, 92, { align: 'center' });
-
-      const tableRows = normalizeCompatTableRows(rows);
-
-      renderCompatCategoryTable(doc, { items: tableRows, label: categoryLabel }, tableRows, 108);
+      const normalizedRows = normalizeCompatTableRows(rawRows);
+      const tableStartY = renderStats(doc, normalizedRows, 98);
+      renderCompatTable(doc, normalizedRows, tableStartY + 6);
 
       doc.save('TalkKink-Compatibility.pdf');
     } catch (err) {
