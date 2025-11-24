@@ -20,7 +20,8 @@ function shortenLabel(label) {
 
 function flagStatus(a, b, match) {
   const pct = Number(match);
-  if (!Number.isFinite(pct)) return '';
+  const hasScores = Number.isFinite(a) && Number.isFinite(b);
+  if (!hasScores || !Number.isFinite(pct)) return '';
   if (pct >= 90) return '⭐';
   if (pct <= 30) return '🚩';
   const oneIsFive = a === 5 || b === 5;
@@ -83,14 +84,19 @@ function ensureAutoTable(doc, ctor) {
 }
 
 function normalizeScore(value) {
-  if (value === null || value === undefined) return null;
+  if (value === '' || value === null || value === undefined) return null;
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
 }
 
+function formatScoreDisplay(score) {
+  return Number.isFinite(score) ? String(score) : 'N/A';
+}
+
 function normalizeMatch(matchValue, aScore, bScore) {
+  const hasScores = Number.isFinite(aScore) && Number.isFinite(bScore);
+  if (!hasScores) return 'N/A';
   if (matchValue === undefined) {
-    if (aScore == null || bScore == null) return 'N/A';
     const pct = Math.max(0, Math.min(100, Math.round(100 - Math.abs(aScore - bScore) * 20)));
     return pct;
   }
@@ -100,12 +106,69 @@ function normalizeMatch(matchValue, aScore, bScore) {
   return Number.isFinite(num) ? Math.max(0, Math.min(100, Math.round(num))) : 'N/A';
 }
 
+function pickRating(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  const candidates = ['rating', 'score', 'value', 'val'];
+  for (const key of candidates) {
+    if (entry[key] !== undefined) return entry[key];
+  }
+  return null;
+}
+
+function flattenSurveyRatings(survey) {
+  const rows = {};
+  if (!survey || typeof survey !== 'object') return rows;
+
+  const categories = Object.keys(survey).sort((a, b) => a.localeCompare(b));
+  categories.forEach((category) => {
+    const actions = survey[category] && typeof survey[category] === 'object' ? survey[category] : {};
+    Object.entries(actions).forEach(([action, items]) => {
+      if (!Array.isArray(items)) return;
+      items.forEach((item) => {
+        const name = item?.kink || item?.label || item?.name || item?.item;
+        if (!name) return;
+        const rating = normalizeScore(pickRating(item));
+        const label = `${action}: ${name} (${category})`;
+        rows[label] = rating;
+      });
+    });
+  });
+
+  return rows;
+}
+
+function normalizeSurveyResponses(data = {}) {
+  const surveyA = data.surveyA || data.partnerASurvey || data.partnerA || data.survey;
+  const surveyB = data.surveyB || data.partnerBSurvey || data.partnerB || data.surveyPartnerB;
+
+  if (!surveyA && !surveyB) return null;
+
+  const ratingsA = flattenSurveyRatings(surveyA);
+  const ratingsB = flattenSurveyRatings(surveyB);
+  const labels = Array.from(new Set([...Object.keys(ratingsA), ...Object.keys(ratingsB)]))
+    .sort((a, b) => a.localeCompare(b));
+
+  return labels.map((label) => {
+    const aScore = ratingsA[label];
+    const bScore = ratingsB[label];
+    const match = normalizeMatch(undefined, aScore, bScore);
+    return {
+      kink: shortenLabel(label),
+      a: formatScoreDisplay(aScore),
+      b: formatScoreDisplay(bScore),
+      matchBar: match,
+      flag: flagStatus(aScore, bScore, match),
+    };
+  });
+}
+
 function normalizeResponses(data) {
   const fromResponses = Array.isArray(data?.responses) ? data.responses : null;
   const fromCategories = Array.isArray(data?.categories)
     ? data.categories.flatMap((category) => category.items || [])
     : null;
-  const rows = fromResponses || fromCategories || (Array.isArray(data) ? data : []);
+  const surveyRows = normalizeSurveyResponses(data);
+  const rows = fromResponses || fromCategories || surveyRows || (Array.isArray(data) ? data : []);
 
   return rows.map((row) => {
     const aScore = normalizeScore(
@@ -121,8 +184,8 @@ function normalizeResponses(data) {
     );
     return {
       kink: shortenLabel(row?.kink ?? row?.label ?? row?.name ?? row?.item ?? ''),
-      a: aScore ?? '—',
-      b: bScore ?? '—',
+      a: formatScoreDisplay(aScore),
+      b: formatScoreDisplay(bScore),
       matchBar: match,
       flag: flagStatus(aScore, bScore, match),
     };

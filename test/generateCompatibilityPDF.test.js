@@ -83,3 +83,82 @@ test('supports category-based data and derives match percentage', async () => {
   assert.strictEqual(row[0], 'Sample');
   assert.strictEqual(row[4], 60);
 });
+
+test('renders missing partner scores as N/A without corrupt placeholders', async () => {
+  const tableCalls = [];
+  class JsPDFMock {
+    constructor() {
+      this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+    }
+    setFontSize() {}
+    setTextColor() {}
+    setDrawColor() {}
+    line() {}
+    text() {}
+    rect() {}
+    autoTable(options) { tableCalls.push(options); }
+    save() {}
+  }
+
+  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
+  const { generateCompatibilityPDF } = await import('../js/generateCompatibilityPDF.js');
+
+  const data = {
+    responses: [
+      { kink: 'Example', a: 5, b: null },
+    ],
+  };
+
+  await generateCompatibilityPDF(data, { save: false });
+
+  const row = tableCalls[0].body[0];
+  assert.strictEqual(row[1], '5');
+  assert.strictEqual(row[3], 'N/A');
+  assert.strictEqual(row[4], 'N/A');
+  assert.strictEqual(row[2], '');
+});
+
+test('derives rows from survey-shaped JSON data', async () => {
+  const tableCalls = [];
+  class JsPDFMock {
+    constructor() {
+      this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+    }
+    setFontSize() {}
+    setTextColor() {}
+    setDrawColor() {}
+    line() {}
+    text() {}
+    rect() {}
+    autoTable(options) { tableCalls.push(options); }
+    save() {}
+  }
+
+  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
+  const { generateCompatibilityPDF } = await import('../js/generateCompatibilityPDF.js');
+
+  const data = {
+    surveyA: {
+      'Body Part Torture': {
+        Giving: [
+          { name: 'Nipple weights', rating: 5 },
+        ],
+      },
+    },
+    surveyB: {
+      'Body Part Torture': {
+        Giving: [
+          { name: 'Nipple weights', rating: '' },
+        ],
+      },
+    },
+  };
+
+  await generateCompatibilityPDF(data, { save: false });
+
+  const row = tableCalls[0].body[0];
+  assert.ok(row[0].includes('Nipple weights'));
+  assert.strictEqual(row[1], '5');
+  assert.strictEqual(row[3], 'N/A');
+  assert.strictEqual(row[4], 'N/A');
+});
