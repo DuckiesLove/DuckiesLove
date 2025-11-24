@@ -80,9 +80,9 @@
     overflow:hidden;
   }
   .compat col.label   { width:56%; }
-  .compat col.a       { width:12%; }
-  .compat col.match   { width:20%; }
-  .compat col.b       { width:12%; }
+  .compat col.a       { width:14%; min-width:90px; }
+  .compat col.match   { width:18%; }
+  .compat col.b       { width:14%; min-width:90px; }
 
   .compat thead th{
     position:sticky; top:0; z-index:1;
@@ -799,6 +799,11 @@ if (typeof window !== 'undefined') {
   function renderTable(rows){
     TBODY.replaceChildren();
     const toText = (value) => (value === undefined || value === null ? '' : String(value));
+    const toScoreDisplay = (display, score) => {
+      const rendered = tkFormatScoreDisplay(display);
+      if (rendered) return rendered;
+      return Number.isFinite(score) ? tkFormatScoreDisplay(score) : '';
+    };
 
     for (const row of rows){
       if (!row) continue;
@@ -807,9 +812,9 @@ if (typeof window !== 'undefined') {
       const matchValue = tkParseMatchPercent(row.matchPct ?? matchText);
       const cells = [
         ['label', row.label],
-        ['num',   row.aDisplay ?? (Number.isFinite(row.aScore) ? String(row.aScore) : '')],
+        ['num',   toScoreDisplay(row.aDisplay, row.aScore)],
         ['match', matchText],
-        ['num',   row.bDisplay ?? (Number.isFinite(row.bScore) ? String(row.bScore) : '')],
+        ['num',   toScoreDisplay(row.bDisplay, row.bScore)],
       ];
 
       for (const [cls, value] of cells){
@@ -1306,10 +1311,8 @@ if (document.readyState === 'loading') {
  * -------------------------------------------------------------- */
 
 (function () {
-  /* Remove the "Flag" column from the DOM table
-     (affects BOTH the on-page view and any PDF that clones the table). */
+  /* Remove the "Flag" column from the DOM table (and keep it removed). */
   function removeFlagColumn() {
-    // Adjust selector if your comparison table has a specific id
     const table =
       document.querySelector('#compatTable') ||
       document.querySelector('#comparisonTable') ||
@@ -1320,26 +1323,49 @@ if (document.readyState === 'loading') {
       return;
     }
 
-    const headRow = table.querySelector('thead tr');
-    if (!headRow) return;
+    let flagRemoved = false;
 
-    const headCells = Array.from(headRow.cells);
-    const flagIndex = headCells.findIndex(th =>
-      th.textContent.trim().toLowerCase() === 'flag'
-    );
-    if (flagIndex === -1) {
-      // Already removed, nothing to do
-      return;
-    }
+    const stripOnce = () => {
+      const headRow = table.querySelector('thead tr');
+      if (!headRow) return;
 
-    // Delete the "Flag" cell from every row (header + body + footer)
-    Array.from(table.rows).forEach(row => {
-      if (row.cells[flagIndex]) {
-        row.deleteCell(flagIndex);
+      const headCells = Array.from(headRow.cells);
+      const flagIndexes = headCells
+        .map((cell, idx) => [cell, idx])
+        .filter(([cell]) => cell.textContent.trim().toLowerCase() === 'flag')
+        .map(([, idx]) => idx)
+        .sort((a, b) => b - a);
+
+      if (!flagIndexes.length) return;
+
+      const colgroup = table.querySelector('colgroup');
+      if (colgroup) {
+        const cols = Array.from(colgroup.children);
+        flagIndexes.forEach(idx => {
+          if (cols[idx]) cols[idx].remove();
+        });
+      }
+
+      Array.from(table.rows).forEach(row => {
+        flagIndexes.forEach(idx => {
+          if (row.cells[idx]) row.deleteCell(idx);
+        });
+      });
+
+      flagRemoved = true;
+    };
+
+    stripOnce();
+
+    const observer = new MutationObserver(() => {
+      stripOnce();
+      if (flagRemoved) {
+        console.info('[TK-compat] Flag column stripped.');
+        flagRemoved = false;
       }
     });
 
-    console.info('[TK-compat] Removed Flag column from compatibility table.');
+    observer.observe(table, { childList: true, subtree: true });
   }
 
   /* Re-wire the Download button so ONLY the new TKCompatPDF exporter runs.
