@@ -70,6 +70,75 @@ export const normalizeRows = (rows = []) => {
     .filter(Boolean);
 };
 
+const BEHAVIORAL_PLAY_LABELS = [
+  'Giving: Assigning corner time or time-outs',
+  'General: Attitude toward funishment vs serious correction',
+  'Receiving: Being placed in the corner or given a time-out',
+  'Receiving: Getting scolded or lectured for correction',
+  'Receiving: Having privileges revoked (phone, TV)',
+  'Giving: Lecturing or scolding to modify behavior',
+  'Giving: Playful punishments that still reinforce rules',
+  'General: Preferred style of discipline (strict vs lenient)',
+];
+
+const parseStorageValue = (value) => {
+  if (!value) return null;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    console.warn('[behavioral-play] Failed to parse storage value', err);
+    return null;
+  }
+};
+
+const extractRowCandidates = (payload) => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.rows)) return payload.rows;
+  if (Array.isArray(payload?.behavioralPlay)) return payload.behavioralPlay;
+  if (Array.isArray(payload?.behavioralPlay?.rows)) return payload.behavioralPlay.rows;
+  return [];
+};
+
+const collectRatings = (payload) => {
+  const scores = new Map();
+  const entries = Array.isArray(payload?.answers) ? payload.answers : Array.isArray(payload) ? payload : [];
+
+  entries.forEach((entry) => {
+    const label = cleanText(entry?.label ?? entry?.name ?? entry?.kink ?? entry?.id);
+    const rating = clampScore(entry?.rating ?? entry?.value ?? entry?.score ?? entry?.answer);
+    if (!label || rating === null) return;
+    scores.set(label, rating);
+  });
+
+  return scores;
+};
+
+export const extractBehavioralRowsFromStorage = (selfData, partnerData) => {
+  const selfPayload = parseStorageValue(selfData);
+  const partnerPayload = parseStorageValue(partnerData);
+
+  const embeddedRows = extractRowCandidates(selfPayload).length
+    ? extractRowCandidates(selfPayload)
+    : extractRowCandidates(partnerPayload);
+
+  if (embeddedRows.length) {
+    return normalizeRows(embeddedRows);
+  }
+
+  const selfRatings = collectRatings(selfPayload);
+  const partnerRatings = collectRatings(partnerPayload);
+
+  const rows = BEHAVIORAL_PLAY_LABELS.map((label) => {
+    const partnerA = selfRatings.has(label) ? selfRatings.get(label) : '';
+    const partnerB = partnerRatings.has(label) ? partnerRatings.get(label) : '';
+    return { label, partnerA, partnerB };
+  }).filter((row) => row.partnerA !== '' || row.partnerB !== '');
+
+  return normalizeRows(rows);
+};
+
 const buildRowHtml = (row) => {
   const label = escapeHtml(row.label);
   const a = escapeHtml(row.partnerA ?? '');
@@ -126,6 +195,101 @@ export const renderBehavioralPlayHTML = (rows = [], options = {}) => {
     </div>`;
 
   return { html, rows: preparedRows, timestamp: timestampRaw };
+};
+
+export const renderBehavioralPlayPDF = (rows = [], options = {}) => {
+  const preparedRows = normalizeRows(rows);
+
+  if (!preparedRows.length) {
+    throw new Error('No behavioral play rows provided for PDF generation.');
+  }
+
+  const JsPDF = (typeof window !== 'undefined' && (window.jspdf?.jsPDF || window.jsPDF)) || null;
+  if (!JsPDF) {
+    throw new Error('jsPDF is not available. Include the library before generating PDFs.');
+  }
+
+  const doc = new JsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+  if (typeof doc.autoTable !== 'function') {
+    throw new Error('jsPDF-AutoTable plugin is required to render the compatibility table.');
+  }
+
+  const timestamp =
+    options.timestamp instanceof Date
+      ? options.timestamp.toLocaleString()
+      : cleanText(options.timestamp) || new Date().toLocaleString();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const centerX = pageWidth / 2;
+
+  doc.setTextColor(0, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text(cleanText(options.title) || 'TalkKink Compatibility Survey', centerX, 60, { align: 'center' });
+
+  doc.setFontSize(12);
+  doc.setTextColor(180);
+  doc.text(`Generated: ${timestamp}`, centerX, 80, { align: 'center' });
+
+  doc.setFontSize(18);
+  doc.setTextColor(0, 255, 255);
+  doc.text(cleanText(options.sectionTitle) || 'Behavioral Play', centerX, 120, { align: 'center' });
+
+  const tableRows = preparedRows.map((row) => [row.label, row.partnerA, row.match, row.partnerB]);
+
+  doc.autoTable({
+    startY: 140,
+    head: [['Kinks', 'Partner A', 'Match', 'Partner B']],
+    body: tableRows,
+    styles: {
+      fontSize: 10,
+      halign: 'left',
+      textColor: [255, 255, 255],
+      fillColor: [20, 20, 20],
+      lineColor: [60, 60, 60],
+      lineWidth: 0.2,
+    },
+    headStyles: {
+      fillColor: [0, 255, 255],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      halign: 'left',
+    },
+    columnStyles: {
+      1: { halign: 'center' },
+      2: { halign: 'center' },
+      3: { halign: 'center' },
+    },
+    theme: 'grid',
+  });
+
+  return doc;
+};
+
+export const generateBehavioralPlayPdfFromStorage = (options = {}) => {
+  if (typeof window === 'undefined') return null;
+
+  const storage = options.storage || window.localStorage;
+  if (!storage) {
+    throw new Error('localStorage is not available in this environment.');
+  }
+
+  const selfKey = options.selfKey || 'tk-self-survey';
+  const partnerKey = options.partnerKey || 'tk-partner-survey';
+  const selfData = storage.getItem(selfKey);
+  const partnerData = storage.getItem(partnerKey);
+
+  const rows = extractBehavioralRowsFromStorage(selfData, partnerData);
+
+  if (!rows.length) {
+    const message = 'Survey data missing.';
+    if (typeof window.alert === 'function') alert(message);
+    return null;
+  }
+
+  const doc = renderBehavioralPlayPDF(rows, options);
+  const filename = cleanText(options.filename) || 'TalkKink-Compatibility.pdf';
+  doc.save(filename);
+  return doc;
 };
 
 export const renderBehavioralPlaySection = (target, rows = [], options = {}) => {
