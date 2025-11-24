@@ -65,15 +65,6 @@ window.TKCompatPDF = (function () {
     return { percent, flag: flagText };
   }
 
-  function deriveFlagFromPercent(percent, fallback = '') {
-    if (fallback) return fallback;
-    if (!Number.isFinite(percent)) return '';
-    if (percent >= 95) return '⭐';
-    if (percent <= 40) return '🚩';
-    if (percent < 80) return '🟨';
-    return '';
-  }
-
   const hasSurveyData = (data) => data?.meta && Array.isArray(data.answers) && data.answers.length > 0;
 
   const JSPDF_LOCAL = [
@@ -248,18 +239,18 @@ window.TKCompatPDF = (function () {
     'Toys & Tools': 'Toys'
   };
 
-    // 🧠 Core table rendering (safe fallback for empty rows)
-    function renderCompatCategoryTable(doc, category, rows, startY) {
+  // 🧠 Core table rendering (safe fallback for empty rows)
+  function renderCompatCategoryTable(doc, category, rows, startY) {
     if (!rows || rows.length === 0) return startY ?? 10;
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const marginX = 40;
     const usableWidth = pageWidth - marginX * 2;
     const colWidths = {
-      label: usableWidth * 0.5,
-      partner: usableWidth * 0.12,
-      match: usableWidth * 0.18,
-      flag: usableWidth * 0.08
+      label: usableWidth * 0.52,
+      partner: usableWidth * 0.14,
+      match: usableWidth * 0.16,
+      partnerB: usableWidth * 0.18
     };
 
     const tableBody = rows.map(row => {
@@ -269,13 +260,12 @@ window.TKCompatPDF = (function () {
         shortLabel,
         formatScore(row.partnerA),
         formatMatch(matchPercent),
-        formatFlag(row.flag),
         formatScore(row.partnerB)
       ];
     });
 
     doc.autoTable({
-      head: [['Kinks', 'Partner A', 'Match', 'Flag', 'Partner B']],
+      head: [['Item', 'Partner A', 'Match', 'Partner B']],
       body: tableBody,
       startY: startY ?? 10,
       margin: { left: marginX, right: marginX },
@@ -306,8 +296,7 @@ window.TKCompatPDF = (function () {
         0: { cellWidth: colWidths.label, halign: 'left', textColor: [142, 214, 232] },
         1: { cellWidth: colWidths.partner, halign: 'center' },
         2: { cellWidth: colWidths.match, halign: 'center', textColor: toRGB(THEME.accent) },
-        3: { cellWidth: colWidths.flag, halign: 'center' },
-        4: { cellWidth: colWidths.partner, halign: 'center' }
+        3: { cellWidth: colWidths.partnerB, halign: 'center' }
       },
       didParseCell: (data) => {
         if (data.section !== 'body') return;
@@ -343,11 +332,6 @@ window.TKCompatPDF = (function () {
     return `${rounded}%`;
   }
 
-  function formatFlag(flag) {
-    const text = safeString(flag);
-    return text || ' ';
-  }
-
   function normalizeCompatTableRows(rows = []) {
     return rows.map((row) => {
       const rawA = Number(row.a ?? row.partnerA ?? row.aScore ?? row.scoreA);
@@ -355,7 +339,7 @@ window.TKCompatPDF = (function () {
       const scoreA = Number.isFinite(rawA) ? rawA : null;
       const scoreB = Number.isFinite(rawB) ? rawB : null;
 
-      const { percent: matchFromRaw, flag: rawFlag } = splitMatchAndFlag(
+      const { percent: matchFromRaw } = splitMatchAndFlag(
         row.match ?? row.matchPct ?? row.matchPercent ?? row.matchValue
       );
 
@@ -364,14 +348,12 @@ window.TKCompatPDF = (function () {
       );
 
       const matchPercent = Number.isFinite(match) ? match : NaN;
-      const flag = deriveFlagFromPercent(matchPercent, rawFlag);
 
       return {
         label: row.item || row.label || '—',
         partnerA: scoreA,
         partnerB: scoreB,
-        matchPercent,
-        flag
+        matchPercent
       };
     });
   }
