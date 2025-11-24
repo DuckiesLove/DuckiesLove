@@ -349,6 +349,40 @@ window.TKCompatPDF = (function () {
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
   }
 
+  function customRoundedRect(doc, x, y, w, h, r, _ry, mode) {
+    if (typeof doc.setLineJoin === 'function') {
+      doc.setLineJoin('round');
+    }
+    const style = typeof mode === 'string' ? mode : 'S';
+    doc.rect(x, y, w, h, style);
+  }
+
+  function renderMatchCell(doc, cell, value) {
+    const styles = cell.styles || {};
+    const drawRounded =
+      typeof doc.roundedRect === 'function'
+        ? (x, y, w, h, rx, ry, mode) => doc.roundedRect(x, y, w, h, rx, ry, mode)
+        : (x, y, w, h, rx, ry, mode) => customRoundedRect(doc, x, y, w, h, rx, ry, mode);
+
+    if (Array.isArray(styles.fillColor)) doc.setFillColor(...styles.fillColor);
+    if (Array.isArray(styles.lineColor)) doc.setDrawColor(...styles.lineColor);
+    if (typeof styles.lineWidth === 'number') doc.setLineWidth(styles.lineWidth);
+    if (styles.font || styles.fontStyle) {
+      doc.setFont(styles.font || undefined, styles.fontStyle || 'normal');
+    }
+    if (typeof styles.fontSize === 'number') doc.setFontSize(styles.fontSize);
+    if (Array.isArray(styles.textColor)) doc.setTextColor(...styles.textColor);
+
+    const radius = 2;
+    const hasFill = Array.isArray(styles.fillColor);
+    drawRounded(cell.x + 1, cell.y + 1, cell.width - 2, cell.height - 2, radius, radius, hasFill ? 'FD' : 'S');
+
+    doc.text(String(value ?? ''), cell.x + cell.width / 2, cell.y + cell.height / 2, {
+      align: 'center',
+      baseline: 'middle'
+    });
+  }
+
   function renderHeader(doc, centerX, timestamp) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(26);
@@ -417,12 +451,19 @@ window.TKCompatPDF = (function () {
   function renderCompatTable(doc, rows, startY) {
     if (!rows.length) return startY;
 
-    const tableBody = rows.map((row) => [
-      row.label,
-      Number.isFinite(row.partnerA) ? row.partnerA : '—',
-      Number.isFinite(row.matchPercent) ? `${Math.round(row.matchPercent)}%` : '—',
-      Number.isFinite(row.partnerB) ? row.partnerB : '—'
-    ]);
+    const columns = [
+      { header: 'Item', dataKey: 'item' },
+      { header: 'Partner A', dataKey: 'a' },
+      { header: 'Match', dataKey: 'match' },
+      { header: 'Partner B', dataKey: 'b' }
+    ];
+
+    const tableRows = rows.map((row) => ({
+      item: row.label,
+      a: Number.isFinite(row.partnerA) ? row.partnerA : '—',
+      match: Number.isFinite(row.matchPercent) ? `${Math.round(row.matchPercent)}%` : '—',
+      b: Number.isFinite(row.partnerB) ? row.partnerB : '—'
+    }));
 
     const autoTable = getAutoTable(doc);
     if (!doc.autoTable && typeof autoTable === 'function') {
@@ -431,8 +472,8 @@ window.TKCompatPDF = (function () {
 
     autoTable({
       startY,
-      head: [['Item', 'Partner A', 'Match', 'Partner B']],
-      body: tableBody,
+      columns,
+      body: tableRows,
       margin: { left: 48, right: 48 },
       styles: {
         fontSize: 10,
@@ -446,10 +487,10 @@ window.TKCompatPDF = (function () {
         valign: 'middle'
       },
       columnStyles: {
-        0: { cellWidth: 'auto', halign: 'left', textColor: [170, 222, 232] },
-        1: { cellWidth: 70, halign: 'center' },
-        2: { cellWidth: 68, halign: 'center', textColor: THEME.accent },
-        3: { cellWidth: 70, halign: 'center' }
+        item: { cellWidth: 'auto', halign: 'left', textColor: [170, 222, 232] },
+        a: { cellWidth: 70, halign: 'center' },
+        match: { cellWidth: 68, halign: 'center', textColor: THEME.accent },
+        b: { cellWidth: 70, halign: 'center' }
       },
       headStyles: {
         fillColor: THEME.panel,
@@ -465,9 +506,15 @@ window.TKCompatPDF = (function () {
       },
       didParseCell: (data) => {
         if (data.section !== 'body') return;
-        if (data.column.index === 2 && data.cell.raw === '—') {
+        if (data.column.dataKey === 'match' && data.cell.raw === '—') {
           data.cell.styles.textColor = THEME.muted;
         }
+      },
+      willDrawCell: (data) => {
+        if (data.section !== 'body') return;
+        if (!['a', 'b', 'match'].includes(data.column.dataKey)) return;
+        renderMatchCell(doc, data.cell, data.cell.raw);
+        return false;
       }
     });
 
