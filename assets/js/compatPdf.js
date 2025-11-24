@@ -349,20 +349,8 @@ window.TKCompatPDF = (function () {
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
   }
 
-  function customRoundedRect(doc, x, y, w, h, r, _ry, mode) {
-    if (typeof doc.setLineJoin === 'function') {
-      doc.setLineJoin('round');
-    }
-    const style = typeof mode === 'string' ? mode : 'S';
-    doc.rect(x, y, w, h, style);
-  }
-
   function renderMatchCell(doc, cell, value) {
     const styles = cell.styles || {};
-    const drawRounded =
-      typeof doc.roundedRect === 'function'
-        ? (x, y, w, h, rx, ry, mode) => doc.roundedRect(x, y, w, h, rx, ry, mode)
-        : (x, y, w, h, rx, ry, mode) => customRoundedRect(doc, x, y, w, h, rx, ry, mode);
 
     if (Array.isArray(styles.fillColor)) doc.setFillColor(...styles.fillColor);
     if (Array.isArray(styles.lineColor)) doc.setDrawColor(...styles.lineColor);
@@ -373,9 +361,9 @@ window.TKCompatPDF = (function () {
     if (typeof styles.fontSize === 'number') doc.setFontSize(styles.fontSize);
     if (Array.isArray(styles.textColor)) doc.setTextColor(...styles.textColor);
 
-    const radius = 2;
     const hasFill = Array.isArray(styles.fillColor);
-    drawRounded(cell.x + 1, cell.y + 1, cell.width - 2, cell.height - 2, radius, radius, hasFill ? 'FD' : 'S');
+    const style = hasFill ? 'FD' : 'S';
+    doc.rect(cell.x + 1, cell.y + 1, cell.width - 2, cell.height - 2, style);
 
     doc.text(String(value ?? ''), cell.x + cell.width / 2, cell.y + cell.height / 2, {
       align: 'center',
@@ -418,21 +406,12 @@ window.TKCompatPDF = (function () {
     const boxWidth = (doc.internal.pageSize.getWidth() - 96) / badges.length;
     const boxHeight = 54;
 
-    const drawBadge = (x, y, width, height) => {
-      if (typeof doc.roundedRect === 'function') {
-        doc.roundedRect(x, y, width, height, 6, 6, 'FD');
-      } else {
-        // Fallback for jsPDF builds without the roundedRect plugin
-        doc.rect(x, y, width, height, 'FD');
-      }
-    };
-
     badges.forEach((badge, idx) => {
       const x = 48 + idx * boxWidth;
       doc.setFillColor(...THEME.badge);
       doc.setDrawColor(...THEME.grid);
       doc.setLineWidth(0.8);
-      drawBadge(x, startY, boxWidth - 12, boxHeight);
+      doc.rect(x, startY, boxWidth - 12, boxHeight, 'FD');
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
@@ -465,6 +444,14 @@ window.TKCompatPDF = (function () {
       b: Number.isFinite(row.partnerB) ? row.partnerB : '—'
     }));
 
+    const availableWidth = doc.internal.pageSize.getWidth() - 96; // match autoTable margins
+    const columnWidths = {
+      item: Math.round((availableWidth * 100) / 175),
+      a: Math.round((availableWidth * 25) / 175),
+      match: Math.round((availableWidth * 25) / 175),
+      b: Math.round((availableWidth * 25) / 175)
+    };
+
     const autoTable = getAutoTable(doc);
     if (!doc.autoTable && typeof autoTable === 'function') {
       doc.autoTable = (opts) => autoTable(opts);
@@ -487,10 +474,10 @@ window.TKCompatPDF = (function () {
         valign: 'middle'
       },
       columnStyles: {
-        item: { cellWidth: 'auto', halign: 'left', textColor: [170, 222, 232] },
-        a: { cellWidth: 70, halign: 'center' },
-        match: { cellWidth: 68, halign: 'center', textColor: THEME.accent },
-        b: { cellWidth: 70, halign: 'center' }
+        item: { cellWidth: columnWidths.item, halign: 'left', textColor: [170, 222, 232] },
+        a: { cellWidth: columnWidths.a, halign: 'center' },
+        match: { cellWidth: columnWidths.match, halign: 'center', textColor: THEME.accent },
+        b: { cellWidth: columnWidths.b, halign: 'center' }
       },
       headStyles: {
         fillColor: THEME.panel,
