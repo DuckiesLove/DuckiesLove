@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TalkKink Compatibility</title>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'tk-cyan': '#00f0ff',
+            'tk-cyan-soft': 'rgba(0,240,255,0.65)',
+            'tk-midnight': '#0b1220',
+            'tk-panel': '#101a2b',
+            'tk-ink': '#e7faff',
+            'tk-ink-dim': '#a8d8e6',
+          },
+          fontFamily: {
+            display: ['"Fredoka One"', 'Poppins', 'system-ui', 'sans-serif'],
+            sans: ['Inter', 'Roboto', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            neon: '0 0 12px rgba(0,240,255,0.4), 0 0 32px rgba(0,240,255,0.25)',
+          },
+        },
+      },
+      plugins: [
+        function ({ addUtilities, theme }) {
+          addUtilities({
+            '.text-glow': {
+              color: theme('colors.tk-cyan'),
+              textShadow: '0 0 8px rgba(0,240,255,0.9), 0 0 20px rgba(0,240,255,0.45)',
+            },
+          });
+        },
+      ],
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700&display=swap"
+    rel="stylesheet"
+  >
+  <script src="/assets/js/compatPdf.js" defer></script>
+  <style type="text/tailwindcss">
+    @layer base {
+      body {
+        @apply bg-tk-midnight text-tk-ink font-sans antialiased;
+      }
+    }
+    @layer components {
+      .tk-card {
+        @apply rounded-2xl border border-tk-cyan/25 bg-gradient-to-b from-white/5 via-white/5 to-white/0 shadow-xl;
+      }
+      .tk-table th {
+        @apply bg-gradient-to-b from-tk-cyan/25 to-tk-panel text-center text-tk-cyan font-semibold uppercase tracking-wide;
+      }
+      .tk-table td {
+        @apply border-b border-white/10 text-sm md:text-base;
+      }
+      .tk-table tr:nth-child(2n) td {
+        @apply bg-white/5;
+      }
+      .tk-table tr:nth-child(2n+1) td {
+        @apply bg-white/0;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <main class="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-4 py-10">
+    <header class="space-y-3 text-center">
+      <h1 class="text-glow text-4xl font-extrabold md:text-5xl lg:text-6xl font-display">TalkKink Compatibility Survey</h1>
+      <p class="text-sm text-tk-ink-dim">Generated: <span id="timestamp" class="font-semibold text-tk-cyan"></span></p>
+      <div class="mx-auto h-[2px] w-4/5 bg-gradient-to-r from-transparent via-tk-cyan to-transparent"></div>
+    </header>
+
+    <section class="space-y-4">
+      <div class="tk-card">
+        <div class="flex flex-col items-center gap-3 px-4 py-5 text-center">
+          <p class="text-xl font-display text-glow drop-shadow-[0_0_10px_rgba(0,240,255,0.45)]">Behavioral Play</p>
+          <button
+            id="pdf-download"
+            class="rounded-xl border border-tk-cyan/70 bg-tk-panel px-5 py-3 text-lg font-bold text-tk-cyan shadow-neon transition hover:-translate-y-[1px] hover:border-tk-cyan hover:text-white hover:shadow-[0_0_18px_rgba(0,240,255,0.55)] focus:outline-none focus-visible:ring focus-visible:ring-tk-cyan/70"
+          >
+            Download PDF
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="tk-card tk-table w-full min-w-[720px] overflow-hidden rounded-2xl text-left text-tk-ink">
+          <thead>
+            <tr>
+              <th class="py-3 px-4 text-left text-sm md:text-base">Kinks</th>
+              <th class="py-3 px-4 text-sm md:text-base">Partner A</th>
+              <th class="py-3 px-4 text-sm md:text-base">Match</th>
+              <th class="py-3 px-4 text-sm md:text-base">Partner B</th>
+            </tr>
+          </thead>
+          <tbody id="compat-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const rows = [
+        { kink: 'Giving: Assigning corner time or time-outs', a: 0, b: 0 },
+        { kink: 'General: Attitude toward funishment vs serious correction', a: 3, b: 3 },
+        { kink: 'Receiving: Being placed in the corner or given a time-out', a: 5, b: 5 },
+        { kink: 'Receiving: Getting scolded or lectured for correction', a: 5, b: 5 },
+        { kink: 'Receiving: Having privileges revoked (phone, TV)', a: 3, b: 3 },
+        { kink: 'Giving: Lecturing or scolding to modify behavior', a: 4, b: 4 },
+        { kink: 'Giving: Playful punishments that still reinforce rules', a: 3, b: 3 },
+        { kink: 'General: Preferred style of discipline (strict vs lenient)', a: 4, b: 4 },
+      ];
+
+      if (window.TKCompatPDF?.notifyRowsUpdated) {
+        window.TKCompatPDF.notifyRowsUpdated(rows);
+      }
+
+      const tbody = document.querySelector('#compat-rows');
+      rows.forEach(({ kink, a, b }, idx) => {
+        const match = a === b ? '100%' : `${100 - Math.abs(a - b) * 20}%`;
+        const tr = document.createElement('tr');
+        tr.className = 'text-sm md:text-base';
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-medium text-tk-ink/90">${kink}</td>
+          <td class="py-3 px-4 text-center font-semibold text-tk-ink">${a}</td>
+          <td class="py-3 px-4 text-center font-extrabold text-tk-cyan">${match}</td>
+          <td class="py-3 px-4 text-center font-semibold text-tk-ink">${b}</td>
+        `;
+        tbody?.appendChild(tr);
+      });
+
+      document.querySelector('#pdf-download')?.addEventListener('click', () => {
+        if (window.TKCompatPDF?.download) {
+          window.TKCompatPDF.download();
+        }
+      });
+
+      const tsEl = document.querySelector('#timestamp');
+      if (tsEl) {
+        tsEl.textContent = new Date().toLocaleString();
+      }
+    });
+
+    // Prevent old generator
+    window.generateDarkPDF = () => {};
+  </script>
+</body>
+</html>
