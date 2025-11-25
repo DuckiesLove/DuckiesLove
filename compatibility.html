@@ -778,6 +778,16 @@
   .ksv-cat .ksv-cat-text{
     display:inline;
   }
+
+  /* Keep compatibility results offscreen; PDF generator still reads the table */
+  body[data-page="compat"] .compat-section {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    pointer-events: none;
+  }
   </style>
 
   <link rel="stylesheet" href="/assets/css/comparison.css" />
