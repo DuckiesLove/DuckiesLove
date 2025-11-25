@@ -219,7 +219,11 @@ window.TKCompatPDF = (function () {
   }
 
   function rowsFromStorage(payloads) {
-    if (cachedRows.length) return cachedRows.slice();
+    if (payloads?.self || payloads?.partner) {
+      const built = buildRows(payloads.self, payloads.partner);
+      cachedRows = built.slice();
+      return cachedRows.slice();
+    }
 
     const localRows = readFirst(ROW_STORAGE_KEYS);
     if (Array.isArray(localRows) && localRows.length) {
@@ -227,11 +231,7 @@ window.TKCompatPDF = (function () {
       return cachedRows.slice();
     }
 
-    if (payloads?.self || payloads?.partner) {
-      const built = buildRows(payloads.self, payloads.partner);
-      cachedRows = built.slice();
-      return built;
-    }
+    if (cachedRows.length) return cachedRows.slice();
 
     return [];
   }
