@@ -14,6 +14,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>See Our Compatibility</title>
   <style>
+    /* Hard-hide any survey UI that might leak onto the compatibility page */
+    body[data-page="compat"] .survey,
+    body[data-page="compat"] #survey,
+    body[data-page="compat"] [data-app="survey"],
+    body[data-page="compat"] [data-testid="survey-root"],
+    body[data-page="compat"] .survey-root,
+    body[data-page="compat"] #tkSurveyDock,
+    body[data-page="compat"] .tk-survey,
+    body[data-page="compat"] .tk-survey-host,
+    body[data-page="compat"] .survey-panel,
+    body[data-page="compat"] .tk-survey-panel {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
     /* Kill any category dock/panel overlays without layout shift */
     #tkDockCard,
     #categorySurveyPanel,
@@ -53,6 +70,40 @@
         if (document.body) {
           document.body.style.marginLeft = '';
         }
+        selectors.forEach((selector) => {
+          document.querySelectorAll(selector).forEach((node) => node.remove());
+        });
+      };
+
+      purge();
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', purge, { once: true });
+      }
+
+      const observer = new MutationObserver(purge);
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 4000);
+    })();
+  </script>
+
+  <script>
+    // Ensure no survey UI renders on the compatibility page
+    (function killSurveyUi() {
+      const selectors = [
+        '#survey',
+        '.survey',
+        '[data-app="survey"]',
+        '.survey-root',
+        '[data-testid="survey-root"]',
+        '#tkSurveyDock',
+        '.tk-survey',
+        '.tk-survey-host',
+        '.survey-panel',
+        '.tk-survey-panel'
+      ];
+
+      const purge = () => {
         selectors.forEach((selector) => {
           document.querySelectorAll(selector).forEach((node) => node.remove());
         });
