@@ -209,7 +209,7 @@ export const renderBehavioralPlayPDF = (rows = [], options = {}) => {
     throw new Error('jsPDF is not available. Include the library before generating PDFs.');
   }
 
-  const doc = new JsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+  const doc = new JsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
   if (typeof doc.autoTable !== 'function') {
     throw new Error('jsPDF-AutoTable plugin is required to render the compatibility table.');
   }
@@ -218,50 +218,117 @@ export const renderBehavioralPlayPDF = (rows = [], options = {}) => {
     options.timestamp instanceof Date
       ? options.timestamp.toLocaleString()
       : cleanText(options.timestamp) || new Date().toLocaleString();
+
+  const theme = {
+    bg: [5, 19, 26],
+    panel: [10, 29, 38],
+    headerBg: [11, 23, 31],
+    cyan: [16, 226, 240],
+    ink: [232, 247, 251],
+    sub: [183, 255, 255],
+    zebra: [[9, 27, 38], [12, 36, 46]],
+    numbers: [7, 28, 36],
+    match: [12, 30, 40],
+  };
+
+  const title = cleanText(options.title) || 'TalkKink Compatibility Survey';
+  const sectionTitle = cleanText(options.sectionTitle) || 'Behavioral Play';
+  const margin = { top: 150, left: 40, right: 40 };
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const centerX = pageWidth / 2;
 
-  doc.setTextColor(0, 255, 255);
-  doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
-  doc.text(cleanText(options.title) || 'TalkKink Compatibility Survey', centerX, 60, { align: 'center' });
+  const paintBackground = () => {
+    doc.setFillColor(...theme.bg);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  };
 
-  doc.setFontSize(12);
-  doc.setTextColor(180);
-  doc.text(`Generated: ${timestamp}`, centerX, 80, { align: 'center' });
+  const drawHeader = () => {
+    doc.setTextColor(...theme.cyan);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(28);
+    doc.text(title, centerX, 52, { align: 'center' });
 
-  doc.setFontSize(18);
-  doc.setTextColor(0, 255, 255);
-  doc.text(cleanText(options.sectionTitle) || 'Behavioral Play', centerX, 120, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setTextColor(...theme.sub);
+    doc.text(`Generated: ${timestamp}`, centerX, 74, { align: 'center' });
 
-  const tableRows = preparedRows.map((row) => [row.label, row.partnerA, row.match, row.partnerB]);
+    doc.setDrawColor(...theme.cyan);
+    doc.setLineWidth(1.4);
+    doc.line(margin.left, 86, pageWidth - margin.right, 86);
+
+    doc.setFontSize(20);
+    doc.setTextColor(...theme.cyan);
+    doc.text(sectionTitle, centerX, 116, { align: 'center' });
+  };
+
+  const originalAddPage = doc.addPage.bind(doc);
+  doc.addPage = (...args) => {
+    const result = originalAddPage(...args);
+    paintBackground();
+    drawHeader();
+    return result;
+  };
+
+  paintBackground();
+  drawHeader();
+
+  const usableWidth = pageWidth - (margin.left + margin.right);
+  const labelWidth = Math.max(usableWidth * 0.6, usableWidth - 240);
+  const numberWidth = Math.max((usableWidth - labelWidth) / 3, 72);
+
+  const tableRows = preparedRows.map((row) => [row.label || '—', row.partnerA || '', row.match || '', row.partnerB || '']);
 
   doc.autoTable({
-    startY: 140,
     head: [['Kinks', 'Partner A', 'Match', 'Partner B']],
     body: tableRows,
+    startY: margin.top,
+    margin,
     styles: {
-      fontSize: 10,
-      halign: 'left',
-      textColor: [255, 255, 255],
-      fillColor: [20, 20, 20],
-      lineColor: [60, 60, 60],
-      lineWidth: 0.2,
+      font: 'helvetica',
+      fontSize: 11,
+      textColor: theme.ink,
+      fillColor: theme.panel,
+      cellPadding: { top: 10, right: 8, bottom: 10, left: 10 },
+      lineColor: theme.panel,
+      lineWidth: 0.35,
+      valign: 'middle',
     },
     headStyles: {
-      fillColor: [0, 255, 255],
-      textColor: [0, 0, 0],
+      fillColor: theme.headerBg,
+      textColor: theme.cyan,
       fontStyle: 'bold',
       halign: 'left',
+      fontSize: 12,
+      lineWidth: 0,
     },
+    alternateRowStyles: { fillColor: theme.zebra[1] },
     columnStyles: {
-      1: { halign: 'center' },
-      2: { halign: 'center' },
-      3: { halign: 'center' },
+      0: { cellWidth: labelWidth, halign: 'left' },
+      1: { cellWidth: numberWidth, halign: 'center' },
+      2: { cellWidth: numberWidth + 12, halign: 'center' },
+      3: { cellWidth: numberWidth, halign: 'center' },
     },
-    theme: 'grid',
+    didParseCell: (data) => {
+      if (data.section === 'head') {
+        data.cell.styles.halign = data.column.index === 0 ? 'left' : 'center';
+        return;
+      }
+
+      if (data.section === 'body') {
+        const zebra = data.row.index % 2 === 0 ? theme.zebra[0] : theme.zebra[1];
+        const base = data.column.index === 0 ? zebra : theme.numbers;
+        const fill = data.column.index === 2 ? theme.match : base;
+        data.cell.styles.fillColor = fill;
+        data.cell.styles.textColor = theme.ink;
+        data.cell.styles.halign = data.column.index === 0 ? 'left' : 'center';
+        data.cell.styles.lineColor = theme.panel;
+        data.cell.styles.lineWidth = 0.35;
+      }
+    },
   });
 
+  doc.addPage = originalAddPage;
   return doc;
 };
 
