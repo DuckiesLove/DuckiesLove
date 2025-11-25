@@ -233,79 +233,48 @@ export const renderBehavioralPlayPDF = (rows = [], options = {}) => {
 
   const title = cleanText(options.title) || 'TalkKink Compatibility Survey';
   const sectionTitle = cleanText(options.sectionTitle) || 'Behavioral Play';
+  const margin = { top: 150, left: 40, right: 40 };
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const maxContentWidth = 880;
-  const contentWidth = Math.min(maxContentWidth, pageWidth - 80);
-  const horizontalMargin = Math.max((pageWidth - contentWidth) / 2, 28);
-  const margin = { top: 186, left: horizontalMargin, right: horizontalMargin };
-  const card = {
-    x: horizontalMargin - 12,
-    y: 32,
-    w: contentWidth + 24,
-    h: pageHeight - 64,
-  };
   const centerX = pageWidth / 2;
 
   const paintBackground = () => {
     doc.setFillColor(...theme.bg);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
-
-    // subtle vignette frame
-    doc.setDrawColor(255, 255, 255);
-    doc.setLineWidth(0.6);
-    doc.rect(6, 6, pageWidth - 12, pageHeight - 12, 'S');
-  };
-
-  const drawPanel = () => {
-    // outer glow
-    doc.setFillColor(9, 33, 44);
-    doc.roundedRect(card.x, card.y, card.w, card.h, 16, 16, 'F');
-
-    // inner card surface
-    doc.setFillColor(...theme.panel);
-    doc.roundedRect(card.x + 6, card.y + 6, card.w - 12, card.h - 12, 12, 12, 'F');
-
-    // inset border
-    doc.setDrawColor(255, 255, 255);
-    doc.setLineWidth(0.4);
-    doc.roundedRect(card.x + 8, card.y + 8, card.w - 16, card.h - 16, 10, 10, 'S');
   };
 
   const drawHeader = () => {
     doc.setTextColor(...theme.cyan);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
-    doc.text(title, centerX, 66, { align: 'center' });
+    doc.text(title, centerX, 52, { align: 'center' });
 
     doc.setFontSize(12);
     doc.setTextColor(...theme.sub);
-    doc.text(`Generated: ${timestamp}`, centerX, 92, { align: 'center' });
+    doc.text(`Generated: ${timestamp}`, centerX, 74, { align: 'center' });
 
     doc.setDrawColor(...theme.cyan);
     doc.setLineWidth(1.4);
-    doc.line(margin.left, 104, pageWidth - margin.right, 104);
+    doc.line(margin.left, 86, pageWidth - margin.right, 86);
 
     doc.setFontSize(20);
     doc.setTextColor(...theme.cyan);
-    doc.text(sectionTitle, centerX, 136, { align: 'center' });
+    doc.text(sectionTitle, centerX, 116, { align: 'center' });
   };
 
   const originalAddPage = doc.addPage.bind(doc);
   doc.addPage = (...args) => {
     const result = originalAddPage(...args);
     paintBackground();
-    drawPanel();
     drawHeader();
     return result;
   };
 
   paintBackground();
-  drawPanel();
   drawHeader();
 
   const usableWidth = pageWidth - (margin.left + margin.right);
-  const labelWidth = Math.max(usableWidth * 0.62, usableWidth - 240);
+  const labelWidth = Math.max(usableWidth * 0.6, usableWidth - 240);
   const numberWidth = Math.max((usableWidth - labelWidth) / 3, 72);
 
   const tableRows = preparedRows.map((row) => [row.label || '—', row.partnerA || '', row.match || '', row.partnerB || '']);
@@ -315,7 +284,6 @@ export const renderBehavioralPlayPDF = (rows = [], options = {}) => {
     body: tableRows,
     startY: margin.top,
     margin,
-    tableWidth: usableWidth,
     styles: {
       font: 'helvetica',
       fontSize: 11,

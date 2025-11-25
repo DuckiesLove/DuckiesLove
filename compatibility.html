@@ -14,23 +14,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>See Our Compatibility</title>
   <style>
-    /* Hard-hide any survey UI that might leak onto the compatibility page */
-    body[data-page="compat"] .survey,
-    body[data-page="compat"] #survey,
-    body[data-page="compat"] [data-app="survey"],
-    body[data-page="compat"] [data-testid="survey-root"],
-    body[data-page="compat"] .survey-root,
-    body[data-page="compat"] #tkSurveyDock,
-    body[data-page="compat"] .tk-survey,
-    body[data-page="compat"] .tk-survey-host,
-    body[data-page="compat"] .survey-panel,
-    body[data-page="compat"] .tk-survey-panel {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      pointer-events: none !important;
-    }
-
     /* Kill any category dock/panel overlays without layout shift */
     #tkDockCard,
     #categorySurveyPanel,
@@ -70,40 +53,6 @@
         if (document.body) {
           document.body.style.marginLeft = '';
         }
-        selectors.forEach((selector) => {
-          document.querySelectorAll(selector).forEach((node) => node.remove());
-        });
-      };
-
-      purge();
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', purge, { once: true });
-      }
-
-      const observer = new MutationObserver(purge);
-      observer.observe(document.documentElement, { childList: true, subtree: true });
-      setTimeout(() => observer.disconnect(), 4000);
-    })();
-  </script>
-
-  <script>
-    // Ensure no survey UI renders on the compatibility page
-    (function killSurveyUi() {
-      const selectors = [
-        '#survey',
-        '.survey',
-        '[data-app="survey"]',
-        '.survey-root',
-        '[data-testid="survey-root"]',
-        '#tkSurveyDock',
-        '.tk-survey',
-        '.tk-survey-host',
-        '.survey-panel',
-        '.tk-survey-panel'
-      ];
-
-      const purge = () => {
         selectors.forEach((selector) => {
           document.querySelectorAll(selector).forEach((node) => node.remove());
         });
@@ -342,7 +291,7 @@
     window.TK_COMPAT_UPLOAD_CFG = {
       btnSelf: '#yourBtn, #uploadYourSurvey',
       btnPartner: '#partnerBtn, #uploadPartnerSurvey',
-      btnPdf: '#btnDownloadPDF, #downloadBtn, #downloadPdfBtn',
+      btnPdf: '#downloadBtn, #downloadPdfBtn',
       selfInput: '#yourFile',
       partnerInput: '#partnerFile',
       guardPdf: false,
@@ -778,16 +727,6 @@
   .ksv-cat .ksv-cat-text{
     display:inline;
   }
-
-  /* Keep compatibility results offscreen; PDF generator still reads the table */
-  body[data-page="compat"] .compat-section {
-    position: absolute;
-    left: -9999px;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    pointer-events: none;
-  }
   </style>
 
   <link rel="stylesheet" href="/assets/css/comparison.css" />
@@ -811,29 +750,12 @@
           </button>
         </div>
       </div>
-      <button id="btnDownloadPDF" class="glow-cta compat-download-btn">Download PDF</button>
+      <button id="downloadBtn" class="glow-cta compat-download-btn">Download PDF</button>
     </div>
 
     <div class="tk-upload-messages" aria-live="polite" aria-atomic="true">
       <p id="yourStatus" class="tk-upload-status" role="status" hidden></p>
       <p id="partnerStatus" class="tk-upload-status" role="status" hidden></p>
-    </div>
-
-    <div id="compatibility" class="compat-section">
-      <div class="table-container">
-        <table id="compatibilityTable" class="compat-table">
-          <thead>
-            <tr>
-              <th scope="col">Kink</th>
-              <th scope="col">A</th>
-              <th scope="col">%</th>
-              <th scope="col">Flag</th>
-              <th scope="col">B</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
     </div>
 
         <a href="https://talkkink.org/KinkSurveyPage/index.html" class="tk-btn back">← Back</a>
@@ -844,7 +766,7 @@
           self: document.getElementById('yourStatus'),
           partner: document.getElementById('partnerStatus')
         };
-        const button = document.getElementById('btnDownloadPDF');
+        const button = document.getElementById('downloadBtn');
         const SMALL_SCREEN_MAX_WIDTH = 500;
         const SMALL_SCREEN_REDIRECT = '/compat/small-screen';
         const seen = { self: false, partner: false };
@@ -855,7 +777,7 @@
 
         function maybeRedirectToSmallScreen(event) {
           if (!shouldRedirectToSmallScreen()) return;
-          const target = event?.target?.closest?.('#btnDownloadPDF');
+          const target = event?.target?.closest?.('#downloadBtn');
           if (!target) return;
 
           event.preventDefault();
@@ -1208,144 +1130,119 @@
 
   <script>
     /* ========================================================================
-     * TalkKink Compatibility — DOM PDF wiring (new generator)
-     * - Renders rows from cached compatibility data into #compatibilityTable
-     * - Notifies TKCompatPDF when rows change
-     * - Disables legacy generators
+     * TalkKink Compatibility — SINGLE PDF OVERRIDE (storage-based)
+     * - Uses TKCompatPDF.generateFromStorage() only
+     * - Depends on tk-compat-upload-glue.js saving rows to localStorage
+     * - Old DOM-based PDF generator is completely bypassed
      * ===================================================================== */
     (function () {
-      const BTN_ID = 'btnDownloadPDF';
-      const TABLE_BODY_SELECTOR = '#compatibilityTable tbody';
-      const ROW_STORAGE_KEYS = ['talkkink:compatRows', 'talkkink:compatibilityRows'];
+      const BTN_SELECTOR = '#downloadPdfBtn, #downloadBtn, [data-download-pdf]';
 
-      window.generateDarkPDF = () => {};
-
-      function readStoredRows() {
-        if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
-          return window.talkkinkCompatRows.slice();
-        }
-
-        if (typeof localStorage === 'undefined') return [];
-
-        for (const key of ROW_STORAGE_KEYS) {
-          try {
-            const raw = localStorage.getItem(key);
-            if (!raw) continue;
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length) {
-              return parsed;
-            }
-          } catch (err) {
-            console.warn('[compatibility] Unable to parse cached rows', err);
+      function rowsExistInStorage() {
+        try {
+          if (typeof window.talkkinkEnsureCompatRows === 'function') {
+            window.talkkinkEnsureCompatRows();
           }
+        } catch (err) {
+          console.warn('[compat-override] Failed to rebuild compat rows:', err);
         }
 
-        return [];
+        if (Array.isArray(window.talkkinkCompatRows) && window.talkkinkCompatRows.length) {
+          return true;
+        }
+
+        try {
+          const raw =
+            localStorage.getItem('talkkink:compatRows') ||
+            localStorage.getItem('talkkink:compatibilityRows') ||
+            '';
+          if (!raw) return false;
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) && parsed.length > 0;
+        } catch (err) {
+          console.warn('[compat-override] Failed to read compat rows from storage:', err);
+          return false;
+        }
       }
 
-      function labelForRow(row) {
-        return (
-          row?.item ||
-          row?.label ||
-          row?.kink ||
-          row?.kinkId ||
-          row?.name ||
-          '—'
+      async function handleDownload(e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        }
+
+        // Refresh the cached compatibility rows so the PDF generator sees
+        // the latest uploaded surveys instead of any stale placeholder data.
+        try {
+          if (typeof window.talkkinkEnsureCompatRows === 'function') {
+            window.talkkinkEnsureCompatRows({ force: true });
+          }
+          if (window.TKCompatPDF?.notifyRowsUpdated && Array.isArray(window.talkkinkCompatRows)) {
+            window.TKCompatPDF.notifyRowsUpdated(window.talkkinkCompatRows);
+          }
+        } catch (err) {
+          console.warn('[compat-override] Unable to refresh compat rows before PDF', err);
+        }
+
+        if (!rowsExistInStorage()) {
+          alert('Upload both partner surveys first, then wait for the green messages below the buttons before downloading.');
+          return;
+        }
+
+        if (window.TKCompatPDF?.generateFromStorage) {
+          try {
+            await window.TKCompatPDF.generateFromStorage();
+          } catch (err) {
+            console.error('[compat-override] PDF generation failed:', err);
+            alert('PDF could not be generated. See console for details.');
+          }
+        } else {
+          alert('PDF generator is not loaded. Make sure assets/js/compatPdf.js is included.');
+        }
+      }
+
+      function wire() {
+        const btn = document.querySelector(BTN_SELECTOR);
+        if (!btn) {
+          console.warn('[compat-override] No compatibility download button found.');
+          return;
+        }
+
+        btn.removeAttribute('onclick');
+
+        if (btn.classList) {
+          btn.classList.add('btn-glow');
+        }
+
+        document.addEventListener(
+          'click',
+          function (ev) {
+            const target = ev.target.closest(BTN_SELECTOR);
+            if (!target) return;
+            handleDownload(ev);
+          },
+          true
+        );
+
+        btn.addEventListener('click', handleDownload);
+
+        window.handleDownloadClick = handleDownload;
+        window.generateDarkPDF = function () {
+          return handleDownload(new Event('click'));
+        };
+
+        console.info(
+          '[compat-override] Download button now uses TKCompatPDF.generateFromStorage() only (no legacy Flag column PDF).'
         );
       }
 
-      function renderCompatRows(rows) {
-        const tbody = document.querySelector(TABLE_BODY_SELECTOR);
-        if (!tbody) return;
-
-        tbody.innerHTML = '';
-
-        rows.forEach((row) => {
-          const tr = document.createElement('tr');
-          const matchValue =
-            row?.matchPct ?? row?.matchPercent ?? row?.matchValue ?? row?.match ?? null;
-          const cells = [
-            labelForRow(row),
-            row?.a ?? row?.partnerA ?? row?.aScore ?? row?.scoreA ?? '',
-            matchValue != null && matchValue !== '' ? `${Math.round(matchValue)}%` : '—',
-            row?.flag ?? '',
-            row?.b ?? row?.partnerB ?? row?.bScore ?? row?.scoreB ?? ''
-          ];
-
-          cells.forEach((text) => {
-            const td = document.createElement('td');
-            td.textContent = text == null ? '' : text;
-            tr.appendChild(td);
-          });
-
-          tbody.appendChild(tr);
-        });
-
-        updateCompatPDFRows();
-      }
-
-      function refreshCompatRows(opts = {}) {
-        try {
-          if (typeof window.talkkinkEnsureCompatRows === 'function') {
-            window.talkkinkEnsureCompatRows(opts);
-          }
-        } catch (err) {
-          console.warn('[compatibility] Unable to rebuild cached rows', err);
-        }
-
-        const rows = readStoredRows();
-        renderCompatRows(rows);
-      }
-
-      function wireDownloadButton() {
-        const button = document.getElementById(BTN_ID);
-        if (!button) return;
-
-        button.addEventListener('click', () => {
-          TKCompatPDF.download();
-        });
-      }
-
-      function ready() {
-        wireDownloadButton();
-        refreshCompatRows();
-      }
-
-      document.addEventListener('tk-compat-upload', () => refreshCompatRows({ force: true }));
-      document.addEventListener('tk-compat-upload-error', () => refreshCompatRows({ force: true }));
-
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', ready, { once: true });
+        document.addEventListener('DOMContentLoaded', wire, { once: true });
       } else {
-        ready();
+        wire();
       }
     })();
-
-    function updateCompatPDFRows() {
-      // Gracefully no-op if the PDF helper failed to load; previously this
-      // threw and halted the upload flow after the first survey.
-      const notifier = window.TKCompatPDF && window.TKCompatPDF.notifyRowsUpdated;
-      if (typeof notifier !== 'function') {
-        console.warn('[TK-compat] TKCompatPDF.notifyRowsUpdated unavailable; skipping PDF sync');
-        return;
-      }
-
-      // Normalize the DOM rows into the simple structure the PDF helper
-      // expects, rather than passing live nodes (which could freeze the page
-      // if the helper tries to serialize them).
-      const rows = [...document.querySelectorAll('#compatibilityTable tbody tr')].map((tr) => {
-        const cells = Array.from(tr.cells || []);
-        return {
-          item: cells[0]?.textContent?.trim() || '',
-          partnerA: cells[1]?.textContent?.trim() || '',
-          match: cells[2]?.textContent?.trim() || '',
-          flag: cells[3]?.textContent?.trim() || '',
-          partnerB: cells[4]?.textContent?.trim() || ''
-        };
-      });
-
-      notifier(rows);
-    }
   </script>
 
   <script>
