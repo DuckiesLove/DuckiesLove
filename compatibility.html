@@ -1322,8 +1322,29 @@
     })();
 
     function updateCompatPDFRows() {
-      const rows = [...document.querySelectorAll('#compatibilityTable tbody tr')];
-      TKCompatPDF.notifyRowsUpdated(rows);
+      // Gracefully no-op if the PDF helper failed to load; previously this
+      // threw and halted the upload flow after the first survey.
+      const notifier = window.TKCompatPDF && window.TKCompatPDF.notifyRowsUpdated;
+      if (typeof notifier !== 'function') {
+        console.warn('[TK-compat] TKCompatPDF.notifyRowsUpdated unavailable; skipping PDF sync');
+        return;
+      }
+
+      // Normalize the DOM rows into the simple structure the PDF helper
+      // expects, rather than passing live nodes (which could freeze the page
+      // if the helper tries to serialize them).
+      const rows = [...document.querySelectorAll('#compatibilityTable tbody tr')].map((tr) => {
+        const cells = Array.from(tr.cells || []);
+        return {
+          item: cells[0]?.textContent?.trim() || '',
+          partnerA: cells[1]?.textContent?.trim() || '',
+          match: cells[2]?.textContent?.trim() || '',
+          flag: cells[3]?.textContent?.trim() || '',
+          partnerB: cells[4]?.textContent?.trim() || ''
+        };
+      });
+
+      notifier(rows);
     }
   </script>
 
