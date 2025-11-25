@@ -1,10 +1,8 @@
-import { calculateCategoryMatch } from './matchFlag.js';
 import { calculateCompatibility } from './compatibility.js';
 import { tkGenerateCompatRows } from './tkCompatRows.js';
 
 let surveyA = null;
 let surveyB = null;
-let pdfGenerating = false;
 let latestCompatData = null;
 
 const downloadButton = document.getElementById('downloadPdfBtn');
@@ -40,26 +38,6 @@ function addHistoryEntry(score) {
 
 if (typeof window !== 'undefined') {
   window.compatibilityHistory = loadHistory();
-}
-
-async function generatePDF(data) {
-  if (pdfGenerating) return;
-  pdfGenerating = true;
-  try {
-    const { loadJsPDF } = await import('./loadJsPDF.js');
-    await loadJsPDF();
-    const { jsPDF } = window.jspdf || {};
-    if (!jsPDF) {
-      throw new Error('jsPDF failed to load');
-    }
-    const { generateCompatibilityPDF } = await import('./compatibilityPdf.js');
-    await generateCompatibilityPDF(data);
-  } catch (err) {
-    console.error(err);
-    throw err;
-  } finally {
-    pdfGenerating = false;
-  }
 }
 
 const PAGE_BREAK_CATEGORIES = new Set([
@@ -365,23 +343,36 @@ if (fileBInput) {
   fileBInput.addEventListener('change', e => loadFileB(e.target.files[0]));
 }
 
-if (downloadButton) {
-  downloadButton.addEventListener('click', async () => {
-    if (!surveyA || !surveyB || !latestCompatData) {
-      alert('Please upload both surveys before downloading the PDF.');
-      return;
-    }
+async function downloadWithCompatGenerator() {
+  const rows = Array.isArray(window.talkkinkCompatRows) ? window.talkkinkCompatRows.slice() : [];
+  if (!rows.length) {
+    alert('Please upload both surveys before downloading the PDF.');
+    return;
+  }
 
-    refreshDownloadAvailability({ forceDisable: true });
-    try {
-      await generatePDF(latestCompatData);
-    } catch (err) {
-      console.error('Failed to generate PDF:', err);
-      alert('PDF export failed. Please try again.');
-    } finally {
-      refreshDownloadAvailability();
-    }
-  });
+  const generator = window.TKCompatPDF;
+  if (!generator || typeof generator.generateFromRows !== 'function') {
+    alert('PDF generator is not loaded. Please wait a moment and try again.');
+    return;
+  }
+
+  if (typeof generator.notifyRowsUpdated === 'function') {
+    generator.notifyRowsUpdated(rows);
+  }
+
+  refreshDownloadAvailability({ forceDisable: true });
+  try {
+    await generator.generateFromRows(rows);
+  } catch (err) {
+    console.error('Failed to generate PDF:', err);
+    alert('PDF export failed. Please try again.');
+  } finally {
+    refreshDownloadAvailability();
+  }
+}
+
+if (downloadButton) {
+  downloadButton.addEventListener('click', downloadWithCompatGenerator);
 }
 
 function updateComparison() {
@@ -474,6 +465,9 @@ function updateComparison() {
   const compatRows = tkGenerateCompatRows(compatMapA, compatMapB);
   if (compatRows.length) {
     window.talkkinkCompatRows = compatRows;
+    if (window.TKCompatPDF?.notifyRowsUpdated) {
+      window.TKCompatPDF.notifyRowsUpdated(compatRows);
+    }
   } else {
     delete window.talkkinkCompatRows;
   }
