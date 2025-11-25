@@ -508,6 +508,55 @@ window.TKCompatPDF = (function () {
     return doc.lastAutoTable?.finalY ?? startY;
   }
 
+  // Lightweight manual row renderer used by older snippets
+  // TODO: consider deprecating once all callers migrate to renderCompatTable
+  function renderRows(doc, rows, startY) {
+    const colX = {
+      kink: 20,
+      a: 165,
+      bar: 195,
+      b: 225
+    };
+
+    let y = startY;
+
+    for (const row of rows) {
+      if (y > 275) {
+        doc.addPage();
+        y = 30;
+      }
+
+      const { shortLabel, scoreA, scoreB, percent, matchFlag } = row;
+
+      // Draw kink name (shortened already in row.shortLabel)
+      doc.setTextColor("#FFFFFF");
+      doc.setFontSize(9);
+      doc.text(shortLabel, colX.kink, y);
+
+      // Draw Partner A score
+      doc.setTextColor(scoreA === "N/A" ? "#888888" : "#00FFFF");
+      doc.text(scoreA.toString(), colX.a, y, { align: "right" });
+
+      // Draw Partner B score
+      doc.setTextColor(scoreB === "N/A" ? "#888888" : "#00FFFF");
+      doc.text(scoreB.toString(), colX.b, y, { align: "left" });
+
+      // Draw Match %
+      let barText = percent === "N/A" ? "N/A" : `${percent}%`;
+      let emoji = "";
+      if (matchFlag === "star") emoji = "⭐";
+      else if (matchFlag === "flag") emoji = "🚩";
+      else if (matchFlag === "warn") emoji = "🟨";
+
+      doc.setTextColor("#00FFFF");
+      doc.text(`${barText} ${emoji}`, colX.bar, y, { align: "center" });
+
+      y += 8;
+    }
+
+    return y;
+  }
+
   async function generateFromStorage() {
     const payloads = readSurveyPayloads();
 
@@ -569,6 +618,7 @@ window.TKCompatPDF = (function () {
 
   return {
     generateFromStorage,
-    notifyRowsUpdated
+    notifyRowsUpdated,
+    renderRows
   };
 })();
