@@ -508,21 +508,7 @@ window.TKCompatPDF = (function () {
     return doc.lastAutoTable?.finalY ?? startY;
   }
 
-  async function generateFromStorage() {
-    const payloads = readSurveyPayloads();
-
-    if (!hasSurveyData(payloads.self) || !hasSurveyData(payloads.partner)) {
-      console.error('[compat-override] PDF generation failed: Missing survey data.', payloads);
-      alert('Error: One or both surveys are missing. Make sure both are uploaded.');
-      return;
-    }
-
-    const rawRows = rowsFromStorage(payloads);
-    if (!rawRows.length) {
-      alert('Upload both partner surveys first, then try again.');
-      return;
-    }
-
+  async function renderPdf(rawRows) {
     try {
       await ensurePdfLibraries();
     } catch (err) {
@@ -563,12 +549,46 @@ window.TKCompatPDF = (function () {
     }
   }
 
+  async function generateFromRows(rows) {
+    const prepared = Array.isArray(rows) ? rows.slice() : [];
+    if (!prepared.length) {
+      alert('Upload both partner surveys first, then try again.');
+      return;
+    }
+
+    try {
+      await renderPdf(prepared);
+    } catch (err) {
+      console.error('[compat-pdf] PDF generation failed', err);
+      alert('PDF generation failed because of an unexpected error.');
+    }
+  }
+
+  async function generateFromStorage() {
+    const payloads = readSurveyPayloads();
+
+    if (!hasSurveyData(payloads.self) || !hasSurveyData(payloads.partner)) {
+      console.error('[compat-override] PDF generation failed: Missing survey data.', payloads);
+      alert('Error: One or both surveys are missing. Make sure both are uploaded.');
+      return;
+    }
+
+    const rawRows = rowsFromStorage(payloads);
+    if (!rawRows.length) {
+      alert('Upload both partner surveys first, then try again.');
+      return;
+    }
+
+    await generateFromRows(rawRows);
+  }
+
   function notifyRowsUpdated(rows) {
     cachedRows = Array.isArray(rows) ? rows.slice() : [];
   }
 
   return {
     generateFromStorage,
+    generateFromRows,
     notifyRowsUpdated
   };
 })();
