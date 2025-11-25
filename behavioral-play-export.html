@@ -93,11 +93,18 @@
     }
     .btn:active { transform: translateY(1px); }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    if (!window.jsPDF && window.jspdf?.jsPDF) {
+      window.jsPDF = window.jspdf.jsPDF;
+    }
+  </script>
 </head>
 <body>
   <div id="app" aria-live="polite"></div>
   <script type="module">
-    import { renderBehavioralPlayHTML } from './js/behavioralPlayPdf.js';
+    import { renderBehavioralPlayHTML, renderBehavioralPlayPDF } from './js/behavioralPlayPdf.js';
 
     const rows = [
       { label: 'Giving: Assigning corner time or time-outs', partnerA: '5', partnerB: '5' },
@@ -110,11 +117,13 @@
       { label: 'General: Preferred style of discipline (strict vs lenient)', partnerA: '3', partnerB: '3' },
     ];
 
-    const { html } = renderBehavioralPlayHTML(rows, {
+    const pdfOptions = {
       timestamp: '11/19/2025, 1:08:06 AM',
       title: 'TalkKink Compatibility Survey',
       sectionTitle: 'Behavioral Play',
-    });
+    };
+
+    const { html } = renderBehavioralPlayHTML(rows, pdfOptions);
 
     const container = document.getElementById('app');
     if (container) {
@@ -123,7 +132,15 @@
 
     const downloadBtn = document.getElementById('downloadPdfBtn');
     if (downloadBtn) {
-      downloadBtn.addEventListener('click', () => window.print());
+      downloadBtn.addEventListener('click', () => {
+        try {
+          const doc = renderBehavioralPlayPDF(rows, pdfOptions);
+          doc.save('TalkKink-Compatibility.pdf');
+        } catch (error) {
+          console.error('PDF generation failed', error);
+          alert('Unable to generate the PDF right now. Please try again.');
+        }
+      });
     }
   </script>
 </body>
