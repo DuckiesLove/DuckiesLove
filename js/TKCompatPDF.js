@@ -1,82 +1,100 @@
-// TKCompatPDF.js — Codex-compatible PDF generator for TalkKink
-
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// Config
-const neonColor = "#00f7ff";
-const darkBg = "#111111";
-const grayText = "#cccccc";
-const whiteText = "#ffffff";
-const sectionTitleFont = "FredokaOne";
+const STORAGE_KEY = "TKCompat.matchTableData";
 
-// Shorten long labels for cleaner PDF spacing
-function shortenLabel(label) {
-  return label.replace("Giving:", "")
-              .replace("Receiving:", "")
-              .replace("General:", "")
-              .trim();
-}
+const TKCompatPDF = {
+  download() {
+    const doc = new jsPDF({ orientation: "landscape" });
+    const title = "TalkKink Compatibility";
+    const timestamp = `Generated ${new Date().toLocaleString()}`;
 
-function formatTimestamp() {
-  return new Date().toLocaleString();
-}
+    // Document Header
+    doc.setTextColor(0, 255, 255); // Bright cyan
+    doc.setFontSize(22);
+    doc.text(title, 14, 20);
 
-// Main PDF generation
-export const TKCompatPDF = {
-  notifyRowsUpdated: (category, rows) => {
-    localStorage.setItem("tk.rows." + category, JSON.stringify(rows));
-  },
-
-  download: () => {
-    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    // Fonts and Styling
-    doc.setFont(sectionTitleFont || "helvetica", "bold");
-    doc.setFontSize(28);
-    doc.setTextColor(neonColor);
-    doc.text("TalkKink Compatibility Survey", pageWidth / 2, 60, { align: "center" });
-
-    // Timestamp
+    doc.setTextColor(200);
     doc.setFontSize(10);
-    doc.setTextColor(grayText);
-    doc.text(`Generated: ${formatTimestamp()}`, pageWidth / 2, 80, { align: "center" });
-
-    // Section Header
-    doc.setFontSize(20);
-    doc.setTextColor(neonColor);
-    doc.text("Behavioral Play", pageWidth / 2, 120, { align: "center" });
+    doc.text(timestamp, 14, 27);
 
     // Load data from localStorage
-    const rows = JSON.parse(localStorage.getItem("tk.rows.Behavioral Play") || "[]");
+    const data = readRowsFromStorage();
 
-    // Format table data
-    const data = rows.map(row => {
-      const match = row.a === row.b ? "100%" : `${100 - Math.abs(row.a - row.b) * 20}%`;
-      return [shortenLabel(row.kink), row.a, match, row.b];
-    });
+    // Format columns
+    const headers = [
+      { header: "Item", dataKey: "label" },
+      { header: "Partner A", dataKey: "scoreA" },
+      { header: "Match", dataKey: "match" },
+      { header: "Partner B", dataKey: "scoreB" }
+    ];
 
-    // Table layout
+    const rows = data.map((row) => ({
+      label: row.label || "—",
+      scoreA: formatScore(row.scoreA ?? row.a ?? row.aScore),
+      match: formatMatch(row.match ?? row.matchPct),
+      scoreB: formatScore(row.scoreB ?? row.b ?? row.bScore)
+    }));
+
+    // Create Table
     autoTable(doc, {
-      head: [["Kinks", "Partner A", "Match", "Partner B"]],
-      body: data,
-      startY: 140,
+      startY: 35,
+      head: [headers.map((h) => h.header)],
+      body: rows.map((row) => [row.label, row.scoreA, row.match, row.scoreB]),
       styles: {
         fontSize: 10,
-        textColor: whiteText,
-        fillColor: darkBg,
-        halign: "left"
+        textColor: [255, 255, 255],
+        lineColor: [100, 100, 100],
+        lineWidth: 0.1,
+        fillColor: [30, 30, 30]
       },
       headStyles: {
-        fillColor: "#000000",
-        textColor: neonColor,
+        fillColor: [0, 255, 255],
+        textColor: 0,
         fontStyle: "bold"
       },
-      alternateRowStyles: { fillColor: "#1a1a1a" },
-      margin: { left: 40, right: 40 }
+      alternateRowStyles: { fillColor: [45, 45, 45] },
+      theme: "striped"
     });
 
-    doc.save("compatibility.pdf");
+    // Save
+    doc.save("TalkKink-Compatibility.pdf");
+  },
+
+  notifyRowsUpdated(rows) {
+    writeRowsToStorage(rows);
   }
 };
+
+function formatScore(score) {
+  return typeof score === "number" ? score : "—";
+}
+
+function formatMatch(match) {
+  return typeof match === "number" ? `${match}%` : "—";
+}
+
+function readRowsFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    console.warn("[TKCompatPDF] Failed to read rows from storage", err);
+    return [];
+  }
+}
+
+function writeRowsToStorage(rows) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.isArray(rows) ? rows : []));
+  } catch (err) {
+    console.warn("[TKCompatPDF] Failed to persist rows", err);
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.TKCompatPDF = TKCompatPDF;
+}
+
+export { TKCompatPDF };
+export default TKCompatPDF;
