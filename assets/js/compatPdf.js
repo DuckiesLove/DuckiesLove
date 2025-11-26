@@ -154,13 +154,38 @@ window.TKCompatPDF = (function () {
     return val;
   }
 
+  function parseScoreValue(value) {
+    if (value === undefined || value === null) return null;
+    if (value === '&&&') return null;
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed || trimmed === '&&&') return null;
+      const numeric = Number(trimmed);
+      if (Number.isFinite(numeric)) return numeric;
+      const match = trimmed.match(/-?\d+(?:\.\d+)?/);
+      if (match) {
+        const parsed = Number(match[0]);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+      return null;
+    }
+
+    const asNumber = Number(value);
+    return Number.isFinite(asNumber) ? asNumber : null;
+  }
+
   function shortenCategoryLabel(label) {
     if (!label || typeof label !== 'string') return '—';
-    return label
+    const cleaned = label
       .replace(/^(Giving|Receiving):\s*/i, '')
       .replace(/\s*\([^)]*\)\s*/g, '')
       .replace(/\s+/g, ' ')
-      .trim() || '—';
+      .trim();
+
+    if (!cleaned) return '—';
+    if (cleaned.length <= 32) return cleaned;
+    return `${cleaned.slice(0, 31)}…`;
   }
 
   function getCompatMatch(scoreA, scoreB) {
@@ -181,7 +206,9 @@ window.TKCompatPDF = (function () {
   function parseMatchPercentage(matchValue) {
     if (typeof matchValue === 'number' && Number.isFinite(matchValue)) return matchValue;
     if (typeof matchValue === 'string') {
-      const parsed = parseInt(matchValue, 10);
+      const cleaned = matchValue.replace(/&/g, '').trim();
+      if (!cleaned) return null;
+      const parsed = parseInt(cleaned, 10);
       if (Number.isFinite(parsed)) return parsed;
     }
     return null;
@@ -189,10 +216,8 @@ window.TKCompatPDF = (function () {
 
   function normalizeCompatTableRows(rows = []) {
     return rows.map((row) => {
-      const rawA = Number(row.a ?? row.partnerA ?? row.aScore ?? row.scoreA);
-      const rawB = Number(row.b ?? row.partnerB ?? row.bScore ?? row.scoreB);
-      const scoreA = Number.isFinite(rawA) ? rawA : null;
-      const scoreB = Number.isFinite(rawB) ? rawB : null;
+      const scoreA = parseScoreValue(row.a ?? row.partnerA ?? row.aScore ?? row.scoreA);
+      const scoreB = parseScoreValue(row.b ?? row.partnerB ?? row.bScore ?? row.scoreB);
 
       const matchFromRow = parseMatchPercentage(
         row.match ?? row.matchPct ?? row.matchPercent ?? row.matchValue
@@ -422,25 +447,26 @@ window.TKCompatPDF = (function () {
       { label: '80%+ Alignments', value: strong }
     ];
 
-    const boxWidth = (doc.internal.pageSize.getWidth() - 96) / badges.length;
-    const boxHeight = 54;
+    const boxWidth = (doc.internal.pageSize.getWidth() - 72) / badges.length;
+    const boxHeight = 60;
 
     badges.forEach((badge, idx) => {
-      const x = 48 + idx * boxWidth;
+      const x = 36 + idx * boxWidth;
       doc.setFillColor(...THEME.badge);
       doc.setDrawColor(...THEME.grid);
-      doc.setLineWidth(0.8);
-      doc.rect(x, startY, boxWidth - 12, boxHeight, 'FD');
+      doc.setLineWidth(1);
+      doc.rect(x, startY, boxWidth - 18, boxHeight, 'FD');
 
+      const centerX = x + (boxWidth - 18) / 2;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
+      doc.setFontSize(13);
       doc.setTextColor(...THEME.accent);
-      doc.text(String(badge.value), x + 12, startY + 24);
+      doc.text(String(badge.value), centerX, startY + 26, { align: 'center' });
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(...THEME.muted);
-      doc.text(badge.label, x + 12, startY + 42);
+      doc.text(badge.label, centerX, startY + 44, { align: 'center' });
     });
 
     return startY + boxHeight + 18;
@@ -450,26 +476,29 @@ window.TKCompatPDF = (function () {
     if (!rows.length) return startY;
 
     const columns = [
-      { header: 'Item', dataKey: 'item' },
+      { header: 'Category', dataKey: 'item' },
       { header: 'Partner A', dataKey: 'a' },
       { header: 'Match', dataKey: 'match' },
       { header: 'Partner B', dataKey: 'b' }
     ];
 
+    const toScoreCell = (score) => (Number.isFinite(score) ? score : '—');
+    const toMatchCell = (match) => (Number.isFinite(match) ? `${Math.round(match)}%` : '—');
+
     const tableRows = rows.map((row) => ({
       item: row.label,
-      a: Number.isFinite(row.partnerA) ? row.partnerA : '—',
-      match: Number.isFinite(row.matchPercent) ? `${Math.round(row.matchPercent)}%` : '—',
-      b: Number.isFinite(row.partnerB) ? row.partnerB : '—'
+      a: toScoreCell(row.partnerA),
+      match: toMatchCell(row.matchPercent),
+      b: toScoreCell(row.partnerB)
     }));
 
-    const availableWidth = doc.internal.pageSize.getWidth() - 96; // match autoTable margins
     const columnWidths = {
-      item: Math.round(availableWidth * 0.6),
-      a: Math.round(availableWidth * 0.1333),
-      match: Math.round(availableWidth * 0.1333),
-      b: Math.round(availableWidth * 0.1334)
+      item: 90,
+      a: 78,
+      match: 92,
+      b: 78
     };
+    const tableWidth = columnWidths.item + columnWidths.a + columnWidths.match + columnWidths.b;
 
     const autoTable = getAutoTable(doc);
     if (!doc.autoTable && typeof autoTable === 'function') {
@@ -481,6 +510,7 @@ window.TKCompatPDF = (function () {
       columns,
       body: tableRows,
       margin: { left: 48, right: 48 },
+      tableWidth,
       styles: {
         fontSize: 10,
         font: 'helvetica',
@@ -493,7 +523,12 @@ window.TKCompatPDF = (function () {
         valign: 'middle'
       },
       columnStyles: {
-        item: { cellWidth: columnWidths.item, halign: 'left', textColor: [170, 222, 232] },
+        item: {
+          cellWidth: columnWidths.item,
+          halign: 'left',
+          textColor: [170, 222, 232],
+          fontStyle: 'bold'
+        },
         a: { cellWidth: columnWidths.a, halign: 'center' },
         match: { cellWidth: columnWidths.match, halign: 'center', textColor: THEME.accent },
         b: { cellWidth: columnWidths.b, halign: 'center' }
@@ -548,15 +583,13 @@ window.TKCompatPDF = (function () {
       const matchFlag = row.matchFlag;
 
       const shortLabel = row.shortLabel || shortenCategoryLabel(row.item || row.label);
-      const scoreA = Number.isFinite(Number(row.scoreA ?? row.a ?? row.partnerA))
-        ? Number(row.scoreA ?? row.a ?? row.partnerA)
-        : 'N/A';
-      const scoreB = Number.isFinite(Number(row.scoreB ?? row.b ?? row.partnerB))
-        ? Number(row.scoreB ?? row.b ?? row.partnerB)
-        : 'N/A';
-      const percent = Number.isFinite(Number(row.percent ?? row.matchPercent ?? row.match))
-        ? Number(row.percent ?? row.matchPercent ?? row.match)
-        : 'N/A';
+      const scoreAValue = parseScoreValue(row.scoreA ?? row.a ?? row.partnerA);
+      const scoreBValue = parseScoreValue(row.scoreB ?? row.b ?? row.partnerB);
+      const percentValue = parseMatchPercentage(row.percent ?? row.matchPercent ?? row.match);
+
+      const scoreA = Number.isFinite(scoreAValue) ? scoreAValue : '—';
+      const scoreB = Number.isFinite(scoreBValue) ? scoreBValue : '—';
+      const percent = Number.isFinite(percentValue) ? percentValue : '—';
 
       // Draw kink name (shortened already in row.shortLabel)
       doc.setTextColor("#FFFFFF");
@@ -564,15 +597,15 @@ window.TKCompatPDF = (function () {
       doc.text(shortLabel, colX.kink, y);
 
       // Draw Partner A score
-      doc.setTextColor(scoreA === "N/A" ? "#888888" : "#00FFFF");
-      doc.text(scoreA.toString(), colX.a, y, { align: "right" });
+      doc.setTextColor(scoreA === "—" ? "#888888" : "#00FFFF");
+      doc.text(String(scoreA), colX.a, y, { align: "right" });
 
       // Draw Partner B score
-      doc.setTextColor(scoreB === "N/A" ? "#888888" : "#00FFFF");
-      doc.text(scoreB.toString(), colX.b, y, { align: "left" });
+      doc.setTextColor(scoreB === "—" ? "#888888" : "#00FFFF");
+      doc.text(String(scoreB), colX.b, y, { align: "left" });
 
       // Draw Match %
-      let barText = percent === "N/A" ? "N/A" : `${percent}%`;
+      let barText = percent === "—" ? "—" : `${percent}%`;
       let emoji = "";
       if (matchFlag === "star") emoji = "⭐";
       else if (matchFlag === "flag") emoji = "🚩";
@@ -588,6 +621,8 @@ window.TKCompatPDF = (function () {
   }
 
   async function generateFromStorage() {
+    console.log('[compat-pdf] generateFromStorage() triggered');
+
     const payloads = readSurveyPayloads();
 
     if (!hasSurveyData(payloads.self) || !hasSurveyData(payloads.partner)) {
