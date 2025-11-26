@@ -154,6 +154,15 @@ window.TKCompatPDF = (function () {
     return val;
   }
 
+  function shortenCategoryLabel(label) {
+    if (!label || typeof label !== 'string') return '—';
+    return label
+      .replace(/^(Giving|Receiving):\s*/i, '')
+      .replace(/\s*\([^)]*\)\s*/g, '')
+      .replace(/\s+/g, ' ')
+      .trim() || '—';
+  }
+
   function getCompatMatch(scoreA, scoreB) {
     const cleanA = cleanValue(scoreA);
     const cleanB = cleanValue(scoreB);
@@ -193,7 +202,7 @@ window.TKCompatPDF = (function () {
         : getCompatMatch(scoreA, scoreB);
 
       return {
-        label: row.item || row.label || '—',
+        label: shortenCategoryLabel(row.item || row.label),
         partnerA: scoreA,
         partnerB: scoreB,
         matchPercent: Number.isFinite(matchPercent) ? matchPercent : null
@@ -456,10 +465,10 @@ window.TKCompatPDF = (function () {
 
     const availableWidth = doc.internal.pageSize.getWidth() - 96; // match autoTable margins
     const columnWidths = {
-      item: Math.round((availableWidth * 100) / 175),
-      a: Math.round((availableWidth * 25) / 175),
-      match: Math.round((availableWidth * 25) / 175),
-      b: Math.round((availableWidth * 25) / 175)
+      item: Math.round(availableWidth * 0.6),
+      a: Math.round(availableWidth * 0.1333),
+      match: Math.round(availableWidth * 0.1333),
+      b: Math.round(availableWidth * 0.1334)
     };
 
     const autoTable = getAutoTable(doc);
@@ -536,7 +545,18 @@ window.TKCompatPDF = (function () {
         y = 30;
       }
 
-      const { shortLabel, scoreA, scoreB, percent, matchFlag } = row;
+      const matchFlag = row.matchFlag;
+
+      const shortLabel = row.shortLabel || shortenCategoryLabel(row.item || row.label);
+      const scoreA = Number.isFinite(Number(row.scoreA ?? row.a ?? row.partnerA))
+        ? Number(row.scoreA ?? row.a ?? row.partnerA)
+        : 'N/A';
+      const scoreB = Number.isFinite(Number(row.scoreB ?? row.b ?? row.partnerB))
+        ? Number(row.scoreB ?? row.b ?? row.partnerB)
+        : 'N/A';
+      const percent = Number.isFinite(Number(row.percent ?? row.matchPercent ?? row.match))
+        ? Number(row.percent ?? row.matchPercent ?? row.match)
+        : 'N/A';
 
       // Draw kink name (shortened already in row.shortLabel)
       doc.setTextColor("#FFFFFF");
