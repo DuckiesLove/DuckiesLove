@@ -2,6 +2,16 @@ import jsPDF from "jspdf";
 
 const STORAGE_KEY = "TKCompat.matchTableData";
 
+function formatScore(value) {
+  if (value === undefined || value === null || value === "&&&") return "N/A";
+  return value;
+}
+
+function formatMatch(match) {
+  if (match === undefined || match === null || match === "&&&") return "N/A";
+  return `${match}%`;
+}
+
 function formatDate(date) {
   return date.toLocaleString("en-US", {
     month: "numeric",
@@ -23,33 +33,6 @@ function sanitizeValue(value) {
     return "N/A";
   }
   return value;
-}
-
-function formatScoreDisplay(value) {
-  if (value === undefined || value === null) return "N/A";
-  if (typeof value === "number" && Number.isFinite(value)) return value.toString();
-  if (typeof value === "string" && value.trim()) return value.trim();
-  return "N/A";
-}
-
-function formatMatchDisplay(match, emoji = "") {
-  if (match === undefined || match === null) return "N/A";
-  const pct = Number(match);
-  if (Number.isFinite(pct)) {
-    const suffix = emoji && typeof emoji === "string" ? ` ${emoji}` : "";
-    return `${pct}%${suffix}`;
-  }
-  if (typeof match === "string" && match.trim()) return match.trim();
-  return "N/A";
-}
-
-function normalizePdfRows(rows = []) {
-  return rows.map((row) => ({
-    label: sanitizeValue(row?.label ?? ""),
-    a: formatScoreDisplay(row?.a),
-    match: formatMatchDisplay(row?.match, row?.emoji),
-    b: formatScoreDisplay(row?.b),
-  }));
 }
 
 function ensureAutoTable(doc) {
@@ -85,8 +68,8 @@ const TKCompatPDF = {
     const pdf = new jsPDF();
     ensureAutoTable(pdf);
 
-    const rows = normalizePdfRows(getAllRows());
-    if (!rows.length) {
+    const items = getAllRows();
+    if (!items.length) {
       alert("Upload both partner surveys first, then try again.");
       return;
     }
@@ -142,9 +125,47 @@ const TKCompatPDF = {
     });
 
     // Table
+    const tableBody = items.map((item) => {
+      const aScore = formatScore(item?.a);
+      const bScore = formatScore(item?.b);
+      const matchDisplay = formatMatch(item?.match);
+      const isMissing = aScore === "N/A" || bScore === "N/A";
+
+      return [
+        {
+          content: sanitizeValue(item?.label ?? ""),
+          styles: {
+            halign: "left",
+            textColor: isMissing ? [150, 150, 150] : undefined,
+          },
+        },
+        {
+          content: aScore,
+          styles: {
+            halign: "center",
+            textColor: isMissing ? [150, 150, 150] : undefined,
+          },
+        },
+        {
+          content: matchDisplay,
+          styles: {
+            halign: "center",
+            textColor: isMissing ? [150, 150, 150] : undefined,
+          },
+        },
+        {
+          content: bScore,
+          styles: {
+            halign: "center",
+            textColor: isMissing ? [150, 150, 150] : undefined,
+          },
+        },
+      ];
+    });
+
     pdf.autoTable({
       head: [["Item", "Partner A", "Match", "Partner B"]],
-      body: rows.map((row) => [row.label, row.a, row.match, row.b]),
+      body: tableBody,
       styles: {
         fillColor: "#222",
         textColor: "#fff",
