@@ -2,14 +2,16 @@ import jsPDF from "jspdf";
 
 const STORAGE_KEY = "TKCompat.matchTableData";
 
+function isMissingNumeric(value) {
+  return value === undefined || value === null || value === "" || Number.isNaN(Number(value));
+}
+
 function formatScore(value) {
-  if (value === undefined || value === null || value === "&&&") return "N/A";
-  return value;
+  return isMissingNumeric(value) ? "N/A" : Number(value);
 }
 
 function formatMatch(match) {
-  if (match === undefined || match === null || match === "&&&") return "N/A";
-  return `${match}%`;
+  return isMissingNumeric(match) ? "N/A" : `${Math.round(Number(match))}%`;
 }
 
 function formatDate(date) {
@@ -125,43 +127,7 @@ const TKCompatPDF = {
     });
 
     // Table
-    const tableBody = items.map((item) => {
-      const aScore = formatScore(item?.a);
-      const bScore = formatScore(item?.b);
-      const matchDisplay = formatMatch(item?.match);
-      const isMissing = aScore === "N/A" || bScore === "N/A";
-
-      return [
-        {
-          content: sanitizeValue(item?.label ?? ""),
-          styles: {
-            halign: "left",
-            textColor: isMissing ? [150, 150, 150] : undefined,
-          },
-        },
-        {
-          content: aScore,
-          styles: {
-            halign: "center",
-            textColor: isMissing ? [150, 150, 150] : undefined,
-          },
-        },
-        {
-          content: matchDisplay,
-          styles: {
-            halign: "center",
-            textColor: isMissing ? [150, 150, 150] : undefined,
-          },
-        },
-        {
-          content: bScore,
-          styles: {
-            halign: "center",
-            textColor: isMissing ? [150, 150, 150] : undefined,
-          },
-        },
-      ];
-    });
+    const tableBody = items.map(generateRowForPDF);
 
     pdf.autoTable({
       head: [["Item", "Partner A", "Match", "Partner B"]],
@@ -233,16 +199,61 @@ function getAllRows() {
 
 function getSummaryStats() {
   const rows = getAllRows();
-  const matches = rows.map((row) => row.match).filter((m) => m != null);
-  const avgMatch = matches.length
-    ? Math.round(matches.reduce((sum, val) => sum + val, 0) / matches.length)
+  const validRows = rows.filter((row) => Number.isFinite(row.a) && Number.isFinite(row.b));
+  const matchScores = validRows.map((row) => row.match).filter((m) => Number.isFinite(m));
+  const avgMatch = matchScores.length
+    ? Math.round(matchScores.reduce((sum, val) => sum + val, 0) / matchScores.length)
     : null;
 
   return {
-    items: rows.length,
+    items: validRows.length,
     avgMatch,
-    highAlignments: matches.filter((m) => m >= 80).length,
+    highAlignments: matchScores.filter((m) => m >= 80).length,
   };
+}
+
+function normalizeLabel(label) {
+  if (label === null || label === undefined) return "Unnamed Item";
+  const text = String(label).trim();
+  return text || "Unnamed Item";
+}
+
+function generateRowForPDF(item) {
+  const partnerA = formatScore(item?.a);
+  const partnerB = formatScore(item?.b);
+  const match = formatMatch(item?.match);
+  const isMissing = partnerA === "N/A" || partnerB === "N/A";
+
+  return [
+    {
+      content: normalizeLabel(item?.label),
+      styles: {
+        halign: "left",
+        textColor: isMissing ? [150, 150, 150] : undefined,
+      },
+    },
+    {
+      content: partnerA,
+      styles: {
+        halign: "center",
+        textColor: isMissing ? [150, 150, 150] : undefined,
+      },
+    },
+    {
+      content: match,
+      styles: {
+        halign: "center",
+        textColor: isMissing ? [150, 150, 150] : undefined,
+      },
+    },
+    {
+      content: partnerB,
+      styles: {
+        halign: "center",
+        textColor: isMissing ? [150, 150, 150] : undefined,
+      },
+    },
+  ];
 }
 
 function readRowsFromStorage() {
