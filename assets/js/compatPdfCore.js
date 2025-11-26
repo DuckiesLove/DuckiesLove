@@ -63,24 +63,28 @@ function summarizeMatches(items) {
   return { avgMatch, alignments };
 }
 
-function drawSummaryCards(doc, summaryData) {
-  let startX = 20;
-  summaryData.forEach(({ label, value }) => {
+function drawSummaryCards(doc, pageWidth, summaryData) {
+  const boxWidth = 50;
+  const boxHeight = 25;
+  const gap = 10;
+  const totalWidth = summaryData.length * boxWidth + (summaryData.length - 1) * gap;
+  const startX = (pageWidth - totalWidth) / 2;
+
+  summaryData.forEach(({ label, value }, index) => {
+    const x = startX + index * (boxWidth + gap);
     doc.setDrawColor(0, 255, 255);
     doc.setFillColor(18, 26, 38);
-    doc.roundedRect(startX, 35, 50, 25, 2, 2, 'FD');
+    doc.roundedRect(x, 35, boxWidth, boxHeight, 2, 2, 'FD');
 
     doc.setFontSize(14);
     doc.setTextColor(0, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text(String(value), startX + 25, 45, { align: 'center' });
+    doc.text(String(value), x + boxWidth / 2, 45, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setTextColor(255);
     doc.setFont('helvetica', 'normal');
-    doc.text(label, startX + 25, 55, { align: 'center' });
-
-    startX += 60;
+    doc.text(label, x + boxWidth / 2, 55, { align: 'center' });
   });
 }
 
@@ -97,14 +101,15 @@ export function generateCompatibilityPDF(self, partner, meta = {}) {
   const { avgMatch, alignments } = summarizeMatches(matches);
 
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(22);
-  doc.text(title, 105, 20, { align: 'center' });
+  doc.text(title, pageWidth / 2, 20, { align: 'center' });
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Generated ${timestamp}`, 105, 28, { align: 'center' });
+  doc.text(`Generated ${timestamp}`, pageWidth / 2, 28, { align: 'center' });
 
   const summaryData = [
     { label: 'Items Compared', value: matches.length },
@@ -112,7 +117,7 @@ export function generateCompatibilityPDF(self, partner, meta = {}) {
     { label: '80%+ Alignments', value: alignments },
   ];
 
-  drawSummaryCards(doc, summaryData);
+  drawSummaryCards(doc, pageWidth, summaryData);
 
   const tableRows = matches.map((row) => ({
     category: row.label,
@@ -137,11 +142,13 @@ export function generateCompatibilityPDF(self, partner, meta = {}) {
       fontStyle: 'bold',
     },
     columnStyles: {
-      0: { halign: 'left', cellWidth: 60 },
+      0: { halign: 'left', cellWidth: 70 },
       1: { cellWidth: 30 },
       2: { cellWidth: 30 },
       3: { cellWidth: 30 },
     },
+    tableLineColor: [0, 255, 255],
+    margin: { left: (pageWidth - 160) / 2 },
   });
 
   doc.save('TalkKink_Compatibility.pdf');
