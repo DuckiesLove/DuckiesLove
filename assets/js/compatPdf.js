@@ -1,7 +1,17 @@
 window.TKCompatPDF = (function () {
   const ROW_STORAGE_KEYS = ['talkkink:compatRows', 'talkkink:compatibilityRows'];
-  const SELF_KEYS = ['tk_compat.self', 'talkkink:compatSelf', 'tk-survey-self'];
-  const PARTNER_KEYS = ['tk_compat.partner', 'talkkink:compatPartner', 'tk-survey-partner'];
+  const SELF_KEYS = [
+    'tk_compat.self',
+    'talkkink:compatSelf',
+    'tk-survey-self',
+    'compat_self'
+  ];
+  const PARTNER_KEYS = [
+    'tk_compat.partner',
+    'talkkink:compatPartner',
+    'tk-survey-partner',
+    'compat_partner'
+  ];
 
   let cachedRows = Array.isArray(window.talkkinkCompatRows)
     ? window.talkkinkCompatRows.slice()
@@ -237,7 +247,7 @@ window.TKCompatPDF = (function () {
   }
 
   function hasSurveyData(data) {
-    return data?.meta && Array.isArray(data.answers) && data.answers.length > 0;
+    return data && Array.isArray(data.answers) && data.answers.length > 0;
   }
 
   function isAutoTablePlaceholder(fn) {
