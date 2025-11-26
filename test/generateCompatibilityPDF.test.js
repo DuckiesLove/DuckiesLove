@@ -1,164 +1,91 @@
 import test from 'node:test';
 import assert from 'node:assert';
 
-test('renders compatibility table with shortened labels and flags', async () => {
-  const textCalls = [];
-  const tableCalls = [];
-  class JsPDFMock {
-    constructor() {
-      this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
-    }
-    setFontSize() {}
-    setTextColor() {}
-    setDrawColor() {}
-    line() {}
-    text(...args) { textCalls.push(args); }
-    rect() {}
-    autoTable(options) { tableCalls.push(options); }
-    save() {}
-  }
+function createSpyState() {
+  return { fillColors: [], rects: [], fontSizes: [], textColors: [], text: [], pages: 0, saved: null };
+}
 
-  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
-  const { generateCompatibilityPDF } = await import('../js/generateCompatibilityPDF.js');
+function createSpyDoc(spies) {
+  return {
+    internal: { pageSize: { getWidth: () => 595.28, getHeight: () => 841.89 } },
+    setFillColor: (color) => spies.fillColors.push(color),
+    rect: (...args) => spies.rects.push(args),
+    setFontSize: (size) => spies.fontSizes.push(size),
+    setTextColor: (color) => spies.textColors.push(color),
+    text: (...args) => spies.text.push(args),
+    addPage: () => { spies.pages += 1; },
+    save: (name) => { spies.saved = name; },
+  };
+}
 
-  const data = {
-    sectionTitle: 'Discipline Alignment',
-    responses: [
-      { kink: 'Assigning corner time or time-outs', a: 5, b: 5, match: 100 },
-      { kink: 'Attitude toward funishment vs serious correction', a: 5, b: 3 },
-      { kink: 'Getting scolded or lectured for correction', a: null, b: null },
-    ],
+test('generates glowing compatibility table rows and centered header', async () => {
+  const spies = createSpyState();
+  const autoTableCalls = [];
+  const hooks = {
+    createDoc: () => createSpyDoc(spies),
+    autoTable: (_doc, options) => {
+      autoTableCalls.push(options);
+      options.didDrawPage?.({ cursor: { y: (options.startY ?? 0) + 24 } });
+    },
   };
 
-  await generateCompatibilityPDF(data, { save: false });
-
-  const flattenedText = textCalls.flatMap((call) => (Array.isArray(call[0]) ? call[0] : [call[0]]));
-  assert.ok(flattenedText.includes('TalkKink Compatibility Survey'));
-  assert.ok(flattenedText.includes('Discipline Alignment'));
-
-  const table = tableCalls[0];
-  assert.deepStrictEqual(table.head[0], ['Kinks', 'Partner A', '', 'Partner B', 'Match']);
-  const body = table.body;
-  assert.strictEqual(body[0][0], 'Corner time');
-  assert.strictEqual(body[0][2], '⭐');
-  assert.strictEqual(body[0][4], 100);
-  assert.strictEqual(body[1][2], '🟨');
-  assert.strictEqual(body[2][4], 'N/A');
-});
-
-test('supports category-based data and derives match percentage', async () => {
-  const tableCalls = [];
-  class JsPDFMock {
-    constructor() {
-      this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
-    }
-    setFontSize() {}
-    setTextColor() {}
-    setDrawColor() {}
-    line() {}
-    text() {}
-    rect() {}
-    autoTable(options) { tableCalls.push(options); }
-    save() {}
-  }
-
-  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
   const { generateCompatibilityPDF } = await import('../js/generateCompatibilityPDF.js');
 
-  const data = {
+  const surveyData = {
     categories: [
       {
-        category: 'Test',
+        label: 'Impact Play',
+        avgMatchPercent: 92,
         items: [
-          { label: 'Sample', partnerA: 4, partnerB: 2 },
+          { label: 'Spanking', partnerA: 5, partnerB: 5, matchPercent: 95 },
+          { label: 'Flogging', partnerA: 2, partnerB: 1, matchPercent: 25 },
         ],
       },
     ],
   };
 
-  await generateCompatibilityPDF(data, { save: false });
+  await generateCompatibilityPDF(surveyData, 'report.pdf', hooks);
 
-  const table = tableCalls[0];
-  const row = table.body[0];
-  assert.strictEqual(row[0], 'Sample');
-  assert.strictEqual(row[4], 60);
+  assert.strictEqual(spies.saved, 'report.pdf');
+  assert.strictEqual(spies.text[0][0], 'TalkKink Compatibility Report');
+  assert.deepStrictEqual(autoTableCalls[0].head[0], ['Kink', 'A', '', 'B', '%']);
+  assert.deepStrictEqual(autoTableCalls[0].body[0], ['Spanking', '5', '⭐', '5', '95']);
+  assert.deepStrictEqual(autoTableCalls[0].body[1], ['Flogging', '2', '🚩', '1', '25']);
+  assert.ok(spies.fillColors.includes('#73ff91'));
 });
 
-test('renders missing partner scores as N/A without corrupt placeholders', async () => {
-  const tableCalls = [];
-  class JsPDFMock {
-    constructor() {
-      this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
-    }
-    setFontSize() {}
-    setTextColor() {}
-    setDrawColor() {}
-    line() {}
-    text() {}
-    rect() {}
-    autoTable(options) { tableCalls.push(options); }
-    save() {}
-  }
+test('renders fallback values and average bar color tiers', async () => {
+  const spies = createSpyState();
+  const autoTableCalls = [];
+  const hooks = {
+    createDoc: () => createSpyDoc(spies),
+    autoTable: (_doc, options) => {
+      autoTableCalls.push(options);
+      options.didDrawPage?.({ cursor: { y: (options.startY ?? 0) + 18 } });
+    },
+  };
 
-  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
   const { generateCompatibilityPDF } = await import('../js/generateCompatibilityPDF.js');
 
-  const data = {
-    responses: [
-      { kink: 'Example', a: 5, b: null },
+  const surveyData = {
+    categories: [
+      {
+        label: 'Aftercare',
+        avgMatchPercent: 68,
+        items: [
+          { label: 'Cuddling', partnerA: undefined, partnerB: 3, matchPercent: 'N/A' },
+          { label: 'Snacks', partnerA: 4, partnerB: undefined, matchPercent: 80 },
+        ],
+      },
     ],
   };
 
-  await generateCompatibilityPDF(data, { save: false });
+  await generateCompatibilityPDF(surveyData, undefined, hooks);
 
-  const row = tableCalls[0].body[0];
-  assert.strictEqual(row[1], '5');
-  assert.strictEqual(row[3], 'N/A');
-  assert.strictEqual(row[4], 'N/A');
-  assert.strictEqual(row[2], '');
-});
+  const body = autoTableCalls[0].body;
+  assert.deepStrictEqual(body[0], ['Cuddling', '—', '⬛', '3', 'N/A']);
+  assert.deepStrictEqual(body[1], ['Snacks', '4', '🟩', '—', '80']);
 
-test('derives rows from survey-shaped JSON data', async () => {
-  const tableCalls = [];
-  class JsPDFMock {
-    constructor() {
-      this.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
-    }
-    setFontSize() {}
-    setTextColor() {}
-    setDrawColor() {}
-    line() {}
-    text() {}
-    rect() {}
-    autoTable(options) { tableCalls.push(options); }
-    save() {}
-  }
-
-  globalThis.window = { jspdf: { jsPDF: JsPDFMock } };
-  const { generateCompatibilityPDF } = await import('../js/generateCompatibilityPDF.js');
-
-  const data = {
-    surveyA: {
-      'Body Part Torture': {
-        Giving: [
-          { name: 'Nipple weights', rating: 5 },
-        ],
-      },
-    },
-    surveyB: {
-      'Body Part Torture': {
-        Giving: [
-          { name: 'Nipple weights', rating: '' },
-        ],
-      },
-    },
-  };
-
-  await generateCompatibilityPDF(data, { save: false });
-
-  const row = tableCalls[0].body[0];
-  assert.ok(row[0].includes('Nipple weights'));
-  assert.strictEqual(row[1], '5');
-  assert.strictEqual(row[3], 'N/A');
-  assert.strictEqual(row[4], 'N/A');
+  // First fill is the background, second is bar backdrop, third should be the mid-tier color
+  assert.ok(spies.fillColors.includes('#ffdd57'));
 });
