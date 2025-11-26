@@ -2,101 +2,167 @@ import jsPDF from "jspdf";
 
 const STORAGE_KEY = "TKCompat.matchTableData";
 
+function formatDate(date) {
+  return date.toLocaleString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function sanitizeValue(value) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === "" ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    return "N/A";
+  }
+  return value;
+}
+
+function formatScoreDisplay(value) {
+  if (value === undefined || value === null) return "N/A";
+  if (typeof value === "number" && Number.isFinite(value)) return value.toString();
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return "N/A";
+}
+
+function formatMatchDisplay(match, emoji = "") {
+  if (match === undefined || match === null) return "N/A";
+  const pct = Number(match);
+  if (Number.isFinite(pct)) {
+    const suffix = emoji && typeof emoji === "string" ? ` ${emoji}` : "";
+    return `${pct}%${suffix}`;
+  }
+  if (typeof match === "string" && match.trim()) return match.trim();
+  return "N/A";
+}
+
+function normalizePdfRows(rows = []) {
+  return rows.map((row) => ({
+    label: sanitizeValue(row?.label ?? ""),
+    a: formatScoreDisplay(row?.a),
+    match: formatMatchDisplay(row?.match, row?.emoji),
+    b: formatScoreDisplay(row?.b),
+  }));
+}
+
+function ensureAutoTable(doc) {
+  if (doc && typeof doc.autoTable === "function") return;
+
+  const api =
+    doc?.constructor?.API ||
+    jsPDF?.API ||
+    globalThis?.jspdf?.jsPDF?.API ||
+    globalThis?.jsPDF?.API;
+
+  if (api && typeof api.autoTable === "function") {
+    doc.autoTable = function autoTableProxy() {
+      return api.autoTable.apply(this, arguments);
+    };
+    return;
+  }
+
+  if (typeof globalThis.__tkAutoTableFallback === "function") {
+    doc.autoTable = function autoTableFallbackProxy() {
+      return globalThis.__tkAutoTableFallback.apply(this, arguments);
+    };
+    doc.constructor.API = doc.constructor.API || {};
+    doc.constructor.API.autoTable = doc.constructor.API.autoTable || globalThis.__tkAutoTableFallback;
+    return;
+  }
+
+  throw new Error("jsPDF autoTable plugin not available");
+}
+
 const TKCompatPDF = {
   download() {
-    const pdf = new jsPDF("p", "pt", "a4");
-    const margin = 40;
-    let y = margin + 20;
+    const pdf = new jsPDF();
+    ensureAutoTable(pdf);
 
-    const stats = getSummaryStats();
-    const rows = getAllRows();
-
+    const rows = normalizePdfRows(getAllRows());
     if (!rows.length) {
       alert("Upload both partner surveys first, then try again.");
       return;
     }
 
-    // Draw title
-    pdf.setFontSize(22);
-    pdf.setTextColor(0, 255, 255);
-    pdf.text("TalkKink Compatibility", margin, y);
-    y += 20;
-    pdf.setFontSize(12);
-    pdf.setTextColor(200, 200, 200);
-    pdf.text(`Generated ${new Date().toLocaleString()}`, margin, y);
-    y += 30;
+    const summary = getSummaryStats();
+    const pageWidth = pdf.internal.pageSize.getWidth();
 
-    // Summary stats
-    const statLabels = [
-      [`${stats.items} Items Compared`, "Items Compared"],
-      [stats.avgMatch != null ? `${stats.avgMatch}%` : "—", "Avg Match"],
-      [`${stats.highAlignments}`, "80%+ Alignments"],
+    // Title
+    pdf.setFontSize(24);
+    pdf.setTextColor(0, 255, 255);
+    pdf.text("TalkKink Compatibility", pageWidth / 2, 20, { align: "center" });
+
+    // Timestamp
+    pdf.setFontSize(10);
+    pdf.setTextColor(255);
+    pdf.text(`Generated ${formatDate(new Date())}`, pageWidth / 2, 27, {
+      align: "center",
+    });
+
+    pdf.setDrawColor(0, 255, 255);
+    pdf.line(10, 32, pageWidth - 10, 32);
+
+    // Summary cards
+    pdf.setFontSize(12);
+    pdf.setTextColor(255);
+    pdf.setFont(undefined, "bold");
+
+    const boxW = 60;
+    const boxH = 30;
+    const boxY = 40;
+    const margin = 10;
+
+    const summaries = [
+      { label: "Items Compared", value: summary.items },
+      { label: "Avg Match", value: summary.avgMatch != null ? `${summary.avgMatch}%` : "N/A" },
+      { label: "80%+ Alignments", value: summary.highAlignments },
     ];
 
-    const cardWidth = 160;
-    statLabels.forEach(([val, label], i) => {
-      const x = margin + i * (cardWidth + 20);
-      pdf.setFillColor(20, 30, 40);
-      pdf.rect(x, y, cardWidth, 50, "F");
+    summaries.forEach((s, i) => {
+      const boxX = 10 + i * (boxW + margin);
+      pdf.setFillColor(30);
+      pdf.rect(boxX, boxY, boxW, boxH, "F");
+      pdf.setTextColor(0, 255, 255);
       pdf.setFontSize(16);
-      pdf.setTextColor(0, 255, 255);
-      pdf.text(val, x + 10, y + 20);
-      pdf.setFontSize(10);
-      pdf.setTextColor(200, 200, 200);
-      pdf.text(label, x + 10, y + 40);
-    });
-    y += 80;
-
-    const renderTableHeader = () => {
-      const headers = ["Item", "Partner A", "Match", "Partner B"];
-      const colWidths = [240, 70, 70, 70];
-      const tableStartX = margin;
-      let headerX = tableStartX;
-      pdf.setFontSize(12);
-      pdf.setTextColor(0, 255, 255);
-      headers.forEach((header, idx) => {
-        pdf.text(header, headerX + 2, y);
-        headerX += colWidths[idx];
+      pdf.text(String(sanitizeValue(s.value)), boxX + boxW / 2, boxY + 15, {
+        align: "center",
       });
-      y += 10;
-      pdf.setDrawColor(0, 255, 255);
-      pdf.line(margin, y, margin + colWidths.reduce((a, b) => a + b), y);
-      y += 10;
-      return { colWidths, tableStartX };
-    };
-
-    const { colWidths, tableStartX } = renderTableHeader();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-
-    const renderRow = (row) => {
-      const matchText = row.match != null ? `${row.match}% ${row.emoji || ""}` : "N/A";
-      const rowVals = [
-        row.label.length > 50 ? `${row.label.slice(0, 48)}…` : row.label,
-        row.a == null ? "" : row.a.toString(),
-        matchText,
-        row.b == null ? "" : row.b.toString(),
-      ];
-
-      let rowX = tableStartX;
-      pdf.setFontSize(10);
       pdf.setTextColor(255);
-      rowVals.forEach((text, idx) => {
-        pdf.text(text, rowX + 2, y);
-        rowX += colWidths[idx];
+      pdf.setFontSize(10);
+      pdf.text(s.label, boxX + boxW / 2, boxY + 25, {
+        align: "center",
       });
-      y += 20;
-    };
+    });
 
-    rows.forEach((row, idx) => {
-      renderRow(row);
-
-      const needsNewPage = y > pageHeight - margin;
-      const moreRows = idx < rows.length - 1;
-      if (needsNewPage && moreRows) {
-        pdf.addPage();
-        y = margin;
-        renderTableHeader();
-      }
+    // Table
+    pdf.autoTable({
+      head: [["Item", "Partner A", "Match", "Partner B"]],
+      body: rows.map((row) => [row.label, row.a, row.match, row.b]),
+      styles: {
+        fillColor: "#222",
+        textColor: "#fff",
+        halign: "left",
+      },
+      headStyles: {
+        fillColor: "#0ff",
+        textColor: "#000",
+        halign: "center",
+        fontStyle: "bold",
+      },
+      columnStyles: {
+        0: { cellWidth: 100 },
+        1: { cellWidth: 25, halign: "center" },
+        2: { cellWidth: 25, halign: "center" },
+        3: { cellWidth: 25, halign: "center" },
+      },
+      margin: { top: boxY + boxH + 20 },
     });
 
     pdf.save("talkkink-compatibility.pdf");
