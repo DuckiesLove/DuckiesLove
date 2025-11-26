@@ -160,6 +160,13 @@
       return record ? record.score : null;
     };
 
+    const getScoreWithFallback = (map, kinkId, primarySide) => {
+      const direct = getScore(map, kinkId, primarySide);
+      if (direct != null) return direct;
+      const alt = getScore(map, kinkId, complementSide(primarySide));
+      return alt == null ? null : alt;
+    };
+
     const ensureRow = (kinkId, side, meta) => {
       if (kinkId == null) return null;
       const key = `${kinkId}::${side}`;
@@ -189,8 +196,8 @@
 
     rowsByKey.forEach((row) => {
       const { kinkId, side } = row;
-      const aScore = getScore(selfMap, kinkId, side);
-      const bScore = getScore(partnerMap, kinkId, complementSide(side));
+      const aScore = getScoreWithFallback(selfMap, kinkId, side);
+      const bScore = getScoreWithFallback(partnerMap, kinkId, complementSide(side));
       if (aScore == null && bScore == null) return;
       const matchPct = matchPercent(aScore, bScore);
       rows.push({
