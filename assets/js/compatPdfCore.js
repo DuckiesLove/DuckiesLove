@@ -1,165 +1,150 @@
 import { jsPDF } from './vendor/jspdf.umd.min.js';
 import './vendor/jspdf.plugin.autotable.min.js';
 
-function safeString(value) {
-  if (value == null) return '';
-  return String(value).trim();
+function buildPartnerMap(partner = {}) {
+  const answers = Array.isArray(partner.answers) ? partner.answers : [];
+  return answers.reduce((map, item) => {
+    const key = `${item.category ?? ''}-${item.label ?? ''}`;
+    map[key] = item.value;
+    return map;
+  }, {});
 }
 
-function normalizeSide(side) {
-  const raw = safeString(side).toLowerCase();
-  if (raw.startsWith('giv')) return 'giving';
-  if (raw.startsWith('rec')) return 'receiving';
-  return 'general';
+function normalizeValue(value) {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function complementSide(side) {
-  if (side === 'giving') return 'receiving';
-  if (side === 'receiving') return 'giving';
-  return 'general';
+function collectMatches(self = {}, partner = {}) {
+  const answers = Array.isArray(self.answers) ? self.answers : [];
+  const partnerMap = buildPartnerMap(partner);
+
+  return answers
+    .map((item) => {
+      const key = `${item.category ?? ''}-${item.label ?? ''}`;
+      const partnerVal = partnerMap[key];
+
+      if (partnerVal === undefined || item.value === undefined) return null;
+
+      const aVal = normalizeValue(item.value);
+      const bVal = normalizeValue(partnerVal);
+      if (aVal === undefined || bVal === undefined) return null;
+
+      const match = aVal === bVal ? 100 : 0;
+      return {
+        label: item.label ?? '',
+        category: item.category ?? '',
+        a: aVal,
+        b: bVal,
+        match,
+      };
+    })
+    .filter(Boolean);
 }
 
-function clampScore(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return null;
-  if (num < 0) return 0;
-  if (num > 5) return 5;
-  return Math.round(num * 100) / 100;
-}
-
-function labelFor(side, answer) {
-  const prefix = side === 'giving' ? 'Giving' : side === 'receiving' ? 'Receiving' : 'General';
-  const title = safeString(
-    answer?.title ||
-      answer?.label ||
-      answer?.name ||
-      answer?.prompt ||
-      answer?.question ||
-      answer?.category ||
-      answer?.kinkId ||
-      ''
-  );
-  const category = safeString(answer?.category || answer?.categoryLabel);
-  if (title && category && !title.toLowerCase().includes(category.toLowerCase())) {
-    return `${prefix}: ${title} (${category})`;
-  }
-  return title ? `${prefix}: ${title}` : `${prefix}: Item ${safeString(answer?.kinkId)}`;
-}
-
-function answerMap(payload) {
-  const map = new Map();
-  if (!payload || typeof payload !== 'object') return map;
-  const answers = Array.isArray(payload.answers) ? payload.answers : [];
-  answers.forEach((entry) => {
-    const kinkId = entry?.kinkId ?? entry?.id ?? entry?.key;
-    if (kinkId == null) return;
-    const side = normalizeSide(entry?.side);
-    const key = `${kinkId}::${side}`;
-    const score = clampScore(entry?.score ?? entry?.value ?? entry?.rating);
-    if (score == null) return;
-    map.set(key, { score, meta: entry });
+function dedupeItems(items = []) {
+  const seen = new Set();
+  return items.filter(({ label, category }) => {
+    const key = `${category}-${label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
-  return map;
 }
 
-function buildRows(self, partner) {
-  const selfMap = answerMap(self);
-  const partnerMap = answerMap(partner);
-  const rowMap = new Map();
-
-  function ensureRow(kinkId, side, meta) {
-    if (kinkId == null) return null;
-    const key = `${kinkId}::${side}`;
-    let row = rowMap.get(key);
-    if (!row) {
-      row = { kinkId: String(kinkId), side, item: labelFor(side, meta || { kinkId }) };
-      rowMap.set(key, row);
-    } else if ((!row.item || row.item === key) && meta) {
-      row.item = labelFor(side, meta);
-    }
-    return row;
+function summarizeMatches(items) {
+  if (!items.length) {
+    return { avgMatch: 0, alignments: 0 };
   }
 
-  selfMap.forEach((value, key) => {
-    const [kinkId, side] = key.split('::');
-    ensureRow(kinkId, side, value.meta);
-  });
-
-  partnerMap.forEach((value, key) => {
-    const [kinkId, side] = key.split('::');
-    ensureRow(kinkId, complementSide(side), value.meta);
-  });
-
-  const rows = [];
-  rowMap.forEach((row) => {
-    const { kinkId, side } = row;
-    const aKey = `${kinkId}::${side}`;
-    const bKey = `${kinkId}::${complementSide(side)}`;
-    const aScore = selfMap.get(aKey)?.score ?? null;
-    const bScore = partnerMap.get(bKey)?.score ?? null;
-    if (aScore == null && bScore == null) return;
-    rows.push({ item: row.item, a: aScore, b: bScore });
-  });
-
-  rows.sort((a, b) => a.item.localeCompare(b.item, undefined, { sensitivity: 'base' }));
-  return rows;
+  const total = items.reduce((sum, item) => sum + item.match, 0);
+  const avgMatch = Math.round(total / items.length);
+  const alignments = items.filter((item) => item.match >= 80).length;
+  return { avgMatch, alignments };
 }
 
-function computeMatch(a, b) {
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-  const diff = Math.abs(a - b);
-  const percent = Math.max(0, Math.min(100, Math.round((1 - diff / 5) * 100)));
-  return percent;
+function drawSummaryCards(doc, summaryData) {
+  let startX = 20;
+  summaryData.forEach(({ label, value }) => {
+    doc.setDrawColor(0, 255, 255);
+    doc.setFillColor(18, 26, 38);
+    doc.roundedRect(startX, 35, 50, 25, 2, 2, 'FD');
+
+    doc.setFontSize(14);
+    doc.setTextColor(0, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(value), startX + 25, 45, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(255);
+    doc.setFont('helvetica', 'normal');
+    doc.text(label, startX + 25, 55, { align: 'center' });
+
+    startX += 60;
+  });
 }
 
-function formatScore(value) {
-  if (value == null) return '';
-  if (!Number.isFinite(value)) return '';
-  if (Number.isInteger(value)) return String(value);
-  return value.toFixed(2);
-}
-
-export function generateCompatibilityPDF(self, partner) {
-  const rows = buildRows(self, partner);
-  if (!rows.length) {
+export function generateCompatibilityPDF(self, partner, meta = {}) {
+  const matches = dedupeItems(collectMatches(self, partner));
+  if (!matches.length) {
     alert('No compatibility data available. Upload both surveys first.');
     return;
   }
 
-  const doc = new jsPDF({ putOnlyUsedFonts: true, unit: 'pt', format: 'letter' });
-  const margin = 40;
+  const now = new Date();
+  const timestamp = meta.timestamp || now.toLocaleString();
+  const title = meta.title || 'TalkKink Compatibility';
+  const { avgMatch, alignments } = summarizeMatches(matches);
 
-  doc.setFontSize(18);
-  doc.text('TalkKink Compatibility', margin, margin);
-  doc.setFontSize(11);
-  doc.text('Side-by-side scores for you and your partner', margin, margin + 16);
+  const doc = new jsPDF();
 
-  const tableData = rows.map((row) => {
-    const match = computeMatch(row.a, row.b);
-    const matchText = match == null ? '' : `${match}%`;
-    return {
-      item: row.item,
-      self: formatScore(row.a),
-      partner: formatScore(row.b),
-      match: matchText,
-    };
-  });
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text(title, 105, 20, { align: 'center' });
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Generated ${timestamp}`, 105, 28, { align: 'center' });
+
+  const summaryData = [
+    { label: 'Items Compared', value: matches.length },
+    { label: 'Avg Match', value: `${avgMatch}%` },
+    { label: '80%+ Alignments', value: alignments },
+  ];
+
+  drawSummaryCards(doc, summaryData);
+
+  const tableRows = matches.map((row) => ({
+    category: row.label,
+    a: row.a ?? 'N/A',
+    match: `${row.match}%`,
+    b: row.b ?? 'N/A',
+  }));
 
   doc.autoTable({
-    startY: margin + 30,
-    head: [['Item', 'You', 'Partner', 'Match']],
-    body: tableData.map((r) => [r.item, r.self, r.partner, r.match]),
-    styles: { fontSize: 9, cellPadding: 6 },
-    headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-    alternateRowStyles: { fillColor: [245, 245, 245] },
+    startY: 70,
+    head: [['Category', 'Partner A', 'Match', 'Partner B']],
+    body: tableRows.map((row) => [row.category, row.a, row.match, row.b]),
+    styles: {
+      fontSize: 10,
+      halign: 'center',
+      cellPadding: 2,
+      font: 'helvetica',
+    },
+    headStyles: {
+      fillColor: [0, 255, 255],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+    },
     columnStyles: {
-      1: { halign: 'center', cellWidth: 60 },
-      2: { halign: 'center', cellWidth: 70 },
-      3: { halign: 'center', cellWidth: 60 },
+      0: { halign: 'left', cellWidth: 60 },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 30 },
     },
   });
 
-  doc.save('TalkKink_Compatibility_Report.pdf');
+  doc.save('TalkKink_Compatibility.pdf');
 }
 
 export default generateCompatibilityPDF;
