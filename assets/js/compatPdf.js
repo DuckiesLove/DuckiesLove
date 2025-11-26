@@ -111,6 +111,18 @@ window.TKCompatPDF = (function () {
     const partnerMap = answerMap(partner);
     const rowMap = new Map();
 
+    const getScore = (map, kinkId, side) => {
+      const key = `${kinkId}::${side}`;
+      return map.get(key)?.score ?? null;
+    };
+
+    const getScoreWithFallback = (map, kinkId, primarySide) => {
+      const direct = getScore(map, kinkId, primarySide);
+      if (direct != null) return direct;
+      const alt = getScore(map, kinkId, complementSide(primarySide));
+      return alt == null ? null : alt;
+    };
+
     function ensureRow(kinkId, side, meta) {
       if (kinkId == null) return null;
       const key = `${kinkId}::${side}`;
@@ -139,8 +151,10 @@ window.TKCompatPDF = (function () {
       const { kinkId, side } = row;
       const aKey = `${kinkId}::${side}`;
       const bKey = `${kinkId}::${complementSide(side)}`;
-      const aScore = selfMap.get(aKey)?.score ?? null;
-      const bScore = partnerMap.get(bKey)?.score ?? null;
+      const aScore = getScoreWithFallback(selfMap, kinkId, side);
+      const bScore =
+        getScoreWithFallback(partnerMap, kinkId, complementSide(side)) ??
+        getScore(partnerMap, kinkId, side);
       if (aScore == null && bScore == null) return;
       rows.push({ item: row.item, a: aScore, b: bScore });
     });
@@ -432,8 +446,9 @@ window.TKCompatPDF = (function () {
   }
 
   function renderStats(doc, rows, startY) {
-    const count = rows.length;
-    const withMatches = rows.filter((r) => Number.isFinite(r.matchPercent));
+    const comparable = rows.filter((r) => Number.isFinite(r.partnerA) && Number.isFinite(r.partnerB));
+    const count = comparable.length;
+    const withMatches = comparable.filter((r) => Number.isFinite(r.matchPercent));
     const avgMatch = withMatches.length
       ? Math.round(
           withMatches.reduce((sum, r) => sum + (r.matchPercent ?? 0), 0) / withMatches.length
