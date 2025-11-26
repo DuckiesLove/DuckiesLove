@@ -1,7 +1,7 @@
 window.TKCompatPDF = (function () {
   const ROW_STORAGE_KEYS = ['talkkink:compatRows', 'talkkink:compatibilityRows'];
-  const SELF_KEYS = ['tk_compat.self', 'talkkink:compatSelf'];
-  const PARTNER_KEYS = ['tk_compat.partner', 'talkkink:compatPartner'];
+  const SELF_KEYS = ['tk_compat.self', 'talkkink:compatSelf', 'tk-survey-self'];
+  const PARTNER_KEYS = ['tk_compat.partner', 'talkkink:compatPartner', 'tk-survey-partner'];
 
   let cachedRows = Array.isArray(window.talkkinkCompatRows)
     ? window.talkkinkCompatRows.slice()
@@ -616,9 +616,43 @@ window.TKCompatPDF = (function () {
     cachedRows = Array.isArray(rows) ? rows.slice() : [];
   }
 
-  return {
+  function logSurveyStorage() {
+    try {
+      console.log('[debug] Current localStorage keys:', Object.keys(localStorage));
+    } catch (err) {
+      console.warn('[debug] Unable to read localStorage keys', err);
+    }
+
+    const payloads = readSurveyPayloads();
+    console.log('[debug] Self Survey loaded:', !!payloads.self, payloads.self);
+    console.log('[debug] Partner Survey loaded:', !!payloads.partner, payloads.partner);
+    return payloads;
+  }
+
+  async function debugRegeneratePdf() {
+    const payloads = logSurveyStorage();
+
+    if (!hasSurveyData(payloads.self) || !hasSurveyData(payloads.partner)) {
+      console.error('[error] One or both surveys are missing.');
+      return;
+    }
+
+    try {
+      console.log('[debug] Calling TKCompatPDF.generateFromStorage()');
+      await generateFromStorage();
+      console.log('[done] PDF generation complete');
+    } catch (err) {
+      console.error('[error] Failed to generate PDF', err);
+    }
+  }
+
+  const api = {
     generateFromStorage,
     notifyRowsUpdated,
     renderRows
   };
+
+  window.runPDFDebugCheck = debugRegeneratePdf;
+
+  return api;
 })();
