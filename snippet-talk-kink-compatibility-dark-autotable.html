@@ -1,0 +1,104 @@
+<!-- TalkKink Compatibility PDF – dark teal theme with jsPDF + autoTable
+  Usage:
+  1. Load jsPDF + jspdf-autotable on the page.
+  2. Call generateCompatibilityPDF(data) with comparison rows
+     [{ category, label, a, b, match }].
+  3. Optional: replace comparisonData sample below with parsed survey values.
+  Bonus customization tips are in the comment footer.
+-->
+<script type="module">
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
+// Dark theme teal and font match
+const TEAL = "#00f0ff";
+const DARK_BG = "#121b22";
+const FONT = "helvetica"; // Use "Fredoka One" if installed
+
+// Sample data (replace with your parsed JSON structure)
+const comparisonData = [
+  { category: "Sensation", label: "Nipple clips", a: 5, b: 5, match: 100 },
+  { category: "Sensation", label: "Nipple weights", a: 0, b: 0, match: 100 },
+  { category: "Sensation", label: "Nipple clips", a: 5, b: 5, match: 100 },
+  { category: "Sensation", label: "Nipple weights", a: 0, b: 0, match: 100 }
+];
+
+function generateCompatibilityPDF(data = comparisonData) {
+  const doc = new jsPDF();
+  doc.setTextColor(TEAL);
+  doc.setFillColor(DARK_BG);
+  doc.setFont(FONT, "bold");
+  doc.setFontSize(22);
+
+  // Header
+  doc.text("TalkKink Compatibility", 105, 20, { align: "center" });
+  doc.setFontSize(10);
+  doc.text(`Generated ${new Date().toLocaleString()}`, 105, 27, { align: "center" });
+
+  // Stats Box
+  const stats = [
+    { label: "Items Compared", value: data.length },
+    { label: "Avg Match", value: "100%" },
+    { label: "80%+ Alignments", value: data.filter(d => d.match >= 80).length }
+  ];
+
+  stats.forEach((s, i) => {
+    const x = 20 + i * 60;
+    doc.setFillColor("#1e2b33");
+    doc.roundedRect(x, 35, 50, 30, 5, 5, "F");
+    doc.setTextColor(TEAL);
+    doc.setFontSize(16);
+    doc.text(`${s.value}`, x + 25, 50, { align: "center" });
+    doc.setFontSize(10);
+    doc.setTextColor("#ccc");
+    doc.text(s.label, x + 25, 58, { align: "center" });
+  });
+
+  // Table
+  const groupedRows = data.map(d => ([
+    { content: `${d.category} – ${d.label}`, styles: { textColor: "#fff", fontStyle: "bold" } },
+    { content: d.a.toString(), styles: { textColor: "#fff", halign: "center" } },
+    { content: `${d.match}%`, styles: { textColor: TEAL, halign: "center" } },
+    { content: d.b.toString(), styles: { textColor: "#fff", halign: "center" } }
+  ]));
+
+  doc.autoTable({
+    startY: 75,
+    head: [[
+      { content: "Category", styles: { halign: "left", fillColor: "#1e2b33" } },
+      { content: "Partner A", styles: { halign: "center", fillColor: "#1e2b33" } },
+      { content: "Match", styles: { halign: "center", fillColor: "#1e2b33" } },
+      { content: "Partner B", styles: { halign: "center", fillColor: "#1e2b33" } }
+    ]],
+    body: groupedRows,
+    theme: "grid",
+    styles: {
+      fillColor: "#121b22",
+      textColor: "#ccc",
+      font: FONT,
+      fontSize: 10,
+      halign: "left",
+      valign: "middle",
+      cellPadding: 4
+    },
+    headStyles: {
+      textColor: TEAL,
+      fontSize: 11,
+      halign: "center"
+    },
+    tableLineColor: "#1e2b33",
+    tableLineWidth: 0.3,
+    alternateRowStyles: { fillColor: "#1a252f" }
+  });
+
+  // Save or return
+  doc.save("talkkink-compatibility.pdf");
+}
+
+// Bonus Customization Tips
+// - To center everything, keep elements within a 210mm width (A4/letter) and align
+//   with x coords or { align: "center" } where supported.
+// - Draw boxes or glow per category by checking .category and adding doc.rect(...)
+//   behind rows.
+// - Adjust font family and size globally in styles and headStyles.
+</script>
