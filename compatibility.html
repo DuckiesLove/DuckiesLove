@@ -291,7 +291,7 @@
     window.TK_COMPAT_UPLOAD_CFG = {
       btnSelf: '#yourBtn, #uploadYourSurvey',
       btnPartner: '#partnerBtn, #uploadPartnerSurvey',
-      btnPdf: '#downloadBtn, #downloadPdfBtn',
+      btnPdf: '#downloadButton, #downloadBtn, #downloadPdfBtn',
       selfInput: '#yourFile',
       partnerInput: '#partnerFile',
       guardPdf: false,
@@ -750,7 +750,7 @@
           </button>
         </div>
       </div>
-      <button id="downloadBtn" class="glow-cta compat-download-btn">Download PDF</button>
+      <button id="downloadButton" class="glow-cta compat-download-btn">Download PDF</button>
     </div>
 
     <div class="tk-upload-messages" aria-live="polite" aria-atomic="true">
@@ -766,31 +766,8 @@
           self: document.getElementById('yourStatus'),
           partner: document.getElementById('partnerStatus')
         };
-        const button = document.getElementById('downloadBtn');
-        const SMALL_SCREEN_MAX_WIDTH = 500;
-        const SMALL_SCREEN_REDIRECT = '/compat/small-screen';
+        const button = document.getElementById('downloadButton');
         const seen = { self: false, partner: false };
-
-        function shouldRedirectToSmallScreen() {
-          return window.innerWidth < SMALL_SCREEN_MAX_WIDTH;
-        }
-
-        function maybeRedirectToSmallScreen(event) {
-          if (!shouldRedirectToSmallScreen()) return;
-          const target = event?.target?.closest?.('#downloadBtn');
-          if (!target) return;
-
-          event.preventDefault();
-          if (event.stopImmediatePropagation) {
-            event.stopImmediatePropagation();
-          }
-          window.location.assign(SMALL_SCREEN_REDIRECT);
-        }
-
-        if (button && shouldRedirectToSmallScreen()) {
-          document.addEventListener('click', maybeRedirectToSmallScreen, true);
-          button.addEventListener('click', maybeRedirectToSmallScreen);
-        }
 
         function setStatus(which, message, state) {
           const node = STATUS_MAP[which];
@@ -1136,7 +1113,7 @@
      * - Old DOM-based PDF generator is completely bypassed
      * ===================================================================== */
     (function () {
-      const BTN_SELECTOR = '#downloadPdfBtn, #downloadBtn, [data-download-pdf]';
+      const BTN_SELECTOR = '#downloadButton, #downloadPdfBtn, #downloadBtn, [data-download-pdf]';
 
       function rowsExistInStorage() {
         try {
