@@ -514,6 +514,8 @@ window.TKCompatPDF = (function () {
       b: 78
     };
     const tableWidth = columnWidths.item + columnWidths.a + columnWidths.match + columnWidths.b;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const balancedMargin = Math.max(36, (pageWidth - tableWidth) / 2);
 
     const autoTable = getAutoTable(doc);
     if (!doc.autoTable && typeof autoTable === 'function') {
@@ -524,7 +526,7 @@ window.TKCompatPDF = (function () {
       startY,
       columns,
       body: tableRows,
-      margin: { left: 48, right: 48 },
+      margin: { left: balancedMargin, right: balancedMargin },
       tableWidth,
       styles: {
         fontSize: 10,
